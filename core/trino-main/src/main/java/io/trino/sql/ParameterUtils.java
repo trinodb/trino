@@ -46,6 +46,6 @@ public class ParameterUtils
         for (Parameter parameter : parametersList) {
             builder.put(NodeRef.of(parameter), iterator.next());
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 }

@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import org.testng.annotations.BeforeClass;
@@ -22,6 +23,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.trino.operator.scalar.InvokeFunction.INVOKE_FUNCTION;
+import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -44,7 +46,7 @@ public class TestLambdaExpression
     @BeforeClass
     public void setUp()
     {
-        functionAssertions.getMetadata().addFunctions(ImmutableList.of(APPLY_FUNCTION, INVOKE_FUNCTION));
+        functionAssertions.addFunctions(new InternalFunctionBundle(APPLY_FUNCTION, INVOKE_FUNCTION));
     }
 
     @Test
@@ -142,7 +144,7 @@ public class TestLambdaExpression
         assertFunction("apply(25.6E0, x -> CAST(x AS BIGINT))", BIGINT, 26L);
         assertFunction("apply(25.6E0, x -> x + 1.0E0)", DOUBLE, 26.6);
         assertFunction("apply(25.6E0, x -> x = 25.6E0)", BOOLEAN, true);
-        assertFunction("apply(25.6E0, x -> CAST(x AS VARCHAR))", createUnboundedVarcharType(), "25.6");
+        assertFunction("apply(25.6E0, x -> CAST(x AS VARCHAR))", createUnboundedVarcharType(), "2.56E1");
         assertFunction("apply(25.6E0, x -> MAP(ARRAY[x + 1], ARRAY[true]))", mapType(DOUBLE, BOOLEAN), ImmutableMap.of(26.6, true));
 
         assertFunction("apply(true, x -> if(x, 25, 26))", INTEGER, 25);
@@ -165,6 +167,17 @@ public class TestLambdaExpression
         assertFunction("apply(ARRAY['abc', NULL, '123'], x -> x[2] IS NULL)", BOOLEAN, true);
         assertFunction("apply(ARRAY['abc', NULL, '123'], x -> x[2])", createVarcharType(3), null);
         assertFunction("apply(MAP(ARRAY['abc', 'def'], ARRAY[123, 456]), x -> map_keys(x))", new ArrayType(createVarcharType(3)), ImmutableList.of("abc", "def"));
+    }
+
+    @Test
+    public void testFunctionParameter()
+    {
+        assertInvalidFunction("count(x -> x)", FUNCTION_NOT_FOUND, "line 1:1: Unexpected parameters (<function>) for function count. Expected: count(), count(t) T");
+        assertInvalidFunction("max(x -> x)", FUNCTION_NOT_FOUND, "line 1:1: Unexpected parameters (<function>) for function max. Expected: max(t) T:orderable, max(e, bigint) E:orderable");
+        assertInvalidFunction("sqrt(x -> x)", FUNCTION_NOT_FOUND, "line 1:1: Unexpected parameters (<function>) for function sqrt. Expected: sqrt(double)");
+        assertInvalidFunction("sqrt(x -> x, 123, x -> x)", FUNCTION_NOT_FOUND, "line 1:1: Unexpected parameters (<function>, integer, <function>) for function sqrt. Expected: sqrt(double)");
+        assertInvalidFunction("pow(x -> x, 123)", FUNCTION_NOT_FOUND, "line 1:1: Unexpected parameters (<function>, integer) for function pow. Expected: pow(double, double)");
+        assertInvalidFunction("pow(123, x -> x)", FUNCTION_NOT_FOUND, "line 1:1: Unexpected parameters (integer, <function>) for function pow. Expected: pow(double, double)");
     }
 
     private static String quote(String identifier)

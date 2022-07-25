@@ -21,7 +21,7 @@ import io.trino.operator.OperatorContext;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessor.Transformation;
 import io.trino.operator.WorkProcessor.TransformationState;
-import io.trino.operator.aggregation.AccumulatorFactory;
+import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
@@ -37,7 +37,7 @@ import static com.google.common.base.Verify.verify;
 public class MergingHashAggregationBuilder
         implements Closeable
 {
-    private final List<AccumulatorFactory> accumulatorFactories;
+    private final List<AggregatorFactory> aggregatorFactories;
     private final AggregationNode.Step step;
     private final int expectedGroups;
     private final ImmutableList<Integer> groupByPartialChannels;
@@ -53,7 +53,7 @@ public class MergingHashAggregationBuilder
     private final BlockTypeOperators blockTypeOperators;
 
     public MergingHashAggregationBuilder(
-            List<AccumulatorFactory> accumulatorFactories,
+            List<AggregatorFactory> aggregatorFactories,
             AggregationNode.Step step,
             int expectedGroups,
             List<Type> groupByTypes,
@@ -71,7 +71,7 @@ public class MergingHashAggregationBuilder
             groupByPartialChannels.add(i);
         }
 
-        this.accumulatorFactories = accumulatorFactories;
+        this.aggregatorFactories = aggregatorFactories;
         this.step = AggregationNode.Step.partialInput(step);
         this.expectedGroups = expectedGroups;
         this.groupByPartialChannels = groupByPartialChannels.build();
@@ -92,8 +92,8 @@ public class MergingHashAggregationBuilder
     {
         return sortedPages.flatTransform(new Transformation<>()
         {
-            boolean reset = true;
-            long memorySize;
+            private boolean reset = true;
+            private long memorySize;
 
             @Override
             public TransformationState<WorkProcessor<Page>> process(Page inputPage)
@@ -144,7 +144,7 @@ public class MergingHashAggregationBuilder
     private void rebuildHashAggregationBuilder()
     {
         this.hashAggregationBuilder = new InMemoryHashAggregationBuilder(
-                accumulatorFactories,
+                aggregatorFactories,
                 step,
                 expectedGroups,
                 groupByTypes,

@@ -13,53 +13,33 @@
  */
 package io.trino.spi.connector;
 
-import io.trino.spi.predicate.TupleDomain;
-
-import java.util.function.Supplier;
+import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 
 public interface ConnectorSplitManager
 {
     @Deprecated
     default ConnectorSplitSource getSplits(
-            ConnectorTransactionHandle transactionHandle,
-            ConnectorSession session,
-            ConnectorTableLayoutHandle layout,
-            SplitSchedulingStrategy splitSchedulingStrategy)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Deprecated
-    default ConnectorSplitSource getSplits(
-            ConnectorTransactionHandle transaction,
-            ConnectorSession session,
-            ConnectorTableHandle table,
-            SplitSchedulingStrategy splitSchedulingStrategy)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Deprecated
-    default ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle table,
             SplitSchedulingStrategy splitSchedulingStrategy,
-            Supplier<TupleDomain<ColumnHandle>> dynamicFilter)
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
-        return getSplits(transaction, session, table, splitSchedulingStrategy);
+        throw new UnsupportedOperationException();
     }
 
     default ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle table,
-            SplitSchedulingStrategy splitSchedulingStrategy,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
-        return getSplits(transaction, session, table, splitSchedulingStrategy, dynamicFilter::getCurrentPredicate);
+        return getSplits(transaction, session, table, UNGROUPED_SCHEDULING, dynamicFilter, constraint);
     }
 
+    @Deprecated
     enum SplitSchedulingStrategy
     {
         UNGROUPED_SCHEDULING,

@@ -46,6 +46,8 @@ public class JdbcDiagnosticModule
                 .as(generator -> generator.generatedNameOf(JdbcClient.class, catalogName.get().toString()));
         newExporter(binder).export(Key.get(ConnectionFactory.class, StatsCollecting.class))
                 .as(generator -> generator.generatedNameOf(ConnectionFactory.class, catalogName.get().toString()));
+        newExporter(binder).export(JdbcClient.class)
+                .as(generator -> generator.generatedNameOf(CachingJdbcClient.class, catalogName.get().toString()));
     }
 
     @Provides

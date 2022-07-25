@@ -48,14 +48,8 @@ public class PruneAggregationColumns
 
         // PruneAggregationSourceColumns will subsequently project off any newly unused inputs.
         return Optional.of(
-                new AggregationNode(
-                        aggregationNode.getId(),
-                        aggregationNode.getSource(),
-                        prunedAggregations,
-                        aggregationNode.getGroupingSets(),
-                        aggregationNode.getPreGroupedSymbols(),
-                        aggregationNode.getStep(),
-                        aggregationNode.getHashSymbol(),
-                        aggregationNode.getGroupIdSymbol()));
+                AggregationNode.builderFrom(aggregationNode)
+                        .setAggregations(prunedAggregations)
+                        .build());
     }
 }

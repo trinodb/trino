@@ -15,7 +15,6 @@ package io.trino.plugin.oracle;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -78,15 +77,12 @@ public final class OracleQueryRunner
                 .put("connection-url", server.getJdbcUrl())
                 .put("connection-user", TEST_USER)
                 .put("connection-password", TEST_PASS)
-                .put("allow-drop-table", "true")
-                .build();
+                .buildOrThrow();
     }
 
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
-
         TestingOracleServer server = new TestingOracleServer();
         DistributedQueryRunner queryRunner = createOracleQueryRunner(
                 server,
@@ -95,10 +91,9 @@ public final class OracleQueryRunner
                         .put("connection-url", server.getJdbcUrl())
                         .put("connection-user", TEST_USER)
                         .put("connection-password", TEST_PASS)
-                        .put("allow-drop-table", "true")
                         .put("oracle.connection-pool.enabled", "false")
                         .put("oracle.remarks-reporting.enabled", "false")
-                        .build(),
+                        .buildOrThrow(),
                 TpchTable.getTables());
 
         Logger log = Logger.get(OracleQueryRunner.class);

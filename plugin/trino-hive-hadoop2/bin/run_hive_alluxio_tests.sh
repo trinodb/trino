@@ -4,6 +4,8 @@ set -euo pipefail -x
 
 . "${BASH_SOURCE%/*}/common.sh"
 
+abort_if_not_gib_impacted
+
 export ALLUXIO_BASE_IMAGE="alluxio/alluxio"
 export ALLUXIO_IMAGE_TAG="2.1.2"
 
@@ -56,7 +58,7 @@ function main () {
     # run product tests
     pushd ${PROJECT_ROOT}
     set +e
-    ./mvnw -B -pl :trino-hive-hadoop2 test -P test-hive-hadoop2-alluxio \
+    ./mvnw ${MAVEN_TEST:--B} -pl :trino-hive-hadoop2 test -P test-hive-hadoop2-alluxio \
            -Dhive.hadoop2.alluxio.host=localhost \
            -Dhive.hadoop2.alluxio.port=19998 \
            -Dhive.hadoop2.hiveVersionMajor="${TESTS_HIVE_VERSION_MAJOR}" \

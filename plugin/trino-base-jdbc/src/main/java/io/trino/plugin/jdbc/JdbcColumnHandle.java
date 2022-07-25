@@ -42,15 +42,6 @@ public final class JdbcColumnHandle
     }
 
     /**
-     * @deprecated Use {@link #builder()} instead.
-     */
-    @Deprecated
-    public JdbcColumnHandle(String columnName, JdbcTypeHandle jdbcTypeHandle, Type columnType, boolean nullable)
-    {
-        this(columnName, jdbcTypeHandle, columnType, nullable, Optional.empty());
-    }
-
-    /**
      * @deprecated This constructor is intended to be used by JSON deserialization only. Use {@link #builder()} instead.
      */
     @Deprecated

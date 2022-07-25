@@ -23,7 +23,7 @@ import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.plugin.tpch.TpchPartitioningHandle;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.ConnectorNewTableLayout;
+import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.MatchResult;
 import io.trino.sql.planner.assertions.Matcher;
@@ -79,22 +79,22 @@ public class TestInsert
                                 new ColumnMetadata("column2", INTEGER)))
                         .withGetInsertLayout((session, tableName) -> {
                             if (tableName.getTableName().equals("test_table_preferred_partitioning")) {
-                                return Optional.of(new ConnectorNewTableLayout(ImmutableList.of("column1")));
+                                return Optional.of(new ConnectorTableLayout(ImmutableList.of("column1")));
                             }
 
                             if (tableName.getTableName().equals("test_table_required_partitioning")) {
-                                return Optional.of(new ConnectorNewTableLayout(new TpchPartitioningHandle("orders", 10), ImmutableList.of("column1")));
+                                return Optional.of(new ConnectorTableLayout(new TpchPartitioningHandle("orders", 10), ImmutableList.of("column1")));
                             }
 
                             return Optional.empty();
                         })
                         .withGetNewTableLayout((session, tableMetadata) -> {
                             if (tableMetadata.getTable().getTableName().equals("new_test_table_preferred_partitioning")) {
-                                return Optional.of(new ConnectorNewTableLayout(ImmutableList.of("column1")));
+                                return Optional.of(new ConnectorTableLayout(ImmutableList.of("column1")));
                             }
 
                             if (tableMetadata.getTable().getTableName().equals("new_test_table_required_partitioning")) {
-                                return Optional.of(new ConnectorNewTableLayout(new TpchPartitioningHandle("orders", 10), ImmutableList.of("column1")));
+                                return Optional.of(new ConnectorTableLayout(new TpchPartitioningHandle("orders", 10), ImmutableList.of("column1")));
                             }
 
                             if (tableMetadata.getTable().getTableName().equals("new_test_table_unpartitioned")) {

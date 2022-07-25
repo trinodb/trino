@@ -89,7 +89,7 @@ public class ListColumnWriter
         ImmutableMap.Builder<OrcColumnId, ColumnEncoding> encodings = ImmutableMap.builder();
         encodings.put(columnId, columnEncoding);
         encodings.putAll(elementWriter.getColumnEncodings());
-        return encodings.build();
+        return encodings.buildOrThrow();
     }
 
     @Override
@@ -135,14 +135,14 @@ public class ListColumnWriter
     {
         checkState(!closed);
 
-        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null, null);
+        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null, null, null);
         rowGroupColumnStatistics.add(statistics);
         nonNullValueCount = 0;
 
         ImmutableMap.Builder<OrcColumnId, ColumnStatistics> columnStatistics = ImmutableMap.builder();
         columnStatistics.put(columnId, statistics);
         columnStatistics.putAll(elementWriter.finishRowGroup());
-        return columnStatistics.build();
+        return columnStatistics.buildOrThrow();
     }
 
     @Override
@@ -161,7 +161,7 @@ public class ListColumnWriter
         ImmutableMap.Builder<OrcColumnId, ColumnStatistics> columnStatistics = ImmutableMap.builder();
         columnStatistics.put(columnId, ColumnStatistics.mergeColumnStatistics(rowGroupColumnStatistics));
         columnStatistics.putAll(elementWriter.getColumnStripeStatistics());
-        return columnStatistics.build();
+        return columnStatistics.buildOrThrow();
     }
 
     @Override

@@ -10,7 +10,7 @@
       "privileges": []
     },
     {
-      "user": "admin",
+      "role": "admin",
       "privileges": ["SELECT", "INSERT", "UPDATE", "DELETE", "OWNERSHIP"]
     },
     {

@@ -389,17 +389,17 @@ public class TestTrinoCli
         trino.getProcessInput().println("use hive.default;");
         assertThat(trino.readLinesUntilPrompt()).contains("USE");
 
-        trino.getProcessInput().println("show current roles;");
+        trino.getProcessInput().println("show current roles from hive;");
         assertThat(trimLines(trino.readLinesUntilPrompt())).contains("public");
 
-        trino.getProcessInput().println("set role admin;");
+        trino.getProcessInput().println("set role admin in hive;");
         assertThat(trimLines(trino.readLinesUntilPrompt())).contains("SET ROLE");
-        trino.getProcessInput().println("show current roles;");
+        trino.getProcessInput().println("show current roles from hive;");
         assertThat(trimLines(trino.readLinesUntilPrompt())).contains("public", "admin");
 
-        trino.getProcessInput().println("set role none;");
+        trino.getProcessInput().println("set role none in hive;");
         assertThat(trimLines(trino.readLinesUntilPrompt())).contains("SET ROLE");
-        trino.getProcessInput().println("show current roles;");
+        trino.getProcessInput().println("show current roles from hive;");
         assertThat(trimLines(trino.readLinesUntilPrompt())).doesNotContain("admin");
     }
 

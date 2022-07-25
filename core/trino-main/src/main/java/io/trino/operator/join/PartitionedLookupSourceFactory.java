@@ -119,7 +119,7 @@ public final class PartitionedLookupSourceFactory
         //noinspection unchecked
         this.partitions = (Supplier<LookupSource>[]) new Supplier<?>[partitionCount];
         this.outer = outer;
-        spilledLookupSource = new SpilledLookupSource(outputTypes.size());
+        spilledLookupSource = new SpilledLookupSource();
         this.blockTypeOperators = blockTypeOperators;
     }
 
@@ -317,7 +317,10 @@ public final class PartitionedLookupSourceFactory
                         i -> {
                             throw new UnsupportedOperationException();
                         },
-                        i -> {}));
+                        i -> {},
+                        i -> {
+                            throw new UnsupportedOperationException();
+                        }));
             }
 
             int operatorsCount = lookupJoinsCount
@@ -338,7 +341,8 @@ public final class PartitionedLookupSourceFactory
                         partitionedConsumptionParticipants.getAsInt(),
                         spilledPartitions.keySet(),
                         this::loadSpilledLookupSource,
-                        this::disposeSpilledLookupSource));
+                        this::disposeSpilledLookupSource,
+                        this::spilledLookupSourceDisposed));
             }
 
             return partitionedConsumption;
@@ -356,6 +360,11 @@ public final class PartitionedLookupSourceFactory
     private void disposeSpilledLookupSource(int partitionNumber)
     {
         getSpilledLookupSourceHandle(partitionNumber).dispose();
+    }
+
+    private ListenableFuture<Void> spilledLookupSourceDisposed(int partitionNumber)
+    {
+        return getSpilledLookupSourceHandle(partitionNumber).getDisposeCompleted();
     }
 
     private SpilledLookupSourceHandle getSpilledLookupSourceHandle(int partitionNumber)
@@ -507,23 +516,10 @@ public final class PartitionedLookupSourceFactory
     private static class SpilledLookupSource
             implements LookupSource
     {
-        private final int channelCount;
-
-        public SpilledLookupSource(int channelCount)
-        {
-            this.channelCount = channelCount;
-        }
-
         @Override
         public boolean isEmpty()
         {
             return false;
-        }
-
-        @Override
-        public int getChannelCount()
-        {
-            return channelCount;
         }
 
         @Override

@@ -14,6 +14,7 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
@@ -28,9 +29,11 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WI
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.REGION;
@@ -49,6 +52,11 @@ public abstract class BaseConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return connectorBehavior.hasBehaviorByDefault(this::hasBehavior);
+    }
+
+    protected String createSchemaSql(String schemaName)
+    {
+        return "CREATE SCHEMA " + schemaName;
     }
 
     /**
@@ -125,10 +133,15 @@ public abstract class BaseConnectorSmokeTest
         }
 
         String tableName = "test_create_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double)");
+        assertUpdate("CREATE TABLE " + tableName + " " + getCreateTableDefaultDefinition());
         assertThat(query("SELECT a, b FROM " + tableName))
                 .returnsEmptyResult();
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    protected String getCreateTableDefaultDefinition()
+    {
+        return "(a bigint, b double)";
     }
 
     @Test
@@ -158,50 +171,95 @@ public abstract class BaseConnectorSmokeTest
             throw new AssertionError("Cannot test INSERT without CREATE TABLE, the test needs to be implemented in a connector-specific way");
         }
 
-        String tableName = "test_create_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double)");
-        assertUpdate("INSERT INTO " + tableName + " (a, b) VALUES (42, -38.5)", 1);
-        assertThat(query("SELECT CAST(a AS bigint), b FROM " + tableName))
-                .matches("VALUES (BIGINT '42', -385e-1)");
-        assertUpdate("DROP TABLE " + tableName);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", getCreateTableDefaultDefinition())) {
+            assertUpdate("INSERT INTO " + table.getName() + " (a, b) VALUES (42, -38.5)", 1);
+            assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '42', -385e-1)");
+        }
     }
 
     @Test
-    public void testDelete()
+    public void verifySupportsDeleteDeclaration()
     {
-        if (!hasBehavior(SUPPORTS_DELETE)) {
-            assertQueryFails("DELETE FROM region", "This connector does not support deletes");
+        if (hasBehavior(SUPPORTS_DELETE)) {
+            // Covered by testDeleteAllDataFromTable
             return;
         }
 
-        if (!hasBehavior(SUPPORTS_ROW_LEVEL_DELETE)) {
-            assertQueryFails("DELETE FROM region WHERE regionkey = 2", ".*[Dd]elet(e|ing).*(not |un)supported.*");
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_delete", "AS SELECT * FROM region")) {
+            assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
+        }
+    }
+
+    @Test
+    public void verifySupportsRowLevelDeleteDeclaration()
+    {
+        if (hasBehavior(SUPPORTS_ROW_LEVEL_DELETE)) {
+            // Covered by testRowLevelDelete
             return;
         }
 
-        String tableName = "test_delete_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM region", 5);
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_row_level_delete", "AS SELECT * FROM region")) {
+            assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", "This connector does not support deletes");
+        }
+    }
 
-        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 2", 1);
-        assertThat(query("SELECT regionkey FROM " + tableName))
-                .skippingTypesCheck()
-                .matches("VALUES 0, 1, 3, 4");
+    @Test
+    public void testDeleteAllDataFromTable()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_DELETE));
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_all_data", "AS SELECT * FROM region")) {
+            // not using assertUpdate as some connectors provide update count and some do not
+            getQueryRunner().execute("DELETE FROM " + table.getName());
+            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 0");
+        }
+    }
 
-        assertUpdate("DROP TABLE " + tableName);
+    @Test
+    public void testRowLevelDelete()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
+        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_delete", "AS SELECT * FROM region")) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 2", 1);
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE regionkey = 2"))
+                    .returnsEmptyResult();
+            assertThat(query("SELECT cast(regionkey AS integer) FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES 0, 1, 3, 4");
+        }
+    }
+
+    @Test
+    public void testUpdate()
+    {
+        if (!hasBehavior(SUPPORTS_UPDATE)) {
+            // Note this change is a no-op, if actually run
+            assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", "This connector does not support updates");
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update", "AS TABLE tpch.tiny.nation")) {
+            String tableName = table.getName();
+            assertUpdate("UPDATE " + tableName + " SET nationkey = 100 + nationkey WHERE regionkey = 2", 5);
+            assertThat(query("SELECT * FROM " + tableName))
+                    .skippingTypesCheck()
+                    .matches("SELECT IF(regionkey=2, nationkey + 100, nationkey) nationkey, name, regionkey, comment FROM tpch.tiny.nation");
+        }
     }
 
     @Test
     public void testCreateSchema()
     {
+        String schemaName = "test_schema_create_" + randomTableSuffix();
         if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
-            assertQueryFails("CREATE SCHEMA xxxxxx", "This connector does not support creating schemas");
-            getSession().getSchema().ifPresent(
-                    s -> assertQueryFails("DROP SCHEMA " + s, "This connector does not support dropping schemas"));
+            assertQueryFails(createSchemaSql(schemaName), "This connector does not support creating schemas");
             return;
         }
 
-        String schemaName = "test_schema_create_" + randomTableSuffix();
-        assertUpdate("CREATE SCHEMA " + schemaName);
+        assertUpdate(createSchemaSql(schemaName));
         assertThat(query("SHOW SCHEMAS"))
                 .skippingTypesCheck()
                 .containsAll(format("VALUES '%s', '%s'", getSession().getSchema().orElseThrow(), schemaName));
@@ -209,7 +267,34 @@ public abstract class BaseConnectorSmokeTest
     }
 
     @Test
+    public void testRenameSchema()
+    {
+        if (!hasBehavior(SUPPORTS_RENAME_SCHEMA)) {
+            String schemaName = getSession().getSchema().orElseThrow();
+            assertQueryFails(
+                    format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomTableSuffix()),
+                    "This connector does not support renaming schemas");
+            return;
+        }
+
+        if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
+            throw new SkipException("Skipping as connector does not support CREATE SCHEMA");
+        }
+
+        String schemaName = "test_rename_schema_" + randomTableSuffix();
+        try {
+            assertUpdate("CREATE SCHEMA " + schemaName);
+            assertUpdate("ALTER SCHEMA " + schemaName + " RENAME TO " + schemaName + "_renamed");
+        }
+        finally {
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName + "_renamed");
+        }
+    }
+
+    @Test
     public void testRenameTable()
+            throws Exception
     {
         if (!hasBehavior(SUPPORTS_RENAME_TABLE)) {
             assertQueryFails("ALTER TABLE nation RENAME TO yyyy", "This connector does not support renaming tables");
@@ -221,10 +306,17 @@ public abstract class BaseConnectorSmokeTest
         }
 
         String oldTable = "test_rename_old_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + oldTable + " (a bigint, b double)");
+        assertUpdate("CREATE TABLE " + oldTable + " " + getCreateTableDefaultDefinition());
 
         String newTable = "test_rename_new_" + randomTableSuffix();
-        assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
+        try {
+            assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
+        }
+        catch (Throwable e) {
+            try (AutoCloseable ignore = () -> assertUpdate("DROP TABLE " + oldTable)) {
+                throw e;
+            }
+        }
 
         assertThat(query("SHOW TABLES LIKE '" + oldTable + "'"))
                 .returnsEmptyResult();
@@ -244,6 +336,7 @@ public abstract class BaseConnectorSmokeTest
 
     @Test
     public void testRenameTableAcrossSchemas()
+            throws Exception
     {
         if (!hasBehavior(SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS)) {
             if (!hasBehavior(SUPPORTS_RENAME_TABLE)) {
@@ -262,13 +355,20 @@ public abstract class BaseConnectorSmokeTest
         }
 
         String oldTable = "test_rename_old_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + oldTable + " (a bigint, b double)");
+        assertUpdate("CREATE TABLE " + oldTable + " " + getCreateTableDefaultDefinition());
 
         String schemaName = "test_schema_" + randomTableSuffix();
-        assertUpdate("CREATE SCHEMA " + schemaName);
+        assertUpdate(createSchemaSql(schemaName));
 
         String newTable = schemaName + ".test_rename_new_" + randomTableSuffix();
-        assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
+        try {
+            assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
+        }
+        catch (Throwable e) {
+            try (AutoCloseable ignore = () -> assertUpdate("DROP TABLE " + oldTable)) {
+                throw e;
+            }
+        }
 
         assertThat(query("SHOW TABLES LIKE '" + oldTable + "'"))
                 .returnsEmptyResult();

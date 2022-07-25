@@ -125,7 +125,7 @@ public class S3TableConfigClient
         for (KinesisStreamDescription stream : streamValues) {
             builder.put(new SchemaTableName(stream.getSchemaName(), stream.getTableName()), stream);
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     @Override
@@ -167,7 +167,7 @@ public class S3TableConfigClient
             log.info("Completed getting S3 object listing.");
         }
         catch (AmazonClientException e) {
-            log.error("Skipping update as faced error fetching table descriptions from S3 " + e.toString());
+            log.error("Skipping update as faced error fetching table descriptions from S3 %s", e);
         }
         return result;
     }
@@ -198,7 +198,7 @@ public class S3TableConfigClient
                     log.info("Put table description into the map from %s", summary.getKey());
                 }
                 catch (IOException iox) {
-                    log.error("Problem reading input stream from object.", iox);
+                    log.error(iox, "Problem reading input stream from object.");
                     throw new RuntimeException(iox);
                 }
             }

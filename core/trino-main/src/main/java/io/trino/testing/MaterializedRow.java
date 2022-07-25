@@ -15,7 +15,6 @@ package io.trino.testing;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -77,7 +76,7 @@ public class MaterializedRow
             return map;
         }
         if (value instanceof byte[]) {
-            return ByteBuffer.wrap((byte[]) value);
+            return Bytes.fromBytes((byte[]) value);
         }
         return value;
     }
@@ -122,8 +121,8 @@ public class MaterializedRow
             }
             return map;
         }
-        if (value instanceof ByteBuffer) {
-            return ((ByteBuffer) value).array();
+        if (value instanceof Bytes) {
+            return ((Bytes) value).getBytes();
         }
 
         return value;

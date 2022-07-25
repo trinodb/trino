@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.security;
 
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ConnectorSecurityContext;
 
@@ -25,5 +24,5 @@ import java.util.Optional;
  */
 public interface LegacyAccessControlMetastore
 {
-    Optional<Table> getTable(ConnectorSecurityContext context, HiveIdentity identity, String databaseName, String tableName);
+    Optional<Table> getTable(ConnectorSecurityContext context, String databaseName, String tableName);
 }

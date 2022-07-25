@@ -72,10 +72,9 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
         result.set(node.id, {
             id: node.id,
             name: node['name'],
-            identifier: node['identifier'],
+            descriptor: node['descriptor'],
             details: node['details'],
             sources: node.children.map(node => node.id),
-            remoteSources: node.remoteSources,
         });
 
         node.children.forEach(function (child) {
@@ -112,10 +111,9 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
 type PlanNodeProps = {
     id: string,
     name: string,
-    identifier: string,
-    details: string,
+    descriptor: Map<string, string>,
+    details: string[],
     sources: string[],
-    remoteSources: string[],
 }
 type PlanNodeState = {}
 
@@ -127,18 +125,22 @@ class PlanNode extends React.Component<PlanNodeProps, PlanNodeState> {
     render() {
         // get join distribution type by matching details to a regular expression
         var distribution = "";
-
-        var matchArray = this.props.details.match(/Distribution:\s+(\w+)/);
+        var matchArray = this.props.details.join("\n").match(/Distribution:\s+(\w+)/);
         if (matchArray !== null) {
             distribution = " (" + matchArray[1] + ")";
         }
 
+        var descriptor = Object.entries(this.props.descriptor)
+                .map(([key, value]) => key + " = " + String(value))
+                .join(", ");
+        descriptor = "(" + descriptor + ")";
+
         return (
             <div style={{color: "#000"}} data-toggle="tooltip" data-placement="bottom" data-container="body" data-html="true"
-                 title={"<h4>" + this.props.name + "</h4>" + this.props.identifier}>
+                 title={"<h4>" + this.props.name + "</h4>" + descriptor}>
                 <strong>{this.props.name + distribution}</strong>
                 <div>
-                    {truncateString(this.props.identifier, 35)}
+                    {truncateString(descriptor, 35)}
                 </div>
             </div>
         );
@@ -241,23 +243,27 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
                 graph.setEdge("node-" + source, nodeId, {class: "plan-edge", arrowheadClass: "plan-arrowhead"});
             });
 
-            if (node.remoteSources.length > 0) {
-                graph.setNode(nodeId, {label: '', shape: "circle"});
+            var sourceFragmentIds = node.descriptor['sourceFragmentIds'];
+            if (sourceFragmentIds) {
+                var remoteSources = sourceFragmentIds.replace('[', '').replace(']', '').split(', ');
+                if (remoteSources.length > 0) {
+                    graph.setNode(nodeId, {label: '', shape: "circle"});
 
-                node.remoteSources.forEach(sourceId => {
-                    const source = allStages.get(sourceId);
-                    if (source) {
-                        const sourceStats = source.stageStats;
-                        graph.setEdge("stage-" + sourceId + "-root", nodeId, {
+                    remoteSources.forEach(sourceId => {
+                        const source = allStages.get(sourceId);
+                        if (source) {
+                            const sourceStats = source.stageStats;
+                            graph.setEdge("stage-" + sourceId + "-root", nodeId, {
                                 class: "plan-edge",
                                 style: "stroke-width: 4px",
                                 arrowheadClass: "plan-arrowhead",
                                 label: parseAndFormatDataSize(sourceStats.outputDataSize) + " / " + formatRows(sourceStats.outputPositions),
                                 labelStyle: "color: #fff; font-weight: bold; font-size: 24px;",
                                 labelType: "html",
-                        });
-                    }
-                });
+                            });
+                        }
+                    });
+                }
             }
         });
     }

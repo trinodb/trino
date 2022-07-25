@@ -16,9 +16,10 @@ package io.trino.sql.query;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.plan.JoinNode;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -30,18 +31,20 @@ import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static java.util.function.Predicate.not;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestJoin
 {
     private QueryAssertions assertions;
 
-    @BeforeClass
+    @BeforeAll
     public void init()
     {
         assertions = new QueryAssertions();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         assertions.close();
@@ -221,5 +224,25 @@ public class TestJoin
                                                         values("y")),
                                                 values())
                                                 .with(JoinNode.class, JoinNode::isMaySkipOutputDuplicates)))));
+    }
+
+    @Test
+    public void testPredicateOverOuterJoin()
+    {
+        assertThat(assertions.query(
+                "SELECT 5 " +
+                        "FROM (VALUES (1,'foo')) l(l1, l2) " +
+                        "LEFT JOIN (VALUES (2,'bar')) r(r1, r2) " +
+                        "ON l2 = r2 " +
+                        "WHERE l1 >= COALESCE(r1, 0)"))
+                .matches("VALUES 5");
+
+        assertThat(assertions.query(
+                "SELECT 5 " +
+                        "FROM (VALUES (2,'foo')) l(l1, l2) " +
+                        "RIGHT JOIN (VALUES (1,'bar')) r(r1, r2) " +
+                        "ON l2 = r2 " +
+                        "WHERE r1 >= COALESCE(l1, 0)"))
+                .matches("VALUES 5");
     }
 }

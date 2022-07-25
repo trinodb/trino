@@ -39,21 +39,9 @@ public class LearnStateFactory
     }
 
     @Override
-    public Class<? extends LearnState> getSingleStateClass()
-    {
-        return SingleLearnState.class;
-    }
-
-    @Override
     public LearnState createGroupedState()
     {
         return new GroupedLearnState();
-    }
-
-    @Override
-    public Class<? extends LearnState> getGroupedStateClass()
-    {
-        return GroupedLearnState.class;
     }
 
     public static class GroupedLearnState

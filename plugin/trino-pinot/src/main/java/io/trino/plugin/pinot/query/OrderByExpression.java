@@ -23,22 +23,22 @@ import static java.util.Objects.requireNonNull;
 
 public final class OrderByExpression
 {
-    private final String column;
+    private final String expression;
     private final boolean asc;
 
     @JsonCreator
     public OrderByExpression(
-            @JsonProperty("column") String column,
+            @JsonProperty("expression") String expression,
             @JsonProperty("asc") boolean asc)
     {
-        this.column = requireNonNull(column, "column is null");
+        this.expression = requireNonNull(expression, "column is null");
         this.asc = asc;
     }
 
     @JsonProperty
-    public String getColumn()
+    public String getExpression()
     {
-        return column;
+        return expression;
     }
 
     @JsonProperty
@@ -57,21 +57,21 @@ public final class OrderByExpression
             return false;
         }
         OrderByExpression that = (OrderByExpression) other;
-        return column.equals(that.column) &&
+        return expression.equals(that.expression) &&
                 asc == that.asc;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(column, asc);
+        return Objects.hash(expression, asc);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("column", column)
+                .add("expression", expression)
                 .add("asc", asc)
                 .toString();
     }

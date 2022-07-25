@@ -27,6 +27,7 @@ import static io.trino.plugin.thrift.api.datatypes.TrinoThriftBigint.fromBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Collections.unmodifiableList;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -84,18 +85,22 @@ public class TestTrinoThriftBigint
         assertBlockEquals(actual, list(2L, 7L, 1L, 3L, 8L, 4L, 5L));
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test
     public void testReadBlockWrongActualType()
     {
         TrinoThriftBlock columnsData = integerData(new TrinoThriftInteger(null, null));
-        columnsData.toBlock(BIGINT);
+        assertThatThrownBy(() -> columnsData.toBlock(BIGINT))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("type doesn't match:.*");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test
     public void testReadBlockWrongDesiredType()
     {
         TrinoThriftBlock columnsData = longColumn(null, null);
-        columnsData.toBlock(INTEGER);
+        assertThatThrownBy(() -> columnsData.toBlock(INTEGER))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("type doesn't match:.*");
     }
 
     @Test

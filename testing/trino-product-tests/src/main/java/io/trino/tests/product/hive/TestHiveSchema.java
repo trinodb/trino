@@ -32,6 +32,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.Objects.requireNonNull;
@@ -54,7 +55,7 @@ public class TestHiveSchema
     }
 
     // Note: this test is run on various Hive versions. Hive before 3 did not have `sys` schema, but it does not hurt to run the test there too.
-    @Test(groups = STORAGE_FORMATS)
+    @Test(groups = {STORAGE_FORMATS, HMS_ONLY})
     public void testSysSchemaFilteredOut()
     {
         // SHOW SCHEMAS
@@ -125,7 +126,7 @@ public class TestHiveSchema
     }
 
     // Note: this test is run on various Hive versions. Hive before 3 did not have `information_schema` schema, but it does not hurt to run the test there too.
-    @Test(groups = STORAGE_FORMATS)
+    @Test(groups = {STORAGE_FORMATS, HMS_ONLY})
     public void testHiveInformationSchemaFilteredOut()
     {
         List<String> allInformationSchemaTables = ImmutableList.<String>builder()

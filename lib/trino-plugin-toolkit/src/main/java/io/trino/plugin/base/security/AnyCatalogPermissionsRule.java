@@ -21,19 +21,22 @@ import java.util.regex.Pattern;
 public class AnyCatalogPermissionsRule
 {
     private final Optional<Pattern> userRegex;
+    private final Optional<Pattern> roleRegex;
     private final Optional<Pattern> groupRegex;
     private final Optional<Pattern> catalogRegex;
 
-    public AnyCatalogPermissionsRule(Optional<Pattern> userRegex, Optional<Pattern> groupRegex, Optional<Pattern> catalogRegex)
+    public AnyCatalogPermissionsRule(Optional<Pattern> userRegex, Optional<Pattern> roleRegex, Optional<Pattern> groupRegex, Optional<Pattern> catalogRegex)
     {
         this.userRegex = userRegex;
+        this.roleRegex = roleRegex;
         this.groupRegex = groupRegex;
         this.catalogRegex = catalogRegex;
     }
 
-    public boolean match(String user, Set<String> groups, String catalog)
+    public boolean match(String user, Set<String> roles, Set<String> groups, String catalog)
     {
         return userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
+                roleRegex.map(regex -> roles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
                 groupRegex.map(regex -> groups.stream().anyMatch(group -> regex.matcher(group).matches())).orElse(true) &&
                 catalogRegex.map(regex -> regex.matcher(catalog).matches()).orElse(true);
     }
@@ -49,6 +52,7 @@ public class AnyCatalogPermissionsRule
         }
         AnyCatalogPermissionsRule that = (AnyCatalogPermissionsRule) o;
         return patternEquals(userRegex, that.userRegex) &&
+                patternEquals(roleRegex, that.roleRegex) &&
                 patternEquals(groupRegex, that.groupRegex) &&
                 patternEquals(catalogRegex, that.catalogRegex);
     }
@@ -66,6 +70,6 @@ public class AnyCatalogPermissionsRule
     @Override
     public int hashCode()
     {
-        return Objects.hash(userRegex, groupRegex, catalogRegex);
+        return Objects.hash(userRegex, roleRegex, groupRegex, catalogRegex);
     }
 }

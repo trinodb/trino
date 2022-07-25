@@ -4,7 +4,8 @@ Authentication types
 
 Trino supports multiple authentication types to ensure all users of the system
 are authenticated. Different authenticators allow user management in one or more
-systems. Using :doc:`TLS <tls>` is required for all authentications types.
+systems. Using :doc:`TLS <tls>` and :doc:`a configured shared secret
+</security/internal-communication>` are required for all authentications types.
 
 You can configure one or more authentication types with the
 ``http-server.authentication.type`` property. The following authentication types
@@ -18,8 +19,9 @@ and authenticators are available:
 
 * ``OAUTH2`` for :doc:`oauth2`
 * ``KERBEROS`` for :doc:`kerberos`
+* ``CERTIFICATE`` for :doc:`certificate`
 * ``JWT`` for :doc:`jwt`
-* ``CERTIFICATE`` for certificate authentication
+* ``HEADER`` for :doc:`/develop/header-authenticator`
 
 Get started with a basic password authentication configuration backed by a
 :doc:`password file <password-file>`:
@@ -67,3 +69,19 @@ User authentication credentials are first validated against the LDAP server from
 file. First successful authentication results in access, and no further
 authenticators are called.
 
+Multiple header authenticators
+------------------------------------
+
+You can use multiple header authenticator types by referencing multiple
+configuration files:
+
+.. code-block:: properties
+
+    http-server.authentication.type=HEADER
+    header-authenticator.config-files=etc/xfcc.properties,etc/azureAD.properties
+
+Relative paths to the installation directory or absolute paths can be used.
+
+The pre-configured headers are first validated against the ``xfcc`` authenticator,
+then the ``azureAD`` authenticator. First successful authentication results in access,
+and no further authenticators are called.

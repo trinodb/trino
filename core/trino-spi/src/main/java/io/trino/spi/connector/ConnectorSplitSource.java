@@ -15,14 +15,25 @@ package io.trino.spi.connector;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static java.util.Objects.requireNonNull;
 
 public interface ConnectorSplitSource
         extends Closeable
 {
-    CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize);
+    @Deprecated
+    default CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
+    {
+        return getNextBatch(NOT_PARTITIONED, maxSize);
+    }
 
     @Override
     void close();
@@ -36,6 +47,11 @@ public interface ConnectorSplitSource
      * will be inherently racy.
      */
     boolean isFinished();
+
+    default Optional<List<Object>> getTableExecuteSplitsInfo()
+    {
+        return Optional.empty();
+    }
 
     class ConnectorSplitBatch
     {

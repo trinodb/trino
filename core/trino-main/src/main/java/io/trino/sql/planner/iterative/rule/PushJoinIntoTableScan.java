@@ -171,7 +171,7 @@ public class PushJoinIntoTableScan
         assignmentsBuilder.putAll(right.getAssignments().entrySet().stream().collect(toImmutableMap(
                 Map.Entry::getKey,
                 entry -> rightColumnHandlesMapping.get(entry.getValue()))));
-        Map<Symbol, ColumnHandle> assignments = assignmentsBuilder.build();
+        Map<Symbol, ColumnHandle> assignments = assignmentsBuilder.buildOrThrow();
 
         // convert enforced constraint
         JoinNode.Type joinType = joinNode.getType();
@@ -183,7 +183,7 @@ public class PushJoinIntoTableScan
                         // we are sure that domains map is present as we bailed out on isNone above
                         .putAll(leftConstraint.getDomains().orElseThrow())
                         .putAll(rightConstraint.getDomains().orElseThrow())
-                        .build());
+                        .buildOrThrow());
 
         return Result.ofPlanNode(
                 new ProjectNode(

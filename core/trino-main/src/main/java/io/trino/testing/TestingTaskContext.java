@@ -17,16 +17,15 @@ import io.airlift.stats.GcMonitor;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.trino.Session;
+import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskStateMachine;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.operator.TaskContext;
 import io.trino.spi.QueryId;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spiller.SpillSpaceTracker;
 
-import java.util.OptionalInt;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -61,7 +60,7 @@ public final class TestingTaskContext
 
     public static TaskContext createTaskContext(QueryContext queryContext, Executor executor, Session session)
     {
-        return createTaskContext(queryContext, session, new TaskStateMachine(new TaskId("query", 0, 0), executor));
+        return createTaskContext(queryContext, session, new TaskStateMachine(new TaskId(new StageId(queryContext.getQueryId(), 0), 0, 0), executor));
     }
 
     private static TaskContext createTaskContext(QueryContext queryContext, Session session, TaskStateMachine taskStateMachine)
@@ -71,8 +70,7 @@ public final class TestingTaskContext
                 session,
                 () -> {},
                 true,
-                true,
-                OptionalInt.empty());
+                true);
     }
 
     public static Builder builder(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session)
@@ -88,7 +86,6 @@ public final class TestingTaskContext
         private QueryId queryId = new QueryId("test_query");
         private TaskStateMachine taskStateMachine;
         private DataSize queryMaxMemory = DataSize.of(256, MEGABYTE);
-        private final DataSize queryMaxTotalMemory = DataSize.of(512, MEGABYTE);
         private DataSize memoryPoolSize = DataSize.of(1, GIGABYTE);
         private DataSize maxSpillSize = DataSize.of(1, GIGABYTE);
         private DataSize queryMaxSpillSize = DataSize.of(1, GIGABYTE);
@@ -98,7 +95,6 @@ public final class TestingTaskContext
             this.notificationExecutor = notificationExecutor;
             this.yieldExecutor = yieldExecutor;
             this.session = session;
-            this.taskStateMachine = new TaskStateMachine(new TaskId("query", 0, 0), notificationExecutor);
         }
 
         public Builder setTaskStateMachine(TaskStateMachine taskStateMachine)
@@ -139,13 +135,17 @@ public final class TestingTaskContext
 
         public TaskContext build()
         {
-            MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), memoryPoolSize);
+            if (taskStateMachine == null) {
+                taskStateMachine = new TaskStateMachine(new TaskId(new StageId(queryId, 0), 0, 0), notificationExecutor);
+            }
+
+            MemoryPool memoryPool = new MemoryPool(memoryPoolSize);
             SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(maxSpillSize);
             QueryContext queryContext = new QueryContext(
                     queryId,
                     queryMaxMemory,
-                    queryMaxTotalMemory,
                     memoryPool,
+                    0L,
                     GC_MONITOR,
                     notificationExecutor,
                     yieldExecutor,

@@ -31,6 +31,7 @@ public class TestElasticsearchBackpressure
 {
     private static final String image = "elasticsearch:7.0.0";
 
+    private Network network;
     private ElasticsearchServer elasticsearch;
     private ElasticsearchNginxProxy elasticsearchNginxProxy;
 
@@ -38,7 +39,7 @@ public class TestElasticsearchBackpressure
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Network network = Network.newNetwork();
+        network = Network.newNetwork();
         elasticsearch = new ElasticsearchServer(network, image, ImmutableMap.of());
         elasticsearchNginxProxy = new ElasticsearchNginxProxy(network, 1);
 
@@ -58,6 +59,7 @@ public class TestElasticsearchBackpressure
     {
         elasticsearchNginxProxy.stop();
         elasticsearch.stop();
+        network.close();
     }
 
     @Test

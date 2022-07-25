@@ -19,7 +19,7 @@ import io.trino.tests.product.launcher.env.configs.ConfigDefault;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.tests.product.launcher.suite.Suites.nameForSuiteClass;
+import static io.trino.tests.product.launcher.Configurations.nameForSuiteClass;
 
 public abstract class Suite
 {

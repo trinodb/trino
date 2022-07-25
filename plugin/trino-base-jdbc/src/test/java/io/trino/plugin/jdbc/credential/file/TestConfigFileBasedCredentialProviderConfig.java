@@ -40,9 +40,9 @@ public class TestConfigFileBasedCredentialProviderConfig
     {
         Path credentialFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("connection-credential-file", credentialFile.toString())
-                .build();
+                .buildOrThrow();
 
         ConfigFileBasedCredentialProviderConfig expected = new ConfigFileBasedCredentialProviderConfig()
                 .setCredentialFile(credentialFile.toString());

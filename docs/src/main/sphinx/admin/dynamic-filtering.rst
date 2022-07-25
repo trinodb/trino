@@ -23,11 +23,6 @@ from the processed dimension table on the right side of join. In the case of bro
 the runtime predicates generated from this collection are pushed into the local table scan
 on the left side of the join running on the same worker.
 
-Dynamic filtering is enabled by default using the ``enable-dynamic-filtering``
-configuration property. To disable dynamic filtering, set the configuration
-property to ``false``. Alternatively, use the session property
-``enable_dynamic_filtering``.
-
 Additionally, these runtime predicates are communicated to the coordinator over the network
 so that dynamic filtering can also be performed on the coordinator during enumeration of
 table scan splits.
@@ -36,11 +31,23 @@ For example, in the case of the Hive connector, dynamic filters are used
 to skip loading of partitions which don't match the join criteria.
 This is known as **dynamic partition pruning**.
 
+After completing the collection of dynamic filters, the coordinator also distributes them
+to worker nodes over the network for partitioned joins. This allows push down of dynamic
+filters from partitioned joins into the table scans on the left side of that join.
+Distribution of dynamic filters from the coordinator to workers is enabled by default.
+It can be disabled by setting either the ``enable-coordinator-dynamic-filters-distribution``
+configuration property, or the session property
+``enable_coordinator_dynamic_filters_distribution`` to ``false``.
+
 The results of dynamic filtering optimization can include the following benefits:
 
 * improved overall query performance
 * reduced network traffic between Trino and the data source
 * reduced load on the remote data source
+
+Dynamic filtering is enabled by default. It can be disabled by setting either the
+``enable-dynamic-filtering`` configuration property, or the session property
+``enable_dynamic_filtering`` to ``false``.
 
 Support for push down of dynamic filters is specific to each connector,
 and the relevant underlying database or storage system. The documentation for
@@ -88,7 +95,6 @@ down to the connector in the query plan.
     Fragment 1 [SOURCE]
         Output layout: [count_3]
         Output partitioning: SINGLE []
-        Stage Execution Strategy: UNGROUPED_EXECUTION
         Aggregate(PARTIAL)
         │   Layout: [count_3:bigint]
         │   count_3 := count(*)
@@ -111,7 +117,6 @@ down to the connector in the query plan.
     Fragment 2 [SOURCE]
         Output layout: [d_date_sk, $hashvalue_6]
         Output partitioning: BROADCAST []
-        Stage Execution Strategy: UNGROUPED_EXECUTION
         ScanFilterProject[table = hive:default:date_dim, grouped = false, filterPredicate = ((""d_following_holiday"" = CAST('Y' AS char(1))) AND (""d_year"" = 2000))]
             Layout: [d_date_sk:bigint, $hashvalue_6:bigint]
             Estimates: {rows: 0 (0B), cpu: 0, memory: 0B, network: 0B}/{rows: 0 (0B), cpu: 0, memory: 0B, network: 0B}/{rows: 0 (0B), cpu: 0, memory: 0B, network: 0B}
@@ -246,7 +251,6 @@ of selected rows from the dimension table.
 Limitations
 -----------
 
-* Push down of dynamic filters into local table scan on worker nodes is limited to broadcast joins.
 * Min-max dynamic filter collection is not supported for ``DOUBLE``, ``REAL`` and unorderable data types.
 * Dynamic filtering is not supported for ``DOUBLE`` and ``REAL`` data types when using ``IS NOT DISTINCT FROM`` predicate.
 * Dynamic filtering is supported when the join key contains a cast from the build key type to the

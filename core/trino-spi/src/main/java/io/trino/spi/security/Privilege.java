@@ -15,5 +15,5 @@ package io.trino.spi.security;
 
 public enum Privilege
 {
-    SELECT, DELETE, INSERT, UPDATE
+    CREATE, SELECT, DELETE, INSERT, UPDATE
 }

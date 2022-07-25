@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation.multimapagg;
 
 import io.trino.spi.function.AccumulatorStateFactory;
+import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
 
 import static java.util.Objects.requireNonNull;
@@ -24,7 +25,7 @@ public class MultimapAggregationStateFactory
     private final Type keyType;
     private final Type valueType;
 
-    public MultimapAggregationStateFactory(Type keyType, Type valueType)
+    public MultimapAggregationStateFactory(@TypeParameter("K") Type keyType, @TypeParameter("V") Type valueType)
     {
         this.keyType = requireNonNull(keyType);
         this.valueType = requireNonNull(valueType);
@@ -37,20 +38,8 @@ public class MultimapAggregationStateFactory
     }
 
     @Override
-    public Class<? extends MultimapAggregationState> getSingleStateClass()
-    {
-        return SingleMultimapAggregationState.class;
-    }
-
-    @Override
     public MultimapAggregationState createGroupedState()
     {
         return new GroupedMultimapAggregationState(keyType, valueType);
-    }
-
-    @Override
-    public Class<? extends MultimapAggregationState> getGroupedStateClass()
-    {
-        return GroupedMultimapAggregationState.class;
     }
 }

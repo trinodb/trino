@@ -15,14 +15,16 @@ package io.trino.proxy;
 
 import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.JwtBuilder;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.impl.DefaultJwtBuilder;
+import io.jsonwebtoken.jackson.io.JacksonSerializer;
+import io.jsonwebtoken.security.Keys;
 
 import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.security.Key;
 import java.security.PrivateKey;
 import java.security.interfaces.RSAPrivateKey;
 import java.time.ZonedDateTime;
@@ -60,7 +62,8 @@ public class JsonWebTokenHandler
     {
         checkState(jwtSigner.isPresent(), "not configured");
 
-        JwtBuilder jwt = Jwts.builder()
+        JwtBuilder jwt = new DefaultJwtBuilder()
+                .serializeToJsonWith(new JacksonSerializer<>())
                 .setSubject(subject)
                 .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()));
 
@@ -83,7 +86,7 @@ public class JsonWebTokenHandler
             if (!(key instanceof RSAPrivateKey)) {
                 throw new IOException("Only RSA private keys are supported");
             }
-            return Optional.of(jwt -> jwt.signWith(SignatureAlgorithm.RS256, key));
+            return Optional.of(jwt -> jwt.signWith(key));
         }
         catch (IOException e) {
             throw new RuntimeException("Failed to load key file: " + file, e);
@@ -94,7 +97,8 @@ public class JsonWebTokenHandler
         try {
             byte[] base64Key = readAllBytes(file.toPath());
             byte[] key = Base64.getMimeDecoder().decode(base64Key);
-            return Optional.of(jwt -> jwt.signWith(SignatureAlgorithm.HS256, key));
+            Key hmac = Keys.hmacShaKeyFor(key);
+            return Optional.of(jwt -> jwt.signWith(hmac));
         }
         catch (IOException | IllegalArgumentException e) {
             throw new RuntimeException("Failed to load key file: " + file, e);

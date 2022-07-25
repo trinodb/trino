@@ -40,12 +40,13 @@ public class CatalogTableAccessControlRule
             @JsonProperty("filter") Optional<String> filter,
             @JsonProperty("filter_environment") Optional<ExpressionEnvironment> filterEnvironment,
             @JsonProperty("user") Optional<Pattern> userRegex,
+            @JsonProperty("role") Optional<Pattern> roleRegex,
             @JsonProperty("group") Optional<Pattern> groupRegex,
             @JsonProperty("schema") Optional<Pattern> schemaRegex,
             @JsonProperty("table") Optional<Pattern> tableRegex,
             @JsonProperty("catalog") Optional<Pattern> catalogRegex)
     {
-        this.tableAccessControlRule = new TableAccessControlRule(privileges, columns, filter, filterEnvironment, userRegex, groupRegex, schemaRegex, tableRegex);
+        this.tableAccessControlRule = new TableAccessControlRule(privileges, columns, filter, filterEnvironment, userRegex, roleRegex, groupRegex, schemaRegex, tableRegex);
         this.catalogRegex = requireNonNull(catalogRegex, "catalogRegex is null");
     }
 
@@ -55,12 +56,12 @@ public class CatalogTableAccessControlRule
         this.catalogRegex = catalogRegex;
     }
 
-    public boolean matches(String user, Set<String> groups, CatalogSchemaTableName table)
+    public boolean matches(String user, Set<String> roles, Set<String> groups, CatalogSchemaTableName table)
     {
         if (!catalogRegex.map(regex -> regex.matcher(table.getCatalogName()).matches()).orElse(true)) {
             return false;
         }
-        return tableAccessControlRule.matches(user, groups, table.getSchemaTableName());
+        return tableAccessControlRule.matches(user, roles, groups, table.getSchemaTableName());
     }
 
     public Set<TablePrivilege> getPrivileges()
@@ -95,6 +96,7 @@ public class CatalogTableAccessControlRule
         }
         return Optional.of(new AnyCatalogPermissionsRule(
                 tableAccessControlRule.getUserRegex(),
+                tableAccessControlRule.getRoleRegex(),
                 tableAccessControlRule.getGroupRegex(),
                 catalogRegex));
     }
@@ -106,6 +108,7 @@ public class CatalogTableAccessControlRule
         }
         return Optional.of(new AnyCatalogSchemaPermissionsRule(
                 tableAccessControlRule.getUserRegex(),
+                tableAccessControlRule.getRoleRegex(),
                 tableAccessControlRule.getGroupRegex(),
                 catalogRegex,
                 tableAccessControlRule.getSchemaRegex()));

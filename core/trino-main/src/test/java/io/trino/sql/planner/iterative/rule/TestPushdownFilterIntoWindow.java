@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.connector.SortOrder;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.TopNRankingSymbolMatcher;
@@ -48,8 +47,8 @@ public class TestPushdownFilterIntoWindow
 
     private void assertEliminateFilter(String rankingFunctionName)
     {
-        ResolvedFunction ranking = tester().getMetadata().resolveFunction(QualifiedName.of(rankingFunctionName), fromTypes());
-        tester().assertThat(new PushdownFilterIntoWindow(tester().getMetadata(), new TypeOperators()))
+        ResolvedFunction ranking = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of(rankingFunctionName), fromTypes());
+        tester().assertThat(new PushdownFilterIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol rankSymbol = p.symbol("rank_1");
                     Symbol a = p.symbol("a", BIGINT);
@@ -76,8 +75,8 @@ public class TestPushdownFilterIntoWindow
 
     private void assertKeepFilter(String rankingFunctionName)
     {
-        ResolvedFunction ranking = tester().getMetadata().resolveFunction(QualifiedName.of(rankingFunctionName), fromTypes());
-        tester().assertThat(new PushdownFilterIntoWindow(tester().getMetadata(), new TypeOperators()))
+        ResolvedFunction ranking = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of(rankingFunctionName), fromTypes());
+        tester().assertThat(new PushdownFilterIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
                     Symbol a = p.symbol("a", BIGINT);
@@ -100,7 +99,7 @@ public class TestPushdownFilterIntoWindow
                                                 ImmutableMap.of("a", SortOrder.ASC_NULLS_FIRST)),
                                 values("a")).withAlias("row_number_1", new TopNRankingSymbolMatcher())));
 
-        tester().assertThat(new PushdownFilterIntoWindow(tester().getMetadata(), new TypeOperators()))
+        tester().assertThat(new PushdownFilterIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
                     Symbol a = p.symbol("a", BIGINT);
@@ -133,8 +132,8 @@ public class TestPushdownFilterIntoWindow
 
     private void assertNoUpperBound(String rankingFunctionName)
     {
-        ResolvedFunction ranking = tester().getMetadata().resolveFunction(QualifiedName.of(rankingFunctionName), fromTypes());
-        tester().assertThat(new PushdownFilterIntoWindow(tester().getMetadata(), new TypeOperators()))
+        ResolvedFunction ranking = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of(rankingFunctionName), fromTypes());
+        tester().assertThat(new PushdownFilterIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
                     Symbol a = p.symbol("a");

@@ -16,8 +16,6 @@ package io.trino.type;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowFieldName;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
@@ -27,26 +25,25 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.StandardTypes.ROW;
 import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 
 public class TestRowParametricType
 {
     @Test
     public void testTypeSignatureRoundTrip()
     {
-        TypeManager typeManager = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
         TypeSignature typeSignature = new TypeSignature(
                 ROW,
                 TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName("col1")), BIGINT.getTypeSignature())),
                 TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName("col2")), DOUBLE.getTypeSignature())));
         List<TypeParameter> parameters = typeSignature.getParameters().stream()
-                .map(parameter -> TypeParameter.of(parameter, typeManager))
+                .map(parameter -> TypeParameter.of(parameter, TESTING_TYPE_MANAGER))
                 .collect(Collectors.toList());
-        Type rowType = RowParametricType.ROW.createType(typeManager, parameters);
+        Type rowType = RowParametricType.ROW.createType(TESTING_TYPE_MANAGER, parameters);
 
         assertEquals(rowType.getTypeSignature(), typeSignature);
     }

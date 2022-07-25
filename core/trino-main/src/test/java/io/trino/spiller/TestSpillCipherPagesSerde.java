@@ -14,8 +14,8 @@
 package io.trino.spiller;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.trino.execution.buffer.PagesSerde;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.execution.buffer.TestingPagesSerdeFactory;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.execution.buffer.PagesSerde.isSerializedPageEncrypted;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -51,9 +52,9 @@ public class TestSpillCipherPagesSerde
             VARCHAR.writeString(blockBuilder, "world");
             Page helloWorldPage = new Page(blockBuilder.build());
 
-            SerializedPage serialized = serde.serialize(context, helloWorldPage);
+            Slice serialized = serde.serialize(context, helloWorldPage);
             assertPageEquals(types, serde.deserialize(serialized), helloWorldPage);
-            assertTrue(serialized.isEncrypted(), "page should be encrypted");
+            assertTrue(isSerializedPageEncrypted(serialized), "page should be encrypted");
 
             cipher.close();
 

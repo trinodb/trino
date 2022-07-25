@@ -339,6 +339,16 @@ public class Scope
         private Optional<Scope> parent = Optional.empty();
         private boolean queryBoundary;
 
+        public Builder like(Scope other)
+        {
+            relationId = other.relationId;
+            relationType = other.relation;
+            namedQueries.putAll(other.namedQueries);
+            parent = other.parent;
+            queryBoundary = other.queryBoundary;
+            return this;
+        }
+
         public Builder withRelationType(RelationId relationId, RelationType relationType)
         {
             this.relationId = requireNonNull(relationId, "relationId is null");

@@ -18,9 +18,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
-import org.apache.iceberg.FileFormat;
+import io.trino.spi.connector.RetryMode;
 
 import java.util.List;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -33,7 +34,9 @@ public class IcebergWritableTableHandle
     private final String partitionSpecAsJson;
     private final List<IcebergColumnHandle> inputColumns;
     private final String outputPath;
-    private final FileFormat fileFormat;
+    private final IcebergFileFormat fileFormat;
+    private final Map<String, String> storageProperties;
+    private final RetryMode retryMode;
 
     @JsonCreator
     public IcebergWritableTableHandle(
@@ -43,7 +46,9 @@ public class IcebergWritableTableHandle
             @JsonProperty("partitionSpecAsJson") String partitionSpecAsJson,
             @JsonProperty("inputColumns") List<IcebergColumnHandle> inputColumns,
             @JsonProperty("outputPath") String outputPath,
-            @JsonProperty("fileFormat") FileFormat fileFormat)
+            @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
+            @JsonProperty("properties") Map<String, String> storageProperties,
+            @JsonProperty("retryMode") RetryMode retryMode)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -52,6 +57,8 @@ public class IcebergWritableTableHandle
         this.inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
         this.outputPath = requireNonNull(outputPath, "outputPath is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
+        this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
+        this.retryMode = requireNonNull(retryMode, "retryMode is null");
     }
 
     @JsonProperty
@@ -91,9 +98,21 @@ public class IcebergWritableTableHandle
     }
 
     @JsonProperty
-    public FileFormat getFileFormat()
+    public IcebergFileFormat getFileFormat()
     {
         return fileFormat;
+    }
+
+    @JsonProperty
+    public Map<String, String> getStorageProperties()
+    {
+        return storageProperties;
+    }
+
+    @JsonProperty
+    public RetryMode getRetryMode()
+    {
+        return retryMode;
     }
 
     @Override

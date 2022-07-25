@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.PlanNodeDecorrelator;
 import io.trino.sql.planner.optimizations.PlanNodeDecorrelator.DecorrelatedNode;
@@ -36,6 +36,7 @@ import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.correlation;
 import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Tries to decorrelate subquery and rewrite it using normal join.
@@ -47,11 +48,11 @@ public class TransformCorrelatedJoinToJoin
     private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()
             .with(nonEmpty(correlation()));
 
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
 
-    public TransformCorrelatedJoinToJoin(Metadata metadata)
+    public TransformCorrelatedJoinToJoin(PlannerContext plannerContext)
     {
-        this.metadata = metadata;
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
     }
 
     @Override
@@ -66,7 +67,7 @@ public class TransformCorrelatedJoinToJoin
         checkArgument(correlatedJoinNode.getType() == INNER || correlatedJoinNode.getType() == LEFT, "correlation in %s JOIN", correlatedJoinNode.getType().name());
         PlanNode subquery = correlatedJoinNode.getSubquery();
 
-        PlanNodeDecorrelator planNodeDecorrelator = new PlanNodeDecorrelator(metadata, context.getSymbolAllocator(), context.getLookup());
+        PlanNodeDecorrelator planNodeDecorrelator = new PlanNodeDecorrelator(plannerContext, context.getSymbolAllocator(), context.getLookup());
         Optional<DecorrelatedNode> decorrelatedNodeOptional = planNodeDecorrelator.decorrelateFilters(subquery, correlatedJoinNode.getCorrelation());
         if (decorrelatedNodeOptional.isEmpty()) {
             return Result.empty();
@@ -74,7 +75,7 @@ public class TransformCorrelatedJoinToJoin
         DecorrelatedNode decorrelatedSubquery = decorrelatedNodeOptional.get();
 
         Expression filter = combineConjuncts(
-                metadata,
+                plannerContext.getMetadata(),
                 decorrelatedSubquery.getCorrelatedPredicates().orElse(TRUE_LITERAL),
                 correlatedJoinNode.getFilter());
 

@@ -15,7 +15,6 @@ package io.trino.operator.unnest;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.metadata.Metadata;
 import io.trino.operator.DriverContext;
 import io.trino.operator.OperatorFactory;
 import io.trino.spi.Page;
@@ -35,7 +34,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -43,6 +41,7 @@ import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.StructuralTestUtil.arrayBlockOf;
 import static io.trino.util.StructuralTestUtil.mapBlockOf;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -79,9 +78,8 @@ public class TestUnnestOperator
     @Test
     public void testUnnest()
     {
-        Metadata metadata = createTestMetadataManager();
         Type arrayType = new ArrayType(BIGINT);
-        Type mapType = metadata.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+        Type mapType = TESTING_TYPE_MANAGER.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
                 .row(1L, arrayBlockOf(BIGINT, 2, 3), mapBlockOf(BIGINT, BIGINT, ImmutableMap.of(4, 5)))
@@ -108,9 +106,8 @@ public class TestUnnestOperator
     @Test
     public void testUnnestWithArray()
     {
-        Metadata metadata = createTestMetadataManager();
         Type arrayType = new ArrayType(new ArrayType(BIGINT));
-        Type mapType = metadata.getType(mapType(new ArrayType(BIGINT).getTypeSignature(), new ArrayType(BIGINT).getTypeSignature()));
+        Type mapType = TESTING_TYPE_MANAGER.getType(mapType(new ArrayType(BIGINT).getTypeSignature(), new ArrayType(BIGINT).getTypeSignature()));
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
                 .row(
@@ -143,9 +140,8 @@ public class TestUnnestOperator
     @Test
     public void testUnnestWithOrdinality()
     {
-        Metadata metadata = createTestMetadataManager();
         Type arrayType = new ArrayType(BIGINT);
-        Type mapType = metadata.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+        Type mapType = TESTING_TYPE_MANAGER.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
                 .row(1L, arrayBlockOf(BIGINT, 2, 3), mapBlockOf(BIGINT, BIGINT, ImmutableMap.of(4, 5)))
@@ -172,9 +168,8 @@ public class TestUnnestOperator
     @Test
     public void testUnnestNonNumericDoubles()
     {
-        Metadata metadata = createTestMetadataManager();
         Type arrayType = new ArrayType(DOUBLE);
-        Type mapType = metadata.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+        Type mapType = TESTING_TYPE_MANAGER.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
                 .row(1L, arrayBlockOf(DOUBLE, NEGATIVE_INFINITY, POSITIVE_INFINITY, NaN),
@@ -225,8 +220,7 @@ public class TestUnnestOperator
     @Test
     public void testOuterUnnest()
     {
-        Metadata metadata = createTestMetadataManager();
-        Type mapType = metadata.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+        Type mapType = TESTING_TYPE_MANAGER.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
         Type arrayType = new ArrayType(BIGINT);
         Type elementType = RowType.anonymous(ImmutableList.of(BIGINT, DOUBLE, VARCHAR));
         Type arrayOfRowType = new ArrayType(elementType);
@@ -258,8 +252,7 @@ public class TestUnnestOperator
     @Test
     public void testOuterUnnestWithOrdinality()
     {
-        Metadata metadata = createTestMetadataManager();
-        Type mapType = metadata.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+        Type mapType = TESTING_TYPE_MANAGER.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
         Type arrayType = new ArrayType(BIGINT);
         Type elementType = RowType.anonymous(ImmutableList.of(BIGINT, DOUBLE, VARCHAR));
         Type arrayOfRowType = new ArrayType(elementType);

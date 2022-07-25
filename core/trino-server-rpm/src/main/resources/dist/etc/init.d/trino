@@ -37,6 +37,16 @@ CONFIGURATION=(
     --server-log-file "${SERVER_LOG_FILE:-/var/log/trino/server.log}"
 )
 
+# As defined in the requirements: https://trino.io/docs/current/installation/deployment.html#requirements
+files_limit=131072
+if current_limit=$(ulimit -Hn) && [ "${files_limit}" -lt "${current_limit}" ]; then
+    files_limit="${current_limit}"
+fi
+if max_limit=$(cat /proc/sys/fs/nr_open) && [ "${files_limit}" -gt "${max_limit}" ]; then
+    files_limit="${max_limit}"
+fi
+ulimit -n "${files_limit}"
+
 declare -A CONFIG_ENV
 # Don't need shellcheck to follow env.sh
 # shellcheck disable=1091

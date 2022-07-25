@@ -126,7 +126,7 @@ public class TestAvroSchemaConverter
                 .name("map_col").type().map().values().intType().mapDefault(ImmutableMap.<String, Integer>builder()
                         .put("one", 1)
                         .put("two", 2)
-                        .build())
+                        .buildOrThrow())
                 .name("record_col").type().record("record_col")
                 .fields()
                 .name("nested_list").type().array().items().map().values().stringType().noDefault()
@@ -140,15 +140,15 @@ public class TestAvroSchemaConverter
                                 ImmutableMap.<String, String>builder()
                                         .put("key", "value")
                                         .put("key1", "value1")
-                                        .build(),
+                                        .buildOrThrow(),
                                 ImmutableMap.<String, String>builder()
                                         .put("key2", "value2")
                                         .put("key3", "value3")
-                                        .build()))
+                                        .buildOrThrow()))
                         .set("nested_map", ImmutableMap.<String, List<String>>builder()
                                 .put("key1", Arrays.asList("one", "two", "three"))
                                 .put("key2", Arrays.asList("four", "two", "three"))
-                                .build())
+                                .buildOrThrow())
                         .build())
                 .endRecord();
         AvroSchemaConverter avroSchemaConverter = new AvroSchemaConverter(new TestingTypeManager(), IGNORE);

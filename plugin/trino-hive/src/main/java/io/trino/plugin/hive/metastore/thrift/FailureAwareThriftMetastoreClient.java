@@ -301,10 +301,10 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
-    public boolean revokePrivileges(PrivilegeBag privilegeBag)
+    public boolean revokePrivileges(PrivilegeBag privilegeBag, boolean grantOption)
             throws TException
     {
-        return runWithHandle(() -> delegate.revokePrivileges(privilegeBag));
+        return runWithHandle(() -> delegate.revokePrivileges(privilegeBag, grantOption));
     }
 
     @Override
@@ -375,6 +375,13 @@ public class FailureAwareThriftMetastoreClient
             throws TException
     {
         return runWithHandle(() -> delegate.checkLock(lockId));
+    }
+
+    @Override
+    public void unlock(long lockId)
+            throws TException
+    {
+        runWithHandle(() -> delegate.unlock(lockId));
     }
 
     @Override

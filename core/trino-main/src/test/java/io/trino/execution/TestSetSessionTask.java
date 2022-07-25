@@ -15,17 +15,16 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Catalog;
-import io.trino.metadata.CatalogManager;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AccessControl;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
-import io.trino.spi.session.PropertyMetadata;
-import io.trino.sql.analyzer.FeaturesConfig;
-import io.trino.sql.planner.FunctionCallBuilder;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LongLiteral;
@@ -33,6 +32,7 @@ import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SetSession;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.testing.LocalQueryRunner;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -46,14 +46,11 @@ import java.util.concurrent.ExecutorService;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.TestingSession.createBogusTestingCatalog;
-import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -62,7 +59,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestSetSessionTask
 {
-    private static final String CATALOG_NAME = "foo";
+    private static final String CATALOG_NAME = "my_catalog";
     private static final String MUST_BE_POSITIVE = "property must be positive";
 
     private enum Size
@@ -75,45 +72,48 @@ public class TestSetSessionTask
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final Metadata metadata;
+    private final PlannerContext plannerContext;
+    private final SessionPropertyManager sessionPropertyManager;
 
     public TestSetSessionTask()
     {
-        CatalogManager catalogManager = new CatalogManager();
-        transactionManager = createTestTransactionManager(catalogManager);
-        accessControl = new AllowAllAccessControl();
+        LocalQueryRunner queryRunner = LocalQueryRunner.builder(TEST_SESSION)
+                .withExtraSystemSessionProperties(ImmutableSet.of(() -> ImmutableList.of(
+                        stringProperty(
+                                "foo",
+                                "test property",
+                                null,
+                                false))))
+                .build();
 
-        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
-
-        metadata.getSessionPropertyManager().addSystemSessionProperty(stringProperty(
+        queryRunner.createCatalog(
                 CATALOG_NAME,
-                "test property",
-                null,
-                false));
+                MockConnectorFactory.builder()
+                        .withSessionProperty(stringProperty(
+                                "bar",
+                                "test property",
+                                null,
+                                false))
+                        .withSessionProperty(integerProperty(
+                                "positive_property",
+                                "property that should be positive",
+                                null,
+                                TestSetSessionTask::validatePositive,
+                                false))
+                        .withSessionProperty(enumProperty(
+                                "size_property",
+                                "size enum property",
+                                Size.class,
+                                null,
+                                false))
+                        .build(),
+                ImmutableMap.of());
 
-        Catalog bogusTestingCatalog = createBogusTestingCatalog(CATALOG_NAME);
-
-        List<PropertyMetadata<?>> sessionProperties = ImmutableList.of(
-                stringProperty(
-                        "bar",
-                        "test property",
-                        null,
-                        false),
-                integerProperty(
-                        "positive_property",
-                        "property that should be positive",
-                        null,
-                        TestSetSessionTask::validatePositive,
-                        false),
-                enumProperty(
-                        "size_property",
-                        "size enum property",
-                        Size.class,
-                        null,
-                        false));
-
-        metadata.getSessionPropertyManager().addConnectorSessionProperties(bogusTestingCatalog.getConnectorCatalogName(), sessionProperties);
-
-        catalogManager.registerCatalog(bogusTestingCatalog);
+        transactionManager = queryRunner.getTransactionManager();
+        accessControl = queryRunner.getAccessControl();
+        metadata = queryRunner.getMetadata();
+        plannerContext = queryRunner.getPlannerContext();
+        sessionPropertyManager = queryRunner.getSessionPropertyManager();
     }
 
     private static void validatePositive(Object value)
@@ -138,8 +138,8 @@ public class TestSetSessionTask
     {
         testSetSession("bar", new StringLiteral("baz"), "baz");
         testSetSession("bar",
-                new FunctionCallBuilder(metadata)
-                        .setName(QualifiedName.of("concat"))
+                new TestingFunctionResolution(transactionManager, plannerContext)
+                        .functionCallBuilder(QualifiedName.of("concat"))
                         .addArgument(VARCHAR, new StringLiteral("ban"))
                         .addArgument(VARCHAR, new StringLiteral("ana"))
                         .build(),
@@ -169,8 +169,8 @@ public class TestSetSessionTask
     @Test
     public void testSetSessionWithParameters()
     {
-        FunctionCall functionCall = new FunctionCallBuilder(metadata)
-                .setName(QualifiedName.of("concat"))
+        FunctionCall functionCall = new TestingFunctionResolution(transactionManager, plannerContext)
+                .functionCallBuilder(QualifiedName.of("concat"))
                 .addArgument(VARCHAR, new StringLiteral("ban"))
                 .addArgument(VARCHAR, new Parameter(0))
                 .build();
@@ -186,6 +186,7 @@ public class TestSetSessionTask
     {
         QualifiedName qualifiedPropName = QualifiedName.of(CATALOG_NAME, property);
         QueryStateMachine stateMachine = QueryStateMachine.begin(
+                Optional.empty(),
                 format("set %s = 'old_value'", qualifiedPropName),
                 Optional.empty(),
                 TEST_SESSION,
@@ -198,7 +199,7 @@ public class TestSetSessionTask
                 metadata,
                 WarningCollector.NOOP,
                 Optional.empty());
-        getFutureValue(new SetSessionTask().execute(new SetSession(qualifiedPropName, expression), transactionManager, metadata, accessControl, stateMachine, parameters, WarningCollector.NOOP));
+        getFutureValue(new SetSessionTask(plannerContext, accessControl, sessionPropertyManager).execute(new SetSession(qualifiedPropName, expression), stateMachine, parameters, WarningCollector.NOOP));
 
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();
         assertEquals(sessionProperties, ImmutableMap.of(qualifiedPropName.toString(), expectedValue));

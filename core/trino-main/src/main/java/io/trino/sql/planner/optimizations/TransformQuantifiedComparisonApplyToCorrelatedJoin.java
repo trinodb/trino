@@ -25,7 +25,6 @@ import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.Assignments;
@@ -57,6 +56,7 @@ import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -83,7 +83,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        return rewriteWith(new Rewriter(idAllocator, types, symbolAllocator, metadata), plan, null);
+        return rewriteWith(new Rewriter(idAllocator, types, symbolAllocator, metadata, session), plan, null);
     }
 
     private static class Rewriter
@@ -97,13 +97,15 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
         private final TypeProvider types;
         private final SymbolAllocator symbolAllocator;
         private final Metadata metadata;
+        private final Session session;
 
-        public Rewriter(PlanNodeIdAllocator idAllocator, TypeProvider types, SymbolAllocator symbolAllocator, Metadata metadata)
+        public Rewriter(PlanNodeIdAllocator idAllocator, TypeProvider types, SymbolAllocator symbolAllocator, Metadata metadata, Session session)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.types = requireNonNull(types, "types is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.session = session;
         }
 
         @Override
@@ -138,43 +140,39 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
 
             List<Expression> outputColumnReferences = ImmutableList.of(outputColumn.toSymbolReference());
 
-            subqueryPlan = new AggregationNode(
+            subqueryPlan = singleAggregation(
                     idAllocator.getNextId(),
                     subqueryPlan,
                     ImmutableMap.of(
                             minValue, new Aggregation(
-                                    metadata.resolveFunction(MIN, fromTypes(outputColumnType)),
+                                    metadata.resolveFunction(session, MIN, fromTypes(outputColumnType)),
                                     outputColumnReferences,
                                     false,
                                     Optional.empty(),
                                     Optional.empty(),
                                     Optional.empty()),
                             maxValue, new Aggregation(
-                                    metadata.resolveFunction(MAX, fromTypes(outputColumnType)),
+                                    metadata.resolveFunction(session, MAX, fromTypes(outputColumnType)),
                                     outputColumnReferences,
                                     false,
                                     Optional.empty(),
                                     Optional.empty(),
                                     Optional.empty()),
                             countAllValue, new Aggregation(
-                                    metadata.resolveFunction(COUNT, emptyList()),
+                                    metadata.resolveFunction(session, COUNT, emptyList()),
                                     ImmutableList.of(),
                                     false,
                                     Optional.empty(),
                                     Optional.empty(),
                                     Optional.empty()),
                             countNonNullValue, new Aggregation(
-                                    metadata.resolveFunction(COUNT, fromTypes(outputColumnType)),
+                                    metadata.resolveFunction(session, COUNT, fromTypes(outputColumnType)),
                                     outputColumnReferences,
                                     false,
                                     Optional.empty(),
                                     Optional.empty(),
                                     Optional.empty())),
-                    globalAggregation(),
-                    ImmutableList.of(),
-                    AggregationNode.Step.SINGLE,
-                    Optional.empty(),
-                    Optional.empty());
+                    globalAggregation());
 
             PlanNode join = new CorrelatedJoinNode(
                     node.getId(),

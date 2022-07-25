@@ -19,21 +19,18 @@ import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowFieldName;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeOperators;
-import io.trino.type.InternalTypeManager;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveTestUtils.rowType;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 
 public class TestHiveReaderProjectionsUtil
 {
@@ -46,8 +43,6 @@ public class TestHiveReaderProjectionsUtil
     public static final RowType ROWTYPE_OF_ROW_AND_PRIMITIVES = rowType(ImmutableList.of(
             new NamedTypeSignature(Optional.of(new RowFieldName("f_row_0")), ROWTYPE_OF_PRIMITIVES.getTypeSignature()),
             new NamedTypeSignature(Optional.of(new RowFieldName("f_bigint_0")), BIGINT.getTypeSignature())));
-
-    public static final TypeManager TYPE_MANAGER = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
 
     public static Map<String, HiveColumnHandle> createTestFullColumns(List<String> names, Map<String, Type> types)
     {
@@ -62,7 +57,7 @@ public class TestHiveReaderProjectionsUtil
             regularColumnHiveIndex++;
         }
 
-        return hiveColumns.build();
+        return hiveColumns.buildOrThrow();
     }
 
     public static HiveColumnHandle createProjectedColumnHandle(HiveColumnHandle column, List<Integer> indices)
@@ -77,7 +72,7 @@ public class TestHiveReaderProjectionsUtil
         List<String> names = baseHiveType.getHiveDereferenceNames(indices);
         HiveType hiveType = baseHiveType.getHiveTypeForDereferences(indices).get();
 
-        HiveColumnProjectionInfo columnProjection = new HiveColumnProjectionInfo(indices, names, hiveType, hiveType.getType(TYPE_MANAGER));
+        HiveColumnProjectionInfo columnProjection = new HiveColumnProjectionInfo(indices, names, hiveType, hiveType.getType(TESTING_TYPE_MANAGER));
 
         return new HiveColumnHandle(
                 column.getBaseColumnName(),

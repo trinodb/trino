@@ -38,7 +38,7 @@ public class TestConnectorEventListener
     private EventsAwaitingQueries queries;
 
     @BeforeClass
-    private void setUp()
+    public void setUp()
             throws Exception
     {
         session = testSessionBuilder()
@@ -53,7 +53,7 @@ public class TestConnectorEventListener
             @Override
             public Iterable<ConnectorFactory> getConnectorFactories()
             {
-                return ImmutableList.of(new MockConnectorFactory.Builder()
+                return ImmutableList.of(MockConnectorFactory.builder()
                         .withEventListener(new TestingEventListener(generatedEvents))
                         .build());
             }
@@ -63,7 +63,7 @@ public class TestConnectorEventListener
     }
 
     @AfterClass(alwaysRun = true)
-    private void tearDown()
+    public void tearDown()
     {
         queryRunner.close();
         queryRunner = null;

@@ -91,13 +91,13 @@ public class TestJdbcConnection
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", server.getBaseDataDir().resolve("hive").toAbsolutePath().toString())
                 .put("hive.security", "sql-standard")
-                .build());
+                .buildOrThrow());
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole", ImmutableMap.of());
 
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {
-            statement.execute("SET ROLE admin");
+            statement.execute("SET ROLE admin IN hive");
             statement.execute("CREATE SCHEMA default");
             statement.execute("CREATE SCHEMA fruit");
             statement.execute(
@@ -269,7 +269,7 @@ public class TestJdbcConnection
 
             try (Statement statement = connection.createStatement()) {
                 // setting Hive session properties requires the admin role
-                statement.execute("SET ROLE admin");
+                statement.execute("SET ROLE admin IN hive");
             }
 
             for (String part : ImmutableList.of(",", "=", ":", "|", "/", "\\", "'", "\\'", "''", "\"", "\\\"", "[", "]")) {
@@ -350,7 +350,7 @@ public class TestJdbcConnection
                     .put("test.token.foo", "bar")
                     .put("test.token.abc", "xyz")
                     .put("colon", "-::-")
-                    .build();
+                    .buildOrThrow();
             TrinoConnection trinoConnection = connection.unwrap(TrinoConnection.class);
             assertEquals(trinoConnection.getExtraCredentials(), expectedCredentials);
             assertEquals(listExtraCredentials(connection), expectedCredentials);
@@ -419,13 +419,13 @@ public class TestJdbcConnection
     public void testSessionProperties()
             throws SQLException
     {
-        try (Connection connection = createConnection("roles=hive:admin&sessionProperties=hive.temporary_staging_directory_path:/tmp;execution_policy:phased")) {
+        try (Connection connection = createConnection("roles=hive:admin&sessionProperties=hive.temporary_staging_directory_path:/tmp;execution_policy:legacy-phased")) {
             TrinoConnection trinoConnection = connection.unwrap(TrinoConnection.class);
             assertThat(trinoConnection.getSessionProperties())
                     .extractingByKeys("hive.temporary_staging_directory_path", "execution_policy")
-                    .containsExactly("/tmp", "phased");
+                    .containsExactly("/tmp", "legacy-phased");
             assertThat(listSession(connection)).containsAll(ImmutableSet.of(
-                    "execution_policy|phased|all-at-once",
+                    "execution_policy|legacy-phased|phased",
                     "hive.temporary_staging_directory_path|/tmp|/tmp/presto-${USER}"));
         }
     }
@@ -495,12 +495,13 @@ public class TestJdbcConnection
             // verify that the query was cancelled
             assertThatThrownBy(future::get).isNotNull();
             assertThat(listQueryErrorCodes(sql))
-                    .containsExactly("USER_CANCELED")
+                    .allMatch(errorCode -> "TRANSACTION_ALREADY_ABORTED".equals(errorCode) || "USER_CANCELED".equals(errorCode))
                     .hasSize(1);
         }
     }
 
-    @Test(timeOut = 60_000, dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    // TODO https://github.com/trinodb/trino/issues/10096 - enable test once concurrent jdbc statements are supported
+    @Test(timeOut = 60_000, dataProviderClass = DataProviders.class, dataProvider = "trueFalse", enabled = false)
     public void testConcurrentCancellationOnConnectionClose(boolean autoCommit)
             throws Exception
     {
@@ -535,7 +536,7 @@ public class TestJdbcConnection
         futures.forEach(future -> assertThatThrownBy(future::get).isNotNull());
         assertThat(listQueryErrorCodes(sql))
                 .hasSize(futures.size())
-                .containsOnly("USER_CANCELED");
+                .allMatch(errorCode -> "TRANSACTION_ALREADY_ABORTED".equals(errorCode) || "USER_CANCELED".equals(errorCode));
     }
 
     private Connection createConnection()
@@ -590,7 +591,7 @@ public class TestJdbcConnection
                 builder.put(rs.getString("name"), rs.getString("value"));
             }
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     private static Set<String> listCurrentRoles(Connection connection)
@@ -598,7 +599,7 @@ public class TestJdbcConnection
     {
         ImmutableSet.Builder<String> builder = ImmutableSet.builder();
         try (Statement statement = connection.createStatement();
-                ResultSet rs = statement.executeQuery("SHOW CURRENT ROLES")) {
+                ResultSet rs = statement.executeQuery("SHOW CURRENT ROLES IN hive")) {
             while (rs.next()) {
                 builder.add(rs.getString("role"));
             }

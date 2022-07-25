@@ -15,12 +15,12 @@ package io.trino.block;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.type.ArrayType;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Array;
@@ -128,7 +128,8 @@ public class TestColumnarArray
 
     public static BlockBuilder createBlockBuilderWithValues(Slice[][] expectedValues)
     {
-        BlockBuilder blockBuilder = new ArrayBlockBuilder(VARCHAR, null, 100, 100);
+        ArrayType arrayType = new ArrayType(VARCHAR);
+        BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 100, 100);
         for (Slice[] expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
@@ -143,7 +144,7 @@ public class TestColumnarArray
                         VARCHAR.writeSlice(elementBlockBuilder, v);
                     }
                 }
-                blockBuilder.appendStructure(elementBlockBuilder.build());
+                arrayType.writeObject(blockBuilder, elementBlockBuilder.build());
             }
         }
         return blockBuilder;

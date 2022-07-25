@@ -22,6 +22,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -78,11 +79,13 @@ public class TestOperatorMemoryRevocation
         assertEquals(counter.get(), 1);
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "listener already set")
+    @Test
     public void testSingleListenerEnforcement()
     {
         OperatorContext operatorContext = TestingOperatorContext.create(scheduledExecutor);
         operatorContext.setMemoryRevocationRequestListener(() -> {});
-        operatorContext.setMemoryRevocationRequestListener(() -> {});
+        assertThatThrownBy(() -> operatorContext.setMemoryRevocationRequestListener(() -> {}))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("listener already set");
     }
 }

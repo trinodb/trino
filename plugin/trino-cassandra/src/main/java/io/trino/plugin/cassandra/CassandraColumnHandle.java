@@ -15,7 +15,6 @@ package io.trino.plugin.cassandra;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.MoreObjects.ToStringHelper;
 import io.trino.plugin.cassandra.util.CassandraCqlUtils;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -149,16 +148,14 @@ public class CassandraColumnHandle
     @Override
     public String toString()
     {
-        ToStringHelper helper = toStringHelper(this)
+        return toStringHelper(this)
                 .add("name", name)
                 .add("ordinalPosition", ordinalPosition)
-                .add("cassandraType", cassandraType);
-
-        helper.add("partitionKey", partitionKey)
+                .add("cassandraType", cassandraType)
+                .add("partitionKey", partitionKey)
                 .add("clusteringKey", clusteringKey)
                 .add("indexed", indexed)
-                .add("hidden", hidden);
-
-        return helper.toString();
+                .add("hidden", hidden)
+                .toString();
     }
 }

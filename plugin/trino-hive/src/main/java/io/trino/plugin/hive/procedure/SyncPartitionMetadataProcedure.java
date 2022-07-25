@@ -15,11 +15,11 @@ package io.trino.plugin.hive.procedure;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -66,6 +67,8 @@ public class SyncPartitionMetadataProcedure
     {
         ADD, DROP, FULL
     }
+
+    private static final int BATCH_GET_PARTITIONS_BY_NAMES_MAX_PAGE_SIZE = 1000;
 
     private static final MethodHandle SYNC_PARTITION_METADATA = methodHandle(
             SyncPartitionMetadataProcedure.class,
@@ -96,10 +99,10 @@ public class SyncPartitionMetadataProcedure
                 "system",
                 "sync_partition_metadata",
                 ImmutableList.of(
-                        new Argument("schema_name", VARCHAR),
-                        new Argument("table_name", VARCHAR),
-                        new Argument("mode", VARCHAR),
-                        new Argument("case_sensitive", BOOLEAN, false, TRUE)),
+                        new Argument("SCHEMA_NAME", VARCHAR),
+                        new Argument("TABLE_NAME", VARCHAR),
+                        new Argument("MODE", VARCHAR),
+                        new Argument("CASE_SENSITIVE", BOOLEAN, false, TRUE)),
                 SYNC_PARTITION_METADATA.bindTo(this));
     }
 
@@ -114,11 +117,10 @@ public class SyncPartitionMetadataProcedure
     {
         SyncMode syncMode = toSyncMode(mode);
         HdfsContext hdfsContext = new HdfsContext(session);
-        HiveIdentity identity = new HiveIdentity(session);
-        SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create().getMetastore();
+        SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create(session.getIdentity(), true).getMetastore();
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
 
-        Table table = metastore.getTable(identity, schemaName, tableName)
+        Table table = metastore.getTable(schemaName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
         if (table.getPartitionColumns().isEmpty()) {
             throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Table is not partitioned: " + schemaTableName);
@@ -138,8 +140,9 @@ public class SyncPartitionMetadataProcedure
 
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, tableLocation);
-            List<String> partitionsInMetastore = metastore.getPartitionNames(identity, schemaName, tableName)
+            List<String> partitionsNamesInMetastore = metastore.getPartitionNames(schemaName, tableName)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
+            List<String> partitionsInMetastore = getPartitionsInMetastore(schemaTableName, tableLocation, partitionsNamesInMetastore, metastore);
             List<String> partitionsInFileSystem = listDirectory(fileSystem, fileSystem.getFileStatus(tableLocation), table.getPartitionColumns(), table.getPartitionColumns().size(), caseSensitive).stream()
                     .map(fileStatus -> fileStatus.getPath().toUri())
                     .map(uri -> tableLocation.toUri().relativize(uri).getPath())
@@ -155,6 +158,19 @@ public class SyncPartitionMetadataProcedure
         }
 
         syncPartitions(partitionsToAdd, partitionsToDrop, syncMode, metastore, session, table);
+    }
+
+    private List<String> getPartitionsInMetastore(SchemaTableName schemaTableName, Path tableLocation, List<String> partitionsNames, SemiTransactionalHiveMetastore metastore)
+    {
+        ImmutableList.Builder<String> partitionsInMetastoreBuilder = ImmutableList.builderWithExpectedSize(partitionsNames.size());
+        for (List<String> partitionsNamesBatch : Lists.partition(partitionsNames, BATCH_GET_PARTITIONS_BY_NAMES_MAX_PAGE_SIZE)) {
+            metastore.getPartitionsByNames(schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionsNamesBatch).values().stream()
+                    .filter(Optional::isPresent).map(Optional::get)
+                    .map(partition -> new Path(partition.getStorage().getLocation()).toUri())
+                    .map(uri -> tableLocation.toUri().relativize(uri).getPath())
+                    .forEach(partitionsInMetastoreBuilder::add);
+        }
+        return partitionsInMetastoreBuilder.build();
     }
 
     private static List<FileStatus> listDirectory(FileSystem fileSystem, FileStatus current, List<Column> partitionColumns, int depth, boolean caseSensitive)
@@ -220,7 +236,9 @@ public class SyncPartitionMetadataProcedure
                     table.getTableName(),
                     buildPartitionObject(session, table, name),
                     new Path(table.getStorage().getLocation(), name),
-                    PartitionStatistics.empty());
+                    Optional.empty(), // no need for failed attempts cleanup
+                    PartitionStatistics.empty(),
+                    false);
         }
     }
 

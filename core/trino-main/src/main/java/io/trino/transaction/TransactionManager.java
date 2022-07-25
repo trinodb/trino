@@ -14,15 +14,13 @@
 package io.trino.transaction;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.CatalogMetadata;
-import io.trino.security.AccessControl;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 public interface TransactionManager
@@ -32,12 +30,9 @@ public interface TransactionManager
 
     boolean transactionExists(TransactionId transactionId);
 
-    default boolean isAutoCommit(TransactionId transactionId)
-    {
-        return getTransactionInfo(transactionId).isAutoCommitContext();
-    }
-
     TransactionInfo getTransactionInfo(TransactionId transactionId);
+
+    Optional<TransactionInfo> getTransactionInfoIfExist(TransactionId transactionId);
 
     List<TransactionInfo> getAllTransactionInfos();
 
@@ -45,7 +40,9 @@ public interface TransactionManager
 
     TransactionId beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommitContext);
 
-    Map<String, CatalogName> getCatalogNames(TransactionId transactionId);
+    List<CatalogInfo> getCatalogs(TransactionId transactionId);
+
+    Optional<CatalogName> getCatalogName(TransactionId transactionId, String catalogName);
 
     Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName);
 
@@ -68,20 +65,4 @@ public interface TransactionManager
     ListenableFuture<Void> asyncAbort(TransactionId transactionId);
 
     void fail(TransactionId transactionId);
-
-    default void activateTransaction(Session session, boolean transactionControl, AccessControl accessControl)
-    {
-        if (session.getTransactionId().isEmpty()) {
-            return;
-        }
-
-        // reactivate existing transaction
-        TransactionId transactionId = session.getTransactionId().get();
-        if (transactionControl) {
-            trySetActive(transactionId);
-        }
-        else {
-            checkAndSetActive(transactionId);
-        }
-    }
 }

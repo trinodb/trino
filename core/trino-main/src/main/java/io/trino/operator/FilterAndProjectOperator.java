@@ -22,6 +22,7 @@ import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProcessorOperatorFactory;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -52,16 +53,17 @@ public class FilterAndProjectOperator
     {
         AggregatedMemoryContext localAggregatedMemoryContext = newSimpleAggregatedMemoryContext();
         LocalMemoryContext outputMemoryContext = localAggregatedMemoryContext.newLocalMemoryContext(FilterAndProjectOperator.class.getSimpleName());
+        ConnectorSession connectorSession = session.toConnectorSession();
 
         this.pages = sourcePages
                 .flatMap(page -> pageProcessor.createWorkProcessor(
-                        session.toConnectorSession(),
+                        connectorSession,
                         yieldSignal,
                         outputMemoryContext,
                         page,
                         avoidPageMaterialization))
                 .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
-                .withProcessStateMonitor(state -> memoryTrackingContext.localSystemMemoryContext().setBytes(localAggregatedMemoryContext.getBytes()));
+                .blocking(() -> memoryTrackingContext.localUserMemoryContext().setBytes(localAggregatedMemoryContext.getBytes()));
     }
 
     @Override

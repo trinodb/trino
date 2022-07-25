@@ -67,8 +67,7 @@ public class TestThriftProjectionPushdown
     private static final TableHandle NATION_TABLE = new TableHandle(
             new CatalogName(CATALOG),
             NATION_THRIFT_TABLE,
-            ThriftTransactionHandle.INSTANCE,
-            Optional.empty());
+            ThriftTransactionHandle.INSTANCE);
 
     private static final Session SESSION = testSessionBuilder()
             .setCatalog(CATALOG)
@@ -100,7 +99,7 @@ public class TestThriftProjectionPushdown
                 .put("trino.thrift.client.addresses", addresses)
                 .put("trino.thrift.client.connect-timeout", "30s")
                 .put("trino-thrift.lookup-requests-concurrency", "2")
-                .build();
+                .buildOrThrow();
 
         LocalQueryRunner runner = LocalQueryRunner.create(SESSION);
         runner.createCatalog(CATALOG, getOnlyElement(new ThriftPlugin().getConnectorFactories()), connectorProperties);
@@ -129,9 +128,9 @@ public class TestThriftProjectionPushdown
     public void testDoesNotFire()
     {
         PushProjectionIntoTableScan pushProjectionIntoTableScan = new PushProjectionIntoTableScan(
-                tester().getMetadata(),
+                tester().getPlannerContext(),
                 tester().getTypeAnalyzer(),
-                new ScalarStatsCalculator(tester().getMetadata(), tester().getTypeAnalyzer()));
+                new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
 
         String columnName = "orderstatus";
         ColumnHandle columnHandle = new ThriftColumnHandle(columnName, VARCHAR, "", false);
@@ -153,8 +152,7 @@ public class TestThriftProjectionPushdown
                                     new TableHandle(
                                             new CatalogName(CATALOG),
                                             tableWithColumns,
-                                            ThriftTransactionHandle.INSTANCE,
-                                            Optional.empty()),
+                                            ThriftTransactionHandle.INSTANCE),
                                     ImmutableList.of(orderStatusSymbol),
                                     ImmutableMap.of(orderStatusSymbol, columnHandle)));
                 })
@@ -165,9 +163,9 @@ public class TestThriftProjectionPushdown
     public void testProjectionPushdown()
     {
         PushProjectionIntoTableScan pushProjectionIntoTableScan = new PushProjectionIntoTableScan(
-                tester().getMetadata(),
+                tester().getPlannerContext(),
                 tester().getTypeAnalyzer(),
-                new ScalarStatsCalculator(tester().getMetadata(), tester().getTypeAnalyzer()));
+                new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
 
         TableHandle inputTableHandle = NATION_TABLE;
         String columnName = "orderstatus";
@@ -223,7 +221,7 @@ public class TestThriftProjectionPushdown
                                     ImmutableMap.<Symbol, ColumnHandle>builder()
                                             .put(nationKey, nationKeyColumn)
                                             .put(name, nameColumn)
-                                            .build()));
+                                            .buildOrThrow()));
                 })
                 .withSession(SESSION)
                 .matches(project(

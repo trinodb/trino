@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import org.testng.annotations.Test;
 
@@ -23,6 +24,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.UNIFORM;
+import static io.trino.execution.scheduler.NodeSchedulerConfig.SplitsBalancingPolicy.NODE;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestNodeSchedulerConfig
 {
@@ -36,21 +39,27 @@ public class TestNodeSchedulerConfig
                 .setMaxPendingSplitsPerTask(10)
                 .setMaxUnacknowledgedSplitsPerTask(500)
                 .setIncludeCoordinator(true)
-                .setOptimizedLocalScheduling(true));
+                .setSplitsBalancingPolicy(NodeSchedulerConfig.SplitsBalancingPolicy.STAGE)
+                .setOptimizedLocalScheduling(true)
+                .setAllowedNoMatchingNodePeriod(new Duration(2, MINUTES))
+                .setNodeAllocatorType("bin_packing"));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("node-scheduler.policy", "topology")
                 .put("node-scheduler.min-candidates", "11")
                 .put("node-scheduler.include-coordinator", "false")
                 .put("node-scheduler.max-pending-splits-per-task", "11")
                 .put("node-scheduler.max-splits-per-node", "101")
                 .put("node-scheduler.max-unacknowledged-splits-per-task", "501")
+                .put("node-scheduler.splits-balancing-policy", "node")
                 .put("node-scheduler.optimized-local-scheduling", "false")
-                .build();
+                .put("node-scheduler.allowed-no-matching-node-period", "1m")
+                .put("node-scheduler.allocator-type", "fixed_count")
+                .buildOrThrow();
 
         NodeSchedulerConfig expected = new NodeSchedulerConfig()
                 .setNodeSchedulerPolicy("topology")
@@ -59,7 +68,10 @@ public class TestNodeSchedulerConfig
                 .setMaxPendingSplitsPerTask(11)
                 .setMaxUnacknowledgedSplitsPerTask(501)
                 .setMinCandidates(11)
-                .setOptimizedLocalScheduling(false);
+                .setSplitsBalancingPolicy(NODE)
+                .setOptimizedLocalScheduling(false)
+                .setAllowedNoMatchingNodePeriod(new Duration(1, MINUTES))
+                .setNodeAllocatorType("fixed_count");
 
         assertFullMapping(properties, expected);
     }

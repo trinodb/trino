@@ -15,13 +15,14 @@ package io.trino.plugin.hive.metastore;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.HiveMetastoreClosure;
+import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveTableHandle;
 import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.spi.connector.SchemaTableName;
 import org.apache.hadoop.hive.common.ValidTxnWriteIdList;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledFuture;
 
@@ -29,7 +30,6 @@ import static java.util.Objects.requireNonNull;
 
 public class HiveTransaction
 {
-    private final HiveIdentity identity;
     private final String queryId;
     private final long transactionId;
     private final ScheduledFuture<?> heartbeatTask;
@@ -37,9 +37,8 @@ public class HiveTransaction
 
     private final Map<SchemaTableName, ValidTxnWriteIdList> validHiveTransactionsForTable = new HashMap<>();
 
-    public HiveTransaction(HiveIdentity identity, String queryId, long transactionId, ScheduledFuture<?> heartbeatTask, AcidTransaction transaction)
+    public HiveTransaction(String queryId, long transactionId, ScheduledFuture<?> heartbeatTask, AcidTransaction transaction)
     {
-        this.identity = requireNonNull(identity, "identity is null");
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = transactionId;
         this.heartbeatTask = requireNonNull(heartbeatTask, "heartbeatTask is null");
@@ -61,20 +60,34 @@ public class HiveTransaction
         return transaction;
     }
 
-    public ValidTxnWriteIdList getValidWriteIds(HiveMetastoreClosure metastore, HiveTableHandle tableHandle)
+    public ValidTxnWriteIdList getValidWriteIds(
+            AcidTransactionOwner transactionOwner,
+            HiveMetastoreClosure metastore,
+            HiveTableHandle tableHandle)
     {
+        List<SchemaTableName> lockedTables;
+        List<HivePartition> lockedPartitions;
+
+        if (tableHandle.getPartitionColumns().isEmpty() || tableHandle.getPartitions().isEmpty()) {
+            lockedTables = ImmutableList.of(tableHandle.getSchemaTableName());
+            lockedPartitions = ImmutableList.of();
+        }
+        else {
+            lockedTables = ImmutableList.of();
+            lockedPartitions = tableHandle.getPartitions().get();
+        }
+
         // Different calls for same table might need to lock different partitions so acquire locks every time
         metastore.acquireSharedReadLock(
-                identity,
+                transactionOwner,
                 queryId,
                 transactionId,
-                tableHandle.getPartitions().isEmpty() ? ImmutableList.of(tableHandle.getSchemaTableName()) : ImmutableList.of(),
-                tableHandle.getPartitions().orElse(ImmutableList.of()));
+                lockedTables,
+                lockedPartitions);
 
         // For repeatable reads within a query, use the same list of valid transactions for a table which have once been used
         return validHiveTransactionsForTable.computeIfAbsent(tableHandle.getSchemaTableName(), schemaTableName -> new ValidTxnWriteIdList(
                 metastore.getValidWriteIds(
-                        identity,
                         ImmutableList.of(schemaTableName),
                         transactionId)));
     }

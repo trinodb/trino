@@ -13,6 +13,9 @@
  */
 package io.trino.plugin.elasticsearch.decoders;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.plugin.elasticsearch.DecoderDescriptor;
 import io.trino.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
 
@@ -46,6 +49,30 @@ public class ArrayDecoder
             BlockBuilder array = output.beginBlockEntry();
             elementDecoder.decode(hit, () -> data, array);
             output.closeEntry();
+        }
+    }
+
+    public static class Descriptor
+            implements DecoderDescriptor
+    {
+        private final DecoderDescriptor elementDescriptor;
+
+        @JsonCreator
+        public Descriptor(DecoderDescriptor elementDescriptor)
+        {
+            this.elementDescriptor = elementDescriptor;
+        }
+
+        @JsonProperty
+        public DecoderDescriptor getElementDescriptor()
+        {
+            return elementDescriptor;
+        }
+
+        @Override
+        public Decoder createDecoder()
+        {
+            return new ArrayDecoder(elementDescriptor.createDecoder());
         }
     }
 }

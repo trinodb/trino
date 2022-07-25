@@ -54,6 +54,16 @@ public class BoundSignature
         return returnType;
     }
 
+    public int getArity()
+    {
+        return argumentTypes.size();
+    }
+
+    public Type getArgumentType(int index)
+    {
+        return argumentTypes.get(index);
+    }
+
     @JsonProperty
     public List<Type> getArgumentTypes()
     {
@@ -64,7 +74,7 @@ public class BoundSignature
     {
         return Signature.builder()
                 .name(name)
-                .returnType(returnType.getTypeSignature())
+                .returnType(returnType)
                 .argumentTypes(argumentTypes.stream()
                         .map(Type::getTypeSignature)
                         .collect(toImmutableList()))

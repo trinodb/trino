@@ -14,15 +14,16 @@
 package io.trino.plugin.raptor.legacy.metadata;
 
 import io.trino.plugin.raptor.legacy.util.UuidUtil.UuidArgumentFactory;
-import io.trino.plugin.raptor.legacy.util.UuidUtil.UuidMapperFactory;
-import org.skife.jdbi.v2.sqlobject.Bind;
-import org.skife.jdbi.v2.sqlobject.GetGeneratedKeys;
-import org.skife.jdbi.v2.sqlobject.SqlBatch;
-import org.skife.jdbi.v2.sqlobject.SqlQuery;
-import org.skife.jdbi.v2.sqlobject.SqlUpdate;
-import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
-import org.skife.jdbi.v2.sqlobject.customizers.RegisterArgumentFactory;
-import org.skife.jdbi.v2.sqlobject.customizers.RegisterMapperFactory;
+import io.trino.plugin.raptor.legacy.util.UuidUtil.UuidColumnMapper;
+import org.jdbi.v3.sqlobject.config.RegisterArgumentFactory;
+import org.jdbi.v3.sqlobject.config.RegisterColumnMapper;
+import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
+import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
+import org.jdbi.v3.sqlobject.customizer.Bind;
+import org.jdbi.v3.sqlobject.statement.GetGeneratedKeys;
+import org.jdbi.v3.sqlobject.statement.SqlBatch;
+import org.jdbi.v3.sqlobject.statement.SqlQuery;
+import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 import java.sql.Timestamp;
 import java.util.List;
@@ -30,7 +31,11 @@ import java.util.Set;
 import java.util.UUID;
 
 @RegisterArgumentFactory(UuidArgumentFactory.class)
-@RegisterMapperFactory(UuidMapperFactory.class)
+@RegisterColumnMapper(UuidColumnMapper.class)
+@RegisterConstructorMapper(BucketNode.class)
+@RegisterConstructorMapper(NodeSize.class)
+@RegisterConstructorMapper(RaptorNode.class)
+@RegisterRowMapper(ShardMetadata.Mapper.class)
 public interface ShardDao
 {
     int CLEANABLE_SHARDS_BATCH_SIZE = 1000;
@@ -40,30 +45,28 @@ public interface ShardDao
 
     @SqlUpdate("INSERT INTO nodes (node_identifier) VALUES (:nodeIdentifier)")
     @GetGeneratedKeys
-    int insertNode(@Bind("nodeIdentifier") String nodeIdentifier);
+    int insertNode(String nodeIdentifier);
 
     @SqlUpdate("INSERT INTO shard_nodes (shard_id, node_id)\n" +
             "VALUES ((SELECT shard_id FROM shards WHERE shard_uuid = :shardUuid), :nodeId)")
-    void insertShardNode(@Bind("shardUuid") UUID shardUuid, @Bind("nodeId") int nodeId);
+    void insertShardNode(UUID shardUuid, int nodeId);
 
     @SqlBatch("DELETE FROM shard_nodes\n" +
             "WHERE shard_id = (SELECT shard_id FROM shards WHERE shard_uuid = :shardUuid)\n" +
             "  AND node_id = :nodeId")
-    void deleteShardNodes(@Bind("shardUuid") UUID shardUuid, @Bind("nodeId") Iterable<Integer> nodeId);
+    void deleteShardNodes(UUID shardUuid, @Bind("nodeId") Iterable<Integer> nodeIds);
 
     @SqlQuery("SELECT node_id FROM nodes WHERE node_identifier = :nodeIdentifier")
-    Integer getNodeId(@Bind("nodeIdentifier") String nodeIdentifier);
+    Integer getNodeId(String nodeIdentifier);
 
     @SqlQuery("SELECT node_identifier FROM nodes WHERE node_id = :nodeId")
-    String getNodeIdentifier(@Bind("nodeId") int nodeId);
+    String getNodeIdentifier(int nodeId);
 
     @SqlQuery("SELECT node_id, node_identifier FROM nodes")
-    @Mapper(RaptorNode.Mapper.class)
     List<RaptorNode> getNodes();
 
     @SqlQuery("SELECT " + SHARD_METADATA_COLUMNS + " FROM shards WHERE shard_uuid = :shardUuid")
-    @Mapper(ShardMetadata.Mapper.class)
-    ShardMetadata getShard(@Bind("shardUuid") UUID shardUuid);
+    ShardMetadata getShard(UUID shardUuid);
 
     @SqlQuery("SELECT " + SHARD_METADATA_COLUMNS + "\n" +
             "FROM (\n" +
@@ -86,8 +89,7 @@ public interface ShardDao
             "    WHERE n.node_identifier = :nodeIdentifier\n" +
             "      AND (s.table_id = :tableId OR :tableId IS NULL)\n" +
             ") x")
-    @Mapper(ShardMetadata.Mapper.class)
-    Set<ShardMetadata> getNodeShards(@Bind("nodeIdentifier") String nodeIdentifier, @Bind("tableId") Long tableId);
+    Set<ShardMetadata> getNodeShards(String nodeIdentifier, Long tableId);
 
     @SqlQuery("SELECT n.node_identifier, x.bytes\n" +
             "FROM (\n" +
@@ -109,26 +111,25 @@ public interface ShardDao
             "  GROUP BY node_id\n" +
             ") x\n" +
             "JOIN nodes n ON (x.node_id = n.node_id)")
-    @Mapper(NodeSize.Mapper.class)
     Set<NodeSize> getNodeSizes();
 
     @SqlUpdate("DELETE FROM shard_nodes WHERE shard_id IN (\n" +
             "  SELECT shard_id\n" +
             "  FROM shards\n" +
             "  WHERE table_id = :tableId)")
-    void dropShardNodes(@Bind("tableId") long tableId);
+    void dropShardNodes(long tableId);
 
     @SqlUpdate("DELETE FROM shards WHERE table_id = :tableId")
-    void dropShards(@Bind("tableId") long tableId);
+    void dropShards(long tableId);
 
     @SqlUpdate("INSERT INTO external_batches (external_batch_id, successful)\n" +
             "VALUES (:externalBatchId, TRUE)")
-    void insertExternalBatch(@Bind("externalBatchId") String externalBatchId);
+    void insertExternalBatch(String externalBatchId);
 
     @SqlQuery("SELECT count(*)\n" +
             "FROM external_batches\n" +
             "WHERE external_batch_id = :externalBatchId")
-    boolean externalBatchExists(@Bind("externalBatchId") String externalBatchId);
+    boolean externalBatchExists(String externalBatchId);
 
     @SqlUpdate("INSERT INTO transactions (start_time) VALUES (CURRENT_TIMESTAMP)")
     @GetGeneratedKeys
@@ -140,38 +141,41 @@ public interface ShardDao
             "WHERE transaction_id = :transactionId\n" +
             "  AND successful IS NULL")
     int finalizeTransaction(
-            @Bind("transactionId") long transactionId,
-            @Bind("successful") boolean successful);
+            long transactionId,
+            boolean successful);
 
     @SqlQuery("SELECT successful FROM transactions WHERE transaction_id = :transactionId")
-    Boolean transactionSuccessful(@Bind("transactionId") long transactionId);
+    Boolean transactionSuccessful(long transactionId);
 
     @SqlUpdate("UPDATE transactions SET\n" +
             "  successful = FALSE\n" +
             ", end_time = CURRENT_TIMESTAMP\n" +
             "WHERE successful IS NULL\n" +
             "  AND start_time < :maxStartTime")
-    void abortOldTransactions(@Bind("maxStartTime") Timestamp maxStartTime);
+    void abortOldTransactions(Timestamp maxStartTime);
 
     @SqlUpdate("INSERT INTO created_shards (shard_uuid, transaction_id)\n" +
             "VALUES (:shardUuid, :transactionId)")
     void insertCreatedShard(
-            @Bind("shardUuid") UUID shardUuid,
-            @Bind("transactionId") long transactionId);
+            UUID shardUuid,
+            long transactionId);
 
     @SqlUpdate("DELETE FROM created_shards WHERE transaction_id = :transactionId")
-    void deleteCreatedShards(@Bind("transactionId") long transactionId);
+    void deleteCreatedShards(long transactionId);
 
     @SqlBatch("DELETE FROM created_shards WHERE shard_uuid = :shardUuid")
     void deleteCreatedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);
 
-    void insertDeletedShards(Iterable<UUID> shardUuids);
+    default void insertDeletedShards(Iterable<UUID> shardUuids)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     @SqlUpdate("INSERT INTO deleted_shards (shard_uuid, delete_time)\n" +
             "SELECT shard_uuid, CURRENT_TIMESTAMP\n" +
             "FROM shards\n" +
             "WHERE table_id = :tableId")
-    void insertDeletedShards(@Bind("tableId") long tableId);
+    void insertDeletedShards(long tableId);
 
     @SqlQuery("SELECT s.shard_uuid\n" +
             "FROM created_shards s\n" +
@@ -184,7 +188,7 @@ public interface ShardDao
             "FROM deleted_shards\n" +
             "WHERE delete_time < :maxDeleteTime\n" +
             "LIMIT " + CLEANABLE_SHARDS_BATCH_SIZE)
-    Set<UUID> getCleanableShardsBatch(@Bind("maxDeleteTime") Timestamp maxDeleteTime);
+    Set<UUID> getCleanableShardsBatch(Timestamp maxDeleteTime);
 
     @SqlBatch("DELETE FROM deleted_shards WHERE shard_uuid = :shardUuid")
     void deleteCleanedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);
@@ -192,7 +196,7 @@ public interface ShardDao
     @SqlBatch("INSERT INTO buckets (distribution_id, bucket_number, node_id)\n" +
             "VALUES (:distributionId, :bucketNumber, :nodeId)\n")
     void insertBuckets(
-            @Bind("distributionId") long distributionId,
+            long distributionId,
             @Bind("bucketNumber") List<Integer> bucketNumbers,
             @Bind("nodeId") List<Integer> nodeIds);
 
@@ -201,8 +205,7 @@ public interface ShardDao
             "JOIN nodes n ON (b.node_id = n.node_id)\n" +
             "WHERE b.distribution_id = :distributionId\n" +
             "ORDER BY b.bucket_number")
-    @Mapper(BucketNode.Mapper.class)
-    List<BucketNode> getBucketNodes(@Bind("distributionId") long distributionId);
+    List<BucketNode> getBucketNodes(long distributionId);
 
     @SqlQuery("SELECT distribution_id, distribution_name, column_types, bucket_count\n" +
             "FROM distributions\n" +
@@ -212,15 +215,18 @@ public interface ShardDao
     @SqlQuery("SELECT SUM(compressed_size)\n" +
             "FROM tables\n" +
             "WHERE distribution_id = :distributionId")
-    long getDistributionSizeBytes(@Bind("distributionId") long distributionId);
+    long getDistributionSizeBytes(long distributionId);
 
     @SqlUpdate("UPDATE buckets SET node_id = :nodeId\n" +
             "WHERE distribution_id = :distributionId\n" +
             "  AND bucket_number = :bucketNumber")
     void updateBucketNode(
-            @Bind("distributionId") long distributionId,
-            @Bind("bucketNumber") int bucketNumber,
-            @Bind("nodeId") int nodeId);
+            long distributionId,
+            int bucketNumber,
+            int nodeId);
 
-    int deleteOldCompletedTransactions(@Bind("maxEndTime") Timestamp maxEndTime);
+    default int deleteOldCompletedTransactions(Timestamp maxEndTime)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

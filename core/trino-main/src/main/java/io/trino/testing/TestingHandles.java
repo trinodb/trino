@@ -17,8 +17,6 @@ import io.trino.connector.CatalogName;
 import io.trino.metadata.TableHandle;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 
-import java.util.Optional;
-
 public final class TestingHandles
 {
     private TestingHandles() {}
@@ -26,6 +24,5 @@ public final class TestingHandles
     public static final TableHandle TEST_TABLE_HANDLE = new TableHandle(
             new CatalogName("test"),
             new TestingTableHandle(),
-            TestingTransactionHandle.create(),
-            Optional.of(TestingHandle.INSTANCE));
+            TestingTransactionHandle.create());
 }

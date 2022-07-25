@@ -107,8 +107,8 @@ public class TestKillQuery
     private Session getSession(String user)
     {
         return testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
-                .setSchema(getSession().getSchema().get())
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
                 .setIdentity(Identity.ofUser(user))
                 .build();
     }

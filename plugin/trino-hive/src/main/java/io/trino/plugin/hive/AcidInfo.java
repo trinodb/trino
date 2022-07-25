@@ -19,6 +19,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
 import org.apache.hadoop.fs.Path;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +29,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -35,6 +37,8 @@ import static java.util.Objects.requireNonNull;
  */
 public class AcidInfo
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(AcidInfo.class).instanceSize();
+
     private final String partitionLocation;
     private final List<DeleteDeltaInfo> deleteDeltas;
     private final List<OriginalFileInfo> originalFiles;
@@ -121,8 +125,18 @@ public class AcidInfo
                 .toString();
     }
 
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(partitionLocation)
+                + estimatedSizeOf(deleteDeltas, DeleteDeltaInfo::getRetainedSizeInBytes)
+                + estimatedSizeOf(originalFiles, OriginalFileInfo::getRetainedSizeInBytes);
+    }
+
     public static class DeleteDeltaInfo
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(DeleteDeltaInfo.class).instanceSize();
+
         private final String directoryName;
 
         @JsonCreator
@@ -163,10 +177,17 @@ public class AcidInfo
                     .add("directoryName", directoryName)
                     .toString();
         }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + estimatedSizeOf(directoryName);
+        }
     }
 
     public static class OriginalFileInfo
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(OriginalFileInfo.class).instanceSize();
+
         private final String name;
         private final long fileSize;
 
@@ -218,6 +239,11 @@ public class AcidInfo
                     .add("name", name)
                     .add("fileSize", fileSize)
                     .toString();
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + estimatedSizeOf(name);
         }
     }
 

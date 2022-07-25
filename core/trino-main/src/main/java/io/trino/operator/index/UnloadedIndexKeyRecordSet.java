@@ -41,6 +41,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.operator.GroupByHash.createGroupByHash;
+import static io.trino.operator.UpdateMemory.NOOP;
 import static io.trino.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
 import static java.util.Objects.requireNonNull;
 
@@ -72,7 +73,7 @@ public class UnloadedIndexKeyRecordSet
         }
 
         ImmutableList.Builder<PageAndPositions> builder = ImmutableList.builder();
-        GroupByHash groupByHash = createGroupByHash(session, distinctChannelTypes, normalizedDistinctChannels, Optional.empty(), 10_000, joinCompiler, blockTypeOperators);
+        GroupByHash groupByHash = createGroupByHash(session, distinctChannelTypes, normalizedDistinctChannels, Optional.empty(), 10_000, joinCompiler, blockTypeOperators, NOOP);
         for (UpdateRequest request : requests) {
             Page page = request.getPage();
 

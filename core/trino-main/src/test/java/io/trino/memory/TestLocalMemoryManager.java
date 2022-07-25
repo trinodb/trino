@@ -18,65 +18,20 @@ import org.testng.annotations.Test;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestLocalMemoryManager
 {
-    @Test
-    public void testReservedMemoryPoolDisabled()
-    {
-        NodeMemoryConfig config = new NodeMemoryConfig()
-                .setHeapHeadroom(DataSize.of(10, GIGABYTE))
-                .setMaxQueryMemoryPerNode(DataSize.of(20, GIGABYTE))
-                .setMaxQueryTotalMemoryPerNode(DataSize.of(20, GIGABYTE));
-
-        LocalMemoryManager localMemoryManager = new LocalMemoryManager(config, DataSize.of(60, GIGABYTE).toBytes());
-        assertFalse(localMemoryManager.getReservedPool().isPresent());
-        assertEquals(localMemoryManager.getPools().size(), 1);
-    }
-
-    @Test
-    public void testReservedMemoryPoolEnabled()
-    {
-        NodeMemoryConfig config = new NodeMemoryConfig()
-                .setReservedPoolDisabled(false)
-                .setHeapHeadroom(DataSize.of(10, GIGABYTE))
-                .setMaxQueryMemoryPerNode(DataSize.of(20, GIGABYTE))
-                .setMaxQueryTotalMemoryPerNode(DataSize.of(20, GIGABYTE));
-
-        LocalMemoryManager localMemoryManager = new LocalMemoryManager(config, DataSize.of(60, GIGABYTE).toBytes());
-        assertTrue(localMemoryManager.getReservedPool().isPresent());
-        assertEquals(localMemoryManager.getPools().size(), 2);
-    }
-
-    @Test
-    public void testMaxQueryMemoryPerNodeBiggerThanQueryTotalMemoryPerNode()
-    {
-        NodeMemoryConfig config = new NodeMemoryConfig()
-                .setHeapHeadroom(DataSize.of(10, GIGABYTE))
-                .setMaxQueryMemoryPerNode(DataSize.of(200, GIGABYTE))
-                .setMaxQueryTotalMemoryPerNode(DataSize.of(20, GIGABYTE));
-
-        assertThatThrownBy(() -> new LocalMemoryManager(config, DataSize.of(60, GIGABYTE).toBytes()))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageStartingWith("Max query memory per node (query.max-memory-per-node) cannot be greater than" +
-                        " the max query total memory per node (query.max-total-memory-per-node)");
-    }
-
     @Test
     public void testNotEnoughAvailableMemory()
     {
         NodeMemoryConfig config = new NodeMemoryConfig()
                 .setHeapHeadroom(DataSize.of(10, GIGABYTE))
-                .setMaxQueryMemoryPerNode(DataSize.of(20, GIGABYTE))
-                .setMaxQueryTotalMemoryPerNode(DataSize.of(20, GIGABYTE));
+                .setMaxQueryMemoryPerNode(DataSize.of(20, GIGABYTE));
 
-        // 25 GB heap is not sufficient for 10 GB heap headroom and 20 GB query.max-total-memory-per-node
+        // 25 GB heap is not sufficient for 10 GB heap headroom and 20 GB query.max-memory-per-node
         assertThatThrownBy(() -> new LocalMemoryManager(config, DataSize.of(25, GIGABYTE).toBytes()))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageMatching("Invalid memory configuration\\. The sum of max total query memory per node .* and heap headroom .*" +
+                .hasMessageMatching("Invalid memory configuration\\. The sum of max query memory per node .* and heap headroom .*" +
                         "cannot be larger than the available heap memory .*");
     }
 }

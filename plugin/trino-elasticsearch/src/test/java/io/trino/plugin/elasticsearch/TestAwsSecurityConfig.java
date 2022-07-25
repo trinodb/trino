@@ -30,22 +30,28 @@ public class TestAwsSecurityConfig
         assertRecordedDefaults(recordDefaults(AwsSecurityConfig.class)
                 .setAccessKey(null)
                 .setSecretKey(null)
-                .setRegion(null));
+                .setRegion(null)
+                .setIamRole(null)
+                .setExternalId(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("elasticsearch.aws.access-key", "access")
                 .put("elasticsearch.aws.secret-key", "secret")
                 .put("elasticsearch.aws.region", "region")
-                .build();
+                .put("elasticsearch.aws.iam-role", "iamRole")
+                .put("elasticsearch.aws.external-id", "externalId")
+                .buildOrThrow();
 
         AwsSecurityConfig expected = new AwsSecurityConfig()
                 .setAccessKey("access")
                 .setSecretKey("secret")
-                .setRegion("region");
+                .setRegion("region")
+                .setIamRole("iamRole")
+                .setExternalId("externalId");
 
         assertFullMapping(properties, expected);
     }

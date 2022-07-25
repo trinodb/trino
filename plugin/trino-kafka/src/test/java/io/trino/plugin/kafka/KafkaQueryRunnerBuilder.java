@@ -29,7 +29,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
 public abstract class KafkaQueryRunnerBuilder
-        extends DistributedQueryRunner.Builder
+        extends DistributedQueryRunner.Builder<KafkaQueryRunnerBuilder>
 {
     protected final TestingKafka testingKafka;
     protected Map<String, String> extraKafkaProperties = ImmutableMap.of();

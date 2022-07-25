@@ -14,16 +14,20 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.metadata.Metadata;
+import io.trino.FeaturesConfig;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.metadata.TypeRegistry;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
 import org.testng.annotations.Test;
 
+import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
@@ -57,9 +61,11 @@ import static org.testng.Assert.fail;
 
 public class TestTypeCoercion
 {
-    private final Metadata metadata = createTestMetadataManager();
-    private final Type re2jType = metadata.getType(RE2J_REGEXP_SIGNATURE);
-    private final TypeCoercion typeCoercion = new TypeCoercion(metadata::getType);
+    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
+    private final TypeManager typeManager = functionResolution.getPlannerContext().getTypeManager();
+    private final Collection<Type> standardTypes = new TypeRegistry(new TypeOperators(), new FeaturesConfig()).getTypes();
+    private final Type re2jType = typeManager.getType(RE2J_REGEXP_SIGNATURE);
+    private final TypeCoercion typeCoercion = new TypeCoercion(typeManager::getType);
 
     @Test
     public void testIsTypeOnlyCoercion()
@@ -107,7 +113,7 @@ public class TestTypeCoercion
 
     private Type mapType(Type keyType, Type valueType)
     {
-        return metadata.getType(TypeSignature.mapType(keyType.getTypeSignature(), valueType.getTypeSignature()));
+        return typeManager.getType(TypeSignature.mapType(keyType.getTypeSignature(), valueType.getTypeSignature()));
     }
 
     @Test
@@ -297,7 +303,7 @@ public class TestTypeCoercion
             for (Type resultType : types) {
                 if (typeCoercion.canCoerce(sourceType, resultType) && sourceType != UNKNOWN && resultType != UNKNOWN) {
                     try {
-                        metadata.getCoercion(sourceType, resultType);
+                        functionResolution.getCoercion(sourceType, resultType);
                     }
                     catch (Exception e) {
                         fail(format("'%s' -> '%s' coercion exists but there is no cast operator", sourceType, resultType), e);
@@ -311,7 +317,7 @@ public class TestTypeCoercion
     {
         ImmutableSet.Builder<Type> builder = ImmutableSet.builder();
         // add unparametrized types
-        builder.addAll(metadata.getTypes());
+        builder.addAll(standardTypes);
         // add corner cases for parametrized types
         builder.add(createDecimalType(1, 0));
         builder.add(createDecimalType(17, 0));

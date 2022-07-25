@@ -13,30 +13,37 @@
  */
 package io.trino.server.security.jwt;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtParser;
-import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.JwtParserBuilder;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.trino.server.security.AbstractBearerAuthenticator;
 import io.trino.server.security.AuthenticationException;
+import io.trino.server.security.UserMapping;
+import io.trino.server.security.UserMappingException;
+import io.trino.spi.security.BasicPrincipal;
+import io.trino.spi.security.Identity;
 
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 
+import java.util.Optional;
+
 import static io.trino.server.security.UserMapping.createUserMapping;
+import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 
 public class JwtAuthenticator
         extends AbstractBearerAuthenticator
 {
     private final JwtParser jwtParser;
+    private final String principalField;
+    private final UserMapping userMapping;
 
     @Inject
-    public JwtAuthenticator(JwtAuthenticatorConfig config, SigningKeyResolver signingKeyResolver)
+    public JwtAuthenticator(JwtAuthenticatorConfig config, @ForJwt SigningKeyResolver signingKeyResolver)
     {
-        super(config.getPrincipalField(), createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile()));
+        principalField = config.getPrincipalField();
 
-        JwtParser jwtParser = Jwts.parser()
+        JwtParserBuilder jwtParser = newJwtParserBuilder()
                 .setSigningKeyResolver(signingKeyResolver);
 
         if (config.getRequiredIssuer() != null) {
@@ -45,17 +52,27 @@ public class JwtAuthenticator
         if (config.getRequiredAudience() != null) {
             jwtParser.requireAudience(config.getRequiredAudience());
         }
-        this.jwtParser = jwtParser;
+        this.jwtParser = jwtParser.build();
+        userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
     }
 
     @Override
-    protected Jws<Claims> parseClaimsJws(String jws)
+    protected Optional<Identity> createIdentity(String token)
+            throws UserMappingException
     {
-        return jwtParser.parseClaimsJws(jws);
+        Optional<String> principal = Optional.ofNullable(jwtParser.parseClaimsJws(token)
+                .getBody()
+                .get(principalField, String.class));
+        if (principal.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(Identity.forUser(userMapping.mapUser(principal.get()))
+                .withPrincipal(new BasicPrincipal(principal.get()))
+                .build());
     }
 
     @Override
-    protected AuthenticationException needAuthentication(ContainerRequestContext request, String message)
+    protected AuthenticationException needAuthentication(ContainerRequestContext request, Optional<String> currentToken, String message)
     {
         return new AuthenticationException(message, "Bearer realm=\"Trino\", token_type=\"JWT\"");
     }

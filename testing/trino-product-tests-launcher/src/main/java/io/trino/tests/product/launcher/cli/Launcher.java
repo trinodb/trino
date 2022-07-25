@@ -13,8 +13,8 @@
  */
 package io.trino.tests.product.launcher.cli;
 
-import com.google.common.io.Resources;
 import io.airlift.units.Duration;
+import io.trino.testing.TestingProperties;
 import io.trino.tests.product.launcher.Extensions;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -23,19 +23,16 @@ import picocli.CommandLine.IFactory;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ListResourceBundle;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.tests.product.launcher.cli.Launcher.EnvironmentCommand;
 import static io.trino.tests.product.launcher.cli.Launcher.SuiteCommand;
 import static io.trino.tests.product.launcher.cli.Launcher.TestCommand;
 import static io.trino.tests.product.launcher.cli.Launcher.VersionProvider;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.IVersionProvider;
 import static picocli.CommandLine.Spec;
@@ -95,7 +92,7 @@ public class Launcher
 
     protected Extensions getExtensions()
     {
-        return new Extensions(binder -> {});
+        return new Extensions(EMPTY_MODULE);
     }
 
     @Command(
@@ -154,7 +151,7 @@ public class Launcher
         @Override
         public String[] getVersion()
         {
-            return new String[] {spec.name() + " " + readProjectVersion()};
+            return new String[] {spec.name() + " " + TestingProperties.getProjectVersion()};
         }
     }
 
@@ -164,29 +161,15 @@ public class Launcher
         @Override
         protected Object[][] getContents()
         {
-            String projectVersion = readProjectVersion();
-
             return new Object[][] {
-                    {"project.version", readProjectVersion()},
+                    {"project.version", TestingProperties.getProjectVersion()},
                     {"product-tests.module", "testing/trino-product-tests"},
                     {"product-tests.name", "trino-product-tests"},
                     {"server.module", "core/trino-server"},
                     {"server.name", "trino-server"},
                     {"launcher.bin", "testing/trino-product-tests-launcher/bin/run-launcher"},
-                    {"cli.bin", format("client/trino-cli/target/trino-cli-%s-executable.jar", projectVersion)}
+                    {"cli.bin", format("client/trino-cli/target/trino-cli-%s-executable.jar", TestingProperties.getProjectVersion())}
             };
-        }
-    }
-
-    private static String readProjectVersion()
-    {
-        try {
-            String version = Resources.toString(Resources.getResource("presto-product-tests-launcher-version.txt"), UTF_8).trim();
-            checkState(!version.isEmpty(), "version is empty");
-            return version;
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
         }
     }
 }

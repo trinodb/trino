@@ -16,11 +16,11 @@ package io.trino.split;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.connector.CatalogName;
-import io.trino.execution.Lifespan;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 
 import javax.annotation.Nullable;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -47,9 +47,9 @@ public class SampledSplitSource
     }
 
     @Override
-    public ListenableFuture<SplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, Lifespan lifespan, int maxSize)
+    public ListenableFuture<SplitBatch> getNextBatch(int maxSize)
     {
-        ListenableFuture<SplitBatch> batch = splitSource.getNextBatch(partitionHandle, lifespan, maxSize);
+        ListenableFuture<SplitBatch> batch = splitSource.getNextBatch(maxSize);
         return Futures.transform(batch, splitBatch -> new SplitBatch(
                 splitBatch.getSplits().stream()
                         .filter(input -> ThreadLocalRandom.current().nextDouble() < sampleRatio)
@@ -67,5 +67,14 @@ public class SampledSplitSource
     public boolean isFinished()
     {
         return splitSource.isFinished();
+    }
+
+    @Override
+    public Optional<List<Object>> getTableExecuteSplitsInfo()
+    {
+        splitSource.getTableExecuteSplitsInfo().ifPresent(splitInfo -> {
+            throw new IllegalStateException("Cannot use SampledSplitSource with SplitSource which returns non-empty TableExecuteSplitsInfo=" + splitInfo);
+        });
+        return Optional.empty();
     }
 }

@@ -26,12 +26,15 @@ import org.apache.parquet.format.DataPageHeaderV2;
 import org.apache.parquet.format.DictionaryPageHeader;
 import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.Util;
+import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 
+import static com.google.common.base.Verify.verify;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static java.util.Objects.requireNonNull;
 
@@ -39,34 +42,56 @@ public class ParquetColumnChunk
 {
     private final Optional<String> fileCreatedBy;
     private final ColumnChunkDescriptor descriptor;
-    private final BasicSliceInput input;
+    private final List<Slice> slices;
+    private int sliceIndex;
+    private BasicSliceInput input;
+    private final OffsetIndex offsetIndex;
 
     public ParquetColumnChunk(
             Optional<String> fileCreatedBy,
             ColumnChunkDescriptor descriptor,
-            Slice data)
+            List<Slice> slices,
+            OffsetIndex offsetIndex)
     {
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
         this.descriptor = descriptor;
-        this.input = data.getInput();
+        this.slices = slices;
+        this.sliceIndex = 0;
+        this.input = slices.get(0).getInput();
+        this.offsetIndex = offsetIndex;
+    }
+
+    private void advanceIfNecessary()
+    {
+        if (input.available() == 0) {
+            sliceIndex++;
+            if (sliceIndex < slices.size()) {
+                input = slices.get(sliceIndex).getInput();
+            }
+        }
     }
 
     protected PageHeader readPageHeader()
             throws IOException
     {
-        return Util.readPageHeader(input);
+        verify(input.available() > 0, "Reached end of input unexpectedly");
+        PageHeader pageHeader = Util.readPageHeader(input);
+        advanceIfNecessary();
+        return pageHeader;
     }
 
     public PageReader readAllPages()
             throws IOException
     {
-        List<DataPage> pages = new ArrayList<>();
+        LinkedList<DataPage> pages = new LinkedList<>();
         DictionaryPage dictionaryPage = null;
         long valueCount = 0;
-        while (valueCount < descriptor.getColumnChunkMetaData().getValueCount()) {
+        int dataPageCount = 0;
+        while (hasMorePages(valueCount, dataPageCount)) {
             PageHeader pageHeader = readPageHeader();
             int uncompressedPageSize = pageHeader.getUncompressed_page_size();
             int compressedPageSize = pageHeader.getCompressed_page_size();
+            OptionalLong firstRowIndex;
             switch (pageHeader.type) {
                 case DICTIONARY_PAGE:
                     if (dictionaryPage != null) {
@@ -75,22 +100,39 @@ public class ParquetColumnChunk
                     dictionaryPage = readDictionaryPage(pageHeader, uncompressedPageSize, compressedPageSize);
                     break;
                 case DATA_PAGE:
-                    valueCount += readDataPageV1(pageHeader, uncompressedPageSize, compressedPageSize, pages);
+                    firstRowIndex = PageReader.getFirstRowIndex(dataPageCount, offsetIndex);
+                    valueCount += readDataPageV1(pageHeader, uncompressedPageSize, compressedPageSize, pages, firstRowIndex);
+                    ++dataPageCount;
                     break;
                 case DATA_PAGE_V2:
-                    valueCount += readDataPageV2(pageHeader, uncompressedPageSize, compressedPageSize, pages);
+                    firstRowIndex = PageReader.getFirstRowIndex(dataPageCount, offsetIndex);
+                    valueCount += readDataPageV2(pageHeader, uncompressedPageSize, compressedPageSize, pages, firstRowIndex);
+                    ++dataPageCount;
                     break;
                 default:
                     input.skip(compressedPageSize);
+                    advanceIfNecessary();
                     break;
             }
         }
-        return new PageReader(descriptor.getColumnChunkMetaData().getCodec(), pages, dictionaryPage);
+        return new PageReader(descriptor.getColumnChunkMetaData().getCodec(), pages, dictionaryPage, offsetIndex, valueCount);
+    }
+
+    private boolean hasMorePages(long valuesCountReadSoFar, int dataPageCountReadSoFar)
+    {
+        if (offsetIndex == null) {
+            return valuesCountReadSoFar < descriptor.getColumnChunkMetaData().getValueCount();
+        }
+        else {
+            return dataPageCountReadSoFar < offsetIndex.getPageCount();
+        }
     }
 
     private Slice getSlice(int size)
     {
-        return input.readSlice(size);
+        Slice slice = input.readSlice(size);
+        advanceIfNecessary();
+        return slice;
     }
 
     private DictionaryPage readDictionaryPage(PageHeader pageHeader, int uncompressedPageSize, int compressedPageSize)
@@ -107,13 +149,15 @@ public class ParquetColumnChunk
             PageHeader pageHeader,
             int uncompressedPageSize,
             int compressedPageSize,
-            List<DataPage> pages)
+            List<DataPage> pages,
+            OptionalLong firstRowIndex)
     {
         DataPageHeader dataHeaderV1 = pageHeader.getData_page_header();
         pages.add(new DataPageV1(
                 getSlice(compressedPageSize),
                 dataHeaderV1.getNum_values(),
                 uncompressedPageSize,
+                firstRowIndex,
                 getParquetEncoding(Encoding.valueOf(dataHeaderV1.getRepetition_level_encoding().name())),
                 getParquetEncoding(Encoding.valueOf(dataHeaderV1.getDefinition_level_encoding().name())),
                 getParquetEncoding(Encoding.valueOf(dataHeaderV1.getEncoding().name()))));
@@ -124,7 +168,8 @@ public class ParquetColumnChunk
             PageHeader pageHeader,
             int uncompressedPageSize,
             int compressedPageSize,
-            List<DataPage> pages)
+            List<DataPage> pages,
+            OptionalLong firstRowIndex)
     {
         DataPageHeaderV2 dataHeaderV2 = pageHeader.getData_page_header_v2();
         int dataSize = compressedPageSize - dataHeaderV2.getRepetition_levels_byte_length() - dataHeaderV2.getDefinition_levels_byte_length();
@@ -137,6 +182,7 @@ public class ParquetColumnChunk
                 getParquetEncoding(Encoding.valueOf(dataHeaderV2.getEncoding().name())),
                 getSlice(dataSize),
                 uncompressedPageSize,
+                firstRowIndex,
                 MetadataReader.readStats(
                         fileCreatedBy,
                         Optional.ofNullable(dataHeaderV2.getStatistics()),

@@ -19,6 +19,7 @@ import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import net.jodah.failsafe.Timeout;
 import org.testcontainers.containers.MSSQLServerContainer;
+import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.Closeable;
@@ -60,7 +61,9 @@ public final class TestingSqlServer
                     event.getAttemptCount(),
                     event.getLastFailure().getMessage()));
 
-    private static final DockerImageName DOCKER_IMAGE_NAME = DockerImageName.parse("mcr.microsoft.com/mssql/server:2017-CU13");
+    private static final DockerImageName IMAGE_NAME = DockerImageName.parse("mcr.microsoft.com/mssql/server");
+    public static final String DEFAULT_VERSION = "2017-CU13";
+    public static final String LATEST_VERSION = "2019-CU13-ubuntu-20.04";
 
     private final MSSQLServerContainer<?> container;
     private final String databaseName;
@@ -68,27 +71,55 @@ public final class TestingSqlServer
 
     public TestingSqlServer()
     {
-        this(DEFAULT_DATABASE_SETUP);
+        this(DEFAULT_VERSION, DEFAULT_DATABASE_SETUP);
+    }
+
+    public TestingSqlServer(String version)
+    {
+        this(version, DEFAULT_DATABASE_SETUP);
     }
 
     public TestingSqlServer(BiConsumer<SqlExecutor, String> databaseSetUp)
     {
+        this(DEFAULT_VERSION, databaseSetUp);
+    }
+
+    public TestingSqlServer(String version, BiConsumer<SqlExecutor, String> databaseSetUp)
+    {
         InitializedState initializedState = Failsafe.with(CONTAINER_RETRY_POLICY, Timeout.of(Duration.ofMinutes(5)))
-                .get(() -> createContainer(databaseSetUp));
+                .get(() -> createContainer(version, databaseSetUp));
 
         container = initializedState.container;
         databaseName = initializedState.databaseName;
         cleanup = initializedState.cleanup;
 
-        container.withUrlParam("database", databaseName);
+        container.withUrlParam("database", databaseName)
+                // Instead of having a statement block forever (the default)
+                // Throws SQLServerException with SQLServerError code 1222  "Lock request time out period exceeded"
+                .withUrlParam("lockTimeout", Integer.toString(60 * 1000));
     }
 
-    private static InitializedState createContainer(BiConsumer<SqlExecutor, String> databaseSetUp)
+    private static InitializedState createContainer(String version, BiConsumer<SqlExecutor, String> databaseSetUp)
     {
-        String databaseName = "database_" + UUID.randomUUID().toString().replace("-", "");
-
-        MSSQLServerContainer<?> container = new MSSQLServerContainer(DOCKER_IMAGE_NAME)
+        class TestingMSSQLServerContainer
+                extends MSSQLServerContainer<TestingMSSQLServerContainer>
         {
+            TestingMSSQLServerContainer(DockerImageName dockerImageName)
+            {
+                super(dockerImageName);
+                waitStrategy = new LogMessageWaitStrategy()
+                        .withRegEx(".*The default collation was successfully changed.*")
+                        .withTimes(1)
+                        .withStartupTimeout(Duration.of(240, ChronoUnit.SECONDS));
+            }
+
+            @Override
+            protected void waitUntilContainerStarted()
+            {
+                super.waitUntilContainerStarted();
+                getWaitStrategy().waitUntilReady(this);
+            }
+
             @Override
             public String getUsername()
             {
@@ -96,10 +127,17 @@ public final class TestingSqlServer
                 // so user name has to be overridden to match actual case
                 return super.getUsername().toLowerCase(ENGLISH);
             }
-        };
-        container.addEnv("ACCEPT_EULA", "yes");
+        }
+
+        String databaseName = "database_" + UUID.randomUUID().toString().replace("-", "");
+        MSSQLServerContainer<?> container = new TestingMSSQLServerContainer(IMAGE_NAME.withTag(version));
+        container.acceptLicense();
         // enable case sensitive (see the CS below) collation for SQL identifiers
         container.addEnv("MSSQL_COLLATION", "Latin1_General_CS_AS");
+
+        // TLS and certificate validation are on by default, and need
+        // to be disabled for tests.
+        container.withUrlParam("encrypt", "false");
 
         Closeable cleanup = startOrReuse(container);
         try {

@@ -13,7 +13,7 @@
  */
 package io.trino.sql.parser;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.parser.ParserAssert.type;
 import static io.trino.sql.parser.TreeNodes.dateTimeType;

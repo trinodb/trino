@@ -45,7 +45,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.operator.PageUtils.recordMaterializedBytes;
 import static io.trino.operator.WorkProcessor.ProcessState.finished;
 import static io.trino.operator.WorkProcessor.ProcessState.ofResult;
-import static io.trino.operator.WorkProcessor.ProcessState.yield;
+import static io.trino.operator.WorkProcessor.ProcessState.yielded;
 import static io.trino.operator.project.SelectedPositions.positionsRange;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static java.util.Objects.requireNonNull;
@@ -64,7 +64,6 @@ public class PageProcessor
 
     private int projectBatchSize;
 
-    @VisibleForTesting
     public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections, OptionalInt initialBatchSize)
     {
         this(filter, projections, initialBatchSize, new ExpressionProfiler());
@@ -131,6 +130,10 @@ public class PageProcessor
             if (selectedPositions.size() != page.getPositionCount()) {
                 return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, page, selectedPositions, avoidPageMaterialization));
             }
+        }
+        else if (projections.isEmpty()) {
+            // retained memory for empty page is negligible
+            return WorkProcessor.of(new Page(page.getPositionCount()));
         }
 
         return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, page, positionsRange(0, page.getPositionCount()), avoidPageMaterialization));
@@ -209,7 +212,7 @@ public class PageProcessor
                     lastComputeYielded = true;
                     lastComputeBatchSize = batchSize;
                     updateRetainedSize();
-                    return yield();
+                    return yielded();
                 }
 
                 if (result.isPageTooLarge()) {

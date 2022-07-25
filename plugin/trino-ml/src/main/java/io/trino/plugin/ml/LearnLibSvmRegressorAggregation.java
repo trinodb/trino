@@ -19,7 +19,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
@@ -55,12 +54,6 @@ public final class LearnLibSvmRegressorAggregation
         state.addMemoryUsage(featureVector.getEstimatedSize());
         state.getFeatureVectors().add(featureVector);
         state.setParameters(parameters);
-    }
-
-    @CombineFunction
-    public static void combine(@AggregationState LearnState state, @AggregationState LearnState otherState)
-    {
-        throw new UnsupportedOperationException("LEARN must run on a single machine");
     }
 
     @OutputFunction(RegressorType.NAME)

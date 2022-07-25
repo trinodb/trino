@@ -20,6 +20,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 
@@ -27,20 +28,15 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static io.trino.spi.HostAddress.fromParts;
-import static java.util.stream.Collectors.toList;
-
 public class MongoSplitManager
         implements ConnectorSplitManager
 {
     private final List<HostAddress> addresses;
 
     @Inject
-    public MongoSplitManager(MongoClientConfig config)
+    public MongoSplitManager(MongoSession session)
     {
-        this.addresses = config.getSeeds().stream()
-                .map(s -> fromParts(s.getHost(), s.getPort()))
-                .collect(toList());
+        this.addresses = session.getAddresses();
     }
 
     @Override
@@ -48,8 +44,8 @@ public class MongoSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle table,
-            SplitSchedulingStrategy splitSchedulingStrategy,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
         MongoSplit split = new MongoSplit(addresses);
 

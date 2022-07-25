@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
@@ -22,6 +23,7 @@ import io.airlift.units.MaxDataSize;
 import javax.validation.constraints.Min;
 
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 @DefunctConfig({
         "dynamic-filtering-max-per-driver-row-count",
@@ -34,22 +36,27 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 public class DynamicFilterConfig
 {
     private boolean enableDynamicFiltering = true;
+    private boolean enableCoordinatorDynamicFiltersDistribution = true;
     private boolean enableLargeDynamicFilters;
     private int serviceThreadCount = 2;
 
     private int smallBroadcastMaxDistinctValuesPerDriver = 200;
     private DataSize smallBroadcastMaxSizePerDriver = DataSize.of(20, KILOBYTE);
     private int smallBroadcastRangeRowLimitPerDriver = 400;
+    private DataSize smallBroadcastMaxSizePerOperator = DataSize.of(200, KILOBYTE);
     private int smallPartitionedMaxDistinctValuesPerDriver = 20;
     private DataSize smallPartitionedMaxSizePerDriver = DataSize.of(10, KILOBYTE);
     private int smallPartitionedRangeRowLimitPerDriver = 100;
+    private DataSize smallPartitionedMaxSizePerOperator = DataSize.of(100, KILOBYTE);
 
     private int largeBroadcastMaxDistinctValuesPerDriver = 5_000;
     private DataSize largeBroadcastMaxSizePerDriver = DataSize.of(500, KILOBYTE);
     private int largeBroadcastRangeRowLimitPerDriver = 10_000;
+    private DataSize largeBroadcastMaxSizePerOperator = DataSize.of(5, MEGABYTE);
     private int largePartitionedMaxDistinctValuesPerDriver = 500;
     private DataSize largePartitionedMaxSizePerDriver = DataSize.of(50, KILOBYTE);
     private int largePartitionedRangeRowLimitPerDriver = 1_000;
+    private DataSize largePartitionedMaxSizePerOperator = DataSize.of(500, KILOBYTE);
 
     public boolean isEnableDynamicFiltering()
     {
@@ -61,6 +68,19 @@ public class DynamicFilterConfig
     public DynamicFilterConfig setEnableDynamicFiltering(boolean enableDynamicFiltering)
     {
         this.enableDynamicFiltering = enableDynamicFiltering;
+        return this;
+    }
+
+    public boolean isEnableCoordinatorDynamicFiltersDistribution()
+    {
+        return enableCoordinatorDynamicFiltersDistribution;
+    }
+
+    @Config("enable-coordinator-dynamic-filters-distribution")
+    @ConfigDescription("Enable distribution of dynamic filters from coordinator to all workers")
+    public DynamicFilterConfig setEnableCoordinatorDynamicFiltersDistribution(boolean enableCoordinatorDynamicFiltersDistribution)
+    {
+        this.enableCoordinatorDynamicFiltersDistribution = enableCoordinatorDynamicFiltersDistribution;
         return this;
     }
 
@@ -128,6 +148,19 @@ public class DynamicFilterConfig
         return this;
     }
 
+    @MaxDataSize("10MB")
+    public DataSize getSmallBroadcastMaxSizePerOperator()
+    {
+        return smallBroadcastMaxSizePerOperator;
+    }
+
+    @Config("dynamic-filtering.small-broadcast.max-size-per-operator")
+    public DynamicFilterConfig setSmallBroadcastMaxSizePerOperator(DataSize smallBroadcastMaxSizePerOperator)
+    {
+        this.smallBroadcastMaxSizePerOperator = smallBroadcastMaxSizePerOperator;
+        return this;
+    }
+
     @Min(0)
     public int getSmallPartitionedMaxDistinctValuesPerDriver()
     {
@@ -164,6 +197,19 @@ public class DynamicFilterConfig
     public DynamicFilterConfig setSmallPartitionedRangeRowLimitPerDriver(int smallPartitionedRangeRowLimitPerDriver)
     {
         this.smallPartitionedRangeRowLimitPerDriver = smallPartitionedRangeRowLimitPerDriver;
+        return this;
+    }
+
+    @MaxDataSize("10MB")
+    public DataSize getSmallPartitionedMaxSizePerOperator()
+    {
+        return smallPartitionedMaxSizePerOperator;
+    }
+
+    @Config("dynamic-filtering.small-partitioned.max-size-per-operator")
+    public DynamicFilterConfig setSmallPartitionedMaxSizePerOperator(DataSize smallPartitionedMaxSizePerOperator)
+    {
+        this.smallPartitionedMaxSizePerOperator = smallPartitionedMaxSizePerOperator;
         return this;
     }
 
@@ -206,6 +252,19 @@ public class DynamicFilterConfig
         return this;
     }
 
+    @MaxDataSize("100MB")
+    public DataSize getLargeBroadcastMaxSizePerOperator()
+    {
+        return largeBroadcastMaxSizePerOperator;
+    }
+
+    @Config("dynamic-filtering.large-broadcast.max-size-per-operator")
+    public DynamicFilterConfig setLargeBroadcastMaxSizePerOperator(DataSize largeBroadcastMaxSizePerOperator)
+    {
+        this.largeBroadcastMaxSizePerOperator = largeBroadcastMaxSizePerOperator;
+        return this;
+    }
+
     @Min(0)
     public int getLargePartitionedMaxDistinctValuesPerDriver()
     {
@@ -242,6 +301,19 @@ public class DynamicFilterConfig
     public DynamicFilterConfig setLargePartitionedRangeRowLimitPerDriver(int largePartitionedRangeRowLimitPerDriver)
     {
         this.largePartitionedRangeRowLimitPerDriver = largePartitionedRangeRowLimitPerDriver;
+        return this;
+    }
+
+    @MaxDataSize("50MB")
+    public DataSize getLargePartitionedMaxSizePerOperator()
+    {
+        return largePartitionedMaxSizePerOperator;
+    }
+
+    @Config("dynamic-filtering.large-partitioned.max-size-per-operator")
+    public DynamicFilterConfig setLargePartitionedMaxSizePerOperator(DataSize largePartitionedMaxSizePerOperator)
+    {
+        this.largePartitionedMaxSizePerOperator = largePartitionedMaxSizePerOperator;
         return this;
     }
 }

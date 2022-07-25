@@ -29,12 +29,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.assertions.Assert.assertEquals;
 
 public class TestPlanNodeSearcher
 {
-    private static final PlanBuilder BUILDER = new PlanBuilder(new PlanNodeIdAllocator(), new AbstractMockMetadata() {});
+    private static final PlanBuilder BUILDER = new PlanBuilder(new PlanNodeIdAllocator(), new AbstractMockMetadata() {}, TEST_SESSION);
 
     @Test
     public void testFindAll()

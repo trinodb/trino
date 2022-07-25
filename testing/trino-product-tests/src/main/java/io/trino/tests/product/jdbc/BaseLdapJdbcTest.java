@@ -87,7 +87,7 @@ public abstract class BaseLdapJdbcTest
     {
         assertThatThrownBy(() -> executeLdapQuery(NATION_SELECT_ALL_QUERY, user, password))
                 .isInstanceOf(SQLException.class)
-                .hasMessage(message);
+                .hasMessageContaining(message);
     }
 
     protected QueryResult executeLdapQuery(String query, String name, String password)

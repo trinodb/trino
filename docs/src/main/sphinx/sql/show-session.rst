@@ -12,8 +12,13 @@ Synopsis
 Description
 -----------
 
-List the current session properties.
-The ``LIKE`` clause can be used to restrict the list of session properties.
+List the current :ref:`session properties <session-properties-definition>`.
+
+:ref:`Specify a pattern <like_operator>` in the optional ``LIKE`` clause to
+filter the results to the desired subset. For example, the following query
+allows you to find session properties that begin with ``query``::
+
+    SHOW SESSION LIKE 'query%'
 
 See also
 --------

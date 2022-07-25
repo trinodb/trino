@@ -14,10 +14,10 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.trino.execution.RemoteTask;
-import io.trino.execution.SqlStageExecution;
 import io.trino.execution.TaskStatus;
 import io.trino.metadata.InternalNode;
 
@@ -25,7 +25,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -40,7 +39,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class ScaledWriterScheduler
         implements StageScheduler
 {
-    private final SqlStageExecution stage;
+    private final StageExecution stage;
     private final Supplier<Collection<TaskStatus>> sourceTasksProvider;
     private final Supplier<Collection<TaskStatus>> writerTasksProvider;
     private final NodeSelector nodeSelector;
@@ -51,7 +50,7 @@ public class ScaledWriterScheduler
     private volatile SettableFuture<Void> future = SettableFuture.create();
 
     public ScaledWriterScheduler(
-            SqlStageExecution stage,
+            StageExecution stage,
             Supplier<Collection<TaskStatus>> sourceTasksProvider,
             Supplier<Collection<TaskStatus>> writerTasksProvider,
             NodeSelector nodeSelector,
@@ -120,7 +119,7 @@ public class ScaledWriterScheduler
 
         ImmutableList.Builder<RemoteTask> tasks = ImmutableList.builder();
         for (InternalNode node : nodes) {
-            Optional<RemoteTask> remoteTask = stage.scheduleTask(node, scheduledNodes.size(), OptionalInt.empty());
+            Optional<RemoteTask> remoteTask = stage.scheduleTask(node, scheduledNodes.size(), ImmutableMultimap.of());
             remoteTask.ifPresent(task -> {
                 tasks.add(task);
                 scheduledNodes.add(node);

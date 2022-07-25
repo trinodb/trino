@@ -29,7 +29,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
-import org.skife.jdbi.v2.IDBI;
+import org.jdbi.v3.core.Jdbi;
 
 import javax.inject.Inject;
 
@@ -72,7 +72,7 @@ public class TableStatsSystemTable
     private final MetadataDao dao;
 
     @Inject
-    public TableStatsSystemTable(@ForMetadata IDBI dbi)
+    public TableStatsSystemTable(@ForMetadata Jdbi dbi)
     {
         this.dao = onDemandDao(dbi, MetadataDao.class);
     }

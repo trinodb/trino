@@ -142,7 +142,7 @@ public class JdbcRecordCursor
         try {
             if (resultSet == null) {
                 Future<ResultSet> resultSetFuture = executor.submit(() -> {
-                    log.debug("Executing: %s", statement.toString());
+                    log.debug("Executing: %s", statement);
                     return statement.executeQuery();
                 });
                 try {
@@ -276,8 +276,8 @@ public class JdbcRecordCursor
                     // statement already closed or cancel is not supported
                 }
             }
-            if (connection != null) {
-                jdbcClient.abortReadConnection(connection);
+            if (connection != null && resultSet != null) {
+                jdbcClient.abortReadConnection(connection, resultSet);
             }
         }
         catch (SQLException | RuntimeException e) {

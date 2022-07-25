@@ -43,10 +43,9 @@ public class TestOraclePoolRemarksReportingConnectorSmokeTest
                         .put("connection-url", oracleServer.getJdbcUrl())
                         .put("connection-user", TEST_USER)
                         .put("connection-password", TEST_PASS)
-                        .put("allow-drop-table", "true")
                         .put("oracle.connection-pool.enabled", "true")
                         .put("oracle.remarks-reporting.enabled", "true")
-                        .build(),
+                        .buildOrThrow(),
                 REQUIRED_TPCH_TABLES);
     }
 

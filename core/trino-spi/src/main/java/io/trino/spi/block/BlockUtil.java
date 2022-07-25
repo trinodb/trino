@@ -181,12 +181,28 @@ final class BlockUtil
         return Arrays.copyOfRange(array, index, index + length);
     }
 
-    static int countUsedPositions(boolean[] positions)
+    static int countSelectedPositionsFromOffsets(boolean[] positions, int[] offsets, int offsetBase)
     {
+        checkArrayRange(offsets, offsetBase, positions.length);
         int used = 0;
-        for (boolean position : positions) {
-            if (position) {
-                used++;
+        for (int i = 0; i < positions.length; i++) {
+            int offsetStart = offsets[offsetBase + i];
+            int offsetEnd = offsets[offsetBase + i + 1];
+            used += ((positions[i] ? 1 : 0) * (offsetEnd - offsetStart));
+        }
+        return used;
+    }
+
+    static int countAndMarkSelectedPositionsFromOffsets(boolean[] positions, int[] offsets, int offsetBase, boolean[] elementPositions)
+    {
+        checkArrayRange(offsets, offsetBase, positions.length);
+        int used = 0;
+        for (int i = 0; i < positions.length; i++) {
+            int offsetStart = offsets[offsetBase + i];
+            int offsetEnd = offsets[offsetBase + i + 1];
+            if (positions[i]) {
+                used += (offsetEnd - offsetStart);
+                Arrays.fill(elementPositions, offsetStart, offsetEnd, true);
             }
         }
         return used;
@@ -208,5 +224,26 @@ final class BlockUtil
             }
         }
         return true;
+    }
+
+    /**
+     * Returns the input blocks array if all blocks are already loaded, otherwise returns a new blocks array with all blocks loaded
+     */
+    static Block[] ensureBlocksAreLoaded(Block[] blocks)
+    {
+        for (int i = 0; i < blocks.length; i++) {
+            Block loaded = blocks[i].getLoadedBlock();
+            if (loaded != blocks[i]) {
+                // Transition to new block creation mode after the first newly loaded block is encountered
+                Block[] loadedBlocks = blocks.clone();
+                loadedBlocks[i++] = loaded;
+                for (; i < blocks.length; i++) {
+                    loadedBlocks[i] = blocks[i].getLoadedBlock();
+                }
+                return loadedBlocks;
+            }
+        }
+        // No newly loaded blocks
+        return blocks;
     }
 }

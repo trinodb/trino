@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.parquet;
 
 import io.airlift.units.DataSize;
+import io.trino.parquet.writer.ParquetWriterOptions;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.testng.annotations.Test;
 
@@ -33,7 +34,8 @@ public class TestParquetWriterConfig
         assertRecordedDefaults(recordDefaults(ParquetWriterConfig.class)
                 .setParquetOptimizedWriterEnabled(false)
                 .setBlockSize(DataSize.ofBytes(ParquetWriter.DEFAULT_BLOCK_SIZE))
-                .setPageSize(DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE)));
+                .setPageSize(DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE))
+                .setBatchSize(ParquetWriterOptions.DEFAULT_BATCH_SIZE));
     }
 
     @Test
@@ -57,12 +59,14 @@ public class TestParquetWriterConfig
         Map<String, String> properties = Map.of(
                 "parquet.experimental-optimized-writer.enabled", "true",
                 "parquet.writer.block-size", "234MB",
-                "parquet.writer.page-size", "11MB");
+                "parquet.writer.page-size", "11MB",
+                "parquet.writer.batch-size", "100");
 
         ParquetWriterConfig expected = new ParquetWriterConfig()
                 .setParquetOptimizedWriterEnabled(true)
                 .setBlockSize(DataSize.of(234, MEGABYTE))
-                .setPageSize(DataSize.of(11, MEGABYTE));
+                .setPageSize(DataSize.of(11, MEGABYTE))
+                .setBatchSize(100);
 
         assertFullMapping(properties, expected);
     }

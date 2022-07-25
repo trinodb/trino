@@ -29,7 +29,7 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.sql.planner.assertions.PatternRecognitionMatcher.rewrite;
+import static io.trino.sql.planner.assertions.PatternRecognitionExpressionRewriter.rewrite;
 import static java.util.Objects.requireNonNull;
 
 public class MeasureMatcher

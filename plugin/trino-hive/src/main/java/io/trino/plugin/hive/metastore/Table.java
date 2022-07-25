@@ -40,7 +40,7 @@ public class Table
 {
     private final String databaseName;
     private final String tableName;
-    private final String owner;
+    private final Optional<String> owner;
     private final String tableType; // This is not an enum because some Hive implementations define additional table types.
     private final List<Column> dataColumns;
     private final List<Column> partitionColumns;
@@ -54,7 +54,7 @@ public class Table
     public Table(
             @JsonProperty("databaseName") String databaseName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("owner") String owner,
+            @JsonProperty("owner") Optional<String> owner,
             @JsonProperty("tableType") String tableType,
             @JsonProperty("storage") Storage storage,
             @JsonProperty("dataColumns") List<Column> dataColumns,
@@ -96,7 +96,7 @@ public class Table
     }
 
     @JsonProperty
-    public String getOwner()
+    public Optional<String> getOwner()
     {
         return owner;
     }
@@ -227,7 +227,7 @@ public class Table
         private final Storage.Builder storageBuilder;
         private String databaseName;
         private String tableName;
-        private String owner;
+        private Optional<String> owner;
         private String tableType;
         private List<Column> dataColumns = new ArrayList<>();
         private List<Column> partitionColumns = new ArrayList<>();
@@ -268,7 +268,7 @@ public class Table
             return this;
         }
 
-        public Builder setOwner(String owner)
+        public Builder setOwner(Optional<String> owner)
         {
             this.owner = owner;
             return this;

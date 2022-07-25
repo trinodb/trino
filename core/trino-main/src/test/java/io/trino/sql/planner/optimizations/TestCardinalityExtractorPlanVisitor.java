@@ -25,6 +25,7 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.AggregationNode;
 import org.testng.annotations.Test;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
 import static java.util.Collections.emptyList;
@@ -35,7 +36,7 @@ public class TestCardinalityExtractorPlanVisitor
     @Test
     public void testLimitOnTopOfValues()
     {
-        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata());
+        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata(), TEST_SESSION);
 
         assertEquals(
                 extractCardinality(planBuilder.limit(3, planBuilder.values(emptyList(), ImmutableList.of(emptyList())))),
@@ -49,7 +50,7 @@ public class TestCardinalityExtractorPlanVisitor
     @Test
     public void testAggregation()
     {
-        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata());
+        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata(), TEST_SESSION);
         Symbol symbol = planBuilder.symbol("symbol");
         ColumnHandle columnHandle = new TestingColumnHandle("column");
 

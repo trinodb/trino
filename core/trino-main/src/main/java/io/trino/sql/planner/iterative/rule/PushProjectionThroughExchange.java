@@ -198,6 +198,6 @@ public class PushProjectionThroughExchange
         for (int i = 0; i < exchange.getOutputSymbols().size(); i++) {
             outputToInputMap.put(exchange.getOutputSymbols().get(i), exchange.getInputs().get(sourceIndex).get(i));
         }
-        return outputToInputMap.build();
+        return outputToInputMap.buildOrThrow();
     }
 }

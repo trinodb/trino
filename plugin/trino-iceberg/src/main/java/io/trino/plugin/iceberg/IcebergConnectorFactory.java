@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.inject.Binder;
+import com.google.inject.Module;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -22,10 +24,24 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.trino.plugin.base.Versions.checkSpiVersion;
+import static java.util.Objects.requireNonNull;
 
 public class IcebergConnectorFactory
         implements ConnectorFactory
 {
+    private final Class<? extends Module> module;
+
+    public IcebergConnectorFactory()
+    {
+        this(EmptyModule.class);
+    }
+
+    public IcebergConnectorFactory(Class<? extends Module> module)
+    {
+        this.module = requireNonNull(module, "module is null");
+    }
+
     @Override
     public String getName()
     {
@@ -35,11 +51,15 @@ public class IcebergConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
+        checkSpiVersion(context, this);
+
         ClassLoader classLoader = context.duplicatePluginClassLoader();
         try {
+            Object moduleInstance = classLoader.loadClass(module.getName()).getConstructor().newInstance();
+            Class<?> moduleClass = classLoader.loadClass(Module.class.getName());
             return (Connector) classLoader.loadClass(InternalIcebergConnectorFactory.class.getName())
-                    .getMethod("createConnector", String.class, Map.class, ConnectorContext.class, Optional.class, boolean.class)
-                    .invoke(null, catalogName, config, context, Optional.empty(), false);
+                    .getMethod("createConnector", String.class, Map.class, ConnectorContext.class, moduleClass, Optional.class, Optional.class)
+                    .invoke(null, catalogName, config, context, moduleInstance, Optional.empty(), Optional.empty());
         }
         catch (InvocationTargetException e) {
             Throwable targetException = e.getTargetException();
@@ -49,5 +69,12 @@ public class IcebergConnectorFactory
         catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static class EmptyModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder) {}
     }
 }

@@ -35,12 +35,12 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.jmh.Benchmarks.benchmark;
@@ -51,6 +51,7 @@ import static io.trino.orc.OrcTester.READER_OPTIONS;
 import static io.trino.orc.OrcTester.writeOrcColumnHive;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.UUID.randomUUID;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -88,15 +89,15 @@ public class BenchmarkOrcDecimalReader
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private File temporary;
+        private Path temporary;
         private File dataPath;
 
         @Setup
         public void setup()
                 throws Exception
         {
-            temporary = createTempDir();
-            dataPath = new File(temporary, randomUUID().toString());
+            temporary = createTempDirectory(null);
+            dataPath = temporary.resolve(randomUUID().toString()).toFile();
 
             writeOrcColumnHive(dataPath, ORC_12, NONE, DECIMAL_TYPE, createDecimalValues().iterator());
         }
@@ -105,7 +106,7 @@ public class BenchmarkOrcDecimalReader
         public void tearDown()
                 throws IOException
         {
-            deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
+            deleteRecursively(temporary, ALLOW_INSECURE);
         }
 
         private OrcRecordReader createRecordReader()

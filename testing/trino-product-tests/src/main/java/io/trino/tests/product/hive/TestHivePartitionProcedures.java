@@ -29,12 +29,12 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.HIVE_PARTITIONING;
 import static io.trino.tests.product.TestGroups.SMOKE;
 import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
 import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.hive.util.TableLocationUtils.getTablePath;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -209,7 +209,7 @@ public class TestHivePartitionProcedures
 
         assertThat(getPartitionValues(FIRST_TABLE)).containsOnly("a", "b", "c");
 
-        query(format("INSERT INTO %s (val, col) VALUES (10, 'f')", SECOND_TABLE));
+        onTrino().executeQuery(format("INSERT INTO %s (val, col) VALUES (10, 'f')", SECOND_TABLE));
         assertThat(getPartitionValues(SECOND_TABLE)).containsOnly("a", "b", "c", "f");
 
         // Move partition f from SECOND_TABLE to FIRST_TABLE
@@ -241,7 +241,7 @@ public class TestHivePartitionProcedures
 
     private QueryResult dropPartition(String tableName, String partitionCol, String partition)
     {
-        return query(format("CALL system.unregister_partition(\n" +
+        return onTrino().executeQuery(format("CALL system.unregister_partition(\n" +
                         "    schema_name => '%s',\n" +
                         "    table_name => '%s',\n" +
                         "    partition_columns => ARRAY['%s'],\n" +
@@ -251,7 +251,7 @@ public class TestHivePartitionProcedures
 
     private QueryResult addPartition(String tableName, String partitionCol, String partition, String location)
     {
-        return query(format("CALL system.register_partition(\n" +
+        return onTrino().executeQuery(format("CALL system.register_partition(\n" +
                         "    schema_name => '%s',\n" +
                         "    table_name => '%s',\n" +
                         "    partition_columns => ARRAY['%s'],\n" +
@@ -262,7 +262,7 @@ public class TestHivePartitionProcedures
 
     private QueryResult addPartition(String tableName, String partitionCol, String partition)
     {
-        return query(format("CALL system.register_partition(\n" +
+        return onTrino().executeQuery(format("CALL system.register_partition(\n" +
                         "    schema_name => '%s',\n" +
                         "    table_name => '%s',\n" +
                         "    partition_columns => ARRAY['%s'],\n" +
@@ -279,40 +279,40 @@ public class TestHivePartitionProcedures
 
     private static void createPartitionedTable(String tableName)
     {
-        query("DROP TABLE IF EXISTS " + tableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
 
-        query("CREATE TABLE " + tableName + " (val int, col varchar) WITH (format = 'TEXTFILE', partitioned_by = ARRAY['col'])");
-        query("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')");
+        onTrino().executeQuery("CREATE TABLE " + tableName + " (val int, col varchar) WITH (format = 'TEXTFILE', partitioned_by = ARRAY['col'])");
+        onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')");
     }
 
     private static void createView(String viewName, String tableName)
     {
-        query("DROP VIEW IF EXISTS " + viewName);
-        query(format("CREATE VIEW %s AS SELECT val, col FROM %s", viewName, tableName));
+        onTrino().executeQuery("DROP VIEW IF EXISTS " + viewName);
+        onTrino().executeQuery(format("CREATE VIEW %s AS SELECT val, col FROM %s", viewName, tableName));
     }
 
     private static void createUnpartitionedTable(String tableName)
     {
-        query("DROP TABLE IF EXISTS " + tableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
 
-        query("CREATE TABLE " + tableName + " (val int, col varchar) WITH (format = 'TEXTFILE')");
-        query("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')");
+        onTrino().executeQuery("CREATE TABLE " + tableName + " (val int, col varchar) WITH (format = 'TEXTFILE')");
+        onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')");
     }
 
     private Long getTableCount(String tableName)
     {
-        QueryResult countResult = query("SELECT count(*) FROM " + tableName);
+        QueryResult countResult = onTrino().executeQuery("SELECT count(*) FROM " + tableName);
         return (Long) countResult.row(0).get(0);
     }
 
     private Set<String> getPartitionValues(String tableName)
     {
-        return query("SELECT col FROM " + tableName).rows().stream().map(row -> row.get(0)).map(String.class::cast).collect(Collectors.toSet());
+        return onTrino().executeQuery("SELECT col FROM " + tableName).rows().stream().map(row -> row.get(0)).map(String.class::cast).collect(Collectors.toSet());
     }
 
     private Set<Integer> getValues(String tableName)
     {
-        return query("SELECT val FROM " + tableName).column(1).stream()
+        return onTrino().executeQuery("SELECT val FROM " + tableName).column(1).stream()
                 .map(Integer.class::cast)
                 .collect(toImmutableSet());
     }

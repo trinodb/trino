@@ -16,11 +16,20 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.OperatorNotFoundException;
+import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TableFunctionRegistry;
+import io.trino.metadata.TableProceduresPropertyManager;
+import io.trino.metadata.TableProceduresRegistry;
+import io.trino.metadata.TablePropertyManager;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.PlannerContext;
+import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -40,9 +49,10 @@ import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.SymbolReference;
+import io.trino.transaction.NoOpTransactionManager;
 import io.trino.type.TypeCoercion;
 
 import java.util.HashSet;
@@ -75,13 +85,27 @@ import static java.util.stream.Collectors.toList;
 public class RemoveUnsupportedDynamicFilters
         implements PlanOptimizer
 {
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final TypeAnalyzer typeAnalyzer;
 
-    public RemoveUnsupportedDynamicFilters(Metadata metadata)
+    public RemoveUnsupportedDynamicFilters(PlannerContext plannerContext)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.typeAnalyzer = new TypeAnalyzer(new SqlParser(), metadata);
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        // This is a limited type analyzer for the simple expressions used in dynamic filters
+        this.typeAnalyzer = new TypeAnalyzer(
+                plannerContext,
+                new StatementAnalyzerFactory(
+                        plannerContext,
+                        new SqlParser(),
+                        new AllowAllAccessControl(),
+                        new NoOpTransactionManager(),
+                        user -> ImmutableSet.of(),
+                        new TableProceduresRegistry(CatalogServiceProvider.fail("procedures are not supported in testing analyzer")),
+                        new TableFunctionRegistry(CatalogServiceProvider.fail("table functions are not supported in testing analyzer")),
+                        new SessionPropertyManager(),
+                        new TablePropertyManager(CatalogServiceProvider.fail("table properties not supported in testing analyzer")),
+                        new AnalyzePropertyManager(CatalogServiceProvider.fail("analyze properties not supported in testing analyzer")),
+                        new TableProceduresPropertyManager(CatalogServiceProvider.fail("procedures are not supported in testing analyzer"))));
     }
 
     @Override
@@ -102,7 +126,7 @@ public class RemoveUnsupportedDynamicFilters
         {
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
-            this.typeCoercion = new TypeCoercion(metadata::getType);
+            this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         }
 
         @Override
@@ -291,7 +315,7 @@ public class RemoveUnsupportedDynamicFilters
 
         private Expression removeDynamicFilters(Expression expression, Set<DynamicFilterId> allowedDynamicFilterIds, ImmutableSet.Builder<DynamicFilterId> consumedDynamicFilterIds)
         {
-            return combineConjuncts(metadata, extractConjuncts(expression)
+            return combineConjuncts(plannerContext.getMetadata(), extractConjuncts(expression)
                     .stream()
                     .map(this::removeNestedDynamicFilters)
                     .filter(conjunct ->
@@ -332,7 +356,7 @@ public class RemoveUnsupportedDynamicFilters
         private boolean doesSaturatedFloorCastOperatorExist(Type fromType, Type toType)
         {
             try {
-                metadata.getCoercion(SATURATED_FLOOR_CAST, fromType, toType);
+                plannerContext.getMetadata().getCoercion(session, SATURATED_FLOOR_CAST, fromType, toType);
             }
             catch (OperatorNotFoundException e) {
                 return false;
@@ -347,7 +371,7 @@ public class RemoveUnsupportedDynamicFilters
             if (extractResult.getDynamicConjuncts().isEmpty()) {
                 return rewrittenExpression;
             }
-            return combineConjuncts(metadata, extractResult.getStaticConjuncts());
+            return combineConjuncts(plannerContext.getMetadata(), extractResult.getStaticConjuncts());
         }
 
         private Expression removeNestedDynamicFilters(Expression expression)
@@ -355,32 +379,27 @@ public class RemoveUnsupportedDynamicFilters
             return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
             {
                 @Override
-                public Expression rewriteLogicalBinaryExpression(LogicalBinaryExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                public Expression rewriteLogicalExpression(LogicalExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
                 {
-                    LogicalBinaryExpression rewrittenNode = treeRewriter.defaultRewrite(node, context);
+                    LogicalExpression rewrittenNode = treeRewriter.defaultRewrite(node, context);
 
                     boolean modified = (node != rewrittenNode);
                     ImmutableList.Builder<Expression> expressionBuilder = ImmutableList.builder();
-                    if (isDynamicFilter(rewrittenNode.getLeft())) {
-                        expressionBuilder.add(TRUE_LITERAL);
-                        modified = true;
-                    }
-                    else {
-                        expressionBuilder.add(rewrittenNode.getLeft());
-                    }
 
-                    if (isDynamicFilter(rewrittenNode.getRight())) {
-                        expressionBuilder.add(TRUE_LITERAL);
-                        modified = true;
-                    }
-                    else {
-                        expressionBuilder.add(rewrittenNode.getRight());
+                    for (Expression term : rewrittenNode.getTerms()) {
+                        if (isDynamicFilter(term)) {
+                            expressionBuilder.add(TRUE_LITERAL);
+                            modified = true;
+                        }
+                        else {
+                            expressionBuilder.add(term);
+                        }
                     }
 
                     if (!modified) {
                         return node;
                     }
-                    return combinePredicates(metadata, node.getOperator(), expressionBuilder.build());
+                    return combinePredicates(plannerContext.getMetadata(), node.getOperator(), expressionBuilder.build());
                 }
             }, expression);
         }

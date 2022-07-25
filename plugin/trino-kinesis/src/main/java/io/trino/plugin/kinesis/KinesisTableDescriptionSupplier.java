@@ -85,7 +85,7 @@ public class KinesisTableDescriptionSupplier
                 }
             }
 
-            Map<SchemaTableName, KinesisStreamDescription> tableDefinitions = builder.build();
+            Map<SchemaTableName, KinesisStreamDescription> tableDefinitions = builder.buildOrThrow();
             log.debug("Loaded table definitions: %s", tableDefinitions.keySet());
 
             return tableDefinitions;

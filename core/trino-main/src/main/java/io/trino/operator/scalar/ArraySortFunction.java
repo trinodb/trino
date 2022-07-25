@@ -29,12 +29,13 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.OperatorType.COMPARISON;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 
 @ScalarFunction("array_sort")
 @Description("Sorts the given array in ascending order according to the natural ordering of its elements.")
 public final class ArraySortFunction
 {
+    public static final String NAME = "array_sort";
     private final PageBuilder pageBuilder;
     private static final int INITIAL_LENGTH = 128;
     private final IntArrayList positions = new IntArrayList(INITIAL_LENGTH);
@@ -49,7 +50,7 @@ public final class ArraySortFunction
     @SqlType("array(E)")
     public Block sort(
             @OperatorDependency(
-                    operator = COMPARISON,
+                    operator = COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"E", "E"},
                     convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionComparison comparisonOperator,
             @TypeParameter("E") Type type,

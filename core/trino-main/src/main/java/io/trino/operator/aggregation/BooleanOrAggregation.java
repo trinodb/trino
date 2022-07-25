@@ -38,12 +38,12 @@ public final class BooleanOrAggregation
     {
         // if value is true, the result is true
         if (value) {
-            state.setByte(TRUE_VALUE);
+            state.setValue(TRUE_VALUE);
         }
         else {
             // if the current value is unset, set result to false
-            if (state.getByte() == NULL_VALUE) {
-                state.setByte(FALSE_VALUE);
+            if (state.getValue() == NULL_VALUE) {
+                state.setValue(FALSE_VALUE);
             }
         }
     }
@@ -51,12 +51,12 @@ public final class BooleanOrAggregation
     @CombineFunction
     public static void combine(@AggregationState TriStateBooleanState state, @AggregationState TriStateBooleanState otherState)
     {
-        if (state.getByte() == NULL_VALUE) {
-            state.setByte(otherState.getByte());
+        if (state.getValue() == NULL_VALUE) {
+            state.setValue(otherState.getValue());
             return;
         }
-        if (otherState.getByte() == TRUE_VALUE) {
-            state.setByte(otherState.getByte());
+        if (otherState.getValue() == TRUE_VALUE) {
+            state.setValue(otherState.getValue());
         }
     }
 

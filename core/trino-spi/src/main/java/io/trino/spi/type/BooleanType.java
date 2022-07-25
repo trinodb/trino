@@ -17,12 +17,15 @@ import io.airlift.slice.XxHash64;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.ByteArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.ScalarOperator;
 
-import static io.trino.spi.function.OperatorType.COMPARISON;
+import java.util.Optional;
+
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
@@ -40,6 +43,23 @@ public final class BooleanType
     private static final long FALSE_XX_HASH = XxHash64.hash(0);
 
     public static final BooleanType BOOLEAN = new BooleanType();
+
+    /**
+     * This method signifies a contract to callers that as an optimization, they can encode BooleanType blocks as a byte[] directly
+     * and potentially bypass the BlockBuilder / BooleanType abstraction in the name of efficiency. If in the future BooleanType
+     * encoding changes such that {@link ByteArrayBlock} is not always a valid or efficient representation, then this method must be
+     * removed and any usages changed
+     */
+    public static Block wrapByteArrayAsBooleanBlockWithoutNulls(byte[] booleansAsBytes)
+    {
+        return new ByteArrayBlock(booleansAsBytes.length, Optional.empty(), booleansAsBytes);
+    }
+
+    public static Block createBlockForSingleNonNullValue(boolean value)
+    {
+        byte byteValue = value ? (byte) 1 : 0;
+        return new ByteArrayBlock(1, Optional.empty(), new byte[]{byteValue});
+    }
 
     private BooleanType()
     {
@@ -154,7 +174,7 @@ public final class BooleanType
         return value ? TRUE_XX_HASH : FALSE_XX_HASH;
     }
 
-    @ScalarOperator(COMPARISON)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(boolean left, boolean right)
     {
         return Boolean.compare(left, right);

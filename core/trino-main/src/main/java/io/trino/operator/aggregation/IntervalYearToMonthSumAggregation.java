@@ -34,19 +34,18 @@ public final class IntervalYearToMonthSumAggregation
     public static void sum(NullableLongState state, @SqlType(INTERVAL_YEAR_TO_MONTH) long value)
     {
         state.setNull(false);
-        state.setLong(BigintOperators.add(state.getLong(), value));
+        state.setValue(BigintOperators.add(state.getValue(), value));
     }
 
     @CombineFunction
     public static void combine(NullableLongState state, NullableLongState otherState)
     {
         if (state.isNull()) {
-            state.setNull(false);
-            state.setLong(otherState.getLong());
+            state.set(otherState);
             return;
         }
 
-        state.setLong(BigintOperators.add(state.getLong(), otherState.getLong()));
+        state.setValue(BigintOperators.add(state.getValue(), otherState.getValue()));
     }
 
     @OutputFunction(INTERVAL_YEAR_TO_MONTH)

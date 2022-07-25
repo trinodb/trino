@@ -82,6 +82,31 @@ public class KeyValuePairs
         deserialize(requireNonNull(serialized, "serialized is null"));
     }
 
+    // for copying
+    private KeyValuePairs(
+            BlockBuilder keyBlockBuilder,
+            Type keyType,
+            BlockPositionEqual keyEqualOperator,
+            BlockPositionHashCode keyHashCodeOperator,
+            BlockBuilder valueBlockBuilder,
+            Type valueType,
+            int[] keyPositionByHash,
+            int hashCapacity,
+            int maxFill,
+            int hashMask)
+    {
+        this.keyBlockBuilder = keyBlockBuilder;
+        this.keyType = keyType;
+        this.keyEqualOperator = keyEqualOperator;
+        this.keyHashCodeOperator = keyHashCodeOperator;
+        this.valueBlockBuilder = valueBlockBuilder;
+        this.valueType = valueType;
+        this.keyPositionByHash = keyPositionByHash;
+        this.hashCapacity = hashCapacity;
+        this.maxFill = maxFill;
+        this.hashMask = hashMask;
+    }
+
     public Block getKeys()
     {
         return keyBlockBuilder.build();
@@ -199,5 +224,28 @@ public class KeyValuePairs
     private int getMaskedHash(long rawHash)
     {
         return (int) (rawHash & hashMask);
+    }
+
+    public KeyValuePairs copy()
+    {
+        BlockBuilder keyBlockBuilderCopy = null;
+        if (keyBlockBuilder != null) {
+            keyBlockBuilderCopy = (BlockBuilder) keyBlockBuilder.copyRegion(0, keyBlockBuilder.getPositionCount());
+        }
+        BlockBuilder valueBlockBuilderCopy = null;
+        if (valueBlockBuilder != null) {
+            valueBlockBuilderCopy = (BlockBuilder) valueBlockBuilder.copyRegion(0, valueBlockBuilder.getPositionCount());
+        }
+        return new KeyValuePairs(
+                keyBlockBuilderCopy,
+                keyType,
+                keyEqualOperator,
+                keyHashCodeOperator,
+                valueBlockBuilderCopy,
+                valueType,
+                keyPositionByHash.clone(),
+                hashCapacity,
+                maxFill,
+                hashMask);
     }
 }

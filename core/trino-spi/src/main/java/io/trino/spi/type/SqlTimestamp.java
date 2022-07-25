@@ -43,6 +43,9 @@ public final class SqlTimestamp
 
     public static SqlTimestamp newInstance(int precision, long epochMicros, int picosOfMicro)
     {
+        if (precision < 0 || precision > 12) {
+            throw new IllegalArgumentException("Invalid precision: " + precision);
+        }
         if (precision <= 6) {
             if (picosOfMicro != 0) {
                 throw new IllegalArgumentException(format("Expected picosOfMicro to be 0 for precision %s: %s", precision, picosOfMicro));

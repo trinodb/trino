@@ -26,14 +26,11 @@ public class DefaultJdbcMetadataFactory
         implements JdbcMetadataFactory
 {
     private final JdbcClient jdbcClient;
-    private final boolean allowDropTable;
 
     @Inject
-    public DefaultJdbcMetadataFactory(JdbcClient jdbcClient, JdbcMetadataConfig config)
+    public DefaultJdbcMetadataFactory(JdbcClient jdbcClient)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
-        requireNonNull(config, "config is null");
-        this.allowDropTable = config.isAllowDropTable();
     }
 
     @Override
@@ -44,13 +41,14 @@ public class DefaultJdbcMetadataFactory
         return create(new CachingJdbcClient(
                         jdbcClient,
                         Set.of(),
-                        new SingletonJdbcIdentityCacheMapping(),
-                        new Duration(1, DAYS), true),
-                allowDropTable);
+                        new SingletonIdentityCacheMapping(),
+                        new Duration(1, DAYS),
+                        true,
+                        Integer.MAX_VALUE));
     }
 
-    protected JdbcMetadata create(JdbcClient transactionCachingJdbcClient, boolean allowDropTable)
+    protected JdbcMetadata create(JdbcClient transactionCachingJdbcClient)
     {
-        return new DefaultJdbcMetadata(transactionCachingJdbcClient, allowDropTable);
+        return new DefaultJdbcMetadata(transactionCachingJdbcClient, true);
     }
 }

@@ -19,6 +19,17 @@ public interface StageScheduler
         extends Closeable
 {
     /**
+     * Called by the query scheduler when the scheduling process begins.
+     * This method is called before the ExecutionSchedule takes a decision
+     * to schedule a stage but after the query scheduling has been fully initialized.
+     * Within this method the scheduler may decide to schedule tasks that
+     * are necessary for query execution to make progress.
+     * For example the scheduler may decide to schedule a task without
+     * assigning any splits to unblock dynamic filter collection.
+     */
+    default void start() {}
+
+    /**
      * Schedules as much work as possible without blocking.
      * The schedule results is a hint to the query scheduler if and
      * when the stage scheduler should be invoked again.  It is

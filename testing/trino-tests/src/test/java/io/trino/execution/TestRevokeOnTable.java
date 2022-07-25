@@ -45,6 +45,7 @@ public class TestRevokeOnTable
 {
     private static final Session admin = sessionOf("admin");
     private static final Session userWithAllPrivileges = sessionOf(randomUsername());
+    private static final Session userWithCreate = sessionOf(randomUsername());
     private static final Session userWithSelect = sessionOf(randomUsername());
     private static final Session userWithInsert = sessionOf(randomUsername());
     private static final Session userWithUpdate = sessionOf(randomUsername());
@@ -61,6 +62,7 @@ public class TestRevokeOnTable
         Grants<SchemaTableName> tableGrants = new MutableGrants<>();
         tableGrants.grant(new TrinoPrincipal(USER, admin.getUser()), table, EnumSet.allOf(Privilege.class), true);
         tableGrants.grant(new TrinoPrincipal(USER, userWithAllPrivileges.getUser()), table, EnumSet.allOf(Privilege.class), true);
+        tableGrants.grant(new TrinoPrincipal(USER, userWithCreate.getUser()), table, ImmutableSet.of(Privilege.CREATE), true);
         tableGrants.grant(new TrinoPrincipal(USER, userWithSelect.getUser()), table, ImmutableSet.of(Privilege.SELECT), true);
         tableGrants.grant(new TrinoPrincipal(USER, userWithInsert.getUser()), table, ImmutableSet.of(Privilege.INSERT), true);
         tableGrants.grant(new TrinoPrincipal(USER, userWithUpdate.getUser()), table, ImmutableSet.of(Privilege.UPDATE), true);
@@ -118,16 +120,17 @@ public class TestRevokeOnTable
     @Test(dataProvider = "privileges")
     public void testAccessDenied(String privilege)
     {
-        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("REVOKE %s ON SCHEMA default FROM %s", privilege, randomUsername())))
-                .hasMessageContaining(format(
-                        "Access Denied: Cannot revoke privilege %s on schema default",
-                        privilege.equals("ALL PRIVILEGES") ? "SELECT" : privilege));
+        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("REVOKE %s ON TABLE table_one FROM %s", privilege, randomUsername())))
+                .hasMessageContaining(
+                        "Access Denied: Cannot revoke privilege %s on table default.table_one",
+                        privilege.equals("ALL PRIVILEGES") ? "CREATE" : privilege);
     }
 
     @DataProvider(name = "privilegesAndUsers")
     public static Object[][] privilegesAndUsers()
     {
         return new Object[][] {
+                {"CREATE", userWithCreate},
                 {"SELECT", userWithSelect},
                 {"INSERT", userWithInsert},
                 {"UPDATE", userWithUpdate},
@@ -140,6 +143,7 @@ public class TestRevokeOnTable
     public static Object[][] privileges()
     {
         return new Object[][] {
+                {"CREATE"},
                 {"SELECT"},
                 {"INSERT"},
                 {"UPDATE"},

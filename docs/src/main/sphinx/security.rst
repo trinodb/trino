@@ -20,6 +20,8 @@ Cluster access security
   security/inspect-pem
   security/inspect-jks
 
+.. _security-authentication:
+
 Authentication
 ==============
 
@@ -33,6 +35,7 @@ Authentication
   security/oauth2
   security/kerberos
   security/cli
+  security/certificate
   security/jwt
 
 User name management

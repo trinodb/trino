@@ -30,6 +30,10 @@ import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.util.MachineInfo.getAvailablePhysicalProcessorCount;
+import static it.unimi.dsi.fastutil.HashCommon.nextPowerOfTwo;
+import static java.lang.Math.min;
+
 @DefunctConfig({
         "experimental.big-query-max-task-memory",
         "task.max-memory",
@@ -45,6 +49,7 @@ public class TaskManagerConfig
     private boolean taskCpuTimerEnabled = true;
     private boolean statisticsCpuTimerEnabled = true;
     private DataSize maxPartialAggregationMemoryUsage = DataSize.of(16, Unit.MEGABYTE);
+    private DataSize maxPartialTopNMemory = DataSize.of(16, Unit.MEGABYTE);
     private DataSize maxLocalExchangeBufferSize = DataSize.of(32, Unit.MEGABYTE);
     private DataSize maxIndexMemoryUsage = DataSize.of(64, Unit.MEGABYTE);
     private boolean shareIndexLoading;
@@ -66,7 +71,8 @@ public class TaskManagerConfig
     private Duration infoUpdateInterval = new Duration(3, TimeUnit.SECONDS);
 
     private int writerCount = 1;
-    private int taskConcurrency = 16;
+    // cap task concurrency to 32 in order to avoid small pages produced by local partitioning exchanges
+    private int taskConcurrency = min(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 32);
     private int httpResponseThreads = 100;
     private int httpTimeoutThreads = 3;
 
@@ -153,6 +159,19 @@ public class TaskManagerConfig
     public TaskManagerConfig setMaxPartialAggregationMemoryUsage(DataSize maxPartialAggregationMemoryUsage)
     {
         this.maxPartialAggregationMemoryUsage = maxPartialAggregationMemoryUsage;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMaxPartialTopNMemory()
+    {
+        return maxPartialTopNMemory;
+    }
+
+    @Config("task.max-partial-top-n-memory")
+    public TaskManagerConfig setMaxPartialTopNMemory(DataSize maxPartialTopNMemory)
+    {
+        this.maxPartialTopNMemory = maxPartialTopNMemory;
         return this;
     }
 

@@ -16,21 +16,23 @@ package io.trino.orc;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static java.nio.file.Files.createTempDirectory;
 
 class TempFile
         implements Closeable
 {
-    private final File tempDir;
+    private final Path tempDir;
     private final File file;
 
     public TempFile()
+            throws IOException
     {
-        tempDir = createTempDir();
-        file = new File(tempDir, "data.orc");
+        tempDir = createTempDirectory(null);
+        file = tempDir.resolve("data.orc").toFile();
     }
 
     public File getFile()
@@ -43,6 +45,6 @@ class TempFile
             throws IOException
     {
         // hadoop creates crc files that must be deleted also, so just delete the whole directory
-        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+        deleteRecursively(tempDir, ALLOW_INSECURE);
     }
 }

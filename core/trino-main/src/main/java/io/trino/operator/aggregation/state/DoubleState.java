@@ -18,7 +18,7 @@ import io.trino.spi.function.AccumulatorState;
 public interface DoubleState
         extends AccumulatorState
 {
-    double getDouble();
+    double getValue();
 
-    void setDouble(double value);
+    void setValue(double value);
 }

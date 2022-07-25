@@ -19,24 +19,20 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
-import io.trino.metadata.Metadata;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeOperators;
-import io.trino.type.InternalTypeManager;
 
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Locale.ENGLISH;
 
 public final class MetadataUtil
@@ -47,9 +43,7 @@ public final class MetadataUtil
     public static final JsonCodec<PrometheusColumnHandle> COLUMN_CODEC;
     public static final JsonCodec<Map<String, Object>> METRIC_CODEC;
 
-    private static final Metadata METADATA = createTestMetadataManager();
-    private static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA, new TypeOperators());
-    static final MapType varcharMapType = (MapType) TYPE_MANAGER.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
+    static final MapType varcharMapType = (MapType) TESTING_TYPE_MANAGER.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
 
     static {
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
@@ -70,7 +64,7 @@ public final class MetadataUtil
                 .put("timestamp(3) with time zone", TIMESTAMP_COLUMN_TYPE)
                 .put(StandardTypes.DOUBLE, DOUBLE)
                 .put(StandardTypes.VARCHAR, createUnboundedVarcharType())
-                .build();
+                .buildOrThrow();
 
         public TestingTypeDeserializer()
         {

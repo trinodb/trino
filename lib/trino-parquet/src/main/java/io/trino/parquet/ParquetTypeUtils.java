@@ -25,6 +25,8 @@ import org.apache.parquet.schema.DecimalMetadata;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 
+import javax.annotation.Nullable;
+
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -205,6 +207,18 @@ public final class ParquetTypeUtils
         return null;
     }
 
+    @Nullable
+    public static ColumnIO lookupColumnById(GroupColumnIO groupColumnIO, int columnId)
+    {
+        for (int i = 0; i < groupColumnIO.getChildrenCount(); i++) {
+            ColumnIO child = groupColumnIO.getChild(i);
+            if (child.getType().getId().intValue() == columnId) {
+                return child;
+            }
+        }
+        return null;
+    }
+
     public static Optional<DecimalType> createDecimalType(RichColumnDescriptor descriptor)
     {
         if (descriptor.getPrimitiveType().getOriginalType() != DECIMAL) {
@@ -228,15 +242,20 @@ public final class ParquetTypeUtils
     // copied from trino-hive DecimalUtils
     public static long getShortDecimalValue(byte[] bytes)
     {
+        return getShortDecimalValue(bytes, 0, bytes.length);
+    }
+
+    public static long getShortDecimalValue(byte[] bytes, int startOffset, int length)
+    {
         long value = 0;
-        if ((bytes[0] & 0x80) != 0) {
-            for (int i = 0; i < 8 - bytes.length; ++i) {
+        if (bytes[startOffset] < 0) {
+            for (int i = 0; i < 8 - length; ++i) {
                 value |= 0xFFL << (8 * (7 - i));
             }
         }
 
-        for (int i = 0; i < bytes.length; i++) {
-            value |= (bytes[bytes.length - i - 1] & 0xFFL) << (8 * i);
+        for (int i = 0; i < length; i++) {
+            value |= (bytes[startOffset + length - i - 1] & 0xFFL) << (8 * i);
         }
 
         return value;

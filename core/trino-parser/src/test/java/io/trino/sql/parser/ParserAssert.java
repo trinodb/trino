@@ -20,6 +20,7 @@ import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.Statement;
 import org.assertj.core.api.AssertProvider;
 import org.assertj.core.api.RecursiveComparisonAssert;
+import org.assertj.core.api.ThrowableAssertAlternative;
 import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguration;
 import org.assertj.core.presentation.StandardRepresentation;
 
@@ -27,6 +28,7 @@ import java.util.function.Function;
 
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 public class ParserAssert
         extends RecursiveComparisonAssert<ParserAssert>
@@ -50,17 +52,41 @@ public class ParserAssert
 
     public static AssertProvider<ParserAssert> expression(String sql)
     {
-        return createAssertion(expression -> new SqlParser().createExpression(expression, new ParsingOptions(AS_DECIMAL)), sql);
+        return createAssertion(ParserAssert::createExpression, sql);
     }
 
     public static AssertProvider<ParserAssert> statement(String sql)
     {
-        return createAssertion(statement -> new SqlParser().createStatement(statement, new ParsingOptions(AS_DECIMAL)), sql);
+        return createAssertion(ParserAssert::createStatement, sql);
     }
 
     public static AssertProvider<ParserAssert> rowPattern(String sql)
     {
         return createAssertion(new SqlParser()::createRowPattern, sql);
+    }
+
+    private static Expression createExpression(String expression)
+    {
+        return new SqlParser().createExpression(expression, new ParsingOptions(AS_DECIMAL));
+    }
+
+    private static Statement createStatement(String statement)
+    {
+        return new SqlParser().createStatement(statement, new ParsingOptions(AS_DECIMAL));
+    }
+
+    public static ThrowableAssertAlternative<ParsingException> assertExpressionIsInvalid(String sql)
+    {
+        return assertThatExceptionOfType(ParsingException.class)
+                .as("expression: %s", sql)
+                .isThrownBy(() -> createExpression(sql));
+    }
+
+    public static ThrowableAssertAlternative<ParsingException> assertStatementIsInvalid(String sql)
+    {
+        return assertThatExceptionOfType(ParsingException.class)
+                .as("statement: %s", sql)
+                .isThrownBy(() -> createStatement(sql));
     }
 
     private ParserAssert(Node actual, RecursiveComparisonConfiguration recursiveComparisonConfiguration)

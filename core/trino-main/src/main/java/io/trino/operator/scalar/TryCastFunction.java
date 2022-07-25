@@ -14,8 +14,7 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionMetadata;
@@ -28,9 +27,6 @@ import io.trino.spi.type.TypeSignature;
 import java.lang.invoke.MethodHandle;
 
 import static com.google.common.primitives.Primitives.wrap;
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.castableToTypeParameter;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static java.lang.invoke.MethodHandles.catchException;
@@ -45,20 +41,18 @@ public class TryCastFunction
 
     public TryCastFunction()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        "TRY_CAST",
-                        ImmutableList.of(castableToTypeParameter("F", new TypeSignature("T")), typeVariable("T")),
-                        ImmutableList.of(),
-                        new TypeSignature("T"),
-                        ImmutableList.of(new TypeSignature("F")),
-                        false),
-                true,
-                ImmutableList.of(new FunctionArgumentDefinition(false)),
-                true,
-                true,
-                "",
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name("TRY_CAST")
+                        .castableToTypeParameter("F", new TypeSignature("T"))
+                        .typeVariable("T")
+                        .returnType(new TypeSignature("T"))
+                        .argumentType(new TypeSignature("F"))
+                        .build())
+                .nullable()
+                .hidden()
+                .noDescription()
+                .build());
     }
 
     @Override
@@ -70,10 +64,10 @@ public class TryCastFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        Type fromType = functionBinding.getTypeVariable("F");
-        Type toType = functionBinding.getTypeVariable("T");
+        Type fromType = boundSignature.getArgumentType(0);
+        Type toType = boundSignature.getReturnType();
 
         Class<?> returnType = wrap(toType.getJavaType());
 
@@ -86,7 +80,7 @@ public class TryCastFunction
         MethodHandle tryCastHandle = catchException(coercion, RuntimeException.class, exceptionHandler);
 
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL),
                 tryCastHandle);

@@ -23,6 +23,7 @@ import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.BufferResult;
@@ -35,7 +36,9 @@ import io.trino.operator.PipelineContext;
 import io.trino.operator.PipelineStatus;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
+import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
 
@@ -43,8 +46,8 @@ import javax.annotation.Nullable;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executor;
@@ -89,6 +92,7 @@ public class SqlTask
 
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
+    private final AtomicReference<String> traceToken = new AtomicReference<>();
 
     public static SqlTask createSqlTask(
             TaskId taskId,
@@ -100,9 +104,10 @@ public class SqlTask
             Consumer<SqlTask> onDone,
             DataSize maxBufferSize,
             DataSize maxBroadcastBufferSize,
+            ExchangeManagerRegistry exchangeManagerRegistry,
             CounterStat failedTasks)
     {
-        SqlTask sqlTask = new SqlTask(taskId, location, nodeId, queryContext, sqlTaskExecutionFactory, taskNotificationExecutor, maxBufferSize, maxBroadcastBufferSize);
+        SqlTask sqlTask = new SqlTask(taskId, location, nodeId, queryContext, sqlTaskExecutionFactory, taskNotificationExecutor, maxBufferSize, maxBroadcastBufferSize, exchangeManagerRegistry);
         sqlTask.initialize(onDone, failedTasks);
         return sqlTask;
     }
@@ -115,7 +120,8 @@ public class SqlTask
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExecutorService taskNotificationExecutor,
             DataSize maxBufferSize,
-            DataSize maxBroadcastBufferSize)
+            DataSize maxBroadcastBufferSize,
+            ExchangeManagerRegistry exchangeManagerRegistry)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = UUID.randomUUID().toString();
@@ -134,8 +140,9 @@ public class SqlTask
                 maxBroadcastBufferSize,
                 // Pass a memory context supplier instead of a memory context to the output buffer,
                 // because we haven't created the task context that holds the memory context yet.
-                () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext(),
-                () -> notifyStatusChanged());
+                () -> queryContext.getTaskContextByTaskId(taskId).localMemoryContext(),
+                () -> notifyStatusChanged(),
+                exchangeManagerRegistry);
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
     }
 
@@ -175,7 +182,7 @@ public class SqlTask
             if (newState == FAILED || newState == ABORTED) {
                 // don't close buffers for a failed query
                 // closed buffers signal to upstream tasks that everything finished cleanly
-                outputBuffer.fail();
+                outputBuffer.abort();
             }
             else {
                 outputBuffer.destroy();
@@ -278,13 +285,13 @@ public class SqlTask
         }
 
         int queuedPartitionedDrivers = 0;
+        long queuedPartitionedSplitsWeight = 0L;
         int runningPartitionedDrivers = 0;
+        long runningPartitionedSplitsWeight = 0L;
         DataSize physicalWrittenDataSize = DataSize.ofBytes(0);
         DataSize userMemoryReservation = DataSize.ofBytes(0);
-        DataSize systemMemoryReservation = DataSize.ofBytes(0);
+        DataSize peakUserMemoryReservation = DataSize.ofBytes(0);
         DataSize revocableMemoryReservation = DataSize.ofBytes(0);
-        // TODO: add a mechanism to avoid sending the whole completedDriverGroups set over the wire for every task status reply
-        Set<Lifespan> completedDriverGroups = ImmutableSet.of();
         long fullGcCount = 0;
         Duration fullGcTime = new Duration(0, MILLISECONDS);
         long dynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
@@ -292,10 +299,12 @@ public class SqlTask
             TaskInfo taskInfo = taskHolder.getFinalTaskInfo();
             TaskStats taskStats = taskInfo.getStats();
             queuedPartitionedDrivers = taskStats.getQueuedPartitionedDrivers();
+            queuedPartitionedSplitsWeight = taskStats.getQueuedPartitionedSplitsWeight();
             runningPartitionedDrivers = taskStats.getRunningPartitionedDrivers();
+            runningPartitionedSplitsWeight = taskStats.getRunningPartitionedSplitsWeight();
             physicalWrittenDataSize = taskStats.getPhysicalWrittenDataSize();
             userMemoryReservation = taskStats.getUserMemoryReservation();
-            systemMemoryReservation = taskStats.getSystemMemoryReservation();
+            peakUserMemoryReservation = taskStats.getPeakUserMemoryReservation();
             revocableMemoryReservation = taskStats.getRevocableMemoryReservation();
             fullGcCount = taskStats.getFullGcCount();
             fullGcTime = taskStats.getFullGcTime();
@@ -306,14 +315,14 @@ public class SqlTask
             for (PipelineContext pipelineContext : taskContext.getPipelineContexts()) {
                 PipelineStatus pipelineStatus = pipelineContext.getPipelineStatus();
                 queuedPartitionedDrivers += pipelineStatus.getQueuedPartitionedDrivers();
+                queuedPartitionedSplitsWeight += pipelineStatus.getQueuedPartitionedSplitsWeight();
                 runningPartitionedDrivers += pipelineStatus.getRunningPartitionedDrivers();
+                runningPartitionedSplitsWeight += pipelineStatus.getRunningPartitionedSplitsWeight();
                 physicalWrittenBytes += pipelineContext.getPhysicalWrittenDataSize();
             }
             physicalWrittenDataSize = succinctBytes(physicalWrittenBytes);
             userMemoryReservation = taskContext.getMemoryReservation();
-            systemMemoryReservation = taskContext.getSystemMemoryReservation();
             revocableMemoryReservation = taskContext.getRevocableMemoryReservation();
-            completedDriverGroups = taskContext.getCompletedDriverGroups();
             fullGcCount = taskContext.getFullGcCount();
             fullGcTime = taskContext.getFullGcTime();
             dynamicFiltersVersion = taskContext.getDynamicFiltersVersion();
@@ -325,18 +334,19 @@ public class SqlTask
                 state,
                 location,
                 nodeId,
-                completedDriverGroups,
                 failures,
                 queuedPartitionedDrivers,
                 runningPartitionedDrivers,
                 isOutputBufferOverutilized(),
                 physicalWrittenDataSize,
                 userMemoryReservation,
-                systemMemoryReservation,
+                peakUserMemoryReservation,
                 revocableMemoryReservation,
                 fullGcCount,
                 fullGcTime,
-                dynamicFiltersVersion);
+                dynamicFiltersVersion,
+                queuedPartitionedSplitsWeight,
+                runningPartitionedSplitsWeight);
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)
@@ -369,16 +379,18 @@ public class SqlTask
 
     private TaskInfo createTaskInfo(TaskHolder taskHolder)
     {
+        // create task status first to prevent potentially seeing incomplete stats for a done task state
+        TaskStatus taskStatus = createTaskStatus(taskHolder);
         TaskStats taskStats = getTaskStats(taskHolder);
         Set<PlanNodeId> noMoreSplits = getNoMoreSplits(taskHolder);
 
-        TaskStatus taskStatus = createTaskStatus(taskHolder);
         return new TaskInfo(
                 taskStatus,
                 lastHeartbeat.get(),
                 outputBuffer.getInfo(),
                 noMoreSplits,
                 taskStats,
+                Optional.empty(),
                 needsPlan.get());
     }
 
@@ -406,9 +418,17 @@ public class SqlTask
         return Futures.transform(taskStatusVersionChange.createNewListener(), input -> getTaskInfo(), directExecutor());
     }
 
-    public TaskInfo updateTask(Session session, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, OptionalInt totalPartitions)
+    public TaskInfo updateTask(
+            Session session,
+            Optional<PlanFragment> fragment,
+            List<SplitAssignment> splitAssignments,
+            OutputBuffers outputBuffers,
+            Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
         try {
+            // trace token must be set first to make sure failure injection for getTaskResults requests works as expected
+            session.getTraceToken().ifPresent(traceToken::set);
+
             // The LazyOutput buffer does not support write methods, so the actual
             // output buffer must be established before drivers are created (e.g.
             // a VALUES query).
@@ -431,16 +451,15 @@ public class SqlTask
                             taskStateMachine,
                             outputBuffer,
                             fragment.get(),
-                            sources,
-                            this::notifyStatusChanged,
-                            totalPartitions);
+                            this::notifyStatusChanged);
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                     needsPlan.set(false);
                 }
             }
 
             if (taskExecution != null) {
-                taskExecution.addSources(sources);
+                taskExecution.addSplitAssignments(splitAssignments);
+                taskExecution.getTaskContext().addDynamicFilter(dynamicFilterDomains);
             }
         }
         catch (Error e) {
@@ -469,21 +488,22 @@ public class SqlTask
         outputBuffer.acknowledge(bufferId, sequenceId);
     }
 
-    public TaskInfo abortTaskResults(OutputBufferId bufferId)
+    public TaskInfo destroyTaskResults(OutputBufferId bufferId)
     {
         requireNonNull(bufferId, "bufferId is null");
 
         log.debug("Aborting task %s output %s", taskId, bufferId);
-        outputBuffer.abort(bufferId);
+        outputBuffer.destroy(bufferId);
 
         return getTaskInfo();
     }
 
-    public void failed(Throwable cause)
+    public TaskInfo failed(Throwable cause)
     {
         requireNonNull(cause, "cause is null");
 
         taskStateMachine.failed(cause);
+        return getTaskInfo();
     }
 
     public TaskInfo cancel()
@@ -574,6 +594,11 @@ public class SqlTask
         taskStateMachine.addStateChangeListener(stateChangeListener);
     }
 
+    public void addSourceTaskFailureListener(TaskFailureListener listener)
+    {
+        taskStateMachine.addSourceTaskFailureListener(listener);
+    }
+
     public QueryContext getQueryContext()
     {
         return queryContext;
@@ -586,5 +611,10 @@ public class SqlTask
             return Optional.empty();
         }
         return Optional.of(taskExecution.getTaskContext());
+    }
+
+    public Optional<String> getTraceToken()
+    {
+        return Optional.ofNullable(traceToken.get());
     }
 }

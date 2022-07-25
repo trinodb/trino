@@ -73,7 +73,7 @@ public interface EnvironmentListener
     {
     }
 
-    static void tryInvokeListener(FailsafeExecutor executor, Consumer<EnvironmentListener> call, EnvironmentListener... listeners)
+    static void tryInvokeListener(FailsafeExecutor<?> executor, Consumer<EnvironmentListener> call, EnvironmentListener... listeners)
     {
         Arrays.stream(listeners).forEach(listener -> {
             try {
@@ -93,7 +93,7 @@ public interface EnvironmentListener
     {
         return new EnvironmentListener()
         {
-            private FailsafeExecutor executor = Failsafe
+            private FailsafeExecutor<?> executor = Failsafe
                     .with(Timeout.of(ofMinutes(5)).withCancel(true))
                     .with(newCachedThreadPool(daemonThreadsNamed("environment-listener-%d")));
 
@@ -260,7 +260,7 @@ public interface EnvironmentListener
             private void printContainerStats()
             {
                 ConsoleTable statistics = new ConsoleTable();
-                statistics.addHeader(HEADER);
+                statistics.addHeader(HEADER.toArray());
                 fetchers.entrySet().forEach(entry -> statistics.addRow(entry.getValue().get().toRow(entry.getKey())));
                 statistics.addSeparator();
 

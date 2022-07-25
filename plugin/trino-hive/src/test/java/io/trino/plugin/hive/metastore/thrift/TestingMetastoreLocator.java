@@ -27,14 +27,19 @@ public class TestingMetastoreLocator
         implements MetastoreLocator
 {
     private static final HiveMetastoreAuthentication AUTHENTICATION = new NoHiveMetastoreAuthentication();
-    private static final Duration TIMEOUT = new Duration(10, SECONDS);
+    private static final Duration TIMEOUT = new Duration(20, SECONDS);
 
     private final DefaultThriftMetastoreClientFactory factory;
     private final HostAndPort address;
 
     public TestingMetastoreLocator(Optional<HostAndPort> socksProxy, HostAndPort address)
     {
-        this.factory = new DefaultThriftMetastoreClientFactory(Optional.empty(), socksProxy, TIMEOUT, AUTHENTICATION, "localhost");
+        this(socksProxy, address, TIMEOUT);
+    }
+
+    public TestingMetastoreLocator(Optional<HostAndPort> socksProxy, HostAndPort address, Duration timeout)
+    {
+        this.factory = new DefaultThriftMetastoreClientFactory(Optional.empty(), socksProxy, timeout, AUTHENTICATION, "localhost");
         this.address = requireNonNull(address, "address is null");
     }
 

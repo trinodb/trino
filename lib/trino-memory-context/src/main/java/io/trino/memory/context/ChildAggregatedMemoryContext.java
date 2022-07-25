@@ -31,29 +31,24 @@ class ChildAggregatedMemoryContext
     }
 
     @Override
-    synchronized ListenableFuture<Void> updateBytes(String allocationTag, long bytes)
+    synchronized ListenableFuture<Void> updateBytes(String allocationTag, long delta)
     {
         checkState(!isClosed(), "ChildAggregatedMemoryContext is already closed");
         // update the parent before updating usedBytes as it may throw a runtime exception (e.g., ExceededMemoryLimitException)
-        ListenableFuture<Void> future = parentMemoryContext.updateBytes(allocationTag, bytes);
-        addBytes(bytes);
+        ListenableFuture<Void> future = parentMemoryContext.updateBytes(allocationTag, delta);
+        addBytes(delta);
         return future;
     }
 
     @Override
     synchronized boolean tryUpdateBytes(String allocationTag, long delta)
     {
+        checkState(!isClosed(), "ChildAggregatedMemoryContext is already closed");
         if (parentMemoryContext.tryUpdateBytes(allocationTag, delta)) {
             addBytes(delta);
             return true;
         }
         return false;
-    }
-
-    @Override
-    synchronized AbstractAggregatedMemoryContext getParent()
-    {
-        return parentMemoryContext;
     }
 
     @Override

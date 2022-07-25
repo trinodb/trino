@@ -24,17 +24,20 @@ import static com.google.common.base.Verify.verify;
 
 public interface EnvironmentExtender
 {
-    void extendEnvironment(Environment.Builder builder);
-
     default Optional<String> getExtraOptionsPrefix()
     {
         return Optional.empty();
     }
 
-    default void setExtraOptions(Map<String, String> extraOptions)
+    default void extendEnvironment(Environment.Builder builder, Map<String, String> extraOptions)
     {
-        verify(getExtraOptionsPrefix().isEmpty(), "getExtraOptionsPrefix is defined but setExtraOptions not overridden");
-        throw new UnsupportedOperationException("Implementations must override this to consume extra options");
+        verify(getExtraOptionsPrefix().isEmpty(), "getExtraOptionsPrefix is defined but extendEnvironment not overridden");
+        extendEnvironment(builder);
+    }
+
+    default void extendEnvironment(Environment.Builder builder)
+    {
+        throw new UnsupportedOperationException("Not implemented");
     }
 
     /**

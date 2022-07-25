@@ -14,37 +14,37 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.type.TypeCalculation.calculateLiteralValue;
-import static org.testng.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestTypeCalculation
 {
     @Test
     public void testBasicUsage()
     {
-        assertEquals(calculateLiteralValue("42", ImmutableMap.of()), Long.valueOf(42));
-        assertEquals(calculateLiteralValue("NULL", ImmutableMap.of()), Long.valueOf(0));
-        assertEquals(calculateLiteralValue("null", ImmutableMap.of()), Long.valueOf(0));
-        assertEquals(calculateLiteralValue("x", ImmutableMap.of("x", 42L)), Long.valueOf(42));
-        assertEquals(calculateLiteralValue("(42)", ImmutableMap.of()), Long.valueOf(42));
-        assertEquals(calculateLiteralValue("(NULL)", ImmutableMap.of()), Long.valueOf(0));
-        assertEquals(calculateLiteralValue("(x)", ImmutableMap.of("x", 42L)), Long.valueOf(42));
+        assertEquals(Long.valueOf(42), calculateLiteralValue("42", ImmutableMap.of()));
+        assertEquals(Long.valueOf(0), calculateLiteralValue("NULL", ImmutableMap.of()));
+        assertEquals(Long.valueOf(0), calculateLiteralValue("null", ImmutableMap.of()));
+        assertEquals(Long.valueOf(42), calculateLiteralValue("x", ImmutableMap.of("x", 42L)));
+        assertEquals(Long.valueOf(42), calculateLiteralValue("(42)", ImmutableMap.of()));
+        assertEquals(Long.valueOf(0), calculateLiteralValue("(NULL)", ImmutableMap.of()));
+        assertEquals(Long.valueOf(42), calculateLiteralValue("(x)", ImmutableMap.of("x", 42L)));
 
-        assertEquals(calculateLiteralValue("42 + 55", ImmutableMap.of()), Long.valueOf(42 + 55));
-        assertEquals(calculateLiteralValue("42 - 55", ImmutableMap.of()), Long.valueOf(42 - 55));
-        assertEquals(calculateLiteralValue("42 * 55", ImmutableMap.of()), Long.valueOf(42 * 55));
-        assertEquals(calculateLiteralValue("42 / 6", ImmutableMap.of()), Long.valueOf(42 / 6));
+        assertEquals(Long.valueOf(42 + 55), calculateLiteralValue("42 + 55", ImmutableMap.of()));
+        assertEquals(Long.valueOf(42 - 55), calculateLiteralValue("42 - 55", ImmutableMap.of()));
+        assertEquals(Long.valueOf(42 * 55), calculateLiteralValue("42 * 55", ImmutableMap.of()));
+        assertEquals(Long.valueOf(42 / 6), calculateLiteralValue("42 / 6", ImmutableMap.of()));
 
-        assertEquals(calculateLiteralValue("42 + 55 * 6", ImmutableMap.of()), Long.valueOf(42 + 55 * 6));
-        assertEquals(calculateLiteralValue("(42 + 55) * 6", ImmutableMap.of()), Long.valueOf((42 + 55) * 6));
+        assertEquals(Long.valueOf(42 + 55 * 6), calculateLiteralValue("42 + 55 * 6", ImmutableMap.of()));
+        assertEquals(Long.valueOf((42 + 55) * 6), calculateLiteralValue("(42 + 55) * 6", ImmutableMap.of()));
 
-        assertEquals(calculateLiteralValue("min(10,2)", ImmutableMap.of()), Long.valueOf(2));
-        assertEquals(calculateLiteralValue("min(10,2*10)", ImmutableMap.of()), Long.valueOf(10));
-        assertEquals(calculateLiteralValue("max(10,2*10)", ImmutableMap.of()), Long.valueOf(20));
-        assertEquals(calculateLiteralValue("max(10,2)", ImmutableMap.of()), Long.valueOf(10));
+        assertEquals(Long.valueOf(2), calculateLiteralValue("min(10,2)", ImmutableMap.of()));
+        assertEquals(Long.valueOf(10), calculateLiteralValue("min(10,2*10)", ImmutableMap.of()));
+        assertEquals(Long.valueOf(20), calculateLiteralValue("max(10,2*10)", ImmutableMap.of()));
+        assertEquals(Long.valueOf(10), calculateLiteralValue("max(10,2)", ImmutableMap.of()));
 
-        assertEquals(calculateLiteralValue("x + y", ImmutableMap.of("x", 42L, "y", 55L)), Long.valueOf(42 + 55));
+        assertEquals(Long.valueOf(42 + 55), calculateLiteralValue("x + y", ImmutableMap.of("x", 42L, "y", 55L)));
     }
 }

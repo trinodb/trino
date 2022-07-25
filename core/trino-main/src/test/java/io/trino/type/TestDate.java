@@ -140,13 +140,13 @@ public class TestDate
     }
 
     @Test
-    public void testCastToSlice()
+    public void testCastToVarchar()
     {
         assertFunction("cast(DATE '2001-1-22' as varchar)", VARCHAR, "2001-01-22");
     }
 
     @Test
-    public void testCastFromSlice()
+    public void testCastFromVarchar()
     {
         assertFunction("cast('2001-1-22' as date) = Date '2001-1-22'", BOOLEAN, true);
         assertFunction("cast('\n\t 2001-1-22' as date) = Date '2001-1-22'", BOOLEAN, true);

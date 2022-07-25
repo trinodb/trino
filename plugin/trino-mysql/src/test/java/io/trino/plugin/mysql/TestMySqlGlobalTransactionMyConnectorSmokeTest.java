@@ -16,19 +16,31 @@ package io.trino.plugin.mysql;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 
 import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 
 public class TestMySqlGlobalTransactionMyConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
 {
-    private TestingMySqlServer mysqlServer;
+    private TestingMySqlServer mySqlServer;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        mysqlServer = closeAfterClass(new TestingMySqlServer(true));
-        return createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        mySqlServer = closeAfterClass(new TestingMySqlServer(true));
+        return createMySqlQueryRunner(mySqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+    }
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_RENAME_SCHEMA:
+                return false;
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 }

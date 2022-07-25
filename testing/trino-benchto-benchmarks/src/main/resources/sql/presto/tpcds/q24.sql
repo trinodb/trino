@@ -28,7 +28,7 @@ WITH
       AND ("s_zip" = "ca_zip")
       AND ("s_market_id" = 8)
    GROUP BY "c_last_name", "c_first_name", "s_store_name", "ca_state", "s_state", "i_color", "i_current_price", "i_manager_id", "i_units", "i_size"
-) 
+)
 SELECT
   "c_last_name"
 , "c_first_name"
@@ -43,3 +43,4 @@ HAVING ("sum"("netpaid") > (
       FROM
         ssales
    ))
+ORDER BY "c_last_name", "c_first_name", "s_store_name"

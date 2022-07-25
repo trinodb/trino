@@ -17,7 +17,8 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.spi.security.Identity;
 import io.trino.sql.SqlPath;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Optional;
 import java.util.Set;
@@ -26,7 +27,9 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestSessionFunctions
 {
     @Test
@@ -72,8 +75,8 @@ public class TestSessionFunctions
                     .matches("VALUES CAST('" + session.getCatalog().get() + "' AS VARCHAR)");
 
             session = testSessionBuilder()
-                    .setCatalog(null)
-                    .setSchema(null)
+                    .setCatalog(Optional.empty())
+                    .setSchema(Optional.empty())
                     .build();
             assertThat(assertions.query(session, "SELECT CURRENT_CATALOG"))
                     .matches("VALUES CAST(NULL AS VARCHAR)");
@@ -92,7 +95,7 @@ public class TestSessionFunctions
                     .matches("VALUES CAST('" + session.getSchema().get() + "' AS VARCHAR)");
 
             session = testSessionBuilder()
-                    .setSchema(null)
+                    .setSchema(Optional.empty())
                     .build();
             assertThat(assertions.query(session, "SELECT CURRENT_SCHEMA"))
                     .matches("VALUES CAST(NULL AS VARCHAR)");

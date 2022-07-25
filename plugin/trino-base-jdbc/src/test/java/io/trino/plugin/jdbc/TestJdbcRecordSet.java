@@ -121,7 +121,7 @@ public class TestJdbcRecordSet
                     .put("ten", 10L)
                     .put("eleven", 11L)
                     .put("twelve", 12L)
-                    .build());
+                    .buildOrThrow());
         }
     }
 
@@ -151,7 +151,7 @@ public class TestJdbcRecordSet
                     .put("ten", 10L)
                     .put("eleven", 11L)
                     .put("twelve", 12L)
-                    .build());
+                    .buildOrThrow());
         }
     }
 

@@ -45,7 +45,6 @@ public class SalesforceAuthenticatorFactory
                 });
 
         Injector injector = app
-                .strictConfig()
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(config)
                 .initialize();

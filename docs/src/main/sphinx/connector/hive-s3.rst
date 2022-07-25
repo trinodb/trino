@@ -14,7 +14,7 @@ S3 configuration properties
 ---------------------------
 
 ============================================ =================================================================
-Property Name                                Description
+Property name                                Description
 ============================================ =================================================================
 ``hive.s3.aws-access-key``                   Default AWS access key to use.
 
@@ -28,7 +28,7 @@ Property Name                                Description
                                              connect to an S3-compatible storage system instead
                                              of AWS. When using v4 signatures, it is recommended to
                                              set this to the AWS region-specific endpoint
-                                             (e.g., ``http[s]://<bucket>.s3-<AWS-region>.amazonaws.com``).
+                                             (e.g., ``http[s]://s3.<AWS-region>.amazonaws.com``).
 
 ``hive.s3.storage-class``                    The S3 storage class to use when writing the data. Currently only
                                              ``STANDARD`` and ``INTELLIGENT_TIERING`` storage classes are supported.
@@ -92,6 +92,28 @@ Property Name                                Description
                                              without staging file to be created in the local file system.
 
 ``hive.s3.streaming.part-size``              The part size for S3 streaming upload. Defaults to ``16MB``.
+
+``hive.s3.proxy.host``                       Proxy host to use if connecting through a proxy
+
+``hive.s3.proxy.port``                       Proxy port to use if connecting through a proxy
+
+``hive.s3.proxy.protocol``                   Proxy protocol. HTTP or HTTPS , defaults to ``HTTPS``.
+
+``hive.s3.proxy.non-proxy-hosts``            Hosts list to access without going through the proxy.
+
+``hive.s3.proxy.username``                   Proxy user name to use if connecting through a proxy
+
+``hive.s3.proxy.password``                   Proxy password name to use if connecting through a proxy
+
+``hive.s3.proxy.preemptive-basic-auth``      Whether to attempt to authenticate preemptively against proxy
+                                             when using base authorization, defaults to ``false``.
+
+``hive.s3.sts.endpoint``                     Optional override for the sts endpoint given that IAM role based
+                                             authentication via sts is used.
+
+``hive.s3.sts.region``                       Optional override for the sts region given that IAM role based
+                                             authentication via sts is used.
+
 ============================================ =================================================================
 
 .. _hive-s3-credentials:
@@ -112,10 +134,13 @@ rotate credentials on a regular basis without any additional work on your part.
 Custom S3 credentials provider
 ------------------------------
 
-You can configure a custom S3 credentials provider by setting the Hadoop
-configuration property ``presto.s3.credentials-provider`` to be the
-fully qualified class name of a custom AWS credentials provider
-implementation. This class must implement the
+You can configure a custom S3 credentials provider by setting the configuration
+property ``trino.s3.credentials-provider`` to the fully qualified class name of
+a custom AWS credentials provider implementation. The property must be set in
+the Hadoop configuration files referenced by the ``hive.config.resources`` Hive
+connector property.
+
+The class must implement the
 `AWSCredentialsProvider <http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/auth/AWSCredentialsProvider.html>`_
 interface and provide a two-argument constructor that takes a
 ``java.net.URI`` and a Hadoop ``org.apache.hadoop.conf.Configuration``
@@ -123,8 +148,7 @@ as arguments. A custom credentials provider can be used to provide
 temporary credentials from STS (using ``STSSessionCredentialsProvider``),
 IAM role-based credentials (using ``STSAssumeRoleSessionCredentialsProvider``),
 or credentials for a specific use case (e.g., bucket/user specific credentials).
-This Hadoop configuration property must be set in the Hadoop configuration
-files referenced by the ``hive.config.resources`` Hive connector property.
+
 
 .. _hive-s3-security-mapping:
 
@@ -158,6 +182,12 @@ The security mapping must provide one or more configuration settings:
   is allowed to be specified as an extra credential, although specifying it
   explicitly has no effect, as it would be used anyway.
 
+* ``roleSessionName``: Optional role session name to use with ``iamRole``. This can only
+  be used when ``iamRole`` is specified. If ``roleSessionName`` includes the string
+  ``${USER}``, then the ``${USER}`` portion of the string will be replaced with the
+  current session's username. If ``roleSessionName`` is not specified, it defaults
+  to ``trino-session``.
+
 * ``allowedIamRoles``: IAM roles that are allowed to be specified as an extra
   credential. This is useful because a particular AWS account may have permissions
   to use many roles, but a specific user should only be allowed to use a subset
@@ -169,7 +199,7 @@ The security mapping must provide one or more configuration settings:
   credential. If list cotains "*", then any key can be specified via extra credential.
 
 The security mapping entries are processed in the order listed in the configuration
-file. More specific mappings should thus be specified before less specific mappings.
+JSON. More specific mappings should thus be specified before less specific mappings.
 For example, the mapping list might have URL prefix ``s3://abc/xyz/`` followed by
 ``s3://abc/`` to allow different configuration for a specific path within a bucket
 than for other paths within the bucket. You can set default configuration by not
@@ -189,7 +219,10 @@ In addition to the rules above, the default mapping can contain the optional
 
 If no mapping entry matches and no default is configured, the access is denied.
 
-Example JSON configuration file:
+The configuration JSON can either be retrieved from a file or REST-endpoint specified via
+``hive.s3.security-mapping.config-file``.
+
+Example JSON configuration:
 
 .. code-block:: json
 
@@ -232,9 +265,12 @@ Example JSON configuration file:
     }
 
 ======================================================= =================================================================
-Property Name                                           Description
+Property name                                           Description
 ======================================================= =================================================================
-``hive.s3.security-mapping.config-file``                The JSON configuration file containing security mappings.
+``hive.s3.security-mapping.config-file``                The JSON configuration file or REST-endpoint URI containing
+                                                        security mappings.
+``hive.s3.security-mapping.json-pointer``               A JSON pointer (RFC 6901) to mappings inside the JSON retrieved from
+                                                        the config file or REST-endpont. The whole document ("") by default.
 
 ``hive.s3.security-mapping.iam-role-credential-name``   The name of the *extra credential* used to provide the IAM role.
 
@@ -259,7 +295,7 @@ Most of these parameters affect settings on the ``ClientConfiguration``
 object associated with the ``AmazonS3Client``.
 
 ===================================== =========================================================== ===============
-Property Name                         Description                                                 Default
+Property name                         Description                                                 Default
 ===================================== =========================================================== ===============
 ``hive.s3.max-error-retries``         Maximum number of error retries, set on the S3 client.      ``10``
 

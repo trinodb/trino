@@ -16,6 +16,7 @@ package io.trino.server.remotetask;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.event.client.ServiceUnavailableException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -110,10 +111,10 @@ class RequestErrorTracker
         // log failure message
         if (isExpectedError(reason)) {
             // don't print a stack for a known errors
-            log.warn("Error " + jobDescription + " %s: %s: %s", taskId, reason.getMessage(), taskUri);
+            log.warn("Error %s %s: %s: %s", jobDescription, taskId, reason.getMessage(), taskUri);
         }
         else {
-            log.warn(reason, "Error " + jobDescription + " %s: %s", taskId, taskUri);
+            log.warn(reason, "Error %s %s: %s", jobDescription, taskId, taskUri);
         }
 
         // remember the first 10 errors
@@ -138,6 +139,8 @@ class RequestErrorTracker
         }
     }
 
+    @FormatMethod
+    @SuppressWarnings("FormatStringAnnotation") // we manipulate the format string and there's no way to make Error Prone accept the result
     static void logError(Throwable t, String format, Object... args)
     {
         if (isExpectedError(t)) {

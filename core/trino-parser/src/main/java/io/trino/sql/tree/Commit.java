@@ -51,7 +51,7 @@ public final class Commit
     @Override
     public int hashCode()
     {
-        return 0;
+        return getClass().hashCode();
     }
 
     @Override

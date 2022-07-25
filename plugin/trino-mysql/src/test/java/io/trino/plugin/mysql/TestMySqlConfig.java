@@ -39,12 +39,12 @@ public class TestMySqlConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("mysql.auto-reconnect", "false")
                 .put("mysql.max-reconnects", "4")
                 .put("mysql.connection-timeout", "4s")
                 .put("mysql.jdbc.use-information-schema", "false")
-                .build();
+                .buildOrThrow();
 
         MySqlConfig expected = new MySqlConfig()
                 .setAutoReconnect(false)

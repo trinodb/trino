@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.tempto.fulfillment.table.jdbc.RelationalDataSource;
 import io.trino.tempto.internal.fulfillment.table.cassandra.CassandraTableDefinition;
 
-import java.sql.Timestamp;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -45,12 +44,12 @@ public final class MultiColumnKeyTableDefinition
                 ImmutableList.of(
                         "Alice",
                         "a1",
-                        Timestamp.from(OffsetDateTime.of(2015, 1, 1, 1, 1, 1, 0, ZoneOffset.UTC).toInstant()),
+                        OffsetDateTime.of(2015, 1, 1, 1, 1, 1, 0, ZoneOffset.UTC).toInstant(),
                         "Test value 1"),
                 ImmutableList.of(
                         "Bob",
                         "b1",
-                        Timestamp.from(OffsetDateTime.of(2014, 2, 2, 3, 4, 5, 0, ZoneOffset.UTC).toInstant()),
+                        OffsetDateTime.of(2014, 2, 2, 3, 4, 5, 0, ZoneOffset.UTC).toInstant(),
                         "Test value 2")
         ).iterator();
         CASSANDRA_MULTI_COLUMN_KEY = CassandraTableDefinition.cassandraBuilder(MULTI_COLUMN_KEY_TABLE_NAME)

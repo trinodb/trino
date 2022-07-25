@@ -15,12 +15,12 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.operator.aggregation.AccumulatorFactory;
+import io.trino.operator.aggregation.Aggregator;
+import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
@@ -40,18 +40,14 @@ public class AggregationOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final Step step;
-        private final List<AccumulatorFactory> accumulatorFactories;
-        private final boolean useSystemMemory;
+        private final List<AggregatorFactory> aggregatorFactories;
         private boolean closed;
 
-        public AggregationOperatorFactory(int operatorId, PlanNodeId planNodeId, Step step, List<AccumulatorFactory> accumulatorFactories, boolean useSystemMemory)
+        public AggregationOperatorFactory(int operatorId, PlanNodeId planNodeId, List<AggregatorFactory> aggregatorFactories)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.step = step;
-            this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
-            this.useSystemMemory = useSystemMemory;
+            this.aggregatorFactories = ImmutableList.copyOf(aggregatorFactories);
         }
 
         @Override
@@ -59,7 +55,7 @@ public class AggregationOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, AggregationOperator.class.getSimpleName());
-            return new AggregationOperator(operatorContext, step, accumulatorFactories, useSystemMemory);
+            return new AggregationOperator(operatorContext, aggregatorFactories);
         }
 
         @Override
@@ -71,7 +67,7 @@ public class AggregationOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new AggregationOperatorFactory(operatorId, planNodeId, step, accumulatorFactories, useSystemMemory);
+            return new AggregationOperatorFactory(operatorId, planNodeId, aggregatorFactories);
         }
     }
 
@@ -83,29 +79,19 @@ public class AggregationOperator
     }
 
     private final OperatorContext operatorContext;
-    private final LocalMemoryContext systemMemoryContext;
     private final LocalMemoryContext userMemoryContext;
     private final List<Aggregator> aggregates;
-    private final boolean useSystemMemory;
 
     private State state = State.NEEDS_INPUT;
 
-    public AggregationOperator(OperatorContext operatorContext, Step step, List<AccumulatorFactory> accumulatorFactories, boolean useSystemMemory)
+    public AggregationOperator(OperatorContext operatorContext, List<AggregatorFactory> aggregatorFactories)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(AggregationOperator.class.getSimpleName());
         this.userMemoryContext = operatorContext.localUserMemoryContext();
-        this.useSystemMemory = useSystemMemory;
 
-        requireNonNull(step, "step is null");
-
-        // wrapper each function with an aggregator
-        requireNonNull(accumulatorFactories, "accumulatorFactories is null");
-        ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
-        for (AccumulatorFactory accumulatorFactory : accumulatorFactories) {
-            builder.add(new Aggregator(accumulatorFactory, step));
-        }
-        aggregates = builder.build();
+        aggregates = aggregatorFactories.stream()
+                .map(AggregatorFactory::createAggregator)
+                .collect(toImmutableList());
     }
 
     @Override
@@ -126,7 +112,6 @@ public class AggregationOperator
     public void close()
     {
         userMemoryContext.setBytes(0);
-        systemMemoryContext.close();
     }
 
     @Override
@@ -152,12 +137,7 @@ public class AggregationOperator
             aggregate.processPage(page);
             memorySize += aggregate.getEstimatedSize();
         }
-        if (useSystemMemory) {
-            systemMemoryContext.setBytes(memorySize);
-        }
-        else {
-            userMemoryContext.setBytes(memorySize);
-        }
+        userMemoryContext.setBytes(memorySize);
     }
 
     @Override

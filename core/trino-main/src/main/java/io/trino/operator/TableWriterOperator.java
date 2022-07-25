@@ -24,6 +24,7 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.OperationTimer.OperationTiming;
+import io.trino.spi.Mergeable;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -37,7 +38,6 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.util.AutoCloseableCloser;
-import io.trino.util.Mergeable;
 
 import java.util.Collection;
 import java.util.List;
@@ -98,8 +98,12 @@ public class TableWriterOperator
             this.columnChannels = requireNonNull(columnChannels, "columnChannels is null");
             this.notNullChannelColumnNames = requireNonNull(notNullChannelColumnNames, "notNullChannelColumnNames is null");
             this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
-            checkArgument(writerTarget instanceof CreateTarget || writerTarget instanceof InsertTarget || writerTarget instanceof TableWriterNode.RefreshMaterializedViewTarget,
-                    "writerTarget must be CreateTarget, InsertTarget or RefreshMaterializedViewTarget");
+            checkArgument(
+                    writerTarget instanceof CreateTarget
+                            || writerTarget instanceof InsertTarget
+                            || writerTarget instanceof TableWriterNode.RefreshMaterializedViewTarget
+                            || writerTarget instanceof TableWriterNode.TableExecuteTarget,
+                    "writerTarget must be CreateTarget, InsertTarget, RefreshMaterializedViewTarget or TableExecuteTarget");
             this.target = requireNonNull(writerTarget, "writerTarget is null");
             this.session = session;
             this.statisticsAggregationOperatorFactory = requireNonNull(statisticsAggregationOperatorFactory, "statisticsAggregationOperatorFactory is null");
@@ -126,6 +130,9 @@ public class TableWriterOperator
             }
             if (target instanceof TableWriterNode.RefreshMaterializedViewTarget) {
                 return pageSinkManager.createPageSink(session, ((TableWriterNode.RefreshMaterializedViewTarget) target).getInsertHandle());
+            }
+            if (target instanceof TableWriterNode.TableExecuteTarget) {
+                return pageSinkManager.createPageSink(session, ((TableWriterNode.TableExecuteTarget) target).getExecuteHandle());
             }
             throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
         }
@@ -180,7 +187,7 @@ public class TableWriterOperator
             boolean statisticsCpuTimerEnabled)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.pageSinkMemoryContext = operatorContext.newLocalSystemMemoryContext(TableWriterOperator.class.getSimpleName());
+        this.pageSinkMemoryContext = operatorContext.newLocalUserMemoryContext(TableWriterOperator.class.getSimpleName());
         this.pageSink = requireNonNull(pageSink, "pageSink is null");
         this.columnChannels = requireNonNull(columnChannels, "columnChannels is null");
         this.notNullChannelColumnNames = requireNonNull(notNullChannelColumnNames, "notNullChannelColumnNames is null");
@@ -371,6 +378,7 @@ public class TableWriterOperator
                 closer.register(pageSink::abort);
             }
         }
+        closer.register(() -> statisticAggregationOperator.getOperatorContext().destroy());
         closer.register(statisticAggregationOperator);
         closer.register(pageSinkMemoryContext::close);
         closer.close();
@@ -385,7 +393,7 @@ public class TableWriterOperator
 
     private void updateMemoryUsage()
     {
-        long pageSinkMemoryUsage = pageSink.getSystemMemoryUsage();
+        long pageSinkMemoryUsage = pageSink.getMemoryUsage();
         pageSinkMemoryContext.setBytes(pageSinkMemoryUsage);
         pageSinkPeakMemoryUsage.accumulateAndGet(pageSinkMemoryUsage, Math::max);
     }

@@ -88,13 +88,12 @@ public class TestPushDistinctLimitIntoTableScan
     @BeforeClass
     public void init()
     {
-        rule = new PushDistinctLimitIntoTableScan(tester().getMetadata());
+        rule = new PushDistinctLimitIntoTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer());
 
         tableHandle = new TableHandle(
                 TEST_CATALOG,
                 new MockConnectorTableHandle(new SchemaTableName("mock_schema", "mock_nation")),
-                MockConnectorTransactionHandle.INSTANCE,
-                Optional.empty());
+                MockConnectorTransactionHandle.INSTANCE);
     }
 
     @BeforeMethod

@@ -73,7 +73,7 @@ FROM
 WHERE ("catalog"."return_rank" <= 10)
    OR ("catalog"."currency_rank" <= 10)
 UNION SELECT
-  '${database}.${schema}.store' "channel"
+  'store' "channel"
 , "store"."item"
 , "store"."return_ratio"
 , "store"."return_rank"

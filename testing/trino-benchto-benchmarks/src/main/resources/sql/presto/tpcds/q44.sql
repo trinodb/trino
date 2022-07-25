@@ -64,5 +64,7 @@ FROM
 WHERE ("asceding"."rnk" = "descending"."rnk")
    AND ("i1"."i_item_sk" = "asceding"."item_sk")
    AND ("i2"."i_item_sk" = "descending"."item_sk")
-ORDER BY "asceding"."rnk" ASC
+ORDER BY "asceding"."rnk" ASC,
+   -- additional columns to assure results stability for larger scale factors; this is a deviation from TPC-DS specification
+   "i1"."i_product_name" ASC, "i2"."i_product_name" ASC
 LIMIT 100

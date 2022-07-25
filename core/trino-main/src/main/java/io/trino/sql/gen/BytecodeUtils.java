@@ -27,11 +27,12 @@ import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.slice.Slice;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionInvoker;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.FunctionManager;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.InOut;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.type.Type;
@@ -42,12 +43,14 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.OpCode.NOP;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
@@ -174,28 +177,32 @@ public final class BytecodeUtils
     public static BytecodeNode generateInvocation(
             Scope scope,
             ResolvedFunction resolvedFunction,
-            Metadata metadata,
+            FunctionManager functionManager,
             List<BytecodeNode> arguments,
             CallSiteBinder binder)
     {
         return generateInvocation(
                 scope,
-                metadata.getFunctionMetadata(resolvedFunction),
-                invocationConvention -> metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention),
+                resolvedFunction.getSignature().getName(),
+                resolvedFunction.getFunctionNullability(),
+                invocationConvention -> functionManager.getScalarFunctionInvoker(resolvedFunction, invocationConvention),
                 arguments,
                 binder);
     }
 
     public static BytecodeNode generateInvocation(
             Scope scope,
-            FunctionMetadata functionMetadata,
+            String functionName,
+            FunctionNullability functionNullability,
             Function<InvocationConvention, FunctionInvoker> functionInvokerProvider,
             List<BytecodeNode> arguments,
             CallSiteBinder binder)
     {
         return generateFullInvocation(
                 scope,
-                functionMetadata,
+                functionName,
+                functionNullability,
+                Collections.nCopies(arguments.size(), false),
                 functionInvokerProvider,
                 instanceFactory -> {
                     throw new IllegalArgumentException("Simple method invocation can not be used with functions that require an instance factory");
@@ -217,45 +224,52 @@ public final class BytecodeUtils
     public static BytecodeNode generateFullInvocation(
             Scope scope,
             ResolvedFunction resolvedFunction,
-            Metadata metadata,
+            FunctionManager functionManager,
             Function<MethodHandle, BytecodeNode> instanceFactory,
             List<Function<Optional<Class<?>>, BytecodeNode>> argumentCompilers,
             CallSiteBinder binder)
     {
         return generateFullInvocation(
                 scope,
-                metadata.getFunctionMetadata(resolvedFunction),
-                invocationConvention -> metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention),
+                resolvedFunction.getSignature().getName(),
+                resolvedFunction.getFunctionNullability(),
+                resolvedFunction.getSignature().getArgumentTypes().stream()
+                        .map(FunctionType.class::isInstance)
+                        .collect(toImmutableList()),
+                invocationConvention -> functionManager.getScalarFunctionInvoker(resolvedFunction, invocationConvention),
                 instanceFactory,
                 argumentCompilers,
                 binder);
     }
 
-    public static BytecodeNode generateFullInvocation(
+    private static BytecodeNode generateFullInvocation(
             Scope scope,
-            FunctionMetadata functionMetadata,
+            String functionName,
+            FunctionNullability functionNullability,
+            List<Boolean> argumentIsFunctionType,
             Function<InvocationConvention, FunctionInvoker> functionInvokerProvider,
             Function<MethodHandle, BytecodeNode> instanceFactory,
             List<Function<Optional<Class<?>>, BytecodeNode>> argumentCompilers,
             CallSiteBinder binder)
     {
+        verify(argumentIsFunctionType.size() == argumentCompilers.size());
         List<InvocationArgumentConvention> argumentConventions = new ArrayList<>();
         List<BytecodeNode> arguments = new ArrayList<>();
-        for (int i = 0; i < functionMetadata.getSignature().getArgumentTypes().size(); i++) {
-            if (functionMetadata.getSignature().getArgumentTypes().get(i).getBase().equalsIgnoreCase(FunctionType.NAME)) {
+        for (int i = 0; i < argumentIsFunctionType.size(); i++) {
+            if (argumentIsFunctionType.get(i)) {
                 argumentConventions.add(FUNCTION);
                 arguments.add(null);
             }
             else {
                 BytecodeNode argument = argumentCompilers.get(i).apply(Optional.empty());
-                argumentConventions.add(getPreferredArgumentConvention(argument, argumentCompilers.size(), functionMetadata.getArgumentDefinitions().get(i).isNullable()));
+                argumentConventions.add(getPreferredArgumentConvention(argument, argumentCompilers.size(), functionNullability.isArgumentNullable(i)));
                 arguments.add(argument);
             }
         }
 
         InvocationConvention invocationConvention = new InvocationConvention(
                 argumentConventions,
-                functionMetadata.isNullable() ? NULLABLE_RETURN : FAIL_ON_NULL,
+                functionNullability.isReturnNullable() ? NULLABLE_RETURN : FAIL_ON_NULL,
                 true,
                 true);
         FunctionInvoker functionInvoker = functionInvokerProvider.apply(invocationConvention);
@@ -264,7 +278,7 @@ public final class BytecodeUtils
 
         LabelNode end = new LabelNode("end");
         BytecodeBlock block = new BytecodeBlock()
-                .setDescription("invoke " + functionMetadata.getSignature().getName());
+                .setDescription("invoke " + functionName);
 
         Optional<BytecodeNode> instance = functionInvoker.getInstanceFactory()
                 .map(instanceFactory);
@@ -318,8 +332,18 @@ public final class BytecodeUtils
                         InputReferenceNode inputReferenceNode = (InputReferenceNode) arguments.get(realParameterIndex);
                         block.append(inputReferenceNode.produceBlockAndPosition());
                         stackTypes.add(int.class);
-                        if (!functionMetadata.getArgumentDefinitions().get(realParameterIndex).isNullable()) {
+                        if (!functionNullability.isArgumentNullable(realParameterIndex)) {
                             block.append(scope.getVariable("wasNull").set(inputReferenceNode.blockAndPositionIsNull()));
+                            block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
+                        }
+                        currentParameterIndex++;
+                        break;
+                    case IN_OUT:
+                        block.append(arguments.get(realParameterIndex));
+                        if (!functionNullability.isArgumentNullable(realParameterIndex)) {
+                            block.append(arguments.get(realParameterIndex));
+                            block.invokeVirtual(InOut.class, "isNull", boolean.class);
+                            block.putVariable(scope.getVariable("wasNull"));
                             block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
                         }
                         currentParameterIndex++;
@@ -336,9 +360,9 @@ public final class BytecodeUtils
             }
             currentParameterIndex++;
         }
-        block.append(invoke(binding, functionMetadata.getSignature().getName()));
+        block.append(invoke(binding, functionName));
 
-        if (functionMetadata.isNullable()) {
+        if (functionNullability.isReturnNullable()) {
             block.append(unboxPrimitiveIfNecessary(scope, returnType));
         }
         block.visitLabel(end);
@@ -427,10 +451,15 @@ public final class BytecodeUtils
                 .ifFalse(notNull);
     }
 
-    public static BytecodeExpression invoke(Binding binding, String name)
+    public static BytecodeExpression invoke(Binding binding, String name, BytecodeExpression... parameters)
+    {
+        return invoke(binding, name, ImmutableList.copyOf(parameters));
+    }
+
+    public static BytecodeExpression invoke(Binding binding, String name, List<BytecodeExpression> parameters)
     {
         // ensure that name doesn't have a special characters
-        return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), sanitizeName(name), binding.getType());
+        return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), sanitizeName(name), binding.getType(), parameters);
     }
 
     public static BytecodeExpression invoke(Binding binding, BoundSignature signature)

@@ -29,24 +29,19 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
-import io.trino.spi.connector.ConnectorNewTableLayout;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
-import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeOperators;
 import io.trino.testing.TestingConnectorSession;
 import io.trino.testing.TestingNodeManager;
-import io.trino.type.InternalTypeManager;
-import org.skife.jdbi.v2.DBI;
-import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.util.BooleanMapper;
-import org.skife.jdbi.v2.util.LongMapper;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -56,13 +51,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Ticker.systemTicker;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.RaptorTableProperties.BUCKETED_ON_PROPERTY;
 import static io.trino.plugin.raptor.legacy.RaptorTableProperties.BUCKET_COUNT_PROPERTY;
 import static io.trino.plugin.raptor.legacy.RaptorTableProperties.DISTRIBUTION_NAME_PROPERTY;
@@ -72,6 +66,7 @@ import static io.trino.plugin.raptor.legacy.RaptorTableProperties.TEMPORAL_COLUM
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_CONFLICT;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -95,7 +90,7 @@ public class TestRaptorMetadata
             .setPropertyMetadata(new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties())
             .build();
 
-    private DBI dbi;
+    private Jdbi dbi;
     private Handle dummyHandle;
     private ShardManager shardManager;
     private RaptorMetadata metadata;
@@ -103,10 +98,7 @@ public class TestRaptorMetadata
     @BeforeMethod
     public void setupDatabase()
     {
-        TypeManager typeManager = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
-        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
-        dbi.registerMapper(new TableColumn.Mapper(typeManager));
-        dbi.registerMapper(new Distribution.Mapper(typeManager));
+        dbi = createTestingJdbi();
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
 
@@ -388,14 +380,14 @@ public class TestRaptorMetadata
                 BUCKET_COUNT_PROPERTY, 32,
                 BUCKETED_ON_PROPERTY, ImmutableList.of("orderkey", "custkey")));
 
-        ConnectorNewTableLayout layout = metadata.getNewTableLayout(SESSION, ordersTable).get();
+        ConnectorTableLayout layout = metadata.getNewTableLayout(SESSION, ordersTable).get();
         assertEquals(layout.getPartitionColumns(), ImmutableList.of("orderkey", "custkey"));
         assertTrue(layout.getPartitioning().isPresent());
         assertInstanceOf(layout.getPartitioning().get(), RaptorPartitioningHandle.class);
         RaptorPartitioningHandle partitioning = (RaptorPartitioningHandle) layout.getPartitioning().get();
         assertEquals(partitioning.getDistributionId(), 1);
 
-        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, ordersTable, Optional.of(layout));
+        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, ordersTable, Optional.of(layout), NO_RETRIES);
         metadata.finishCreateTable(SESSION, outputHandle, ImmutableList.of(), ImmutableList.of());
 
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
@@ -673,7 +665,7 @@ public class TestRaptorMetadata
     {
         // start table creation
         long transactionId = 1;
-        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, getOrdersTable(), Optional.empty());
+        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, getOrdersTable(), Optional.empty(), NO_RETRIES);
 
         // transaction is in progress
         assertTrue(transactionExists(transactionId));
@@ -696,7 +688,7 @@ public class TestRaptorMetadata
         // start insert
         transactionId++;
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
-        ConnectorInsertTableHandle insertHandle = metadata.beginInsert(SESSION, tableHandle);
+        ConnectorInsertTableHandle insertHandle = metadata.beginInsert(SESSION, tableHandle, ImmutableList.of(), NO_RETRIES);
 
         // transaction is in progress
         assertTrue(transactionExists(transactionId));
@@ -719,7 +711,7 @@ public class TestRaptorMetadata
         // start delete
         transactionId++;
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
-        tableHandle = metadata.beginDelete(SESSION, tableHandle);
+        tableHandle = metadata.beginDelete(SESSION, tableHandle, NO_RETRIES);
 
         // verify transaction is assigned for deletion handle
         assertInstanceOf(tableHandle, RaptorTableHandle.class);
@@ -738,7 +730,7 @@ public class TestRaptorMetadata
 
         // start another delete
         transactionId++;
-        tableHandle = metadata.beginDelete(SESSION, tableHandle);
+        tableHandle = metadata.beginDelete(SESSION, tableHandle, NO_RETRIES);
 
         // transaction is in progress
         assertTrue(transactionExists(transactionId));
@@ -755,7 +747,7 @@ public class TestRaptorMetadata
     {
         // start table creation
         long transactionId = 1;
-        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, getOrdersTable(), Optional.empty());
+        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, getOrdersTable(), Optional.empty(), NO_RETRIES);
 
         // transaction is in progress
         assertTrue(transactionExists(transactionId));
@@ -774,34 +766,28 @@ public class TestRaptorMetadata
 
     private boolean transactionExists(long transactionId)
     {
-        try (Handle handle = dbi.open()) {
-            return handle
-                    .createQuery("SELECT count(*) FROM transactions WHERE transaction_id = ?")
-                    .bind(0, transactionId)
-                    .map(BooleanMapper.FIRST)
-                    .first();
-        }
+        return dbi.withHandle(handle -> handle
+                .select("SELECT count(*) FROM transactions WHERE transaction_id = ?", transactionId)
+                .mapTo(boolean.class)
+                .one());
     }
 
     private Boolean transactionSuccessful(long transactionId)
     {
-        try (Handle handle = dbi.open()) {
-            return (Boolean) handle
-                    .createQuery("SELECT successful FROM transactions WHERE transaction_id = ?")
-                    .bind(0, transactionId)
-                    .first()
-                    .get("successful");
-        }
+        return dbi.withHandle(handle -> handle
+                .select("SELECT successful FROM transactions WHERE transaction_id = ?", transactionId)
+                .mapTo(Boolean.class)
+                .findFirst()
+                .orElse(null));
     }
 
     private Long getTableDistributionId(long tableId)
     {
-        try (Handle handle = dbi.open()) {
-            return handle.createQuery("SELECT distribution_id FROM tables WHERE table_id = ?")
-                    .bind(0, tableId)
-                    .map(LongMapper.FIRST)
-                    .first();
-        }
+        return dbi.withHandle(handle -> handle
+                .select("SELECT distribution_id FROM tables WHERE table_id = ?", tableId)
+                .mapTo(Long.class)
+                .findFirst()
+                .orElse(null));
     }
 
     private static ConnectorTableMetadata getOrdersTable()

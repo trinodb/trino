@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.Connector;
@@ -21,6 +22,7 @@ import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 
 import java.util.Map;
+import java.util.Set;
 
 public class HivePlugin
         implements Plugin
@@ -31,6 +33,12 @@ public class HivePlugin
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
         return ImmutableList.of(new HiveConnectorFactory("hive"), new LegacyHiveConnectorFactory());
+    }
+
+    @Override
+    public Set<Class<?>> getFunctions()
+    {
+        return ImmutableSet.of(CanonicalizeHiveTimezoneId.class);
     }
 
     private static class LegacyHiveConnectorFactory

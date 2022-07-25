@@ -21,26 +21,29 @@ import io.trino.util.Failures;
 import org.testng.annotations.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.type.UnknownType.UNKNOWN;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestFailureFunction
         extends AbstractTestFunctions
 {
     private static final String FAILURE_INFO = JsonCodec.jsonCodec(FailureInfo.class).toJson(Failures.toFailure(new RuntimeException("fail me")).toFailureInfo());
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "fail me")
+    @Test
     public void testFailure()
     {
-        assertFunction("fail(json_parse('" + FAILURE_INFO + "'))", UNKNOWN, null);
+        assertInvalidFunction("fail(json_parse('" + FAILURE_INFO + "'))", GENERIC_USER_ERROR, "fail me");
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Division by zero")
+    @Test
     public void testQuery()
     {
         // The other test does not exercise this function during execution (i.e. inside a page processor).
         // It only verifies constant folding works.
         try (LocalQueryRunner runner = LocalQueryRunner.create(TEST_SESSION)) {
-            runner.execute("select if(x, 78, 0/0) from (values rand() >= 0, rand() < 0) t(x)");
+            assertThatThrownBy(() -> runner.execute("select if(x, 78, 0/0) from (values rand() >= 0, rand() < 0) t(x)"))
+                    .isInstanceOf(TrinoException.class)
+                    .hasMessageMatching("Division by zero");
         }
     }
 }

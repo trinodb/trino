@@ -102,7 +102,7 @@ public class RcFileFileWriter
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return INSTANCE_SIZE + rcFileWriter.getRetainedSizeInBytes();
     }

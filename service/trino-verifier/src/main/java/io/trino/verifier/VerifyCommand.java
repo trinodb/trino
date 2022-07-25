@@ -18,13 +18,19 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.Provides;
+import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventClient;
+import io.airlift.json.JsonModule;
 import io.airlift.log.Logger;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
@@ -40,11 +46,14 @@ import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.Explain;
+import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.RenameColumn;
+import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.RenameView;
+import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
 import io.trino.sql.tree.ShowFunctions;
@@ -61,6 +70,8 @@ import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
+
+import javax.inject.Provider;
 
 import java.io.File;
 import java.io.IOException;
@@ -91,6 +102,7 @@ import static io.trino.verifier.QueryType.CREATE;
 import static io.trino.verifier.QueryType.MODIFY;
 import static io.trino.verifier.QueryType.READ;
 import static io.trino.verifier.VerifyCommand.VersionProvider;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static picocli.CommandLine.IVersionProvider;
@@ -122,13 +134,15 @@ public class VerifyCommand
         }
 
         ImmutableList.Builder<Module> builder = ImmutableList.<Module>builder()
-                .add(new PrestoVerifierModule())
+                .add(new JsonModule())
+                .add(new TrinoVerifierModule())
+                .add(new DataSourceModule(this))
                 .addAll(getAdditionalModules());
 
         Bootstrap app = new Bootstrap(builder.build());
         Injector injector;
         try {
-            injector = app.strictConfig().initialize();
+            injector = app.initialize();
         }
         catch (Exception e) {
             throwIfUnchecked(e);
@@ -144,9 +158,7 @@ public class VerifyCommand
             }
             Set<EventClient> eventClients = injector.getInstance(Key.get(new TypeLiteral<Set<EventClient>>() {}));
 
-            VerifierDao dao = Jdbi.create(getQueryDatabase(injector))
-                    .installPlugin(new SqlObjectPlugin())
-                    .onDemand(VerifierDao.class);
+            VerifierDao dao = injector.getInstance(VerifierDao.class);
 
             ImmutableList.Builder<QueryPair> queriesBuilder = ImmutableList.builder();
             for (String suite : config.getSuites()) {
@@ -397,10 +409,10 @@ public class VerifyCommand
             return MODIFY;
         }
         if (statement instanceof Explain) {
-            if (((Explain) statement).isAnalyze()) {
-                return statementToQueryType(((Explain) statement).getStatement());
-            }
             return READ;
+        }
+        if (statement instanceof ExplainAnalyze) {
+            return statementToQueryType(((ExplainAnalyze) statement).getStatement());
         }
         if (statement instanceof Insert) {
             return MODIFY;
@@ -414,10 +426,16 @@ public class VerifyCommand
         if (statement instanceof DropColumn) {
             return MODIFY;
         }
+        if (statement instanceof RenameMaterializedView) {
+            return MODIFY;
+        }
         if (statement instanceof RenameTable) {
             return MODIFY;
         }
         if (statement instanceof RenameView) {
+            return MODIFY;
+        }
+        if (statement instanceof SetProperties) {
             return MODIFY;
         }
         if (statement instanceof Comment) {
@@ -489,6 +507,56 @@ public class VerifyCommand
         {
             String version = getClass().getPackage().getImplementationVersion();
             return new String[] {spec.name() + " " + firstNonNull(version, "(version unknown)")};
+        }
+    }
+
+    private static class DataSourceModule
+            implements Module
+    {
+        private final VerifyCommand command;
+
+        private DataSourceModule(VerifyCommand command)
+        {
+            this.command = requireNonNull(command, "command is null");
+        }
+
+        @Override
+        public void configure(Binder binder)
+        {
+            binder.bind(VerifierDao.class).toProvider(VerifierDaoProvider.class).in(Scopes.SINGLETON);
+        }
+
+        @Singleton
+        @Provides
+        public ConnectionFactory createConnectionFactory(Injector injector)
+        {
+            return command.getQueryDatabase(injector);
+        }
+
+        @Singleton
+        @Provides
+        public static Jdbi createJdbi(ConnectionFactory connectionFactory)
+        {
+            return Jdbi.create(connectionFactory)
+                    .installPlugin(new SqlObjectPlugin());
+        }
+    }
+
+    private static class VerifierDaoProvider
+            implements Provider<VerifierDao>
+    {
+        private final VerifierDao dao;
+
+        @Inject
+        public VerifierDaoProvider(Jdbi jdbi)
+        {
+            this.dao = jdbi.onDemand(VerifierDao.class);
+        }
+
+        @Override
+        public VerifierDao get()
+        {
+            return dao;
         }
     }
 }

@@ -13,33 +13,32 @@
  */
 package io.trino.plugin.raptor.legacy.storage.organization;
 
-import org.skife.jdbi.v2.sqlobject.Bind;
-import org.skife.jdbi.v2.sqlobject.SqlQuery;
-import org.skife.jdbi.v2.sqlobject.SqlUpdate;
-import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
+import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
+import org.jdbi.v3.sqlobject.statement.SqlQuery;
+import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 import java.util.Set;
 
+@RegisterConstructorMapper(TableOrganizationInfo.class)
 public interface ShardOrganizerDao
 {
     @SqlUpdate("INSERT INTO shard_organizer_jobs (node_identifier, table_id, last_start_time)\n" +
             "VALUES (:nodeIdentifier, :tableId, NULL)")
-    void insertNode(@Bind("nodeIdentifier") String nodeIdentifier, @Bind("tableId") long tableId);
+    void insertNode(String nodeIdentifier, long tableId);
 
     @SqlUpdate("UPDATE shard_organizer_jobs SET last_start_time = :lastStartTime\n" +
             "   WHERE node_identifier = :nodeIdentifier\n" +
             "     AND table_id = :tableId")
     void updateLastStartTime(
-            @Bind("nodeIdentifier") String nodeIdentifier,
-            @Bind("tableId") long tableId,
-            @Bind("lastStartTime") long lastStartTime);
+            String nodeIdentifier,
+            long tableId,
+            long lastStartTime);
 
     @SqlQuery("SELECT table_id, last_start_time\n" +
             "   FROM shard_organizer_jobs\n" +
             "   WHERE node_identifier = :nodeIdentifier")
-    @Mapper(TableOrganizationInfo.Mapper.class)
-    Set<TableOrganizationInfo> getNodeTableOrganizationInfo(@Bind("nodeIdentifier") String nodeIdentifier);
+    Set<TableOrganizationInfo> getNodeTableOrganizationInfo(String nodeIdentifier);
 
     @SqlUpdate("DELETE FROM shard_organizer_jobs WHERE table_id = :tableId")
-    void dropOrganizerJobs(@Bind("tableId") long tableId);
+    void dropOrganizerJobs(long tableId);
 }

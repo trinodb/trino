@@ -57,7 +57,7 @@ public class HdfsOrcDataSource
     }
 
     @Override
-    public Slice readTail(int length)
+    protected Slice readTailInternal(int length)
             throws IOException
     {
         //  Handle potentially imprecise file lengths by reading the footer
@@ -77,7 +77,7 @@ public class HdfsOrcDataSource
             stats.readDataBytesPerSecond(bufferLength, System.nanoTime() - readStart);
         }
         catch (TrinoException e) {
-            // just in case there is a Presto wrapper or hook
+            // just in case there is a Trino wrapper or hook
             throw e;
         }
         catch (Exception e) {

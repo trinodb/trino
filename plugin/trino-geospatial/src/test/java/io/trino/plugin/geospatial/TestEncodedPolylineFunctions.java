@@ -25,7 +25,7 @@ public class TestEncodedPolylineFunctions
         extends AbstractTestFunctions
 {
     @BeforeClass
-    protected void registerFunctions()
+    public void registerFunctions()
     {
         functionAssertions.installPlugin(new GeoPlugin());
     }

@@ -1,17 +1,20 @@
 /*
- * Copyright Starburst Data, Inc. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * THIS IS UNPUBLISHED PROPRIETARY SOURCE CODE OF STARBURST DATA.
- * The copyright notice above does not evidence any
- * actual or intended publication of such source code.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution of this material is strictly prohibited.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package io.trino.plugin.jdbc.mapping;
 
 import com.google.common.collect.Table;
-import io.trino.plugin.jdbc.JdbcIdentity;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.sql.Connection;
 import java.util.Map;
@@ -80,7 +83,7 @@ public class RuleBasedIdentifierMapping
     }
 
     @Override
-    public String toRemoteSchemaName(JdbcIdentity identity, Connection connection, String schemaName)
+    public String toRemoteSchemaName(ConnectorIdentity identity, Connection connection, String schemaName)
     {
         String remoteSchemaName = toRemoteSchema.get(schemaName);
         if (remoteSchemaName == null) {
@@ -90,7 +93,7 @@ public class RuleBasedIdentifierMapping
     }
 
     @Override
-    public String toRemoteTableName(JdbcIdentity identity, Connection connection, String remoteSchema, String tableName)
+    public String toRemoteTableName(ConnectorIdentity identity, Connection connection, String remoteSchema, String tableName)
     {
         String remoteTableName = toRemoteTable.get(remoteSchema, tableName);
         if (remoteTableName == null) {

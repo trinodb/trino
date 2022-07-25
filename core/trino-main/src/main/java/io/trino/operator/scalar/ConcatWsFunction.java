@@ -17,8 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
@@ -31,7 +30,6 @@ import io.trino.spi.function.SqlType;
 import java.lang.invoke.MethodHandle;
 import java.util.Collections;
 
-import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
@@ -93,26 +91,23 @@ public final class ConcatWsFunction
 
     public ConcatWsFunction()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        "concat_ws",
-                        ImmutableList.of(),
-                        ImmutableList.of(),
-                        VARCHAR.getTypeSignature(),
-                        ImmutableList.of(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
-                        true),
-                false,
-                ImmutableList.of(new FunctionArgumentDefinition(false), new FunctionArgumentDefinition(true)),
-                false,
-                true,
-                "Concatenates elements using separator",
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name("concat_ws")
+                        .returnType(VARCHAR)
+                        .argumentType(VARCHAR)
+                        .argumentType(VARCHAR)
+                        .variableArity()
+                        .build())
+                .argumentNullability(false, true)
+                .description("Concatenates elements using separator")
+                .build());
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding binding)
+    public ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
-        int valueCount = binding.getArity() - 1;
+        int valueCount = boundSignature.getArity() - 1;
         if (valueCount < 1) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more arguments");
         }
@@ -121,7 +116,7 @@ public final class ConcatWsFunction
         MethodHandle customMethodHandle = arrayMethodHandle.asCollector(Slice[].class, valueCount);
 
         return new ChoicesScalarFunctionImplementation(
-                binding,
+                boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.<InvocationConvention.InvocationArgumentConvention>builder()
                         .add(NEVER_NULL)

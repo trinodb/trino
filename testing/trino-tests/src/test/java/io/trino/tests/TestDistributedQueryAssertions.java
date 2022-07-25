@@ -22,7 +22,7 @@ import static io.airlift.testing.Closeables.closeAllSuppress;
  * Test {@link io.trino.sql.query.QueryAssertions} with {@link io.trino.testing.DistributedQueryRunner}
  */
 public class TestDistributedQueryAssertions
-        extends AbstractQueryAssertionsTest
+        extends BaseQueryAssertionsTest
 {
     @Override
     protected QueryRunner createQueryRunner()

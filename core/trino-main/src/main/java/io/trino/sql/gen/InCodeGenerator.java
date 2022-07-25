@@ -88,10 +88,9 @@ public class InCodeGenerator
     @VisibleForTesting
     static SwitchGenerationCase checkSwitchGenerationCase(Type type, List<RowExpression> values)
     {
-        if ((type.getJavaType() != long.class && values.size() >= 8) || (type.getJavaType() == long.class && values.size() >= 16)) {
+        if (values.size() >= 8) {
             // SET_CONTAINS is generally faster for not super tiny IN lists.
-            // Tipping point for types based on long (benchmarked with BIGINT) (where DIRECT_SWITCH can be used) is between 10 and 20 (using round 16)
-            // Tipping point for other types (benchmarked with VARCHAR/DOUBLE) is between 5 and 10 (using round 8)
+            // Tipping point is between 5 and 10 (using round 8)
             return SwitchGenerationCase.SET_CONTAINS;
         }
 

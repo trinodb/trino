@@ -13,7 +13,9 @@
  */
 package io.trino.operator.window;
 
+import io.trino.memory.context.AggregatedMemoryContext;
+
 public interface PartitionerSupplier
 {
-    Partitioner get();
+    Partitioner get(AggregatedMemoryContext memoryContext);
 }

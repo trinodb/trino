@@ -27,21 +27,9 @@ public class LongApproximateMostFrequentStateFactory
     }
 
     @Override
-    public Class<? extends BigintApproximateMostFrequent.State> getSingleStateClass()
-    {
-        return SingleLongApproximateMostFrequentState.class;
-    }
-
-    @Override
     public BigintApproximateMostFrequent.State createGroupedState()
     {
         return new GroupedLongApproximateMostFrequentState();
-    }
-
-    @Override
-    public Class<? extends BigintApproximateMostFrequent.State> getGroupedStateClass()
-    {
-        return GroupedLongApproximateMostFrequentState.class;
     }
 
     public static class SingleLongApproximateMostFrequentState

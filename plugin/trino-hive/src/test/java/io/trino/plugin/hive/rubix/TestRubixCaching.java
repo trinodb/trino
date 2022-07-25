@@ -34,7 +34,7 @@ import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveHdfsConfiguration;
-import io.trino.plugin.hive.authentication.HiveAuthenticationConfig;
+import io.trino.plugin.hive.authentication.HdfsAuthenticationConfig;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.rubix.RubixConfig.ReadMode;
@@ -194,7 +194,7 @@ public class TestRubixCaching
                 nodeManager,
                 new CatalogName("catalog"),
                 configurationInitializer,
-                new DefaultRubixHdfsInitializer(new HiveAuthenticationConfig()));
+                new DefaultRubixHdfsInitializer(new HdfsAuthenticationConfig()));
         rubixConfigInitializer = new RubixConfigurationInitializer(rubixInitializer);
         rubixInitializer.initializeRubix();
         retry().run("wait for rubix to startup", () -> {
@@ -297,7 +297,7 @@ public class TestRubixCaching
                 new TestingNodeManager(ImmutableList.of(workerNode)),
                 new CatalogName("catalog"),
                 configurationInitializer,
-                new DefaultRubixHdfsInitializer(new HiveAuthenticationConfig()));
+                new DefaultRubixHdfsInitializer(new HdfsAuthenticationConfig()));
         assertThatThrownBy(rubixInitializer::initializeRubix)
                 .hasMessage("No coordinator node available");
     }

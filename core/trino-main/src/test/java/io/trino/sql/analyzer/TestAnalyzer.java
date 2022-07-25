@@ -17,11 +17,13 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Closer;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
-import io.trino.connector.CatalogName;
-import io.trino.connector.informationschema.InformationSchemaConnector;
-import io.trino.connector.system.SystemConnector;
+import io.trino.connector.CatalogServiceProvider;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.StaticConnectorFactory;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
@@ -29,15 +31,21 @@ import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
-import io.trino.metadata.Catalog;
-import io.trino.metadata.CatalogManager;
-import io.trino.metadata.InMemoryNodeManager;
-import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.AnalyzePropertyManager;
+import io.trino.metadata.ColumnPropertyManager;
+import io.trino.metadata.InternalFunctionBundle;
+import io.trino.metadata.MaterializedViewDefinition;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TablePropertyManager;
+import io.trino.metadata.ViewColumn;
+import io.trino.metadata.ViewDefinition;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
+import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
@@ -45,26 +53,32 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.Identity;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.OptimizerConfig;
+import io.trino.sql.rewrite.ShowQueriesRewrite;
+import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.tree.Statement;
+import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.assertions.TrinoExceptionAssert;
 import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -73,10 +87,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
-import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
-import static io.trino.cost.StatsCalculator.noopStatsCalculator;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
@@ -84,6 +95,7 @@ import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_NAMED_QUERY;
+import static io.trino.spi.StandardErrorCode.DUPLICATE_PARAMETER_NAME;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_WINDOW_NAME;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_AGGREGATE;
@@ -138,7 +150,6 @@ import static io.trino.spi.StandardErrorCode.TOO_MANY_GROUPING_SETS;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_RECURSIVE;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_STALE;
-import static io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -153,6 +164,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.analyzer.StatementAnalyzerFactory.createTestingStatementAnalyzerFactory;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
@@ -160,25 +172,22 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.transaction.TransactionBuilder.transaction;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.nCopies;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestAnalyzer
 {
     private static final String TPCH_CATALOG = "tpch";
-    private static final CatalogName TPCH_CATALOG_NAME = new CatalogName(TPCH_CATALOG);
     private static final String SECOND_CATALOG = "c2";
-    private static final CatalogName SECOND_CATALOG_NAME = new CatalogName(SECOND_CATALOG);
     private static final String THIRD_CATALOG = "c3";
-    private static final CatalogName THIRD_CATALOG_NAME = new CatalogName(THIRD_CATALOG);
     private static final String CATALOG_FOR_IDENTIFIER_CHAIN_TESTS = "cat";
-    private static final CatalogName CATALOG_FOR_IDENTIFIER_CHAIN_TESTS_NAME = new CatalogName(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS);
     private static final Session SETUP_SESSION = testSessionBuilder()
             .setCatalog("c1")
             .setSchema("s1")
@@ -194,9 +203,12 @@ public class TestAnalyzer
 
     private static final SqlParser SQL_PARSER = new SqlParser();
 
+    private final Closer closer = Closer.create();
     private TransactionManager transactionManager;
     private AccessControl accessControl;
-    private Metadata metadata;
+    private PlannerContext plannerContext;
+    private TablePropertyManager tablePropertyManager;
+    private AnalyzePropertyManager analyzePropertyManager;
 
     @Test
     public void testTooManyArguments()
@@ -353,6 +365,127 @@ public class TestAnalyzer
 
         assertFails("SELECT t.a FROM (SELECT t.* FROM (VALUES 1) t(a))")
                 .hasErrorCode(COLUMN_NOT_FOUND);
+    }
+
+    @Test
+    public void testTemporalTableVersion()
+    {
+        // valid temporal version pointer
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF DATE '2022-01-01'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2022-01-01'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2022-01-01 01:02:03.123456789012'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2022-01-01 UTC'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2022-01-01 01:02:03.123456789012 Asia/Kathmandu'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CURRENT_TIMESTAMP(12) - INTERVAL '0.001' SECOND")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF LOCALTIMESTAMP(12) - INTERVAL '0.001' SECOND")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+
+        // wrong type
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF '2022-01-01'")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:18: Type varchar(10) invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF '2022-01-01 01:02:03'")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:18: Type varchar(19) invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF '2022-01-01 01:02:03 UTC'")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:18: Type varchar(23) invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF 1654594283421")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:18: Type bigint invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.");
+
+        // null value with right type
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CAST(NULL AS date)")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value cannot be NULL");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CAST(NULL AS timestamp(3))")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value cannot be NULL");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CAST(NULL AS timestamp(3) with time zone)")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value cannot be NULL");
+
+        // null value with wrong type
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF NULL")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value cannot be NULL");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CAST(NULL AS bigint)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:18: Type bigint invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.");
+
+        // temporal version pointer in the future -- invalid, because future state can change
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF DATE '2999-01-01'")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value '2999-01-01' is not in the past");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2999-01-01'")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value '2999-01-01 00:00:00' is not in the past");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2999-01-01 01:02:03.123456789012'")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value '2999-01-01 01:02:03.123456789012' is not in the past");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2999-01-01 UTC'")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value '2999-01-01 00:00:00 UTC' is not in the past");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2999-01-01 01:02:03.123456789012 Asia/Kathmandu'")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value '2999-01-01 01:02:03.123456789012 Asia/Kathmandu' is not in the past");
+
+        // temporal version pointer at "current moment" -- invalid, because due to time granularity, the current time's state may still change
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CURRENT_TIMESTAMP(12)")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessageMatching("line 1:18: Pointer value '.*' is not in the past");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF LOCALTIMESTAMP(12)")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessageMatching("line 1:18: Pointer value '.*' is not in the past");
+    }
+
+    @Test
+    public void testRangeIdTableVersion()
+    {
+        // integer
+        assertFails("SELECT * FROM t1 FOR VERSION AS OF 123")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+
+        // bigint
+        assertFails("SELECT * FROM t1 FOR VERSION AS OF BIGINT '123'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+
+        // varchar
+        assertFails("SELECT * FROM t1 FOR VERSION AS OF '2022-01-01'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+
+        // date
+        assertFails("SELECT * FROM t1 FOR VERSION AS OF DATE '2022-01-01'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+
+        // null value
+        assertFails("SELECT * FROM t1 FOR VERSION AS OF NULL")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value cannot be NULL");
+        assertFails("SELECT * FROM t1 FOR VERSION AS OF CAST(NULL AS bigint)")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value cannot be NULL");
+        assertFails("SELECT * FROM t1 FOR VERSION AS OF CAST(NULL AS varchar)")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value cannot be NULL");
     }
 
     @Test
@@ -690,6 +823,10 @@ public class TestAnalyzer
                 .hasErrorCode(SCHEMA_NOT_FOUND);
         assertFails("SELECT * FROM foo")
                 .hasErrorCode(TABLE_NOT_FOUND);
+        assertFails("SELECT * FROM foo FOR TIMESTAMP AS OF TIMESTAMP '2021-03-01 00:00:01'")
+                .hasErrorCode(TABLE_NOT_FOUND);
+        assertFails("SELECT * FROM foo FOR VERSION AS OF 'version1'")
+                .hasErrorCode(TABLE_NOT_FOUND);
     }
 
     @Test
@@ -861,6 +998,7 @@ public class TestAnalyzer
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),
                 new FeaturesConfig().setMaxGroupingSets(2048),
+                new OptimizerConfig(),
                 new NodeMemoryConfig(),
                 new DynamicFilterConfig(),
                 new NodeSchedulerConfig()))).build();
@@ -3234,7 +3372,152 @@ public class TestAnalyzer
     @Test
     public void testLiteral()
     {
+        // boolean
+        assertFails("SELECT BOOLEAN '2'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT BOOLEAN 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // tinyint
+        assertFails("SELECT TINYINT ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TINYINT '128'") // max value + 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TINYINT '-129'") // min value - 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TINYINT '12.1'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TINYINT 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // smallint
+        assertFails("SELECT SMALLINT ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT SMALLINT '2147483648'") // max value + 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT SMALLINT '-2147483649'") // min value - 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT SMALLINT '12.1'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT SMALLINT 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // integer
+        assertFails("SELECT INTEGER ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT INTEGER '2147483648'") // max value + 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT INTEGER '-2147483649'") // min value - 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT INTEGER '12.1'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT INTEGER 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // bigint
+        assertFails("SELECT BIGINT ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT BIGINT '9223372036854775808'") // max value + 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT BIGINT '-9223372036854775809'") // min value - 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT BIGINT '12.1'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT BIGINT 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // real
+        assertFails("SELECT REAL ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT REAL '1.2.3'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT REAL 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // double
+        assertFails("SELECT DOUBLE ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DOUBLE '1.2.3'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DOUBLE 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // decimal
+        assertFails("SELECT 1234567890123456789012.34567890123456789") // 39 digits, decimal point
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT 0.123456789012345678901234567890123456789") // 39 digits after "0."
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT .123456789012345678901234567890123456789") // 39 digits after "."
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DECIMAL ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DECIMAL '123456789012345678901234567890123456789'") // 39 digits, no decimal point
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DECIMAL '1234567890123456789012.34567890123456789'") // 39 digits, decimal point
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DECIMAL '0.123456789012345678901234567890123456789'") // 39 digits after "0."
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DECIMAL '.123456789012345678901234567890123456789'") // 39 digits after "."
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DECIMAL 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // date
+        assertFails("SELECT DATE '20220101'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DATE 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DATE 'today'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DATE '2022-01-01 UTC'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // time
+        assertFails("SELECT TIME ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TIME '12'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TIME '1234567'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TIME 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // timestamp
+        assertFails("SELECT TIMESTAMP ''")
+                .hasErrorCode(INVALID_LITERAL);
         assertFails("SELECT TIMESTAMP '2012-10-31 01:00:00 PT'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TIMESTAMP 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TIMESTAMP 'now'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // interval
+        assertFails("SELECT INTERVAL 'a' DAY TO SECOND")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT INTERVAL '12.1' DAY TO SECOND")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT INTERVAL '12' YEAR TO DAY")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT INTERVAL '12' SECOND TO MINUTE")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // json
+        assertFails("SELECT JSON ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT JSON '{}{'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT JSON '{} \"a\"'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT JSON '{}{'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT JSON '{} \"a\"'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT JSON '{}{abc'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT JSON '{}abc'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT JSON ''")
                 .hasErrorCode(INVALID_LITERAL);
     }
 
@@ -3452,8 +3735,8 @@ public class TestAnalyzer
                 .hasErrorCode(SYNTAX_ERROR);
 
         Session session = testSessionBuilder()
-                .setCatalog(null)
-                .setSchema(null)
+                .setCatalog(Optional.empty())
+                .setSchema(Optional.empty())
                 .build();
         assertFails(session, "SHOW TABLES")
                 .hasErrorCode(MISSING_CATALOG_NAME);
@@ -3464,7 +3747,7 @@ public class TestAnalyzer
 
         session = testSessionBuilder()
                 .setCatalog(SECOND_CATALOG)
-                .setSchema(null)
+                .setSchema(Optional.empty())
                 .build();
         assertFails(session, "SHOW TABLES")
                 .hasErrorCode(MISSING_SCHEMA_NAME);
@@ -4438,6 +4721,112 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testInPredicateWithSubquery()
+    {
+        // value can use plain column references
+        analyze(("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS 5 + x in (SELECT 1)" +
+                "                 ) "));
+
+        // value must not use pattern variables
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS A.x in (SELECT 1)" +
+                "                 ) ")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:176: IN-PREDICATE with labeled column reference is not yet supported");
+
+        // value must not use navigations
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS LAST(x) in (SELECT 1)" +
+                "                 ) ")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:176: IN-PREDICATE with last function is not yet supported");
+
+        // value must not use CLASSIFIER()
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS CLASSIFIER() in (SELECT 1)" +
+                "                 ) ")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:176: IN-PREDICATE with classifier function is not yet supported");
+
+        // value must not use MATCH_NUMBER()
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS MATCH_NUMBER() in (SELECT 1)" +
+                "                 ) ")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:176: IN-PREDICATE with match_number function is not yet supported");
+    }
+
+    @Test
+    public void testInPredicateWithoutSubquery()
+    {
+        // value and value list can use plain column references
+        analyze(("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS 5 + x in (1, 2, x)" +
+                "                 ) "));
+
+        // value and value list can use pattern variables
+        analyze("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS A.x in (1, 2, B.x)" +
+                "                 ) ");
+
+        // value and value list can use navigations
+        analyze("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS LAST(x) in (1, 2, FIRST(x))" +
+                "                 ) ");
+
+        // value and value list can use CLASSIFIER()
+        analyze("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS CLASSIFIER(A) in ('A', 'B', CLASSIFIER(B))" +
+                "                 ) ");
+
+        // valu and value liste can use MATCH_NUMBER()
+        analyze("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS MATCH_NUMBER() in (1, 2, MATCH_NUMBER())" +
+                "                 ) ");
+    }
+
+    @Test
     public void testPatternRecognitionConcatenation()
     {
         analyze("SELECT * " +
@@ -4466,6 +4855,50 @@ public class TestAnalyzer
                 "                 ) ")
                 .hasErrorCode(TABLE_HAS_NO_COLUMNS)
                 .hasMessage("line 1:25: pattern recognition output table has no columns");
+    }
+
+    @Test
+    public void testLambdaInPatternRecognition()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (ARRAY[1]), (ARRAY[2])) Ticker(Value) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS %s " +
+                "                ) AS M";
+
+        assertFails(format(query, "transform(A.Value, x -> x + 100)", "true"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:161: Lambda expression in pattern recognition context is not yet supported");
+        assertFails(format(query, "true", "transform(A.Value, x -> x + 100) = ARRAY[50]"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:242: Lambda expression in pattern recognition context is not yet supported");
+    }
+
+    @Test
+    public void testTryInPatternRecognition()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (ARRAY[1]), (ARRAY[2])) Ticker(Value) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS %s " +
+                "                ) AS M";
+
+        assertFails(format(query, "TRY(1)", "true"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:142: TRY expression in pattern recognition context is not yet supported");
+        assertFails(format(query, "sum(TRY(1))", "true"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:146: TRY expression in pattern recognition context is not yet supported");
+        assertFails(format(query, "true", "TRY(1) = 1"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:223: TRY expression in pattern recognition context is not yet supported");
+        assertFails(format(query, "true", "sum(TRY(1)) = 2"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:227: TRY expression in pattern recognition context is not yet supported");
     }
 
     @Test
@@ -4577,11 +5010,6 @@ public class TestAnalyzer
                 .hasErrorCode(INVALID_PROCESSING_MODE)
                 .hasMessage("line 1:195: FINAL semantics is not supported with match_number pattern recognition function");
 
-        // aggregation function in pattern recognition context
-        assertFails(format(query, "FINAL avg(Tradeday)", define))
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:195: Aggregations in pattern recognition context are not yet supported");
-
         // scalar function in pattern recognition context
         assertFails(format(query, "FINAL lower(Tradeday)", define))
                 .hasErrorCode(INVALID_PROCESSING_MODE)
@@ -4645,6 +5073,10 @@ public class TestAnalyzer
                 .hasErrorCode(INVALID_NAVIGATION_NESTING)
                 .hasMessage("line 1:200: Immediate nesting is required for pattern navigation functions");
 
+        assertFails(format(query, "PREV(avg(Price) + 5)"))
+                .hasErrorCode(NESTED_AGGREGATION)
+                .hasMessage("line 1:200: Cannot nest avg aggregate function inside prev function");
+
         // navigation function must column reference or CLASSIFIER()
         assertFails(format(query, "PREV(LAST('no_column'))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
@@ -4661,31 +5093,31 @@ public class TestAnalyzer
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + Price))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:205: Column references inside pattern navigation function last must all either be prefixed with the same label or be not prefixed");
+                .hasMessage("line 1:205: Column references inside argument of function last must all either be prefixed with the same label or be not prefixed");
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + B.Price))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:205: Column references inside pattern navigation function last must all either be prefixed with the same label or be not prefixed");
+                .hasMessage("line 1:205: Column references inside argument of function last must all either be prefixed with the same label or be not prefixed");
 
         assertFails(format(query, "PREV(LAST(concat(CLASSIFIER(A), CLASSIFIER())))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: CLASSIFIER() calls inside pattern navigation function last must all either have the same label as the argument or have no arguments");
+                .hasMessage("line 1:200: CLASSIFIER() calls inside argument of function last must all either have the same label as the argument or have no arguments");
 
         assertFails(format(query, "PREV(LAST(concat(CLASSIFIER(A), CLASSIFIER(B))))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: CLASSIFIER() calls inside pattern navigation function last must all either have the same label as the argument or have no arguments");
+                .hasMessage("line 1:200: CLASSIFIER() calls inside argument of function last must all either have the same label as the argument or have no arguments");
 
         assertFails(format(query, "PREV(LAST(Tradeday + length(CLASSIFIER(B))))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: Column references inside pattern navigation function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+                .hasMessage("line 1:200: Column references inside argument of function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + length(CLASSIFIER(B))))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: Column references inside pattern navigation function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+                .hasMessage("line 1:200: Column references inside argument of function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + length(CLASSIFIER())))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: Column references inside pattern navigation function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+                .hasMessage("line 1:200: Column references inside argument of function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
     }
 
     @Test
@@ -4743,6 +5175,214 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testPatternAggregations()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (1, 1, 1), (2, 2, 2)) Ticker(Symbol, Tradeday, Price) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (A, B) " +
+                "                   DEFINE B AS %s " +
+                "                 ) AS M";
+
+        // test illegal clauses in MEASURES
+        String define = "true";
+        assertFails(format(query, "max(Price) OVER ()", define))
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessage("line 1:158: Cannot nest window functions or row pattern measures inside pattern recognition expressions");
+
+        assertFails(format(query, "max(Price) FILTER (WHERE true)", define))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:158: Cannot use FILTER with max aggregate function in pattern recognition context");
+
+        assertFails(format(query, "max(Price ORDER BY Tradeday)", define))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:158: Cannot use ORDER BY with max aggregate function in pattern recognition context");
+
+        assertFails(format(query, "LISTAGG(Price) WITHIN GROUP (ORDER BY Tradeday)", define))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:158: Cannot use ORDER BY with listagg aggregate function in pattern recognition context");
+
+        assertFails(format(query, "max(DISTINCT Price)", define))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:158: Cannot use DISTINCT with max aggregate function in pattern recognition context");
+
+        // test illegal clauses in DEFINE
+        String measure = "true";
+        assertFails(format(query, measure, "max(Price) OVER () > 0"))
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessage("line 1:276: Cannot nest window functions or row pattern measures inside pattern recognition expressions");
+
+        assertFails(format(query, measure, "max(Price) FILTER (WHERE true) > 0"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:276: Cannot use FILTER with max aggregate function in pattern recognition context");
+
+        assertFails(format(query, measure, "max(Price ORDER BY Tradeday) > 0"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:276: Cannot use ORDER BY with max aggregate function in pattern recognition context");
+
+        assertFails(format(query, measure, "LISTAGG(Price) WITHIN GROUP (ORDER BY Tradeday) IS NOT NULL"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:276: Cannot use ORDER BY with listagg aggregate function in pattern recognition context");
+
+        assertFails(format(query, measure, "max(DISTINCT Price) > 0"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:276: Cannot use DISTINCT with max aggregate function in pattern recognition context");
+    }
+
+    @Test
+    public void testInvalidNestingInPatternAggregations()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (1, 1, 1), (2, 2, 2)) Ticker(Symbol, Tradeday, Price) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (A, B) " +
+                "                   DEFINE B AS true " +
+                "                 ) AS M";
+
+        assertFails(format(query, "max(1 + min(Price))"))
+                .hasErrorCode(NESTED_AGGREGATION)
+                .hasMessage("line 1:166: Cannot nest min aggregate function inside max function");
+        assertFails(format(query, "max(1 + LAST(Price))"))
+                .hasErrorCode(INVALID_NAVIGATION_NESTING)
+                .hasMessage("line 1:166: Cannot nest last pattern navigation function inside max function");
+    }
+
+    @Test
+    public void testLabelsInPatternAggregations()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (1, 1, 1), (2, 2, 2)) Ticker(Symbol, Tradeday, Price) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (A, B) " +
+                "                   DEFINE B AS true " +
+                "                ) AS M";
+
+        // at most one label inside argument
+        analyze(format(query, "count()"));
+        analyze(format(query, "count(Symbol)"));
+        analyze(format(query, "count(A.Symbol)"));
+        analyze(format(query, "count(U.Symbol)"));
+        analyze(format(query, "count(CLASSIFIER())"));
+        analyze(format(query, "count(CLASSIFIER(A))"));
+        analyze(format(query, "count(CLASSIFIER(U))"));
+
+        // consistent labels inside argument
+        analyze(format(query, "count(Price < 5 OR CLASSIFIER() > 'X')"));
+        analyze(format(query, "count(B.Price < 5 OR CLASSIFIER(B) > 'X')"));
+        analyze(format(query, "count(U.Price < 5 OR CLASSIFIER(U) > 'X')"));
+
+        // inconsistent labels inside argument
+        assertFails(format(query, "count(B.Price < 5 OR Price > 5)"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:164: Column references inside argument of function count must all either be prefixed with the same label or be not prefixed");
+        assertFails(format(query, "count(B.Price < 5 OR A.Price > 5)"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:164: Column references inside argument of function count must all either be prefixed with the same label or be not prefixed");
+        assertFails(format(query, "count(CLASSIFIER(A) < 'X' OR CLASSIFIER(B) > 'Y')"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:158: CLASSIFIER() calls inside argument of function count must all either have the same label as the argument or have no arguments");
+        assertFails(format(query, "count(Price < 5 OR CLASSIFIER(B) > 'Y')"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:158: Column references inside argument of function count must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+        assertFails(format(query, "count(A.Price < 5 OR CLASSIFIER(B) > 'Y')"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:158: Column references inside argument of function count must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+
+        // multiple aggregation arguments
+        analyze(format(query, "max_by(Price, Symbol)"));
+        analyze(format(query, "max_by(A.Price, A.Symbol)"));
+        analyze(format(query, "max_by(U.Price, U.Symbol)"));
+
+        analyze(format(query, "max_by(Price, 1)"));
+        analyze(format(query, "max_by(A.Price, 1)"));
+        analyze(format(query, "max_by(U.Price, 1)"));
+        analyze(format(query, "max_by(1, 1)"));
+        analyze(format(query, "max_by(1, Price)"));
+        analyze(format(query, "max_by(1, A.Price)"));
+        analyze(format(query, "max_by(1, U.Price)"));
+
+        assertFails(format(query, "max_by(U.Price, A.Price)"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:158: All aggregate function arguments must apply to rows matched with the same label");
+
+        // inconsistent labels in second argument
+        assertFails(format(query, "max_by(A.Symbol, A.Price + B.price)"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:175: Column references inside argument of function max_by must all either be prefixed with the same label or be not prefixed");
+    }
+
+    @Test
+    public void testRunningAndFinalPatternAggregations()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (1, 1, 1), (2, 2, 2)) Ticker(Symbol, Tradeday, Price) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (A, B) " +
+                "                   DEFINE B AS %s " +
+                "                ) AS M";
+
+        // in MEASURES clause
+        analyze(format(query, "RUNNING avg(A.Price)", "true"));
+        analyze(format(query, "FINAL avg(A.Price)", "true"));
+
+        // in DEFINE clause
+        analyze(format(query, "true", "RUNNING avg(A.Price) > 5"));
+        assertFails(format(query, "true", "FINAL avg(A.Price) > 5"))
+                .hasErrorCode(INVALID_PROCESSING_MODE)
+                .hasMessage("line 1:276: FINAL semantics is not supported in DEFINE clause");
+
+        // count star aggregation
+        analyze(format(query, "RUNNING count(*)", "count(*) >= 0"));
+        analyze(format(query, "FINAL count(*)", "count(*) >= 0"));
+        analyze(format(query, "RUNNING count()", "count() >= 0"));
+        analyze(format(query, "FINAL count()", "count() >= 0"));
+        analyze(format(query, "RUNNING count(A.*)", "count(B.*) >= 0"));
+        analyze(format(query, "FINAL count(U.*)", "count(U.*) >= 0"));
+    }
+
+    @Test
+    public void testRowPatternCountFunction()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (1, 1, 1), (2, 2, 2)) Ticker(Symbol, Tradeday, Price) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (A, B) " +
+                "                   DEFINE A AS true " +
+                "                ) AS M";
+
+        analyze(format(query, "count(*)"));
+        analyze(format(query, "count()"));
+        analyze(format(query, "count(B.*)"));
+        analyze(format(query, "count(U.*)"));
+
+        assertFails("SELECT count(A.*) FROM (VALUES 1) t(a)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:14: label.* syntax is only supported as the only argument of row pattern count function");
+
+        assertFails(format(query, "lower(A.*)"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:164: label.* syntax is only supported as the only argument of row pattern count function");
+
+        assertFails(format(query, "min(A.*)"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:162: label.* syntax is only supported as the only argument of row pattern count function");
+
+        assertFails(format(query, "count(X.*)"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:164: X is not a primary pattern variable or subset name");
+    }
+
+    @Test
     public void testAnalyzeFreshMaterializedView()
     {
         analyze("SELECT * FROM fresh_materialized_view");
@@ -4759,7 +5399,7 @@ public class TestAnalyzer
                 .hasMessage("line 1:15: column [b] of type bigint projected from storage table at position 1 has a different name from column [c] of type bigint stored in materialized view definition");
         assertFails("SELECT * FROM fresh_materialized_view_mismatched_column_type")
                 .hasErrorCode(INVALID_VIEW)
-                .hasMessage("line 1:15: column [b] of type bigint projected from storage table at position 1 has a different type from column [b] of type tinyint stored in view definition");
+                .hasMessage("line 1:15: cannot cast column [b] of type bigint projected from storage table at position 1 into column [b] of type row(tinyint) stored in view definition");
     }
 
     @Test
@@ -4783,30 +5423,515 @@ public class TestAnalyzer
                 .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.fresh_materialized_view");
     }
 
+    @Test
+    public void testJsonContextItemType()
+    {
+        analyze("SELECT JSON_EXISTS(json_column, 'lax $.abs()') FROM (VALUES '-1', 'ala') t(json_column)");
+        analyze("SELECT JSON_EXISTS(json_column, 'lax $.abs()') FROM (VALUES X'65683F', X'65683E') t(json_column)");
+
+        assertFails("SELECT JSON_EXISTS(json_column, 'lax $.abs()') FROM (VALUES -1, -2) t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:20: Cannot read input of type integer as JSON using formatting JSON");
+    }
+
+    @Test
+    public void testJsonContextItemFormat()
+    {
+        // implicit FORMAT JSON
+        analyze("SELECT JSON_EXISTS(json_column, 'lax $.abs()') FROM (VALUES '-1', 'ala') t(json_column)");
+        analyze("SELECT JSON_EXISTS(json_column, 'lax $.abs()') FROM (VALUES X'65683F', X'65683E') t(json_column)");
+
+        // explicit input format
+        analyze("SELECT JSON_EXISTS(json_column FORMAT JSON, 'lax $.abs()') FROM (VALUES '-1', 'ala') t(json_column)");
+        analyze("SELECT JSON_EXISTS(json_column FORMAT JSON ENCODING UTF8, 'lax $.abs()') FROM (VALUES X'1A', X'2B') t(json_column)");
+        analyze("SELECT JSON_EXISTS(json_column FORMAT JSON ENCODING UTF16, 'lax $.abs()') FROM (VALUES X'1A', X'2B') t(json_column)");
+        analyze("SELECT JSON_EXISTS(json_column FORMAT JSON ENCODING UTF32, 'lax $.abs()') FROM (VALUES X'1A', X'2B') t(json_column)");
+
+        // incorrect format: ENCODING specified for character string input
+        assertFails("SELECT JSON_EXISTS(json_column FORMAT JSON ENCODING UTF8, 'lax $.abs()') FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:20: Cannot read input of type varchar(3) as JSON using formatting JSON ENCODING UTF8");
+    }
+
+    @Test
+    public void testJsonPathParameterNames()
+    {
+        analyze("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING " +
+                "                                                   1 AS parameter_1, " +
+                "                                                   'x' AS parameter_2, " +
+                "                                                   true AS parameter_3) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING " +
+                "                                                   1 AS parameter_1, " +
+                "                                                   'x' AS parameter_2, " +
+                "                                                   true AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(DUPLICATE_PARAMETER_NAME)
+                .hasMessage("line 1:309: PARAMETER_1 JSON path parameter is specified more than once");
+    }
+
+    @Test
+    public void testCaseSensitiveNames()
+    {
+        // JSON path variable names are case-sensitive. Unquoted parameter names in the PASSING clause are upper-cased.
+        analyze("SELECT JSON_EXISTS(json_column, 'lax $some_name' PASSING 1 AS \"some_name\") FROM (VALUES '-1', 'ala') t(json_column)");
+        analyze("SELECT JSON_EXISTS(json_column, 'lax $SOME_NAME' PASSING 1 AS some_name) FROM (VALUES '-1', 'ala') t(json_column)");
+
+        // no matching parameter, but similar parameter found with different case. provide a hint in the error message
+        assertFails("SELECT JSON_EXISTS(json_column, 'lax $some_name' PASSING 1 AS some_name) FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasMessage("line 1:33: no value passed for parameter some_name. Try quoting \"some_name\" in the PASSING clause to match case");
+
+        assertFails("SELECT JSON_EXISTS(json_column, 'lax $some_NAME' PASSING 1 AS some_name) FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasMessage("line 1:33: no value passed for parameter some_NAME. Try quoting \"some_NAME\" in the PASSING clause to match case");
+
+        // no matching parameter, and it is not the issue with case sensitivity. no hint in the error message
+        assertFails("SELECT JSON_EXISTS(json_column, 'lax $some_name' PASSING 1 AS some_other_name) FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasMessage("line 1:33: no value passed for parameter some_name");
+    }
+
+    @Test
+    public void testJsonPathParameterFormats()
+    {
+        analyze("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING 'x' FORMAT JSON AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        analyze("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING X'65683F' FORMAT JSON ENCODING UTF8 AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING 1 FORMAT JSON AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:110: Cannot read input of type integer as JSON using formatting JSON");
+
+        assertFails("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING 1 FORMAT JSON ENCODING UTF8 AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:110: Cannot read input of type integer as JSON using formatting JSON ENCODING UTF8");
+
+        // FORMAT JSON as the parameter format option is the same as the output format of the JSON_QUERY call
+        analyze("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING JSON_QUERY(json_column, 'lax $.abs()' RETURNING varchar FORMAT JSON) FORMAT JSON AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        // FORMAT JSON as the parameter format option is different than the output format of the JSON_QUERY call
+        analyze("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING JSON_QUERY(json_column, 'lax $.abs()' RETURNING varbinary FORMAT JSON) FORMAT JSON ENCODING UTF8 AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        // the parameter is a JSON_QUERY call, so the format option FORMAT JSON is implicit for the parameter
+        analyze("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING JSON_QUERY(json_column, 'lax $.abs()' RETURNING varchar FORMAT JSON) AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+    }
+
+    @Test
+    public void testJsonPathParameterTypes()
+    {
+        analyze("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING INTERVAL '2' DAY AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        analyze("SELECT JSON_EXISTS('[]', 'lax $[2]' PASSING INTERVAL '2' DAY AS parameter_interval)");
+
+        analyze("SELECT JSON_EXISTS('[]', 'lax $[2]' PASSING UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59' AS parameter_uuid)");
+
+        assertFails("SELECT JSON_EXISTS('[]', 'lax $[2]' PASSING approx_set(1) AS parameter_hll)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: Unsupported type of JSON path parameter: HyperLogLog");
+    }
+
+    @Test
+    public void testJsonValueReturnedType()
+    {
+        analyze("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING char(30)) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        analyze("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.size()'" +
+                "                   RETURNING bigint) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING tdigest) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Invalid return type of function JSON_VALUE: tdigest");
+
+        assertFails("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING some_type(10)) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Unknown type: some_type(10)");
+    }
+
+    @Test
+    public void testJsonValueDefaultValues()
+    {
+        // default value has the same type as the declared returned type
+        analyze("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.double()'" +
+                "                   RETURNING double" +
+                "                   DEFAULT 1e0 ON EMPTY) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        // default value can be coerced to the declared returned type
+        analyze("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.double()'" +
+                "                   RETURNING double" +
+                "                   DEFAULT 1.0 ON EMPTY) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.double()'" +
+                "                   RETURNING double" +
+                "                   DEFAULT 'text' ON EMPTY) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:149: Function JSON_VALUE default ON EMPTY result must evaluate to a double (actual: varchar(4))");
+
+        // default value has the same type as the declared returned type
+        analyze("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.double()'" +
+                "                   RETURNING double" +
+                "                   DEFAULT 1e0 ON ERROR) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        // default value can be coerced to the declared returned type
+        analyze("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.double()'" +
+                "                   RETURNING double" +
+                "                   DEFAULT 1.0 ON ERROR) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.double()'" +
+                "                   RETURNING double" +
+                "                   DEFAULT 'text' ON ERROR) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:149: Function JSON_VALUE default ON ERROR result must evaluate to a double (actual: varchar(4))");
+    }
+
+    @Test
+    public void testJsonQueryOutputTypeAndFormat()
+    {
+        analyze("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING varchar) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        analyze("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING varchar FORMAT JSON) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        analyze("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING char(5) FORMAT JSON) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        analyze("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING varbinary FORMAT JSON ENCODING UTF8) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING some_type(10)) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Unknown type: some_type(10)");
+
+        assertFails("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING double) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Cannot output JSON value as double using formatting JSON");
+
+        assertFails("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING varchar FORMAT JSON ENCODING UTF8) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Cannot output JSON value as varchar using formatting JSON ENCODING UTF8");
+    }
+
+    @Test
+    public void testJsonQueryQuotesBehavior()
+    {
+        analyze("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   OMIT QUOTES ON SCALAR STRING) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()' " +
+                "                   WITH ARRAY WRAPPER " +
+                "                   OMIT QUOTES ON SCALAR STRING) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:8: OMIT QUOTES behavior specified with WITH UNCONDITIONAL ARRAY WRAPPER behavior");
+    }
+
+    @Test
+    public void testJsonExistsInAggregationContext()
+    {
+        analyze("SELECT JSON_EXISTS('-5', 'lax $.abs()') FROM (VALUES '-1', '-2') t(a) GROUP BY a");
+        analyze("SELECT JSON_EXISTS(a, 'lax $.abs()') FROM (VALUES '-1', '-2') t(a) GROUP BY a");
+        analyze("SELECT JSON_EXISTS(a, 'lax $.abs() + $some_number' PASSING b AS \"some_number\") FROM (VALUES ('-1', 10, 100), ('-2', 20, 200)) t(a, b, c) GROUP BY a, b");
+
+        assertFails("SELECT JSON_EXISTS(c, 'lax $.abs() + $some_number' PASSING b AS \"some_number\") FROM (VALUES ('-1', 10, '100'), ('-2', 20, '200')) t(a, b, c) GROUP BY a, b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_EXISTS(c FORMAT JSON, 'lax $.abs() + $some_number' PASSING b AS \"some_number\" FALSE ON ERROR)' must be an aggregate expression or appear in GROUP BY clause");
+
+        assertFails("SELECT JSON_EXISTS(b, 'lax $.abs() + $some_number' PASSING c AS \"some_number\") FROM (VALUES (-1, '10', 100), (-2, '20', 200)) t(a, b, c) GROUP BY a, b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_EXISTS(b FORMAT JSON, 'lax $.abs() + $some_number' PASSING c AS \"some_number\" FALSE ON ERROR)' must be an aggregate expression or appear in GROUP BY clause");
+    }
+
+    @Test
+    public void testJsonValueInAggregationContext()
+    {
+        analyze("SELECT JSON_VALUE('-5', 'lax $.abs()') FROM (VALUES '-1', '-2') t(a) GROUP BY a");
+        analyze("SELECT JSON_VALUE(a, 'lax $.abs()') FROM (VALUES '-1', '-2') t(a) GROUP BY a");
+        analyze("SELECT JSON_VALUE(a, 'lax $.abs() + $some_number' PASSING b AS \"some_number\") FROM (VALUES ('-1', 10, 100), ('-2', 20, 200)) t(a, b, c) GROUP BY a, b");
+        analyze("SELECT JSON_VALUE(a, 'lax $.abs() + $some_number' PASSING b AS \"some_number\" DEFAULT lower(b) ON EMPTY DEFAULT upper(b) ON ERROR) FROM (VALUES ('-1', '10', 100), ('-2', '20', 200)) t(a, b, c) GROUP BY a, b");
+
+        assertFails("SELECT JSON_VALUE(c, 'lax $.abs() + $some_number' PASSING b AS \"some_number\") FROM (VALUES ('-1', 10, '100'), ('-2', 20, '200')) t(a, b, c) GROUP BY a, b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_VALUE(c FORMAT JSON, 'lax $.abs() + $some_number' PASSING b AS \"some_number\" NULL ON EMPTY NULL ON ERROR)' must be an aggregate expression or appear in GROUP BY clause");
+
+        assertFails("SELECT JSON_VALUE(b, 'lax $.abs() + $some_number' PASSING c AS \"some_number\") FROM (VALUES (-1, '10', 100), (-2, '20', 200)) t(a, b, c) GROUP BY a, b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_VALUE(b FORMAT JSON, 'lax $.abs() + $some_number' PASSING c AS \"some_number\" NULL ON EMPTY NULL ON ERROR)' must be an aggregate expression or appear in GROUP BY clause");
+
+        assertFails("SELECT JSON_VALUE(b, 'lax $.abs() + $some_number' PASSING b AS \"some_number\" DEFAULT c ON EMPTY) FROM (VALUES (-1, '10', '100'), (-2, '20', '200')) t(a, b, c) GROUP BY a, b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_VALUE(b FORMAT JSON, 'lax $.abs() + $some_number' PASSING b AS \"some_number\" DEFAULT c ON EMPTY NULL ON ERROR)' must be an aggregate expression or appear in GROUP BY clause");
+
+        assertFails("SELECT JSON_VALUE(b, 'lax $.abs() + $some_number' PASSING b AS \"some_number\" DEFAULT c ON ERROR) FROM (VALUES (-1, '10', '100'), (-2, '20', '200')) t(a, b, c) GROUP BY a, b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_VALUE(b FORMAT JSON, 'lax $.abs() + $some_number' PASSING b AS \"some_number\" NULL ON EMPTY DEFAULT c ON ERROR)' must be an aggregate expression or appear in GROUP BY clause");
+    }
+
+    @Test
+    public void testJsonQueryInAggregationContext()
+    {
+        analyze("SELECT JSON_QUERY('-5', 'lax $.abs()') FROM (VALUES '-1', '-2') t(a) GROUP BY a");
+        analyze("SELECT JSON_QUERY(a, 'lax $.abs()') FROM (VALUES '-1', '-2') t(a) GROUP BY a");
+        analyze("SELECT JSON_QUERY(a, 'lax $.abs() + $some_number' PASSING b AS \"some_number\") FROM (VALUES ('-1', 10, 100), ('-2', 20, 200)) t(a, b, c) GROUP BY a, b");
+
+        assertFails("SELECT JSON_QUERY(c, 'lax $.abs() + $some_number' PASSING b AS \"some_number\") FROM (VALUES ('-1', 10, '100'), ('-2', 20, '200')) t(a, b, c) GROUP BY a, b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_QUERY(c FORMAT JSON, 'lax $.abs() + $some_number' PASSING b AS \"some_number\" WITHOUT ARRAY WRAPPER NULL ON EMPTY NULL ON ERROR)' must be an aggregate expression or appear in GROUP BY clause");
+
+        assertFails("SELECT JSON_QUERY(b, 'lax $.abs() + $some_number' PASSING c AS \"some_number\") FROM (VALUES (-1, '10', 100), (-2, '20', 200)) t(a, b, c) GROUP BY a, b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_QUERY(b FORMAT JSON, 'lax $.abs() + $some_number' PASSING c AS \"some_number\" WITHOUT ARRAY WRAPPER NULL ON EMPTY NULL ON ERROR)' must be an aggregate expression or appear in GROUP BY clause");
+    }
+
+    @Test
+    public void testJsonObjectInputTypes()
+    {
+        analyze("SELECT JSON_OBJECT(VARCHAR 'key' : 1)");
+        analyze("SELECT JSON_OBJECT(CAST('key' AS varchar(100)) : 1)");
+        analyze("SELECT JSON_OBJECT(CAST('key' AS char(100)) : 1)");
+
+        assertFails("SELECT JSON_OBJECT(null : 1)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:20: Invalid type of JSON object key: unknown");
+
+        assertFails("SELECT JSON_OBJECT(0 : 1)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:20: Invalid type of JSON object key: integer");
+
+        analyze("SELECT JSON_OBJECT('key' : 1)");
+        analyze("SELECT JSON_OBJECT('key' : true)");
+        analyze("SELECT JSON_OBJECT('key' : 'value')");
+
+        // date can be cast to varchar
+        analyze("SELECT JSON_OBJECT('key' : DATE '2001-01-31')");
+
+        // HyperLogLog cannot be cast to varchar
+        assertFails("SELECT JSON_OBJECT('key' : approx_set(1))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: Unsupported type of value passed to JSON_OBJECT function: HyperLogLog");
+    }
+
+    @Test
+    public void testJsonObjectValueWithFormat()
+    {
+        analyze("SELECT JSON_OBJECT('key' : '[1, 2, 3]' FORMAT JSON)");
+
+        assertFails("SELECT JSON_OBJECT('key' : 1e0 FORMAT JSON)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:28: Cannot read input of type double as JSON using formatting JSON");
+
+        analyze("SELECT JSON_OBJECT('key' : '[1, 2, 3]' FORMAT JSON WITHOUT UNIQUE KEYS)");
+
+        assertFails("SELECT JSON_OBJECT('key' : '[1, 2, 3]' FORMAT JSON WITH UNIQUE KEYS)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: WITH UNIQUE KEYS behavior is not supported for JSON_OBJECT function when input expression has FORMAT");
+    }
+
+    @Test
+    public void testJsonObjectReturnedTypeAndFormat()
+    {
+        analyze("SELECT JSON_OBJECT('key' : 1 RETURNING varchar)");
+
+        assertFails("SELECT JSON_OBJECT('key' : 1 RETURNING some_type)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Unknown type: some_type");
+
+        assertFails("SELECT JSON_OBJECT('key' : 1 RETURNING integer)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Cannot output JSON value as integer using formatting JSON");
+
+        assertFails("SELECT JSON_OBJECT('key' : 1 RETURNING integer FORMAT JSON ENCODING UTF16)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Cannot output JSON value as integer using formatting JSON ENCODING UTF16");
+    }
+
+    @Test
+    public void testJsonObjectInAggregationContext()
+    {
+        analyze("SELECT JSON_OBJECT('key' : 1) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY a");
+        analyze("SELECT JSON_OBJECT(a : 1) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY a");
+        analyze("SELECT JSON_OBJECT('key' : a) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY a");
+
+        assertFails("SELECT JSON_OBJECT('key' : a) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_OBJECT(KEY 'key' VALUE a NULL ON NULL WITHOUT UNIQUE KEYS)' must be an aggregate expression or appear in GROUP BY clause");
+
+        assertFails("SELECT JSON_OBJECT(a : 1) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_OBJECT(KEY a VALUE 1 NULL ON NULL WITHOUT UNIQUE KEYS)' must be an aggregate expression or appear in GROUP BY clause");
+    }
+
+    @Test
+    public void testJsonArrayInputTypes()
+    {
+        analyze("SELECT JSON_ARRAY(1)");
+        analyze("SELECT JSON_ARRAY(true)");
+        analyze("SELECT JSON_ARRAY('element')");
+
+        // date can be cast to varchar
+        analyze("SELECT JSON_ARRAY(DATE '2001-01-31')");
+
+        // HyperLogLog cannot be cast to varchar
+        assertFails("SELECT JSON_ARRAY(approx_set(1))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: Unsupported type of value passed to JSON_ARRAY function: HyperLogLog");
+    }
+
+    @Test
+    public void testJsonArrayElementWithFormat()
+    {
+        analyze("SELECT JSON_ARRAY('{\"key\" : 1}' FORMAT JSON)");
+
+        assertFails("SELECT JSON_ARRAY(1e0 FORMAT JSON)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:19: Cannot read input of type double as JSON using formatting JSON");
+    }
+
+    @Test
+    public void testJsonArrayReturnedTypeAndFormat()
+    {
+        analyze("SELECT JSON_ARRAY(true RETURNING varchar)");
+
+        assertFails("SELECT JSON_ARRAY(true RETURNING some_type)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Unknown type: some_type");
+
+        assertFails("SELECT JSON_ARRAY(true RETURNING integer)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Cannot output JSON value as integer using formatting JSON");
+
+        assertFails("SELECT JSON_ARRAY(true RETURNING integer FORMAT JSON ENCODING UTF16)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Cannot output JSON value as integer using formatting JSON ENCODING UTF16");
+    }
+
+    @Test
+    public void testJsonArrayInAggregationContext()
+    {
+        analyze("SELECT JSON_ARRAY(true) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY a");
+        analyze("SELECT JSON_ARRAY(a) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY a");
+
+        assertFails("SELECT JSON_ARRAY(b) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY a")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_ARRAY(b ABSENT ON NULL)' must be an aggregate expression or appear in GROUP BY clause");
+    }
+
     @BeforeClass
     public void setup()
     {
-        CatalogManager catalogManager = new CatalogManager();
-        transactionManager = createTestTransactionManager(catalogManager);
+        LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION);
+        closer.register(queryRunner);
+        transactionManager = queryRunner.getTransactionManager();
 
         AccessControlManager accessControlManager = new AccessControlManager(
                 transactionManager,
                 emptyEventListenerManager(),
-                new AccessControlConfig());
+                new AccessControlConfig(),
+                DefaultSystemAccessControl.NAME);
         accessControlManager.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         this.accessControl = accessControlManager;
 
-        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
-        metadata.addFunctions(ImmutableList.of(APPLY_FUNCTION));
+        queryRunner.addFunctions(InternalFunctionBundle.builder().functions(APPLY_FUNCTION).build());
+        plannerContext = queryRunner.getPlannerContext();
+        Metadata metadata = plannerContext.getMetadata();
 
-        Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CATALOG_NAME);
-        TestingMetadata testingConnectorMetadata = (TestingMetadata) tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getMetadata(null);
-        catalogManager.registerCatalog(tpchTestCatalog);
-        metadata.getTablePropertyManager().addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getTableProperties());
-        metadata.getAnalyzePropertyManager().addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getAnalyzeProperties());
+        TestingMetadata testingConnectorMetadata = new TestingMetadata();
+        TestingConnector connector = new TestingConnector(testingConnectorMetadata);
+        queryRunner.createCatalog(TPCH_CATALOG, new StaticConnectorFactory("main", connector), ImmutableMap.of());
 
-        catalogManager.registerCatalog(createTestingCatalog(SECOND_CATALOG, SECOND_CATALOG_NAME));
-        catalogManager.registerCatalog(createTestingCatalog(THIRD_CATALOG, THIRD_CATALOG_NAME));
+        tablePropertyManager = queryRunner.getTablePropertyManager();
+        analyzePropertyManager = queryRunner.getAnalyzePropertyManager();
+
+        queryRunner.createCatalog(SECOND_CATALOG, MockConnectorFactory.create("second"), ImmutableMap.of());
+        queryRunner.createCatalog(THIRD_CATALOG, MockConnectorFactory.create("third"), ImmutableMap.of());
 
         SchemaTableName table1 = new SchemaTableName("s1", "t1");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
@@ -4829,7 +5954,7 @@ public class TestAnalyzer
                 new ConnectorTableMetadata(table3, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT),
-                        new ColumnMetadata("x", BIGINT, null, true))),
+                        ColumnMetadata.builder().setName("x").setType(BIGINT).setHidden(true).build())),
                 false));
 
         // table in different catalog
@@ -4844,7 +5969,7 @@ public class TestAnalyzer
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
                 new ConnectorTableMetadata(table5, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
-                        new ColumnMetadata("b", BIGINT, null, true))),
+                        ColumnMetadata.builder().setName("b").setType(BIGINT).setHidden(true).build())),
                 false));
 
         // table with a varchar column
@@ -4868,70 +5993,65 @@ public class TestAnalyzer
                 false));
 
         // materialized view referencing table in same schema
-        ConnectorMaterializedViewDefinition materializedViewData1 = new ConnectorMaterializedViewDefinition(
-                "select a from t1",
-                Optional.empty(),
-                Optional.of(TPCH_CATALOG),
-                Optional.of("s1"),
-                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("a", BIGINT.getTypeId())),
-                Optional.of("comment"),
-                "user",
-                ImmutableMap.of());
-        inSetupTransaction(session -> metadata.createMaterializedView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "mv1"), materializedViewData1, false, true));
-
-        // valid view referencing table in same schema
-        ConnectorViewDefinition viewData1 = new ConnectorViewDefinition(
+        MaterializedViewDefinition materializedViewData1 = new MaterializedViewDefinition(
                 "select a from t1",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                 Optional.of("comment"),
-                Optional.of("user"),
-                false);
+                Identity.ofUser("user"),
+                Optional.empty(),
+                ImmutableMap.of());
+        inSetupTransaction(session -> metadata.createMaterializedView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "mv1"), materializedViewData1, false, true));
+
+        // valid view referencing table in same schema
+        ViewDefinition viewData1 = new ViewDefinition(
+                "select a from t1",
+                Optional.of(TPCH_CATALOG),
+                Optional.of("s1"),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                Optional.of("comment"),
+                Optional.of(Identity.ofUser("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, false));
 
         // stale view (different column type)
-        ConnectorViewDefinition viewData2 = new ConnectorViewDefinition(
+        ViewDefinition viewData2 = new ViewDefinition(
                 "select a from t1",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", VARCHAR.getTypeId())),
                 Optional.of("comment"),
-                Optional.of("user"),
-                false);
+                Optional.of(Identity.ofUser("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, false));
 
         // view referencing table in different schema from itself and session
-        ConnectorViewDefinition viewData3 = new ConnectorViewDefinition(
+        ViewDefinition viewData3 = new ViewDefinition(
                 "select a from t4",
                 Optional.of(SECOND_CATALOG),
                 Optional.of("s2"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                 Optional.of("comment"),
-                Optional.of("owner"),
-                false);
+                Optional.of(Identity.ofUser("owner")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(THIRD_CATALOG, "s3", "v3"), viewData3, false));
 
         // valid view with uppercase column name
-        ConnectorViewDefinition viewData4 = new ConnectorViewDefinition(
+        ViewDefinition viewData4 = new ViewDefinition(
                 "select A from t1",
                 Optional.of("tpch"),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                 Optional.of("comment"),
-                Optional.of("user"),
-                false);
+                Optional.of(Identity.ofUser("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, false));
 
         // recursive view referencing to itself
-        ConnectorViewDefinition viewData5 = new ConnectorViewDefinition(
+        ViewDefinition viewData5 = new ViewDefinition(
                 "select * from v5",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                 Optional.of("comment"),
-                Optional.of("user"),
-                false);
+                Optional.of(Identity.ofUser("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, false));
 
         // type analysis for INSERT
@@ -4953,11 +6073,11 @@ public class TestAnalyzer
                 false));
 
         // for identifier chain resolving tests
-        catalogManager.registerCatalog(createTestingCatalog(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS_NAME));
-        Type singleFieldRowType = metadata.fromSqlType("row(f1 bigint)");
-        Type rowType = metadata.fromSqlType("row(f1 bigint, f2 bigint)");
-        Type nestedRowType = metadata.fromSqlType("row(f1 row(f11 bigint, f12 bigint), f2 boolean)");
-        Type doubleNestedRowType = metadata.fromSqlType("row(f1 row(f11 row(f111 bigint, f112 bigint), f12 boolean), f2 boolean)");
+        queryRunner.createCatalog(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS, new StaticConnectorFactory("chain", new TestingConnector(new TestingMetadata())), ImmutableMap.of());
+        Type singleFieldRowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 bigint)");
+        Type rowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 bigint, f2 bigint)");
+        Type nestedRowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 row(f11 bigint, f12 bigint), f2 boolean)");
+        Type doubleNestedRowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 row(f11 row(f111 bigint, f112 bigint), f12 boolean), f2 boolean)");
 
         SchemaTableName b = new SchemaTableName("a", "b");
         inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
@@ -5001,25 +6121,24 @@ public class TestAnalyzer
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 tableViewAndMaterializedView,
-                new ConnectorMaterializedViewDefinition(
+                new MaterializedViewDefinition(
                         "SELECT a FROM t1",
-                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t1")),
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new Column("a", BIGINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                         Optional.empty(),
-                        "some user",
+                        Identity.ofUser("some user"),
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t1")),
                         ImmutableMap.of()),
                 false,
                 false));
-        ConnectorViewDefinition viewDefinition = new ConnectorViewDefinition(
+        ViewDefinition viewDefinition = new ViewDefinition(
                 "SELECT a FROM t2",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                 Optional.empty(),
-                Optional.empty(),
-                true);
+                Optional.empty());
         inSetupTransaction(session -> metadata.createView(
                 session,
                 tableViewAndMaterializedView,
@@ -5051,15 +6170,15 @@ public class TestAnalyzer
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedView,
-                new ConnectorMaterializedViewDefinition(
+                new MaterializedViewDefinition(
                         "SELECT a, b FROM t1",
-                        // t3 has a, b column and hidden column x
-                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3")),
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new Column("a", BIGINT.getTypeId()), new Column("b", BIGINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId()), new ViewColumn("b", BIGINT.getTypeId())),
                         Optional.empty(),
-                        "some user",
+                        Identity.ofUser("some user"),
+                        // t3 has a, b column and hidden column x
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3")),
                         ImmutableMap.of()),
                 false,
                 false));
@@ -5069,14 +6188,14 @@ public class TestAnalyzer
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedViewMismatchedColumnCount,
-                new ConnectorMaterializedViewDefinition(
+                new MaterializedViewDefinition(
                         "SELECT a FROM t1",
-                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new Column("a", BIGINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                         Optional.empty(),
-                        "some user",
+                        Identity.ofUser("some user"),
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         ImmutableMap.of()),
                 false,
                 false));
@@ -5086,14 +6205,14 @@ public class TestAnalyzer
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedMismatchedColumnName,
-                new ConnectorMaterializedViewDefinition(
+                new MaterializedViewDefinition(
                         "SELECT a, b as c FROM t1",
-                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new Column("a", BIGINT.getTypeId()), new Column("c", BIGINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId()), new ViewColumn("c", BIGINT.getTypeId())),
                         Optional.empty(),
-                        "some user",
+                        Identity.ofUser("some user"),
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         ImmutableMap.of()),
                 false,
                 false));
@@ -5103,18 +6222,25 @@ public class TestAnalyzer
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedMismatchedColumnType,
-                new ConnectorMaterializedViewDefinition(
-                        "SELECT a, CAST(b as tinyint) b FROM t1",
-                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
+                new MaterializedViewDefinition(
+                        "SELECT a, null b FROM t1",
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new Column("a", BIGINT.getTypeId()), new Column("b", TINYINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId()), new ViewColumn("b", RowType.anonymousRow(TINYINT).getTypeId())),
                         Optional.empty(),
-                        "some user",
+                        Identity.ofUser("some user"),
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         ImmutableMap.of()),
                 false,
                 false));
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedMismatchedColumnType.asSchemaTableName());
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+            throws Exception
+    {
+        closer.close();
     }
 
     private void inSetupTransaction(Consumer<Session> consumer)
@@ -5125,19 +6251,24 @@ public class TestAnalyzer
                 .execute(SETUP_SESSION, consumer);
     }
 
-    private static Analyzer createAnalyzer(Session session, Metadata metadata, AccessControl accessControl)
+    private Analyzer createAnalyzer(Session session, AccessControl accessControl)
     {
-        return new Analyzer(
-                session,
-                metadata,
+        StatementRewrite statementRewrite = new StatementRewrite(ImmutableSet.of(new ShowQueriesRewrite(
+                plannerContext.getMetadata(),
                 SQL_PARSER,
-                user -> ImmutableSet.of(),
                 accessControl,
-                Optional.empty(),
+                new SessionPropertyManager(),
+                new SchemaPropertyManager(CatalogServiceProvider.fail()),
+                new ColumnPropertyManager(CatalogServiceProvider.fail()),
+                tablePropertyManager,
+                new MaterializedViewPropertyManager(catalogName -> ImmutableMap.of()))));
+        StatementAnalyzerFactory statementAnalyzerFactory = createTestingStatementAnalyzerFactory(plannerContext, accessControl, tablePropertyManager, analyzePropertyManager);
+        AnalyzerFactory analyzerFactory = new AnalyzerFactory(statementAnalyzerFactory, statementRewrite);
+        return analyzerFactory.createAnalyzer(
+                session,
                 emptyList(),
                 emptyMap(),
-                WarningCollector.NOOP,
-                noopStatsCalculator());
+                WarningCollector.NOOP);
     }
 
     private Analysis analyze(@Language("SQL") String query)
@@ -5156,7 +6287,7 @@ public class TestAnalyzer
                 .singleStatement()
                 .readUncommitted()
                 .execute(clientSession, session -> {
-                    Analyzer analyzer = createAnalyzer(session, metadata, accessControl);
+                    Analyzer analyzer = createAnalyzer(session, accessControl);
                     Statement statement = SQL_PARSER.createStatement(query, new ParsingOptions(
                             new FeaturesConfig().isParseDecimalLiteralsAsDouble() ? AS_DOUBLE : AS_DECIMAL));
                     return analyzer.analyze(statement);
@@ -5178,49 +6309,34 @@ public class TestAnalyzer
         return assertTrinoExceptionThrownBy(() -> analyze(session, query, accessControl));
     }
 
-    private Catalog createTestingCatalog(String catalogName, CatalogName catalog)
+    private static class TestingConnector
+            implements Connector
     {
-        CatalogName systemId = createSystemTablesCatalogName(catalog);
-        Connector connector = createTestingConnector();
-        InternalNodeManager nodeManager = new InMemoryNodeManager();
-        return new Catalog(
-                catalogName,
-                catalog,
-                connector,
-                createInformationSchemaCatalogName(catalog),
-                new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl),
-                systemId,
-                new SystemConnector(
-                        nodeManager,
-                        connector.getSystemTables(),
-                        transactionId -> transactionManager.getConnectorTransaction(transactionId, catalog)));
-    }
+        private final ConnectorMetadata metadata;
 
-    private static Connector createTestingConnector()
-    {
-        return new Connector()
+        public TestingConnector(ConnectorMetadata metadata)
         {
-            private final ConnectorMetadata metadata = new TestingMetadata();
+            this.metadata = requireNonNull(metadata, "metadata is null");
+        }
 
-            @Override
-            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
-            {
-                return new ConnectorTransactionHandle() {};
-            }
+        @Override
+        public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
+        {
+            return new ConnectorTransactionHandle() {};
+        }
 
-            @Override
-            public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
-            {
-                return metadata;
-            }
+        @Override
+        public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transaction)
+        {
+            return metadata;
+        }
 
-            @Override
-            public List<PropertyMetadata<?>> getAnalyzeProperties()
-            {
-                return ImmutableList.of(
-                        stringProperty("p1", "test string property", "", false),
-                        integerProperty("p2", "test integer property", 0, false));
-            }
-        };
+        @Override
+        public List<PropertyMetadata<?>> getAnalyzeProperties()
+        {
+            return ImmutableList.of(
+                    stringProperty("p1", "test string property", "", false),
+                    integerProperty("p2", "test integer property", 0, false));
+        }
     }
 }

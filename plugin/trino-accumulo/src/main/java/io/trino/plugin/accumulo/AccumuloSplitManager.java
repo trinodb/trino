@@ -18,8 +18,8 @@ import io.trino.plugin.accumulo.model.AccumuloColumnConstraint;
 import io.trino.plugin.accumulo.model.AccumuloColumnHandle;
 import io.trino.plugin.accumulo.model.AccumuloSplit;
 import io.trino.plugin.accumulo.model.AccumuloTableHandle;
+import io.trino.plugin.accumulo.model.SerializedRange;
 import io.trino.plugin.accumulo.model.TabletSplitMetadata;
-import io.trino.plugin.accumulo.model.WrappedRange;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
@@ -27,6 +27,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.predicate.Domain;
@@ -57,8 +58,8 @@ public class AccumuloSplitManager
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
-            SplitSchedulingStrategy splitSchedulingStrategy,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
         AccumuloTableHandle handle = (AccumuloTableHandle) tableHandle;
 
@@ -79,7 +80,7 @@ public class AccumuloSplitManager
         ImmutableList.Builder<ConnectorSplit> cSplits = ImmutableList.builder();
         for (TabletSplitMetadata splitMetadata : tabletSplits) {
             AccumuloSplit split = new AccumuloSplit(
-                    splitMetadata.getRanges().stream().map(WrappedRange::new).collect(Collectors.toList()),
+                    splitMetadata.getRanges().stream().map(SerializedRange::serialize).collect(Collectors.toList()),
                     splitMetadata.getHostPort());
             cSplits.add(split);
         }

@@ -29,6 +29,7 @@ import java.util.Optional;
 import static io.trino.plugin.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -58,10 +59,17 @@ public class TestAccumuloConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_CREATE_SCHEMA:
+            case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
+                return false;
+
+            case SUPPORTS_ADD_COLUMN:
+            case SUPPORTS_DROP_COLUMN:
+                return false;
+
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
                 return false;
 
             case SUPPORTS_COMMENT_ON_TABLE:
@@ -73,6 +81,12 @@ public class TestAccumuloConnectorTest
 
             case SUPPORTS_CREATE_VIEW:
                 return true;
+
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
+                return false;
+
+            case SUPPORTS_ROW_TYPE:
+                return false;
 
             default:
                 return super.hasBehavior(connectorBehavior);
@@ -86,17 +100,19 @@ public class TestAccumuloConnectorTest
     }
 
     @Override
-    public void testAddColumn()
+    public void testCreateTableWithColumnComment()
     {
-        assertThatThrownBy(super::testAddColumn).hasMessage("This connector does not support adding columns");
-        throw new SkipException("Accumulo connector does not support adding columns");
-    }
+        // TODO Avoid setting hard-coded column comment
+        // Accumulo connector ignores specified comment and sets column comments as
+        // "Accumulo row ID" for the first column when "row_id" table property isn't specified
+        // "Accumulo column %s:%s. Indexed: boolean" for other columns
+        String tableName = "test_create_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint COMMENT 'test comment a', b bigint COMMENT 'test comment b')");
 
-    @Override
-    public void testDropColumn()
-    {
-        assertThatThrownBy(super::testDropColumn).hasMessage("This connector does not support dropping columns");
-        throw new SkipException("Dropping columns are not supported by the connector");
+        assertEquals(getColumnComment(tableName, "a"), "Accumulo row ID");
+        assertEquals(getColumnComment(tableName, "b"), "Accumulo column b:b. Indexed: false");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Override
@@ -305,7 +321,10 @@ public class TestAccumuloConnectorTest
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.startsWith("decimal(")
+                || typeName.equals("time(6)")
+                || typeName.equals("timestamp(6)")
                 || typeName.equals("timestamp(3) with time zone")
+                || typeName.equals("timestamp(6) with time zone")
                 || typeName.startsWith("char(")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
@@ -321,5 +340,12 @@ public class TestAccumuloConnectorTest
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
         return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    public void testCharVarcharComparison()
+    {
+        assertThatThrownBy(super::testCharVarcharComparison)
+                .hasMessage("Unsupported Trino type: char(3)");
     }
 }

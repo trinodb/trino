@@ -20,6 +20,7 @@ import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.TrinoException;
+import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -48,7 +49,7 @@ public final class OriginalFilesUtils
             Collection<OriginalFileInfo> originalFileInfos,
             Path splitPath,
             HdfsEnvironment hdfsEnvironment,
-            String sessionUser,
+            ConnectorIdentity identity,
             OrcReaderOptions options,
             Configuration configuration,
             FileFormatDataSourceStats stats)
@@ -57,7 +58,7 @@ public final class OriginalFilesUtils
         for (OriginalFileInfo originalFileInfo : originalFileInfos) {
             Path path = new Path(splitPath.getParent() + "/" + originalFileInfo.getName());
             if (path.compareTo(splitPath) < 0) {
-                rowCount += getRowsInFile(path, hdfsEnvironment, sessionUser, options, configuration, stats, originalFileInfo.getFileSize());
+                rowCount += getRowsInFile(path, hdfsEnvironment, identity, options, configuration, stats, originalFileInfo.getFileSize());
             }
         }
 
@@ -70,15 +71,15 @@ public final class OriginalFilesUtils
     private static Long getRowsInFile(
             Path splitPath,
             HdfsEnvironment hdfsEnvironment,
-            String sessionUser,
+            ConnectorIdentity identity,
             OrcReaderOptions options,
             Configuration configuration,
             FileFormatDataSourceStats stats,
             long fileSize)
     {
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, splitPath, configuration);
-            FSDataInputStream inputStream = hdfsEnvironment.doAs(sessionUser, () -> fileSystem.open(splitPath));
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(identity, splitPath, configuration);
+            FSDataInputStream inputStream = hdfsEnvironment.doAs(identity, () -> fileSystem.open(splitPath));
             try (OrcDataSource orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(splitPath.toString()),
                     fileSize,

@@ -15,63 +15,18 @@ package io.trino.plugin.redis;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.redis.util.RedisServer;
-import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.TestingConnectorBehavior;
-import org.testng.annotations.AfterClass;
 
 import static io.trino.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
 
 public class TestRedisConnectorTest
-        extends BaseConnectorTest
+        extends BaseRedisConnectorTest
 {
-    private RedisServer redisServer;
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        redisServer = new RedisServer();
-        return createRedisQueryRunner(redisServer, ImmutableMap.of(), "string", REQUIRED_TPCH_TABLES);
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void destroy()
-    {
-        redisServer.close();
-    }
-
-    @Override
-    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
-    {
-        switch (connectorBehavior) {
-            case SUPPORTS_TOPN_PUSHDOWN:
-                return false;
-
-            case SUPPORTS_CREATE_SCHEMA:
-                return false;
-
-            case SUPPORTS_CREATE_TABLE:
-                return false;
-
-            case SUPPORTS_RENAME_TABLE:
-                return false;
-
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
-                return false;
-
-            case SUPPORTS_INSERT:
-                return false;
-
-            case SUPPORTS_DELETE:
-                return false;
-
-            case SUPPORTS_ARRAY:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        RedisServer redisServer = closeAfterClass(new RedisServer());
+        return createRedisQueryRunner(redisServer, ImmutableMap.of(), ImmutableMap.of(), "string", REQUIRED_TPCH_TABLES);
     }
 }

@@ -22,6 +22,7 @@ public class TestAllowAllSystemAccessControl
 {
     @Test
     public void testEverythingImplemented()
+            throws ReflectiveOperationException
     {
         assertAllMethodsOverridden(SystemAccessControl.class, AllowAllSystemAccessControl.class);
     }

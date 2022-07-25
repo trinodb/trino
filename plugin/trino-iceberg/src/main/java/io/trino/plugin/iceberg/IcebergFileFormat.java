@@ -13,8 +13,38 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.base.VerifyException;
+import io.trino.spi.TrinoException;
+import org.apache.iceberg.FileFormat;
+
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+
 public enum IcebergFileFormat
 {
     ORC,
     PARQUET,
+    /**/;
+
+    public FileFormat toIceberg()
+    {
+        switch (this) {
+            case ORC:
+                return FileFormat.ORC;
+            case PARQUET:
+                return FileFormat.PARQUET;
+        }
+        throw new VerifyException("Unhandled type: " + this);
+    }
+
+    public static IcebergFileFormat fromIceberg(FileFormat format)
+    {
+        switch (format) {
+            case ORC:
+                return ORC;
+            case PARQUET:
+                return PARQUET;
+            default:
+                throw new TrinoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + format);
+        }
+    }
 }

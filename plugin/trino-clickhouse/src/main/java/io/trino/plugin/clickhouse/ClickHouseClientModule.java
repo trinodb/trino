@@ -26,8 +26,10 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
-import ru.yandex.clickhouse.ClickHouseDriver;
 
+import java.sql.Driver;
+
+import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 
 public class ClickHouseClientModule
@@ -37,6 +39,7 @@ public class ClickHouseClientModule
     public void configure(Binder binder)
     {
         ConfigBinder.configBinder(binder).bindConfig(ClickHouseConfig.class);
+        bindSessionPropertiesProvider(binder, ClickHouseSessionProperties.class);
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(ClickHouseClient.class).in(Scopes.SINGLETON);
         bindTablePropertiesProvider(binder, ClickHouseTableProperties.class);
         binder.install(new DecimalModule());
@@ -45,8 +48,16 @@ public class ClickHouseClientModule
     @Provides
     @Singleton
     @ForBaseJdbc
-    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
+    public static ConnectionFactory createConnectionFactory(ClickHouseConfig clickHouseConfig, BaseJdbcConfig config, CredentialProvider credentialProvider)
     {
-        return new ClickHouseConnectionFactory(new DriverConnectionFactory(new ClickHouseDriver(), config, credentialProvider));
+        return new ClickHouseConnectionFactory(new DriverConnectionFactory(createDriver(clickHouseConfig), config, credentialProvider));
+    }
+
+    private static Driver createDriver(ClickHouseConfig config)
+    {
+        if (config.isLegacyDriver()) {
+            return new ru.yandex.clickhouse.ClickHouseDriver();
+        }
+        return new com.clickhouse.jdbc.ClickHouseDriver();
     }
 }

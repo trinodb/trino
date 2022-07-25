@@ -14,10 +14,12 @@
 package io.trino.server.security.oauth2;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
@@ -25,6 +27,8 @@ import io.airlift.units.MinDuration;
 import javax.validation.constraints.NotNull;
 
 import java.io.File;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -35,17 +39,19 @@ import static io.trino.server.security.oauth2.OAuth2Service.OPENID_SCOPE;
 public class OAuth2Config
 {
     private Optional<String> stateKey = Optional.empty();
-    private String authUrl;
-    private String tokenUrl;
-    private String jwksUrl;
+    private String issuer;
     private String clientId;
     private String clientSecret;
-    private Optional<String> audience = Optional.empty();
     private Set<String> scopes = ImmutableSet.of(OPENID_SCOPE);
     private String principalField = "sub";
+    private Optional<String> groupsField = Optional.empty();
+    private List<String> additionalAudiences = Collections.emptyList();
     private Duration challengeTimeout = new Duration(15, TimeUnit.MINUTES);
+    private Duration maxClockSkew = new Duration(1, TimeUnit.MINUTES);
     private Optional<String> userMappingPattern = Optional.empty();
     private Optional<File> userMappingFile = Optional.empty();
+    private boolean enableRefreshTokens;
+    private boolean enableDiscovery = true;
 
     public Optional<String> getStateKey()
     {
@@ -61,44 +67,16 @@ public class OAuth2Config
     }
 
     @NotNull
-    public String getAuthUrl()
+    public String getIssuer()
     {
-        return authUrl;
+        return issuer;
     }
 
-    @Config("http-server.authentication.oauth2.auth-url")
-    @ConfigDescription("URL of the authorization server's authorization endpoint")
-    public OAuth2Config setAuthUrl(String authUrl)
+    @Config("http-server.authentication.oauth2.issuer")
+    @ConfigDescription("The required issuer of a token")
+    public OAuth2Config setIssuer(String issuer)
     {
-        this.authUrl = authUrl;
-        return this;
-    }
-
-    @NotNull
-    public String getTokenUrl()
-    {
-        return tokenUrl;
-    }
-
-    @Config("http-server.authentication.oauth2.token-url")
-    @ConfigDescription("URL of the authorization server's token endpoint")
-    public OAuth2Config setTokenUrl(String tokenUrl)
-    {
-        this.tokenUrl = tokenUrl;
-        return this;
-    }
-
-    @NotNull
-    public String getJwksUrl()
-    {
-        return jwksUrl;
-    }
-
-    @Config("http-server.authentication.oauth2.jwks-url")
-    @ConfigDescription("URL of the authorization server's JWKS (JSON Web Key Set) endpoint")
-    public OAuth2Config setJwksUrl(String jwksUrl)
-    {
-        this.jwksUrl = jwksUrl;
+        this.issuer = issuer;
         return this;
     }
 
@@ -131,16 +109,18 @@ public class OAuth2Config
         return this;
     }
 
-    public Optional<String> getAudience()
+    @NotNull
+    public List<String> getAdditionalAudiences()
     {
-        return audience;
+        return additionalAudiences;
     }
 
-    @Config("http-server.authentication.oauth2.audience")
-    @ConfigDescription("The required audience of a token")
-    public OAuth2Config setAudience(String audience)
+    @LegacyConfig("http-server.authentication.oauth2.audience")
+    @Config("http-server.authentication.oauth2.additional-audiences")
+    @ConfigDescription("Additional audiences to trust in addition to the Client ID")
+    public OAuth2Config setAdditionalAudiences(List<String> additionalAudiences)
     {
-        this.audience = Optional.ofNullable(audience);
+        this.additionalAudiences = ImmutableList.copyOf(additionalAudiences);
         return this;
     }
 
@@ -165,9 +145,23 @@ public class OAuth2Config
     }
 
     @Config("http-server.authentication.oauth2.principal-field")
+    @ConfigDescription("The claim to use as the principal")
     public OAuth2Config setPrincipalField(String principalField)
     {
         this.principalField = principalField;
+        return this;
+    }
+
+    public Optional<String> getGroupsField()
+    {
+        return groupsField;
+    }
+
+    @Config("http-server.authentication.oauth2.groups-field")
+    @ConfigDescription("Groups field in the claim")
+    public OAuth2Config setGroupsField(String groupsField)
+    {
+        this.groupsField = Optional.ofNullable(groupsField);
         return this;
     }
 
@@ -183,6 +177,21 @@ public class OAuth2Config
     public OAuth2Config setChallengeTimeout(Duration challengeTimeout)
     {
         this.challengeTimeout = challengeTimeout;
+        return this;
+    }
+
+    @MinDuration("0s")
+    @NotNull
+    public Duration getMaxClockSkew()
+    {
+        return maxClockSkew;
+    }
+
+    @Config("http-server.authentication.oauth2.max-clock-skew")
+    @ConfigDescription("Max clock skew between the Authorization Server and the coordinator")
+    public OAuth2Config setMaxClockSkew(Duration maxClockSkew)
+    {
+        this.maxClockSkew = maxClockSkew;
         return this;
     }
 
@@ -209,6 +218,32 @@ public class OAuth2Config
     public OAuth2Config setUserMappingFile(File userMappingFile)
     {
         this.userMappingFile = Optional.ofNullable(userMappingFile);
+        return this;
+    }
+
+    public boolean isEnableRefreshTokens()
+    {
+        return enableRefreshTokens;
+    }
+
+    @Config("http-server.authentication.oauth2.refresh-tokens")
+    @ConfigDescription("Enables OpenID refresh tokens usage")
+    public OAuth2Config setEnableRefreshTokens(boolean enableRefreshTokens)
+    {
+        this.enableRefreshTokens = enableRefreshTokens;
+        return this;
+    }
+
+    public boolean isEnableDiscovery()
+    {
+        return enableDiscovery;
+    }
+
+    @Config("http-server.authentication.oauth2.oidc.discovery")
+    @ConfigDescription("Enable OpenID Provider Issuer discovery")
+    public OAuth2Config setEnableDiscovery(boolean enableDiscovery)
+    {
+        this.enableDiscovery = enableDiscovery;
         return this;
     }
 }

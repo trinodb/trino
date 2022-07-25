@@ -18,28 +18,22 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Redis specific connector column handle.
- */
 public final class RedisColumnHandle
         implements DecoderColumnHandle, Comparable<RedisColumnHandle>
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RedisColumnHandle.class).instanceSize();
+
     private final int ordinalPosition;
-
-    /**
-     * Column Name
-     */
     private final String name;
-
-    /**
-     * Column type
-     */
     private final Type type;
 
     /**
@@ -62,9 +56,6 @@ public final class RedisColumnHandle
      */
     private final boolean keyDecoder;
 
-    /**
-     * True if the column should be hidden.
-     */
     private final boolean hidden;
 
     /**
@@ -212,5 +203,15 @@ public final class RedisColumnHandle
                 .add("hidden", hidden)
                 .add("internal", internal)
                 .toString();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + sizeOf(ordinalPosition)
+                + estimatedSizeOf(name)
+                + estimatedSizeOf(mapping)
+                + estimatedSizeOf(dataFormat)
+                + estimatedSizeOf(formatHint);
     }
 }

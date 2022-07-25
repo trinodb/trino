@@ -13,12 +13,13 @@
  */
 package io.trino.plugin.hive.metastore;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
@@ -39,17 +40,22 @@ public interface HiveMetastore
 
     List<String> getAllDatabases();
 
-    Optional<Table> getTable(HiveIdentity identity, String databaseName, String tableName);
+    Optional<Table> getTable(String databaseName, String tableName);
 
     Set<ColumnStatisticType> getSupportedColumnStatistics(Type type);
 
-    PartitionStatistics getTableStatistics(HiveIdentity identity, Table table);
+    PartitionStatistics getTableStatistics(Table table);
 
-    Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, Table table, List<Partition> partitions);
+    Map<String, PartitionStatistics> getPartitionStatistics(Table table, List<Partition> partitions);
 
-    void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update);
+    void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update);
 
-    void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
+    default void updatePartitionStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    {
+        updatePartitionStatistics(table, ImmutableMap.of(partitionName, update));
+    }
+
+    void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates);
 
     List<String> getAllTables(String databaseName);
 
@@ -57,40 +63,40 @@ public interface HiveMetastore
 
     List<String> getAllViews(String databaseName);
 
-    void createDatabase(HiveIdentity identity, Database database);
+    void createDatabase(Database database);
 
-    void dropDatabase(HiveIdentity identity, String databaseName);
+    void dropDatabase(String databaseName, boolean deleteData);
 
-    void renameDatabase(HiveIdentity identity, String databaseName, String newDatabaseName);
+    void renameDatabase(String databaseName, String newDatabaseName);
 
-    void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal);
+    void setDatabaseOwner(String databaseName, HivePrincipal principal);
 
-    void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges);
+    void createTable(Table table, PrincipalPrivileges principalPrivileges);
 
-    void dropTable(HiveIdentity identity, String databaseName, String tableName, boolean deleteData);
+    void dropTable(String databaseName, String tableName, boolean deleteData);
 
     /**
      * This should only be used if the semantic here is drop and add. Trying to
      * alter one field of a table object previously acquired from getTable is
      * probably not what you want.
      */
-    void replaceTable(HiveIdentity identity, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges);
+    void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges);
 
-    void renameTable(HiveIdentity identity, String databaseName, String tableName, String newDatabaseName, String newTableName);
+    void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName);
 
-    void commentTable(HiveIdentity identity, String databaseName, String tableName, Optional<String> comment);
+    void commentTable(String databaseName, String tableName, Optional<String> comment);
 
-    void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal);
+    void setTableOwner(String databaseName, String tableName, HivePrincipal principal);
 
-    void commentColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, Optional<String> comment);
+    void commentColumn(String databaseName, String tableName, String columnName, Optional<String> comment);
 
-    void addColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment);
+    void addColumn(String databaseName, String tableName, String columnName, HiveType columnType, String columnComment);
 
-    void renameColumn(HiveIdentity identity, String databaseName, String tableName, String oldColumnName, String newColumnName);
+    void renameColumn(String databaseName, String tableName, String oldColumnName, String newColumnName);
 
-    void dropColumn(HiveIdentity identity, String databaseName, String tableName, String columnName);
+    void dropColumn(String databaseName, String tableName, String columnName);
 
-    Optional<Partition> getPartition(HiveIdentity identity, Table table, List<String> partitionValues);
+    Optional<Partition> getPartition(Table table, List<String> partitionValues);
 
     /**
      * Return a list of partition names, with optional filtering (hint to improve performance if possible).
@@ -102,15 +108,15 @@ public interface HiveMetastore
      * @return a list of partition names as created by {@link MetastoreUtil#toPartitionName}
      * @see TupleDomain
      */
-    Optional<List<String>> getPartitionNamesByFilter(HiveIdentity identity, String databaseName, String tableName, List<String> columnNames, TupleDomain<String> partitionKeysFilter);
+    Optional<List<String>> getPartitionNamesByFilter(String databaseName, String tableName, List<String> columnNames, TupleDomain<String> partitionKeysFilter);
 
-    Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, Table table, List<String> partitionNames);
+    Map<String, Optional<Partition>> getPartitionsByNames(Table table, List<String> partitionNames);
 
-    void addPartitions(HiveIdentity identity, String databaseName, String tableName, List<PartitionWithStatistics> partitions);
+    void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions);
 
-    void dropPartition(HiveIdentity identity, String databaseName, String tableName, List<String> parts, boolean deleteData);
+    void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData);
 
-    void alterPartition(HiveIdentity identity, String databaseName, String tableName, PartitionWithStatistics partition);
+    void alterPartition(String databaseName, String tableName, PartitionWithStatistics partition);
 
     void createRole(String role, String grantor);
 
@@ -126,38 +132,47 @@ public interface HiveMetastore
 
     Set<RoleGrant> listRoleGrants(HivePrincipal principal);
 
-    void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges);
+    void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption);
 
-    void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges);
+    void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption);
 
     /**
+     * @param tableOwner
      * @param principal when empty, all table privileges are returned
      */
-    Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal);
+    Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal);
 
-    boolean isImpersonationEnabled();
-
-    default long openTransaction(HiveIdentity identity)
+    default long openTransaction(AcidTransactionOwner transactionOwner)
     {
         throw new UnsupportedOperationException();
     }
 
-    default void commitTransaction(HiveIdentity identity, long transactionId)
+    default void commitTransaction(long transactionId)
     {
         throw new UnsupportedOperationException();
     }
 
-    default void sendTransactionHeartbeat(HiveIdentity identity, long transactionId)
+    default void abortTransaction(long transactionId)
     {
         throw new UnsupportedOperationException();
     }
 
-    default void acquireSharedReadLock(HiveIdentity identity, String queryId, long transactionId, List<SchemaTableName> fullTables, List<HivePartition> partitions)
+    default void sendTransactionHeartbeat(long transactionId)
     {
         throw new UnsupportedOperationException();
     }
 
-    default String getValidWriteIds(HiveIdentity identity, List<SchemaTableName> tables, long currentTransactionId)
+    default void acquireSharedReadLock(
+            AcidTransactionOwner transactionOwner,
+            String queryId,
+            long transactionId,
+            List<SchemaTableName> fullTables,
+            List<HivePartition> partitions)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default String getValidWriteIds(List<SchemaTableName> tables, long currentTransactionId)
     {
         throw new UnsupportedOperationException();
     }
@@ -167,32 +182,39 @@ public interface HiveMetastore
         return Optional.empty();
     }
 
-    default long allocateWriteId(HiveIdentity identity, String dbName, String tableName, long transactionId)
+    default long allocateWriteId(String dbName, String tableName, long transactionId)
     {
         throw new UnsupportedOperationException();
     }
 
-    default void acquireTableWriteLock(HiveIdentity identity, String queryId, long transactionId, String dbName, String tableName, DataOperationType operation, boolean isDynamicPartitionWrite)
+    default void acquireTableWriteLock(
+            AcidTransactionOwner transactionOwner,
+            String queryId,
+            long transactionId,
+            String dbName,
+            String tableName,
+            DataOperationType operation,
+            boolean isDynamicPartitionWrite)
     {
         throw new UnsupportedOperationException();
     }
 
-    default void updateTableWriteId(HiveIdentity identity, String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
+    default void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
     {
         throw new UnsupportedOperationException();
     }
 
-    default void alterPartitions(HiveIdentity identity, String dbName, String tableName, List<Partition> partitions, long writeId)
+    default void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
     {
         throw new UnsupportedOperationException();
     }
 
-    default void addDynamicPartitions(HiveIdentity identity, String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+    default void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
     {
         throw new UnsupportedOperationException();
     }
 
-    default void alterTransactionalTable(HiveIdentity identity, Table table, long transactionId, long writeId, PrincipalPrivileges principalPrivileges)
+    default void alterTransactionalTable(Table table, long transactionId, long writeId, PrincipalPrivileges principalPrivileges)
     {
         throw new UnsupportedOperationException();
     }

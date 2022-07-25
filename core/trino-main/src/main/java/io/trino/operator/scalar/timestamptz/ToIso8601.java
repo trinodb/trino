@@ -24,9 +24,9 @@ import io.trino.type.Constraint;
 import io.trino.type.DateTimes;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -73,14 +73,14 @@ public final class ToIso8601
 
     private static String format(int precision, long epochMillis, int picosOfMilli, ZoneId zoneId)
     {
-        LocalDateTime dateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), zoneId);
         long picoFraction = ((long) getMillisOfSecond(epochMillis)) * PICOSECONDS_PER_MILLISECOND + picosOfMilli;
 
-        ZoneOffset offset = zoneId.getRules().getValidOffsets(dateTime).get(0);
+        ZonedDateTime dateTime = ZonedDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), zoneId);
+        ZoneOffset offset = dateTime.getOffset();
         if (offset.getTotalSeconds() % 60 != 0) {
             throw new TrinoException(INVALID_ARGUMENTS, "Timezone with non-zero seconds offset cannot be rendered as ISO8601: " + offset.getId());
         }
 
-        return DateTimes.formatTimestamp(precision, dateTime, picoFraction, ISO8601_FORMATTER, builder -> builder.append(offset));
+        return DateTimes.formatTimestamp(precision, dateTime.toLocalDateTime(), picoFraction, ISO8601_FORMATTER, builder -> builder.append(offset));
     }
 }

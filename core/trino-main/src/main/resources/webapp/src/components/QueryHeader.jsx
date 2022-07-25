@@ -35,7 +35,7 @@ export class QueryHeader extends React.Component {
                 <div className="progress-large">
                     <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={getProgressBarPercentage(query)} aria-valuemin="0" aria-valuemax="100"
                          style={progressBarStyle}>
-                        {getProgressBarTitle(query)}
+                        {getProgressBarTitle(query, false)}
                     </div>
                 </div>
             );
@@ -49,7 +49,7 @@ export class QueryHeader extends React.Component {
                         <div className="progress-large">
                             <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={getProgressBarPercentage(query)} aria-valuemin="0" aria-valuemax="100"
                                  style={progressBarStyle}>
-                                {getProgressBarTitle(query)}
+                                {getProgressBarTitle(query, false)}
                             </div>
                         </div>
                     </td>

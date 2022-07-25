@@ -17,7 +17,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 
-public interface AccumulatorStateSerializer<T>
+public interface AccumulatorStateSerializer<T extends AccumulatorState>
 {
     Type getSerializedType();
 

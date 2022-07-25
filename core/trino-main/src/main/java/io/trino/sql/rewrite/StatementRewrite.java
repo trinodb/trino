@@ -13,69 +13,63 @@
  */
 package io.trino.sql.rewrite;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.cost.StatsCalculator;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
-import io.trino.security.AccessControl;
-import io.trino.spi.security.GroupProvider;
-import io.trino.sql.analyzer.QueryExplainer;
-import io.trino.sql.parser.SqlParser;
+import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Statement;
 
+import javax.inject.Inject;
+
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
 public final class StatementRewrite
 {
-    private static final List<Rewrite> REWRITES = ImmutableList.of(
-            new DescribeInputRewrite(),
-            new DescribeOutputRewrite(),
-            new ShowQueriesRewrite(),
-            new ShowStatsRewrite(),
-            new ExplainRewrite());
+    private final Set<Rewrite> rewrites;
 
-    private StatementRewrite() {}
+    @Inject
+    public StatementRewrite(Set<Rewrite> rewrites)
+    {
+        this.rewrites = ImmutableSet.copyOf(requireNonNull(rewrites, "rewrites is null"));
+    }
 
-    public static Statement rewrite(
+    public Statement rewrite(
+            AnalyzerFactory analyzerFactory,
             Session session,
-            Metadata metadata,
-            SqlParser parser,
-            Optional<QueryExplainer> queryExplainer,
             Statement node,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            GroupProvider groupProvider,
-            AccessControl accessControl,
-            WarningCollector warningCollector,
-            StatsCalculator statsCalculator)
+            WarningCollector warningCollector)
     {
-        for (Rewrite rewrite : REWRITES) {
-            node = requireNonNull(rewrite.rewrite(session, metadata, parser, queryExplainer, node, parameters, parameterLookup, groupProvider, accessControl, warningCollector, statsCalculator), "Statement rewrite returned null");
+        for (Rewrite rewrite : rewrites) {
+            node = requireNonNull(
+                    rewrite.rewrite(
+                            analyzerFactory,
+                            session,
+                            node,
+                            parameters,
+                            parameterLookup,
+                            warningCollector),
+                    "Statement rewrite returned null");
         }
         return node;
     }
 
-    interface Rewrite
+    public interface Rewrite
     {
         Statement rewrite(
+                AnalyzerFactory analyzerFactory,
                 Session session,
-                Metadata metadata,
-                SqlParser parser,
-                Optional<QueryExplainer> queryExplainer,
                 Statement node,
                 List<Expression> parameters,
                 Map<NodeRef<Parameter>, Expression> parameterLookup,
-                GroupProvider groupProvider,
-                AccessControl accessControl,
-                WarningCollector warningCollector,
-                StatsCalculator statsCalculator);
+                WarningCollector warningCollector);
     }
 }

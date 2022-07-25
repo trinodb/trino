@@ -1,5 +1,5 @@
 =============
-HTTPS and TLS
+TLS and HTTPS
 =============
 
 Trino runs with no security by default. This allows you to connect to the server
@@ -12,10 +12,6 @@ This topic describes how to configure your Trino server to use :ref:`TLS
 All authentication technologies supported by Trino require configuring TLS as
 the foundational layer.
 
-When configured to use TLS, a Trino server responds to client connections using
-TLS 1.2 and TLS 1.3 certificates. The server rejects TLS 1.1, TLS 1.0, and all
-SSL format certificates.
-
 .. important::
 
     This page discusses only how to prepare the Trino server for secure client
@@ -23,13 +19,68 @@ SSL format certificates.
 
 See the :doc:`Glossary </appendix/glossary>` to clarify unfamiliar terms.
 
+.. _tls-version-and-ciphers:
+
+Supported standards
+-------------------
+
+When configured to use TLS, the Trino server responds to client connections
+using TLS 1.2 and TLS 1.3 certificates. The server rejects TLS 1.1, TLS 1.0, and
+all SSL format certificates.
+
+The Trino server does not specify a set of supported ciphers, instead deferring
+to the defaults set by the JVM version in use. The documentation for Java 11
+lists its `supported cipher suites
+<https://docs.oracle.com/en/java/javase/11/security/oracle-providers.html#GUID-7093246A-31A3-4304-AC5F-5FB6400405E2__SUNJSSE_CIPHER_SUITES>`_.
+
+Run the following two-line code on the same JVM from the same vendor as
+configured on the coordinator to determine that JVM's default cipher list.
+
+.. code-block:: shell
+
+  echo "java.util.Arrays.asList(((javax.net.ssl.SSLServerSocketFactory) \
+  javax.net.ssl.SSLServerSocketFactory.getDefault()).getSupportedCipherSuites()).stream().forEach(System.out::println)" | jshell -
+
+The default Trino server specifies a set of regular expressions that exclude
+older cipher suites that do not support forward secrecy (FS).
+
+Use the ``http-server.https.included-cipher`` property to specify a
+comma-separated list of ciphers in preferred use order. If one of your preferred
+selections is a non-FS cipher, you must also set the
+``http-server.https.excluded-cipher`` property to an empty list to override the
+default exclusions. For example:
+
+.. code-block:: text
+
+   http-server.https.included-cipher=TLS_RSA_WITH_AES_128_CBC_SHA,TLS_RSA_WITH_AES_128_CBC_SHA256
+   http-server.https.excluded-cipher=
+
+Specifying a different cipher suite is a complex issue that should only be
+considered in conjunction with your organization's security managers. Using a
+different suite may require downloading and installing a different SunJCE
+implementation package. Some locales may have export restrictions on cipher
+suites. See the discussion in Java documentation that begins with `Customizing
+the Encryption Algorithm Providers
+<https://docs.oracle.com/en/java/javase/11/security/java-secure-socket-extension-jsse-reference-guide.html#GUID-316FB978-7588-442E-B829-B4973DB3B584>`_.
+
+.. note::
+
+    If you manage the coordinator's direct TLS implementatation, monitor the CPU
+    usage on the Trino coordinator after enabling HTTPS. Java prefers the more
+    CPU-intensive cipher suites, if you allow it to choose from a big list of
+    ciphers. If the CPU usage is unacceptably high after enabling HTTPS, you can
+    configure Java to use specific cipher suites as described in this section.
+
+    However, best practice is to instead use an external load balancer, as
+    discussed next.
+
 Approaches
 ----------
 
 To configure Trino with TLS support, consider two alternative paths:
 
 * Use the :ref:`load balancer or proxy <https-load-balancer>` at your site
-  or cloud environment to terminate HTTPS/TLS. This approach is the simplest and
+  or cloud environment to terminate TLS/HTTPS. This approach is the simplest and
   strongly preferred solution.
 
 * Secure the Trino :ref:`server directly <https-secure-directly>`. This
@@ -38,7 +89,7 @@ To configure Trino with TLS support, consider two alternative paths:
 
 .. _https-load-balancer:
 
-Use a load balancer to terminate HTTPS/TLS
+Use a load balancer to terminate TLS/HTTPS
 ------------------------------------------
 
 Your site or cloud environment may already have a :ref:`load balancer <glossLB>`

@@ -14,74 +14,85 @@
 package io.trino.metadata;
 
 import io.trino.connector.CatalogName;
+import io.trino.connector.ConnectorManager.ConnectorServices;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.transaction.IsolationLevel;
+import io.trino.transaction.InternalConnector;
+import io.trino.transaction.TransactionId;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.metadata.MetadataUtil.checkCatalogName;
 import static java.util.Objects.requireNonNull;
 
 public class Catalog
 {
-    private final String catalogName;
-    private final CatalogName connectorCatalogName;
-    private final Connector connector;
-
-    private final CatalogName informationSchemaId;
-    private final Connector informationSchema;
-
-    private final CatalogName systemTablesId;
-    private final Connector systemTables;
+    private final CatalogName catalogName;
+    private final String connectorName;
+    private final ConnectorServices catalogConnector;
+    private final ConnectorServices informationSchemaConnector;
+    private final ConnectorServices systemConnector;
 
     public Catalog(
-            String catalogName,
-            CatalogName connectorCatalogName,
-            Connector connector,
-            CatalogName informationSchemaId,
-            Connector informationSchema,
-            CatalogName systemTablesId,
-            Connector systemTables)
+            CatalogName catalogName,
+            String connectorName,
+            ConnectorServices catalogConnector,
+            CatalogName informationSchemaName,
+            ConnectorServices informationSchemaConnector,
+            CatalogName systemName,
+            ConnectorServices systemConnector)
     {
-        this.catalogName = checkCatalogName(catalogName);
-        this.connectorCatalogName = requireNonNull(connectorCatalogName, "connectorCatalogName is null");
-        this.connector = requireNonNull(connector, "connector is null");
-        this.informationSchemaId = requireNonNull(informationSchemaId, "informationSchemaId is null");
-        this.informationSchema = requireNonNull(informationSchema, "informationSchema is null");
-        this.systemTablesId = requireNonNull(systemTablesId, "systemTablesId is null");
-        this.systemTables = requireNonNull(systemTables, "systemTables is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.connectorName = requireNonNull(connectorName, "connectorName is null");
+        this.catalogConnector = requireNonNull(catalogConnector, "catalogConnector is null");
+        this.informationSchemaConnector = requireNonNull(informationSchemaConnector, "informationSchemaConnector is null");
+        this.systemConnector = requireNonNull(systemConnector, "systemConnector is null");
     }
 
-    public String getCatalogName()
+    public CatalogName getCatalogName()
     {
         return catalogName;
     }
 
-    public CatalogName getConnectorCatalogName()
+    public String getConnectorName()
     {
-        return connectorCatalogName;
+        return connectorName;
     }
 
-    public CatalogName getInformationSchemaId()
+    public CatalogMetadata beginTransaction(
+            TransactionId transactionId,
+            IsolationLevel isolationLevel,
+            boolean readOnly,
+            boolean autoCommitContext)
     {
-        return informationSchemaId;
+        CatalogTransaction catalogTransaction = beginTransaction(catalogConnector, transactionId, isolationLevel, readOnly, autoCommitContext);
+        CatalogTransaction informationSchemaTransaction = beginTransaction(informationSchemaConnector, transactionId, isolationLevel, readOnly, autoCommitContext);
+        CatalogTransaction systemTransaction = beginTransaction(systemConnector, transactionId, isolationLevel, readOnly, autoCommitContext);
+
+        return new CatalogMetadata(
+                catalogTransaction,
+                informationSchemaTransaction,
+                systemTransaction,
+                catalogConnector.getSecurityManagement(),
+                catalogConnector.getCapabilities());
     }
 
-    public CatalogName getSystemTablesId()
+    private static CatalogTransaction beginTransaction(
+            ConnectorServices connectorServices,
+            TransactionId transactionId,
+            IsolationLevel isolationLevel,
+            boolean readOnly,
+            boolean autoCommitContext)
     {
-        return systemTablesId;
-    }
+        Connector connector = connectorServices.getConnector();
+        ConnectorTransactionHandle transactionHandle;
+        if (connector instanceof InternalConnector) {
+            transactionHandle = ((InternalConnector) connector).beginTransaction(transactionId, isolationLevel, readOnly);
+        }
+        else {
+            transactionHandle = connector.beginTransaction(isolationLevel, readOnly, autoCommitContext);
+        }
 
-    public Connector getConnector(CatalogName catalogName)
-    {
-        if (this.connectorCatalogName.equals(catalogName)) {
-            return connector;
-        }
-        if (informationSchemaId.equals(catalogName)) {
-            return informationSchema;
-        }
-        if (systemTablesId.equals(catalogName)) {
-            return systemTables;
-        }
-        throw new IllegalArgumentException("Unknown connector id: " + catalogName);
+        return new CatalogTransaction(connectorServices.getCatalogName(), connector, transactionHandle);
     }
 
     @Override
@@ -89,7 +100,7 @@ public class Catalog
     {
         return toStringHelper(this)
                 .add("catalogName", catalogName)
-                .add("connectorConnectorId", connectorCatalogName)
+                .add("connectorConnectorId", catalogName)
                 .toString();
     }
 }

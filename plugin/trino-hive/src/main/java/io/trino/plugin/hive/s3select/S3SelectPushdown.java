@@ -61,10 +61,9 @@ public final class S3SelectPushdown
     /*
      * Double and Real Types lose precision. Thus, they are not pushed down to S3. Please use Decimal Type if push down is desired.
      *
-     * Pushing down timestamp to s3select is problematic due to following reasons:
-     * 1) Presto bug: TIMESTAMP behaviour does not match sql standard (https://github.com/trinodb/trino/issues/37)
-     * 2) Presto uses the timezone from client to convert the timestamp if no timezone is provided, however, s3select is a different service and this could lead to unexpected results.
-     * 3) ION SQL compare timestamps using precision, timestamps with different precisions are not equal even actually they present the same instant of time. This could lead to unexpected results.
+     * When S3 select support was added, Trino did not properly implement TIMESTAMP semantic. This was fixed in 2020, and TIMESTAMPS may be supportable now
+     * (https://github.com/trinodb/trino/issues/10962). Pushing down timestamps to s3select maybe still be problematic due to ION SQL comparing timestamps
+     * using precision.  This means timestamps with different precisions are not equal even actually they present the same instant of time.
      */
     private static final Set<String> SUPPORTED_COLUMN_TYPES = ImmutableSet.of(
             BOOLEAN_TYPE_NAME,

@@ -13,13 +13,11 @@
  */
 package io.trino.execution.scheduler;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import org.testng.annotations.Test;
 
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,30 +30,28 @@ public class TestPartitionedOutputBufferManager
     @Test
     public void test()
     {
-        AtomicReference<OutputBuffers> outputBufferTarget = new AtomicReference<>();
-
-        PartitionedOutputBufferManager hashOutputBufferManager = new PartitionedOutputBufferManager(FIXED_HASH_DISTRIBUTION, 4, outputBufferTarget::set);
+        PartitionedOutputBufferManager hashOutputBufferManager = new PartitionedOutputBufferManager(FIXED_HASH_DISTRIBUTION, 4);
 
         // output buffers are set immediately when the manager is created
-        assertOutputBuffers(outputBufferTarget.get());
+        assertOutputBuffers(hashOutputBufferManager.getOutputBuffers());
 
         // add buffers, which does not cause an error
-        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBufferId(0)), false);
-        assertOutputBuffers(outputBufferTarget.get());
-        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBufferId(3)), true);
-        assertOutputBuffers(outputBufferTarget.get());
+        hashOutputBufferManager.addOutputBuffer(new OutputBufferId(0));
+        assertOutputBuffers(hashOutputBufferManager.getOutputBuffers());
+        hashOutputBufferManager.addOutputBuffer(new OutputBufferId(3));
+        assertOutputBuffers(hashOutputBufferManager.getOutputBuffers());
 
         // try to a buffer out side of the partition range, which should result in an error
-        assertThatThrownBy(() -> hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBufferId(5)), false))
+        assertThatThrownBy(() -> hashOutputBufferManager.addOutputBuffer(new OutputBufferId(5)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Unexpected new output buffer 5");
-        assertOutputBuffers(outputBufferTarget.get());
+        assertOutputBuffers(hashOutputBufferManager.getOutputBuffers());
 
         // try to a buffer out side of the partition range, which should result in an error
-        assertThatThrownBy(() -> hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBufferId(6)), true))
+        assertThatThrownBy(() -> hashOutputBufferManager.addOutputBuffer(new OutputBufferId(6)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Unexpected new output buffer 6");
-        assertOutputBuffers(outputBufferTarget.get());
+        assertOutputBuffers(hashOutputBufferManager.getOutputBuffers());
     }
 
     private static void assertOutputBuffers(OutputBuffers outputBuffers)

@@ -124,9 +124,9 @@ public class DefaultThriftMetastoreClientFactory
         try {
             // load KeyStore if configured and get KeyManagers
             KeyManager[] keyManagers = null;
-            KeyStore keyStore = null;
             char[] keyManagerPassword = new char[0];
             if (keyStorePath.isPresent()) {
+                KeyStore keyStore;
                 try {
                     keyStore = PemReader.loadKeyStore(keyStorePath.get(), keyStorePath.get(), keyStorePassword);
                 }

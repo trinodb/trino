@@ -62,7 +62,7 @@ public class NoChannelGroupByHash
     }
 
     @Override
-    public void appendValuesTo(int groupId, PageBuilder pageBuilder, int outputChannelOffset)
+    public void appendValuesTo(int groupId, PageBuilder pageBuilder)
     {
         throw new UnsupportedOperationException("NoChannelGroupByHash does not support appendValuesTo");
     }

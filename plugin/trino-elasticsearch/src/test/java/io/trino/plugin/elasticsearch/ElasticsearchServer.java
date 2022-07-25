@@ -23,14 +23,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.createTempDirectory;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public class ElasticsearchServer
 {
+    public static final String ELASTICSEARCH_7_IMAGE = "elasticsearch:7.0.0";
+
     private final Path configurationPath;
     private final ElasticsearchContainer container;
 
@@ -47,8 +49,9 @@ public class ElasticsearchServer
         container = new ElasticsearchContainer(dockerImageName);
         container.withNetwork(network);
         container.withNetworkAliases("elasticsearch-server");
+        container.withEnv("DISABLE_SECURITY_PLUGIN", "true"); // Required for OpenSearch container
 
-        configurationPath = createTempDir().toPath();
+        configurationPath = createTempDirectory(null);
         for (Map.Entry<String, String> entry : configurationFiles.entrySet()) {
             String name = entry.getKey();
             String contents = entry.getValue();

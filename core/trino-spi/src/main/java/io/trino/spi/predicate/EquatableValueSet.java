@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;
@@ -26,6 +27,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.function.Consumer;
@@ -33,6 +35,7 @@ import java.util.function.Function;
 import java.util.stream.Collector;
 import java.util.stream.Stream;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -40,12 +43,10 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
 import static java.lang.String.format;
-import static java.util.Collections.unmodifiableCollection;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 /**
@@ -56,6 +57,8 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 public class EquatableValueSet
         implements ValueSet
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(EquatableValueSet.class).instanceSize();
+
     private final Type type;
     private final boolean inclusive;
     private final Set<ValueEntry> entries;
@@ -128,9 +131,9 @@ public class EquatableValueSet
 
     public Collection<Object> getValues()
     {
-        return unmodifiableCollection(entries.stream()
+        return entries.stream()
                 .map(ValueEntry::getValue)
-                .collect(toList()));
+                .collect(toUnmodifiableList());
     }
 
     public int getValuesCount()
@@ -290,6 +293,29 @@ public class EquatableValueSet
     }
 
     @Override
+    public boolean contains(ValueSet other)
+    {
+        EquatableValueSet otherValueSet = checkCompatibility(other);
+
+        if (inclusive && otherValueSet.inclusive()) {
+            return entries.containsAll(otherValueSet.entries);
+        }
+        if (inclusive) {
+            /* Note: This isn't correct for a finite universe of values.
+             * For example, for boolean universe: {true, false}
+             * `this` being [inclusive, {true}] and `other` being [excluding, {false}]
+             * `this.contains(other)` should return true, since the domains are equal.
+             * However, we return false for consistency with `this.union(other).equals(this)`
+             */
+            return false;
+        }
+        if (otherValueSet.inclusive()) {
+            return !setsOverlap(entries, otherValueSet.entries);
+        }
+        return otherValueSet.entries.containsAll(entries);
+    }
+
+    @Override
     public EquatableValueSet complement()
     {
         return new EquatableValueSet(type, !inclusive, entries);
@@ -315,6 +341,22 @@ public class EquatableValueSet
                 .add("values=" + getValuesCount())
                 .add(formatValues(session, limit))
                 .toString();
+    }
+
+    @Override
+    public Optional<Collection<Object>> tryExpandRanges(int valuesLimit)
+    {
+        if (inclusive() && getValuesCount() <= valuesLimit) {
+            return Optional.of(getValues());
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        // type is not accounted for as the instances are cached (by TypeRegistry) and shared
+        return INSTANCE_SIZE + estimatedSizeOf(entries, ValueEntry::getRetainedSizeInBytes);
     }
 
     private String formatValues(ConnectorSession session, int limit)
@@ -397,6 +439,8 @@ public class EquatableValueSet
 
     public static class ValueEntry
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(ValueEntry.class).instanceSize();
+
         private final Type type;
         private final Block block;
         private final MethodHandle equalOperator;
@@ -472,6 +516,12 @@ public class EquatableValueSet
                 throw handleThrowable(throwable);
             }
             return Boolean.TRUE.equals(result);
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            // type is not accounted for as the instances are cached (by TypeRegistry) and shared
+            return INSTANCE_SIZE + block.getRetainedSizeInBytes();
         }
     }
 

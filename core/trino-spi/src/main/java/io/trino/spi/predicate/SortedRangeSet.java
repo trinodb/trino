@@ -21,11 +21,14 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -35,6 +38,7 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -62,10 +66,13 @@ import static java.util.stream.Collectors.joining;
 public final class SortedRangeSet
         implements ValueSet
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SortedRangeSet.class).instanceSize();
+
     private final Type type;
     private final MethodHandle equalOperator;
     private final MethodHandle hashCodeOperator;
     private final MethodHandle comparisonOperator;
+    private final MethodHandle rangeComparisonOperator;
 
     private final boolean[] inclusive;
     private final Block sortedRanges;
@@ -81,7 +88,10 @@ public final class SortedRangeSet
         this.type = type;
         this.equalOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
         this.hashCodeOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
-        this.comparisonOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+        // choice of placing unordered values first or last does not matter for this code
+        this.comparisonOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+        // Calculating the comparison operator once instead of per range to avoid hitting TypeOperators cache
+        this.rangeComparisonOperator = Range.getComparisonOperator(type);
 
         requireNonNull(inclusive, "inclusive is null");
         requireNonNull(sortedRanges, "sortedRanges is null");
@@ -178,7 +188,8 @@ public final class SortedRangeSet
 
     private static SortedRangeSet fromUnorderedValuesBlock(Type type, Block block)
     {
-        MethodHandle comparisonOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+        // choice of placing unordered values first or last does not matter for this code
+        MethodHandle comparisonOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
 
         List<Integer> indexes = new ArrayList<>(block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {
@@ -233,6 +244,14 @@ public final class SortedRangeSet
         return copyOf(first.getType(), rangeList);
     }
 
+    static SortedRangeSet of(List<Range> rangeList)
+    {
+        if (rangeList.isEmpty()) {
+            throw new IllegalArgumentException("cannot use empty rangeList");
+        }
+        return copyOf(rangeList.get(0).getType(), rangeList);
+    }
+
     private static SortedRangeSet of(Type type, Object value)
     {
         checkNotNaN(type, value);
@@ -243,9 +262,9 @@ public final class SortedRangeSet
                 new RunLengthEncodedBlock(block, 2));
     }
 
-    static SortedRangeSet copyOf(Type type, Iterable<Range> ranges)
+    static SortedRangeSet copyOf(Type type, Collection<Range> ranges)
     {
-        return new Builder(type).addAll(ranges).build();
+        return buildFromUnsortedRanges(type, ranges);
     }
 
     /**
@@ -253,7 +272,7 @@ public final class SortedRangeSet
      */
     public static SortedRangeSet copyOf(Type type, List<Range> ranges)
     {
-        return copyOf(type, (Iterable<Range>) ranges);
+        return copyOf(type, (Collection<Range>) ranges);
     }
 
     @Override
@@ -361,6 +380,7 @@ public final class SortedRangeSet
         RangeView valueRange = new RangeView(
                 type,
                 comparisonOperator,
+                rangeComparisonOperator,
                 true,
                 valueAsBlock,
                 0,
@@ -398,6 +418,7 @@ public final class SortedRangeSet
         return new RangeView(
                 type,
                 comparisonOperator,
+                rangeComparisonOperator,
                 inclusive[0],
                 sortedRanges,
                 0,
@@ -419,6 +440,7 @@ public final class SortedRangeSet
         return new RangeView(
                 type,
                 comparisonOperator,
+                rangeComparisonOperator,
                 inclusive[rangeLeft],
                 sortedRanges,
                 rangeLeft,
@@ -667,6 +689,45 @@ public final class SortedRangeSet
     }
 
     @Override
+    public boolean contains(ValueSet other)
+    {
+        SortedRangeSet that = checkCompatibility(other);
+
+        if (this.isAll()) {
+            return true;
+        }
+        if (that.isAll()) {
+            return false;
+        }
+        if (this == that || that.isNone()) {
+            return true;
+        }
+        if (this.isNone()) {
+            return false;
+        }
+
+        int thisRangeCount = this.getRangeCount();
+        int thatRangeCount = that.getRangeCount();
+        int thisRangeIndex = 0;
+        RangeView thisRangeView = this.getRangeView(thisRangeIndex);
+        for (int thatRangeIndex = 0; thatRangeIndex < thatRangeCount; thatRangeIndex++) {
+            RangeView thatRangeView = that.getRangeView(thatRangeIndex);
+            while (thisRangeView.isFullyBefore(thatRangeView)) {
+                thisRangeIndex++;
+                if (thisRangeIndex == thisRangeCount) {
+                    return false;
+                }
+                thisRangeView = this.getRangeView(thisRangeIndex);
+            }
+            if (!thisRangeView.contains(thatRangeView)) {
+                // thisRange partially overlaps with thatRange, or it's fully after thatRange
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
     public SortedRangeSet complement()
     {
         if (isNone()) {
@@ -779,7 +840,7 @@ public final class SortedRangeSet
         SortedRangeSet other = (SortedRangeSet) obj;
         return hashCode() == other.hashCode() && // compare hash codes because they are cached, so this is cheap and efficient
                 Objects.equals(this.type, other.type) &&
-                Arrays.equals(inclusive, inclusive) &&
+                Arrays.equals(this.inclusive, other.inclusive) &&
                 blocksEqual(this.sortedRanges, other.sortedRanges);
     }
 
@@ -846,6 +907,56 @@ public final class SortedRangeSet
                 .toString();
     }
 
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + sizeOf(inclusive)
+                + sortedRanges.getRetainedSizeInBytes();
+    }
+
+    @Override
+    public Optional<Collection<Object>> tryExpandRanges(int valuesLimit)
+    {
+        List<Range> ranges = getRanges().getOrderedRanges();
+        Type type = getType();
+
+        Range typeRange = type.getRange().map(range -> Range.range(type, range.getMin(), true, range.getMax(), true)).orElse(Range.all(type));
+
+        List<Object> result = new ArrayList<>();
+        for (Range range : ranges) {
+            if (range.isLowUnbounded() || range.isHighUnbounded()) {
+                // Try to restrict the current unbounded range with the type min-max values.
+                range = range.intersect(typeRange).orElse(range);
+                if (range.isLowUnbounded() || range.isHighUnbounded()) {
+                    return Optional.empty();
+                }
+            }
+            Optional<Stream<?>> discreteValues = type.getDiscreteValues(new Type.Range(range.getLowBoundedValue(), range.getHighBoundedValue()));
+            if (discreteValues.isEmpty()) {
+                return Optional.empty();
+            }
+            Iterator<?> iterator = discreteValues.get().iterator();
+            if (!iterator.hasNext()) {
+                throw new IllegalStateException("discreteValues iterator is empty");
+            }
+            if (!range.isLowInclusive()) {
+                iterator.next();
+            }
+            while (iterator.hasNext()) {
+                Object current = iterator.next();
+                // Don't add the highest value in the range (if it's not included).
+                if (range.isHighInclusive() || iterator.hasNext()) {
+                    if (result.size() >= valuesLimit) {
+                        return Optional.empty();
+                    }
+                    result.add(current);
+                }
+            }
+        }
+        return Optional.of(Collections.unmodifiableList(result));
+    }
+
     private String formatRanges(ConnectorSession session, int limit)
     {
         if (isNone()) {
@@ -872,75 +983,55 @@ public final class SortedRangeSet
                 .collect(joining(", ", "{", "}"));
     }
 
-    static class Builder
+    static SortedRangeSet buildFromUnsortedRanges(Type type, Collection<Range> unsortedRanges)
     {
-        private final Type type;
-        private final List<Range> ranges = new ArrayList<>();
+        requireNonNull(type, "type is null");
+        requireNonNull(unsortedRanges, "unsortedRanges is null");
 
-        Builder(Type type)
-        {
-            requireNonNull(type, "type is null");
-
-            if (!type.isOrderable()) {
-                throw new IllegalArgumentException("Type is not orderable: " + type);
-            }
-            this.type = type;
+        if (!type.isOrderable()) {
+            throw new IllegalArgumentException("Type is not orderable: " + type);
         }
 
-        Builder add(Range range)
-        {
+        List<Range> ranges = new ArrayList<>(unsortedRanges);
+        for (Range range : ranges) {
             if (!type.equals(range.getType())) {
                 throw new IllegalArgumentException(format("Range type %s does not match builder type %s", range.getType(), type));
             }
-
-            ranges.add(range);
-            return this;
         }
 
-        Builder addAll(Iterable<Range> ranges)
-        {
-            for (Range range : ranges) {
-                add(range);
-            }
-            return this;
-        }
+        ranges.sort(Range::compareLowBound);
 
-        SortedRangeSet build()
-        {
-            ranges.sort(Range::compareLowBound);
+        List<Range> result = new ArrayList<>(ranges.size());
 
-            List<Range> result = new ArrayList<>(ranges.size());
-
-            Range current = null;
-            for (Range next : ranges) {
-                if (current == null) {
-                    current = next;
-                    continue;
-                }
-
-                Optional<Range> merged = current.tryMergeWithNext(next);
-                if (merged.isPresent()) {
-                    current = merged.get();
-                }
-                else {
-                    result.add(current);
-                    current = next;
-                }
+        Range current = null;
+        for (Range next : ranges) {
+            if (current == null) {
+                current = next;
+                continue;
             }
 
-            if (current != null) {
+            Optional<Range> merged = current.tryMergeWithNext(next);
+            if (merged.isPresent()) {
+                current = merged.get();
+            }
+            else {
                 result.add(current);
+                current = next;
             }
-
-            boolean[] inclusive = new boolean[2 * result.size()];
-            BlockBuilder blockBuilder = type.createBlockBuilder(null, 2 * result.size());
-            for (int rangeIndex = 0; rangeIndex < result.size(); rangeIndex++) {
-                Range range = result.get(rangeIndex);
-                writeRange(type, blockBuilder, inclusive, rangeIndex, range);
-            }
-
-            return new SortedRangeSet(type, inclusive, blockBuilder);
         }
+
+        if (current != null) {
+            result.add(current);
+        }
+
+        boolean[] inclusive = new boolean[2 * result.size()];
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 2 * result.size());
+        for (int rangeIndex = 0; rangeIndex < result.size(); rangeIndex++) {
+            Range range = result.get(rangeIndex);
+            writeRange(type, blockBuilder, inclusive, rangeIndex, range);
+        }
+
+        return new SortedRangeSet(type, inclusive, blockBuilder);
     }
 
     private static void writeRange(Type type, BlockBuilder blockBuilder, boolean[] inclusive, int rangeIndex, Range range)
@@ -971,6 +1062,7 @@ public final class SortedRangeSet
     {
         private final Type type;
         private final MethodHandle comparisonOperator;
+        private final MethodHandle rangeComparisonOperator;
 
         private final boolean lowInclusive;
         private final Block lowValueBlock;
@@ -983,6 +1075,7 @@ public final class SortedRangeSet
         RangeView(
                 Type type,
                 MethodHandle comparisonOperator,
+                MethodHandle rangeComparisonOperator,
                 boolean lowInclusive,
                 Block lowValueBlock,
                 int lowValuePosition,
@@ -992,6 +1085,7 @@ public final class SortedRangeSet
         {
             this.type = type;
             this.comparisonOperator = comparisonOperator;
+            this.rangeComparisonOperator = rangeComparisonOperator;
             this.lowInclusive = lowInclusive;
             this.lowValueBlock = lowValueBlock;
             this.lowValuePosition = lowValuePosition;
@@ -1004,7 +1098,7 @@ public final class SortedRangeSet
         {
             Object low = readNativeValue(type, lowValueBlock, lowValuePosition);
             Object high = readNativeValue(type, highValueBlock, highValuePosition);
-            return new Range(type, lowInclusive, Optional.ofNullable(low), highInclusive, Optional.ofNullable(high));
+            return new Range(type, lowInclusive, Optional.ofNullable(low), highInclusive, Optional.ofNullable(high), rangeComparisonOperator);
         }
 
         @Override
@@ -1076,6 +1170,7 @@ public final class SortedRangeSet
                 return Optional.of(new RangeView(
                         this.type,
                         this.comparisonOperator,
+                        this.rangeComparisonOperator,
                         this.lowInclusive,
                         this.lowValueBlock,
                         this.lowValuePosition,
@@ -1120,6 +1215,11 @@ public final class SortedRangeSet
             return !this.isFullyBefore(that) && !that.isFullyBefore(this);
         }
 
+        public boolean contains(RangeView that)
+        {
+            return this.compareLowBound(that) <= 0 && this.compareHighBound(that) >= 0;
+        }
+
         public Optional<RangeView> tryIntersect(RangeView that)
         {
             if (!overlaps(that)) {
@@ -1132,6 +1232,7 @@ public final class SortedRangeSet
             return Optional.of(new RangeView(
                     type,
                     comparisonOperator,
+                    rangeComparisonOperator,
                     // max of low bounds
                     compareLowBound <= 0 ? that.lowInclusive : this.lowInclusive,
                     compareLowBound <= 0 ? that.lowValueBlock : this.lowValueBlock,
@@ -1173,9 +1274,8 @@ public final class SortedRangeSet
 
         public String formatRange(ConnectorSession session)
         {
-            Optional<Object> singleValue = getSingleValue();
-            if (singleValue.isPresent()) {
-                return format("[%s]", singleValue.get());
+            if (isSingleValue()) {
+                return format("[%s]", type.getObjectValue(session, lowValueBlock, lowValuePosition));
             }
 
             Object lowValue = isLowUnbounded()

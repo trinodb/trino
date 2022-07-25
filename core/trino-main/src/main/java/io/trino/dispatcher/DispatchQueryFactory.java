@@ -17,11 +17,15 @@ import io.trino.Session;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.transaction.TransactionId;
+
+import java.util.Optional;
 
 public interface DispatchQueryFactory
 {
     DispatchQuery createDispatchQuery(
             Session session,
+            Optional<TransactionId> transactionId,
             String query,
             PreparedQuery preparedQuery,
             Slug slug,

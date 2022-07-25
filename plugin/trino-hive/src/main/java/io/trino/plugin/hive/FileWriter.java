@@ -21,7 +21,7 @@ public interface FileWriter
 {
     long getWrittenBytes();
 
-    long getSystemMemoryUsage();
+    long getMemoryUsage();
 
     void appendRows(Page dataPage);
 

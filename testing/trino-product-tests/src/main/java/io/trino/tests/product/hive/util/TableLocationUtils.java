@@ -41,7 +41,7 @@ public final class TableLocationUtils
         for (int i = 0; i < partitionColumns; i++) {
             regex.insert(0, "/[^/]*");
         }
-        String tableLocation = getOnlyElement(onTrino().executeQuery(format("SELECT DISTINCT regexp_replace(\"$path\", '%s', '') FROM %s", regex.toString(), tableName)).column(1));
+        String tableLocation = getOnlyElement(onTrino().executeQuery(format("SELECT DISTINCT regexp_replace(\"$path\", '%s', '') FROM %s", regex, tableName)).column(1));
 
         // trim the /delta_... suffix for ACID tables
         Matcher acidLocationMatcher = ACID_LOCATION_PATTERN.matcher(tableLocation);

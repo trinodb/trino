@@ -29,6 +29,13 @@ import static io.trino.plugin.hive.HiveToTrinoTranslator.translateHiveViewToTrin
 public class LegacyHiveViewReader
         implements ViewReaderUtil.ViewReader
 {
+    private final boolean hiveViewsRunAsInvoker;
+
+    public LegacyHiveViewReader(boolean hiveViewsRunAsInvoker)
+    {
+        this.hiveViewsRunAsInvoker = hiveViewsRunAsInvoker;
+    }
+
     @Override
     public ConnectorViewDefinition decodeViewData(String viewData, Table table, CatalogName catalogName)
     {
@@ -42,7 +49,7 @@ public class LegacyHiveViewReader
                         .map(column -> new ConnectorViewDefinition.ViewColumn(column.getName(), TypeId.of(column.getType().getTypeSignature().toString())))
                         .collect(toImmutableList()),
                 Optional.ofNullable(table.getParameters().get(TABLE_COMMENT)),
-                Optional.of(table.getOwner()),
-                false); // don't run as invoker
+                table.getOwner(),
+                hiveViewsRunAsInvoker);
     }
 }

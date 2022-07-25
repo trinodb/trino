@@ -18,9 +18,16 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 
+import static io.trino.spi.type.StandardTypes.JSON;
+
 public final class TypeUtils
 {
     private TypeUtils() {}
+
+    public static boolean isJsonType(Type type)
+    {
+        return type.getBaseName().equals(JSON);
+    }
 
     public static boolean isArrayType(Type type)
     {

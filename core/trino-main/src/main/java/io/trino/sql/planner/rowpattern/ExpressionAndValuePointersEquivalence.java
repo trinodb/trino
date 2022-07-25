@@ -20,6 +20,7 @@ import io.trino.sql.tree.Node;
 import io.trino.sql.tree.SymbolReference;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiFunction;
 
 import static io.trino.sql.util.AstUtils.treeEqual;
@@ -40,37 +41,125 @@ public class ExpressionAndValuePointersEquivalence
         }
 
         for (int i = 0; i < left.getLayout().size(); i++) {
-            if (!left.getValuePointers().get(i).getLogicalIndexPointer().equals(right.getValuePointers().get(i).getLogicalIndexPointer())) {
+            ValuePointer leftPointer = left.getValuePointers().get(i);
+            ValuePointer rightPointer = right.getValuePointers().get(i);
+
+            if (leftPointer.getClass() != rightPointer.getClass()) {
                 return false;
+            }
+
+            if (leftPointer instanceof ScalarValuePointer) {
+                if (!equivalent(
+                        (ScalarValuePointer) leftPointer,
+                        (ScalarValuePointer) rightPointer,
+                        left.getClassifierSymbols(),
+                        left.getMatchNumberSymbols(),
+                        right.getClassifierSymbols(),
+                        right.getMatchNumberSymbols(),
+                        symbolEquivalence)) {
+                    return false;
+                }
+            }
+            else if (leftPointer instanceof AggregationValuePointer) {
+                if (!equivalent((AggregationValuePointer) leftPointer, (AggregationValuePointer) rightPointer, symbolEquivalence)) {
+                    return false;
+                }
+            }
+            else {
+                throw new UnsupportedOperationException("unexpected ValuePointer type: " + leftPointer.getClass().getSimpleName());
             }
         }
 
         ImmutableMap.Builder<Symbol, Symbol> mapping = ImmutableMap.builder();
         for (int i = 0; i < left.getLayout().size(); i++) {
-            Symbol leftLayoutSymbol = left.getLayout().get(i);
-            boolean leftIsClassifier = left.getClassifierSymbols().contains(leftLayoutSymbol);
-            boolean leftIsMatchNumber = left.getMatchNumberSymbols().contains(leftLayoutSymbol);
-
-            Symbol rightLayoutSymbol = right.getLayout().get(i);
-            boolean rightIsClassifier = right.getClassifierSymbols().contains(rightLayoutSymbol);
-            boolean rightIsMatchNumber = right.getMatchNumberSymbols().contains(rightLayoutSymbol);
-
-            if (leftIsClassifier != rightIsClassifier || leftIsMatchNumber != rightIsMatchNumber) {
-                return false;
-            }
-
-            if (!leftIsClassifier && !leftIsMatchNumber) {
-                Symbol leftInputSymbol = left.getValuePointers().get(i).getInputSymbol();
-                Symbol rightInputSymbol = right.getValuePointers().get(i).getInputSymbol();
-                if (!symbolEquivalence.apply(leftInputSymbol, rightInputSymbol)) {
-                    return false;
-                }
-            }
-
-            mapping.put(leftLayoutSymbol, rightLayoutSymbol);
+            mapping.put(left.getLayout().get(i), right.getLayout().get(i));
         }
 
-        return treeEqual(left.getExpression(), right.getExpression(), mappingComparator(mapping.build()));
+        return treeEqual(left.getExpression(), right.getExpression(), mappingComparator(mapping.buildOrThrow()));
+    }
+
+    private static boolean equivalent(
+            ScalarValuePointer left,
+            ScalarValuePointer right,
+            Set<Symbol> leftClassifierSymbols,
+            Set<Symbol> leftMatchNumberSymbols,
+            Set<Symbol> rightClassifierSymbols,
+            Set<Symbol> rightMatchNumberSymbols,
+            BiFunction<Symbol, Symbol, Boolean> symbolEquivalence)
+    {
+        if (!left.getLogicalIndexPointer().equals(right.getLogicalIndexPointer())) {
+            return false;
+        }
+
+        Symbol leftInputSymbol = left.getInputSymbol();
+        Symbol rightInputSymbol = right.getInputSymbol();
+
+        boolean leftIsClassifier = leftClassifierSymbols.contains(leftInputSymbol);
+        boolean leftIsMatchNumber = leftMatchNumberSymbols.contains(leftInputSymbol);
+        boolean rightIsClassifier = rightClassifierSymbols.contains(rightInputSymbol);
+        boolean rightIsMatchNumber = rightMatchNumberSymbols.contains(rightInputSymbol);
+
+        if (leftIsClassifier != rightIsClassifier || leftIsMatchNumber != rightIsMatchNumber) {
+            return false;
+        }
+
+        if (!leftIsClassifier && !leftIsMatchNumber) {
+            return symbolEquivalence.apply(leftInputSymbol, rightInputSymbol);
+        }
+
+        return true;
+    }
+
+    private static boolean equivalent(AggregationValuePointer left, AggregationValuePointer right, BiFunction<Symbol, Symbol, Boolean> symbolEquivalence)
+    {
+        if (!left.getFunction().equals(right.getFunction()) ||
+                !left.getSetDescriptor().equals(right.getSetDescriptor()) ||
+                left.getArguments().size() != right.getArguments().size()) {
+            return false;
+        }
+
+        BiFunction<Node, Node, Boolean> comparator = subsetComparator(left.getClassifierSymbol(), left.getMatchNumberSymbol(), right.getClassifierSymbol(), right.getMatchNumberSymbol(), symbolEquivalence);
+        for (int i = 0; i < left.getArguments().size(); i++) {
+            if (!treeEqual(left.getArguments().get(i), right.getArguments().get(i), comparator)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static BiFunction<Node, Node, Boolean> subsetComparator(
+            Symbol leftClassifierSymbol,
+            Symbol leftMatchNumberSymbol,
+            Symbol rightClassifierSymbol,
+            Symbol rightMatchNumberSymbol,
+            BiFunction<Symbol, Symbol, Boolean> symbolEquivalence)
+    {
+        return (left, right) -> {
+            if (left instanceof SymbolReference && right instanceof SymbolReference) {
+                Symbol leftSymbol = Symbol.from((SymbolReference) left);
+                Symbol rightSymbol = Symbol.from((SymbolReference) right);
+
+                boolean leftIsClassifier = leftSymbol.equals(leftClassifierSymbol);
+                boolean leftIsMatchNumber = leftSymbol.equals(leftMatchNumberSymbol);
+                boolean rightIsClassifier = rightSymbol.equals(rightClassifierSymbol);
+                boolean rightIsMatchNumber = rightSymbol.equals(rightMatchNumberSymbol);
+
+                if (leftIsClassifier != rightIsClassifier || leftIsMatchNumber != rightIsMatchNumber) {
+                    return false;
+                }
+
+                if (!leftIsClassifier && !leftIsMatchNumber) {
+                    return symbolEquivalence.apply(leftSymbol, rightSymbol);
+                }
+
+                return true;
+            }
+            if (!left.shallowEquals(right)) {
+                return false;
+            }
+            return null;
+        };
     }
 
     private static BiFunction<Node, Node, Boolean> mappingComparator(Map<Symbol, Symbol> mapping)

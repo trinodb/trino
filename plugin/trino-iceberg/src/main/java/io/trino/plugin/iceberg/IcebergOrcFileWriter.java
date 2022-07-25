@@ -25,19 +25,27 @@ import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.OrcType;
+import io.trino.orc.metadata.statistics.BooleanStatistics;
 import io.trino.orc.metadata.statistics.ColumnStatistics;
 import io.trino.orc.metadata.statistics.DateStatistics;
 import io.trino.orc.metadata.statistics.DecimalStatistics;
 import io.trino.orc.metadata.statistics.DoubleStatistics;
 import io.trino.orc.metadata.statistics.IntegerStatistics;
 import io.trino.orc.metadata.statistics.StringStatistics;
+import io.trino.orc.metadata.statistics.TimestampStatistics;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.orc.OrcFileWriter;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.Metrics;
+import org.apache.iceberg.MetricsConfig;
+import org.apache.iceberg.MetricsModes;
+import org.apache.iceberg.MetricsUtil;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.expressions.Literal;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.util.BinaryUtil;
+import org.apache.iceberg.util.UnicodeUtil;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -53,6 +61,7 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -62,8 +71,10 @@ public class IcebergOrcFileWriter
 {
     private final Schema icebergSchema;
     private final ColumnMetadata<OrcType> orcColumns;
+    private final MetricsConfig metricsConfig;
 
     public IcebergOrcFileWriter(
+            MetricsConfig metricsConfig,
             Schema icebergSchema,
             OrcDataSink orcDataSink,
             Callable<Void> rollbackAction,
@@ -80,19 +91,20 @@ public class IcebergOrcFileWriter
     {
         super(orcDataSink, WriterKind.INSERT, NO_ACID_TRANSACTION, false, OptionalInt.empty(), rollbackAction, columnNames, fileColumnTypes, fileColumnOrcTypes, compression, options, fileInputColumnIndexes, metadata, validationInputFactory, validationMode, stats);
         this.icebergSchema = requireNonNull(icebergSchema, "icebergSchema is null");
+        this.metricsConfig = requireNonNull(metricsConfig, "metricsConfig is null");
         orcColumns = fileColumnOrcTypes;
     }
 
     @Override
     public Metrics getMetrics()
     {
-        return computeMetrics(icebergSchema, orcColumns, orcWriter.getFileRowCount(), orcWriter.getFileStats());
+        return computeMetrics(metricsConfig, icebergSchema, orcColumns, orcWriter.getFileRowCount(), orcWriter.getFileStats());
     }
 
-    private static Metrics computeMetrics(Schema icebergSchema, ColumnMetadata<OrcType> orcColumns, long fileRowCount, Optional<ColumnMetadata<ColumnStatistics>> columnStatistics)
+    private static Metrics computeMetrics(MetricsConfig metricsConfig, Schema icebergSchema, ColumnMetadata<OrcType> orcColumns, long fileRowCount, Optional<ColumnMetadata<ColumnStatistics>> columnStatistics)
     {
         if (columnStatistics.isEmpty()) {
-            return new Metrics(fileRowCount, null, null, null, null, null);
+            return new Metrics(fileRowCount, null, null, null, null, null, null);
         }
         // Columns that are descendants of LIST or MAP types are excluded because:
         // 1. Their stats are not used by Apache Iceberg to filter out data files
@@ -102,6 +114,7 @@ public class IcebergOrcFileWriter
 
         ImmutableMap.Builder<Integer, Long> valueCountsBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Integer, Long> nullCountsBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<Integer, Long> nanCountsBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Integer, ByteBuffer> lowerBoundsBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Integer, ByteBuffer> upperBoundsBuilder = ImmutableMap.builder();
 
@@ -115,25 +128,37 @@ public class IcebergOrcFileWriter
             ColumnStatistics orcColumnStats = columnStatistics.get().get(orcColumnId);
             int icebergId = getIcebergId(orcColumn);
             Types.NestedField icebergField = icebergSchema.findField(icebergId);
+            MetricsModes.MetricsMode metricsMode = MetricsUtil.metricsMode(icebergSchema, metricsConfig, icebergId);
+            if (metricsMode.equals(MetricsModes.None.get())) {
+                continue;
+            }
             verify(icebergField != null, "Cannot find Iceberg column with ID %s in schema %s", icebergId, icebergSchema);
             valueCountsBuilder.put(icebergId, fileRowCount);
             if (orcColumnStats.hasNumberOfValues()) {
                 nullCountsBuilder.put(icebergId, fileRowCount - orcColumnStats.getNumberOfValues());
             }
-            toIcebergMinMax(orcColumnStats, icebergField.type()).ifPresent(minMax -> {
-                lowerBoundsBuilder.put(icebergId, minMax.getMin());
-                upperBoundsBuilder.put(icebergId, minMax.getMax());
-            });
+            if (orcColumnStats.getNumberOfNanValues() > 0) {
+                nanCountsBuilder.put(icebergId, orcColumnStats.getNumberOfNanValues());
+            }
+
+            if (!metricsMode.equals(MetricsModes.Counts.get())) {
+                toIcebergMinMax(orcColumnStats, icebergField.type(), metricsMode).ifPresent(minMax -> {
+                    lowerBoundsBuilder.put(icebergId, minMax.getMin());
+                    upperBoundsBuilder.put(icebergId, minMax.getMax());
+                });
+            }
         }
-        Map<Integer, Long> valueCounts = valueCountsBuilder.build();
-        Map<Integer, Long> nullCounts = nullCountsBuilder.build();
-        Map<Integer, ByteBuffer> lowerBounds = lowerBoundsBuilder.build();
-        Map<Integer, ByteBuffer> upperBounds = upperBoundsBuilder.build();
+        Map<Integer, Long> valueCounts = valueCountsBuilder.buildOrThrow();
+        Map<Integer, Long> nullCounts = nullCountsBuilder.buildOrThrow();
+        Map<Integer, Long> nanCounts = nanCountsBuilder.buildOrThrow();
+        Map<Integer, ByteBuffer> lowerBounds = lowerBoundsBuilder.buildOrThrow();
+        Map<Integer, ByteBuffer> upperBounds = upperBoundsBuilder.buildOrThrow();
         return new Metrics(
                 fileRowCount,
                 null, // TODO: Add column size accounting to ORC column writers
                 valueCounts.isEmpty() ? null : valueCounts,
                 nullCounts.isEmpty() ? null : nullCounts,
+                nanCounts.isEmpty() ? null : nanCounts,
                 lowerBounds.isEmpty() ? null : lowerBounds,
                 upperBounds.isEmpty() ? null : upperBounds);
     }
@@ -175,8 +200,15 @@ public class IcebergOrcFileWriter
         return Integer.parseInt(icebergId);
     }
 
-    private static Optional<IcebergMinMax> toIcebergMinMax(ColumnStatistics orcColumnStats, org.apache.iceberg.types.Type icebergType)
+    private static Optional<IcebergMinMax> toIcebergMinMax(ColumnStatistics orcColumnStats, org.apache.iceberg.types.Type icebergType, MetricsModes.MetricsMode metricsModes)
     {
+        BooleanStatistics booleanStatistics = orcColumnStats.getBooleanStatistics();
+        if (booleanStatistics != null) {
+            boolean hasTrueValues = booleanStatistics.getTrueValueCount() != 0;
+            boolean hasFalseValues = orcColumnStats.getNumberOfValues() != booleanStatistics.getTrueValueCount();
+            return Optional.of(new IcebergMinMax(icebergType, !hasFalseValues, hasTrueValues, metricsModes));
+        }
+
         IntegerStatistics integerStatistics = orcColumnStats.getIntegerStatistics();
         if (integerStatistics != null) {
             Object min = integerStatistics.getMin();
@@ -188,7 +220,7 @@ public class IcebergOrcFileWriter
                 min = toIntExact((Long) min);
                 max = toIntExact((Long) max);
             }
-            return Optional.of(new IcebergMinMax(icebergType, min, max));
+            return Optional.of(new IcebergMinMax(icebergType, min, max, metricsModes));
         }
         DoubleStatistics doubleStatistics = orcColumnStats.getDoubleStatistics();
         if (doubleStatistics != null) {
@@ -201,7 +233,7 @@ public class IcebergOrcFileWriter
                 min = ((Double) min).floatValue();
                 max = ((Double) max).floatValue();
             }
-            return Optional.of(new IcebergMinMax(icebergType, min, max));
+            return Optional.of(new IcebergMinMax(icebergType, min, max, metricsModes));
         }
         StringStatistics stringStatistics = orcColumnStats.getStringStatistics();
         if (stringStatistics != null) {
@@ -210,7 +242,7 @@ public class IcebergOrcFileWriter
             if (min == null || max == null) {
                 return Optional.empty();
             }
-            return Optional.of(new IcebergMinMax(icebergType, min.toStringUtf8(), max.toStringUtf8()));
+            return Optional.of(new IcebergMinMax(icebergType, min.toStringUtf8(), max.toStringUtf8(), metricsModes));
         }
         DateStatistics dateStatistics = orcColumnStats.getDateStatistics();
         if (dateStatistics != null) {
@@ -219,7 +251,7 @@ public class IcebergOrcFileWriter
             if (min == null || max == null) {
                 return Optional.empty();
             }
-            return Optional.of(new IcebergMinMax(icebergType, min, max));
+            return Optional.of(new IcebergMinMax(icebergType, min, max, metricsModes));
         }
         DecimalStatistics decimalStatistics = orcColumnStats.getDecimalStatistics();
         if (decimalStatistics != null) {
@@ -230,7 +262,18 @@ public class IcebergOrcFileWriter
             }
             min = min.setScale(((Types.DecimalType) icebergType).scale());
             max = max.setScale(((Types.DecimalType) icebergType).scale());
-            return Optional.of(new IcebergMinMax(icebergType, min, max));
+            return Optional.of(new IcebergMinMax(icebergType, min, max, metricsModes));
+        }
+        TimestampStatistics timestampStatistics = orcColumnStats.getTimestampStatistics();
+        if (timestampStatistics != null) {
+            Long min = timestampStatistics.getMin();
+            Long max = timestampStatistics.getMax();
+            if (min == null || max == null) {
+                return Optional.empty();
+            }
+            // Since ORC timestamp statistics are truncated to millisecond precision, this can cause some column values to fall outside the stats range.
+            // We are appending 999 microseconds to account for the fact that Trino ORC writer truncates timestamps.
+            return Optional.of(new IcebergMinMax(icebergType, min * MICROSECONDS_PER_MILLISECOND, (max * MICROSECONDS_PER_MILLISECOND) + (MICROSECONDS_PER_MILLISECOND - 1), metricsModes));
         }
         return Optional.empty();
     }
@@ -240,10 +283,33 @@ public class IcebergOrcFileWriter
         private ByteBuffer min;
         private ByteBuffer max;
 
-        private IcebergMinMax(org.apache.iceberg.types.Type type, Object min, Object max)
+        private IcebergMinMax(org.apache.iceberg.types.Type type, Object min, Object max, MetricsModes.MetricsMode metricsMode)
         {
-            this.min = Conversions.toByteBuffer(type, min);
-            this.max = Conversions.toByteBuffer(type, max);
+            if (metricsMode instanceof MetricsModes.Full) {
+                this.min = Conversions.toByteBuffer(type, min);
+                this.max = Conversions.toByteBuffer(type, max);
+            }
+            else if (metricsMode instanceof MetricsModes.Truncate) {
+                MetricsModes.Truncate truncateMode = (MetricsModes.Truncate) metricsMode;
+                int truncateLength = truncateMode.length();
+                switch (type.typeId()) {
+                    case STRING:
+                        this.min = UnicodeUtil.truncateStringMin(Literal.of((CharSequence) min), truncateLength).toByteBuffer();
+                        this.max = UnicodeUtil.truncateStringMax(Literal.of((CharSequence) max), truncateLength).toByteBuffer();
+                        break;
+                    case FIXED:
+                    case BINARY:
+                        this.min = BinaryUtil.truncateBinaryMin(Literal.of((ByteBuffer) min), truncateLength).toByteBuffer();
+                        this.max = BinaryUtil.truncateBinaryMax(Literal.of((ByteBuffer) max), truncateLength).toByteBuffer();
+                        break;
+                    default:
+                        this.min = Conversions.toByteBuffer(type, min);
+                        this.max = Conversions.toByteBuffer(type, max);
+                }
+            }
+            else {
+                throw new UnsupportedOperationException("Unsupported metrics mode for Iceberg Max/Min Bound: " + metricsMode);
+            }
         }
 
         public ByteBuffer getMin()

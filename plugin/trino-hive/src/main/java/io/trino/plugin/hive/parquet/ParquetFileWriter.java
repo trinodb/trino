@@ -25,6 +25,7 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
+import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
@@ -32,6 +33,7 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -57,16 +59,21 @@ public class ParquetFileWriter
             Map<List<String>, Type> primitiveTypes,
             ParquetWriterOptions parquetWriterOptions,
             int[] fileInputColumnIndexes,
-            CompressionCodecName compressionCodecName)
+            CompressionCodecName compressionCodecName,
+            String trinoVersion,
+            Optional<DateTimeZone> parquetTimeZone)
     {
         requireNonNull(outputStream, "outputStream is null");
+        requireNonNull(trinoVersion, "trinoVersion is null");
 
         this.parquetWriter = new ParquetWriter(
                 outputStream,
                 messageType,
                 primitiveTypes,
                 parquetWriterOptions,
-                compressionCodecName);
+                compressionCodecName,
+                trinoVersion,
+                parquetTimeZone);
 
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction is null");
         this.fileInputColumnIndexes = requireNonNull(fileInputColumnIndexes, "fileInputColumnIndexes is null");
@@ -83,11 +90,11 @@ public class ParquetFileWriter
     @Override
     public long getWrittenBytes()
     {
-        return parquetWriter.getWrittenBytes();
+        return parquetWriter.getWrittenBytes() + parquetWriter.getBufferedBytes();
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return INSTANCE_SIZE + parquetWriter.getRetainedBytes();
     }

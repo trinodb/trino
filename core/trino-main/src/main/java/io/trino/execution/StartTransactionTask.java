@@ -16,8 +16,6 @@ package io.trino.execution;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
-import io.trino.security.AccessControl;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.transaction.IsolationLevel;
@@ -28,16 +26,27 @@ import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 
+import javax.inject.Inject;
+
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.util.Objects.requireNonNull;
 
 public class StartTransactionTask
         implements DataDefinitionTask<StartTransaction>
 {
+    private final TransactionManager transactionManager;
+
+    @Inject
+    public StartTransactionTask(TransactionManager transactionManager)
+    {
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+    }
+
     @Override
     public String getName()
     {
@@ -47,9 +56,6 @@ public class StartTransactionTask
     @Override
     public ListenableFuture<Void> execute(
             StartTransaction statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)

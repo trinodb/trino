@@ -14,10 +14,10 @@
 package io.trino.operator.join;
 
 import io.airlift.units.DataSize;
+import io.trino.operator.HashArraySizeSupplier;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import it.unimi.dsi.fastutil.HashCommon;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -39,7 +39,6 @@ public final class PagesHash
     private final LongArrayList addresses;
     private final PagesHashStrategy pagesHashStrategy;
 
-    private final int channelCount;
     private final int mask;
     private final int[] key;
     private final long size;
@@ -54,14 +53,14 @@ public final class PagesHash
     public PagesHash(
             LongArrayList addresses,
             PagesHashStrategy pagesHashStrategy,
-            PositionLinks.FactoryBuilder positionLinks)
+            PositionLinks.FactoryBuilder positionLinks,
+            HashArraySizeSupplier hashArraySizeSupplier)
     {
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.pagesHashStrategy = requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
-        this.channelCount = pagesHashStrategy.getChannelCount();
 
         // reserve memory for the arrays
-        int hashSize = HashCommon.arraySize(addresses.size(), 0.75f);
+        int hashSize = hashArraySizeSupplier.getHashArraySize(addresses.size());
 
         mask = hashSize - 1;
         key = new int[hashSize];
@@ -123,11 +122,6 @@ public final class PagesHash
                 sizeOf(key) + sizeOf(positionToHashes);
         hashCollisions = hashCollisionsLocal;
         expectedHashCollisions = estimateNumberOfHashCollisions(addresses.size(), hashSize);
-    }
-
-    public final int getChannelCount()
-    {
-        return channelCount;
     }
 
     public int getPositionCount()

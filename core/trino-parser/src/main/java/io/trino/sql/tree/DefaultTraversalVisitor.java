@@ -97,6 +97,15 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitTrim(Trim node, C context)
+    {
+        process(node.getTrimSource(), context);
+        node.getTrimCharacter().ifPresent(trimChar -> process(trimChar, context));
+
+        return null;
+    }
+
+    @Override
     protected Void visitFormat(Format node, C context)
     {
         for (Expression argument : node.getArguments()) {
@@ -452,10 +461,11 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitLogicalBinaryExpression(LogicalBinaryExpression node, C context)
+    protected Void visitLogicalExpression(LogicalExpression node, C context)
     {
-        process(node.getLeft(), context);
-        process(node.getRight(), context);
+        for (Node child : node.getTerms()) {
+            process(child, context);
+        }
 
         return null;
     }
@@ -718,8 +728,9 @@ public abstract class DefaultTraversalVisitor<C>
     protected Void visitProperty(Property node, C context)
     {
         process(node.getName(), context);
-        process(node.getValue(), context);
-
+        if (!node.isSetToDefault()) {
+            process(node.getNonDefaultValue(), context);
+        }
         return null;
     }
 
@@ -757,6 +768,16 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitCreateSchema(CreateSchema node, C context)
+    {
+        for (Property property : node.getProperties()) {
+            process(property, context);
+        }
+
+        return null;
+    }
+
+    @Override
     protected Void visitCreateTable(CreateTable node, C context)
     {
         for (TableElement tableElement : node.getElements()) {
@@ -788,6 +809,13 @@ public abstract class DefaultTraversalVisitor<C>
             process(option, context);
         }
 
+        return null;
+    }
+
+    @Override
+    protected Void visitExplainAnalyze(ExplainAnalyze node, C context)
+    {
+        process(node.getStatement(), context);
         return null;
     }
 
@@ -888,7 +916,74 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitLabelDereference(LabelDereference node, C context)
     {
-        process(node.getReference(), context);
+        node.getReference().ifPresent(reference -> process(reference, context));
+
+        return null;
+    }
+
+    @Override
+    protected Void visitJsonExists(JsonExists node, C context)
+    {
+        process(node.getJsonPathInvocation(), context);
+
+        return null;
+    }
+
+    @Override
+    protected Void visitJsonValue(JsonValue node, C context)
+    {
+        process(node.getJsonPathInvocation(), context);
+        node.getEmptyDefault().ifPresent(expression -> process(expression, context));
+        node.getErrorDefault().ifPresent(expression -> process(expression, context));
+
+        return null;
+    }
+
+    @Override
+    protected Void visitJsonQuery(JsonQuery node, C context)
+    {
+        process(node.getJsonPathInvocation(), context);
+
+        return null;
+    }
+
+    @Override
+    protected Void visitJsonPathInvocation(JsonPathInvocation node, C context)
+    {
+        process(node.getInputExpression(), context);
+        for (JsonPathParameter parameter : node.getPathParameters()) {
+            process(parameter.getParameter(), context);
+        }
+
+        return null;
+    }
+
+    @Override
+    protected Void visitJsonObject(JsonObject node, C context)
+    {
+        for (JsonObjectMember member : node.getMembers()) {
+            process(member, context);
+        }
+
+        return null;
+    }
+
+    @Override
+    protected Void visitJsonArray(JsonArray node, C context)
+    {
+        for (JsonArrayElement element : node.getElements()) {
+            process(element, context);
+        }
+
+        return null;
+    }
+
+    @Override
+    protected Void visitTableFunctionInvocation(TableFunctionInvocation node, C context)
+    {
+        for (TableFunctionArgument argument : node.getArguments()) {
+            process(argument.getValue(), context);
+        }
 
         return null;
     }

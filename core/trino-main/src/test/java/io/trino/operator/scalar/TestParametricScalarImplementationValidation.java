@@ -14,10 +14,7 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionBinding;
-import io.trino.metadata.FunctionId;
 import io.trino.spi.connector.ConnectorSession;
 import org.testng.annotations.Test;
 
@@ -41,14 +38,14 @@ public class TestParametricScalarImplementationValidation
         // Without cached instance factory
         MethodHandle validFunctionMethodHandle = methodHandle(TestParametricScalarImplementationValidation.class, "validConnectorSessionParameterPosition", ConnectorSession.class, long.class, long.class);
         ChoicesScalarFunctionImplementation validFunction = new ChoicesScalarFunctionImplementation(
-                new FunctionBinding(new FunctionId("test"), new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)), ImmutableMap.of(), ImmutableMap.of()),
+                new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)),
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 validFunctionMethodHandle);
         assertEquals(validFunction.getChoices().get(0).getMethodHandle(), validFunctionMethodHandle);
 
         assertThatThrownBy(() -> new ChoicesScalarFunctionImplementation(
-                new FunctionBinding(new FunctionId("test"), new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)), ImmutableMap.of(), ImmutableMap.of()),
+                new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)),
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 methodHandle(TestParametricScalarImplementationValidation.class, "invalidConnectorSessionParameterPosition", long.class, long.class, ConnectorSession.class)))
@@ -58,7 +55,7 @@ public class TestParametricScalarImplementationValidation
         // With cached instance factory
         MethodHandle validFunctionWithInstanceFactoryMethodHandle = methodHandle(TestParametricScalarImplementationValidation.class, "validConnectorSessionParameterPosition", Object.class, ConnectorSession.class, long.class, long.class);
         ChoicesScalarFunctionImplementation validFunctionWithInstanceFactory = new ChoicesScalarFunctionImplementation(
-                new FunctionBinding(new FunctionId("test"), new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)), ImmutableMap.of(), ImmutableMap.of()),
+                new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)),
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 validFunctionWithInstanceFactoryMethodHandle,
@@ -66,7 +63,7 @@ public class TestParametricScalarImplementationValidation
         assertEquals(validFunctionWithInstanceFactory.getChoices().get(0).getMethodHandle(), validFunctionWithInstanceFactoryMethodHandle);
 
         assertThatThrownBy(() -> new ChoicesScalarFunctionImplementation(
-                new FunctionBinding(new FunctionId("test"), new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)), ImmutableMap.of(), ImmutableMap.of()),
+                new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)),
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 methodHandle(TestParametricScalarImplementationValidation.class, "invalidConnectorSessionParameterPosition", Object.class, long.class, long.class, ConnectorSession.class),

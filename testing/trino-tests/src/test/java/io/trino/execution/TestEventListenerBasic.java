@@ -21,6 +21,7 @@ import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.execution.EventsCollector.EventFilters;
 import io.trino.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.resourcegroups.ResourceGroupManagerPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.Plugin;
@@ -37,9 +38,11 @@ import io.trino.spi.eventlistener.OutputColumnMetadata;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
 import io.trino.spi.eventlistener.QueryFailureInfo;
+import io.trino.spi.eventlistener.QueryInputMetadata;
 import io.trino.spi.eventlistener.QueryStatistics;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.TableInfo;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.ViewExpression;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -49,17 +52,25 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
+import static com.google.common.io.Resources.getResource;
 import static com.google.common.util.concurrent.MoreExecutors.shutdownAndAwaitTermination;
+import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
+import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
 import static io.trino.execution.TestQueues.createResourceGroupId;
+import static io.trino.spi.metrics.Metrics.EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -77,6 +88,7 @@ public class TestEventListenerBasic
     private static final String IGNORE_EVENT_MARKER = " -- ignore_generated_event";
     private static final String VARCHAR_TYPE = "varchar(15)";
     private static final String BIGINT_TYPE = BIGINT.getDisplayName();
+    private static final Metrics TEST_METRICS = new Metrics(ImmutableMap.of("test_metrics", new LongCount(1)));
 
     private final EventsCollector generatedEvents = new EventsCollector(buildEventFilters());
     private EventsAwaitingQueries queries;
@@ -103,10 +115,17 @@ public class TestEventListenerBasic
             public Iterable<ConnectorFactory> getConnectorFactories()
             {
                 MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                        .withListTables((session, s) -> ImmutableList.of(new SchemaTableName("default", "tests_table")))
-                        .withGetColumns(schemaTableName -> ImmutableList.of(
-                                new ColumnMetadata("test_varchar", createVarcharType(15)),
-                                new ColumnMetadata("test_bigint", BIGINT)))
+                        .withListTables((session, s) -> ImmutableList.of(
+                                new SchemaTableName("default", "tests_table"),
+                                new SchemaTableName("tiny", "nation")))
+                        .withGetColumns(schemaTableName -> {
+                            if (schemaTableName.equals(new SchemaTableName("tiny", "nation"))) {
+                                return TPCH_NATION_SCHEMA;
+                            }
+                            return ImmutableList.of(
+                                    new ColumnMetadata("test_varchar", createVarcharType(15)),
+                                    new ColumnMetadata("test_bigint", BIGINT));
+                        })
                         .withGetTableHandle((session, schemaTableName) -> {
                             if (!schemaTableName.getTableName().startsWith("create")) {
                                 return new MockConnectorTableHandle(schemaTableName);
@@ -139,10 +158,22 @@ public class TestEventListenerBasic
                                     Optional.empty(),
                                     ImmutableList.of(new Column("test_column", BIGINT.getTypeId())),
                                     Optional.empty(),
-                                    "alice",
+                                    Optional.of("alice"),
                                     ImmutableMap.of());
                             SchemaTableName materializedViewName = new SchemaTableName("default", "test_materialized_view");
                             return ImmutableMap.of(materializedViewName, definition);
+                        })
+                        .withData(schemaTableName -> {
+                            if (schemaTableName.equals(new SchemaTableName("tiny", "nation"))) {
+                                return TPCH_NATION_DATA;
+                            }
+                            return ImmutableList.of();
+                        })
+                        .withMetrics(schemaTableName -> {
+                            if (schemaTableName.equals(new SchemaTableName("tiny", "nation"))) {
+                                return TEST_METRICS;
+                            }
+                            return EMPTY;
                         })
                         .withRowFilter(schemaTableName -> {
                             if (schemaTableName.getTableName().equals("test_table_with_row_filter")) {
@@ -180,7 +211,12 @@ public class TestEventListenerBasic
 
     private String getResourceFilePath(String fileName)
     {
-        return this.getClass().getClassLoader().getResource(fileName).getPath();
+        try {
+            return new File(getResource(fileName).toURI()).getPath();
+        }
+        catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected)
@@ -200,7 +236,7 @@ public class TestEventListenerBasic
     public void testParseError()
             throws Exception
     {
-        assertFailedQuery("You shall not parse!", "line 1:1: mismatched input 'You'. Expecting: 'ALTER', 'ANALYZE', 'CALL', 'COMMENT', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', 'GRANT', 'INSERT', 'MERGE', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'UPDATE', 'USE', <query>");
+        assertFailedQuery("You shall not parse!", "line 1:1: mismatched input 'You'. Expecting: 'ALTER', 'ANALYZE', 'CALL', 'COMMENT', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DENY', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', 'GRANT', 'INSERT', 'MERGE', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'TRUNCATE', 'UPDATE', 'USE', <query>");
     }
 
     @Test
@@ -404,13 +440,13 @@ public class TestEventListenerBasic
     public void testReferencedTablesInCreateView()
             throws Exception
     {
-        runQueryAndWaitForEvents("CREATE VIEW mock.default.test_view AS SELECT * FROM nation", 2);
+        runQueryAndWaitForEvents("CREATE VIEW mock.default.create_another_test_view AS SELECT * FROM nation", 2);
 
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
 
         assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("mock");
         assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("default");
-        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("test_view");
+        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("create_another_test_view");
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
                         new OutputColumnMetadata("nationkey", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))),
@@ -677,7 +713,6 @@ public class TestEventListenerBasic
         assertEquals(statistics.getPlanningTime().get().toMillis(), queryStats.getPlanningTime().toMillis());
         assertEquals(statistics.getExecutionTime().get().toMillis(), queryStats.getExecutionTime().toMillis());
         assertEquals(statistics.getPeakUserMemoryBytes(), queryStats.getPeakUserMemoryReservation().toBytes());
-        assertEquals(statistics.getPeakTotalNonRevocableMemoryBytes(), queryStats.getPeakNonRevocableMemoryReservation().toBytes());
         assertEquals(statistics.getPeakTaskUserMemory(), queryStats.getPeakTaskUserMemory().toBytes());
         assertEquals(statistics.getPeakTaskTotalMemory(), queryStats.getPeakTaskTotalMemory().toBytes());
         assertEquals(statistics.getPhysicalInputBytes(), queryStats.getPhysicalInputDataSize().toBytes());
@@ -699,8 +734,9 @@ public class TestEventListenerBasic
     public void testOutputColumnsForSelect()
             throws Exception
     {
-        assertColumnLineage(
+        assertLineage(
                 "SELECT clerk AS test_varchar, orderkey AS test_bigint FROM orders",
+                ImmutableSet.of("tpch.tiny.orders"),
                 new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
                 new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
     }
@@ -709,8 +745,9 @@ public class TestEventListenerBasic
     public void testOutputColumnsForSelectWithConstantExpression()
             throws Exception
     {
-        assertColumnLineage(
+        assertLineage(
                 "SELECT '4-NOT SPECIFIED' AS test_varchar, orderkey AS test_bigint FROM orders",
+                ImmutableSet.of("tpch.tiny.orders"),
                 new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of()),
                 new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
     }
@@ -767,8 +804,42 @@ public class TestEventListenerBasic
     public void testOutputColumnsWithClause()
             throws Exception
     {
-        assertColumnLineage(
-                "WITH w AS (SELECT * FROM orders) SELECT clerk AS test_varchar, orderkey AS test_bigint FROM w",
+        assertLineage(
+                "WITH w AS (SELECT * FROM orders) SELECT lower(clerk) AS test_varchar, orderkey AS test_bigint FROM w",
+                ImmutableSet.of("tpch.tiny.orders"),
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
+    }
+
+    @Test
+    public void testOutputColumnsColumnAliasInWithClause()
+            throws Exception
+    {
+        assertLineage(
+                "WITH w(aliased_clerk, aliased_orderkey) AS (SELECT clerk, orderkey FROM orders) SELECT lower(aliased_clerk) AS test_varchar, aliased_orderkey AS test_bigint FROM w",
+                ImmutableSet.of("tpch.tiny.orders"),
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
+    }
+
+    @Test
+    public void testOutputColumnsWithAliasedRelation()
+            throws Exception
+    {
+        assertLineage(
+                "SELECT lower(clerk) AS test_varchar, orderkey AS test_bigint FROM (SELECT * FROM orders) w",
+                ImmutableSet.of("tpch.tiny.orders"),
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
+    }
+
+    @Test
+    public void testOutputColumnsWithColumnAliasInAliasedRelation()
+            throws Exception
+    {
+        assertLineage(
+                "SELECT lower(aliased_clerk) AS test_varchar, aliased_orderkey AS test_bigint FROM (SELECT clerk, orderkey FROM orders) w(aliased_clerk, aliased_orderkey)",
+                ImmutableSet.of("tpch.tiny.orders"),
                 new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
                 new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
     }
@@ -777,8 +848,9 @@ public class TestEventListenerBasic
     public void testOutputColumnsWithWhere()
             throws Exception
     {
-        assertColumnLineage(
+        assertLineage(
                 "SELECT orderpriority AS test_varchar, orderkey AS test_bigint FROM orders WHERE orderdate > DATE '1995-10-03'",
+                ImmutableSet.of("tpch.tiny.orders"),
                 new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderpriority"))),
                 new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
     }
@@ -787,8 +859,9 @@ public class TestEventListenerBasic
     public void testOutputColumnsWithIfExpression()
             throws Exception
     {
-        assertColumnLineage(
+        assertLineage(
                 "SELECT IF (orderstatus = 'O', orderpriority, clerk) AS test_varchar, orderkey AS test_bigint FROM orders",
+                ImmutableSet.of("tpch.tiny.orders"),
                 new OutputColumnMetadata(
                         "test_varchar",
                         VARCHAR_TYPE,
@@ -803,8 +876,9 @@ public class TestEventListenerBasic
     public void testOutputColumnsWithCaseExpression()
             throws Exception
     {
-        assertColumnLineage(
+        assertLineage(
                 "SELECT CASE WHEN custkey = 100 THEN clerk WHEN custkey = 1000 then orderpriority ELSE orderstatus END AS test_varchar, orderkey AS test_bigint FROM orders",
+                ImmutableSet.of("tpch.tiny.orders"),
                 new OutputColumnMetadata(
                         "test_varchar",
                         VARCHAR_TYPE,
@@ -820,8 +894,9 @@ public class TestEventListenerBasic
     public void testOutputColumnsWithLimit()
             throws Exception
     {
-        assertColumnLineage(
+        assertLineage(
                 "SELECT orderpriority AS test_varchar, orderkey AS test_bigint FROM orders LIMIT 100",
+                ImmutableSet.of("tpch.tiny.orders"),
                 new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderpriority"))),
                 new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
     }
@@ -830,8 +905,9 @@ public class TestEventListenerBasic
     public void testOutputColumnsWithOrderBy()
             throws Exception
     {
-        assertColumnLineage(
+        assertLineage(
                 "SELECT clerk AS test_varchar, orderkey AS test_bigint FROM orders ORDER BY orderdate",
+                ImmutableSet.of("tpch.tiny.orders"),
                 new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
                 new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
     }
@@ -840,8 +916,9 @@ public class TestEventListenerBasic
     public void testOutputColumnsWithAggregation()
             throws Exception
     {
-        assertColumnLineage(
+        assertLineage(
                 "SELECT max(orderpriority) AS test_varchar, min(custkey) AS test_bigint FROM orders GROUP BY orderstatus",
+                ImmutableSet.of("tpch.tiny.orders"),
                 new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderpriority"))),
                 new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "custkey"))));
     }
@@ -850,8 +927,9 @@ public class TestEventListenerBasic
     public void testOutputColumnsWithAggregationWithFilter()
             throws Exception
     {
-        assertColumnLineage(
+        assertLineage(
                 "SELECT max(orderpriority) FILTER(WHERE orderdate > DATE '2000-01-01') AS test_varchar, max(custkey) AS test_bigint FROM orders GROUP BY orderstatus",
+                ImmutableSet.of("tpch.tiny.orders"),
                 new OutputColumnMetadata(
                         "test_varchar",
                         VARCHAR_TYPE,
@@ -865,8 +943,9 @@ public class TestEventListenerBasic
     public void testOutputColumnsWithAggregationAndHaving()
             throws Exception
     {
-        assertColumnLineage(
+        assertLineage(
                 "SELECT min(orderpriority) AS test_varchar, max(custkey) AS test_bigint FROM orders GROUP BY orderstatus HAVING min(orderdate) > DATE '2000-01-01'",
+                ImmutableSet.of("tpch.tiny.orders"),
                 new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderpriority"))),
                 new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "custkey"))));
     }
@@ -875,8 +954,9 @@ public class TestEventListenerBasic
     public void testOutputColumnsWithCountAll()
             throws Exception
     {
-        assertColumnLineage(
+        assertLineage(
                 "SELECT clerk AS test_varchar, count(*) AS test_bigint FROM orders GROUP BY clerk",
+                ImmutableSet.of("tpch.tiny.orders"),
                 new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
                 new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of()));
     }
@@ -885,8 +965,9 @@ public class TestEventListenerBasic
     public void testOutputColumnsWithWindowFunction()
             throws Exception
     {
-        assertColumnLineage(
+        assertLineage(
                 "SELECT clerk AS test_varchar, min(orderkey) OVER (PARTITION BY custkey ORDER BY orderdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS test_bigint FROM orders",
+                ImmutableSet.of("tpch.tiny.orders"),
                 new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
                 new OutputColumnMetadata(
                         "test_bigint",
@@ -901,8 +982,9 @@ public class TestEventListenerBasic
     public void testOutputColumnsWithPartialWindowClause()
             throws Exception
     {
-        assertColumnLineage(
+        assertLineage(
                 "SELECT clerk AS test_varchar, max(orderkey) OVER (w ORDER BY orderdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS test_bigint FROM orders WINDOW w AS (PARTITION BY custkey)",
+                ImmutableSet.of("tpch.tiny.orders"),
                 new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
                 new OutputColumnMetadata(
                         "test_bigint",
@@ -916,8 +998,9 @@ public class TestEventListenerBasic
     public void testOutputColumnsWithWindowClause()
             throws Exception
     {
-        assertColumnLineage(
+        assertLineage(
                 "SELECT clerk AS test_varchar, min(orderkey) OVER w AS test_bigint FROM orders WINDOW w AS (PARTITION BY custkey ORDER BY orderdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)",
+                ImmutableSet.of("tpch.tiny.orders"),
                 new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
                 new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
     }
@@ -926,8 +1009,9 @@ public class TestEventListenerBasic
     public void testOutputColumnsWithUnCorrelatedQueries()
             throws Exception
     {
-        assertColumnLineage(
+        assertLineage(
                 "SELECT clerk AS test_varchar, (SELECT nationkey FROM nation LIMIT 1) AS test_bigint FROM orders",
+                ImmutableSet.of("tpch.tiny.orders", "tpch.tiny.nation"),
                 new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
                 new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
     }
@@ -936,8 +1020,9 @@ public class TestEventListenerBasic
     public void testOutputColumnsWithCorrelatedQueries()
             throws Exception
     {
-        assertColumnLineage(
+        assertLineage(
                 "SELECT orderpriority AS test_varchar, (SELECT min(nationkey) FROM customer WHERE customer.custkey = orders.custkey) AS test_bigint FROM orders",
+                ImmutableSet.of("tpch.tiny.orders", "tpch.tiny.customer"),
                 new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderpriority"))),
                 new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "customer", "nationkey"))));
     }
@@ -1016,12 +1101,25 @@ public class TestEventListenerBasic
                         new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of()));
     }
 
+    @Test
+    public void testConnectorMetrics()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("SELECT * FROM mock.tiny.nation", 2);
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        List<Metrics> connectorMetrics = event.getIoMetadata().getInputs().stream()
+                .map(QueryInputMetadata::getConnectorMetrics)
+                .collect(toImmutableList());
+        assertThat(connectorMetrics).containsExactly(TEST_METRICS);
+    }
+
     @Test(dataProvider = "setOperator")
     public void testOutputColumnsForSetOperations(String setOperator)
             throws Exception
     {
-        assertColumnLineage(
+        assertLineage(
                 format("SELECT orderpriority AS test_varchar, orderkey AS test_bigint FROM orders %s SELECT clerk, custkey FROM sf1.orders", setOperator),
+                ImmutableSet.of("tpch.tiny.orders", "tpch.sf1.orders"),
                 new OutputColumnMetadata(
                         "test_varchar",
                         VARCHAR_TYPE,
@@ -1048,26 +1146,39 @@ public class TestEventListenerBasic
                 {"EXCEPT ALL"}};
     }
 
-    private void assertColumnLineage(String baseQuery, OutputColumnMetadata... outputColumnMetadata)
+    private void assertLineage(String baseQuery, Set<String> inputTables, OutputColumnMetadata... outputColumnMetadata)
             throws Exception
     {
         runQueryAndWaitForEvents("CREATE TABLE mock.default.create_new_table AS " + baseQuery, 2);
-        assertColumnMetadata(outputColumnMetadata);
+        assertLineage(inputTables, outputColumnMetadata);
 
         runQueryAndWaitForEvents("CREATE VIEW mock.default.create_new_view AS " + baseQuery, 2);
-        assertColumnMetadata(outputColumnMetadata);
+        assertLineage(inputTables, outputColumnMetadata);
 
         runQueryAndWaitForEvents("CREATE VIEW mock.default.create_new_materialized_view AS " + baseQuery, 2);
-        assertColumnMetadata(outputColumnMetadata);
+        assertLineage(inputTables, outputColumnMetadata);
 
         runQueryAndWaitForEvents("INSERT INTO mock.default.table_for_output(test_varchar, test_bigint) " + baseQuery, 2);
-        assertColumnMetadata(outputColumnMetadata);
+        assertLineage(inputTables, outputColumnMetadata);
+
+        runQueryAndWaitForEvents(format("DELETE FROM mock.default.table_for_output WHERE EXISTS (%s) ", baseQuery), 2);
+        assertLineage(inputTables);
     }
 
-    private void assertColumnMetadata(OutputColumnMetadata... outputColumnMetadata)
+    private void assertLineage(Set<String> inputTables, OutputColumnMetadata... outputColumnMetadata)
     {
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
-        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
-                .containsExactly(outputColumnMetadata);
+        assertThat(event.getMetadata().getTables())
+                .map(TestEventListenerBasic::getQualifiedName)
+                .containsExactlyInAnyOrderElementsOf(inputTables);
+        if (outputColumnMetadata.length != 0) {
+            assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                    .containsExactly(outputColumnMetadata);
+        }
+    }
+
+    private static String getQualifiedName(TableInfo tableInfo)
+    {
+        return tableInfo.getCatalog() + '.' + tableInfo.getSchema() + '.' + tableInfo.getTable();
     }
 }

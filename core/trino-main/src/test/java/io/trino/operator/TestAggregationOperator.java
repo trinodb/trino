@@ -14,13 +14,14 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.block.BlockAssertions;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.AggregationOperator.AggregationOperatorFactory;
-import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.aggregation.AggregatorFactory;
+import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.Page;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.ByteArrayBlock;
-import io.trino.sql.planner.plan.AggregationNode.Step;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.MaterializedResult;
@@ -30,6 +31,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -37,7 +39,8 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.block.BlockAssertions.createBooleansBlock;
+import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
 import static io.trino.operator.OperatorAssertion.toPages;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -45,6 +48,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.Collections.emptyIterator;
@@ -57,18 +61,13 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestAggregationOperator
 {
-    private static final Metadata metadata = createTestMetadataManager();
+    private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
 
-    private static final InternalAggregationFunction LONG_AVERAGE = metadata.getAggregateFunctionImplementation(
-            metadata.resolveFunction(QualifiedName.of("avg"), fromTypes(BIGINT)));
-    private static final InternalAggregationFunction DOUBLE_SUM = metadata.getAggregateFunctionImplementation(
-            metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)));
-    private static final InternalAggregationFunction LONG_SUM = metadata.getAggregateFunctionImplementation(
-            metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(BIGINT)));
-    private static final InternalAggregationFunction REAL_SUM = metadata.getAggregateFunctionImplementation(
-            metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(REAL)));
-    private static final InternalAggregationFunction COUNT = metadata.getAggregateFunctionImplementation(
-            metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of()));
+    private static final TestingAggregationFunction LONG_AVERAGE = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("avg"), fromTypes(BIGINT));
+    private static final TestingAggregationFunction DOUBLE_SUM = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
+    private static final TestingAggregationFunction LONG_SUM = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("sum"), fromTypes(BIGINT));
+    private static final TestingAggregationFunction REAL_SUM = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("sum"), fromTypes(REAL));
+    private static final TestingAggregationFunction COUNT = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("count"), ImmutableList.of());
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -92,7 +91,7 @@ public class TestAggregationOperator
     {
         List<Page> input = ImmutableList.of(new Page(
                 4,
-                BlockAssertions.createLongsBlock(1, 2, 3, 4),
+                createLongsBlock(1, 2, 3, 4),
                 new ByteArrayBlock(
                         4,
                         Optional.of(new boolean[] {true, true, false, false}),
@@ -101,9 +100,7 @@ public class TestAggregationOperator
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                Step.SINGLE,
-                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.of(1))),
-                false);
+                ImmutableList.of(COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.of(1))));
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
@@ -117,12 +114,43 @@ public class TestAggregationOperator
     }
 
     @Test
+    public void testDistinctMaskWithNulls()
+    {
+        AggregatorFactory distinctFactory = LONG_SUM.createDistinctAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.of(1));
+
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
+
+        OperatorFactory operatorFactory = new AggregationOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(distinctFactory));
+
+        ByteArrayBlock trueMaskAllNull = new ByteArrayBlock(
+                4,
+                Optional.of(new boolean[] {true, true, true, true}), /* all positions are null */
+                new byte[] {1, 1, 1, 1}); /* non-zero value is true, all masks are true */
+
+        Block trueNullRleMask = new RunLengthEncodedBlock(trueMaskAllNull.getSingleValueBlock(0), 4);
+
+        List<Page> nullTrueMaskInput = ImmutableList.of(
+                new Page(4, createLongsBlock(1, 2, 3, 4), trueMaskAllNull),
+                new Page(4, createLongsBlock(10, 11, 10, 11), createBooleansBlock(true, true, true, true)),
+                new Page(4, createLongsBlock(5, 6, 7, 8), trueNullRleMask));
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
+                .row(21L)
+                .build();
+
+        assertOperatorEquals(operatorFactory, driverContext, nullTrueMaskInput, expected);
+    }
+
+    @Test
     public void testAggregation()
     {
-        InternalAggregationFunction countVarcharColumn = metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("count"), fromTypes(VARCHAR)));
-        InternalAggregationFunction maxVarcharColumn = metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("max"), fromTypes(VARCHAR)));
+        TestingAggregationFunction countVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("count"), fromTypes(VARCHAR));
+        TestingAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("max"), fromTypes(VARCHAR));
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, VARCHAR, BIGINT, REAL, DOUBLE, VARCHAR)
                 .addSequencePage(100, 0, 0, 300, 500, 400, 500, 500)
                 .build();
@@ -130,17 +158,15 @@ public class TestAggregationOperator
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                Step.SINGLE,
-                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                        LONG_SUM.bind(ImmutableList.of(1), Optional.empty()),
-                        LONG_AVERAGE.bind(ImmutableList.of(1), Optional.empty()),
-                        maxVarcharColumn.bind(ImmutableList.of(2), Optional.empty()),
-                        countVarcharColumn.bind(ImmutableList.of(0), Optional.empty()),
-                        LONG_SUM.bind(ImmutableList.of(3), Optional.empty()),
-                        REAL_SUM.bind(ImmutableList.of(4), Optional.empty()),
-                        DOUBLE_SUM.bind(ImmutableList.of(5), Optional.empty()),
-                        maxVarcharColumn.bind(ImmutableList.of(6), Optional.empty())),
-                false);
+                ImmutableList.of(COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()),
+                        LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(1), OptionalInt.empty()),
+                        LONG_AVERAGE.createAggregatorFactory(SINGLE, ImmutableList.of(1), OptionalInt.empty()),
+                        maxVarcharColumn.createAggregatorFactory(SINGLE, ImmutableList.of(2), OptionalInt.empty()),
+                        countVarcharColumn.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()),
+                        LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(3), OptionalInt.empty()),
+                        REAL_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(4), OptionalInt.empty()),
+                        DOUBLE_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(5), OptionalInt.empty()),
+                        maxVarcharColumn.createAggregatorFactory(SINGLE, ImmutableList.of(6), OptionalInt.empty())));
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
@@ -151,7 +177,6 @@ public class TestAggregationOperator
                 .build();
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
-        assertEquals(driverContext.getSystemMemoryUsage(), 0);
         assertEquals(driverContext.getMemoryUsage(), 0);
     }
 
@@ -159,21 +184,12 @@ public class TestAggregationOperator
     public void testMemoryTracking()
             throws Exception
     {
-        testMemoryTracking(false);
-        testMemoryTracking(true);
-    }
-
-    private void testMemoryTracking(boolean useSystemMemory)
-            throws Exception
-    {
         Page input = getOnlyElement(rowPagesBuilder(BIGINT).addSequencePage(100, 0).build());
 
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                Step.SINGLE,
-                ImmutableList.of(LONG_SUM.bind(ImmutableList.of(0), Optional.empty())),
-                useSystemMemory);
+                ImmutableList.of(LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty())));
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
@@ -183,19 +199,11 @@ public class TestAggregationOperator
             assertTrue(operator.needsInput());
             operator.addInput(input);
 
-            if (useSystemMemory) {
-                assertThat(driverContext.getSystemMemoryUsage()).isGreaterThan(0);
-                assertEquals(driverContext.getMemoryUsage(), 0);
-            }
-            else {
-                assertEquals(driverContext.getSystemMemoryUsage(), 0);
-                assertThat(driverContext.getMemoryUsage()).isGreaterThan(0);
-            }
+            assertThat(driverContext.getMemoryUsage()).isGreaterThan(0);
 
             toPages(operator, emptyIterator());
         }
 
-        assertEquals(driverContext.getSystemMemoryUsage(), 0);
         assertEquals(driverContext.getMemoryUsage(), 0);
     }
 }

@@ -87,9 +87,11 @@ public final class TestingKafka
         network = Network.newNetwork();
         closer.register(network::close);
         kafka = new KafkaContainer(KAFKA_IMAGE_NAME.withTag(confluentPlatformVersion))
+                .withStartupAttempts(3)
                 .withNetwork(network)
                 .withNetworkAliases("kafka");
         schemaRegistry = new GenericContainer<>(SCHEMA_REGISTRY_IMAGE_NAME.withTag(confluentPlatformVersion))
+                .withStartupAttempts(3)
                 .withNetwork(network)
                 .withNetworkAliases("schema-registry")
                 .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:9092")

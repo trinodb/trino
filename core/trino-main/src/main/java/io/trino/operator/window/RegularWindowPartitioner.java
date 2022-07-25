@@ -13,7 +13,7 @@
  */
 package io.trino.operator.window;
 
-import com.google.common.collect.Streams;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexComparator;
@@ -22,8 +22,6 @@ import io.trino.spi.function.WindowFunction;
 
 import java.util.List;
 import java.util.Map;
-
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class RegularWindowPartitioner
         implements Partitioner
@@ -37,10 +35,9 @@ public class RegularWindowPartitioner
             List<WindowFunction> windowFunctions,
             List<FrameInfo> frames,
             PagesHashStrategy peerGroupHashStrategy,
-            Map<FrameBoundKey, PagesIndexComparator> frameBoundComparators)
+            Map<FrameBoundKey, PagesIndexComparator> frameBoundComparators,
+            AggregatedMemoryContext memoryContext)
     {
-        List<FramedWindowFunction> functions = Streams.zip(windowFunctions.stream(), frames.stream(), FramedWindowFunction::new)
-                .collect(toImmutableList());
-        return new RegularWindowPartition(pagesIndex, partitionStart, partitionEnd, outputChannels, functions, peerGroupHashStrategy, frameBoundComparators);
+        return new RegularWindowPartition(pagesIndex, partitionStart, partitionEnd, outputChannels, windowFunctions, frames, peerGroupHashStrategy, frameBoundComparators);
     }
 }

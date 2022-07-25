@@ -24,6 +24,7 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
@@ -220,7 +221,7 @@ public class IonSqlQueryBuilder
         }
         if (type instanceof DecimalType) {
             if (Decimals.isLongDecimal(type)) {
-                return Decimals.toString((Slice) value, ((DecimalType) type).getScale());
+                return Decimals.toString((Int128) value, ((DecimalType) type).getScale());
             }
             return Decimals.toString((long) value, ((DecimalType) type).getScale());
         }

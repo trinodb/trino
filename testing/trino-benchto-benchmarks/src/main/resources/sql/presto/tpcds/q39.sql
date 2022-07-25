@@ -35,12 +35,12 @@ SELECT
 , "inv1"."i_item_sk"
 , "inv1"."d_moy"
 , "inv1"."mean"
-, "inv1"."cov"
+, CAST("inv1"."cov" AS DECIMAL(30, 10)) -- decrease precision to avoid unstable results due to roundings
 , "inv2"."w_warehouse_sk"
 , "inv2"."i_item_sk"
 , "inv2"."d_moy"
 , "inv2"."mean"
-, "inv2"."cov"
+, CAST("inv2"."cov" AS DECIMAL(30, 10)) -- decrease precision to avoid unstable results due to roundings
 FROM
   inv inv1
 , inv inv2

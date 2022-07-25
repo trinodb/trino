@@ -20,13 +20,14 @@ import io.trino.rcfile.RcFileEncoding;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class TextRcFileEncoding
         implements RcFileEncoding
 {
-    public static final byte[] DEFAULT_SEPARATORS = new byte[] {
+    private static final byte[] DEFAULT_SEPARATORS = new byte[] {
             1,  // Start of Heading
             2,  // Start of text
             3,  // End of Text
@@ -70,7 +71,7 @@ public class TextRcFileEncoding
     {
         this(
                 DEFAULT_NULL_SEQUENCE,
-                DEFAULT_SEPARATORS,
+                DEFAULT_SEPARATORS.clone(),
                 null,
                 false);
     }
@@ -81,6 +82,11 @@ public class TextRcFileEncoding
         this.separators = separators;
         this.escapeByte = escapeByte;
         this.lastColumnTakesRest = lastColumnTakesRest;
+    }
+
+    public static byte[] getDefaultSeparators(int nestingLevels)
+    {
+        return Arrays.copyOf(DEFAULT_SEPARATORS, nestingLevels);
     }
 
     @Override

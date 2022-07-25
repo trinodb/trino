@@ -13,7 +13,7 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.metadata.FunctionListBuilder;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.IsNull;
@@ -366,11 +366,11 @@ public class TestScalarValidation
 
     private static void extractParametricScalar(Class<?> clazz)
     {
-        new FunctionListBuilder().scalar(clazz);
+        InternalFunctionBundle.builder().scalar(clazz);
     }
 
     private static void extractScalars(Class<?> clazz)
     {
-        new FunctionListBuilder().scalars(clazz);
+        InternalFunctionBundle.builder().scalars(clazz);
     }
 }

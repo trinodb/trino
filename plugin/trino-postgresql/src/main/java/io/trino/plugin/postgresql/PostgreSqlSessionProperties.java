@@ -23,12 +23,14 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 
 public final class PostgreSqlSessionProperties
         implements SessionPropertiesProvider
 {
     public static final String ARRAY_MAPPING = "array_mapping";
+    public static final String ENABLE_STRING_PUSHDOWN_WITH_COLLATE = "enable_string_pushdown_with_collate";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -41,6 +43,11 @@ public final class PostgreSqlSessionProperties
                         "Handling of PostgreSql arrays",
                         ArrayMapping.class,
                         postgreSqlConfig.getArrayMapping(),
+                        false),
+                booleanProperty(
+                        ENABLE_STRING_PUSHDOWN_WITH_COLLATE,
+                        "Enable string pushdown with collate (experimental)",
+                        postgreSqlConfig.isEnableStringPushdownWithCollate(),
                         false));
     }
 
@@ -53,5 +60,10 @@ public final class PostgreSqlSessionProperties
     public static ArrayMapping getArrayMapping(ConnectorSession session)
     {
         return session.getProperty(ARRAY_MAPPING, ArrayMapping.class);
+    }
+
+    public static boolean isEnableStringPushdownWithCollate(ConnectorSession session)
+    {
+        return session.getProperty(ENABLE_STRING_PUSHDOWN_WITH_COLLATE, Boolean.class);
     }
 }

@@ -29,13 +29,13 @@ import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT;
 import static io.trino.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -57,7 +57,8 @@ public class TestHiveSplitSource
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
-                new CounterStat());
+                new CounterStat(),
+                false);
 
         // add 10 splits
         for (int i = 0; i < 10; i++) {
@@ -79,6 +80,60 @@ public class TestHiveSplitSource
     }
 
     @Test
+    public void testDynamicPartitionPruning()
+    {
+        HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
+                SESSION,
+                "database",
+                "table",
+                10,
+                10,
+                DataSize.of(1, MEGABYTE),
+                Integer.MAX_VALUE,
+                new TestingHiveSplitLoader(),
+                Executors.newFixedThreadPool(5),
+                new CounterStat(),
+                false);
+
+        // add two splits, one of the splits is dynamically pruned
+        hiveSplitSource.addToQueue(new TestSplit(0, () -> false));
+        hiveSplitSource.addToQueue(new TestSplit(1, () -> true));
+        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 2);
+
+        // try to remove 2 splits, only one should be returned
+        assertEquals(getSplits(hiveSplitSource, 2).size(), 1);
+        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 0);
+    }
+
+    @Test
+    public void testCorrectlyGeneratingInitialRowId()
+    {
+        HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
+                SESSION,
+                "database",
+                "table",
+                10,
+                10,
+                DataSize.of(1, MEGABYTE),
+                Integer.MAX_VALUE,
+                new TestingHiveSplitLoader(),
+                Executors.newFixedThreadPool(5),
+                new CounterStat(),
+                false);
+
+        // add 10 splits
+        for (int i = 0; i < 10; i++) {
+            hiveSplitSource.addToQueue(new TestSplit(i));
+            assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), i + 1);
+        }
+
+        List<ConnectorSplit> splits = getSplits(hiveSplitSource, 10);
+        assertEquals(((HiveSplit) splits.get(0)).getSplitNumber(), 0);
+        assertEquals(((HiveSplit) splits.get(5)).getSplitNumber(), 5);
+        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 0);
+    }
+
+    @Test
     public void testEvenlySizedSplitRemainder()
     {
         DataSize initialSplitSize = getMaxInitialSplitSize(SESSION);
@@ -92,7 +147,8 @@ public class TestHiveSplitSource
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newSingleThreadExecutor(),
-                new CounterStat());
+                new CounterStat(),
+                false);
 
         // One byte larger than the initial split max size
         DataSize fileSize = DataSize.ofBytes(initialSplitSize.toBytes() + 1);
@@ -119,7 +175,8 @@ public class TestHiveSplitSource
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
-                new CounterStat());
+                new CounterStat(),
+                false);
 
         // add some splits
         for (int i = 0; i < 5; i++) {
@@ -169,7 +226,8 @@ public class TestHiveSplitSource
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
-                new CounterStat());
+                new CounterStat(),
+                false);
 
         SettableFuture<ConnectorSplit> splits = SettableFuture.create();
 
@@ -223,7 +281,8 @@ public class TestHiveSplitSource
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
-                new CounterStat());
+                new CounterStat(),
+                false);
         int testSplitSizeInBytes = new TestSplit(0).getEstimatedSizeInBytes();
 
         int maxSplitCount = toIntExact(maxOutstandingSplitsSize.toBytes()) / testSplitSizeInBytes;
@@ -243,41 +302,9 @@ public class TestHiveSplitSource
                 .hasMessageContaining("Split buffering for database.table exceeded memory limit");
     }
 
-    @Test
-    public void testEmptyBucket()
-    {
-        HiveSplitSource hiveSplitSource = HiveSplitSource.bucketed(
-                SESSION,
-                "database",
-                "table",
-                10,
-                10,
-                DataSize.of(1, MEGABYTE),
-                Integer.MAX_VALUE,
-                new TestingHiveSplitLoader(),
-                Executors.newFixedThreadPool(5),
-                new CounterStat());
-        hiveSplitSource.addToQueue(new TestSplit(0, OptionalInt.of(2)));
-        hiveSplitSource.noMoreSplits();
-        assertEquals(getSplits(hiveSplitSource, OptionalInt.of(0), 10).size(), 0);
-        assertEquals(getSplits(hiveSplitSource, OptionalInt.of(1), 10).size(), 0);
-        assertEquals(getSplits(hiveSplitSource, OptionalInt.of(2), 10).size(), 1);
-        assertEquals(getSplits(hiveSplitSource, OptionalInt.of(3), 10).size(), 0);
-    }
-
     private static List<ConnectorSplit> getSplits(ConnectorSplitSource source, int maxSize)
     {
-        return getSplits(source, OptionalInt.empty(), maxSize);
-    }
-
-    private static List<ConnectorSplit> getSplits(ConnectorSplitSource source, OptionalInt bucketNumber, int maxSize)
-    {
-        if (bucketNumber.isPresent()) {
-            return getFutureValue(source.getNextBatch(new HivePartitionHandle(bucketNumber.getAsInt()), maxSize)).getSplits();
-        }
-        else {
-            return getFutureValue(source.getNextBatch(NOT_PARTITIONED, maxSize)).getSplits();
-        }
+        return getFutureValue(source.getNextBatch(maxSize)).getSplits();
     }
 
     private static class TestingHiveSplitLoader
@@ -302,12 +329,22 @@ public class TestHiveSplitSource
             this(id, OptionalInt.empty());
         }
 
+        private TestSplit(int id, BooleanSupplier partitionMatchSupplier)
+        {
+            this(id, OptionalInt.empty(), DataSize.ofBytes(100), partitionMatchSupplier);
+        }
+
         private TestSplit(int id, OptionalInt bucketNumber)
         {
             this(id, bucketNumber, DataSize.ofBytes(100));
         }
 
         private TestSplit(int id, OptionalInt bucketNumber, DataSize fileSize)
+        {
+            this(id, bucketNumber, fileSize, () -> true);
+        }
+
+        private TestSplit(int id, OptionalInt bucketNumber, DataSize fileSize, BooleanSupplier partitionMatchSupplier)
         {
             super(
                     "partition-name",
@@ -320,14 +357,16 @@ public class TestHiveSplitSource
                     ImmutableList.of(),
                     ImmutableList.of(new InternalHiveBlock(0, fileSize.toBytes(), ImmutableList.of())),
                     bucketNumber,
-                    0,
+                    bucketNumber,
+                    () -> 0,
                     true,
                     false,
                     TableToPartitionMapping.empty(),
                     Optional.empty(),
                     Optional.empty(),
                     false,
-                    Optional.empty());
+                    Optional.empty(),
+                    partitionMatchSupplier);
         }
 
         private static Properties properties(String key, String value)

@@ -29,6 +29,7 @@ import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -47,8 +48,9 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
-import static io.trino.orc.OrcReader.ProjectedLayout.fullyProjectedLayout;
 import static io.trino.orc.OrcReader.createOrcReader;
+import static io.trino.orc.OrcReader.fullyProjectedLayout;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_BUCKET;
@@ -69,7 +71,7 @@ public class OrcDeleteDeltaPageSource
     private final OrcRecordReader recordReader;
     private final OrcDataSource orcDataSource;
     private final FileFormatDataSourceStats stats;
-    private final AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
+    private final AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
 
     private boolean closed;
 
@@ -77,15 +79,15 @@ public class OrcDeleteDeltaPageSource
             Path path,
             long fileSize,
             OrcReaderOptions options,
-            String sessionUser,
+            ConnectorIdentity identity,
             Configuration configuration,
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats)
     {
         OrcDataSource orcDataSource;
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
-            FSDataInputStream inputStream = hdfsEnvironment.doAs(sessionUser, () -> fileSystem.open(path));
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(identity, path, configuration);
+            FSDataInputStream inputStream = hdfsEnvironment.doAs(identity, () -> fileSystem.open(path));
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
                     fileSize,
@@ -154,7 +156,7 @@ public class OrcDeleteDeltaPageSource
                 0,
                 fileSize,
                 UTC,
-                systemMemoryContext,
+                memoryContext,
                 MAX_BATCH_SIZE,
                 exception -> handleException(orcDataSource.getId(), exception),
                 NameBasedFieldMapper::create);
@@ -189,7 +191,7 @@ public class OrcDeleteDeltaPageSource
             return page;
         }
         catch (IOException | RuntimeException e) {
-            closeWithSuppression(e);
+            closeAllSuppress(e, this);
             throw handleException(orcDataSource.getId(), e);
         }
     }
@@ -221,23 +223,9 @@ public class OrcDeleteDeltaPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return systemMemoryContext.getBytes();
-    }
-
-    private void closeWithSuppression(Throwable throwable)
-    {
-        requireNonNull(throwable, "throwable is null");
-        try {
-            close();
-        }
-        catch (RuntimeException e) {
-            // Self-suppression not permitted
-            if (throwable != e) {
-                throwable.addSuppressed(e);
-            }
-        }
+        return memoryContext.getBytes();
     }
 
     private static String openError(Throwable t, Path path)

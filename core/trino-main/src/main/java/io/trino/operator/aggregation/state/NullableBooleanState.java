@@ -20,16 +20,23 @@ import io.trino.spi.type.Type;
 
 @AccumulatorStateMetadata(stateSerializerClass = NullableBooleanStateSerializer.class)
 public interface NullableBooleanState
-        extends AccumulatorState
+        extends AccumulatorState, NullableState
 {
-    boolean getBoolean();
+    boolean getValue();
 
-    void setBoolean(boolean value);
+    void setValue(boolean value);
 
+    @Override
     @InitialBooleanValue(true)
     boolean isNull();
 
     void setNull(boolean value);
+
+    default void set(NullableBooleanState state)
+    {
+        setValue(state.getValue());
+        setNull(state.isNull());
+    }
 
     static void write(Type type, NullableBooleanState state, BlockBuilder out)
     {
@@ -37,7 +44,7 @@ public interface NullableBooleanState
             out.appendNull();
         }
         else {
-            type.writeBoolean(out, state.getBoolean());
+            type.writeBoolean(out, state.getValue());
         }
     }
 }

@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import io.trino.spi.Page;
+import io.trino.spi.metrics.Metrics;
 
 import java.util.Optional;
 
@@ -31,6 +32,11 @@ public interface WorkProcessorOperator
     default Optional<OperatorInfo> getOperatorInfo()
     {
         return Optional.empty();
+    }
+
+    default Metrics getMetrics()
+    {
+        return Metrics.EMPTY;
     }
 
     @Override

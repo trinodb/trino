@@ -18,11 +18,11 @@ import io.airlift.slice.SliceOutput;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
-import io.trino.spi.type.TypeManager;
 
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -32,20 +32,29 @@ import static java.util.Objects.requireNonNull;
 public final class TestingBlockEncodingSerde
         implements BlockEncodingSerde
 {
-    private final TypeManager typeManagerType = new TestingTypeManager();
+    private final Function<TypeId, Type> types;
     private final ConcurrentMap<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
 
     public TestingBlockEncodingSerde()
     {
+        this(new TestingTypeManager()::getType);
+    }
+
+    public TestingBlockEncodingSerde(Function<TypeId, Type> types)
+    {
+        this.types = requireNonNull(types, "types is null");
+        // add the built-in BlockEncodings
         addBlockEncoding(new VariableWidthBlockEncoding());
         addBlockEncoding(new ByteArrayBlockEncoding());
         addBlockEncoding(new ShortArrayBlockEncoding());
         addBlockEncoding(new IntArrayBlockEncoding());
         addBlockEncoding(new LongArrayBlockEncoding());
-        addBlockEncoding(new Int128ArrayBlockEncoding());
         addBlockEncoding(new Int96ArrayBlockEncoding());
+        addBlockEncoding(new Int128ArrayBlockEncoding());
         addBlockEncoding(new DictionaryBlockEncoding());
         addBlockEncoding(new ArrayBlockEncoding());
+        addBlockEncoding(new MapBlockEncoding());
+        addBlockEncoding(new SingleMapBlockEncoding());
         addBlockEncoding(new RowBlockEncoding());
         addBlockEncoding(new SingleRowBlockEncoding());
         addBlockEncoding(new RunLengthBlockEncoding());
@@ -104,7 +113,7 @@ public final class TestingBlockEncodingSerde
         requireNonNull(sliceInput, "sliceInput is null");
 
         String id = readLengthPrefixedString(sliceInput);
-        Type type = typeManagerType.getType(TypeId.of(id));
+        Type type = types.apply(TypeId.of(id));
         if (type == null) {
             throw new IllegalArgumentException("Unknown type " + id);
         }

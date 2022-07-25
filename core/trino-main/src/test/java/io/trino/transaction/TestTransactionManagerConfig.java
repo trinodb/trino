@@ -38,11 +38,11 @@ public class TestTransactionManagerConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("transaction.idle-check-interval", "1s")
                 .put("transaction.idle-timeout", "10s")
                 .put("transaction.max-finishing-concurrency", "100")
-                .build();
+                .buildOrThrow();
 
         TransactionManagerConfig expected = new TransactionManagerConfig()
                 .setIdleCheckInterval(new Duration(1, TimeUnit.SECONDS))

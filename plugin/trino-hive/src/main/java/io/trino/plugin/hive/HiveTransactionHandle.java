@@ -25,17 +25,25 @@ import static java.util.Objects.requireNonNull;
 public class HiveTransactionHandle
         implements ConnectorTransactionHandle
 {
+    private final boolean autoCommit;
     private final UUID uuid;
 
-    public HiveTransactionHandle()
+    public HiveTransactionHandle(boolean autoCommit)
     {
-        this(UUID.randomUUID());
+        this(autoCommit, UUID.randomUUID());
     }
 
     @JsonCreator
-    public HiveTransactionHandle(@JsonProperty("uuid") UUID uuid)
+    public HiveTransactionHandle(@JsonProperty("autoCommit") boolean autoCommit, @JsonProperty("uuid") UUID uuid)
     {
+        this.autoCommit = autoCommit;
         this.uuid = requireNonNull(uuid, "uuid is null");
+    }
+
+    @JsonProperty
+    public boolean isAutoCommit()
+    {
+        return autoCommit;
     }
 
     @JsonProperty
@@ -45,22 +53,22 @@ public class HiveTransactionHandle
     }
 
     @Override
-    public boolean equals(Object obj)
+    public boolean equals(Object o)
     {
-        if (this == obj) {
+        if (this == o) {
             return true;
         }
-        if ((obj == null) || (getClass() != obj.getClass())) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        HiveTransactionHandle other = (HiveTransactionHandle) obj;
-        return Objects.equals(uuid, other.uuid);
+        HiveTransactionHandle that = (HiveTransactionHandle) o;
+        return autoCommit == that.autoCommit && Objects.equals(uuid, that.uuid);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(uuid);
+        return Objects.hash(autoCommit, uuid);
     }
 
     @Override

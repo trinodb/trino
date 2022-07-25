@@ -26,6 +26,7 @@ public class OAuth2AuthenticationSupportModule
     protected void setup(Binder binder)
     {
         binder.bind(OAuth2TokenExchange.class).in(Scopes.SINGLETON);
+        binder.bind(OAuth2TokenHandler.class).to(OAuth2TokenExchange.class).in(Scopes.SINGLETON);
         jaxrsBinder(binder).bind(OAuth2TokenExchangeResource.class);
         install(new OAuth2ServiceModule());
     }

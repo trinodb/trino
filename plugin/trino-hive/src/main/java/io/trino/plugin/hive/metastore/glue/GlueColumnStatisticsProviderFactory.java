@@ -17,5 +17,5 @@ import com.amazonaws.services.glue.AWSGlueAsync;
 
 public interface GlueColumnStatisticsProviderFactory
 {
-    GlueColumnStatisticsProvider createGlueColumnStatisticsProvider(AWSGlueAsync glueClient);
+    GlueColumnStatisticsProvider createGlueColumnStatisticsProvider(AWSGlueAsync glueClient, GlueMetastoreStats stats);
 }

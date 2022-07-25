@@ -15,16 +15,16 @@ package io.trino.operator;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import io.trino.operator.PartitionedOutputOperator.PartitionedOutputInfo;
 import io.trino.operator.TableWriterOperator.TableWriterInfo;
 import io.trino.operator.exchange.LocalExchangeBufferInfo;
 import io.trino.operator.join.JoinOperatorInfo;
+import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputInfo;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
         property = "@type")
 @JsonSubTypes({
-        @JsonSubTypes.Type(value = ExchangeClientStatus.class, name = "exchangeClientStatus"),
+        @JsonSubTypes.Type(value = DirectExchangeClientStatus.class, name = "directExchangeClientStatus"),
         @JsonSubTypes.Type(value = LocalExchangeBufferInfo.class, name = "localExchangeBuffer"),
         @JsonSubTypes.Type(value = TableFinishInfo.class, name = "tableFinish"),
         @JsonSubTypes.Type(value = SplitOperatorInfo.class, name = "splitOperator"),

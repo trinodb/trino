@@ -22,7 +22,6 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.PartitionOfflineException;
 import io.trino.plugin.hive.TableOfflineException;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -35,6 +34,7 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
@@ -148,7 +148,7 @@ public final class MetastoreUtil
         for (Map.Entry<String, String> param : sd.getSerdeParameters().entrySet()) {
             schema.setProperty(param.getKey(), (param.getValue() != null) ? param.getValue() : "");
         }
-        schema.setProperty(SERIALIZATION_LIB, sd.getStorageFormat().getSerDe());
+        schema.setProperty(SERIALIZATION_LIB, sd.getStorageFormat().getSerde());
 
         StringBuilder columnNameBuilder = new StringBuilder();
         StringBuilder columnTypeBuilder = new StringBuilder();
@@ -216,7 +216,7 @@ public final class MetastoreUtil
 
     public static boolean isAvroTableWithSchemaSet(Table table)
     {
-        return AVRO.getSerDe().equals(table.getStorage().getStorageFormat().getSerDeNullable()) &&
+        return AVRO.getSerde().equals(table.getStorage().getStorageFormat().getSerDeNullable()) &&
                 (table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
                         (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_URL_KEY) != null));
     }
@@ -299,9 +299,9 @@ public final class MetastoreUtil
         }
     }
 
-    public static void verifyCanDropColumn(HiveMetastore metastore, HiveIdentity identity, String databaseName, String tableName, String columnName)
+    public static void verifyCanDropColumn(HiveMetastore metastore, String databaseName, String tableName, String columnName)
     {
-        Table table = metastore.getTable(identity, databaseName, tableName)
+        Table table = metastore.getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
 
         if (table.getPartitionColumns().stream().anyMatch(column -> column.getName().equals(columnName))) {
@@ -393,8 +393,7 @@ public final class MetastoreUtil
             return slice.toStringUtf8();
         }
         else if (type instanceof DecimalType && !((DecimalType) type).isShort()) {
-            Slice slice = (Slice) value;
-            return Decimals.toString(slice, ((DecimalType) type).getScale());
+            return Decimals.toString((Int128) value, ((DecimalType) type).getScale());
         }
         else if (type instanceof DecimalType && ((DecimalType) type).isShort()) {
             return Decimals.toString((long) value, ((DecimalType) type).getScale());

@@ -24,7 +24,8 @@ import javax.inject.Inject;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.IntConsumer;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -47,9 +48,9 @@ public class NodeTaskMap
         createOrGetNodeTasks(node).addTask(task);
     }
 
-    public int getPartitionedSplitsOnNode(InternalNode node)
+    public PartitionedSplitsInfo getPartitionedSplitsOnNode(InternalNode node)
     {
-        return createOrGetNodeTasks(node).getPartitionedSplitCount();
+        return createOrGetNodeTasks(node).getPartitionedSplitsInfo();
     }
 
     public PartitionedSplitCountTracker createPartitionedSplitCountTracker(InternalNode node, TaskId taskId)
@@ -80,6 +81,7 @@ public class NodeTaskMap
     {
         private final Set<RemoteTask> remoteTasks = Sets.newConcurrentHashSet();
         private final AtomicInteger nodeTotalPartitionedSplitCount = new AtomicInteger();
+        private final AtomicLong nodeTotalPartitionedSplitWeight = new AtomicLong();
         private final FinalizerService finalizerService;
 
         public NodeTasks(FinalizerService finalizerService)
@@ -87,24 +89,25 @@ public class NodeTaskMap
             this.finalizerService = requireNonNull(finalizerService, "finalizerService is null");
         }
 
-        private int getPartitionedSplitCount()
+        private PartitionedSplitsInfo getPartitionedSplitsInfo()
         {
-            return nodeTotalPartitionedSplitCount.get();
+            return PartitionedSplitsInfo.forSplitCountAndWeightSum(nodeTotalPartitionedSplitCount.get(), nodeTotalPartitionedSplitWeight.get());
         }
 
         private void addTask(RemoteTask task)
         {
             if (remoteTasks.add(task)) {
+                // Check if task state is already done before adding the listener
+                if (task.getTaskStatus().getState().isDone()) {
+                    remoteTasks.remove(task);
+                    return;
+                }
+
                 task.addStateChangeListener(taskStatus -> {
                     if (taskStatus.getState().isDone()) {
                         remoteTasks.remove(task);
                     }
                 });
-
-                // Check if task state is already done before adding the listener
-                if (task.getTaskStatus().getState().isDone()) {
-                    remoteTasks.remove(task);
-                }
             }
         }
 
@@ -112,8 +115,8 @@ public class NodeTaskMap
         {
             requireNonNull(taskId, "taskId is null");
 
-            TaskPartitionedSplitCountTracker tracker = new TaskPartitionedSplitCountTracker(taskId);
-            PartitionedSplitCountTracker partitionedSplitCountTracker = new PartitionedSplitCountTracker(tracker::setPartitionedSplitCount);
+            TaskPartitionedSplitCountTracker tracker = new TaskPartitionedSplitCountTracker(taskId, nodeTotalPartitionedSplitCount, nodeTotalPartitionedSplitWeight);
+            PartitionedSplitCountTracker partitionedSplitCountTracker = new PartitionedSplitCountTracker(tracker);
 
             // when partitionedSplitCountTracker is garbage collected, run the cleanup method on the tracker
             // Note: tracker cannot have a reference to partitionedSplitCountTracker
@@ -123,41 +126,66 @@ public class NodeTaskMap
         }
 
         @ThreadSafe
-        private class TaskPartitionedSplitCountTracker
+        private static class TaskPartitionedSplitCountTracker
+                implements Consumer<PartitionedSplitsInfo>
         {
             private final TaskId taskId;
+            private final AtomicInteger nodeTotalPartitionedSplitCount;
+            private final AtomicLong nodeTotalPartitionedSplitWeight;
             private final AtomicInteger localPartitionedSplitCount = new AtomicInteger();
+            private final AtomicLong localPartitionedSplitWeight = new AtomicLong();
 
-            public TaskPartitionedSplitCountTracker(TaskId taskId)
+            public TaskPartitionedSplitCountTracker(TaskId taskId, AtomicInteger nodeTotalPartitionedSplitCount, AtomicLong nodeTotalPartitionedSplitWeight)
             {
                 this.taskId = requireNonNull(taskId, "taskId is null");
+                this.nodeTotalPartitionedSplitCount = requireNonNull(nodeTotalPartitionedSplitCount, "nodeTotalPartitionedSplitCount is null");
+                this.nodeTotalPartitionedSplitWeight = requireNonNull(nodeTotalPartitionedSplitWeight, "nodeTotalPartitionedSplitWeight is null");
             }
 
-            public synchronized void setPartitionedSplitCount(int partitionedSplitCount)
+            @Override
+            public synchronized void accept(PartitionedSplitsInfo partitionedSplits)
             {
-                if (partitionedSplitCount < 0) {
-                    int oldValue = localPartitionedSplitCount.getAndSet(0);
-                    nodeTotalPartitionedSplitCount.addAndGet(-oldValue);
-                    throw new IllegalArgumentException("partitionedSplitCount is negative");
+                if (partitionedSplits == null || partitionedSplits.getCount() < 0 || partitionedSplits.getWeightSum() < 0) {
+                    clearLocalSplitInfo(false);
+                    requireNonNull(partitionedSplits, "partitionedSplits is null"); // throw NPE if null, otherwise negative value
+                    throw new IllegalArgumentException("Invalid negative value: " + partitionedSplits);
                 }
 
-                int oldValue = localPartitionedSplitCount.getAndSet(partitionedSplitCount);
-                nodeTotalPartitionedSplitCount.addAndGet(partitionedSplitCount - oldValue);
+                int newCount = partitionedSplits.getCount();
+                long newWeight = partitionedSplits.getWeightSum();
+                int countDelta = newCount - localPartitionedSplitCount.getAndSet(newCount);
+                long weightDelta = newWeight - localPartitionedSplitWeight.getAndSet(newWeight);
+                if (countDelta != 0) {
+                    nodeTotalPartitionedSplitCount.addAndGet(countDelta);
+                }
+                if (weightDelta != 0) {
+                    nodeTotalPartitionedSplitWeight.addAndGet(weightDelta);
+                }
+            }
+
+            private void clearLocalSplitInfo(boolean reportAsLeaked)
+            {
+                int leakedCount = localPartitionedSplitCount.getAndSet(0);
+                long leakedWeight = localPartitionedSplitWeight.getAndSet(0);
+                if (leakedCount == 0 && leakedWeight == 0) {
+                    return;
+                }
+
+                if (reportAsLeaked) {
+                    log.error("BUG! %s for %s leaked with %s partitioned splits (weight: %s). Cleaning up so server can continue to function.",
+                            getClass().getName(),
+                            taskId,
+                            leakedCount,
+                            leakedWeight);
+                }
+
+                nodeTotalPartitionedSplitCount.addAndGet(-leakedCount);
+                nodeTotalPartitionedSplitWeight.addAndGet(-leakedWeight);
             }
 
             public void cleanup()
             {
-                int leakedSplits = localPartitionedSplitCount.getAndSet(0);
-                if (leakedSplits == 0) {
-                    return;
-                }
-
-                log.error("BUG! %s for %s leaked with %s partitioned splits.  Cleaning up so server can continue to function.",
-                        getClass().getName(),
-                        taskId,
-                        leakedSplits);
-
-                nodeTotalPartitionedSplitCount.addAndGet(-leakedSplits);
+                clearLocalSplitInfo(true);
             }
 
             @Override
@@ -166,6 +194,7 @@ public class NodeTaskMap
                 return toStringHelper(this)
                         .add("taskId", taskId)
                         .add("splits", localPartitionedSplitCount)
+                        .add("weight", localPartitionedSplitWeight)
                         .toString();
             }
         }
@@ -173,16 +202,16 @@ public class NodeTaskMap
 
     public static class PartitionedSplitCountTracker
     {
-        private final IntConsumer splitSetter;
+        private final Consumer<PartitionedSplitsInfo> splitSetter;
 
-        public PartitionedSplitCountTracker(IntConsumer splitSetter)
+        public PartitionedSplitCountTracker(Consumer<PartitionedSplitsInfo> splitSetter)
         {
             this.splitSetter = requireNonNull(splitSetter, "splitSetter is null");
         }
 
-        public void setPartitionedSplitCount(int partitionedSplitCount)
+        public void setPartitionedSplits(PartitionedSplitsInfo partitionedSplits)
         {
-            splitSetter.accept(partitionedSplitCount);
+            splitSetter.accept(partitionedSplits);
         }
 
         @Override

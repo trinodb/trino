@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.trino.client.QueryData;
 import io.trino.client.StatementClient;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.jline.reader.Candidate;
 import org.jline.reader.Completer;
 import org.jline.reader.LineReader;
@@ -51,12 +52,21 @@ public class TableNameCompleter
     {
         this.queryRunner = requireNonNull(queryRunner, "queryRunner session was null!");
 
-        tableCache = CacheBuilder.newBuilder()
-                .refreshAfterWrite(RELOAD_TIME_MINUTES, TimeUnit.MINUTES)
-                .build(asyncReloading(CacheLoader.from(this::listTables), executor));
+        tableCache = buildUnsafeCache(
+                CacheBuilder.newBuilder()
+                        .refreshAfterWrite(RELOAD_TIME_MINUTES, TimeUnit.MINUTES),
+                asyncReloading(CacheLoader.from(this::listTables), executor));
 
-        functionCache = CacheBuilder.newBuilder()
-                .build(asyncReloading(CacheLoader.from(this::listFunctions), executor));
+        functionCache = buildUnsafeCache(
+                CacheBuilder.newBuilder(),
+                CacheLoader.from(this::listFunctions));
+    }
+
+    // TODO extract safe caches implementations to a new module and use SafeCaches.buildNonEvictableCache hereAsyncCache
+    @SuppressModernizer
+    private static <K, V> LoadingCache<K, V> buildUnsafeCache(CacheBuilder<? super K, ? super V> cacheBuilder, CacheLoader<? super K, V> cacheLoader)
+    {
+        return cacheBuilder.build(cacheLoader);
     }
 
     private List<String> listTables(String schemaName)

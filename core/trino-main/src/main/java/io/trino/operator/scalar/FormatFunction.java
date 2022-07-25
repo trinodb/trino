@@ -16,8 +16,7 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
@@ -29,6 +28,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -48,8 +48,6 @@ import java.util.function.BiFunction;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.mapWithIndex;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.withVariadicBound;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -58,7 +56,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.decodeUnscaledValue;
 import static io.trino.spi.type.Decimals.isLongDecimal;
 import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -89,26 +86,24 @@ public final class FormatFunction
 
     private FormatFunction()
     {
-        super(new FunctionMetadata(
-                Signature.builder()
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
                         .name(NAME)
-                        .typeVariableConstraints(withVariadicBound("T", "row"))
-                        .argumentTypes(VARCHAR.getTypeSignature(), new TypeSignature("T"))
+                        .variadicTypeParameter("T", "row")
+                        .argumentType(VARCHAR.getTypeSignature())
+                        .argumentType(new TypeSignature("T"))
                         .returnType(VARCHAR.getTypeSignature())
-                        .build(),
-                false,
-                ImmutableList.of(new FunctionArgumentDefinition(false), new FunctionArgumentDefinition(false)),
-                true,
-                true,
-                "formats the input arguments using a format string",
-                SCALAR));
+                        .build())
+                .hidden()
+                .description("formats the input arguments using a format string")
+                .build());
     }
 
     @Override
-    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    public FunctionDependencyDeclaration getFunctionDependencies(BoundSignature boundSignature)
     {
         FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
-        functionBinding.getTypeVariable("T").getTypeParameters()
+        boundSignature.getArgumentTypes().get(1).getTypeParameters()
                 .forEach(type -> addDependencies(builder, type));
         return builder.build();
     }
@@ -142,9 +137,9 @@ public final class FormatFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        Type rowType = functionBinding.getTypeVariable("T");
+        Type rowType = boundSignature.getArgumentType(1);
 
         List<BiFunction<ConnectorSession, Block, Object>> converters = mapWithIndex(
                 rowType.getTypeParameters().stream(),
@@ -152,7 +147,7 @@ public final class FormatFunction
                 .collect(toImmutableList());
 
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 METHOD_HANDLE.bindTo(converters));
@@ -226,7 +221,7 @@ public final class FormatFunction
         }
         if (isLongDecimal(type)) {
             int scale = ((DecimalType) type).getScale();
-            return (session, block) -> new BigDecimal(decodeUnscaledValue(type.getSlice(block, position)), scale);
+            return (session, block) -> new BigDecimal(((Int128) type.getObject(block, position)).toBigInteger(), scale);
         }
         if (type instanceof VarcharType) {
             return (session, block) -> type.getSlice(block, position).toStringUtf8();

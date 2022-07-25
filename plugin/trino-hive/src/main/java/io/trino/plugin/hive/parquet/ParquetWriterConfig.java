@@ -26,6 +26,7 @@ public class ParquetWriterConfig
 
     private DataSize blockSize = DataSize.ofBytes(ParquetWriter.DEFAULT_BLOCK_SIZE);
     private DataSize pageSize = DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE);
+    private int batchSize = ParquetWriterOptions.DEFAULT_BATCH_SIZE;
 
     public DataSize getBlockSize()
     {
@@ -67,11 +68,16 @@ public class ParquetWriterConfig
         return this;
     }
 
-    public ParquetWriterOptions toParquetWriterOptions()
+    @Config("parquet.writer.batch-size")
+    @ConfigDescription("Maximum number of rows passed to the writer in each batch")
+    public ParquetWriterConfig setBatchSize(int batchSize)
     {
-        return ParquetWriterOptions.builder()
-                .setMaxBlockSize(getBlockSize())
-                .setMaxPageSize(getPageSize())
-                .build();
+        this.batchSize = batchSize;
+        return this;
+    }
+
+    public int getBatchSize()
+    {
+        return batchSize;
     }
 }

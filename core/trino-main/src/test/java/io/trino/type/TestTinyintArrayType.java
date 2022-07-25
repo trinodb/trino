@@ -13,16 +13,15 @@
  */
 package io.trino.type;
 
-import io.trino.metadata.Metadata;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 
 import java.util.List;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.StructuralTestUtil.arrayBlockOf;
 
 public class TestTinyintArrayType
@@ -30,12 +29,7 @@ public class TestTinyintArrayType
 {
     public TestTinyintArrayType()
     {
-        this(createTestMetadataManager());
-    }
-
-    private TestTinyintArrayType(Metadata metadata)
-    {
-        super(metadata.getType(arrayType(TINYINT.getTypeSignature())), List.class, createTestBlock(metadata.getType(arrayType(TINYINT.getTypeSignature()))));
+        super(TESTING_TYPE_MANAGER.getType(arrayType(TINYINT.getTypeSignature())), List.class, createTestBlock(TESTING_TYPE_MANAGER.getType(arrayType(TINYINT.getTypeSignature()))));
     }
 
     public static Block createTestBlock(Type arrayType)

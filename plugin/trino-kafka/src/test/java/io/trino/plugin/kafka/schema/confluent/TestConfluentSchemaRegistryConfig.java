@@ -41,12 +41,12 @@ public class TestConfluentSchemaRegistryConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kafka.confluent-schema-registry-url", "http://schema-registry-a:8081, http://schema-registry-b:8081")
                 .put("kafka.confluent-schema-registry-client-cache-size", "1500")
                 .put("kafka.empty-field-strategy", "ADD_DUMMY")
                 .put("kafka.confluent-subjects-cache-refresh-interval", "2s")
-                .build();
+                .buildOrThrow();
 
         ConfluentSchemaRegistryConfig expected = new ConfluentSchemaRegistryConfig()
                 .setConfluentSchemaRegistryUrls("http://schema-registry-a:8081, http://schema-registry-b:8081")

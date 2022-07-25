@@ -13,11 +13,6 @@
  */
 package io.trino.plugin.raptor.legacy.metadata;
 
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
-
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -69,18 +64,5 @@ public class BucketNode
     public String toString()
     {
         return bucketNumber + ":" + nodeIdentifier;
-    }
-
-    public static class Mapper
-            implements ResultSetMapper<BucketNode>
-    {
-        @Override
-        public BucketNode map(int index, ResultSet rs, StatementContext context)
-                throws SQLException
-        {
-            return new BucketNode(
-                    rs.getInt("bucket_number"),
-                    rs.getString("node_identifier"));
-        }
     }
 }

@@ -21,6 +21,7 @@ import io.trino.spi.type.Type;
 import org.bson.Document;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -31,16 +32,19 @@ public class MongoColumnHandle
     private final String name;
     private final Type type;
     private final boolean hidden;
+    private final Optional<String> comment;
 
     @JsonCreator
     public MongoColumnHandle(
             @JsonProperty("name") String name,
             @JsonProperty("columnType") Type type,
-            @JsonProperty("hidden") boolean hidden)
+            @JsonProperty("hidden") boolean hidden,
+            @JsonProperty("comment") Optional<String> comment)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
         this.hidden = hidden;
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
     @JsonProperty
@@ -61,12 +65,19 @@ public class MongoColumnHandle
         return hidden;
     }
 
+    @JsonProperty
+    public Optional<String> getComment()
+    {
+        return comment;
+    }
+
     public ColumnMetadata toColumnMetadata()
     {
         return ColumnMetadata.builder()
                 .setName(name)
                 .setType(type)
                 .setHidden(hidden)
+                .setComment(comment)
                 .build();
     }
 
@@ -74,13 +85,14 @@ public class MongoColumnHandle
     {
         return new Document().append("name", name)
                 .append("type", type.getTypeSignature().toString())
-                .append("hidden", hidden);
+                .append("hidden", hidden)
+                .append("comment", comment.orElse(null));
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, hidden);
+        return Objects.hash(name, type, hidden, comment);
     }
 
     @Override
@@ -95,7 +107,8 @@ public class MongoColumnHandle
         MongoColumnHandle other = (MongoColumnHandle) obj;
         return Objects.equals(name, other.name) &&
                 Objects.equals(type, other.type) &&
-                Objects.equals(hidden, other.hidden);
+                Objects.equals(hidden, other.hidden) &&
+                Objects.equals(comment, other.comment);
     }
 
     @Override
@@ -105,6 +118,7 @@ public class MongoColumnHandle
                 .add("name", name)
                 .add("type", type)
                 .add("hidden", hidden)
+                .add("comment", comment)
                 .toString();
     }
 }

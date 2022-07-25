@@ -22,7 +22,11 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 public @interface AccumulatorStateMetadata
 {
-    Class<?> stateSerializerClass() default void.class;
+    Class<? extends AccumulatorStateSerializer> stateSerializerClass() default AccumulatorStateSerializer.class;
 
-    Class<?> stateFactoryClass() default void.class;
+    Class<? extends AccumulatorStateFactory> stateFactoryClass() default AccumulatorStateFactory.class;
+
+    String[] typeParameters() default {};
+
+    String serializedType() default "";
 }

@@ -107,8 +107,8 @@ public class PushTableWriteThroughUnion
                 mappings.put(outputSymbol, newSymbol);
             }
         }
-        sourceMappings.add(outputMappings.build());
-        SymbolMapper symbolMapper = symbolMapper(mappings.build());
+        sourceMappings.add(outputMappings.buildOrThrow());
+        SymbolMapper symbolMapper = symbolMapper(mappings.buildOrThrow());
         return symbolMapper.map(writerNode, unionNode.getSources().get(source), context.getIdAllocator().getNextId());
     }
 

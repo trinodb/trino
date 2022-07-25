@@ -133,6 +133,6 @@ Window functions
 Window functions perform an operator over a window of rows, and return one value
 for each row. If this window of rows is large, a significant amount of memory may
 be needed. When spill to disk for window functions is enabled, if there is not enough
-memory, intermediate sorted results are written to disk. They are loaded back and
-merged when memory is available. There is a current limitation that spill does not work
+memory, intermediate results are written to disk. They are loaded back and merged
+when memory is available. There is a current limitation that spill does not work
 in all cases, such as when a single window is very large.

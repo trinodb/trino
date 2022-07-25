@@ -182,7 +182,7 @@ public class TestPushJoinIntoTableScan
     }
 
     @DataProvider
-    private static Object[][] testPushJoinIntoTableScanParams()
+    public static Object[][] testPushJoinIntoTableScanParams()
     {
         return new Object[][] {
                 {INNER, Optional.empty()},
@@ -594,8 +594,7 @@ public class TestPushJoinIntoTableScan
         return new TableHandle(
                 new CatalogName(catalog),
                 tableHandle,
-                new ConnectorTransactionHandle() {},
-                Optional.empty());
+                new ConnectorTransactionHandle() {});
     }
 
     private MockConnectorFactory createMockConnectorFactory(MockConnectorFactory.ApplyJoin applyJoin)

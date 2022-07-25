@@ -73,6 +73,17 @@ public class KerberosAuthentication
         }
     }
 
+    public void attemptLogin(Subject subject)
+    {
+        try {
+            LoginContext loginContext = new LoginContext("", subject, null, configuration);
+            loginContext.login();
+        }
+        catch (LoginException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private static KerberosPrincipal createKerberosPrincipal(String principal)
     {
         try {
@@ -97,7 +108,7 @@ public class KerberosAuthentication
             optionsBuilder.put("debug", "true");
         }
 
-        Map<String, String> options = optionsBuilder.build();
+        Map<String, String> options = optionsBuilder.buildOrThrow();
 
         return new Configuration()
         {

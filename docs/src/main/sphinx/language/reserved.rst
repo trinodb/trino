@@ -54,8 +54,14 @@ Keyword                        SQL:2016      SQL-92
 ``INTO``                       reserved      reserved
 ``IS``                         reserved      reserved
 ``JOIN``                       reserved      reserved
+``JSON_ARRAY``                 reserved
+``JSON_EXISTS``                reserved
+``JSON_OBJECT``                reserved
+``JSON_QUERY``                 reserved
+``JSON_VALUE``                 reserved
 ``LEFT``                       reserved      reserved
 ``LIKE``                       reserved      reserved
+``LISTAGG``                    reserved
 ``LOCALTIME``                  reserved
 ``LOCALTIMESTAMP``             reserved
 ``NATURAL``                    reserved      reserved
@@ -74,6 +80,7 @@ Keyword                        SQL:2016      SQL-92
 ``SKIP``                       reserved
 ``TABLE``                      reserved      reserved
 ``THEN``                       reserved      reserved
+``TRIM``                       reserved      reserved
 ``TRUE``                       reserved      reserved
 ``UESCAPE``                    reserved
 ``UNION``                      reserved      reserved

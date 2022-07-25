@@ -85,7 +85,7 @@ final class TypeConversions
 
         public TypeConversions build()
         {
-            return new TypeConversions(conversions.build());
+            return new TypeConversions(conversions.buildOrThrow());
         }
     }
 

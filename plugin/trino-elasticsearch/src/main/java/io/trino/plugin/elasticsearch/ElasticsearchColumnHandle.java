@@ -27,16 +27,19 @@ public final class ElasticsearchColumnHandle
 {
     private final String name;
     private final Type type;
+    private final DecoderDescriptor decoderDescriptor;
     private final boolean supportsPredicates;
 
     @JsonCreator
     public ElasticsearchColumnHandle(
             @JsonProperty("name") String name,
             @JsonProperty("type") Type type,
+            @JsonProperty("decoderDescriptor") DecoderDescriptor decoderDescriptor,
             @JsonProperty("supportsPredicates") boolean supportsPredicates)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
+        this.decoderDescriptor = requireNonNull(decoderDescriptor, "decoderDescriptor is null");
         this.supportsPredicates = supportsPredicates;
     }
 
@@ -53,6 +56,12 @@ public final class ElasticsearchColumnHandle
     }
 
     @JsonProperty
+    public DecoderDescriptor getDecoderDescriptor()
+    {
+        return decoderDescriptor;
+    }
+
+    @JsonProperty
     public boolean isSupportsPredicates()
     {
         return supportsPredicates;
@@ -61,7 +70,7 @@ public final class ElasticsearchColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, supportsPredicates);
+        return Objects.hash(name, type, decoderDescriptor, supportsPredicates);
     }
 
     @Override
@@ -77,7 +86,8 @@ public final class ElasticsearchColumnHandle
         ElasticsearchColumnHandle other = (ElasticsearchColumnHandle) obj;
         return this.supportsPredicates == other.supportsPredicates &&
                 Objects.equals(this.getName(), other.getName()) &&
-                Objects.equals(this.getType(), other.getType());
+                Objects.equals(this.getType(), other.getType()) &&
+                Objects.equals(this.getDecoderDescriptor(), other.getDecoderDescriptor());
     }
 
     @Override

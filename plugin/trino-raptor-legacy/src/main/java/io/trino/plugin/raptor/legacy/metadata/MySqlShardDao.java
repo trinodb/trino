@@ -13,19 +13,13 @@
  */
 package io.trino.plugin.raptor.legacy.metadata;
 
-import io.trino.plugin.raptor.legacy.util.UuidUtil.UuidArgumentFactory;
-import io.trino.plugin.raptor.legacy.util.UuidUtil.UuidMapperFactory;
-import org.skife.jdbi.v2.sqlobject.Bind;
-import org.skife.jdbi.v2.sqlobject.SqlBatch;
-import org.skife.jdbi.v2.sqlobject.SqlUpdate;
-import org.skife.jdbi.v2.sqlobject.customizers.RegisterArgumentFactory;
-import org.skife.jdbi.v2.sqlobject.customizers.RegisterMapperFactory;
+import org.jdbi.v3.sqlobject.customizer.Bind;
+import org.jdbi.v3.sqlobject.statement.SqlBatch;
+import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 import java.sql.Timestamp;
 import java.util.UUID;
 
-@RegisterArgumentFactory(UuidArgumentFactory.class)
-@RegisterMapperFactory(UuidMapperFactory.class)
 public interface MySqlShardDao
         extends ShardDao
 {
@@ -34,7 +28,7 @@ public interface MySqlShardDao
             "FROM shard_nodes x\n" +
             "JOIN shards USING (shard_id)\n" +
             "WHERE table_id = :tableId")
-    void dropShardNodes(@Bind("tableId") long tableId);
+    void dropShardNodes(long tableId);
 
     @Override
     @SqlBatch("INSERT IGNORE INTO deleted_shards (shard_uuid, delete_time)\n" +
@@ -49,5 +43,5 @@ public interface MySqlShardDao
             "  AND transaction_id NOT IN (SELECT transaction_id FROM created_shards)\n" +
             "ORDER BY end_time, transaction_id\n" +
             "LIMIT " + CLEANUP_TRANSACTIONS_BATCH_SIZE)
-    int deleteOldCompletedTransactions(@Bind("maxEndTime") Timestamp maxEndTime);
+    int deleteOldCompletedTransactions(Timestamp maxEndTime);
 }

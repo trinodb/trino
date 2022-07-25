@@ -139,7 +139,7 @@ public class TestMergeProjectWithValues
     public void testNonDeterministicValues()
     {
         FunctionCall randomFunction = new FunctionCall(
-                tester().getMetadata().resolveFunction(QualifiedName.of("random"), ImmutableList.of()).toQualifiedName(),
+                tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("random"), ImmutableList.of()).toQualifiedName(),
                 ImmutableList.of());
 
         tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
@@ -196,7 +196,7 @@ public class TestMergeProjectWithValues
     public void testDoNotFireOnNonDeterministicValues()
     {
         FunctionCall randomFunction = new FunctionCall(
-                tester().getMetadata().resolveFunction(QualifiedName.of("random"), ImmutableList.of()).toQualifiedName(),
+                tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("random"), ImmutableList.of()).toQualifiedName(),
                 ImmutableList.of());
 
         tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
@@ -253,7 +253,7 @@ public class TestMergeProjectWithValues
     public void testFailingExpression()
     {
         FunctionCall failFunction = new FunctionCall(
-                tester().getMetadata().resolveFunction(QualifiedName.of("fail"), fromTypes(VARCHAR)).toQualifiedName(),
+                tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("fail"), fromTypes(VARCHAR)).toQualifiedName(),
                 ImmutableList.of(new StringLiteral("message")));
 
         tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))

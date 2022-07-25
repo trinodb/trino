@@ -23,10 +23,6 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
-import static io.trino.operator.aggregation.AggregationUtils.getCovariancePopulation;
-import static io.trino.operator.aggregation.AggregationUtils.getCovarianceSample;
-import static io.trino.operator.aggregation.AggregationUtils.mergeCovarianceState;
-import static io.trino.operator.aggregation.AggregationUtils.updateCovarianceState;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 
 @AggregationFunction
@@ -37,13 +33,13 @@ public final class DoubleCovarianceAggregation
     @InputFunction
     public static void input(@AggregationState CovarianceState state, @SqlType(StandardTypes.DOUBLE) double dependentValue, @SqlType(StandardTypes.DOUBLE) double independentValue)
     {
-        updateCovarianceState(state, independentValue, dependentValue);
+        state.update(independentValue, dependentValue);
     }
 
     @CombineFunction
     public static void combine(@AggregationState CovarianceState state, @AggregationState CovarianceState otherState)
     {
-        mergeCovarianceState(state, otherState);
+        state.merge(otherState);
     }
 
     @AggregationFunction("covar_samp")
@@ -54,7 +50,7 @@ public final class DoubleCovarianceAggregation
             out.appendNull();
         }
         else {
-            double result = getCovarianceSample(state);
+            double result = state.getCovarianceSample();
             DOUBLE.writeDouble(out, result);
         }
     }
@@ -67,7 +63,7 @@ public final class DoubleCovarianceAggregation
             out.appendNull();
         }
         else {
-            double result = getCovariancePopulation(state);
+            double result = state.getCovariancePopulation();
             DOUBLE.writeDouble(out, result);
         }
     }

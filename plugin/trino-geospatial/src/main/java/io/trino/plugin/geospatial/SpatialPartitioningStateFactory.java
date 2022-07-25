@@ -37,21 +37,9 @@ public class SpatialPartitioningStateFactory
     }
 
     @Override
-    public Class<SpatialPartitioningState> getSingleStateClass()
-    {
-        return SpatialPartitioningState.class;
-    }
-
-    @Override
     public SpatialPartitioningState createGroupedState()
     {
         return new GroupedSpatialPartitioningState();
-    }
-
-    @Override
-    public Class<GroupedSpatialPartitioningState> getGroupedStateClass()
-    {
-        return GroupedSpatialPartitioningState.class;
     }
 
     public static final class GroupedSpatialPartitioningState

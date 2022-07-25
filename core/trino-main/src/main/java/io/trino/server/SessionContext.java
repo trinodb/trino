@@ -13,66 +13,210 @@
  */
 package io.trino.server;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.client.ProtocolHeaders;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.SelectedRole;
 import io.trino.spi.session.ResourceEstimates;
 import io.trino.transaction.TransactionId;
 
-import javax.annotation.Nullable;
-
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
-public interface SessionContext
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.Objects.requireNonNull;
+
+public class SessionContext
 {
-    ProtocolHeaders getProtocolHeaders();
+    private final ProtocolHeaders protocolHeaders;
 
-    Optional<Identity> getAuthenticatedIdentity();
+    private final Optional<String> catalog;
+    private final Optional<String> schema;
+    private final Optional<String> path;
 
-    Identity getIdentity();
+    private final Optional<Identity> authenticatedIdentity;
+    private final Identity identity;
+    private final SelectedRole selectedRole;
 
-    @Nullable
-    String getCatalog();
+    private final Optional<String> source;
+    private final Optional<String> traceToken;
+    private final Optional<String> userAgent;
+    private final Optional<String> remoteUserAddress;
+    private final Optional<String> timeZoneId;
+    private final Optional<String> language;
+    private final Set<String> clientTags;
+    private final Set<String> clientCapabilities;
+    private final ResourceEstimates resourceEstimates;
 
-    @Nullable
-    String getSchema();
+    private final Map<String, String> systemProperties;
+    private final Map<String, Map<String, String>> catalogSessionProperties;
 
-    @Nullable
-    String getPath();
+    private final Map<String, String> preparedStatements;
 
-    @Nullable
-    String getSource();
+    private final Optional<TransactionId> transactionId;
+    private final boolean clientTransactionSupport;
+    private final Optional<String> clientInfo;
 
-    String getRemoteUserAddress();
+    public SessionContext(
+            ProtocolHeaders protocolHeaders,
+            Optional<String> catalog,
+            Optional<String> schema,
+            Optional<String> path,
+            Optional<Identity> authenticatedIdentity,
+            Identity identity,
+            SelectedRole selectedRole,
+            Optional<String> source,
+            Optional<String> traceToken,
+            Optional<String> userAgent,
+            Optional<String> remoteUserAddress,
+            Optional<String> timeZoneId,
+            Optional<String> language,
+            Set<String> clientTags,
+            Set<String> clientCapabilities,
+            ResourceEstimates resourceEstimates,
+            Map<String, String> systemProperties,
+            Map<String, Map<String, String>> catalogSessionProperties,
+            Map<String, String> preparedStatements,
+            Optional<TransactionId> transactionId,
+            boolean clientTransactionSupport,
+            Optional<String> clientInfo)
+    {
+        this.protocolHeaders = requireNonNull(protocolHeaders, "protocolHeaders is null");
+        this.catalog = requireNonNull(catalog, "catalog is null");
+        this.schema = requireNonNull(schema, "schema is null");
+        this.path = requireNonNull(path, "path is null");
+        this.authenticatedIdentity = requireNonNull(authenticatedIdentity, "authenticatedIdentity is null");
+        this.identity = requireNonNull(identity, "identity is null");
+        this.selectedRole = requireNonNull(selectedRole, "selectedRole is null");
+        this.source = requireNonNull(source, "source is null");
+        this.traceToken = requireNonNull(traceToken, "traceToken is null");
+        this.userAgent = requireNonNull(userAgent, "userAgent is null");
+        this.remoteUserAddress = requireNonNull(remoteUserAddress, "remoteUserAddress is null");
+        this.timeZoneId = requireNonNull(timeZoneId, "timeZoneId is null");
+        this.language = requireNonNull(language, "language is null");
+        this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
+        this.clientCapabilities = ImmutableSet.copyOf(requireNonNull(clientCapabilities, "clientCapabilities is null"));
+        this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
+        this.systemProperties = ImmutableMap.copyOf(requireNonNull(systemProperties, "systemProperties is null"));
+        requireNonNull(catalogSessionProperties, "catalogSessionProperties is null");
+        this.catalogSessionProperties = catalogSessionProperties.entrySet().stream()
+                .collect(toImmutableMap(Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
+        this.preparedStatements = ImmutableMap.copyOf(requireNonNull(preparedStatements, "preparedStatements is null"));
+        this.transactionId = requireNonNull(transactionId, "transactionId is null");
+        this.clientTransactionSupport = clientTransactionSupport;
+        this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
+    }
 
-    @Nullable
-    String getUserAgent();
+    public ProtocolHeaders getProtocolHeaders()
+    {
+        return protocolHeaders;
+    }
 
-    @Nullable
-    String getClientInfo();
+    public Optional<Identity> getAuthenticatedIdentity()
+    {
+        return authenticatedIdentity;
+    }
 
-    Set<String> getClientTags();
+    public Identity getIdentity()
+    {
+        return identity;
+    }
 
-    Set<String> getClientCapabilities();
+    public SelectedRole getSelectedRole()
+    {
+        return selectedRole;
+    }
 
-    ResourceEstimates getResourceEstimates();
+    public Optional<String> getCatalog()
+    {
+        return catalog;
+    }
 
-    @Nullable
-    String getTimeZoneId();
+    public Optional<String> getSchema()
+    {
+        return schema;
+    }
 
-    @Nullable
-    String getLanguage();
+    public Optional<String> getPath()
+    {
+        return path;
+    }
 
-    Map<String, String> getSystemProperties();
+    public Optional<String> getSource()
+    {
+        return source;
+    }
 
-    Map<String, Map<String, String>> getCatalogSessionProperties();
+    public Optional<String> getRemoteUserAddress()
+    {
+        return remoteUserAddress;
+    }
 
-    Map<String, String> getPreparedStatements();
+    public Optional<String> getUserAgent()
+    {
+        return userAgent;
+    }
 
-    Optional<TransactionId> getTransactionId();
+    public Optional<String> getClientInfo()
+    {
+        return clientInfo;
+    }
 
-    Optional<String> getTraceToken();
+    public Set<String> getClientTags()
+    {
+        return clientTags;
+    }
 
-    boolean supportClientTransaction();
+    public Set<String> getClientCapabilities()
+    {
+        return clientCapabilities;
+    }
+
+    public ResourceEstimates getResourceEstimates()
+    {
+        return resourceEstimates;
+    }
+
+    public Optional<String> getTimeZoneId()
+    {
+        return timeZoneId;
+    }
+
+    public Optional<String> getLanguage()
+    {
+        return language;
+    }
+
+    public Map<String, String> getSystemProperties()
+    {
+        return systemProperties;
+    }
+
+    public Map<String, Map<String, String>> getCatalogSessionProperties()
+    {
+        return catalogSessionProperties;
+    }
+
+    public Map<String, String> getPreparedStatements()
+    {
+        return preparedStatements;
+    }
+
+    public Optional<TransactionId> getTransactionId()
+    {
+        return transactionId;
+    }
+
+    public boolean supportClientTransaction()
+    {
+        return clientTransactionSupport;
+    }
+
+    public Optional<String> getTraceToken()
+    {
+        return traceToken;
+    }
 }

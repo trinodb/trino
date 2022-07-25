@@ -15,6 +15,7 @@ package io.trino;
 
 import io.trino.block.BlockAssertions;
 import io.trino.operator.PagesIndex;
+import io.trino.operator.PagesIndexPageSorter;
 import io.trino.spi.Page;
 import io.trino.spi.PageSorter;
 import io.trino.spi.block.Block;

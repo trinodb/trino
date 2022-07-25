@@ -2,8 +2,12 @@
 Deploying Trino
 ================
 
+.. _requirements:
+
 Requirements
 ------------
+
+.. _requirements-linux:
 
 Linux operating system
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -22,19 +26,24 @@ Linux operating system
       trino soft nofile 131072
       trino hard nofile 131072
 
+..
+   These values are used in core/trino-server-rpm/src/main/resources/dist/etc/init.d/trino
+
 .. _requirements-java:
 
 Java runtime environment
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Trino requires a 64-bit version of Java 11, with a minimum required version of 11.0.11.
+Trino requires a 64-bit version of Java 11, with a minimum required version of 11.0.15.
 Earlier patch versions such as 11.0.2 do not work, nor will earlier major versions such as Java 8.
-Newer major versions such as Java 12 or 13 are not supported -- they may work, but are not tested.
+Newer major versions such as Java 12 or 13, including Java 17, are not supported -- they may work, but are not tested.
 
 We recommend using `Azul Zulu <https://www.azul.com/downloads/zulu-community/>`_
 as the JDK for Trino, as Trino is tested against that distribution.
 Zulu is also the JDK used by the
 `Trino Docker image <https://hub.docker.com/r/trinodb/trino>`_.
+
+.. _requirements-python:
 
 Python
 ^^^^^^
@@ -61,8 +70,11 @@ This holds the following configuration:
 
 * Node Properties: environmental configuration specific to each node
 * JVM Config: command line options for the Java Virtual Machine
-* Config Properties: configuration for the Trino server
-* Catalog Properties: configuration for :doc:`/connector` (data sources)
+* Config Properties: configuration for the Trino server. See the
+  :doc:`/admin/properties` for available configuration properties.
+* Catalog Properties: configuration for :doc:`/connector` (data sources).
+  The available catalog configuration properties for a connector are described
+  in the respective connector documentation.
 
 .. _node_properties:
 
@@ -100,7 +112,7 @@ The above properties are described below:
   The location (filesystem path) of the data directory. Trino stores
   logs and other data here.
 
-.. _trino_jvm_config:
+.. _jvm_config:
 
 JVM config
 ^^^^^^^^^^
@@ -129,6 +141,8 @@ The following provides a good starting point for creating ``etc/jvm.config``:
     -XX:PerBytecodeRecompilationCutoff=10000
     -Djdk.attach.allowAttachSelf=true
     -Djdk.nio.maxCachedBufferSize=2000000
+    -XX:+UnlockDiagnosticVMOptions
+    -XX:+UseAESCTRIntrinsics
 
 Because an ``OutOfMemoryError`` typically leaves the JVM in an
 inconsistent state, we write a heap dump, for debugging, and forcibly
@@ -140,6 +154,8 @@ Specifically, the mount must not have the ``noexec`` flag set. The default
 prevents Trino from starting. You can workaround this by overriding the
 temporary directory by adding ``-Djava.io.tmpdir=/path/to/other/tmpdir`` to the
 list of JVM options.
+
+We enable ``-XX:+UnlockDiagnosticVMOptions`` and ``-XX:+UseAESCTRIntrinsics`` to improve AES performance for S3, etc. on ARM64 (`JDK-8271567 <https://bugs.openjdk.java.net/browse/JDK-8271567>`_)
 
 .. _config_properties:
 
@@ -161,7 +177,6 @@ The following is a minimal configuration for the coordinator:
     http-server.http.port=8080
     query.max-memory=50GB
     query.max-memory-per-node=1GB
-    query.max-total-memory-per-node=2GB
     discovery.uri=http://example.net:8080
 
 And this is a minimal configuration for the workers:
@@ -172,7 +187,6 @@ And this is a minimal configuration for the workers:
     http-server.http.port=8080
     query.max-memory=50GB
     query.max-memory-per-node=1GB
-    query.max-total-memory-per-node=2GB
     discovery.uri=http://example.net:8080
 
 Alternatively, if you are setting up a single machine for testing, that
@@ -185,7 +199,6 @@ functions as both a coordinator and worker, use this configuration:
     http-server.http.port=8080
     query.max-memory=5GB
     query.max-memory-per-node=1GB
-    query.max-total-memory-per-node=2GB
     discovery.uri=http://example.net:8080
 
 These properties require some explanation:
@@ -210,10 +223,6 @@ These properties require some explanation:
 
 * ``query.max-memory-per-node``:
   The maximum amount of user memory, that a query may use on any one machine.
-
-* ``query.max-total-memory-per-node``:
-  The maximum amount of user and system memory, that a query may use on any one machine,
-  where system memory is the memory used during execution by readers, writers, and network buffers, etc.
 
 * ``discovery.uri``:
   The Trino coordinator has a discovery service that is used by all the nodes
@@ -248,6 +257,8 @@ This would set the minimum level to ``INFO`` for both
 The default minimum level is ``INFO``,
 thus the above example does not actually change anything.
 There are four levels: ``DEBUG``, ``INFO``, ``WARN`` and ``ERROR``.
+
+.. _catalog_properties:
 
 Catalog properties
 ^^^^^^^^^^^^^^^^^^

@@ -22,8 +22,8 @@ import org.testng.annotations.Test;
 import java.util.function.Consumer;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.HIVE_VIEW_COMPATIBILITY;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onCompatibilityTestServer;
@@ -69,8 +69,8 @@ public class TestHiveViewCompatibility
         onCompatibilityTestServer().executeQuery("DROP VIEW IF EXISTS hive_duplicate_view");
         onCompatibilityTestServer().executeQuery("CREATE VIEW hive_duplicate_view AS SELECT * FROM nation");
 
-        assertThat(() -> query("CREATE VIEW hive_duplicate_view AS SELECT * FROM nation"))
-                .failsWithMessage("View already exists");
+        assertQueryFailure(() -> onTrino().executeQuery("CREATE VIEW hive_duplicate_view AS SELECT * FROM nation"))
+                .hasMessageContaining("View already exists");
     }
 
     protected static void assertViewQuery(QueryExecutor queryExecutor, String query, Consumer<QueryAssert> assertion)

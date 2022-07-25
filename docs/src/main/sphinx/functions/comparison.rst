@@ -59,7 +59,7 @@ evaluate any orderable type.  For example, a ``VARCHAR``::
 
     SELECT 'Paul' BETWEEN 'John' AND 'Ringo'; -- true
 
-Not that the value, min, and max parameters to ``BETWEEN`` and ``NOT
+Note that the value, min, and max parameters to ``BETWEEN`` and ``NOT
 BETWEEN`` must be the same type.  For example, Trino will produce an
 error if you ask it if John is between 2.3 and 35.2.
 

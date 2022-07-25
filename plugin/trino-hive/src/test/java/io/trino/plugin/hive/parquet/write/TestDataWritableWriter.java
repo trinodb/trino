@@ -45,9 +45,12 @@ import org.apache.parquet.io.api.RecordConsumer;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.Type;
+import org.joda.time.DateTimeZone;
 
 import java.util.List;
 import java.util.Map;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * This class is copied from org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriter
@@ -62,12 +65,14 @@ public class TestDataWritableWriter
     private final RecordConsumer recordConsumer;
     private final GroupType schema;
     private final boolean singleLevelArray;
+    private final DateTimeZone timeZone;
 
-    public TestDataWritableWriter(RecordConsumer recordConsumer, GroupType schema, boolean singleLevelArray)
+    public TestDataWritableWriter(RecordConsumer recordConsumer, GroupType schema, boolean singleLevelArray, DateTimeZone timeZone)
     {
         this.recordConsumer = recordConsumer;
         this.schema = schema;
         this.singleLevelArray = singleLevelArray;
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
 
     /**
@@ -84,7 +89,7 @@ public class TestDataWritableWriter
             }
             catch (RuntimeException e) {
                 String errorMessage = "Parquet record is malformed: " + e.getMessage();
-                log.error(errorMessage, e);
+                log.error(e, "%s", errorMessage);
                 throw new RuntimeException(errorMessage, e);
             }
             recordConsumer.endMessage();
@@ -366,6 +371,7 @@ public class TestDataWritableWriter
                 break;
             case TIMESTAMP:
                 Timestamp ts = ((TimestampObjectInspector) inspector).getPrimitiveJavaObject(value);
+                ts = Timestamp.ofEpochMilli(timeZone.convertLocalToUTC(ts.toEpochMilli(), true), ts.getNanos());
                 recordConsumer.addBinary(NanoTimeUtils.getNanoTime(ts, false).toBinary());
                 break;
             case DECIMAL:

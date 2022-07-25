@@ -13,12 +13,10 @@
  */
 package io.trino.plugin.oracle;
 
-import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.testing.datatype.DataType;
 import io.trino.testing.datatype.SqlDataTypeTest;
 
-import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -30,22 +28,6 @@ import static java.lang.String.format;
 public final class OracleDataTypes
 {
     private OracleDataTypes() {}
-
-    public static DataType<LocalDate> dateDataType()
-    {
-        return dataType("DATE", TimestampType.TIMESTAMP_MILLIS,
-                DateTimeFormatter.ofPattern("'DATE '''uuuu-MM-dd''")::format,
-                LocalDate::atStartOfDay);
-    }
-
-    public static DataType<ZonedDateTime> trinoTimestampWithTimeZoneDataType()
-    {
-        return dataType(
-                "timestamp with time zone",
-                TIMESTAMP_TZ_MILLIS,
-                DateTimeFormatter.ofPattern("'TIMESTAMP '''uuuu-MM-dd HH:mm:ss.SSS VV''")::format,
-                OracleDataTypes::normalizeForOracleStorage);
-    }
 
     @SuppressWarnings("MisusedWeekYear")
     public static DataType<ZonedDateTime> oracleTimestamp3TimeZoneDataType()

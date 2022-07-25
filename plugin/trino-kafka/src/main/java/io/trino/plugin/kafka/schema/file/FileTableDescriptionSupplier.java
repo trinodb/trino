@@ -90,7 +90,7 @@ public class FileTableDescriptionSupplier
                 }
             }
 
-            Map<SchemaTableName, KafkaTopicDescription> tableDefinitions = builder.build();
+            Map<SchemaTableName, KafkaTopicDescription> tableDefinitions = builder.buildOrThrow();
 
             log.debug("Loaded Table definitions: %s", tableDefinitions.keySet());
 
@@ -121,10 +121,10 @@ public class FileTableDescriptionSupplier
                 }
             }
 
-            return builder.build();
+            return builder.buildOrThrow();
         }
         catch (IOException e) {
-            log.warn(e, "Error: ");
+            log.warn(e, "Failed to get table description files for Kafka");
             throw new UncheckedIOException(e);
         }
     }

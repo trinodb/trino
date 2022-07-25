@@ -8,11 +8,12 @@ Synopsis
 .. code-block:: text
 
     SET ROLE ( role | ALL | NONE )
+    [ IN catalog ]
 
 Description
 -----------
 
-``SET ROLE`` sets the enabled role for the current session in the current catalog.
+``SET ROLE`` sets the enabled role for the current session.
 
 ``SET ROLE role`` enables a single specified role for the current session.
 For the ``SET ROLE role`` statement to succeed, the user executing it should
@@ -23,6 +24,9 @@ current session.
 
 ``SET ROLE NONE`` disables all the roles granted to the current user for the
 current session.
+
+The optional ``IN catalog`` clause sets the role in a catalog as opposed
+to a system role.
 
 Limitations
 -----------

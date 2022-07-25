@@ -2,6 +2,10 @@
 Druid connector
 ===============
 
+.. raw:: html
+
+  <img src="../_static/img/druid.png" class="connector-logo">
+
 The Druid connector allows querying an `Apache Druid <https://druid.apache.org/>`_
 database from Trino.
 
@@ -21,8 +25,8 @@ Create a catalog properties file that specifies the Druid connector by setting
 the ``connector.name`` to ``druid`` and configuring the ``connection-url`` with
 the JDBC string to connect to Druid.
 
-For example, to access a database as ``druiddb``, create the file
-``etc/catalog/druiddb.properties``. Replace ``BROKER:8082`` with the correct
+For example, to access a database as ``druid``, create the file
+``etc/catalog/druid.properties``. Replace ``BROKER:8082`` with the correct
 host and port of your Druid broker.
 
 .. code-block:: properties
@@ -41,3 +45,60 @@ secured by basic authentication by updating the URL and adding credentials:
 
 Now you can access your Druid database in Trino with the ``druiddb`` catalog
 name from the properties file.
+
+.. include:: jdbc-common-configurations.fragment
+
+.. include:: jdbc-procedures.fragment
+
+.. include:: jdbc-case-insensitive-matching.fragment
+
+.. _druid-type-mapping:
+
+Type mapping
+------------
+
+.. include:: jdbc-type-mapping.fragment
+
+.. _druid-sql-support:
+
+SQL support
+-----------
+
+The connector provides :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements to access data and
+metadata in the Druid database.
+
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access Druid.
+
+.. _druid-query-function:
+
+``query(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``query`` function allows you to query the underlying database directly. It
+requires syntax native to Druid, because the full query is pushed down and
+processed in Druid. This can be useful for accessing native features which are
+not available in Trino or for improving query performance in situations where
+running a query natively may be faster.
+
+As an example, use ``STRING_TO_MV`` and ``MV_LENGTH`` from
+`Druid SQL's multi-value string functions <https://druid.apache.org/docs/latest/querying/sql-multivalue-string-functions.html>`_
+to split and then count the number of comma-separated values in a column::
+
+    SELECT
+      num_reports
+    FROM
+      TABLE(
+        druid.system.query(
+          query => 'SELECT
+            MV_LENGTH(
+              STRING_TO_MV(direct_reports, ",")
+            ) AS num_reports
+          FROM company.managers'
+        )
+      );
+

@@ -87,7 +87,7 @@ public final class LambdaCaptureDesugaringRewriter
             }
             newLambdaArguments.addAll(node.getArguments());
 
-            ImmutableMap<Symbol, Symbol> symbolsMap = captureSymbolToExtraSymbol.build();
+            ImmutableMap<Symbol, Symbol> symbolsMap = captureSymbolToExtraSymbol.buildOrThrow();
             Function<Symbol, Expression> symbolMapping = symbol -> symbolsMap.getOrDefault(symbol, symbol).toSymbolReference();
             Expression rewrittenExpression = new LambdaExpression(newLambdaArguments.build(), inlineSymbols(symbolMapping, rewrittenBody));
 

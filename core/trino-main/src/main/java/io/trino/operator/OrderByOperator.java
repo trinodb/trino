@@ -312,7 +312,7 @@ public class OrderByOperator
             spiller = Optional.of(spillerFactory.get().create(
                     sourceTypes,
                     operatorContext.getSpillContext(),
-                    operatorContext.newAggregateSystemMemoryContext()));
+                    operatorContext.newAggregateUserMemoryContext()));
         }
 
         pageIndex.sort(sortChannels, sortOrder);

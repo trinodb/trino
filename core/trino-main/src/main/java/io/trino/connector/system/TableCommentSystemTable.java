@@ -21,13 +21,12 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
+import io.trino.metadata.ViewInfo;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.InMemoryRecordSet.Builder;
 import io.trino.spi.connector.RecordCursor;
@@ -46,7 +45,7 @@ import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.trino.metadata.MetadataListing.getMaterializedViews;
 import static io.trino.metadata.MetadataListing.getViews;
-import static io.trino.metadata.MetadataListing.listCatalogs;
+import static io.trino.metadata.MetadataListing.listCatalogNames;
 import static io.trino.metadata.MetadataListing.listTables;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
@@ -99,12 +98,12 @@ public class TableCommentSystemTable
         Session session = ((FullConnectorSession) connectorSession).getSession();
         Builder table = InMemoryRecordSet.builder(COMMENT_TABLE);
 
-        for (String catalog : listCatalogs(session, metadata, accessControl, catalogFilter).keySet()) {
+        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogFilter)) {
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
             Set<SchemaTableName> names = ImmutableSet.of();
-            Map<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.of();
-            Map<SchemaTableName, ConnectorMaterializedViewDefinition> materializedViews = ImmutableMap.of();
+            Map<SchemaTableName, ViewInfo> views = ImmutableMap.of();
+            Map<SchemaTableName, ViewInfo> materializedViews = ImmutableMap.of();
             try {
                 materializedViews = getMaterializedViews(session, metadata, accessControl, prefix);
                 views = getViews(session, metadata, accessControl, prefix);
@@ -114,7 +113,7 @@ public class TableCommentSystemTable
             }
             catch (TrinoException e) {
                 // listTables throws an exception if cannot connect the database
-                LOG.debug(e, "Failed to get tables for catalog: %s", catalog);
+                LOG.warn(e, "Failed to get tables for catalog: %s", catalog);
             }
 
             for (SchemaTableName name : names) {
@@ -122,9 +121,9 @@ public class TableCommentSystemTable
                 try {
                     comment = getComment(session, prefix, name, views, materializedViews);
                 }
-                catch (TrinoException e) {
+                catch (RuntimeException e) {
                     // getTableHandle may throw an exception (e.g. Cassandra connector doesn't allow case insensitive column names)
-                    LOG.debug(e, "Failed to get metadata for table: %s", name);
+                    LOG.warn(e, "Failed to get metadata for table: %s", name);
                 }
                 table.addRow(prefix.getCatalogName(), name.getSchemaName(), name.getTableName(), comment.orElse(null));
             }
@@ -137,16 +136,16 @@ public class TableCommentSystemTable
             Session session,
             QualifiedTablePrefix prefix,
             SchemaTableName name,
-            Map<SchemaTableName, ConnectorViewDefinition> views,
-            Map<SchemaTableName, ConnectorMaterializedViewDefinition> materializedViews)
+            Map<SchemaTableName, ViewInfo> views,
+            Map<SchemaTableName, ViewInfo> materializedViews)
     {
-        ConnectorMaterializedViewDefinition materializedViewDefinition = materializedViews.get(name);
+        ViewInfo materializedViewDefinition = materializedViews.get(name);
         if (materializedViewDefinition != null) {
             return materializedViewDefinition.getComment();
         }
-        ConnectorViewDefinition viewDefinition = views.get(name);
-        if (viewDefinition != null) {
-            return viewDefinition.getComment();
+        ViewInfo viewInfo = views.get(name);
+        if (viewInfo != null) {
+            return viewInfo.getComment();
         }
         QualifiedObjectName tableName = new QualifiedObjectName(prefix.getCatalogName(), name.getSchemaName(), name.getTableName());
         return metadata.getRedirectionAwareTableHandle(session, tableName).getTableHandle()
@@ -154,7 +153,7 @@ public class TableCommentSystemTable
                 .map(metadata -> metadata.getMetadata().getComment())
                 .orElseGet(() -> {
                     // A previously listed table might have been dropped concurrently
-                    LOG.debug("Failed to get metadata for table: %s", name);
+                    LOG.warn("Failed to get metadata for table: %s", name);
                     return Optional.empty();
                 });
     }

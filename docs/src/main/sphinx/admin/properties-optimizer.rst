@@ -5,7 +5,7 @@ Optimizer properties
 ``optimizer.dictionary-aggregation``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``false``
 
 Enables optimization for aggregations on dictionaries. This can also be specified
@@ -14,7 +14,7 @@ on a per-query basis using the ``dictionary_aggregation`` session property.
 ``optimizer.optimize-hash-generation``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``true``
 
 Compute hash codes for distribution, joins, and aggregations early during execution,
@@ -30,7 +30,7 @@ to make the query plan easier to read.
 ``optimizer.optimize-metadata-queries``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``false``
 
 Enable optimization of some aggregations by using values that are stored as metadata.
@@ -47,7 +47,7 @@ create them.
 ``optimizer.push-aggregation-through-outer-join``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``true``
 
 When an aggregation is above an outer join and all columns from the outer side of the join
@@ -68,7 +68,7 @@ the ``push_aggregation_through_join`` session property.
 ``optimizer.push-table-write-through-union``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``true``
 
 Parallelize writes when using ``UNION ALL`` in queries that write data. This improves the
@@ -82,7 +82,7 @@ using the ``push_table_write_through_union`` session property.
 ``optimizer.join-reordering-strategy``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``string``
+* **Type:** :ref:`prop-type-string`
 * **Allowed values:** ``AUTOMATIC``, ``ELIMINATE_CROSS_JOINS``, ``NONE``
 * **Default value:** ``AUTOMATIC``
 
@@ -97,7 +97,7 @@ be specified on a per-query basis using the ``join_reordering_strategy`` session
 ``optimizer.max-reordered-joins``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``integer``
+* **Type:** :ref:`prop-type-integer`
 * **Default value:** ``9``
 
 When optimizer.join-reordering-strategy is set to cost-based, this property determines
@@ -111,16 +111,27 @@ the maximum number of joins that can be reordered at once.
 ``optimizer.optimize-duplicate-insensitive-joins``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``true``
 
 Reduces number of rows produced by joins when optimizer detects that duplicated
 join output rows can be skipped.
 
+``optimizer.use-exact-partitioning``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-boolean`
+* **Default value:** ``false``
+
+Re-partition data unless the partitioning of the upstream
+:ref:`stage <trino-concept-stage>` exactly matches what the downstream stage
+expects. This can also be specified using the ``use_exact_partitioning`` session
+property.
+
 ``optimizer.use-table-scan-node-partitioning``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``true``
 
 Use connector provided table node partitioning when reading tables.
@@ -139,10 +150,63 @@ low compared to number of workers.
 ``optimizer.table-scan-node-partitioning-min-bucket-to-task-ratio``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``double``
+* **Type:** :ref:`prop-type-double`
 * **Default value:** ``0.5``
 
 Specifies minimal bucket to task ratio that has to be matched or exceeded in order
 to use table scan node partitioning. When the table bucket count is small
 compared to the number of workers, then the table scan is distributed across
 all workers for improved parallelism.
+
+``optimizer.filter-conjunction-independence-factor``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-double`
+* **Default value:** ``0.75``
+* **Min allowed value:** ``0``
+* **Max allowed value:** ``1``
+
+Scales the strength of independence assumption for estimating the selectivity of
+the conjunction of multiple predicates. Lower values for this property will produce
+more conservative estimates by assuming a greater degree of correlation between the
+columns of the predicates in a conjunction. A value of ``0`` results in the
+optimizer assuming that the columns of the predicates are fully correlated and only
+the most selective predicate drives the selectivity of a conjunction of predicates.
+
+``optimizer.join-multi-clause-independence-factor``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-double`
+* **Default value:** ``0.25``
+* **Min allowed value:** ``0``
+* **Max allowed value:** ``1``
+
+Scales the strength of independence assumption for estimating the output of a
+multi-clause join. Lower values for this property will produce more
+conservative estimates by assuming a greater degree of correlation between the
+columns of the clauses in a join. A value of ``0`` results in the optimizer
+assuming that the columns of the join clauses are fully correlated and only
+the most selective clause drives the selectivity of the join.
+
+``optimizer.non-estimatable-predicate-approximation.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-boolean`
+* **Default value:** ``true``
+
+Enables approximation of the output row count of filters whose costs cannot be
+accurately estimated even with complete statistics. This allows the optimizer to
+produce more efficient plans in the presence of filters which were previously
+not estimated.
+
+``optimizer.join-partitioned-build-min-row-count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-integer`
+* **Default value:** ``1000000``
+* **Min allowed value:** ``0``
+
+The minimum number of join build side rows required to use partitioned join lookup.
+If the build side of a join is estimated to be smaller than the configured threshold,
+single threaded join lookup is used to improve join performance.
+A value of ``0`` disables this optimization.

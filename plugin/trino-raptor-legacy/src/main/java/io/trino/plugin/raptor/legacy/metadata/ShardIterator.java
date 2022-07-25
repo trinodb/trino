@@ -19,8 +19,9 @@ import io.airlift.log.Logger;
 import io.trino.plugin.raptor.legacy.RaptorColumnHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.TupleDomain;
-import org.skife.jdbi.v2.IDBI;
-import org.skife.jdbi.v2.ResultIterator;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.core.result.ResultIterator;
+import org.jdbi.v3.core.statement.StatementContext;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -66,7 +67,7 @@ final class ShardIterator
             boolean merged,
             Optional<List<String>> bucketToNode,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
-            IDBI dbi)
+            Jdbi dbi)
     {
         this.merged = merged;
         this.bucketToNode = bucketToNode.orElse(null);
@@ -125,6 +126,12 @@ final class ShardIterator
         }
         catch (SQLException ignored) {
         }
+    }
+
+    @Override
+    public StatementContext getContext()
+    {
+        throw new UnsupportedOperationException();
     }
 
     /**

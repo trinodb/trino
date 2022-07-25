@@ -14,17 +14,17 @@
 package io.trino.plugin.raptor.legacy.metadata;
 
 import io.trino.spi.connector.SchemaTableName;
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.StatementContext;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
 public class SchemaTableNameMapper
-        implements ResultSetMapper<SchemaTableName>
+        implements RowMapper<SchemaTableName>
 {
     @Override
-    public SchemaTableName map(int index, ResultSet r, StatementContext ctx)
+    public SchemaTableName map(ResultSet r, StatementContext ctx)
             throws SQLException
     {
         return new SchemaTableName(

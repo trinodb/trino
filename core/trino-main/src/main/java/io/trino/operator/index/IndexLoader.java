@@ -18,9 +18,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.connector.CatalogName;
-import io.trino.execution.Lifespan;
 import io.trino.execution.ScheduledSplit;
-import io.trino.execution.TaskSource;
+import io.trino.execution.SplitAssignment;
 import io.trino.metadata.Split;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverFactory;
@@ -132,18 +131,13 @@ public class IndexLoader
                 .collect(toImmutableList());
 
         // start with an empty source
-        this.indexSnapshotReference = new AtomicReference<>(new IndexSnapshot(new EmptyLookupSource(outputTypes.size()), new EmptyLookupSource(keyOutputChannels.size())));
+        this.indexSnapshotReference = new AtomicReference<>(new IndexSnapshot(new EmptyLookupSource(), new EmptyLookupSource()));
     }
 
     // This is a ghetto way to acquire a TaskContext at runtime (unavailable at planning)
     public void setContext(TaskContext taskContext)
     {
         taskContextReference.compareAndSet(null, taskContext);
-    }
-
-    public int getChannelCount()
-    {
-        return outputTypes.size();
     }
 
     public List<Type> getOutputTypes()
@@ -246,8 +240,8 @@ public class IndexLoader
 
         PageRecordSet pageRecordSet = new PageRecordSet(keyTypes, indexKeyTuple);
         PlanNodeId planNodeId = driverFactory.getSourceId().get();
-        ScheduledSplit split = new ScheduledSplit(0, planNodeId, new Split(INDEX_CONNECTOR_ID, new IndexSplit(pageRecordSet), Lifespan.taskWide()));
-        driver.updateSource(new TaskSource(planNodeId, ImmutableSet.of(split), true));
+        ScheduledSplit split = new ScheduledSplit(0, planNodeId, new Split(INDEX_CONNECTOR_ID, new IndexSplit(pageRecordSet)));
+        driver.updateSplitAssignment(new SplitAssignment(planNodeId, ImmutableSet.of(split), true));
 
         return new StreamingIndexedData(outputTypes, keyEqualOperators, indexKeyTuple, pageBuffer, driver);
     }
@@ -283,7 +277,6 @@ public class IndexLoader
         private final PipelineContext pipelineContext;
         private final Set<Integer> lookupSourceInputChannels;
         private final Set<Integer> allInputChannels;
-        private final List<Type> outputTypes;
         private final List<Type> indexTypes;
         private final AtomicReference<IndexSnapshot> indexSnapshotReference;
         private final JoinCompiler joinCompiler;
@@ -308,11 +301,11 @@ public class IndexLoader
             this.pipelineContext = pipelineContext;
             this.indexSnapshotReference = indexSnapshotReference;
             this.lookupSourceInputChannels = lookupSourceInputChannels;
-            this.outputTypes = indexBuildDriverFactoryProvider.getOutputTypes();
             this.indexTypes = indexTypes;
             this.joinCompiler = joinCompiler;
             this.blockTypeOperators = blockTypeOperators;
 
+            List<Type> outputTypes = indexBuildDriverFactoryProvider.getOutputTypes();
             this.indexSnapshotBuilder = new IndexSnapshotBuilder(
                     outputTypes,
                     keyOutputChannels,
@@ -343,10 +336,10 @@ public class IndexLoader
             // Drive index lookup to produce the output (landing in indexSnapshotBuilder)
             try (Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext())) {
                 PlanNodeId sourcePlanNodeId = driverFactory.getSourceId().get();
-                ScheduledSplit split = new ScheduledSplit(0, sourcePlanNodeId, new Split(INDEX_CONNECTOR_ID, new IndexSplit(recordSetForLookupSource), Lifespan.taskWide()));
-                driver.updateSource(new TaskSource(sourcePlanNodeId, ImmutableSet.of(split), true));
+                ScheduledSplit split = new ScheduledSplit(0, sourcePlanNodeId, new Split(INDEX_CONNECTOR_ID, new IndexSplit(recordSetForLookupSource)));
+                driver.updateSplitAssignment(new SplitAssignment(sourcePlanNodeId, ImmutableSet.of(split), true));
                 while (!driver.isFinished()) {
-                    ListenableFuture<Void> process = driver.process();
+                    ListenableFuture<Void> process = driver.processUntilBlocked();
                     checkState(process.isDone(), "Driver should never block");
                 }
             }
@@ -377,7 +370,7 @@ public class IndexLoader
 
         private void clearCachedData()
         {
-            indexSnapshotReference.set(new IndexSnapshot(new EmptyLookupSource(outputTypes.size()), new EmptyLookupSource(indexTypes.size())));
+            indexSnapshotReference.set(new IndexSnapshot(new EmptyLookupSource(), new EmptyLookupSource()));
             indexSnapshotBuilder.reset();
         }
     }
@@ -385,23 +378,10 @@ public class IndexLoader
     private static class EmptyLookupSource
             implements LookupSource
     {
-        private final int channelCount;
-
-        public EmptyLookupSource(int channelCount)
-        {
-            this.channelCount = channelCount;
-        }
-
         @Override
         public boolean isEmpty()
         {
             return true;
-        }
-
-        @Override
-        public int getChannelCount()
-        {
-            return channelCount;
         }
 
         @Override

@@ -46,17 +46,19 @@ public final class DesugarTryExpressionRewriter
                 symbolAllocator.getTypes(),
                 expression);
 
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata, expressionTypes), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(session, metadata, expressionTypes), expression);
     }
 
     private static class Visitor
             extends ExpressionRewriter<Void>
     {
+        private final Session session;
         private final Metadata metadata;
         private final Map<NodeRef<Expression>, Type> expressionTypes;
 
-        public Visitor(Metadata metadata, Map<NodeRef<Expression>, Type> expressionTypes)
+        public Visitor(Session session, Metadata metadata, Map<NodeRef<Expression>, Type> expressionTypes)
         {
+            this.session = session;
             this.metadata = metadata;
             this.expressionTypes = expressionTypes;
         }
@@ -67,7 +69,7 @@ public final class DesugarTryExpressionRewriter
             Type type = expressionTypes.get(NodeRef.of(node));
             Expression expression = treeRewriter.rewrite(node.getInnerExpression(), context);
 
-            return new FunctionCallBuilder(metadata)
+            return FunctionCallBuilder.resolve(session, metadata)
                     .setName(QualifiedName.of(TryFunction.NAME))
                     .addArgument(new FunctionType(ImmutableList.of(), type), new LambdaExpression(ImmutableList.of(), expression))
                     .build();

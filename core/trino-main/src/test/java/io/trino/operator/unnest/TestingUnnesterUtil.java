@@ -15,9 +15,9 @@ package io.trino.operator.unnest;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -46,14 +46,14 @@ public final class TestingUnnesterUtil
 
     public static Block createArrayBlock(Slice[][] values)
     {
-        BlockBuilder blockBuilder = new ArrayBlockBuilder(VARCHAR, null, 100, 100);
+        ArrayType arrayType = new ArrayType(VARCHAR);
+        BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 100, 100);
         for (Slice[] expectedValue : values) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
             }
             else {
-                Block elementBlock = createSimpleBlock(expectedValue);
-                blockBuilder.appendStructure(elementBlock);
+                arrayType.writeObject(blockBuilder, createSimpleBlock(expectedValue));
             }
         }
         return blockBuilder.build();
@@ -61,7 +61,8 @@ public final class TestingUnnesterUtil
 
     public static Block createArrayBlockOfRowBlocks(Slice[][][] elements, RowType rowType)
     {
-        BlockBuilder arrayBlockBuilder = new ArrayBlockBuilder(rowType, null, 100, 100);
+        ArrayType arrayType = new ArrayType(rowType);
+        BlockBuilder arrayBlockBuilder = arrayType.createBlockBuilder(null, 100, 100);
         for (int i = 0; i < elements.length; i++) {
             if (elements[i] == null) {
                 arrayBlockBuilder.appendNull();
@@ -86,7 +87,7 @@ public final class TestingUnnesterUtil
                         elementBlockBuilder.closeEntry();
                     }
                 }
-                arrayBlockBuilder.appendStructure(elementBlockBuilder.build());
+                arrayType.writeObject(arrayBlockBuilder, elementBlockBuilder.build());
             }
         }
         return arrayBlockBuilder.build();

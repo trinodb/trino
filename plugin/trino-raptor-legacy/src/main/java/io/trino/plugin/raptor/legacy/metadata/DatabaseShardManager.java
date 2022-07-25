@@ -17,7 +17,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Ticker;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -25,6 +24,7 @@ import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.plugin.raptor.legacy.NodeSupplier;
 import io.trino.plugin.raptor.legacy.RaptorColumnHandle;
 import io.trino.plugin.raptor.legacy.storage.organization.ShardOrganizerDao;
@@ -34,12 +34,11 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import org.h2.jdbc.JdbcConnection;
-import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.IDBI;
-import org.skife.jdbi.v2.ResultIterator;
-import org.skife.jdbi.v2.exceptions.DBIException;
-import org.skife.jdbi.v2.tweak.HandleConsumer;
-import org.skife.jdbi.v2.util.ByteArrayMapper;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.HandleConsumer;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.core.JdbiException;
+import org.jdbi.v3.core.result.ResultIterator;
 
 import javax.inject.Inject;
 
@@ -65,6 +64,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.partition;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
 import static io.trino.plugin.raptor.legacy.storage.ColumnIndexStatsUtils.jdbcType;
@@ -103,7 +103,7 @@ public class DatabaseShardManager
     private static final String INDEX_TABLE_PREFIX = "x_shards_t";
     private static final int MAX_ADD_COLUMN_ATTEMPTS = 100;
 
-    private final IDBI dbi;
+    private final Jdbi dbi;
     private final DaoSupplier<ShardDao> shardDaoSupplier;
     private final ShardDao dao;
     private final NodeSupplier nodeSupplier;
@@ -112,17 +112,17 @@ public class DatabaseShardManager
     private final Duration startupGracePeriod;
     private final long startTime;
 
-    private final LoadingCache<String, Integer> nodeIdCache = CacheBuilder.newBuilder()
-            .maximumSize(10_000)
-            .build(CacheLoader.from(this::loadNodeId));
+    private final NonEvictableLoadingCache<String, Integer> nodeIdCache = buildNonEvictableCache(
+            CacheBuilder.newBuilder().maximumSize(10_000),
+            CacheLoader.from(this::loadNodeId));
 
-    private final LoadingCache<Long, List<String>> bucketAssignmentsCache = CacheBuilder.newBuilder()
-            .expireAfterWrite(1, SECONDS)
-            .build(CacheLoader.from(this::loadBucketAssignments));
+    private final NonEvictableLoadingCache<Long, List<String>> bucketAssignmentsCache = buildNonEvictableCache(
+            CacheBuilder.newBuilder().expireAfterWrite(1, SECONDS),
+            CacheLoader.from(this::loadBucketAssignments));
 
     @Inject
     public DatabaseShardManager(
-            @ForMetadata IDBI dbi,
+            @ForMetadata Jdbi dbi,
             DaoSupplier<ShardDao> shardDaoSupplier,
             NodeSupplier nodeSupplier,
             AssignmentLimiter assignmentLimiter,
@@ -133,7 +133,7 @@ public class DatabaseShardManager
     }
 
     public DatabaseShardManager(
-            IDBI dbi,
+            Jdbi dbi,
             DaoSupplier<ShardDao> shardDaoSupplier,
             NodeSupplier nodeSupplier,
             AssignmentLimiter assignmentLimiter,
@@ -210,7 +210,7 @@ public class DatabaseShardManager
         try (Handle handle = dbi.open()) {
             handle.execute(sql);
         }
-        catch (DBIException e) {
+        catch (JdbiException e) {
             throw metadataError(e);
         }
     }
@@ -218,7 +218,7 @@ public class DatabaseShardManager
     @Override
     public void dropTable(long tableId)
     {
-        runTransaction(dbi, (handle, status) -> {
+        runTransaction(dbi, handle -> {
             lockTable(handle, tableId);
 
             ShardDao shardDao = shardDaoSupplier.attach(handle);
@@ -239,7 +239,7 @@ public class DatabaseShardManager
         try (Handle handle = dbi.open()) {
             handle.execute("DROP TABLE " + shardIndexTable(tableId));
         }
-        catch (DBIException e) {
+        catch (JdbiException e) {
             log.warn(e, "Failed to drop index table %s", shardIndexTable(tableId));
         }
     }
@@ -264,7 +264,7 @@ public class DatabaseShardManager
             try (Handle handle = dbi.open()) {
                 handle.execute(sql);
             }
-            catch (DBIException e) {
+            catch (JdbiException e) {
                 if (isSyntaxOrAccessError(e)) {
                     // exit when column already exists
                     return;
@@ -294,7 +294,7 @@ public class DatabaseShardManager
 
         Map<String, Integer> nodeIds = toNodeIdMap(shards);
 
-        runCommit(transactionId, (handle) -> {
+        runCommit(transactionId, handle -> {
             externalBatchId.ifPresent(shardDaoSupplier.attach(handle)::insertExternalBatch);
             lockTable(handle, tableId);
             insertShardsAndIndex(tableId, columns, shards, nodeIds, handle);
@@ -311,7 +311,7 @@ public class DatabaseShardManager
     {
         Map<String, Integer> nodeIds = toNodeIdMap(newShards);
 
-        runCommit(transactionId, (handle) -> {
+        runCommit(transactionId, handle -> {
             lockTable(handle, tableId);
 
             if (updateTime.isEmpty() && handle.attach(MetadataDao.class).isMaintenanceBlockedLocked(tableId)) {
@@ -344,12 +344,12 @@ public class DatabaseShardManager
         });
     }
 
-    private void runCommit(long transactionId, HandleConsumer callback)
+    private void runCommit(long transactionId, HandleConsumer<SQLException> callback)
     {
         int maxAttempts = 5;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                dbi.useTransaction((handle, status) -> {
+                dbi.useTransaction(handle -> {
                     ShardDao dao = shardDaoSupplier.attach(handle);
                     if (commitTransaction(dao, transactionId)) {
                         callback.useHandle(handle);
@@ -358,7 +358,7 @@ public class DatabaseShardManager
                 });
                 return;
             }
-            catch (DBIException e) {
+            catch (JdbiException | SQLException e) {
                 if (isTransactionCacheFullError(e)) {
                     throw metadataError(e, "Transaction too large");
                 }
@@ -558,7 +558,7 @@ public class DatabaseShardManager
 
         int nodeId = getOrCreateNodeId(nodeIdentifier);
 
-        runTransaction(dbi, (handle, status) -> {
+        runTransaction(dbi, handle -> {
             ShardDao dao = shardDaoSupplier.attach(handle);
 
             Set<Integer> oldAssignments = new HashSet<>(fetchLockedNodeIds(handle, tableId, shardUuid));
@@ -821,8 +821,8 @@ public class DatabaseShardManager
 
         byte[] nodeArray = handle.createQuery(sql)
                 .bind(0, uuidToBytes(shardUuid))
-                .map(ByteArrayMapper.FIRST)
-                .first();
+                .mapTo(byte[].class)
+                .one();
 
         return intArrayFromBytes(nodeArray);
     }

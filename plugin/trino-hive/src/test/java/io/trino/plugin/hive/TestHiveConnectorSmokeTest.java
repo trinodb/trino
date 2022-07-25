@@ -48,16 +48,29 @@ public class TestHiveConnectorSmokeTest
             case SUPPORTS_DELETE:
                 return true;
 
+            case SUPPORTS_UPDATE:
+                return true;
+
+            case SUPPORTS_MULTI_STATEMENT_WRITES:
+                return true;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
     }
 
     @Override
-    public void testDelete()
+    public void testRowLevelDelete()
     {
-        assertThatThrownBy(super::testDelete)
+        assertThatThrownBy(super::testRowLevelDelete)
                 .hasMessage("Deletes must match whole partitions for non-transactional tables");
+    }
+
+    @Override
+    public void testUpdate()
+    {
+        assertThatThrownBy(super::testUpdate)
+                .hasMessage("Hive update is only supported for ACID transactional tables");
     }
 
     @Test

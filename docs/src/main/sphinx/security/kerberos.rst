@@ -6,11 +6,11 @@ Trino can be configured to enable Kerberos authentication over HTTPS for
 clients, such as the :doc:`Trino CLI </security/cli>`, or the JDBC and ODBC
 drivers.
 
-To enable Kerberos authentication for Trino, configuration changes are made on
-the Trino coordinator. No changes are required to the worker configuration.
-The worker nodes continue to connect to the coordinator over
-unauthenticated HTTP. However, if you want to secure the communication between
-Trino nodes with SSL/TLS, configure :doc:`/security/internal-communication`.
+To enable Kerberos authentication for Trino, Kerberos-related configuration
+changes are made on the Trino coordinator.
+
+Using :doc:`TLS <tls>` and :doc:`a configured shared secret
+</security/internal-communication>` is required for Kerberos authentication.
 
 Environment configuration
 -------------------------
@@ -50,7 +50,7 @@ Configuration for TLS
 ^^^^^^^^^^^^^^^^^^^^^
 
 When using Kerberos authentication, access to the Trino coordinator must be
-through :doc:`HTTPS and TLS </security/tls>`.
+through :doc:`TLS and HTTPS </security/tls>`.
 
 System access control plugin
 ----------------------------
@@ -128,25 +128,8 @@ Property                                                  Description
                                                           operation and usage of valid DNS host names.
 ========================================================= ======================================================
 
-.. note::
-
-    Monitor the CPU usage on the Trino coordinator after enabling HTTPS. Java
-    prefers the more CPU-intensive cipher suites, if you allow it to choose from
-    a big list. If the CPU usage is unacceptably high after enabling HTTPS,
-    you can configure Java to use specific cipher suites by setting
-    the ``http-server.https.included-cipher`` property to only allow
-    cheap ciphers. Non forward secrecy (FS) ciphers are disabled by default.
-    As a result, if you want to choose non FS ciphers, you need to set the
-    ``http-server.https.excluded-cipher`` property to an empty list in order to
-    override the default exclusions.
-
-    .. code-block:: text
-
-        http-server.https.included-cipher=TLS_RSA_WITH_AES_128_CBC_SHA,TLS_RSA_WITH_AES_128_CBC_SHA256
-        http-server.https.excluded-cipher=
-
-    The Java documentation lists the `supported cipher suites
-    <https://docs.oracle.com/en/java/javase/11/security/oracle-providers.html#GUID-7093246A-31A3-4304-AC5F-5FB6400405E2__SUNJSSE_CIPHER_SUITES>`_.
+See :ref:`Standards supported <tls-version-and-ciphers>` for a discussion of the
+supported TLS versions and cipher suites.
 
 access-controls.properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^

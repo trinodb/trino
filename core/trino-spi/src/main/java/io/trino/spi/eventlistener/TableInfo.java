@@ -13,12 +13,16 @@
  */
 package io.trino.spi.eventlistener;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
+/**
+ * This class is JSON serializable for convenience and serialization compatibility is not guaranteed across versions.
+ */
 public class TableInfo
 {
     private final String catalog;
@@ -30,6 +34,7 @@ public class TableInfo
     private final List<ColumnInfo> columns;
     private final boolean directlyReferenced;
 
+    @JsonCreator
     public TableInfo(String catalog, String schema, String table, String authorization, List<String> filters, List<ColumnInfo> columns, boolean directlyReferenced)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");

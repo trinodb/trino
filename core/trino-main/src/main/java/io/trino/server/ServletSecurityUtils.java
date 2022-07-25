@@ -26,7 +26,7 @@ import java.security.Principal;
 import java.util.Collection;
 
 import static com.google.common.net.MediaType.PLAIN_TEXT_UTF_8;
-import static io.trino.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
+import static io.trino.server.HttpRequestSessionContextFactory.AUTHENTICATED_IDENTITY;
 import static javax.ws.rs.core.HttpHeaders.WWW_AUTHENTICATE;
 import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 

@@ -16,6 +16,7 @@ package io.trino.plugin.pinot.query;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.pinot.PinotColumnHandle;
 
 import java.util.List;
 import java.util.Objects;
@@ -28,24 +29,36 @@ import static java.util.Objects.requireNonNull;
 public final class DynamicTable
 {
     private final String tableName;
+
     private final Optional<String> suffix;
-    private final List<String> selections;
-    private final List<String> groupingColumns;
-    private final List<AggregationExpression> aggregateColumns;
+
+    private final List<PinotColumnHandle> projections;
+
+    private final Optional<String> filter;
+
+    // semantically aggregation is applied after constraint
+    private final List<PinotColumnHandle> groupingColumns;
+    private final List<PinotColumnHandle> aggregateColumns;
+
+    // semantically sorting is applied after aggregation
     private final List<OrderByExpression> orderBy;
+
+    // semantically limit is applied after sorting
     private final OptionalLong limit;
     private final OptionalLong offset;
-    private final Optional<String> filter;
+
     private final String query;
+
+    private final boolean isAggregateInProjections;
 
     @JsonCreator
     public DynamicTable(
             @JsonProperty("tableName") String tableName,
             @JsonProperty("suffix") Optional<String> suffix,
-            @JsonProperty("selections") List<String> selections,
-            @JsonProperty("groupingColumns") List<String> groupingColumns,
+            @JsonProperty("projections") List<PinotColumnHandle> projections,
             @JsonProperty("filter") Optional<String> filter,
-            @JsonProperty("aggregateColumns") List<AggregationExpression> aggregateColumns,
+            @JsonProperty("groupingColumns") List<PinotColumnHandle> groupingColumns,
+            @JsonProperty("aggregateColumns") List<PinotColumnHandle> aggregateColumns,
             @JsonProperty("orderBy") List<OrderByExpression> orderBy,
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("offset") OptionalLong offset,
@@ -53,14 +66,16 @@ public final class DynamicTable
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.suffix = requireNonNull(suffix, "suffix is null");
-        this.selections = ImmutableList.copyOf(requireNonNull(selections, "selections is null"));
-        this.groupingColumns = ImmutableList.copyOf(requireNonNull(groupingColumns, "groupingColumns is null"));
+        this.projections = ImmutableList.copyOf(requireNonNull(projections, "projections is null"));
         this.filter = requireNonNull(filter, "filter is null");
+        this.groupingColumns = ImmutableList.copyOf(requireNonNull(groupingColumns, "groupingColumns is null"));
         this.aggregateColumns = ImmutableList.copyOf(requireNonNull(aggregateColumns, "aggregateColumns is null"));
         this.orderBy = ImmutableList.copyOf(requireNonNull(orderBy, "orderBy is null"));
         this.limit = requireNonNull(limit, "limit is null");
         this.offset = requireNonNull(offset, "offset is null");
         this.query = requireNonNull(query, "query is null");
+        this.isAggregateInProjections = projections.stream()
+                .anyMatch(PinotColumnHandle::isAggregate);
     }
 
     @JsonProperty
@@ -76,9 +91,9 @@ public final class DynamicTable
     }
 
     @JsonProperty
-    public List<String> getGroupingColumns()
+    public List<PinotColumnHandle> getProjections()
     {
-        return groupingColumns;
+        return projections;
     }
 
     @JsonProperty
@@ -88,15 +103,15 @@ public final class DynamicTable
     }
 
     @JsonProperty
-    public List<AggregationExpression> getAggregateColumns()
+    public List<PinotColumnHandle> getGroupingColumns()
     {
-        return aggregateColumns;
+        return groupingColumns;
     }
 
     @JsonProperty
-    public List<String> getSelections()
+    public List<PinotColumnHandle> getAggregateColumns()
     {
-        return selections;
+        return aggregateColumns;
     }
 
     @JsonProperty
@@ -123,6 +138,11 @@ public final class DynamicTable
         return query;
     }
 
+    public boolean isAggregateInProjections()
+    {
+        return isAggregateInProjections;
+    }
+
     @Override
     public boolean equals(Object other)
     {
@@ -136,7 +156,8 @@ public final class DynamicTable
 
         DynamicTable that = (DynamicTable) other;
         return tableName.equals(that.tableName) &&
-                selections.equals(that.selections) &&
+                projections.equals(that.projections) &&
+                filter.equals(that.filter) &&
                 groupingColumns.equals(that.groupingColumns) &&
                 aggregateColumns.equals(that.aggregateColumns) &&
                 orderBy.equals(that.orderBy) &&
@@ -148,7 +169,7 @@ public final class DynamicTable
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableName, selections, groupingColumns, aggregateColumns, orderBy, limit, offset, query);
+        return Objects.hash(tableName, projections, filter, groupingColumns, aggregateColumns, orderBy, limit, offset, query);
     }
 
     @Override
@@ -156,7 +177,8 @@ public final class DynamicTable
     {
         return toStringHelper(this)
                 .add("tableName", tableName)
-                .add("selections", selections)
+                .add("projections", projections)
+                .add("filter", filter)
                 .add("groupingColumns", groupingColumns)
                 .add("aggregateColumns", aggregateColumns)
                 .add("orderBy", orderBy)

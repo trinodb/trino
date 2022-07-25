@@ -48,10 +48,10 @@ Other authentication types
 
 The following Web UI authentication types are also supported:
 
-* ``certificate``
-* ``kerberos``
-* ``jwt``
-* ``oauth2``
+* ``certificate``, see details in :doc:`/security/certificate`
+* ``kerberos``, see details in :doc:`/security/kerberos`
+* ``jwt``, see details in :doc:`/security/jwt`
+* ``oauth2``, see details in :doc:`/security/oauth2`
 
 For these authentication types, the username is defined by :doc:`/security/user-mapping`.
 

@@ -69,7 +69,16 @@ public final class Page
     {
         requireNonNull(blocks, "blocks is null");
         this.positionCount = positionCount;
-        this.blocks = blocksCopyRequired ? blocks.clone() : blocks;
+        if (blocks.length == 0) {
+            this.blocks = EMPTY_BLOCKS;
+            this.sizeInBytes = 0;
+            this.logicalSizeInBytes = 0;
+            // Empty blocks are not considered "retained" by any particular page
+            this.retainedSizeInBytes = INSTANCE_SIZE;
+        }
+        else {
+            this.blocks = blocksCopyRequired ? blocks.clone() : blocks;
+        }
     }
 
     public int getChannelCount()
@@ -242,7 +251,7 @@ public final class Page
 
             try {
                 Block compactDictionary = dictionaryBlock.getDictionary().copyPositions(dictionaryPositionsToCopy, 0, numberOfIndexes);
-                outputDictionaryBlocks.add(new DictionaryBlock(positionCount, compactDictionary, newIds, true, newDictionaryId));
+                outputDictionaryBlocks.add(new DictionaryBlock(positionCount, compactDictionary, newIds, !(compactDictionary instanceof DictionaryBlock), newDictionaryId));
             }
             catch (UnsupportedOperationException e) {
                 // ignore if copy positions is not supported for the dictionary
@@ -274,22 +283,54 @@ public final class Page
      */
     public Page getLoadedPage()
     {
-        Block[] loadedBlocks = null;
         for (int i = 0; i < blocks.length; i++) {
             Block loaded = blocks[i].getLoadedBlock();
             if (loaded != blocks[i]) {
-                if (loadedBlocks == null) {
-                    loadedBlocks = blocks.clone();
+                // Transition to new block creation mode after the first newly loaded block is encountered
+                Block[] loadedBlocks = blocks.clone();
+                loadedBlocks[i++] = loaded;
+                for (; i < blocks.length; i++) {
+                    loadedBlocks[i] = blocks[i].getLoadedBlock();
                 }
-                loadedBlocks[i] = loaded;
+                return wrapBlocksWithoutCopy(positionCount, loadedBlocks);
             }
         }
+        // No newly loaded blocks
+        return this;
+    }
 
-        if (loadedBlocks == null) {
-            return this;
+    public Page getLoadedPage(int column)
+    {
+        return wrapBlocksWithoutCopy(positionCount, new Block[] {this.blocks[column].getLoadedBlock()});
+    }
+
+    public Page getLoadedPage(int... columns)
+    {
+        requireNonNull(columns, "columns is null");
+
+        Block[] blocks = new Block[columns.length];
+        for (int i = 0; i < columns.length; i++) {
+            blocks[i] = this.blocks[columns[i]].getLoadedBlock();
+        }
+        return wrapBlocksWithoutCopy(positionCount, blocks);
+    }
+
+    public Page getLoadedPage(int[] columns, int[] eagerlyLoadedColumns)
+    {
+        requireNonNull(columns, "columns is null");
+
+        for (int column : eagerlyLoadedColumns) {
+            this.blocks[column] = this.blocks[column].getLoadedBlock();
+        }
+        if (retainedSizeInBytes != -1 && eagerlyLoadedColumns.length > 0) {
+            updateRetainedSize();
+        }
+        Block[] blocks = new Block[columns.length];
+        for (int i = 0; i < columns.length; i++) {
+            blocks[i] = this.blocks[columns[i]];
         }
 
-        return wrapBlocksWithoutCopy(positionCount, loadedBlocks);
+        return wrapBlocksWithoutCopy(positionCount, blocks);
     }
 
     @Override

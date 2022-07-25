@@ -13,10 +13,13 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
-import com.google.common.collect.ImmutableList;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.CqlSessionBuilder;
+import com.datastax.oss.driver.api.core.ProtocolVersion;
+import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
+import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
 import com.google.common.io.Resources;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -27,17 +30,20 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 
-import static com.datastax.driver.core.ProtocolVersion.V3;
-import static com.google.common.io.Files.createTempDir;
+import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.CONTROL_CONNECTION_AGREEMENT_TIMEOUT;
+import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.METADATA_SCHEMA_REFRESHED_KEYSPACES;
+import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.PROTOCOL_VERSION;
+import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.REQUEST_TIMEOUT;
 import static com.google.common.io.Files.write;
 import static com.google.common.io.Resources.getResource;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.createDirectory;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -73,24 +79,29 @@ public class CassandraServer
                 .withCopyFileToContainer(forHostPath(prepareCassandraYaml()), "/etc/cassandra/cassandra.yaml");
         this.dockerContainer.start();
 
-        Cluster.Builder clusterBuilder = Cluster.builder()
-                .withProtocolVersion(V3)
-                .withClusterName("TestCluster")
-                .addContactPointsWithPorts(ImmutableList.of(
-                        new InetSocketAddress(this.dockerContainer.getContainerIpAddress(), this.dockerContainer.getMappedPort(PORT))))
-                .withMaxSchemaAgreementWaitSeconds(30);
+        ProgrammaticDriverConfigLoaderBuilder driverConfigLoaderBuilder = DriverConfigLoader.programmaticBuilder();
+        driverConfigLoaderBuilder.withDuration(REQUEST_TIMEOUT, java.time.Duration.ofSeconds(12));
+        driverConfigLoaderBuilder.withString(PROTOCOL_VERSION, ProtocolVersion.V3.name());
+        driverConfigLoaderBuilder.withDuration(CONTROL_CONNECTION_AGREEMENT_TIMEOUT, java.time.Duration.ofSeconds(30));
+        // allow the retrieval of metadata for the system keyspaces
+        driverConfigLoaderBuilder.withStringList(METADATA_SCHEMA_REFRESHED_KEYSPACES, List.of());
 
-        ReopeningCluster cluster = new ReopeningCluster(clusterBuilder::build);
+        CqlSessionBuilder cqlSessionBuilder = CqlSession.builder()
+                .withApplicationName("TestCluster")
+                .addContactPoint(new InetSocketAddress(this.dockerContainer.getContainerIpAddress(), this.dockerContainer.getMappedPort(PORT)))
+                .withLocalDatacenter("datacenter1")
+                .withConfigLoader(driverConfigLoaderBuilder.build());
+
         CassandraSession session = new CassandraSession(
                 JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
-                cluster,
+                cqlSessionBuilder::build,
                 new Duration(1, MINUTES));
 
         try {
             checkConnectivity(session);
         }
         catch (RuntimeException e) {
-            cluster.close();
+            session.close();
             this.dockerContainer.stop();
             throw e;
         }
@@ -103,18 +114,17 @@ public class CassandraServer
     {
         String original = Resources.toString(getResource("cu-cassandra.yaml"), UTF_8);
 
-        File tempDirFile = createTempDir();
-        tempDirFile.deleteOnExit();
-        Path tmpDirPath = tempDirFile.toPath();
+        Path tmpDirPath = createTempDirectory(null);
         Path dataDir = tmpDirPath.resolve("data");
-        Files.createDirectory(dataDir);
+        createDirectory(dataDir);
 
         String modified = original.replaceAll("\\$\\{data_directory\\}", dataDir.toAbsolutePath().toString());
 
-        Path yamlLocation = tmpDirPath.resolve("cu-cassandra.yaml");
-        write(modified, yamlLocation.toFile(), UTF_8);
+        File yamlFile = tmpDirPath.resolve("cu-cassandra.yaml").toFile();
+        yamlFile.deleteOnExit();
+        write(modified, yamlFile, UTF_8);
 
-        return yamlLocation.toAbsolutePath().toString();
+        return yamlFile.getAbsolutePath();
     }
 
     public CassandraSession getSession()
@@ -174,6 +184,9 @@ public class CassandraServer
     @Override
     public void close()
     {
+        if (session != null) {
+            session.close();
+        }
         dockerContainer.close();
     }
 }

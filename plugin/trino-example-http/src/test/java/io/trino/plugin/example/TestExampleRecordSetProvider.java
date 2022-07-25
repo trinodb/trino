@@ -22,7 +22,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -35,7 +34,7 @@ import static org.testng.Assert.assertNotNull;
 public class TestExampleRecordSetProvider
 {
     private ExampleHttpServer exampleHttpServer;
-    private URI dataUri;
+    private String dataUri;
 
     @Test
     public void testGetRecordSet()
@@ -58,7 +57,7 @@ public class TestExampleRecordSetProvider
                 .put("ten", 10L)
                 .put("eleven", 11L)
                 .put("twelve", 12L)
-                .build());
+                .buildOrThrow());
     }
 
     //
@@ -69,7 +68,7 @@ public class TestExampleRecordSetProvider
     public void setUp()
     {
         exampleHttpServer = new ExampleHttpServer();
-        dataUri = exampleHttpServer.resolve("/example-data/numbers-2.csv");
+        dataUri = exampleHttpServer.resolve("/example-data/numbers-2.csv").toString();
     }
 
     @AfterClass(alwaysRun = true)

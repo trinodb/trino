@@ -4,9 +4,9 @@ set -euo pipefail -x
 
 . "${BASH_SOURCE%/*}/common.sh"
 
-test -v ABFS_CONTAINER
-test -v ABFS_ACCOUNT
-test -v ABFS_ACCESS_KEY
+abort_if_not_gib_impacted
+
+check_vars ABFS_CONTAINER ABFS_ACCOUNT ABFS_ACCESS_KEY
 
 cleanup_hadoop_docker_containers
 start_hadoop_docker_containers
@@ -28,7 +28,7 @@ stop_unnecessary_hadoop_services
 # run product tests
 pushd $PROJECT_ROOT
 set +e
-./mvnw -B -pl :trino-hive-hadoop2 test -P test-hive-hadoop2-abfs-access-key \
+./mvnw ${MAVEN_TEST:--B} -pl :trino-hive-hadoop2 test -P test-hive-hadoop2-abfs-access-key \
     -DHADOOP_USER_NAME=hive \
     -Dhive.hadoop2.metastoreHost=localhost \
     -Dhive.hadoop2.metastorePort=9083 \

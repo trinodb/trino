@@ -59,7 +59,7 @@ flowers, modifying the following query::
     virginica  |   50
     versicolor |   50
 
-If you just use a normal ``WHERE`` statement you loose information::
+If you just use a normal ``WHERE`` statement you lose information::
 
     SELECT species,
         count(*) AS count
@@ -143,6 +143,66 @@ General aggregate functions
 .. function:: geometric_mean(x) -> double
 
     Returns the geometric mean of all input values.
+
+.. function:: listagg(x, separator) -> varchar
+
+    Returns the concatenated input values, separated by the ``separator`` string.
+
+    Synopsis::
+
+        LISTAGG( expression [, separator] [ON OVERFLOW overflow_behaviour])
+            WITHIN GROUP (ORDER BY sort_item, [...])
+
+
+    If ``separator`` is not specified, the empty string will be used as ``separator``.
+
+    In its simplest form the function looks like::
+
+            SELECT listagg(value, ',') WITHIN GROUP (ORDER BY value) csv_value
+            FROM (VALUES 'a', 'c', 'b') t(value);
+
+    and results in::
+
+            csv_value
+            -----------
+            'a,b,c'
+
+    The overflow behaviour is by default to throw an error in case that the length of the output
+    of the function exceeds ``1048576`` bytes::
+
+            SELECT listagg(value, ',' ON OVERFLOW ERROR) WITHIN GROUP (ORDER BY value) csv_value
+            FROM (VALUES 'a', 'b', 'c') t(value);
+
+    There exists also the possibility to truncate the output ``WITH COUNT`` or ``WITHOUT COUNT``
+    of omitted non-null values in case that the length of the output of the
+    function exceeds ``1048576`` bytes::
+
+            SELECT LISTAGG(value, ',' ON OVERFLOW TRUNCATE '.....' WITH COUNT) WITHIN GROUP (ORDER BY value)
+            FROM (VALUES 'a', 'b', 'c') t(value);
+
+    If not specified, the truncation filler string is by default ``'...'``.
+
+    This aggregation function can be also used in a scenario involving grouping::
+
+            SELECT id, LISTAGG(value, ',') WITHIN GROUP (ORDER BY o) csv_value
+            FROM (VALUES
+                (100, 1, 'a'),
+                (200, 3, 'c'),
+                (200, 2, 'b')
+            ) t(id, o, value)
+            GROUP BY id
+            ORDER BY id;
+
+    results in:
+
+    .. code-block:: text
+
+         id  | csv_value
+        -----+-----------
+         100 | a
+         200 | b,c
+
+    The current implementation of ``LISTAGG`` function does not support window frames.
 
 .. function:: max(x) -> [same as input]
 
@@ -308,7 +368,7 @@ Approximate aggregate functions
 
     Returns the approximate weighed percentile for all input values of ``x``
     using the per-item weight ``w`` at the percentage ``percentage``. Weights must be
-    strictly positive. Integer-value weights can be thought of as a replication
+    greater or equal to 1. Integer-value weights can be thought of as a replication
     count for the value ``x`` in the percentile set. The value of ``percentage`` must be
     between zero and one and must be constant for all input rows.
 
@@ -317,7 +377,7 @@ Approximate aggregate functions
 
     Returns the approximate weighed percentile for all input values of ``x``
     using the per-item weight ``w`` at each of the given percentages specified
-    in the array. Weights must be strictly positive. Integer-value weights can
+    in the array. Weights must be greater or equal to 1. Integer-value weights can
     be thought of as a replication count for the value ``x`` in the percentile
     set. Each element of the ``percentages`` array must be between zero and one, and the array
     must be constant for all input rows.

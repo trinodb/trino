@@ -26,11 +26,13 @@ public class TestingPinotHostMapper
 {
     private final HostAndPort brokerHostAndPort;
     private final HostAndPort serverHostAndPort;
+    private final HostAndPort serverGrpcHostAndPort;
 
-    public TestingPinotHostMapper(HostAndPort brokerHostAndPort, HostAndPort serverHostAndPort)
+    public TestingPinotHostMapper(HostAndPort brokerHostAndPort, HostAndPort serverHostAndPort, HostAndPort serverGrpcHostAndPort)
     {
         this.brokerHostAndPort = requireNonNull(brokerHostAndPort, "brokerHostAndPort is null");
         this.serverHostAndPort = requireNonNull(serverHostAndPort, "serverHostAndPort is null");
+        this.serverGrpcHostAndPort = requireNonNull(serverGrpcHostAndPort, "serverGrpcHostAndPort is null");
     }
 
     @Override
@@ -46,5 +48,11 @@ public class TestingPinotHostMapper
         instanceConfig.setHostName(serverHostAndPort.getHost());
         instanceConfig.setPort(String.valueOf(serverHostAndPort.getPort()));
         return new ServerInstance(instanceConfig);
+    }
+
+    @Override
+    public HostAndPort getServerGrpcHostAndPort(String serverHost, int grpcPort)
+    {
+        return serverGrpcHostAndPort;
     }
 }

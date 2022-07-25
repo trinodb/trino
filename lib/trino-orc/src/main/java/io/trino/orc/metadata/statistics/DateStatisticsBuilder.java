@@ -74,6 +74,7 @@ public class DateStatisticsBuilder
                 null,
                 null,
                 null,
+                null,
                 dateStatistics.orElse(null),
                 null,
                 null,

@@ -98,8 +98,8 @@ public class TestAvroSchemaUrl
                 schemaLocation));
         onHive().executeQuery("INSERT INTO test_avro_schema_url_hive VALUES ('some text', 123042)");
 
-        assertThat(onHive().executeQuery("SELECT * FROM test_avro_schema_url_hive")).containsExactly(row("some text", 123042));
-        assertThat(onTrino().executeQuery("SELECT * FROM test_avro_schema_url_hive")).containsExactly(row("some text", 123042));
+        assertThat(onHive().executeQuery("SELECT * FROM test_avro_schema_url_hive")).containsExactlyInOrder(row("some text", 123042));
+        assertThat(onTrino().executeQuery("SELECT * FROM test_avro_schema_url_hive")).containsExactlyInOrder(row("some text", 123042));
 
         onHive().executeQuery("DROP TABLE test_avro_schema_url_hive");
     }
@@ -122,7 +122,7 @@ public class TestAvroSchemaUrl
                 schemaLocationOnHdfs));
 
         assertThat(onTrino().executeQuery("SHOW COLUMNS FROM test_avro_schema_url_in_serde_properties"))
-                .containsExactly(
+                .containsExactlyInOrder(
                         row("string_col", "varchar", "", ""),
                         row("int_col", "integer", "", ""));
 
@@ -132,16 +132,16 @@ public class TestAvroSchemaUrl
         onHive().executeQuery("INSERT INTO test_avro_schema_url_in_serde_properties VALUES ('some text', 2147483635)");
 
         // Hive stores initial schema inferred from schema files in the Metastore DB.
-        // We need to change the schema to test that current schema is used by Presto, not a snapshot saved during CREATE TABLE.
+        // We need to change the schema to test that current schema is used by Trino, not a snapshot saved during CREATE TABLE.
         saveResourceOnHdfs("avro/change_column_type_schema.avsc", schemaLocationOnHdfs);
 
         assertThat(onTrino().executeQuery("SHOW COLUMNS FROM test_avro_schema_url_in_serde_properties"))
-                .containsExactly(
+                .containsExactlyInOrder(
                         row("string_col", "varchar", "", ""),
                         row("int_col", "bigint", "", ""));
 
         assertThat(onTrino().executeQuery("SELECT * FROM test_avro_schema_url_in_serde_properties"))
-                .containsExactly(row("some text", 2147483635L));
+                .containsExactlyInOrder(row("some text", 2147483635L));
 
         onHive().executeQuery("DROP TABLE test_avro_schema_url_in_serde_properties");
     }
@@ -153,8 +153,8 @@ public class TestAvroSchemaUrl
         onTrino().executeQuery(format("CREATE TABLE test_avro_schema_url_presto (dummy_col VARCHAR) WITH (format='AVRO', avro_schema_url='%s')", schemaLocation));
         onTrino().executeQuery("INSERT INTO test_avro_schema_url_presto VALUES ('some text', 123042)");
 
-        assertThat(onHive().executeQuery("SELECT * FROM test_avro_schema_url_presto")).containsExactly(row("some text", 123042));
-        assertThat(onTrino().executeQuery("SELECT * FROM test_avro_schema_url_presto")).containsExactly(row("some text", 123042));
+        assertThat(onHive().executeQuery("SELECT * FROM test_avro_schema_url_presto")).containsExactlyInOrder(row("some text", 123042));
+        assertThat(onTrino().executeQuery("SELECT * FROM test_avro_schema_url_presto")).containsExactlyInOrder(row("some text", 123042));
 
         onTrino().executeQuery("DROP TABLE test_avro_schema_url_presto");
     }

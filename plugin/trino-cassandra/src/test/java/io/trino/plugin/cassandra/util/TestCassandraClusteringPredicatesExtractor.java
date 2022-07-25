@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.cassandra.util;
 
-import com.datastax.driver.core.VersionNumber;
+import com.datastax.oss.driver.api.core.Version;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.cassandra.CassandraClusteringPredicatesExtractor;
 import io.trino.plugin.cassandra.CassandraColumnHandle;
 import io.trino.plugin.cassandra.CassandraTable;
 import io.trino.plugin.cassandra.CassandraTableHandle;
-import io.trino.plugin.cassandra.CassandraType;
+import io.trino.plugin.cassandra.CassandraTypes;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -37,20 +37,20 @@ public class TestCassandraClusteringPredicatesExtractor
     private static CassandraColumnHandle col3;
     private static CassandraColumnHandle col4;
     private static CassandraTable cassandraTable;
-    private static VersionNumber cassandraVersion;
+    private static Version cassandraVersion;
 
     @BeforeTest
-    void setUp()
+    public void setUp()
     {
-        col1 = new CassandraColumnHandle("partitionKey1", 1, CassandraType.BIGINT, true, false, false, false);
-        col2 = new CassandraColumnHandle("clusteringKey1", 2, CassandraType.BIGINT, false, true, false, false);
-        col3 = new CassandraColumnHandle("clusteringKey2", 3, CassandraType.BIGINT, false, true, false, false);
-        col4 = new CassandraColumnHandle("clusteringKe3", 4, CassandraType.BIGINT, false, true, false, false);
+        col1 = new CassandraColumnHandle("partitionKey1", 1, CassandraTypes.BIGINT, true, false, false, false);
+        col2 = new CassandraColumnHandle("clusteringKey1", 2, CassandraTypes.BIGINT, false, true, false, false);
+        col3 = new CassandraColumnHandle("clusteringKey2", 3, CassandraTypes.BIGINT, false, true, false, false);
+        col4 = new CassandraColumnHandle("clusteringKe3", 4, CassandraTypes.BIGINT, false, true, false, false);
 
         cassandraTable = new CassandraTable(
                 new CassandraTableHandle("test", "records"), ImmutableList.of(col1, col2, col3, col4));
 
-        cassandraVersion = VersionNumber.parse("2.1.5");
+        cassandraVersion = Version.parse("2.1.5");
     }
 
     @Test

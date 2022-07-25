@@ -21,13 +21,10 @@ import org.apache.accumulo.core.client.lexicoder.Lexicoder;
 public class BooleanLexicoder
         implements Lexicoder<Boolean>
 {
-    public static final byte[] TRUE = new byte[] {1};
-    public static final byte[] FALSE = new byte[] {0};
-
     @Override
     public byte[] encode(Boolean v)
     {
-        return v ? TRUE : FALSE;
+        return new byte[] {v ? (byte) 1 : 0};
     }
 
     @Override

@@ -19,7 +19,7 @@ public class DisabledGlueColumnStatisticsProviderFactory
         implements GlueColumnStatisticsProviderFactory
 {
     @Override
-    public GlueColumnStatisticsProvider createGlueColumnStatisticsProvider(AWSGlueAsync glueClient)
+    public GlueColumnStatisticsProvider createGlueColumnStatisticsProvider(AWSGlueAsync glueClient, GlueMetastoreStats stats)
     {
         return new DisabledGlueColumnStatisticsProvider();
     }

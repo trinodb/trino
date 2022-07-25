@@ -16,7 +16,6 @@ package io.trino.plugin.geospatial;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
-import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
@@ -34,12 +33,6 @@ public final class SpatialPartitioningAggregateFunction
 
     @InputFunction
     public static void input(SpatialPartitioningState state, @SqlType(GEOMETRY_TYPE_NAME) Slice slice)
-    {
-        throw new UnsupportedOperationException("spatial_partitioning(geometry) aggregate function should be re-written into spatial_partitioning(geometry, partitionCount)");
-    }
-
-    @CombineFunction
-    public static void combine(SpatialPartitioningState state, SpatialPartitioningState otherState)
     {
         throw new UnsupportedOperationException("spatial_partitioning(geometry) aggregate function should be re-written into spatial_partitioning(geometry, partitionCount)");
     }

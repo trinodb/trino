@@ -43,6 +43,7 @@ import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.execution.TestQueues.createResourceGroupId;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
@@ -72,7 +73,7 @@ public class TestEventListenerWithSplits
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-        queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of("tpch.splits-per-node", Integer.toString(SPLITS_PER_NODE)));
+        queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, Integer.toString(SPLITS_PER_NODE)));
         queryRunner.installPlugin(new Plugin()
         {
             @Override
@@ -163,7 +164,9 @@ public class TestEventListenerWithSplits
         // Deterministic statistics
         assertEquals(statistics.getPhysicalInputBytes(), 0);
         assertEquals(statistics.getPhysicalInputRows(), expectedCompletedPositions);
-        assertEquals(statistics.getInternalNetworkBytes(), 369);
+        assertEquals(statistics.getProcessedInputBytes(), 0);
+        assertEquals(statistics.getProcessedInputRows(), expectedCompletedPositions);
+        assertEquals(statistics.getInternalNetworkBytes(), 381);
         assertEquals(statistics.getInternalNetworkRows(), 3);
         assertEquals(statistics.getTotalBytes(), 0);
         assertEquals(statistics.getOutputBytes(), 9);

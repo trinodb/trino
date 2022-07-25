@@ -17,7 +17,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.SqlDecimal;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -27,7 +26,10 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.SqlDecimal.decimal;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -54,7 +56,7 @@ public class TestTryFunction
     {
         assertFunction(createTryExpression("42"), INTEGER, 42);
         assertFunction(createTryExpression("DOUBLE '4.5'"), DOUBLE, 4.5);
-        assertFunction(createTryExpression("DECIMAL '4.5'"), createDecimalType(2, 1), SqlDecimal.of("4.5"));
+        assertFunction(createTryExpression("DECIMAL '4.5'"), createDecimalType(2, 1), decimal("4.5", createDecimalType(2, 1)));
         assertFunction(createTryExpression("TRUE"), BOOLEAN, true);
         assertFunction(createTryExpression("'hello'"), createVarcharType(5), "hello");
         assertFunction(createTryExpression("JSON '[true, false, 12, 12.7, \"12\", null]'"), JSON, "[true,false,12,12.7,\"12\",null]");
@@ -70,6 +72,9 @@ public class TestTryFunction
         assertFunction(createTryExpression("1/0"), INTEGER, null);
         assertFunction(createTryExpression("JSON_PARSE('INVALID')"), JSON, null);
         assertFunction(createTryExpression("CAST(NULL AS INTEGER)"), INTEGER, null);
+        assertFunction(createTryExpression("CAST('0000-00-01' AS TIMESTAMP)"), TIMESTAMP_MILLIS, null);
+        assertFunction(createTryExpression("CAST('0000-01-00' AS TIMESTAMP)"), TIMESTAMP_MILLIS, null);
+        assertFunction(createTryExpression("CAST('0000-01-01 ABC' AS TIMESTAMP WITH TIME ZONE)"), TIMESTAMP_TZ_MILLIS, null);
         assertFunction(createTryExpression("ABS(-9223372036854775807 - 1)"), BIGINT, null);
 
         // Exceptions that should not be suppressed

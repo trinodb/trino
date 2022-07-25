@@ -293,7 +293,7 @@ public class TestTimestampWithTimeZone
     }
 
     @Test
-    public void testCastToSlice()
+    public void testCastToVarchar()
     {
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as varchar)", VARCHAR, "2001-01-22 03:04:05.321 +07:09");
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05 +07:09' as varchar)", VARCHAR, "2001-01-22 03:04:05 +07:09");
@@ -302,7 +302,7 @@ public class TestTimestampWithTimeZone
     }
 
     @Test
-    public void testCastFromSlice()
+    public void testCastFromVarchar()
     {
         assertFunction("cast('2001-1-22 03:04:05.321' as timestamp with time zone)",
                 TIMESTAMP_TZ_MILLIS,

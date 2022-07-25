@@ -16,11 +16,13 @@ package io.trino.plugin.hive;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
+import com.google.common.primitives.Shorts;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
+import org.apache.hadoop.fs.permission.FsPermission;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -28,13 +30,16 @@ import javax.validation.constraints.Pattern;
 
 import java.io.File;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.Integer.parseUnsignedInt;
 import static java.util.Objects.requireNonNull;
 
 public class HdfsConfig
 {
+    public static final String SKIP_DIR_PERMISSIONS = "skip";
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private List<File> resourceConfigFiles = ImmutableList.of();
@@ -73,11 +78,18 @@ public class HdfsConfig
         return this;
     }
 
-    @NotNull
-    @Pattern(regexp = "0[0-7]{3}", message = "must be octal number, with leading 0")
+    public Optional<FsPermission> getNewDirectoryFsPermissions()
+    {
+        if (newDirectoryPermissions.equalsIgnoreCase(HdfsConfig.SKIP_DIR_PERMISSIONS)) {
+            return Optional.empty();
+        }
+        return Optional.of(FsPermission.createImmutable(Shorts.checkedCast(parseUnsignedInt(newDirectoryPermissions, 8))));
+    }
+
+    @Pattern(regexp = "(skip)|0[0-7]{3}", message = "must be either 'skip' or an octal number, with leading 0")
     public String getNewDirectoryPermissions()
     {
-        return newDirectoryPermissions;
+        return this.newDirectoryPermissions;
     }
 
     @Config("hive.fs.new-directory-permissions")

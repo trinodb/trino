@@ -30,8 +30,6 @@ public class KinesisShardCheckpointer
     private String logicalProcessName;
     private int currentIterationNumber;
     private KinesisClientLease kinesisClientLease;
-    private long checkpointIntervalMillis;
-    private long nextCheckpointTimeMillis;
 
     public KinesisShardCheckpointer(
             AmazonDynamoDB dynamoDBClient,
@@ -39,7 +37,6 @@ public class KinesisShardCheckpointer
             KinesisSplit kinesisSplit,
             String logicalProcessName,
             int currentIterationNumber,
-            long checkpointIntervalMS,
             long dynamoReadCapacity,
             long dynamoWriteCapacity)
     {
@@ -47,7 +44,6 @@ public class KinesisShardCheckpointer
                 kinesisSplit,
                 logicalProcessName,
                 currentIterationNumber,
-                checkpointIntervalMS,
                 dynamoReadCapacity,
                 dynamoWriteCapacity);
     }
@@ -57,7 +53,6 @@ public class KinesisShardCheckpointer
             KinesisSplit kinesisSplit,
             String logicalProcessName,
             int currentIterationNumber,
-            long checkpointIntervalMS,
             long dynamoReadCapacity,
             long dynamoWriteCapacity)
     {
@@ -65,7 +60,6 @@ public class KinesisShardCheckpointer
         this.kinesisSplit = kinesisSplit;
         this.logicalProcessName = logicalProcessName;
         this.currentIterationNumber = currentIterationNumber;
-        this.checkpointIntervalMillis = checkpointIntervalMS;
 
         try {
             this.leaseManager.createLeaseTableIfNotExists(dynamoReadCapacity, dynamoWriteCapacity);
@@ -82,12 +76,6 @@ public class KinesisShardCheckpointer
         catch (ProvisionedThroughputException | InvalidStateException | DependencyException e) {
             throw new RuntimeException(e);
         }
-        resetNextCheckpointTime();
-    }
-
-    private void resetNextCheckpointTime()
-    {
-        nextCheckpointTimeMillis = System.nanoTime() + checkpointIntervalMillis * 1_000_000;
     }
 
     private String createCheckpointKey(int iterationNo)
@@ -105,7 +93,7 @@ public class KinesisShardCheckpointer
     // storing last read sequence no. in dynamodb table
     public void checkpoint(String lastReadSequenceNumber)
     {
-        log.info("Trying to checkpoint at " + lastReadSequenceNumber);
+        log.info("Trying to checkpoint at %s", lastReadSequenceNumber);
         try {
             ExtendedSequenceNumber esn = new ExtendedSequenceNumber(lastReadSequenceNumber);
             kinesisClientLease.setCheckpoint(esn);
@@ -117,15 +105,14 @@ public class KinesisShardCheckpointer
         catch (DependencyException | InvalidStateException | ProvisionedThroughputException e) {
             throw new RuntimeException(e);
         }
-        resetNextCheckpointTime();
     }
 
     //return checkpoint of previous iteration if found
     public String getLastReadSeqNumber()
     {
         String lastReadSeqNumber = null;
-        KinesisClientLease oldLease = null;
         if (currentIterationNumber > 0) {
+            KinesisClientLease oldLease;
             try {
                 oldLease = leaseManager.getLease(createCheckpointKey(currentIterationNumber - 1));
             }
@@ -141,15 +128,8 @@ public class KinesisShardCheckpointer
             log.info("Previous checkpoint not found. Starting from beginning of shard");
         }
         else {
-            log.info("Resuming from " + lastReadSeqNumber);
+            log.info("Resuming from %s", lastReadSeqNumber);
         }
         return lastReadSeqNumber;
-    }
-
-    public void checkpointIfTimeUp(String lastReadSeqNo)
-    {
-        if (System.nanoTime() >= nextCheckpointTimeMillis) {
-            checkpoint(lastReadSeqNo);
-        }
     }
 }

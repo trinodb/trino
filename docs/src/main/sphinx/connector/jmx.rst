@@ -121,3 +121,12 @@ timestamp column that stores the time at which the snapshot was taken::
      2016-01-28 10:19:00.000 |  21422
      2016-01-28 10:19:10.000 |  31412
     (3 rows)
+
+.. _jmx-sql-support:
+
+SQL support
+-----------
+
+The connector provides :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements to access JMX information
+on your Trino nodes.

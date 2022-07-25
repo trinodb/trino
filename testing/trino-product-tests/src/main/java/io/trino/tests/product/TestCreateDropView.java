@@ -18,12 +18,13 @@ import io.trino.tempto.Requires;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import org.testng.annotations.Test;
 
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.context.ContextDsl.executeWith;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tempto.sql.SqlContexts.createViewAs;
 import static io.trino.tests.product.TestGroups.CREATE_DROP_VIEW;
 import static io.trino.tests.product.TestGroups.SMOKE;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 @Requires(ImmutableNationTable.class)
@@ -33,8 +34,8 @@ public class TestCreateDropView
     @Test(groups = CREATE_DROP_VIEW)
     public void createSimpleView()
     {
-        executeWith(createViewAs("SELECT * FROM nation"), view -> {
-            assertThat(query(format("SELECT * FROM %s", view.getName())))
+        executeWith(createViewAs("SELECT * FROM nation", onTrino()), view -> {
+            assertThat(onTrino().executeQuery(format("SELECT * FROM %s", view.getName())))
                     .hasRowsCount(25);
         });
     }
@@ -42,8 +43,8 @@ public class TestCreateDropView
     @Test(groups = CREATE_DROP_VIEW)
     public void querySimpleViewQualified()
     {
-        executeWith(createViewAs("SELECT * FROM nation"), view -> {
-            assertThat(query(format("SELECT %s.n_regionkey FROM %s", view.getName(), view.getName())))
+        executeWith(createViewAs("SELECT * FROM nation", onTrino()), view -> {
+            assertThat(onTrino().executeQuery(format("SELECT %s.n_regionkey FROM %s", view.getName(), view.getName())))
                     .hasRowsCount(25);
         });
     }
@@ -51,8 +52,8 @@ public class TestCreateDropView
     @Test(groups = CREATE_DROP_VIEW)
     public void createViewWithAggregate()
     {
-        executeWith(createViewAs("SELECT n_regionkey, count(*) countries FROM nation GROUP BY n_regionkey ORDER BY n_regionkey"), view -> {
-            assertThat(query(format("SELECT * FROM %s", view.getName())))
+        executeWith(createViewAs("SELECT n_regionkey, count(*) countries FROM nation GROUP BY n_regionkey ORDER BY n_regionkey", onTrino()), view -> {
+            assertThat(onTrino().executeQuery(format("SELECT * FROM %s", view.getName())))
                     .hasRowsCount(5);
         });
     }
@@ -60,10 +61,10 @@ public class TestCreateDropView
     @Test(groups = {CREATE_DROP_VIEW, SMOKE})
     public void createOrReplaceSimpleView()
     {
-        executeWith(createViewAs("SELECT * FROM nation"), view -> {
-            assertThat(query(format("CREATE OR REPLACE VIEW %s AS SELECT * FROM nation", view.getName())))
+        executeWith(createViewAs("SELECT * FROM nation", onTrino()), view -> {
+            assertThat(onTrino().executeQuery(format("CREATE OR REPLACE VIEW %s AS SELECT * FROM nation", view.getName())))
                     .hasRowsCount(1);
-            assertThat(query(format("SELECT * FROM %s", view.getName())))
+            assertThat(onTrino().executeQuery(format("SELECT * FROM %s", view.getName())))
                     .hasRowsCount(25);
         });
     }
@@ -71,10 +72,10 @@ public class TestCreateDropView
     @Test(groups = CREATE_DROP_VIEW)
     public void createSimpleViewTwiceShouldFail()
     {
-        executeWith(createViewAs("SELECT * FROM nation"), view -> {
-            assertThat(() -> query(format("CREATE VIEW %s AS SELECT * FROM nation", view.getName())))
-                    .failsWithMessage("View already exists");
-            assertThat(query(format("SELECT * FROM %s", view.getName())))
+        executeWith(createViewAs("SELECT * FROM nation", onTrino()), view -> {
+            assertQueryFailure(() -> onTrino().executeQuery(format("CREATE VIEW %s AS SELECT * FROM nation", view.getName())))
+                    .hasMessageContaining("View already exists");
+            assertThat(onTrino().executeQuery(format("SELECT * FROM %s", view.getName())))
                     .hasRowsCount(25);
         });
     }
@@ -82,13 +83,13 @@ public class TestCreateDropView
     @Test(groups = {CREATE_DROP_VIEW, SMOKE})
     public void dropViewTest()
     {
-        executeWith(createViewAs("SELECT * FROM nation"), view -> {
-            assertThat(query(format("SELECT * FROM %s", view.getName())))
+        executeWith(createViewAs("SELECT * FROM nation", onTrino()), view -> {
+            assertThat(onTrino().executeQuery(format("SELECT * FROM %s", view.getName())))
                     .hasRowsCount(25);
-            assertThat(query(format("DROP VIEW %s", view.getName())))
+            assertThat(onTrino().executeQuery(format("DROP VIEW %s", view.getName())))
                     .hasRowsCount(1);
-            assertThat(() -> query(format("SELECT * FROM %s", view.getName())))
-                    .failsWithMessage("does not exist");
+            assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM %s", view.getName())))
+                    .hasMessageContaining("does not exist");
         });
     }
 }

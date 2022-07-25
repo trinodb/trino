@@ -15,42 +15,35 @@ package io.trino.plugin.prometheus;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
-import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeOperators;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.type.InternalTypeManager;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.prometheus.MetadataUtil.METRIC_CODEC;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class PrometheusQueryRunner
 {
-    private static final Metadata METADATA = createTestMetadataManager();
-    private static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA, new TypeOperators());
-
     private PrometheusQueryRunner() {}
 
-    public static DistributedQueryRunner createPrometheusQueryRunner(PrometheusServer server)
+    public static DistributedQueryRunner createPrometheusQueryRunner(PrometheusServer server, Map<String, String> extraProperties, Map<String, String> connectorProperties)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = DistributedQueryRunner.builder(createSession()).build();
+            queryRunner = DistributedQueryRunner.builder(createSession()).setExtraProperties(extraProperties).build();
 
             queryRunner.installPlugin(new PrometheusPlugin());
-            Map<String, String> properties = ImmutableMap.of(
-                    "prometheus.uri", server.getUri().toString());
-            queryRunner.createCatalog("prometheus", "prometheus", properties);
+            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
+            connectorProperties.putIfAbsent("prometheus.uri", server.getUri().toString());
+            queryRunner.createCatalog("prometheus", "prometheus", connectorProperties);
             return queryRunner;
         }
         catch (Throwable e) {
@@ -74,14 +67,14 @@ public final class PrometheusQueryRunner
         config.setQueryChunkSizeDuration(new Duration(1, DAYS));
         config.setMaxQueryRangeDuration(new Duration(21, DAYS));
         config.setCacheDuration(new Duration(30, SECONDS));
-        return new PrometheusClient(config, METRIC_CODEC, TYPE_MANAGER);
+        config.setReadTimeout(new Duration(10, SECONDS));
+        return new PrometheusClient(config, METRIC_CODEC, TESTING_TYPE_MANAGER);
     }
 
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
-        DistributedQueryRunner queryRunner = createPrometheusQueryRunner(new PrometheusServer());
+        DistributedQueryRunner queryRunner = createPrometheusQueryRunner(new PrometheusServer(), ImmutableMap.of("http-server.http.port", "8080"), ImmutableMap.of());
         Thread.sleep(10);
         Logger log = Logger.get(PrometheusQueryRunner.class);
         log.info("======== SERVER STARTED ========");

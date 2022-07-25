@@ -27,24 +27,31 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class GlueMetastoreStats
 {
-    private final GlueMetastoreApiStats getAllDatabases = new GlueMetastoreApiStats();
+    private final GlueMetastoreApiStats getDatabases = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats getDatabase = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats getAllTables = new GlueMetastoreApiStats();
+    private final GlueMetastoreApiStats getTables = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats getTable = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats getAllViews = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats createDatabase = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats dropDatabase = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats renameDatabase = new GlueMetastoreApiStats();
+    private final GlueMetastoreApiStats deleteDatabase = new GlueMetastoreApiStats();
+    private final GlueMetastoreApiStats updateDatabase = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats createTable = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats dropTable = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats replaceTable = new GlueMetastoreApiStats();
+    private final GlueMetastoreApiStats deleteTable = new GlueMetastoreApiStats();
+    private final GlueMetastoreApiStats updateTable = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats getPartitionNames = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats getPartitions = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats getPartition = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats getPartitionByName = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats addPartitions = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats dropPartition = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats alterPartition = new GlueMetastoreApiStats();
+    private final GlueMetastoreApiStats createPartitions = new GlueMetastoreApiStats();
+    private final GlueMetastoreApiStats deletePartition = new GlueMetastoreApiStats();
+    private final GlueMetastoreApiStats updatePartition = new GlueMetastoreApiStats();
+    private final GlueMetastoreApiStats batchUpdatePartition = new GlueMetastoreApiStats();
+    private final GlueMetastoreApiStats batchCreatePartition = new GlueMetastoreApiStats();
+    private final GlueMetastoreApiStats getColumnStatisticsForTable = new GlueMetastoreApiStats();
+    private final GlueMetastoreApiStats getColumnStatisticsForPartition = new GlueMetastoreApiStats();
+    private final GlueMetastoreApiStats updateColumnStatisticsForTable = new GlueMetastoreApiStats();
+    private final GlueMetastoreApiStats deleteColumnStatisticsForTable = new GlueMetastoreApiStats();
+    private final GlueMetastoreApiStats updateColumnStatisticsForPartition = new GlueMetastoreApiStats();
+    private final GlueMetastoreApiStats deleteColumnStatisticsForPartition = new GlueMetastoreApiStats();
 
     // see AWSRequestMetrics
     private final CounterStat awsRequestCount = new CounterStat();
@@ -59,9 +66,9 @@ public class GlueMetastoreStats
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getGetAllDatabases()
+    public GlueMetastoreApiStats getGetDatabases()
     {
-        return getAllDatabases;
+        return getDatabases;
     }
 
     @Managed
@@ -73,9 +80,9 @@ public class GlueMetastoreStats
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getGetAllTables()
+    public GlueMetastoreApiStats getGetTables()
     {
-        return getAllTables;
+        return getTables;
     }
 
     @Managed
@@ -87,13 +94,6 @@ public class GlueMetastoreStats
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getGetAllViews()
-    {
-        return getAllViews;
-    }
-
-    @Managed
-    @Nested
     public GlueMetastoreApiStats getCreateDatabase()
     {
         return createDatabase;
@@ -101,16 +101,16 @@ public class GlueMetastoreStats
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getDropDatabase()
+    public GlueMetastoreApiStats getDeleteDatabase()
     {
-        return dropDatabase;
+        return deleteDatabase;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getRenameDatabase()
+    public GlueMetastoreApiStats getUpdateDatabase()
     {
-        return renameDatabase;
+        return updateDatabase;
     }
 
     @Managed
@@ -122,16 +122,16 @@ public class GlueMetastoreStats
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getDropTable()
+    public GlueMetastoreApiStats getDeleteTable()
     {
-        return dropTable;
+        return deleteTable;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getReplaceTable()
+    public GlueMetastoreApiStats getUpdateTable()
     {
-        return replaceTable;
+        return updateTable;
     }
 
     @Managed
@@ -164,23 +164,79 @@ public class GlueMetastoreStats
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getAddPartitions()
+    public GlueMetastoreApiStats getCreatePartitions()
     {
-        return addPartitions;
+        return createPartitions;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getDropPartition()
+    public GlueMetastoreApiStats getDeletePartition()
     {
-        return dropPartition;
+        return deletePartition;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getAlterPartition()
+    public GlueMetastoreApiStats getUpdatePartition()
     {
-        return alterPartition;
+        return updatePartition;
+    }
+
+    @Managed
+    @Nested
+    public GlueMetastoreApiStats getBatchUpdatePartition()
+    {
+        return batchUpdatePartition;
+    }
+
+    @Managed
+    @Nested
+    public GlueMetastoreApiStats getBatchCreatePartition()
+    {
+        return batchCreatePartition;
+    }
+
+    @Managed
+    @Nested
+    public GlueMetastoreApiStats getGetColumnStatisticsForTable()
+    {
+        return getColumnStatisticsForTable;
+    }
+
+    @Managed
+    @Nested
+    public GlueMetastoreApiStats getGetColumnStatisticsForPartition()
+    {
+        return getColumnStatisticsForPartition;
+    }
+
+    @Managed
+    @Nested
+    public GlueMetastoreApiStats getUpdateColumnStatisticsForTable()
+    {
+        return updateColumnStatisticsForTable;
+    }
+
+    @Managed
+    @Nested
+    public GlueMetastoreApiStats getDeleteColumnStatisticsForTable()
+    {
+        return deleteColumnStatisticsForTable;
+    }
+
+    @Managed
+    @Nested
+    public GlueMetastoreApiStats getUpdateColumnStatisticsForPartition()
+    {
+        return updateColumnStatisticsForPartition;
+    }
+
+    @Managed
+    @Nested
+    public GlueMetastoreApiStats getDeleteColumnStatisticsForPartition()
+    {
+        return deleteColumnStatisticsForPartition;
     }
 
     @Managed

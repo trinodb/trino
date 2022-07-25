@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedTablePrefix;
+import io.trino.metadata.ViewInfo;
 import io.trino.security.AccessControl;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -25,7 +26,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GrantInfo;
@@ -196,7 +196,7 @@ public class InformationSchemaPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return memoryUsageBytes + pageBuilder.getRetainedSizeInBytes();
     }
@@ -250,7 +250,7 @@ public class InformationSchemaPageSource
     {
         for (Map.Entry<SchemaTableName, List<ColumnMetadata>> entry : listTableColumns(session, metadata, accessControl, prefix).entrySet()) {
             SchemaTableName tableName = entry.getKey();
-            int ordinalPosition = 1;
+            long ordinalPosition = 1;
 
             for (ColumnMetadata column : entry.getValue()) {
                 if (column.isHidden()) {
@@ -263,7 +263,7 @@ public class InformationSchemaPageSource
                         column.getName(),
                         ordinalPosition,
                         null,
-                        "YES",
+                        column.isNullable() ? "YES" : "NO",
                         getDisplayLabel(column.getType(), isOmitDateTimeTypePrecision(session)),
                         column.getComment(),
                         column.getExtraInfo(),
@@ -299,7 +299,7 @@ public class InformationSchemaPageSource
 
     private void addViewsRecords(QualifiedTablePrefix prefix)
     {
-        for (Map.Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, metadata, accessControl, prefix).entrySet()) {
+        for (Map.Entry<SchemaTableName, ViewInfo> entry : getViews(session, metadata, accessControl, prefix).entrySet()) {
             addRecord(
                     prefix.getCatalogName(),
                     entry.getKey().getSchemaName(),
@@ -344,6 +344,7 @@ public class InformationSchemaPageSource
 
     private void addRolesRecords()
     {
+        Optional<String> catalogName = metadata.isCatalogManagedSecurity(session, this.catalogName) ? Optional.of(this.catalogName) : Optional.empty();
         try {
             accessControl.checkCanShowRoles(session.toSecurityContext(), catalogName);
         }
@@ -361,6 +362,7 @@ public class InformationSchemaPageSource
 
     private void addRoleAuthorizationDescriptorRecords()
     {
+        Optional<String> catalogName = metadata.isCatalogManagedSecurity(session, this.catalogName) ? Optional.of(this.catalogName) : Optional.empty();
         try {
             accessControl.checkCanShowRoleAuthorizationDescriptors(session.toSecurityContext(), catalogName);
         }
@@ -384,6 +386,7 @@ public class InformationSchemaPageSource
 
     private void addApplicableRolesRecords()
     {
+        Optional<String> catalogName = metadata.isCatalogManagedSecurity(session, this.catalogName) ? Optional.of(this.catalogName) : Optional.empty();
         for (RoleGrant grant : metadata.listApplicableRoles(session, new TrinoPrincipal(USER, session.getUser()), catalogName)) {
             addRecord(
                     grant.getGrantee().getName(),

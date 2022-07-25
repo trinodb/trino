@@ -20,7 +20,6 @@ import io.trino.plugin.kafka.KafkaSecurityConfig;
 import org.apache.kafka.common.security.auth.SecurityProtocol;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
-import static io.airlift.configuration.ConfigurationModule.installModules;
 
 public class KafkaSecurityModule
         extends AbstractConfigurationAwareModule
@@ -30,14 +29,14 @@ public class KafkaSecurityModule
     {
         bindSecurityModule(
                 SecurityProtocol.SSL,
-                installModules(new SslSecurityModule()));
+                new SslSecurityModule());
     }
 
     private void bindSecurityModule(SecurityProtocol securityProtocol, Module module)
     {
         install(conditionalModule(
                 KafkaSecurityConfig.class,
-                config -> config.getSecurityProtocol().equals(securityProtocol),
+                config -> config.getSecurityProtocol().isPresent() && config.getSecurityProtocol().get().equals(securityProtocol),
                 module));
     }
 }

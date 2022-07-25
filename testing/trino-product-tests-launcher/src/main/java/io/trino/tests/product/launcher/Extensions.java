@@ -15,6 +15,7 @@ package io.trino.tests.product.launcher;
 
 import com.google.inject.Module;
 
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static java.util.Objects.requireNonNull;
 
 public final class Extensions
@@ -24,7 +25,7 @@ public final class Extensions
 
     public Extensions(Module additionalEnvironments)
     {
-        this(additionalEnvironments, binder -> {});
+        this(additionalEnvironments, EMPTY_MODULE);
     }
 
     public Extensions(Module additionalEnvironments, Module additionalSuites)

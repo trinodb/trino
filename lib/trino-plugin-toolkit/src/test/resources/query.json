@@ -1,7 +1,7 @@
 {
   "queries": [
     {
-      "user": "admin",
+      "role": "admin",
       "allow": ["execute", "view", "kill"]
     },
     {
@@ -11,6 +11,15 @@
     {
       "user": "bob",
       "allow": ["kill"]
+    },
+    {
+      "group": "contractors",
+      "queryOwner": "alice|dave",
+      "allow": ["view"]
+    },
+    {
+      "group": "contractors",
+      "allow": ["execute"]
     },
     {
       "user": "\u0194\u0194\u0194",

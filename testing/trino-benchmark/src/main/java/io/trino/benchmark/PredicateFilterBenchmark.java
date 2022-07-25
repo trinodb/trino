@@ -48,10 +48,10 @@ public class PredicateFilterBenchmark
     {
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "totalprice");
         RowExpression filter = call(
-                localQueryRunner.getMetadata().resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
+                localQueryRunner.getMetadata().resolveOperator(session, LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
                 constant(50000.0, DOUBLE),
                 field(0, DOUBLE));
-        ExpressionCompiler expressionCompiler = new ExpressionCompiler(localQueryRunner.getMetadata(), new PageFunctionCompiler(localQueryRunner.getMetadata(), 0));
+        ExpressionCompiler expressionCompiler = new ExpressionCompiler(localQueryRunner.getFunctionManager(), new PageFunctionCompiler(localQueryRunner.getFunctionManager(), 0));
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, DOUBLE)));
 
         OperatorFactory filterAndProjectOperator = FilterAndProjectOperator.createOperatorFactory(

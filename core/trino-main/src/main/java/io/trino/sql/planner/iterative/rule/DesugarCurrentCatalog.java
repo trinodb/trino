@@ -13,13 +13,15 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import io.trino.Session;
 import io.trino.metadata.Metadata;
-import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.QualifiedName;
+
+import static io.trino.sql.planner.FunctionCallBuilder.resolve;
 
 public class DesugarCurrentCatalog
         extends ExpressionRewriteRuleSet
@@ -31,19 +33,24 @@ public class DesugarCurrentCatalog
 
     private static ExpressionRewriter createRewrite(Metadata metadata)
     {
-        return (expression, context) -> ExpressionTreeRewriter.rewriteWith(new io.trino.sql.tree.ExpressionRewriter<>()
+        return (expression, context) -> rewriteCurrentCatalog(context.getSession(), metadata, expression);
+    }
+
+    private static Expression rewriteCurrentCatalog(Session session, Metadata metadata, Expression expression)
+    {
+        return ExpressionTreeRewriter.rewriteWith(new io.trino.sql.tree.ExpressionRewriter<>()
         {
             @Override
             public Expression rewriteCurrentCatalog(CurrentCatalog node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                return getCall(node, metadata);
+                return desugarCurrentCatalog(session, node, metadata);
             }
         }, expression);
     }
 
-    public static FunctionCall getCall(CurrentCatalog node, Metadata metadata)
+    public static FunctionCall desugarCurrentCatalog(Session session, CurrentCatalog node, Metadata metadata)
     {
-        return new FunctionCallBuilder(metadata)
+        return resolve(session, metadata)
                 .setName(QualifiedName.of("$current_catalog"))
                 .build();
     }

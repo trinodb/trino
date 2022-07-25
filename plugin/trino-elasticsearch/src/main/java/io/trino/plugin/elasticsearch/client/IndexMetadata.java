@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class IndexMetadata
@@ -35,15 +37,24 @@ public class IndexMetadata
 
     public static class Field
     {
+        private final boolean asRawJson;
         private final boolean isArray;
         private final String name;
         private final Type type;
 
-        public Field(boolean isArray, String name, Type type)
+        public Field(boolean asRawJson, boolean isArray, String name, Type type)
         {
+            checkArgument(!asRawJson || !isArray,
+                    format("A column, (%s) cannot be declared as a Trino array and also be rendered as json.", name));
+            this.asRawJson = asRawJson;
             this.isArray = isArray;
             this.name = requireNonNull(name, "name is null");
             this.type = requireNonNull(type, "type is null");
+        }
+
+        public boolean asRawJson()
+        {
+            return asRawJson;
         }
 
         public boolean isArray()
@@ -113,6 +124,22 @@ public class IndexMetadata
         public List<Field> getFields()
         {
             return fields;
+        }
+    }
+
+    public static class ScaledFloatType
+            implements Type
+    {
+        private final double scale;
+
+        public ScaledFloatType(double scale)
+        {
+            this.scale = scale;
+        }
+
+        public double getScale()
+        {
+            return scale;
         }
     }
 }

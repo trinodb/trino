@@ -65,7 +65,7 @@ public class RowPagesBuilder
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.hashEnabled = hashEnabled;
-        this.hashChannels = hashChannels;
+        this.hashChannels = hashChannels.map(ImmutableList::copyOf);
         builder = rowPageBuilder(types);
     }
 
@@ -145,6 +145,11 @@ public class RowPagesBuilder
     public List<Type> getTypesWithoutHash()
     {
         return types;
+    }
+
+    public Optional<List<Integer>> getHashChannels()
+    {
+        return hashChannels;
     }
 
     public Optional<Integer> getHashChannel()

@@ -39,7 +39,7 @@ public final class TestQueryRunnerUtil
     public static QueryId createQuery(DistributedQueryRunner queryRunner, Session session, String sql)
     {
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
-        getFutureValue(dispatchManager.createQuery(session.getQueryId(), Slug.createNew(), new TestingSessionContext(session), sql));
+        getFutureValue(dispatchManager.createQuery(session.getQueryId(), Slug.createNew(), TestingSessionContext.fromSession(session), sql));
         return session.getQueryId();
     }
 

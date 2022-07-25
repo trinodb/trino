@@ -14,6 +14,8 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
+import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
@@ -24,7 +26,6 @@ import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.plugin.iceberg.IcebergUtil.toTableId;
 import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -41,12 +42,15 @@ public class RollbackToSnapshotProcedure
             String.class,
             Long.class);
 
-    private final TrinoCatalog catalog;
+    private final TrinoCatalogFactory catalogFactory;
+    private final ClassLoader classLoader;
 
     @Inject
     public RollbackToSnapshotProcedure(TrinoCatalogFactory catalogFactory)
     {
-        this.catalog = requireNonNull(catalogFactory, "catalogFactory is null").create();
+        this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
+        // this class is loaded by PluginClassLoader and we need its reference to be stored
+        this.classLoader = getClass().getClassLoader();
     }
 
     @Override
@@ -56,16 +60,21 @@ public class RollbackToSnapshotProcedure
                 "system",
                 "rollback_to_snapshot",
                 ImmutableList.of(
-                        new Procedure.Argument("schema", VARCHAR),
-                        new Procedure.Argument("table", VARCHAR),
-                        new Procedure.Argument("snapshot_id", BIGINT)),
+                        new Procedure.Argument("SCHEMA", VARCHAR),
+                        new Procedure.Argument("TABLE", VARCHAR),
+                        new Procedure.Argument("SNAPSHOT_ID", BIGINT)),
                 ROLLBACK_TO_SNAPSHOT.bindTo(this));
     }
 
     public void rollbackToSnapshot(ConnectorSession clientSession, String schema, String table, Long snapshotId)
     {
-        SchemaTableName schemaTableName = new SchemaTableName(schema, table);
-        Table icebergTable = catalog.loadTable(toTableId(schemaTableName), clientSession);
-        icebergTable.rollback().toSnapshotId(snapshotId).commit();
+        // this line guarantees that classLoader that we stored in the field will be used inside try/catch
+        // as we captured reference to PluginClassLoader during initialization of this class
+        // we can use it now to correctly execute the procedure
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            SchemaTableName schemaTableName = new SchemaTableName(schema, table);
+            Table icebergTable = catalogFactory.create(clientSession.getIdentity()).loadTable(clientSession, schemaTableName);
+            icebergTable.rollback().toSnapshotId(snapshotId).commit();
+        }
     }
 }

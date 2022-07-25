@@ -13,7 +13,7 @@
  */
 package io.trino.connector.system;
 
-import io.trino.metadata.Metadata;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.transaction.TransactionManager;
 
 import javax.inject.Inject;
@@ -22,8 +22,8 @@ public class TablePropertiesSystemTable
         extends AbstractPropertiesSystemTable
 {
     @Inject
-    public TablePropertiesSystemTable(TransactionManager transactionManager, Metadata metadata)
+    public TablePropertiesSystemTable(TransactionManager transactionManager, TablePropertyManager tablePropertyManager)
     {
-        super("table_properties", transactionManager, () -> metadata.getTablePropertyManager().getAllProperties());
+        super("table_properties", transactionManager, tablePropertyManager::getAllProperties);
     }
 }

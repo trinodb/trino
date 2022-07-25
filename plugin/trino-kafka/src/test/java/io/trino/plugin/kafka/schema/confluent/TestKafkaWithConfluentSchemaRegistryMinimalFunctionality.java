@@ -40,16 +40,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
 
-import static io.airlift.units.Duration.succinctDuration;
 import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
 import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.VALUE_SUBJECT_NAME_STRATEGY;
-import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -84,7 +81,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         return KafkaWithConfluentSchemaRegistryQueryRunner.builder(testingKafka)
                 .setExtraKafkaProperties(ImmutableMap.<String, String>builder()
                         .put("kafka.confluent-subjects-cache-refresh-interval", "1ms")
-                        .build())
+                        .buildOrThrow())
                 .build();
     }
 
@@ -100,7 +97,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 schemaRegistryAwareProducer(testingKafka)
                         .put(KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class.getName())
                         .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
-                        .build());
+                        .buildOrThrow());
     }
 
     @Test
@@ -115,7 +112,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 schemaRegistryAwareProducer(testingKafka)
                         .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
-                        .build());
+                        .buildOrThrow());
     }
 
     @Test
@@ -131,7 +128,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                         .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .put(VALUE_SUBJECT_NAME_STRATEGY, RecordNameStrategy.class.getName())
-                        .build());
+                        .buildOrThrow());
     }
 
     @Test
@@ -147,7 +144,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                         .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .put(VALUE_SUBJECT_NAME_STRATEGY, TopicRecordNameStrategy.class.getName())
-                        .build());
+                        .buildOrThrow());
     }
 
     @Test
@@ -163,7 +160,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 schemaRegistryAwareProducer(testingKafka)
                         .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
-                        .build());
+                        .buildOrThrow());
 
         waitUntilTableExists(topicName);
 
@@ -184,15 +181,11 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 schemaRegistryAwareProducer(testingKafka)
                         .put(KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class.getName())
                         .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaJsonSchemaSerializer.class.getName())
-                        .build());
+                        .buildOrThrow());
+
+        assertTrue(tableExists(topicName));
 
         String errorMessage = "Not supported schema: JSON";
-        assertEventually(
-                succinctDuration(10, SECONDS),
-                () -> assertThatThrownBy(() -> tableExists(topicName))
-                        .isInstanceOf(RuntimeException.class)
-                        .hasMessage(errorMessage));
-
         assertThatThrownBy(() -> getQueryRunner().execute("SHOW COLUMNS FROM " + toDoubleQuoted(topicName)))
                 .hasMessage(errorMessage);
         assertThatThrownBy(() -> getQueryRunner().execute("SELECT * FROM " + toDoubleQuoted(topicName)))

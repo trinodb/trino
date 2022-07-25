@@ -13,12 +13,17 @@
  */
 package io.trino.spi.eventlistener;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.ErrorCode;
 
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
+/**
+ * This class is JSON serializable for convenience and serialization compatibility is not guaranteed across versions.
+ */
 public class QueryFailureInfo
 {
     private final ErrorCode errorCode;
@@ -28,6 +33,7 @@ public class QueryFailureInfo
     private final Optional<String> failureHost;
     private final String failuresJson;
 
+    @JsonCreator
     public QueryFailureInfo(
             ErrorCode errorCode,
             Optional<String> failureType,
@@ -44,31 +50,37 @@ public class QueryFailureInfo
         this.failuresJson = requireNonNull(failuresJson, "failuresJson is null");
     }
 
+    @JsonProperty
     public ErrorCode getErrorCode()
     {
         return errorCode;
     }
 
+    @JsonProperty
     public Optional<String> getFailureType()
     {
         return failureType;
     }
 
+    @JsonProperty
     public Optional<String> getFailureMessage()
     {
         return failureMessage;
     }
 
+    @JsonProperty
     public Optional<String> getFailureTask()
     {
         return failureTask;
     }
 
+    @JsonProperty
     public Optional<String> getFailureHost()
     {
         return failureHost;
     }
 
+    @JsonProperty
     public String getFailuresJson()
     {
         return failuresJson;

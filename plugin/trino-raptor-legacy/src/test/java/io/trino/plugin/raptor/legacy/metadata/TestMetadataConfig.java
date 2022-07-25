@@ -38,11 +38,11 @@ public class TestMetadataConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("raptor.startup-grace-period", "42m")
                 .put("raptor.reassignment-delay", "6m")
                 .put("raptor.reassignment-interval", "7m")
-                .build();
+                .buildOrThrow();
 
         MetadataConfig expected = new MetadataConfig()
                 .setStartupGracePeriod(new Duration(42, MINUTES))

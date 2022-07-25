@@ -108,6 +108,17 @@ public class TestSystemConnector
         executor.shutdownNow();
     }
 
+    @Test
+    public void testRuntimeNodes()
+    {
+        assertQuery(
+                "SELECT node_version, coordinator, state FROM system.runtime.nodes",
+                "VALUES " +
+                        "('testversion', true, 'active')," +
+                        "('testversion', true, 'active')," + // backup coordinator
+                        "('testversion', false, 'active')");
+    }
+
     // Test is run multiple times because it is vulnerable to OS clock adjustment. See https://github.com/trinodb/trino/issues/5608
     @Test(invocationCount = 10, successPercentage = 80)
     public void testRuntimeQueriesTimestamps()

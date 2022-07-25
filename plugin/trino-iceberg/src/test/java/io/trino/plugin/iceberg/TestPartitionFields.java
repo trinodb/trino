@@ -46,6 +46,7 @@ public class TestPartitionFields
         assertParse("bucket(order_key, 42)", partitionSpec(builder -> builder.bucket("order_key", 42)));
         assertParse("truncate(comment, 13)", partitionSpec(builder -> builder.truncate("comment", 13)));
         assertParse("truncate(order_key, 88)", partitionSpec(builder -> builder.truncate("order_key", 88)));
+        assertParse("void(order_key)", partitionSpec(builder -> builder.alwaysNull("order_key")));
 
         assertInvalid("bucket()", "Invalid partition field declaration: bucket()");
         assertInvalid("abc", "Cannot find source column: abc");

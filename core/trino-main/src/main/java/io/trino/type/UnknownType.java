@@ -27,7 +27,7 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.spi.function.OperatorType.COMPARISON;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
@@ -146,7 +146,7 @@ public final class UnknownType
         throw new AssertionError("value of unknown type should all be NULL");
     }
 
-    @ScalarOperator(COMPARISON)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(boolean unusedLeft, boolean unusedRight)
     {
         throw new AssertionError("value of unknown type should all be NULL");

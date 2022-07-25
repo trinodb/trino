@@ -17,9 +17,12 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
+import org.openjdk.jol.info.ClassLayout;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -32,6 +35,8 @@ import static java.util.Objects.requireNonNull;
 public class AllOrNoneValueSet
         implements ValueSet
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(AllOrNoneValueSet.class).instanceSize();
+
     private final Type type;
     private final boolean all;
 
@@ -167,6 +172,22 @@ public class AllOrNoneValueSet
     public String toString(ConnectorSession session, int limit)
     {
         return toString();
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        // type is not accounted for as the instances are cached (by TypeRegistry) and shared
+        return INSTANCE_SIZE;
+    }
+
+    @Override
+    public Optional<Collection<Object>> tryExpandRanges(int valuesLimit)
+    {
+        if (this.isNone()) {
+            return Optional.of(List.of());
+        }
+        return Optional.empty();
     }
 
     @Override

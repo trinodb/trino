@@ -14,6 +14,7 @@
 package io.trino.util;
 
 import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -36,6 +37,7 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.MapType;
@@ -80,14 +82,13 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.decodeUnscaledValue;
-import static io.trino.spi.type.Decimals.encodeUnscaledValue;
 import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.type.DateTimes.formatTimestamp;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.DateTimeUtils.printDate;
@@ -102,7 +103,7 @@ import static java.time.ZoneOffset.UTC;
 
 public final class JsonUtil
 {
-    public static final JsonFactory JSON_FACTORY = new JsonFactory().disable(CANONICALIZE_FIELD_NAMES);
+    public static final JsonFactory JSON_FACTORY = new JsonFactoryBuilder().disable(CANONICALIZE_FIELD_NAMES).build();
 
     // This object mapper is constructed without .configure(ORDER_MAP_ENTRIES_BY_KEYS, true) because
     // `OBJECT_MAPPER.writeValueAsString(parser.readValueAsTree());` preserves input order.
@@ -236,7 +237,7 @@ public final class JsonUtil
                     return (block, position) -> Decimals.toString(decimalType.getLong(block, position), decimalType.getScale());
                 }
                 return (block, position) -> Decimals.toString(
-                        decodeUnscaledValue(type.getSlice(block, position)),
+                        ((Int128) type.getObject(block, position)).toBigInteger(),
                         decimalType.getScale());
             }
             if (type instanceof VarcharType) {
@@ -275,7 +276,7 @@ public final class JsonUtil
                 if (isShortDecimal(type)) {
                     return new ShortDecimalJsonGeneratorWriter((DecimalType) type);
                 }
-                return new LongDeicmalJsonGeneratorWriter((DecimalType) type);
+                return new LongDecimalJsonGeneratorWriter((DecimalType) type);
             }
             if (type instanceof VarcharType) {
                 return new VarcharJsonGeneratorWriter(type);
@@ -425,12 +426,12 @@ public final class JsonUtil
         }
     }
 
-    private static class LongDeicmalJsonGeneratorWriter
+    private static class LongDecimalJsonGeneratorWriter
             implements JsonGeneratorWriter
     {
         private final DecimalType type;
 
-        public LongDeicmalJsonGeneratorWriter(DecimalType type)
+        public LongDecimalJsonGeneratorWriter(DecimalType type)
         {
             this.type = type;
         }
@@ -444,7 +445,7 @@ public final class JsonUtil
             }
             else {
                 BigDecimal value = new BigDecimal(
-                        decodeUnscaledValue(type.getSlice(block, position)),
+                        ((Int128) type.getObject(block, position)).toBigInteger(),
                         type.getScale());
                 jsonGenerator.writeNumber(value);
             }
@@ -670,7 +671,7 @@ public final class JsonUtil
                 return Slices.utf8Slice(parser.getText());
             case VALUE_NUMBER_FLOAT:
                 // Avoidance of loss of precision does not seem to be possible here because of Jackson implementation.
-                return DoubleOperators.castToVarchar(parser.getDoubleValue());
+                return DoubleOperators.castToVarchar(UNBOUNDED_LENGTH, parser.getDoubleValue());
             case VALUE_NUMBER_INT:
                 // An alternative is calling getLongValue and then BigintOperators.castToVarchar.
                 // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
@@ -849,14 +850,14 @@ public final class JsonUtil
         return bigDecimal != null ? bigDecimal.unscaledValue().longValue() : null;
     }
 
-    public static Slice currentTokenAsLongDecimal(JsonParser parser, int precision, int scale)
+    public static Int128 currentTokenAsLongDecimal(JsonParser parser, int precision, int scale)
             throws IOException
     {
         BigDecimal bigDecimal = currentTokenAsJavaDecimal(parser, precision, scale);
         if (bigDecimal == null) {
             return null;
         }
-        return encodeUnscaledValue(bigDecimal.unscaledValue());
+        return Int128.valueOf(bigDecimal.unscaledValue());
     }
 
     // TODO: Instead of having BigDecimal as an intermediate step,
@@ -949,8 +950,7 @@ public final class JsonUtil
                 MapType mapType = (MapType) type;
                 return new MapBlockBuilderAppender(
                         createBlockBuilderAppender(mapType.getKeyType()),
-                        createBlockBuilderAppender(mapType.getValueType()),
-                        mapType.getKeyType());
+                        createBlockBuilderAppender(mapType.getValueType()));
             }
             if (type instanceof RowType) {
                 RowType rowType = (RowType) type;
@@ -1124,13 +1124,13 @@ public final class JsonUtil
         public void append(JsonParser parser, BlockBuilder blockBuilder)
                 throws IOException
         {
-            Slice result = currentTokenAsLongDecimal(parser, type.getPrecision(), type.getScale());
+            Int128 result = currentTokenAsLongDecimal(parser, type.getPrecision(), type.getScale());
 
             if (result == null) {
                 blockBuilder.appendNull();
             }
             else {
-                type.writeSlice(blockBuilder, result);
+                type.writeObject(blockBuilder, result);
             }
         }
     }
@@ -1194,13 +1194,11 @@ public final class JsonUtil
     {
         final BlockBuilderAppender keyAppender;
         final BlockBuilderAppender valueAppender;
-        final Type keyType;
 
-        MapBlockBuilderAppender(BlockBuilderAppender keyAppender, BlockBuilderAppender valueAppender, Type keyType)
+        MapBlockBuilderAppender(BlockBuilderAppender keyAppender, BlockBuilderAppender valueAppender)
         {
             this.keyAppender = keyAppender;
             this.valueAppender = valueAppender;
-            this.keyType = keyType;
         }
 
         @Override

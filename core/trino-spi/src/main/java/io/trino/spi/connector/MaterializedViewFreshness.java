@@ -15,10 +15,6 @@ package io.trino.spi.connector;
 
 import java.util.Objects;
 
-/**
- * The class is used to determine the freshness of a materialized view. The flag
- * materializedViewFresh when false, indicates that the materialized view is fresh.
- */
 public final class MaterializedViewFreshness
 {
     private final boolean materializedViewFresh;

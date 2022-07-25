@@ -27,22 +27,24 @@ public class CreateRole
 {
     private final Identifier name;
     private final Optional<GrantorSpecification> grantor;
+    private final Optional<Identifier> catalog;
 
-    public CreateRole(Identifier name, Optional<GrantorSpecification> grantor)
+    public CreateRole(Identifier name, Optional<GrantorSpecification> grantor, Optional<Identifier> catalog)
     {
-        this(Optional.empty(), name, grantor);
+        this(Optional.empty(), name, grantor, catalog);
     }
 
-    public CreateRole(NodeLocation location, Identifier name, Optional<GrantorSpecification> grantor)
+    public CreateRole(NodeLocation location, Identifier name, Optional<GrantorSpecification> grantor, Optional<Identifier> catalog)
     {
-        this(Optional.of(location), name, grantor);
+        this(Optional.of(location), name, grantor, catalog);
     }
 
-    private CreateRole(Optional<NodeLocation> location, Identifier name, Optional<GrantorSpecification> grantor)
+    private CreateRole(Optional<NodeLocation> location, Identifier name, Optional<GrantorSpecification> grantor, Optional<Identifier> catalog)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
         this.grantor = requireNonNull(grantor, "grantor is null");
+        this.catalog = requireNonNull(catalog, "catalog is null");
     }
 
     public Identifier getName()
@@ -53,6 +55,11 @@ public class CreateRole
     public Optional<GrantorSpecification> getGrantor()
     {
         return grantor;
+    }
+
+    public Optional<Identifier> getCatalog()
+    {
+        return catalog;
     }
 
     @Override
@@ -66,13 +73,14 @@ public class CreateRole
         }
         CreateRole that = (CreateRole) o;
         return Objects.equals(name, that.name) &&
-                Objects.equals(grantor, that.grantor);
+                Objects.equals(grantor, that.grantor) &&
+                Objects.equals(catalog, that.catalog);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, grantor);
+        return Objects.hash(name, grantor, catalog);
     }
 
     @Override
@@ -81,6 +89,7 @@ public class CreateRole
         return toStringHelper(this)
                 .add("name", name)
                 .add("grantor", grantor)
+                .add("catalog", catalog)
                 .toString();
     }
 

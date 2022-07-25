@@ -32,23 +32,23 @@ public class StorageFormat
 {
     public static final StorageFormat VIEW_STORAGE_FORMAT = createNullable(null, null, null);
 
-    private final String serDe;
+    private final String serde;
     private final String inputFormat;
     private final String outputFormat;
 
-    private StorageFormat(String serDe, String inputFormat, String outputFormat)
+    private StorageFormat(String serde, String inputFormat, String outputFormat)
     {
-        this.serDe = serDe;
+        this.serde = serde;
         this.inputFormat = inputFormat;
         this.outputFormat = outputFormat;
     }
 
-    public String getSerDe()
+    public String getSerde()
     {
-        if (serDe == null) {
+        if (serde == null) {
             throw new TrinoException(HIVE_INVALID_METADATA, "SerDe is not present in StorageFormat");
         }
-        return serDe;
+        return serde;
     }
 
     public String getInputFormat()
@@ -67,10 +67,10 @@ public class StorageFormat
         return outputFormat;
     }
 
-    @JsonProperty("serDe")
+    @JsonProperty("serde")
     public String getSerDeNullable()
     {
-        return serDe;
+        return serde;
     }
 
     @JsonProperty("inputFormat")
@@ -87,24 +87,24 @@ public class StorageFormat
 
     public static StorageFormat fromHiveStorageFormat(HiveStorageFormat hiveStorageFormat)
     {
-        return new StorageFormat(hiveStorageFormat.getSerDe(), hiveStorageFormat.getInputFormat(), hiveStorageFormat.getOutputFormat());
+        return new StorageFormat(hiveStorageFormat.getSerde(), hiveStorageFormat.getInputFormat(), hiveStorageFormat.getOutputFormat());
     }
 
     public static StorageFormat create(String serde, String inputFormat, String outputFormat)
     {
         return new StorageFormat(
-                requireNonNull(serde, "serDe is null"),
+                requireNonNull(serde, "serde is null"),
                 requireNonNull(inputFormat, "inputFormat is null"),
                 requireNonNull(outputFormat, "outputFormat is null"));
     }
 
     @JsonCreator
     public static StorageFormat createNullable(
-            @JsonProperty("serDe") String serDe,
+            @JsonProperty("serde") String serde,
             @JsonProperty("inputFormat") String inputFormat,
             @JsonProperty("outputFormat") String outputFormat)
     {
-        return new StorageFormat(serDe, inputFormat, outputFormat);
+        return new StorageFormat(serde, inputFormat, outputFormat);
     }
 
     @Override
@@ -117,7 +117,7 @@ public class StorageFormat
             return false;
         }
         StorageFormat that = (StorageFormat) o;
-        return Objects.equals(serDe, that.serDe) &&
+        return Objects.equals(serde, that.serde) &&
                 Objects.equals(inputFormat, that.inputFormat) &&
                 Objects.equals(outputFormat, that.outputFormat);
     }
@@ -125,14 +125,14 @@ public class StorageFormat
     @Override
     public int hashCode()
     {
-        return Objects.hash(serDe, inputFormat, outputFormat);
+        return Objects.hash(serde, inputFormat, outputFormat);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("serDe", serDe)
+                .add("serde", serde)
                 .add("inputFormat", inputFormat)
                 .add("outputFormat", outputFormat)
                 .toString();

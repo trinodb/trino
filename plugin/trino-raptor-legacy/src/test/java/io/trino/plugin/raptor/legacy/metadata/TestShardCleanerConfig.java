@@ -45,7 +45,7 @@ public class TestShardCleanerConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("raptor.max-transaction-age", "42m")
                 .put("raptor.transaction-cleaner-interval", "43m")
                 .put("raptor.local-cleaner-interval", "31m")
@@ -54,7 +54,7 @@ public class TestShardCleanerConfig
                 .put("raptor.backup-clean-time", "35m")
                 .put("raptor.backup-deletion-threads", "37")
                 .put("raptor.max-completed-transaction-age", "39m")
-                .build();
+                .buildOrThrow();
 
         ShardCleanerConfig expected = new ShardCleanerConfig()
                 .setMaxTransactionAge(new Duration(42, MINUTES))

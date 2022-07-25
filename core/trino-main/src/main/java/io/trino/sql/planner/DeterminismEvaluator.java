@@ -13,8 +13,8 @@
  */
 package io.trino.sql.planner;
 
-import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
@@ -33,33 +33,33 @@ public final class DeterminismEvaluator
 
     public static boolean isDeterministic(Expression expression, Metadata metadata)
     {
-        return isDeterministic(expression, functionCall -> metadata.getFunctionMetadata(metadata.decodeFunction(functionCall.getName())));
+        return isDeterministic(expression, functionCall -> metadata.decodeFunction(functionCall.getName()));
     }
 
-    public static boolean isDeterministic(Expression expression, Function<FunctionCall, FunctionMetadata> functionMetadataSupplier)
+    public static boolean isDeterministic(Expression expression, Function<FunctionCall, ResolvedFunction> resolvedFunctionSupplier)
     {
-        requireNonNull(functionMetadataSupplier, "functionMetadataSupplier is null");
+        requireNonNull(resolvedFunctionSupplier, "resolvedFunctionSupplier is null");
         requireNonNull(expression, "expression is null");
 
         AtomicBoolean deterministic = new AtomicBoolean(true);
-        new Visitor(functionMetadataSupplier).process(expression, deterministic);
+        new Visitor(resolvedFunctionSupplier).process(expression, deterministic);
         return deterministic.get();
     }
 
     private static class Visitor
             extends DefaultExpressionTraversalVisitor<AtomicBoolean>
     {
-        private final Function<FunctionCall, FunctionMetadata> functionMetadataSupplier;
+        private final Function<FunctionCall, ResolvedFunction> resolvedFunctionSupplier;
 
-        public Visitor(Function<FunctionCall, FunctionMetadata> functionMetadataSupplier)
+        public Visitor(Function<FunctionCall, ResolvedFunction> resolvedFunctionSupplier)
         {
-            this.functionMetadataSupplier = functionMetadataSupplier;
+            this.resolvedFunctionSupplier = resolvedFunctionSupplier;
         }
 
         @Override
         protected Void visitFunctionCall(FunctionCall node, AtomicBoolean deterministic)
         {
-            if (!functionMetadataSupplier.apply(node).isDeterministic()) {
+            if (!resolvedFunctionSupplier.apply(node).isDeterministic()) {
                 deterministic.set(false);
             }
             return super.visitFunctionCall(node, deterministic);

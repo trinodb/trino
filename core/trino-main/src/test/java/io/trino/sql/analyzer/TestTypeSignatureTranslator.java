@@ -91,6 +91,7 @@ public class TestTypeSignatureTranslator
         assertRoundTrip("ROW(a BIGINT,b VARCHAR)");
         assertRoundTrip("ROW(\"a\" BIGINT, \"from\" VARCHAR)");
         assertRoundTrip("ROW(\"$x\" BIGINT, \"$y\" VARCHAR)");
+        assertRoundTrip("ROW(\"ident with spaces\" BIGINT)");
     }
 
     @Test

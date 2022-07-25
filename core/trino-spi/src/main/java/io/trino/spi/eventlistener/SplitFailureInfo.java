@@ -13,24 +13,33 @@
  */
 package io.trino.spi.eventlistener;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import static java.util.Objects.requireNonNull;
 
+/**
+ * This class is JSON serializable for convenience and serialization compatibility is not guaranteed across versions.
+ */
 public class SplitFailureInfo
 {
     private final String failureType;
     private final String failureMessage;
 
+    @JsonCreator
     public SplitFailureInfo(String failureType, String failureMessage)
     {
         this.failureType = requireNonNull(failureType, "failureType is null");
         this.failureMessage = requireNonNull(failureMessage, "failureMessage is null");
     }
 
+    @JsonProperty
     public String getFailureType()
     {
         return failureType;
     }
 
+    @JsonProperty
     public String getFailureMessage()
     {
         return failureMessage;

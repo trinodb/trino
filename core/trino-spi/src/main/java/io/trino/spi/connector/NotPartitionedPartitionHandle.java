@@ -13,6 +13,7 @@
  */
 package io.trino.spi.connector;
 
+@Deprecated
 public final class NotPartitionedPartitionHandle
         extends ConnectorPartitionHandle
 {
@@ -30,6 +31,6 @@ public final class NotPartitionedPartitionHandle
     @Override
     public int hashCode()
     {
-        return 0;
+        return getClass().hashCode();
     }
 }

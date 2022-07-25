@@ -19,11 +19,14 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
+import io.trino.testing.datatype.CreateAndTrinoInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -31,6 +34,7 @@ import org.testng.annotations.Test;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -44,15 +48,15 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
-import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.createTimestampType;
-import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseSqlServerTypeMapping
         extends AbstractTestQueryFramework
@@ -71,13 +75,22 @@ public abstract class BaseSqlServerTypeMapping
     private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
     private final LocalDateTime timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
 
+    protected TestingSqlServer sqlServer;
+
     @BeforeClass
     public void setUp()
     {
+        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
+        checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
         checkIsGap(jvmZone, timeGapInJvmZone1);
         checkIsGap(jvmZone, timeGapInJvmZone2);
         checkIsDoubled(jvmZone, timeDoubledInJvmZone);
 
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
+        checkIsGap(vilnius, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
+        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
+        checkIsDoubled(vilnius, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
         checkIsGap(vilnius, timeGapInVilnius);
         checkIsDoubled(vilnius, timeDoubledInVilnius);
 
@@ -85,21 +98,128 @@ public abstract class BaseSqlServerTypeMapping
     }
 
     @Test
-    public void testBasicTypes()
+    public void testTrinoBoolean()
     {
         SqlDataTypeTest.create()
                 .addRoundTrip("boolean", "null", BOOLEAN, "CAST(NULL AS BOOLEAN)")
                 .addRoundTrip("boolean", "true", BOOLEAN)
                 .addRoundTrip("boolean", "false", BOOLEAN)
-                .addRoundTrip("bigint", "null", BIGINT, "CAST(NULL AS BIGINT)")
-                .addRoundTrip("bigint", "123456789012", BIGINT)
-                .addRoundTrip("integer", "null", INTEGER, "CAST(NULL AS INTEGER)")
-                .addRoundTrip("integer", "123456789", INTEGER)
-                .addRoundTrip("smallint", "null", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_boolean"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_boolean"));
+    }
+
+    @Test
+    public void testSqlServerBit()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("bit", "null", BOOLEAN, "CAST(NULL AS BOOLEAN)")
+                .addRoundTrip("bit", "1", BOOLEAN, "true")
+                .addRoundTrip("bit", "0", BOOLEAN, "false")
+                .execute(getQueryRunner(), sqlServerCreateAndInsert("test_bit"));
+    }
+
+    @Test
+    public void testTinyint()
+    {
+        // Map SQL Server TINYINT to Trino SMALLINT because SQL Server TINYINT is actually "unsigned tinyint"
+        SqlDataTypeTest.create()
+                .addRoundTrip("tinyint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .addRoundTrip("tinyint", "0", SMALLINT, "SMALLINT '0'") // min value in SQL Server
+                .addRoundTrip("tinyint", "5", SMALLINT, "SMALLINT '5'")
+                .addRoundTrip("tinyint", "255", SMALLINT, "SMALLINT '255'") // max value in SQL Server
+                .execute(getQueryRunner(), sqlServerCreateAndInsert("test_tinyint"))
+                .execute(getQueryRunner(), sqlServerCreateAndTrinoInsert("test_tinyint"));
+    }
+
+    @Test
+    public void testUnsupportedTinyint()
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "test_unsupported_tinyint", "(data tinyint)")) {
+            assertSqlServerQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (-1)", // min - 1
+                    "Arithmetic overflow error for data type tinyint, value = -1");
+            assertSqlServerQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (256)", // max + 1
+                    "Arithmetic overflow error for data type tinyint, value = 256.");
+        }
+    }
+
+    @Test
+    public void testSmallint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("smallint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .addRoundTrip("smallint", "-32768", SMALLINT, "SMALLINT '-32768'") // min value in SQL Server and Trino
                 .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
-                .addRoundTrip("tinyint", "null", TINYINT, "CAST(NULL AS TINYINT)")
-                .addRoundTrip("tinyint", "5", TINYINT, "TINYINT '5'")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
+                .addRoundTrip("smallint", "32767", SMALLINT, "SMALLINT '32767'") // max value in SQL Server and Trino
+                .execute(getQueryRunner(), sqlServerCreateAndInsert("test_smallint"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_smallint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_smallint"));
+    }
+
+    @Test
+    public void testUnsupportedSmallint()
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "test_unsupported_smallint", "(data smallint)")) {
+            assertSqlServerQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (-32769)", // min - 1
+                    "Arithmetic overflow error for data type smallint, value = -32769.");
+            assertSqlServerQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (32768)", // max + 1
+                    "Arithmetic overflow error for data type smallint, value = 32768.");
+        }
+    }
+
+    @Test
+    public void testInteger()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("integer", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
+                .addRoundTrip("integer", "-2147483648", INTEGER, "-2147483648") // min value in SQL Server and Trino
+                .addRoundTrip("integer", "1234567890", INTEGER, "1234567890")
+                .addRoundTrip("integer", "2147483647", INTEGER, "2147483647") // max value in SQL Server and Trino
+                .execute(getQueryRunner(), sqlServerCreateAndInsert("test_int"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_int"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_int"));
+    }
+
+    @Test
+    public void testUnsupportedInteger()
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "test_unsupported_integer", "(data integer)")) {
+            assertSqlServerQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (-2147483649)", // min - 1
+                    "Arithmetic overflow error converting expression to data type int.");
+            assertSqlServerQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (2147483648)", // max + 1
+                    "Arithmetic overflow error converting expression to data type int.");
+        }
+    }
+
+    @Test
+    public void testBigint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("bigint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .addRoundTrip("bigint", "-9223372036854775808", BIGINT, "-9223372036854775808") // min value in SQL Server and Trino
+                .addRoundTrip("bigint", "123456789012", BIGINT, "123456789012")
+                .addRoundTrip("bigint", "9223372036854775807", BIGINT, "9223372036854775807") // max value in SQL Server and Trino
+                .execute(getQueryRunner(), sqlServerCreateAndInsert("test_bigint"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_bigint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_bigint"));
+    }
+
+    @Test
+    public void testUnsupportedBigint()
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "test_unsupported_bigint", "(data bigint)")) {
+            assertSqlServerQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (-9223372036854775809)", // min - 1
+                    "Arithmetic overflow error converting expression to data type bigint.");
+            assertSqlServerQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (9223372036854775808)", // max + 1
+                    "Arithmetic overflow error converting expression to data type bigint.");
+        }
     }
 
     @Test
@@ -116,7 +236,27 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS real)")
                 .addRoundTrip("real", "3.14", REAL, "REAL '3.14'")
                 .addRoundTrip("real", "3.1415927", REAL, "REAL '3.1415927'")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_real"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_real"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_real"));
+    }
+
+    @Test
+    public void testFloat()
+    {
+        // SQL Server treats n as one of two possible values. If 1<=n<=24, n is treated as 24. If 25<=n<=53, n is treated as 53
+        SqlDataTypeTest.create()
+                .addRoundTrip("float", "1E100", DOUBLE, "double '1E100'")
+                .addRoundTrip("float", "1.0", DOUBLE, "double '1.0'")
+                .addRoundTrip("float", "123456.123456", DOUBLE, "double '123456.123456'")
+                .addRoundTrip("float", "NULL", DOUBLE, "CAST(NULL AS double)")
+                .addRoundTrip("float(1)", "100000.0", REAL, "REAL '100000.0'")
+                .addRoundTrip("float(24)", "123000.0", REAL, "REAL '123000.0'")
+                .addRoundTrip("float(24)", "NULL", REAL, "CAST(NULL AS real)")
+                .addRoundTrip("float(25)", "1E100", DOUBLE, "double '1E100'")
+                .addRoundTrip("float(53)", "1.0", DOUBLE, "double '1.0'")
+                .addRoundTrip("float(53)", "1234567890123456789.0123456789", DOUBLE, "double '1234567890123456789.0123456789'")
+                .addRoundTrip("float(53)", "NULL", DOUBLE, "CAST(NULL AS double)")
+                .execute(getQueryRunner(), sqlServerCreateAndInsert("test_float"));
     }
 
     @Test
@@ -155,7 +295,8 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("decimal(30, 5)", "3141592653589793238462643.38327", createDecimalType(30, 5), "CAST('3141592653589793238462643.38327' AS decimal(30, 5))")
                 .addRoundTrip("decimal(30, 5)", "-3141592653589793238462643.38327", createDecimalType(30, 5), "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))")
                 .execute(getQueryRunner(), sqlServerCreateAndInsert("test_decimal"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_decimal"));
     }
 
     @Test
@@ -176,7 +317,7 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("char(32)", "CAST('攻殻機動隊' AS char(32))", createCharType(32), "CAST('攻殻機動隊' AS char(32))")
                 .addRoundTrip("char(20)", "CAST('😂' AS char(20))", createCharType(20), "CAST('😂' AS char(20))")
                 .addRoundTrip("char(77)", "CAST('Ну, погоди!' AS char(77))", createCharType(77), "CAST('Ну, погоди!' AS char(77))")
-                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_char"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_char"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_char"));
     }
 
@@ -196,7 +337,7 @@ public abstract class BaseSqlServerTypeMapping
         // testing mapping char > 4000 -> varchar(max)
         SqlDataTypeTest.create()
                 .addRoundTrip("char(4001)", "'text_c'", createUnboundedVarcharType(), "VARCHAR 'text_c'")
-                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_long_char"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_long_char"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_long_char"));
     }
 
@@ -216,7 +357,7 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("varchar(32)", "CAST('攻殻機動隊' AS varchar(32))", createVarcharType(32), "CAST('攻殻機動隊' AS varchar(32))")
                 .addRoundTrip("varchar(20)", "CAST('😂' AS varchar(20))", createVarcharType(20), "CAST('😂' AS varchar(20))")
                 .addRoundTrip("varchar(77)", "CAST('Ну, погоди!' AS varchar(77))", createVarcharType(77), "CAST('Ну, погоди!' AS varchar(77))")
-                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_varchar"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_varchar"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"));
     }
 
@@ -239,8 +380,17 @@ public abstract class BaseSqlServerTypeMapping
         // testing mapping varchar > 4000 -> varchar(max)
         SqlDataTypeTest.create()
                 .addRoundTrip("varchar(4001)", "'text_c'", createUnboundedVarcharType(), "VARCHAR 'text_c'")
-                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_long_varchar"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_long_varchar"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_long_varchar"));
+    }
+
+    @Test
+    public void testSqlServerLongVarchar()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("text", "'text_a'", createUnboundedVarcharType(), "VARCHAR 'text_a'")
+                .addRoundTrip("ntext", "'text_a'", createVarcharType(1073741823), "CAST('text_a' as VARCHAR(1073741823))")
+                .execute(getQueryRunner(), sqlServerCreateAndInsert("test_long_n_varchar"));
     }
 
     @Test
@@ -256,7 +406,7 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("varchar", "VARCHAR '😂'", createUnboundedVarcharType(), "VARCHAR '😂'")
                 .addRoundTrip("varchar", "VARCHAR 'Ну, погоди!'", createUnboundedVarcharType(), "VARCHAR 'Ну, погоди!'")
                 .addRoundTrip("varchar", "'text_f'", createUnboundedVarcharType(), "VARCHAR 'text_f'")
-                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_unbounded_varchar"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_unbounded_varchar"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_unbounded_varchar"));
     }
 
@@ -271,7 +421,8 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("varbinary", "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰')")
                 .addRoundTrip("varbinary", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
                 .addRoundTrip("varbinary", "X'000000000000'", VARBINARY, "X'000000000000'")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_varbinary"));
 
         // Binary literals must be prefixed with 0x
         // https://docs.microsoft.com/en-us/sql/analytics-platform-system/load-with-insert?view=aps-pdw-2016-au7#InsertingLiteralsBinary
@@ -286,66 +437,53 @@ public abstract class BaseSqlServerTypeMapping
                 .execute(getQueryRunner(), sqlServerCreateAndInsert("test_varbinary"));
     }
 
-    @Test
-    public void testDate()
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testDate(ZoneId sessionZone)
     {
-        ZoneId jvmZone = ZoneId.systemDefault();
-        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
-        checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
 
-        ZoneId someZone = ZoneId.of("Europe/Vilnius");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
-        checkIsGap(someZone, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
-        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
-        checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
+        dateTest(Function.identity())
+                .execute(getQueryRunner(), session, sqlServerCreateAndInsert("test_date"));
 
+        dateTest(inputLiteral -> format("DATE %s", inputLiteral))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
+    }
+
+    private SqlDataTypeTest dateTest(Function<String, String> inputLiteralFactory)
+    {
         // BC dates not supported by SQL Server
-        SqlDataTypeTest testsSqlServer = SqlDataTypeTest.create()
+        return SqlDataTypeTest.create()
                 .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
                 // first day of AD
-                .addRoundTrip("date", "'0001-01-01'", DATE, "DATE '0001-01-01'")
-                .addRoundTrip("date", "'0012-12-12'", DATE, "DATE '0012-12-12'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'0001-01-01'"), DATE, "DATE '0001-01-01'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'0012-12-12'"), DATE, "DATE '0012-12-12'")
                 // before julian->gregorian switch
-                .addRoundTrip("date", "'1500-01-01'", DATE, "DATE '1500-01-01'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'1500-01-01'"), DATE, "DATE '1500-01-01'")
                 // before epoch
-                .addRoundTrip("date", "'1952-04-03'", DATE, "DATE '1952-04-03'")
-                .addRoundTrip("date", "'1970-01-01'", DATE, "DATE '1970-01-01'")
-                .addRoundTrip("date", "'1970-02-03'", DATE, "DATE '1970-02-03'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'1952-04-03'"), DATE, "DATE '1952-04-03'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'1970-01-01'"), DATE, "DATE '1970-01-01'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'1970-02-03'"), DATE, "DATE '1970-02-03'")
                 // summer on northern hemisphere (possible DST)
-                .addRoundTrip("date", "'2017-07-01'", DATE, "DATE '2017-07-01'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'2017-07-01'"), DATE, "DATE '2017-07-01'")
                 // winter on northern hemisphere (possible DST on southern hemisphere)
-                .addRoundTrip("date", "'2017-01-01'", DATE, "DATE '2017-01-01'")
-                .addRoundTrip("date", "'1970-01-01'", DATE, "DATE '1970-01-01'")
-                .addRoundTrip("date", "'1983-04-01'", DATE, "DATE '1983-04-01'")
-                .addRoundTrip("date", "'1983-10-01'", DATE, "DATE '1983-10-01'");
+                .addRoundTrip("date", inputLiteralFactory.apply("'2017-01-01'"), DATE, "DATE '2017-01-01'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'1983-04-01'"), DATE, "DATE '1983-04-01'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'1983-10-01'"), DATE, "DATE '1983-10-01'");
+    }
 
-        SqlDataTypeTest testsTrino = SqlDataTypeTest.create()
-                .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
-                // first day of AD
-                .addRoundTrip("date", "DATE '0001-01-01'", DATE, "DATE '0001-01-01'")
-                .addRoundTrip("date", "DATE '0012-12-12'", DATE, "DATE '0012-12-12'")
-                // before julian->gregorian switch
-                .addRoundTrip("date", "DATE '1500-01-01'", DATE, "DATE '1500-01-01'")
-                // before epoch
-                .addRoundTrip("date", "DATE '1952-04-03'", DATE, "DATE '1952-04-03'")
-                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
-                .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
-                // summer on northern hemisphere (possible DST)
-                .addRoundTrip("date", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'")
-                // winter on northern hemisphere (possible DST on southern hemisphere)
-                .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'")
-                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
-                .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'")
-                .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'");
-
-        for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
-            Session session = Session.builder(getSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
-                    .build();
-            testsSqlServer.execute(getQueryRunner(), session, sqlServerCreateAndInsert("test_date"));
-            testsTrino.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
-            testsTrino.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
+    @Test
+    public void testDateJulianGregorianCalendarSwitch()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_old_date", "(dt DATE)", ImmutableList.of("DATE '1582-10-05'", "DATE '1582-10-14'"))) {
+            // SQL Server returns +10 days when the date is in the range of 1582-10-05 and 1582-10-14, but we need to pass the original value in predicates
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES DATE '1582-10-15', DATE '1582-10-24'");
+            assertQuery("SELECT * FROM " + table.getName() + " WHERE dt = DATE '1582-10-05'", "VALUES DATE '1582-10-15'");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName() + " WHERE dt = DATE '1582-10-15'");
         }
     }
 
@@ -404,8 +542,8 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("TIME '23:59:59.999999'", "TIME '23:59:59.999999'")
                 .addRoundTrip("TIME '23:59:59.9999999'", "TIME '23:59:59.9999999'")
 
-                .execute(getQueryRunner(), trinoCreateAsSelect(getSession(), "test_time"))
-                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_time"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_time"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_time"));
 
         SqlDataTypeTest.create()
                 // round down
@@ -436,11 +574,11 @@ public abstract class BaseSqlServerTypeMapping
                 // round down
                 .addRoundTrip("TIME '23:59:59.999999949999'", "TIME '23:59:59.9999999'")
 
-                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_time"))
-                .execute(getQueryRunner(), trinoCreateAsSelect(getSession(), "test_time"));
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_time"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_time"));
     }
 
-    @Test(dataProvider = "testTimestampDataProvider")
+    @Test(dataProvider = "sessionZonesDataProvider")
     public void testTimestamp(ZoneId sessionZone)
     {
         SqlDataTypeTest tests = SqlDataTypeTest.create()
@@ -540,8 +678,9 @@ public abstract class BaseSqlServerTypeMapping
                 .build();
 
         tests.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"));
-        tests.execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_timestamp"));
+        tests.execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"));
         tests.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"));
+        tests.execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
     }
 
     @Test
@@ -580,8 +719,93 @@ public abstract class BaseSqlServerTypeMapping
                 .execute(getQueryRunner(), sqlServerCreateAndInsert("test_sqlserver_timestamp"));
     }
 
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testSqlServerDatetimeOffset(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        SqlDataTypeTest.create()
+                // With +00:00 time zone
+                .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.0000000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(1)", "'1970-01-01 00:00:00.1'", createTimestampWithTimeZoneType(1), "TIMESTAMP '1970-01-01 00:00:00.1+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(1)", "'1970-01-01 00:00:00.9'", createTimestampWithTimeZoneType(1), "TIMESTAMP '1970-01-01 00:00:00.9+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(3)", "'1970-01-01 00:00:00.123'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1970-01-01 00:00:00.123+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(6)", "'1970-01-01 00:00:00.123000'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1970-01-01 00:00:00.123000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(7)", "'1970-01-01 00:00:00.1234567'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.1234567+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(3)", "'1970-01-01 00:00:00.999'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1970-01-01 00:00:00.999+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00.1234567'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.1234567+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(1)", "'2020-09-27 12:34:56.1'", createTimestampWithTimeZoneType(1), "TIMESTAMP '2020-09-27 12:34:56.1+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(1)", "'2020-09-27 12:34:56.9'", createTimestampWithTimeZoneType(1), "TIMESTAMP '2020-09-27 12:34:56.9+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(3)", "'2020-09-27 12:34:56.123'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-09-27 12:34:56.123+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(6)", "'2020-09-27 12:34:56.123000'", createTimestampWithTimeZoneType(6), "TIMESTAMP '2020-09-27 12:34:56.123000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(7)", "'2020-09-27 12:34:56.9999999'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 12:34:56.9999999+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(3)", "'2020-09-27 12:34:56.999'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-09-27 12:34:56.999+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'2020-09-27 12:34:56.1234567'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 12:34:56.1234567+00:00'")
+
+                .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.0000000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00.1'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.1000000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00.9'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.9000000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00.123'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.1230000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00.123000'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.1230000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00.999'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.9990000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00.1234567'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.1234567+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'2020-09-27 12:34:56.1'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 12:34:56.1000000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'2020-09-27 12:34:56.9'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 12:34:56.9000000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'2020-09-27 12:34:56.123'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 12:34:56.1230000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'2020-09-27 12:34:56.123000'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 12:34:56.1230000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'2020-09-27 12:34:56.999'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 12:34:56.9990000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'2020-09-27 12:34:56.1234567'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 12:34:56.1234567+00:00'")
+
+                // With various time zone
+                .addRoundTrip("DATETIMEOFFSET(1)", "'1970-01-01 00:00:00.1+01:00'", createTimestampWithTimeZoneType(1), "TIMESTAMP '1970-01-01 00:00:00.1+01:00'")
+                .addRoundTrip("DATETIMEOFFSET(2)", "'1970-01-01 00:00:00.12+03:00'", createTimestampWithTimeZoneType(2), "TIMESTAMP '1970-01-01 00:00:00.12+03:00'")
+                .addRoundTrip("DATETIMEOFFSET(3)", "'1970-01-01 00:00:00.123+03:00'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1970-01-01 00:00:00.123+03:00'")
+                .addRoundTrip("DATETIMEOFFSET(4)", "'1970-01-01 00:00:00.1234+04:00'", createTimestampWithTimeZoneType(4), "TIMESTAMP '1970-01-01 00:00:00.1234+04:00'")
+                .addRoundTrip("DATETIMEOFFSET(5)", "'1970-01-01 00:00:00.12345+04:00'", createTimestampWithTimeZoneType(5), "TIMESTAMP '1970-01-01 00:00:00.12345+04:00'")
+                .addRoundTrip("DATETIMEOFFSET(6)", "'1970-01-01 00:00:00.123456+04:00'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1970-01-01 00:00:00.123456+04:00'")
+                .addRoundTrip("DATETIMEOFFSET(7)", "'1970-01-01 00:00:00.1234567+07:00'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.1234567+07:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00.1234567+07:00'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.1234567+07:00'")
+
+                .addRoundTrip("DATETIMEOFFSET(1)", "'2020-09-27 00:00:00.1+01:00'", createTimestampWithTimeZoneType(1), "TIMESTAMP '2020-09-27 00:00:00.1+01:00'")
+                .addRoundTrip("DATETIMEOFFSET(2)", "'2020-09-27 00:00:00.12+03:00'", createTimestampWithTimeZoneType(2), "TIMESTAMP '2020-09-27 00:00:00.12+03:00'")
+                .addRoundTrip("DATETIMEOFFSET(3)", "'2020-09-27 00:00:00.123+03:00'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-09-27 00:00:00.123+03:00'")
+                .addRoundTrip("DATETIMEOFFSET(4)", "'2020-09-27 00:00:00.1234+04:00'", createTimestampWithTimeZoneType(4), "TIMESTAMP '2020-09-27 00:00:00.1234+04:00'")
+                .addRoundTrip("DATETIMEOFFSET(5)", "'2020-09-27 00:00:00.12345+04:00'", createTimestampWithTimeZoneType(5), "TIMESTAMP '2020-09-27 00:00:00.12345+04:00'")
+                .addRoundTrip("DATETIMEOFFSET(6)", "'2020-09-27 00:00:00.123456+04:00'", createTimestampWithTimeZoneType(6), "TIMESTAMP '2020-09-27 00:00:00.123456+04:00'")
+                .addRoundTrip("DATETIMEOFFSET(7)", "'2020-09-27 00:00:00.1234567+07:00'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 00:00:00.1234567+07:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'2020-09-27 00:00:00.1234567+07:00'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 00:00:00.1234567+07:00'")
+
+                // before epoch with second fraction
+                .addRoundTrip("DATETIMEOFFSET", "'1969-12-31 23:59:59.1230000'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1969-12-31 23:59:59.1230000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET", "'1969-12-31 23:59:59.1234567'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1969-12-31 23:59:59.1234567+00:00'")
+
+                // round down
+                .addRoundTrip("DATETIMEOFFSET(6)", "'1970-01-01 00:00:00.1234561'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1970-01-01 00:00:00.123456+00:00'")
+
+                // nanos round up, end result rounds down
+                .addRoundTrip("DATETIMEOFFSET(4)", "'1970-01-01 00:00:00.1234499'", createTimestampWithTimeZoneType(4), "TIMESTAMP '1970-01-01 00:00:00.1234+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(5)", "'1970-01-01 00:00:00.12345499'", createTimestampWithTimeZoneType(5), "TIMESTAMP '1970-01-01 00:00:00.12345+00:00'")
+
+                // round up
+                .addRoundTrip("DATETIMEOFFSET(6)", "'1970-01-01 00:00:00.1234565'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1970-01-01 00:00:00.123457+00:00'")
+
+                // round up to next second
+                .addRoundTrip("DATETIMEOFFSET(6)", "'1970-01-01 00:00:00.9999999'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1970-01-01 00:00:01.000000+00:00'")
+
+                // round up to next day
+                .addRoundTrip("DATETIMEOFFSET(6)", "'1970-01-01 23:59:59.9999995'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1970-01-02 00:00:00.000000+00:00'")
+
+                // negative epoch
+                .addRoundTrip("DATETIMEOFFSET(6)", "'1969-12-31 23:59:59.9999995'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1970-01-01 00:00:00.000000+00:00'")
+                .addRoundTrip("DATETIMEOFFSET(6)", "'1969-12-31 23:59:59.9999994'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1969-12-31 23:59:59.999999+00:00'")
+
+                .execute(getQueryRunner(), session, sqlServerCreateAndInsert("test_sqlserver_datetimeoffset"));
+    }
+
     @DataProvider
-    public Object[][] testTimestampDataProvider()
+    public Object[][] sessionZonesDataProvider()
     {
         return new Object[][] {
                 {UTC},
@@ -605,6 +829,11 @@ public abstract class BaseSqlServerTypeMapping
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
+    protected DataSetup trinoCreateAndInsert(String tableNamePrefix)
+    {
+        return trinoCreateAndInsert(getSession(), tableNamePrefix);
+    }
+
     protected DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
@@ -613,6 +842,16 @@ public abstract class BaseSqlServerTypeMapping
     protected DataSetup sqlServerCreateAndInsert(String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(onRemoteDatabase(), tableNamePrefix);
+    }
+
+    protected DataSetup sqlServerCreateAndTrinoInsert(String tableNamePrefix)
+    {
+        return sqlServerCreateAndTrinoInsert(getSession(), tableNamePrefix);
+    }
+
+    protected DataSetup sqlServerCreateAndTrinoInsert(Session session, String tableNamePrefix)
+    {
+        return new CreateAndTrinoInsertDataSetup(onRemoteDatabase(), new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
@@ -630,5 +869,15 @@ public abstract class BaseSqlServerTypeMapping
         verify(isGap(zone, dateTime), "Expected %s to be a gap in %s", dateTime, zone);
     }
 
-    protected abstract SqlExecutor onRemoteDatabase();
+    private void assertSqlServerQueryFails(@Language("SQL") String sql, String expectedMessage)
+    {
+        assertThatThrownBy(() -> onRemoteDatabase().execute(sql))
+                .getCause()
+                .hasMessageContaining(expectedMessage);
+    }
+
+    protected SqlExecutor onRemoteDatabase()
+    {
+        return sqlServer::execute;
+    }
 }

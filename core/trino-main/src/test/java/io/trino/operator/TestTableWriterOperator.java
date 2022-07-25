@@ -18,14 +18,15 @@ import io.airlift.slice.Slice;
 import io.trino.RowPagesBuilder;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.memory.context.MemoryTrackingContext;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.OutputTableHandle;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.AggregationOperator.AggregationOperatorFactory;
 import io.trino.operator.DevNullOperator.DevNullOperatorFactory;
 import io.trino.operator.TableWriterOperator.TableWriterInfo;
 import io.trino.operator.TableWriterOperator.TableWriterOperatorFactory;
-import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -36,7 +37,6 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.Type;
 import io.trino.split.PageSinkManager;
-import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
 import io.trino.sql.tree.QualifiedName;
@@ -47,7 +47,7 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -55,11 +55,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -67,6 +67,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -75,9 +76,7 @@ import static org.testng.Assert.assertTrue;
 public class TestTableWriterOperator
 {
     private static final CatalogName CONNECTOR_ID = new CatalogName("testConnectorId");
-    private static final Metadata METADATA = createTestMetadataManager();
-    private static final InternalAggregationFunction LONG_MAX = METADATA.getAggregateFunctionImplementation(
-            METADATA.resolveFunction(QualifiedName.of("max"), fromTypes(BIGINT)));
+    private static final TestingAggregationFunction LONG_MAX = new TestingFunctionResolution().getAggregateFunction(QualifiedName.of("max"), fromTypes(BIGINT));
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
 
@@ -148,7 +147,7 @@ public class TestTableWriterOperator
         assertFalse(operator.needsInput());
     }
 
-    @Test(expectedExceptions = IllegalStateException.class)
+    @Test
     public void addInputFailsOnBlockedOperator()
     {
         Operator operator = createTableWriterOperator(new BlockingPageSink());
@@ -158,14 +157,15 @@ public class TestTableWriterOperator
         assertFalse(operator.isBlocked().isDone());
         assertFalse(operator.needsInput());
 
-        operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
+        assertThatThrownBy(() -> operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Operator does not need input");
     }
 
     @Test
     public void testTableWriterInfo()
     {
-        PageSinkManager pageSinkManager = new PageSinkManager();
-        pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(new TableWriteInfoTestPageSink()));
+        PageSinkManager pageSinkManager = new PageSinkManager(CatalogServiceProvider.singleton(CONNECTOR_ID, new ConstantPageSinkProvider(new TableWriteInfoTestPageSink())));
         TableWriterOperator tableWriterOperator = (TableWriterOperator) createTableWriterOperator(
                 pageSinkManager,
                 new DevNullOperatorFactory(1, new PlanNodeId("test")),
@@ -194,8 +194,7 @@ public class TestTableWriterOperator
     public void testStatisticsAggregation()
             throws Exception
     {
-        PageSinkManager pageSinkManager = new PageSinkManager();
-        pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(new TableWriteInfoTestPageSink()));
+        PageSinkManager pageSinkManager = new PageSinkManager(CatalogServiceProvider.singleton(CONNECTOR_ID, new ConstantPageSinkProvider(new TableWriteInfoTestPageSink())));
         ImmutableList<Type> outputTypes = ImmutableList.of(BIGINT, VARBINARY, BIGINT);
         Session session = testSessionBuilder()
                 .setSystemProperty("statistics_cpu_timer_enabled", "true")
@@ -208,9 +207,7 @@ public class TestTableWriterOperator
                 new AggregationOperatorFactory(
                         1,
                         new PlanNodeId("test"),
-                        AggregationNode.Step.SINGLE,
-                        ImmutableList.of(LONG_MAX.bind(ImmutableList.of(0), Optional.empty())),
-                        true),
+                        ImmutableList.of(LONG_MAX.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()))),
                 outputTypes,
                 session,
                 driverContext);
@@ -221,8 +218,7 @@ public class TestTableWriterOperator
         assertTrue(operator.isBlocked().isDone());
         assertTrue(operator.needsInput());
 
-        assertThat(driverContext.getSystemMemoryUsage()).isGreaterThan(0);
-        assertEquals(driverContext.getMemoryUsage(), 0);
+        assertThat(driverContext.getMemoryUsage()).isGreaterThan(0);
 
         operator.finish();
         assertFalse(operator.isFinished());
@@ -251,7 +247,6 @@ public class TestTableWriterOperator
     {
         OperatorContext tableWriterOperatorOperatorContext = tableWriterOperator.getOperatorContext();
         MemoryTrackingContext tableWriterMemoryContext = tableWriterOperatorOperatorContext.getOperatorMemoryContext();
-        assertEquals(tableWriterMemoryContext.getSystemMemory(), 0);
         assertEquals(tableWriterMemoryContext.getUserMemory(), 0);
         assertEquals(tableWriterMemoryContext.getRevocableMemory(), 0);
 
@@ -260,15 +255,13 @@ public class TestTableWriterOperator
         AggregationOperator aggregationOperator = (AggregationOperator) statisticAggregationOperator;
         OperatorContext aggregationOperatorOperatorContext = aggregationOperator.getOperatorContext();
         MemoryTrackingContext aggregationOperatorMemoryContext = aggregationOperatorOperatorContext.getOperatorMemoryContext();
-        assertEquals(aggregationOperatorMemoryContext.getSystemMemory(), 0);
         assertEquals(aggregationOperatorMemoryContext.getUserMemory(), 0);
         assertEquals(aggregationOperatorMemoryContext.getRevocableMemory(), 0);
     }
 
     private Operator createTableWriterOperator(BlockingPageSink blockingPageSink)
     {
-        PageSinkManager pageSinkManager = new PageSinkManager();
-        pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(blockingPageSink));
+        PageSinkManager pageSinkManager = new PageSinkManager(CatalogServiceProvider.singleton(CONNECTOR_ID, new ConstantPageSinkProvider(blockingPageSink)));
         return createTableWriterOperator(pageSinkManager, new DevNullOperatorFactory(1, new PlanNodeId("test")), ImmutableList.of(BIGINT, VARBINARY));
     }
 
@@ -294,15 +287,19 @@ public class TestTableWriterOperator
     {
         List<String> notNullColumnNames = new ArrayList<>(1);
         notNullColumnNames.add(null);
+        SchemaTableName schemaTableName = new SchemaTableName("testSchema", "testTable");
         TableWriterOperatorFactory factory = new TableWriterOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 pageSinkManager,
-                new CreateTarget(new OutputTableHandle(
-                        CONNECTOR_ID,
-                        new ConnectorTransactionHandle() {},
-                        new ConnectorOutputTableHandle() {}),
-                        new SchemaTableName("testSchema", "testTable")),
+                new CreateTarget(
+                        new OutputTableHandle(
+                                CONNECTOR_ID,
+                                schemaTableName,
+                                new ConnectorTransactionHandle() {},
+                                new ConnectorOutputTableHandle() {}),
+                        schemaTableName,
+                        false),
                 ImmutableList.of(0),
                 notNullColumnNames,
                 session,
@@ -385,7 +382,7 @@ public class TestTableWriterOperator
         }
 
         @Override
-        public long getSystemMemoryUsage()
+        public long getMemoryUsage()
         {
             long memoryUsage = 0;
             for (Page page : pages) {

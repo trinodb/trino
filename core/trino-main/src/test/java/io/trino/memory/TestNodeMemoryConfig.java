@@ -31,27 +31,21 @@ public class TestNodeMemoryConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(NodeMemoryConfig.class)
-                .setMaxQueryMemoryPerNode(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.1)))
-                .setMaxQueryTotalMemoryPerNode(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3)))
-                .setHeapHeadroom(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3)))
-                .setReservedPoolDisabled(true));
+                .setMaxQueryMemoryPerNode(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3)))
+                .setHeapHeadroom(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3))));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.max-memory-per-node", "1GB")
-                .put("query.max-total-memory-per-node", "3GB")
                 .put("memory.heap-headroom-per-node", "1GB")
-                .put("experimental.reserved-pool-disabled", "false")
-                .build();
+                .buildOrThrow();
 
         NodeMemoryConfig expected = new NodeMemoryConfig()
                 .setMaxQueryMemoryPerNode(DataSize.of(1, GIGABYTE))
-                .setMaxQueryTotalMemoryPerNode(DataSize.of(3, GIGABYTE))
-                .setHeapHeadroom(DataSize.of(1, GIGABYTE))
-                .setReservedPoolDisabled(false);
+                .setHeapHeadroom(DataSize.of(1, GIGABYTE));
 
         assertFullMapping(properties, expected);
     }

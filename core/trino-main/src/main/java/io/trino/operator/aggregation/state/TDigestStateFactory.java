@@ -30,21 +30,9 @@ public class TDigestStateFactory
     }
 
     @Override
-    public Class<? extends TDigestState> getSingleStateClass()
-    {
-        return SingleTDigestState.class;
-    }
-
-    @Override
     public TDigestState createGroupedState()
     {
         return new GroupedTDigestState();
-    }
-
-    @Override
-    public Class<? extends TDigestState> getGroupedStateClass()
-    {
-        return GroupedTDigestState.class;
     }
 
     public static class GroupedTDigestState

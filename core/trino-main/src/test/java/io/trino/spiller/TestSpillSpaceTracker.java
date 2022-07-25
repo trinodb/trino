@@ -19,6 +19,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -57,18 +58,22 @@ public class TestSpillSpaceTracker
         assertEquals(spillSpaceTracker.getCurrentBytes(), 0);
     }
 
-    @Test(expectedExceptions = ExceededSpillLimitException.class)
+    @Test
     public void testSpillOutOfSpace()
     {
         assertEquals(spillSpaceTracker.getCurrentBytes(), 0);
-        spillSpaceTracker.reserve(MAX_DATA_SIZE.toBytes() + 1);
+        assertThatThrownBy(() -> spillSpaceTracker.reserve(MAX_DATA_SIZE.toBytes() + 1))
+                .isInstanceOf(ExceededSpillLimitException.class)
+                .hasMessageMatching("Query exceeded local spill limit of.*");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test
     public void testFreeToMuch()
     {
         assertEquals(spillSpaceTracker.getCurrentBytes(), 0);
         spillSpaceTracker.reserve(1000);
-        spillSpaceTracker.free(1001);
+        assertThatThrownBy(() -> spillSpaceTracker.free(1001))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("tried to free more disk space than is reserved");
     }
 }

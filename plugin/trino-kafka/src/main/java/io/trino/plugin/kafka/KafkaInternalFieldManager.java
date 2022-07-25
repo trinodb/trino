@@ -138,7 +138,7 @@ public class KafkaInternalFieldManager
     {
         Type varcharMapType = typeManager.getType(mapType(VARCHAR.getTypeSignature(), arrayType(VARBINARY.getTypeSignature())));
 
-        internalFields = new ImmutableMap.Builder<String, InternalField>()
+        internalFields = ImmutableMap.<String, InternalField>builder()
                 .put(PARTITION_ID_FIELD, new InternalField(
                         PARTITION_ID_FIELD,
                         "Partition Id",
@@ -179,7 +179,7 @@ public class KafkaInternalFieldManager
                         OFFSET_TIMESTAMP_FIELD,
                         "Message timestamp",
                         TIMESTAMP_MILLIS))
-                .build();
+                .buildOrThrow();
     }
 
     /**

@@ -3,7 +3,6 @@
   "tableType": "REALTIME",
   "segmentsConfig": {
     "timeColumnName": "updatedAtHours",
-    "timeType": "HOURS",
     "retentionTimeUnit": "DAYS",
     "retentionTimeValue": "365",
     "segmentPushType": "APPEND",

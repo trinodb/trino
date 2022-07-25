@@ -16,15 +16,12 @@ package io.trino.benchmark;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
-import io.trino.metadata.Metadata;
 import io.trino.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import io.trino.operator.OperatorFactory;
-import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.LocalQueryRunner;
 
 import java.util.List;
@@ -33,19 +30,17 @@ import java.util.Optional;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 public class HashAggregationBenchmark
         extends AbstractSimpleOperatorBenchmark
 {
-    private final InternalAggregationFunction doubleSum;
+    private final BenchmarkAggregationFunction doubleSum;
 
     public HashAggregationBenchmark(LocalQueryRunner localQueryRunner)
     {
         super(localQueryRunner, "hash_agg", 5, 25);
 
-        Metadata metadata = localQueryRunner.getMetadata();
-        doubleSum = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)));
+        doubleSum = createAggregationFunction("sum", DOUBLE);
     }
 
     @Override
@@ -60,14 +55,14 @@ public class HashAggregationBenchmark
                 Ints.asList(0),
                 ImmutableList.of(),
                 Step.SINGLE,
-                ImmutableList.of(doubleSum.bind(ImmutableList.of(1), Optional.empty())),
+                ImmutableList.of(doubleSum.bind(ImmutableList.of(1))),
                 Optional.empty(),
                 Optional.empty(),
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 new JoinCompiler(localQueryRunner.getTypeOperators()),
                 localQueryRunner.getBlockTypeOperators(),
-                false);
+                Optional.empty());
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }
 

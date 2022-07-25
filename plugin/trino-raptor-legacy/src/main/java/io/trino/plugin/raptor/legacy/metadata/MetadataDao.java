@@ -15,15 +15,21 @@ package io.trino.plugin.raptor.legacy.metadata;
 
 import io.trino.plugin.raptor.legacy.metadata.Table.TableMapper;
 import io.trino.spi.connector.SchemaTableName;
-import org.skife.jdbi.v2.sqlobject.Bind;
-import org.skife.jdbi.v2.sqlobject.GetGeneratedKeys;
-import org.skife.jdbi.v2.sqlobject.SqlQuery;
-import org.skife.jdbi.v2.sqlobject.SqlUpdate;
-import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
+import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
+import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
+import org.jdbi.v3.sqlobject.statement.GetGeneratedKeys;
+import org.jdbi.v3.sqlobject.statement.SqlQuery;
+import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 import java.util.List;
 import java.util.Set;
 
+@RegisterConstructorMapper(ColumnMetadataRow.class)
+@RegisterConstructorMapper(TableMetadataRow.class)
+@RegisterConstructorMapper(TableStatsRow.class)
+@RegisterRowMapper(SchemaTableNameMapper.class)
+@RegisterRowMapper(TableMapper.class)
+@RegisterRowMapper(ViewResult.Mapper.class)
 public interface MetadataDao
 {
     String TABLE_INFORMATION_SELECT = "" +
@@ -41,31 +47,28 @@ public interface MetadataDao
 
     @SqlQuery(TABLE_INFORMATION_SELECT +
             "WHERE t.table_id = :tableId")
-    @Mapper(TableMapper.class)
-    Table getTableInformation(@Bind("tableId") long tableId);
+    Table getTableInformation(long tableId);
 
     @SqlQuery(TABLE_INFORMATION_SELECT +
             "WHERE t.schema_name = :schemaName\n" +
             "  AND t.table_name = :tableName")
-    @Mapper(TableMapper.class)
     Table getTableInformation(
-            @Bind("schemaName") String schemaName,
-            @Bind("tableName") String tableName);
+            String schemaName,
+            String tableName);
 
     @SqlQuery(TABLE_COLUMN_SELECT +
             "WHERE t.table_id = :tableId\n" +
             "  AND c.column_id = :columnId\n" +
             "ORDER BY c.ordinal_position\n")
     TableColumn getTableColumn(
-            @Bind("tableId") long tableId,
-            @Bind("columnId") long columnId);
+            long tableId,
+            long columnId);
 
     @SqlQuery("SELECT schema_name, table_name\n" +
             "FROM tables\n" +
             "WHERE (schema_name = :schemaName OR :schemaName IS NULL)")
-    @Mapper(SchemaTableNameMapper.class)
     List<SchemaTableName> listTables(
-            @Bind("schemaName") String schemaName);
+            String schemaName);
 
     @SqlQuery("SELECT DISTINCT schema_name FROM tables")
     List<String> listSchemaNames();
@@ -75,42 +78,40 @@ public interface MetadataDao
             "  AND (table_name = :tableName OR :tableName IS NULL)\n" +
             "ORDER BY schema_name, table_name, ordinal_position")
     List<TableColumn> listTableColumns(
-            @Bind("schemaName") String schemaName,
-            @Bind("tableName") String tableName);
+            String schemaName,
+            String tableName);
 
     @SqlQuery(TABLE_COLUMN_SELECT +
             "WHERE t.table_id = :tableId\n" +
             "ORDER BY c.ordinal_position")
-    List<TableColumn> listTableColumns(@Bind("tableId") long tableId);
+    List<TableColumn> listTableColumns(long tableId);
 
     @SqlQuery(TABLE_COLUMN_SELECT +
             "WHERE t.table_id = :tableId\n" +
             "  AND c.sort_ordinal_position IS NOT NULL\n" +
             "ORDER BY c.sort_ordinal_position")
-    List<TableColumn> listSortColumns(@Bind("tableId") long tableId);
+    List<TableColumn> listSortColumns(long tableId);
 
     @SqlQuery(TABLE_COLUMN_SELECT +
             "WHERE t.table_id = :tableId\n" +
             "  AND c.bucket_ordinal_position IS NOT NULL\n" +
             "ORDER BY c.bucket_ordinal_position")
-    List<TableColumn> listBucketColumns(@Bind("tableId") long tableId);
+    List<TableColumn> listBucketColumns(long tableId);
 
     @SqlQuery("SELECT schema_name, table_name, data\n" +
             "FROM views\n" +
             "WHERE (schema_name = :schemaName OR :schemaName IS NULL)")
-    @Mapper(SchemaTableNameMapper.class)
     List<SchemaTableName> listViews(
-            @Bind("schemaName") String schemaName);
+            String schemaName);
 
     @SqlQuery("SELECT schema_name, table_name, data\n" +
             "FROM views\n" +
             "WHERE (schema_name = :schemaName OR :schemaName IS NULL)\n" +
             "  AND (table_name = :tableName OR :tableName IS NULL)\n" +
             "ORDER BY schema_name, table_name\n")
-    @Mapper(ViewResult.Mapper.class)
     List<ViewResult> getViews(
-            @Bind("schemaName") String schemaName,
-            @Bind("tableName") String tableName);
+            String schemaName,
+            String tableName);
 
     @SqlUpdate("INSERT INTO tables (\n" +
             "  schema_name, table_name, compaction_enabled, organization_enabled, distribution_id,\n" +
@@ -122,20 +123,20 @@ public interface MetadataDao
             "  0, 0, 0, 0)\n")
     @GetGeneratedKeys
     long insertTable(
-            @Bind("schemaName") String schemaName,
-            @Bind("tableName") String tableName,
-            @Bind("compactionEnabled") boolean compactionEnabled,
-            @Bind("organizationEnabled") boolean organizationEnabled,
-            @Bind("distributionId") Long distributionId,
-            @Bind("createTime") long createTime);
+            String schemaName,
+            String tableName,
+            boolean compactionEnabled,
+            boolean organizationEnabled,
+            Long distributionId,
+            long createTime);
 
     @SqlUpdate("UPDATE tables SET\n" +
             "  update_time = :updateTime\n" +
             ", table_version = table_version + 1\n" +
             "WHERE table_id = :tableId")
     void updateTableVersion(
-            @Bind("tableId") long tableId,
-            @Bind("updateTime") long updateTime);
+            long tableId,
+            long updateTime);
 
     @SqlUpdate("UPDATE tables SET\n" +
             "  shard_count = shard_count + :shardCount \n" +
@@ -144,107 +145,104 @@ public interface MetadataDao
             ", uncompressed_size = uncompressed_size + :uncompressedSize\n" +
             "WHERE table_id = :tableId")
     void updateTableStats(
-            @Bind("tableId") long tableId,
-            @Bind("shardCount") long shardCount,
-            @Bind("rowCount") long rowCount,
-            @Bind("compressedSize") long compressedSize,
-            @Bind("uncompressedSize") long uncompressedSize);
+            long tableId,
+            long shardCount,
+            long rowCount,
+            long compressedSize,
+            long uncompressedSize);
 
     @SqlUpdate("INSERT INTO columns (table_id, column_id, column_name, ordinal_position, data_type, sort_ordinal_position, bucket_ordinal_position)\n" +
             "VALUES (:tableId, :columnId, :columnName, :ordinalPosition, :dataType, :sortOrdinalPosition, :bucketOrdinalPosition)")
     void insertColumn(
-            @Bind("tableId") long tableId,
-            @Bind("columnId") long columnId,
-            @Bind("columnName") String columnName,
-            @Bind("ordinalPosition") int ordinalPosition,
-            @Bind("dataType") String dataType,
-            @Bind("sortOrdinalPosition") Integer sortOrdinalPosition,
-            @Bind("bucketOrdinalPosition") Integer bucketOrdinalPosition);
+            long tableId,
+            long columnId,
+            String columnName,
+            int ordinalPosition,
+            String dataType,
+            Integer sortOrdinalPosition,
+            Integer bucketOrdinalPosition);
 
     @SqlUpdate("UPDATE tables SET\n" +
             "  schema_name = :newSchemaName\n" +
             ", table_name = :newTableName\n" +
             "WHERE table_id = :tableId")
     void renameTable(
-            @Bind("tableId") long tableId,
-            @Bind("newSchemaName") String newSchemaName,
-            @Bind("newTableName") String newTableName);
+            long tableId,
+            String newSchemaName,
+            String newTableName);
 
     @SqlUpdate("UPDATE columns SET column_name = :target\n" +
             "WHERE table_id = :tableId\n" +
             "  AND column_id = :columnId")
     void renameColumn(
-            @Bind("tableId") long tableId,
-            @Bind("columnId") long columnId,
-            @Bind("target") String target);
+            long tableId,
+            long columnId,
+            String target);
 
     @SqlUpdate("DELETE FROM columns\n" +
             " WHERE table_id = :tableId\n" +
             "  AND column_id = :columnId")
     void dropColumn(
-            @Bind("tableId") long tableId,
-            @Bind("columnId") long column);
+            long tableId,
+            long columnId);
 
     @SqlUpdate("INSERT INTO views (schema_name, table_name, data)\n" +
             "VALUES (:schemaName, :tableName, :data)")
     void insertView(
-            @Bind("schemaName") String schemaName,
-            @Bind("tableName") String tableName,
-            @Bind("data") String data);
+            String schemaName,
+            String tableName,
+            String data);
 
     @SqlUpdate("DELETE FROM tables WHERE table_id = :tableId")
-    int dropTable(@Bind("tableId") long tableId);
+    int dropTable(long tableId);
 
     @SqlUpdate("DELETE FROM columns WHERE table_id = :tableId")
-    int dropColumns(@Bind("tableId") long tableId);
+    int dropColumns(long tableId);
 
     @SqlUpdate("DELETE FROM views\n" +
             "WHERE schema_name = :schemaName\n" +
             "  AND table_name = :tableName")
     int dropView(
-            @Bind("schemaName") String schemaName,
-            @Bind("tableName") String tableName);
+            String schemaName,
+            String tableName);
 
-    // JDBI returns 0 as the column_id when the temporal_column_id is set to NULL
-    // jdbi issue https://github.com/jdbi/jdbi/issues/154
     @SqlQuery("SELECT temporal_column_id\n" +
             "FROM tables\n" +
-            "WHERE table_id = :tableId\n" +
-            "  AND temporal_column_id IS NOT NULL")
-    Long getTemporalColumnId(@Bind("tableId") long tableId);
+            "WHERE table_id = :tableId")
+    Long getTemporalColumnId(long tableId);
 
     @SqlUpdate("UPDATE tables SET\n" +
             "temporal_column_id = :columnId\n" +
             "WHERE table_id = :tableId")
     void updateTemporalColumnId(
-            @Bind("tableId") long tableId,
-            @Bind("columnId") long columnId);
+            long tableId,
+            long columnId);
 
     @SqlQuery("SELECT compaction_enabled AND maintenance_blocked IS NULL\n" +
             "FROM tables\n" +
             "WHERE table_id = :tableId")
-    boolean isCompactionEligible(@Bind("tableId") long tableId);
+    boolean isCompactionEligible(long tableId);
 
     @SqlQuery("SELECT table_id FROM tables WHERE table_id = :tableId FOR UPDATE")
-    Long getLockedTableId(@Bind("tableId") long tableId);
+    Long getLockedTableId(long tableId);
 
     @SqlQuery("SELECT distribution_id, distribution_name, column_types, bucket_count\n" +
             "FROM distributions\n" +
             "WHERE distribution_id = :distributionId")
-    Distribution getDistribution(@Bind("distributionId") long distributionId);
+    Distribution getDistribution(long distributionId);
 
     @SqlQuery("SELECT distribution_id, distribution_name, column_types, bucket_count\n" +
             "FROM distributions\n" +
             "WHERE distribution_name = :distributionName")
-    Distribution getDistribution(@Bind("distributionName") String distributionName);
+    Distribution getDistribution(String distributionName);
 
     @SqlUpdate("INSERT INTO distributions (distribution_name, column_types, bucket_count)\n" +
             "VALUES (:distributionName, :columnTypes, :bucketCount)")
     @GetGeneratedKeys
     long insertDistribution(
-            @Bind("distributionName") String distributionName,
-            @Bind("columnTypes") String columnTypes,
-            @Bind("bucketCount") int bucketCount);
+            String distributionName,
+            String columnTypes,
+            int bucketCount);
 
     @SqlQuery("SELECT table_id, schema_name, table_name, temporal_column_id, distribution_name, bucket_count, organization_enabled\n" +
             "FROM tables\n" +
@@ -253,10 +251,9 @@ public interface MetadataDao
             "WHERE (schema_name = :schemaName OR :schemaName IS NULL)\n" +
             "  AND (table_name = :tableName OR :tableName IS NULL)\n" +
             "ORDER BY table_id")
-    @Mapper(TableMetadataRow.Mapper.class)
     List<TableMetadataRow> getTableMetadataRows(
-            @Bind("schemaName") String schemaName,
-            @Bind("tableName") String tableName);
+            String schemaName,
+            String tableName);
 
     @SqlQuery("SELECT table_id, column_id, column_name, sort_ordinal_position, bucket_ordinal_position\n" +
             "FROM columns\n" +
@@ -266,10 +263,9 @@ public interface MetadataDao
             "  WHERE (schema_name = :schemaName OR :schemaName IS NULL)\n" +
             "    AND (table_name = :tableName OR :tableName IS NULL))\n" +
             "ORDER BY table_id")
-    @Mapper(ColumnMetadataRow.Mapper.class)
     List<ColumnMetadataRow> getColumnMetadataRows(
-            @Bind("schemaName") String schemaName,
-            @Bind("tableName") String tableName);
+            String schemaName,
+            String tableName);
 
     @SqlQuery("SELECT schema_name, table_name, create_time, update_time, table_version,\n" +
             "  shard_count, row_count, compressed_size, uncompressed_size\n" +
@@ -277,10 +273,9 @@ public interface MetadataDao
             "WHERE (schema_name = :schemaName OR :schemaName IS NULL)\n" +
             "  AND (table_name = :tableName OR :tableName IS NULL)\n" +
             "ORDER BY schema_name, table_name")
-    @Mapper(TableStatsRow.Mapper.class)
     List<TableStatsRow> getTableStatsRows(
-            @Bind("schemaName") String schemaName,
-            @Bind("tableName") String tableName);
+            String schemaName,
+            String tableName);
 
     @SqlQuery("SELECT table_id\n" +
             "FROM tables\n" +
@@ -295,17 +290,17 @@ public interface MetadataDao
     @SqlUpdate("UPDATE tables SET maintenance_blocked = CURRENT_TIMESTAMP\n" +
             "WHERE table_id = :tableId\n" +
             "  AND maintenance_blocked IS NULL")
-    void blockMaintenance(@Bind("tableId") long tableId);
+    void blockMaintenance(long tableId);
 
     @SqlUpdate("UPDATE tables SET maintenance_blocked = NULL\n" +
             "WHERE table_id = :tableId")
-    void unblockMaintenance(@Bind("tableId") long tableId);
+    void unblockMaintenance(long tableId);
 
     @SqlQuery("SELECT maintenance_blocked IS NOT NULL\n" +
             "FROM tables\n" +
             "WHERE table_id = :tableId\n" +
             "FOR UPDATE")
-    boolean isMaintenanceBlockedLocked(@Bind("tableId") long tableId);
+    boolean isMaintenanceBlockedLocked(long tableId);
 
     @SqlUpdate("UPDATE tables SET maintenance_blocked = NULL\n" +
             "WHERE maintenance_blocked IS NOT NULL")

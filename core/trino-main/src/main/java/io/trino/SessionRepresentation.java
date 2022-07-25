@@ -16,7 +16,7 @@ package io.trino;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
-import io.trino.connector.CatalogName;
+import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.spi.QueryId;
 import io.trino.spi.security.BasicPrincipal;
@@ -46,6 +46,7 @@ public final class SessionRepresentation
     private final String user;
     private final Set<String> groups;
     private final Optional<String> principal;
+    private final Set<String> enabledRoles;
     private final Optional<String> source;
     private final Optional<String> catalog;
     private final Optional<String> schema;
@@ -61,9 +62,8 @@ public final class SessionRepresentation
     private final Instant start;
     private final ResourceEstimates resourceEstimates;
     private final Map<String, String> systemProperties;
-    private final Map<CatalogName, Map<String, String>> catalogProperties;
-    private final Map<String, Map<String, String>> unprocessedCatalogProperties;
-    private final Map<String, SelectedRole> roles;
+    private final Map<String, Map<String, String>> catalogProperties;
+    private final Map<String, SelectedRole> catalogRoles;
     private final Map<String, String> preparedStatements;
     private final String protocolName;
 
@@ -75,6 +75,7 @@ public final class SessionRepresentation
             @JsonProperty("user") String user,
             @JsonProperty("groups") Set<String> groups,
             @JsonProperty("principal") Optional<String> principal,
+            @JsonProperty("enabledRoles") Set<String> enabledRoles,
             @JsonProperty("source") Optional<String> source,
             @JsonProperty("catalog") Optional<String> catalog,
             @JsonProperty("schema") Optional<String> schema,
@@ -90,9 +91,8 @@ public final class SessionRepresentation
             @JsonProperty("resourceEstimates") ResourceEstimates resourceEstimates,
             @JsonProperty("start") Instant start,
             @JsonProperty("systemProperties") Map<String, String> systemProperties,
-            @JsonProperty("catalogProperties") Map<CatalogName, Map<String, String>> catalogProperties,
-            @JsonProperty("unprocessedCatalogProperties") Map<String, Map<String, String>> unprocessedCatalogProperties,
-            @JsonProperty("roles") Map<String, SelectedRole> roles,
+            @JsonProperty("catalogProperties") Map<String, Map<String, String>> catalogProperties,
+            @JsonProperty("catalogRoles") Map<String, SelectedRole> catalogRoles,
             @JsonProperty("preparedStatements") Map<String, String> preparedStatements,
             @JsonProperty("protocolName") String protocolName)
     {
@@ -102,6 +102,7 @@ public final class SessionRepresentation
         this.user = requireNonNull(user, "user is null");
         this.groups = requireNonNull(groups, "groups is null");
         this.principal = requireNonNull(principal, "principal is null");
+        this.enabledRoles = ImmutableSet.copyOf(requireNonNull(enabledRoles, "enabledRoles is null"));
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -117,21 +118,15 @@ public final class SessionRepresentation
         this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
         this.start = start;
         this.systemProperties = ImmutableMap.copyOf(systemProperties);
-        this.roles = ImmutableMap.copyOf(roles);
+        this.catalogRoles = ImmutableMap.copyOf(catalogRoles);
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
         this.protocolName = requireNonNull(protocolName, "protocolName is null");
 
-        ImmutableMap.Builder<CatalogName, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
-        for (Entry<CatalogName, Map<String, String>> entry : catalogProperties.entrySet()) {
+        ImmutableMap.Builder<String, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
+        for (Entry<String, Map<String, String>> entry : catalogProperties.entrySet()) {
             catalogPropertiesBuilder.put(entry.getKey(), ImmutableMap.copyOf(entry.getValue()));
         }
-        this.catalogProperties = catalogPropertiesBuilder.build();
-
-        ImmutableMap.Builder<String, Map<String, String>> unprocessedCatalogPropertiesBuilder = ImmutableMap.builder();
-        for (Entry<String, Map<String, String>> entry : unprocessedCatalogProperties.entrySet()) {
-            unprocessedCatalogPropertiesBuilder.put(entry.getKey(), ImmutableMap.copyOf(entry.getValue()));
-        }
-        this.unprocessedCatalogProperties = unprocessedCatalogPropertiesBuilder.build();
+        this.catalogProperties = catalogPropertiesBuilder.buildOrThrow();
     }
 
     @JsonProperty
@@ -168,6 +163,12 @@ public final class SessionRepresentation
     public Optional<String> getPrincipal()
     {
         return principal;
+    }
+
+    @JsonProperty
+    public Set<String> getEnabledRoles()
+    {
+        return enabledRoles;
     }
 
     @JsonProperty
@@ -261,21 +262,15 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
-    public Map<CatalogName, Map<String, String>> getCatalogProperties()
+    public Map<String, Map<String, String>> getCatalogProperties()
     {
         return catalogProperties;
     }
 
     @JsonProperty
-    public Map<String, Map<String, String>> getUnprocessedCatalogProperties()
+    public Map<String, SelectedRole> getCatalogRoles()
     {
-        return unprocessedCatalogProperties;
-    }
-
-    @JsonProperty
-    public Map<String, SelectedRole> getRoles()
-    {
-        return roles;
+        return catalogRoles;
     }
 
     @JsonProperty
@@ -296,6 +291,22 @@ public final class SessionRepresentation
         return timeZoneKey.getId();
     }
 
+    public Identity toIdentity()
+    {
+        return toIdentity(emptyMap());
+    }
+
+    public Identity toIdentity(Map<String, String> extraCredentials)
+    {
+        return Identity.forUser(user)
+                .withGroups(groups)
+                .withPrincipal(principal.map(BasicPrincipal::new))
+                .withEnabledRoles(enabledRoles)
+                .withConnectorRoles(catalogRoles)
+                .withExtraCredentials(extraCredentials)
+                .build();
+    }
+
     public Session toSession(SessionPropertyManager sessionPropertyManager)
     {
         return toSession(sessionPropertyManager, emptyMap());
@@ -307,12 +318,7 @@ public final class SessionRepresentation
                 new QueryId(queryId),
                 transactionId,
                 clientTransactionSupport,
-                Identity.forUser(user)
-                        .withGroups(groups)
-                        .withPrincipal(principal.map(BasicPrincipal::new))
-                        .withRoles(roles)
-                        .withExtraCredentials(extraCredentials)
-                        .build(),
+                toIdentity(extraCredentials),
                 source,
                 catalog,
                 schema,
@@ -329,7 +335,6 @@ public final class SessionRepresentation
                 start,
                 systemProperties,
                 catalogProperties,
-                unprocessedCatalogProperties,
                 sessionPropertyManager,
                 preparedStatements,
                 createProtocolHeaders(protocolName));

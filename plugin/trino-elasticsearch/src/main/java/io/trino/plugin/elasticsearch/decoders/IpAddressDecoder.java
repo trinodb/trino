@@ -13,9 +13,12 @@
  */
 package io.trino.plugin.elasticsearch.decoders;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.plugin.elasticsearch.DecoderDescriptor;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
@@ -86,5 +89,37 @@ public class IpAddressDecoder
         }
 
         return wrappedBuffer(bytes);
+    }
+
+    public static class Descriptor
+            implements DecoderDescriptor
+    {
+        private final String path;
+        private final Type ipAddressType;
+
+        @JsonCreator
+        public Descriptor(String path, Type ipAddressType)
+        {
+            this.path = path;
+            this.ipAddressType = ipAddressType;
+        }
+
+        @JsonProperty
+        public String getPath()
+        {
+            return path;
+        }
+
+        @JsonProperty
+        public Type getIpAddressType()
+        {
+            return ipAddressType;
+        }
+
+        @Override
+        public Decoder createDecoder()
+        {
+            return new IpAddressDecoder(path, ipAddressType);
+        }
     }
 }

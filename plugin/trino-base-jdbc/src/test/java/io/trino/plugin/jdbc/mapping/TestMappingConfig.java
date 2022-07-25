@@ -43,12 +43,12 @@ public class TestMappingConfig
             throws Exception
     {
         String configFile = createRuleBasedIdentifierMappingFile().toFile().getAbsolutePath();
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("case-insensitive-name-matching", "true")
                 .put("case-insensitive-name-matching.cache-ttl", "1s")
                 .put("case-insensitive-name-matching.config-file", configFile)
                 .put("case-insensitive-name-matching.config-file.refresh-period", "1s")
-                .build();
+                .buildOrThrow();
 
         MappingConfig expected = new MappingConfig()
                 .setCaseInsensitiveNameMatching(true)

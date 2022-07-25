@@ -16,21 +16,30 @@ package io.trino.execution;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
-import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.Expression;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 
+import javax.inject.Inject;
+
 import java.util.List;
 
 import static io.trino.spi.StandardErrorCode.NOT_IN_TRANSACTION;
+import static java.util.Objects.requireNonNull;
 
 public class CommitTask
         implements DataDefinitionTask<Commit>
 {
+    private final TransactionManager transactionManager;
+
+    @Inject
+    public CommitTask(TransactionManager transactionManager)
+    {
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+    }
+
     @Override
     public String getName()
     {
@@ -40,9 +49,6 @@ public class CommitTask
     @Override
     public ListenableFuture<Void> execute(
             Commit statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)

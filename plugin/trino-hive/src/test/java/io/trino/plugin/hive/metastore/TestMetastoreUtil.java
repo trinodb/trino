@@ -15,7 +15,6 @@ package io.trino.plugin.hive.metastore;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import io.trino.spi.predicate.Domain;
@@ -40,6 +39,7 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.bucketColumnHandle;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFilter;
+import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.apache.hadoop.hive.serde.serdeConstants.COLUMN_NAME_DELIMITER;
@@ -137,8 +137,7 @@ public class TestMetastoreUtil
     public void testTableRoundTrip()
     {
         Table table = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE, TEST_SCHEMA);
-        PrincipalPrivileges privileges = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
-        org.apache.hadoop.hive.metastore.api.Table metastoreApiTable = ThriftMetastoreUtil.toMetastoreApiTable(table, privileges);
+        org.apache.hadoop.hive.metastore.api.Table metastoreApiTable = ThriftMetastoreUtil.toMetastoreApiTable(table, NO_PRIVILEGES);
         assertEquals(metastoreApiTable, TEST_TABLE);
     }
 
@@ -182,7 +181,7 @@ public class TestMetastoreUtil
                 .put(bucketColumnHandle(), Domain.create(ValueSet.of(INTEGER, 123L), false))
                 .put(dsColumn, dsDomain)
                 .put(typeColumn, typeDomain)
-                .build());
+                .buildOrThrow());
 
         TupleDomain<String> filter = computePartitionKeyFilter(partitionKeys, tupleDomain);
         assertThat(filter.getDomains())
@@ -190,7 +189,7 @@ public class TestMetastoreUtil
                 .contains(ImmutableMap.<String, Domain>builder()
                         .put("ds", dsDomain)
                         .put("type", typeDomain)
-                        .build());
+                        .buildOrThrow());
     }
 
     private static HiveColumnHandle partitionColumn(String name)

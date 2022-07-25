@@ -25,6 +25,7 @@ import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
 import io.trino.execution.QueryStats;
 import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.operator.RetryPolicy;
 import io.trino.server.BasicQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
@@ -36,7 +37,6 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
@@ -214,8 +214,6 @@ public class FailedDispatchQuery
                 session.getQueryId(),
                 session.toSessionRepresentation(),
                 QueryState.FAILED,
-                GENERAL_POOL,
-                false,
                 self,
                 ImmutableList.of(),
                 query,
@@ -242,7 +240,8 @@ public class FailedDispatchQuery
                 ImmutableList.of(),
                 true,
                 resourceGroupId,
-                Optional.empty());
+                Optional.empty(),
+                RetryPolicy.NONE);
 
         return queryInfo;
     }
@@ -272,7 +271,8 @@ public class FailedDispatchQuery
                 0,
                 0,
                 0,
-                DataSize.ofBytes(0),
+                0,
+                0,
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
@@ -283,22 +283,40 @@ public class FailedDispatchQuery
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 false,
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 false,
                 ImmutableSet.of(),
                 DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                0,
                 0,
                 new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 0,
-                DataSize.ofBytes(0),
                 0,
                 DataSize.ofBytes(0),
-                0,
                 DataSize.ofBytes(0),
                 0,
+                0,
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                0,
+                0,
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                0,
+                0,
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 ImmutableList.of(),
                 DynamicFiltersStats.EMPTY,

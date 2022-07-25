@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.tree.CurrentPath;
@@ -36,16 +37,16 @@ public class DesugarCurrentPath
         return (expression, context) -> rewriteWith(new io.trino.sql.tree.ExpressionRewriter<>()
         {
             @Override
-            public Expression rewriteCurrentPath(CurrentPath node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public Expression rewriteCurrentPath(CurrentPath node, Void ignored, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                return getCall(node, metadata);
+                return getCall(node, metadata, context.getSession());
             }
         }, expression);
     }
 
-    public static FunctionCall getCall(CurrentPath node, Metadata metadata)
+    public static FunctionCall getCall(CurrentPath node, Metadata metadata, Session session)
     {
-        return new FunctionCallBuilder(metadata)
+        return FunctionCallBuilder.resolve(session, metadata)
                 .setName(QualifiedName.of("$current_path"))
                 .build();
     }

@@ -29,13 +29,13 @@ import io.trino.spi.type.Type;
 import io.trino.tpch.Nation;
 import io.trino.tpch.NationColumn;
 import io.trino.tpch.NationGenerator;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +48,8 @@ import java.util.function.LongPredicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.io.Resources.getResource;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
@@ -72,8 +74,6 @@ import static org.testng.Assert.assertFalse;
 
 public class TestOrcPageSourceFactory
 {
-    // This file has the contains the TPC-H nation table which each row repeated 1000 times
-    private static final File TEST_FILE = new File(TestOrcPageSourceFactory.class.getClassLoader().getResource("nationFile25kRowsSortedOnNationKey/bucket_00000").getPath());
     private static final Map<NationColumn, Integer> ALL_COLUMNS = ImmutableMap.of(NATION_KEY, 0, NAME, 1, REGION_KEY, 2, COMMENT, 3);
     private static final HivePageSourceFactory PAGE_SOURCE_FACTORY = new OrcPageSourceFactory(
             new OrcReaderConfig(),
@@ -125,8 +125,9 @@ public class TestOrcPageSourceFactory
 
     @Test
     public void testReadWithAcidVersionValidationHive3()
+            throws Exception
     {
-        File tableFile = new File(TestOrcPageSourceFactory.class.getClassLoader().getResource("acid_version_validation/acid_version_hive_3/00000_0").getPath());
+        File tableFile = new File(getResource("acid_version_validation/acid_version_hive_3/00000_0").toURI());
         String tablePath = tableFile.getParent();
 
         Optional<AcidInfo> acidInfo = AcidInfo.builder(new Path(tablePath))
@@ -139,8 +140,9 @@ public class TestOrcPageSourceFactory
 
     @Test
     public void testReadWithAcidVersionValidationNoVersionInMetadata()
+            throws Exception
     {
-        File tableFile = new File(TestOrcPageSourceFactory.class.getClassLoader().getResource("acid_version_validation/no_orc_acid_version_in_metadata/00000_0").getPath());
+        File tableFile = new File(getResource("acid_version_validation/no_orc_acid_version_in_metadata/00000_0").toURI());
         String tablePath = tableFile.getParent();
 
         Optional<AcidInfo> acidInfo = AcidInfo.builder(new Path(tablePath))
@@ -155,8 +157,9 @@ public class TestOrcPageSourceFactory
 
     @Test
     public void testFullFileReadOriginalFilesTable()
+            throws Exception
     {
-        File tableFile = new File(TestOrcPageSourceFactory.class.getClassLoader().getResource("fullacidNationTableWithOriginalFiles/000000_0").getPath());
+        File tableFile = new File(getResource("fullacidNationTableWithOriginalFiles/000000_0").toURI());
         String tablePath = tableFile.getParent();
 
         AcidInfo acidInfo = AcidInfo.builder(new Path(tablePath))
@@ -201,7 +204,14 @@ public class TestOrcPageSourceFactory
 
     private static List<Nation> readFile(Map<NationColumn, Integer> columns, OptionalLong nationKeyPredicate, Optional<AcidInfo> acidInfo)
     {
-        return readFile(columns, nationKeyPredicate, acidInfo, TEST_FILE.toURI().getPath(), TEST_FILE.length());
+        // This file has the contains the TPC-H nation table which each row repeated 1000 times
+        try {
+            File testFile = new File(getResource("nationFile25kRowsSortedOnNationKey/bucket_00000").toURI());
+            return readFile(columns, nationKeyPredicate, acidInfo, testFile.toURI().getPath(), testFile.length());
+        }
+        catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static List<Nation> readFile(Map<NationColumn, Integer> columns, OptionalLong nationKeyPredicate, Optional<AcidInfo> acidInfo, String filePath, long fileSize)
@@ -220,7 +230,7 @@ public class TestOrcPageSourceFactory
                 .collect(toImmutableList());
 
         Optional<ReaderPageSource> pageSourceWithProjections = PAGE_SOURCE_FACTORY.createPageSource(
-                new JobConf(new Configuration(false)),
+                new JobConf(newEmptyConfiguration()),
                 SESSION,
                 new Path(filePath),
                 0,
@@ -306,7 +316,7 @@ public class TestOrcPageSourceFactory
     private static Properties createSchema()
     {
         Properties schema = new Properties();
-        schema.setProperty(SERIALIZATION_LIB, ORC.getSerDe());
+        schema.setProperty(SERIALIZATION_LIB, ORC.getSerde());
         schema.setProperty(FILE_INPUT_FORMAT, ORC.getInputFormat());
         schema.setProperty(TABLE_IS_TRANSACTIONAL, "true");
         return schema;

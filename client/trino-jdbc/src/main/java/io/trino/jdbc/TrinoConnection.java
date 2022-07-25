@@ -93,10 +93,11 @@ public class TrinoConnection
 
     private final URI jdbcUri;
     private final URI httpUri;
-    private final String user;
+    private final Optional<String> user;
     private final Optional<String> sessionUser;
     private final boolean compressionDisabled;
     private final boolean assumeLiteralNamesInMetadataCallsForNonConformingClients;
+    private final boolean assumeLiteralUnderscoreInMetadataCallsForNonConformingClients;
     private final Map<String, String> extraCredentials;
     private final Optional<String> applicationNamePrefix;
     private final Optional<String> source;
@@ -123,6 +124,7 @@ public class TrinoConnection
         this.extraCredentials = uri.getExtraCredentials();
         this.compressionDisabled = uri.isCompressionDisabled();
         this.assumeLiteralNamesInMetadataCallsForNonConformingClients = uri.isAssumeLiteralNamesInMetadataCallsForNonConformingClients();
+        this.assumeLiteralUnderscoreInMetadataCallsForNonConformingClients = uri.isAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients();
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         uri.getClientInfo().ifPresent(tags -> clientInfo.put(CLIENT_INFO, tags));
         uri.getClientTags().ifPresent(tags -> clientInfo.put(CLIENT_TAGS, tags));
@@ -271,7 +273,7 @@ public class TrinoConnection
     public DatabaseMetaData getMetaData()
             throws SQLException
     {
-        return new TrinoDatabaseMetaData(this, assumeLiteralNamesInMetadataCallsForNonConformingClients);
+        return new TrinoDatabaseMetaData(this, assumeLiteralNamesInMetadataCallsForNonConformingClients, assumeLiteralUnderscoreInMetadataCallsForNonConformingClients);
     }
 
     @Override
@@ -680,11 +682,6 @@ public class TrinoConnection
         return jdbcUri;
     }
 
-    String getUser()
-    {
-        return user;
-    }
-
     @VisibleForTesting
     Map<String, String> getExtraCredentials()
     {
@@ -772,6 +769,11 @@ public class TrinoConnection
         }
     }
 
+    void removePreparedStatement(String name)
+    {
+        preparedStatements.remove(name);
+    }
+
     private void registerStatement(TrinoStatement statement)
     {
         checkState(statements.add(statement), "Statement is already registered");
@@ -780,6 +782,12 @@ public class TrinoConnection
     private void unregisterStatement(TrinoStatement statement)
     {
         checkState(statements.remove(statement), "Statement is not registered");
+    }
+
+    @VisibleForTesting
+    int activeStatements()
+    {
+        return statements.size();
     }
 
     private void checkOpen()

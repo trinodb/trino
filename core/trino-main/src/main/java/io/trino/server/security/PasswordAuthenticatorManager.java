@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.PasswordAuthenticator;
 import io.trino.spi.security.PasswordAuthenticatorFactory;
 
@@ -103,8 +104,13 @@ public class PasswordAuthenticatorManager
         PasswordAuthenticatorFactory factory = factories.get(name);
         checkState(factory != null, "Password authenticator '%s' is not registered", name);
 
+        PasswordAuthenticator authenticator;
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
+            authenticator = factory.create(ImmutableMap.copyOf(properties));
+        }
+
         log.info("-- Loaded password authenticator %s --", name);
-        return factory.create(ImmutableMap.copyOf(properties));
+        return authenticator;
     }
 
     public List<PasswordAuthenticator> getAuthenticators()

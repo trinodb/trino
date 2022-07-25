@@ -26,7 +26,6 @@ import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
 import io.trino.SessionRepresentation;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogName;
 import io.trino.cost.StatsAndCosts;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.execution.Column;
@@ -37,9 +36,11 @@ import io.trino.execution.QueryStats;
 import io.trino.execution.StageInfo;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskState;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.operator.OperatorStats;
+import io.trino.operator.RetryPolicy;
 import io.trino.operator.TableFinishInfo;
 import io.trino.operator.TaskStats;
 import io.trino.server.BasicQueryInfo;
@@ -55,6 +56,7 @@ import io.trino.spi.eventlistener.QueryMetadata;
 import io.trino.spi.eventlistener.QueryOutputMetadata;
 import io.trino.spi.eventlistener.QueryStatistics;
 import io.trino.spi.eventlistener.StageCpuDistribution;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.analyzer.Analysis;
@@ -103,6 +105,7 @@ public class QueryMonitor
     private final String environment;
     private final SessionPropertyManager sessionPropertyManager;
     private final Metadata metadata;
+    private final FunctionManager functionManager;
     private final int maxJsonLimit;
 
     @Inject
@@ -116,6 +119,7 @@ public class QueryMonitor
             NodeVersion nodeVersion,
             SessionPropertyManager sessionPropertyManager,
             Metadata metadata,
+            FunctionManager functionManager,
             QueryMonitorConfig config)
     {
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
@@ -128,6 +132,7 @@ public class QueryMonitor
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.maxJsonLimit = toIntExact(requireNonNull(config, "config is null").getMaxOutputStageJsonSize().toBytes());
     }
 
@@ -136,7 +141,11 @@ public class QueryMonitor
         eventListenerManager.queryCreated(
                 new QueryCreatedEvent(
                         queryInfo.getQueryStats().getCreateTime().toDate().toInstant(),
-                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), queryInfo.getQueryType()),
+                        createQueryContext(
+                                queryInfo.getSession(),
+                                queryInfo.getResourceGroupId(),
+                                queryInfo.getQueryType(),
+                                queryInfo.getRetryPolicy()),
                         new QueryMetadata(
                                 queryInfo.getQueryId().toString(),
                                 queryInfo.getSession().getTransactionId().map(TransactionId::toString),
@@ -169,12 +178,20 @@ public class QueryMonitor
                 new QueryStatistics(
                         ofMillis(0),
                         ofMillis(0),
+                        ofMillis(0),
                         ofMillis(queryInfo.getQueryStats().getQueuedTime().toMillis()),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        0,
+                        0,
                         0,
                         0,
                         0,
@@ -196,7 +213,11 @@ public class QueryMonitor
                         ImmutableList.of(),
                         ImmutableList.of(),
                         Optional.empty()),
-                createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), queryInfo.getQueryType()),
+                createQueryContext(
+                        queryInfo.getSession(),
+                        queryInfo.getResourceGroupId(),
+                        queryInfo.getQueryType(),
+                        queryInfo.getRetryPolicy()),
                 new QueryIOMetadata(ImmutableList.of(), Optional.empty()),
                 createQueryFailureInfo(failure, Optional.empty()),
                 ImmutableList.of(),
@@ -214,7 +235,11 @@ public class QueryMonitor
                 new QueryCompletedEvent(
                         createQueryMetadata(queryInfo),
                         createQueryStatistics(queryInfo),
-                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), queryInfo.getQueryType()),
+                        createQueryContext(
+                                queryInfo.getSession(),
+                                queryInfo.getResourceGroupId(),
+                                queryInfo.getQueryType(),
+                                queryInfo.getRetryPolicy()),
                         getQueryIOMetadata(queryInfo),
                         createQueryFailureInfo(queryInfo.getFailureInfo(), queryInfo.getOutputStage()),
                         queryInfo.getWarnings(),
@@ -243,8 +268,9 @@ public class QueryMonitor
 
     private QueryStatistics createQueryStatistics(QueryInfo queryInfo)
     {
-        ImmutableList.Builder<String> operatorSummaries = ImmutableList.builder();
-        for (OperatorStats summary : queryInfo.getQueryStats().getOperatorSummaries()) {
+        List<OperatorStats> operatorStats = queryInfo.getQueryStats().getOperatorSummaries();
+        ImmutableList.Builder<String> operatorSummaries = ImmutableList.builderWithExpectedSize(operatorStats.size());
+        for (OperatorStats summary : operatorStats) {
             operatorSummaries.add(operatorStatsCodec.toJson(summary));
         }
 
@@ -254,19 +280,26 @@ public class QueryMonitor
         QueryStats queryStats = queryInfo.getQueryStats();
         return new QueryStatistics(
                 ofMillis(queryStats.getTotalCpuTime().toMillis()),
+                ofMillis(queryStats.getFailedCpuTime().toMillis()),
                 ofMillis(queryStats.getElapsedTime().toMillis()),
                 ofMillis(queryStats.getQueuedTime().toMillis()),
                 Optional.of(ofMillis(queryStats.getTotalScheduledTime().toMillis())),
+                Optional.of(ofMillis(queryStats.getFailedScheduledTime().toMillis())),
                 Optional.of(ofMillis(queryStats.getResourceWaitingTime().toMillis())),
                 Optional.of(ofMillis(queryStats.getAnalysisTime().toMillis())),
                 Optional.of(ofMillis(queryStats.getPlanningTime().toMillis())),
                 Optional.of(ofMillis(queryStats.getExecutionTime().toMillis())),
+                Optional.of(ofMillis(queryStats.getInputBlockedTime().toMillis())),
+                Optional.of(ofMillis(queryStats.getFailedInputBlockedTime().toMillis())),
+                Optional.of(ofMillis(queryStats.getOutputBlockedTime().toMillis())),
+                Optional.of(ofMillis(queryStats.getFailedOutputBlockedTime().toMillis())),
                 queryStats.getPeakUserMemoryReservation().toBytes(),
-                queryStats.getPeakNonRevocableMemoryReservation().toBytes(),
                 queryStats.getPeakTaskUserMemory().toBytes(),
                 queryStats.getPeakTaskTotalMemory().toBytes(),
                 queryStats.getPhysicalInputDataSize().toBytes(),
                 queryStats.getPhysicalInputPositions(),
+                queryStats.getProcessedInputDataSize().toBytes(),
+                queryStats.getProcessedInputPositions(),
                 queryStats.getInternalNetworkInputDataSize().toBytes(),
                 queryStats.getInternalNetworkInputPositions(),
                 queryStats.getRawInputDataSize().toBytes(),
@@ -276,15 +309,16 @@ public class QueryMonitor
                 queryStats.getLogicalWrittenDataSize().toBytes(),
                 queryStats.getWrittenPositions(),
                 queryStats.getCumulativeUserMemory(),
+                queryStats.getFailedCumulativeUserMemory(),
                 queryStats.getStageGcStatistics(),
                 queryStats.getCompletedDrivers(),
-                queryInfo.isCompleteInfo(),
+                queryInfo.isFinalQueryInfo(),
                 getCpuDistributions(queryInfo),
                 operatorSummaries.build(),
                 serializedPlanNodeStatsAndCosts);
     }
 
-    private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup, Optional<QueryType> queryType)
+    private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup, Optional<QueryType> queryType, RetryPolicy retryPolicy)
     {
         return new QueryContext(
                 session.getUser(),
@@ -305,7 +339,8 @@ public class QueryMonitor
                 serverAddress,
                 serverVersion,
                 environment,
-                queryType);
+                queryType,
+                retryPolicy.toString());
     }
 
     private Optional<String> createTextQueryPlan(QueryInfo queryInfo)
@@ -315,7 +350,7 @@ public class QueryMonitor
                 return Optional.of(textDistributedPlan(
                         queryInfo.getOutputStage().get(),
                         queryInfo.getQueryStats(),
-                        new ValuePrinter(metadata, queryInfo.getSession().toSession(sessionPropertyManager)),
+                        new ValuePrinter(metadata, functionManager, queryInfo.getSession().toSession(sessionPropertyManager)),
                         false));
             }
         }
@@ -331,7 +366,7 @@ public class QueryMonitor
     {
         Multimap<FragmentNode, OperatorStats> planNodeStats = extractPlanNodeStats(queryInfo);
 
-        ImmutableList.Builder<QueryInputMetadata> inputs = ImmutableList.builder();
+        ImmutableList.Builder<QueryInputMetadata> inputs = ImmutableList.builderWithExpectedSize(queryInfo.getInputs().size());
         for (Input input : queryInfo.getInputs()) {
             // Note: input table can be mapped to multiple operators
             Collection<OperatorStats> inputTableOperatorStats = planNodeStats.get(new FragmentNode(input.getFragmentId(), input.getPlanNodeId()));
@@ -347,6 +382,9 @@ public class QueryMonitor
                         .mapToLong(OperatorStats::getPhysicalInputPositions)
                         .sum());
             }
+            Metrics connectorMetrics = inputTableOperatorStats.stream()
+                    .map(OperatorStats::getConnectorMetrics)
+                    .reduce(Metrics.EMPTY, Metrics::mergeWith);
 
             inputs.add(new QueryInputMetadata(
                     input.getCatalogName(),
@@ -355,6 +393,7 @@ public class QueryMonitor
                     input.getColumns().stream()
                             .map(Column::getName).collect(Collectors.toList()),
                     input.getConnectorInfo(),
+                    connectorMetrics,
                     physicalInputBytes,
                     physicalInputPositions));
         }
@@ -462,16 +501,9 @@ public class QueryMonitor
     {
         Map<String, String> mergedProperties = new LinkedHashMap<>(session.getSystemProperties());
 
-        // Either processed or unprocessed catalog properties, but not both.  Instead of trying to enforces this while
-        // firing events, allow both to be set and if there is a duplicate favor the processed properties.
-        for (Map.Entry<String, Map<String, String>> catalogEntry : session.getUnprocessedCatalogProperties().entrySet()) {
+        for (Map.Entry<String, Map<String, String>> catalogEntry : session.getCatalogProperties().entrySet()) {
             for (Map.Entry<String, String> entry : catalogEntry.getValue().entrySet()) {
                 mergedProperties.put(catalogEntry.getKey() + "." + entry.getKey(), entry.getValue());
-            }
-        }
-        for (Map.Entry<CatalogName, Map<String, String>> catalogEntry : session.getCatalogProperties().entrySet()) {
-            for (Map.Entry<String, String> entry : catalogEntry.getValue().entrySet()) {
-                mergedProperties.put(catalogEntry.getKey().getCatalogName() + "." + entry.getKey(), entry.getValue());
             }
         }
         return ImmutableMap.copyOf(mergedProperties);

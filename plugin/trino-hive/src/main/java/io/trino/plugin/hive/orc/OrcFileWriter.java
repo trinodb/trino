@@ -76,6 +76,7 @@ public class OrcFileWriter
     private final List<Block> nullBlocks;
     private final Optional<Supplier<OrcDataSource>> validationInputFactory;
     private OptionalLong maxWriteId = OptionalLong.empty();
+    private long nextRowId;
 
     private long validationCpuNanos;
 
@@ -135,7 +136,7 @@ public class OrcFileWriter
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return INSTANCE_SIZE + orcWriter.getRetainedBytes();
     }
@@ -308,7 +309,7 @@ public class OrcFileWriter
     {
         long[] rowIds = new long[positionCount];
         for (int i = 0; i < positionCount; i++) {
-            rowIds[i] = i;
+            rowIds[i] = nextRowId++;
         }
         return new LongArrayBlock(positionCount, Optional.empty(), rowIds);
     }

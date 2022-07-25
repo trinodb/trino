@@ -16,11 +16,12 @@ package io.trino.plugin.geospatial.aggregation;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
+
+import static com.google.common.io.Resources.getResource;
 
 public class TestGeometryConvexHullGeoAggregation
         extends AbstractTestGeoAggregationFunctions
@@ -339,9 +340,9 @@ public class TestGeometryConvexHullGeoAggregation
 
     @DataProvider(name = "1000points")
     public Object[][] points1000()
-            throws IOException
+            throws Exception
     {
-        Path filePath = Paths.get(this.getClass().getClassLoader().getResource("1000_points.txt").getPath());
+        Path filePath = new File(getResource("1000_points.txt").toURI()).toPath();
         List<String> points = Files.readAllLines(filePath);
         return new Object[][] {
                 {

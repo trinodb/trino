@@ -17,6 +17,7 @@ import io.trino.plugin.jdbc.credential.CredentialPropertiesProvider;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.DefaultCredentialPropertiesProvider;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.sql.Connection;
 import java.sql.Driver;
@@ -32,7 +33,7 @@ public class DriverConnectionFactory
     private final Driver driver;
     private final String connectionUrl;
     private final Properties connectionProperties;
-    private final CredentialPropertiesProvider credentialPropertiesProvider;
+    private final CredentialPropertiesProvider<String, String> credentialPropertiesProvider;
 
     public DriverConnectionFactory(Driver driver, BaseJdbcConfig config, CredentialProvider credentialProvider)
     {
@@ -47,7 +48,7 @@ public class DriverConnectionFactory
         this(driver, connectionUrl, connectionProperties, new DefaultCredentialPropertiesProvider(credentialProvider));
     }
 
-    public DriverConnectionFactory(Driver driver, String connectionUrl, Properties connectionProperties, CredentialPropertiesProvider credentialPropertiesProvider)
+    public DriverConnectionFactory(Driver driver, String connectionUrl, Properties connectionProperties, CredentialPropertiesProvider<String, String> credentialPropertiesProvider)
     {
         this.driver = requireNonNull(driver, "driver is null");
         this.connectionUrl = requireNonNull(connectionUrl, "connectionUrl is null");
@@ -60,14 +61,13 @@ public class DriverConnectionFactory
     public Connection openConnection(ConnectorSession session)
             throws SQLException
     {
-        JdbcIdentity identity = JdbcIdentity.from(session);
-        Properties properties = getCredentialProperties(identity);
+        Properties properties = getCredentialProperties(session.getIdentity());
         Connection connection = driver.connect(connectionUrl, properties);
         checkState(connection != null, "Driver returned null connection, make sure the connection URL '%s' is valid for the driver %s", connectionUrl, driver);
         return connection;
     }
 
-    private Properties getCredentialProperties(JdbcIdentity identity)
+    private Properties getCredentialProperties(ConnectorIdentity identity)
     {
         Properties properties = new Properties();
         properties.putAll(connectionProperties);

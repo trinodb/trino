@@ -18,10 +18,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
-import io.trino.spi.type.TypeOperators;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -56,12 +54,15 @@ import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SetOperationNode;
+import io.trino.sql.planner.plan.SimpleTableExecuteNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticAggregationsDescriptor;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
+import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
@@ -71,6 +72,7 @@ import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
 import io.trino.sql.tree.Expression;
 
 import java.util.Collection;
@@ -96,8 +98,7 @@ public final class ValidateDependenciesChecker
     @Override
     public void validate(PlanNode plan,
             Session session,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)
@@ -195,7 +196,7 @@ public final class ValidateDependenciesChecker
 
             Set<Symbol> measuresSymbols = node.getMeasures().values().stream()
                     .map(Measure::getExpressionAndValuePointers)
-                    .map(SymbolsExtractor::extractUnique)
+                    .map(ExpressionAndValuePointers::getInputSymbols)
                     .flatMap(Collection::stream)
                     .collect(toImmutableSet());
             checkDependencies(inputs, measuresSymbols, "Invalid node. Symbols used in measures (%s) not in source plan output (%s)", measuresSymbols, node.getSource().getOutputSymbols());
@@ -205,11 +206,18 @@ public final class ValidateDependenciesChecker
                     .ifPresent(symbol -> checkDependencies(inputs, ImmutableSet.of(symbol), "Invalid node. Frame offset symbol (%s) not in source plan output (%s)", symbol, node.getSource().getOutputSymbols()));
 
             Set<Symbol> variableDefinitionsSymbols = node.getVariableDefinitions().values().stream()
-                    .map(SymbolsExtractor::extractUnique)
+                    .map(ExpressionAndValuePointers::getInputSymbols)
                     .flatMap(Collection::stream)
                     .collect(toImmutableSet());
             checkDependencies(inputs, variableDefinitionsSymbols, "Invalid node. Symbols used in measures (%s) not in source plan output (%s)", variableDefinitionsSymbols, node.getSource().getOutputSymbols());
 
+            return null;
+        }
+
+        @Override
+        public Void visitTableFunction(TableFunctionNode node, Set<Symbol> context)
+        {
+            // TODO
             return null;
         }
 
@@ -646,6 +654,21 @@ public final class ValidateDependenciesChecker
             checkArgument(source.getOutputSymbols().contains(node.getRowId()), "Invalid node. Row ID symbol (%s) is not in source plan output (%s)", node.getRowId(), node.getSource().getOutputSymbols());
             checkArgument(source.getOutputSymbols().containsAll(node.getColumnValueAndRowIdSymbols()), "Invalid node. Some UPDATE SET expression symbols (%s) are not contained in the outputSymbols (%s)", node.getColumnValueAndRowIdSymbols(), source.getOutputSymbols());
 
+            return null;
+        }
+
+        @Override
+        public Void visitTableExecute(TableExecuteNode node, Set<Symbol> boundSymbols)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, boundSymbols); // visit child
+
+            return null;
+        }
+
+        @Override
+        public Void visitSimpleTableExecuteNode(SimpleTableExecuteNode node, Set<Symbol> context)
+        {
             return null;
         }
 

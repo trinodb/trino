@@ -25,21 +25,28 @@ public class Table
         extends QueryBody
 {
     private final QualifiedName name;
+    private final Optional<QueryPeriod> queryPeriod;
 
     public Table(QualifiedName name)
     {
-        this(Optional.empty(), name);
+        this(Optional.empty(), name, Optional.empty());
     }
 
     public Table(NodeLocation location, QualifiedName name)
     {
-        this(Optional.of(location), name);
+        this(Optional.of(location), name, Optional.empty());
     }
 
-    private Table(Optional<NodeLocation> location, QualifiedName name)
+    public Table(NodeLocation location, QualifiedName name, QueryPeriod queryPeriod)
+    {
+        this(Optional.of(location), name, Optional.of(queryPeriod));
+    }
+
+    private Table(Optional<NodeLocation> location, QualifiedName name, Optional<QueryPeriod> queryPeriod)
     {
         super(location);
         this.name = name;
+        this.queryPeriod = queryPeriod;
     }
 
     public QualifiedName getName()
@@ -56,6 +63,9 @@ public class Table
     @Override
     public List<Node> getChildren()
     {
+        if (queryPeriod.isPresent()) {
+            return ImmutableList.of(queryPeriod.get());
+        }
         return ImmutableList.of();
     }
 
@@ -64,6 +74,7 @@ public class Table
     {
         return toStringHelper(this)
                 .addValue(name)
+                .addValue(queryPeriod)
                 .toString();
     }
 
@@ -78,13 +89,14 @@ public class Table
         }
 
         Table table = (Table) o;
-        return Objects.equals(name, table.name);
+        return Objects.equals(name, table.name) &&
+                Objects.equals(queryPeriod, table.getQueryPeriod());
     }
 
     @Override
     public int hashCode()
     {
-        return name.hashCode();
+        return Objects.hash(name, queryPeriod);
     }
 
     @Override
@@ -96,5 +108,10 @@ public class Table
 
         Table otherTable = (Table) other;
         return name.equals(otherTable.name);
+    }
+
+    public Optional<QueryPeriod> getQueryPeriod()
+    {
+        return queryPeriod;
     }
 }

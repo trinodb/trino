@@ -25,26 +25,31 @@ import static java.util.Objects.requireNonNull;
 public final class Insert
         extends Statement
 {
-    private final QualifiedName target;
+    private final Table table;
     private final Query query;
     private final Optional<List<Identifier>> columns;
 
-    public Insert(QualifiedName target, Optional<List<Identifier>> columns, Query query)
+    public Insert(Table table, Optional<List<Identifier>> columns, Query query)
     {
-        this(Optional.empty(), columns, target, query);
+        this(Optional.empty(), table, columns, query);
     }
 
-    private Insert(Optional<NodeLocation> location, Optional<List<Identifier>> columns, QualifiedName target, Query query)
+    private Insert(Optional<NodeLocation> location, Table table, Optional<List<Identifier>> columns, Query query)
     {
         super(location);
-        this.target = requireNonNull(target, "target is null");
+        this.table = requireNonNull(table, "target is null");
         this.columns = requireNonNull(columns, "columns is null");
         this.query = requireNonNull(query, "query is null");
     }
 
+    public Table getTable()
+    {
+        return table;
+    }
+
     public QualifiedName getTarget()
     {
-        return target;
+        return table.getName();
     }
 
     public Optional<List<Identifier>> getColumns()
@@ -72,7 +77,7 @@ public final class Insert
     @Override
     public int hashCode()
     {
-        return Objects.hash(target, columns, query);
+        return Objects.hash(table, columns, query);
     }
 
     @Override
@@ -85,7 +90,7 @@ public final class Insert
             return false;
         }
         Insert o = (Insert) obj;
-        return Objects.equals(target, o.target) &&
+        return Objects.equals(table, o.table) &&
                 Objects.equals(columns, o.columns) &&
                 Objects.equals(query, o.query);
     }
@@ -94,7 +99,7 @@ public final class Insert
     public String toString()
     {
         return toStringHelper(this)
-                .add("target", target)
+                .add("table", table)
                 .add("columns", columns)
                 .add("query", query)
                 .toString();

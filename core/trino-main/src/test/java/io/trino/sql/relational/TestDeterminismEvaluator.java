@@ -14,15 +14,15 @@
 package io.trino.sql.relational;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.relational.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.sql.relational.Expressions.field;
 import static java.util.Collections.singletonList;
@@ -34,21 +34,20 @@ public class TestDeterminismEvaluator
     @Test
     public void testDeterminismEvaluator()
     {
-        Metadata metadata = createTestMetadataManager();
-        DeterminismEvaluator determinismEvaluator = new DeterminismEvaluator(metadata);
+        TestingFunctionResolution functionResolution = new TestingFunctionResolution();
 
         CallExpression random = new CallExpression(
-                metadata.resolveFunction(QualifiedName.of("random"), fromTypes(BIGINT)),
+                functionResolution.resolveFunction(QualifiedName.of("random"), fromTypes(BIGINT)),
                 singletonList(constant(10L, BIGINT)));
-        assertFalse(determinismEvaluator.isDeterministic(random));
+        assertFalse(isDeterministic(random));
 
         InputReferenceExpression col0 = field(0, BIGINT);
-        ResolvedFunction lessThan = metadata.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
+        ResolvedFunction lessThan = functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
 
         CallExpression lessThanExpression = new CallExpression(lessThan, ImmutableList.of(col0, constant(10L, BIGINT)));
-        assertTrue(determinismEvaluator.isDeterministic(lessThanExpression));
+        assertTrue(isDeterministic(lessThanExpression));
 
         CallExpression lessThanRandomExpression = new CallExpression(lessThan, ImmutableList.of(col0, random));
-        assertFalse(determinismEvaluator.isDeterministic(lessThanRandomExpression));
+        assertFalse(isDeterministic(lessThanRandomExpression));
     }
 }

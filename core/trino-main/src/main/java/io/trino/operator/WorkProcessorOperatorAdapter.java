@@ -14,7 +14,6 @@
 package io.trino.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.execution.Lifespan;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.spi.Page;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -86,12 +85,6 @@ public class WorkProcessorOperatorAdapter
         }
 
         @Override
-        public void noMoreOperators(Lifespan lifespan)
-        {
-            lifespanFinished(lifespan);
-        }
-
-        @Override
         public OperatorFactory duplicate()
         {
             return new Factory(operatorFactory.duplicate());
@@ -124,12 +117,6 @@ public class WorkProcessorOperatorAdapter
         }
 
         @Override
-        public void lifespanFinished(Lifespan lifespan)
-        {
-            operatorFactory.lifespanFinished(lifespan);
-        }
-
-        @Override
         public void close()
         {
             operatorFactory.close();
@@ -145,8 +132,7 @@ public class WorkProcessorOperatorAdapter
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         MemoryTrackingContext memoryTrackingContext = new MemoryTrackingContext(
                 operatorContext.aggregateUserMemoryContext(),
-                operatorContext.aggregateRevocableMemoryContext(),
-                operatorContext.aggregateSystemMemoryContext());
+                operatorContext.aggregateRevocableMemoryContext());
         memoryTrackingContext.initializeLocalMemoryContexts(workProcessorOperatorFactory.getOperatorType());
         this.workProcessorOperator = requireNonNull(workProcessorOperatorFactory, "workProcessorOperatorFactory is null")
                 .createAdapterOperator(new ProcessorContext(operatorContext.getSession(), memoryTrackingContext, operatorContext));
@@ -186,13 +172,16 @@ public class WorkProcessorOperatorAdapter
     public Page getOutput()
     {
         if (!pages.process()) {
+            updateOperatorMetrics();
             return null;
         }
 
         if (pages.isFinished()) {
+            updateOperatorMetrics();
             return null;
         }
 
+        updateOperatorMetrics();
         return pages.getResult();
     }
 
@@ -213,5 +202,10 @@ public class WorkProcessorOperatorAdapter
             throws Exception
     {
         workProcessorOperator.close();
+    }
+
+    private void updateOperatorMetrics()
+    {
+        operatorContext.setLatestMetrics(workProcessorOperator.getMetrics());
     }
 }

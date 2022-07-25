@@ -26,13 +26,13 @@ import static java.util.Objects.requireNonNull;
  * - the projected columns required by a connector level pagesource and
  * -  the columns supplied by format-specific page source
  * <p>
- * Currently used in {@link HivePageSource}.
+ * Currently used in {@link HivePageSource} and {@code io.trino.plugin.iceberg.IcebergPageSource}.
  */
 public class ReaderColumns
 {
     // columns to be read by the reader (ordered)
     private final List<ColumnHandle> readerColumns;
-    // indices for mapping expected hive column handles to the reader's column handles
+    // indices for mapping expected column handles to the reader's column handles
     private final List<Integer> readerBlockIndices;
 
     public ReaderColumns(List<? extends ColumnHandle> readerColumns, List<Integer> readerBlockIndices)

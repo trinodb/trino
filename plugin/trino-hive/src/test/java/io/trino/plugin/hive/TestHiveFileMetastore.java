@@ -14,15 +14,17 @@
 package io.trino.plugin.hive;
 
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import org.testng.SkipException;
+import org.testng.annotations.Test;
 
 import java.io.File;
 
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 
+// staging directory is shared mutable state
+@Test(singleThreaded = true)
 public class TestHiveFileMetastore
         extends AbstractTestHiveLocal
 {
@@ -33,11 +35,18 @@ public class TestHiveFileMetastore
         return new FileHiveMetastore(
                 new NodeVersion("test_version"),
                 HDFS_ENVIRONMENT,
-                new MetastoreConfig()
-                        .setHideDeltaLakeTables(true),
+                true,
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory(baseDir.toURI().toString())
                         .setMetastoreUser("test"));
+    }
+
+    @Test
+    public void forceTestNgToRespectSingleThreaded()
+    {
+        // TODO: Remove after updating TestNG to 7.4.0+ (https://github.com/trinodb/trino/issues/8571)
+        // TestNG doesn't enforce @Test(singleThreaded = true) when tests are defined in base class. According to
+        // https://github.com/cbeust/testng/issues/2361#issuecomment-688393166 a workaround it to add a dummy test to the leaf test class.
     }
 
     @Override
@@ -57,6 +66,12 @@ public class TestHiveFileMetastore
     public void testBucketedTableEvolution()
     {
         // FileHiveMetastore only supports replaceTable() for views
+    }
+
+    @Override
+    public void testBucketedTableEvolutionWithDifferentReadBucketCount()
+    {
+        // FileHiveMetastore has various incompatibilities
     }
 
     @Override

@@ -15,16 +15,20 @@ package io.trino.plugin.geospatial;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.type.ArrayType;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.stream.Stream;
 
+import static com.google.common.io.Resources.getResource;
 import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.trino.plugin.geospatial.BingTile.fromCoordinates;
 import static io.trino.plugin.geospatial.BingTileType.BING_TILE;
@@ -41,10 +45,10 @@ public class TestBingTileFunctions
         extends AbstractTestFunctions
 {
     @BeforeClass
-    protected void registerFunctions()
+    public void registerFunctions()
     {
         functionAssertions.installPlugin(new GeoPlugin());
-        functionAssertions.getMetadata().addFunctions(ImmutableList.of(APPLY_FUNCTION));
+        functionAssertions.addFunctions(new InternalFunctionBundle(APPLY_FUNCTION));
     }
 
     @Test
@@ -394,7 +398,7 @@ public class TestBingTileFunctions
     public void testLargeGeometryToBingTiles()
             throws Exception
     {
-        Path filePath = Paths.get(this.getClass().getClassLoader().getResource("large_polygon.txt").getPath());
+        Path filePath = new File(getResource("large_polygon.txt").toURI()).toPath();
         List<String> lines = Files.readAllLines(filePath);
         for (String line : lines) {
             String[] parts = line.split("\\|");
@@ -452,8 +456,11 @@ public class TestBingTileFunctions
         assertFunction("cardinality(geometry_to_bing_tiles(ST_Envelope(ST_GeometryFromText('LINESTRING (0 0, 80 80)')), 5))", BIGINT, 104L);
 
         // Input polygon too complex
-        String filePath = this.getClass().getClassLoader().getResource("too_large_polygon.txt").getPath();
-        String largeWkt = Files.lines(Paths.get(filePath)).findFirst().get();
+        String filePath = new File(getResource("too_large_polygon.txt").toURI()).getPath();
+        String largeWkt;
+        try (Stream<String> lines = Files.lines(Paths.get(filePath))) {
+            largeWkt = lines.findFirst().get();
+        }
         assertInvalidFunction("geometry_to_bing_tiles(ST_GeometryFromText('" + largeWkt + "'), 16)", "The zoom level is too high or the geometry is too complex to compute a set of covering Bing tiles. Please use a lower zoom level or convert the geometry to its bounding box using the ST_Envelope function.");
         assertFunction("cardinality(geometry_to_bing_tiles(ST_Envelope(ST_GeometryFromText('" + largeWkt + "')), 16))", BIGINT, 19939L);
 

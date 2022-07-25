@@ -36,14 +36,19 @@ public class NullableDoubleStateSerializer
             out.appendNull();
         }
         else {
-            DOUBLE.writeDouble(out, state.getDouble());
+            DOUBLE.writeDouble(out, state.getValue());
         }
     }
 
     @Override
     public void deserialize(Block block, int index, NullableDoubleState state)
     {
-        state.setNull(false);
-        state.setDouble(DOUBLE.getDouble(block, index));
+        if (block.isNull(index)) {
+            state.setNull(true);
+        }
+        else {
+            state.setNull(false);
+            state.setValue(DOUBLE.getDouble(block, index));
+        }
     }
 }

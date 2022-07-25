@@ -38,10 +38,12 @@ import org.testng.annotations.Test;
 import java.util.Base64;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
 import static io.trino.geospatial.KdbTree.Node.newLeaf;
 import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
+import static io.trino.plugin.geospatial.GeoFunctions.stPoint;
 import static io.trino.spi.StandardErrorCode.INVALID_SPATIAL_PARTITIONING;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
@@ -58,6 +60,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.spatialLeftJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.unnest;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.lang.Math.cos;
+import static java.lang.Math.toRadians;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
@@ -69,6 +73,7 @@ public class TestSpatialJoinPlanning
     private static final String KDB_TREE_JSON = KdbTreeUtils.toJson(new KdbTree(newLeaf(new Rectangle(0, 0, 10, 10), 0)));
 
     private String kdbTreeLiteral;
+    private String point21x21Literal;
 
     @Override
     protected LocalQueryRunner createLocalQueryRunner()
@@ -93,6 +98,7 @@ public class TestSpatialJoinPlanning
         DynamicSliceOutput output = new DynamicSliceOutput(0);
         BlockSerdeUtil.writeBlock(new TestingBlockEncodingSerde(), output, block);
         kdbTreeLiteral = format("\"%s\"(from_base64('%s'))", LITERAL_FUNCTION_NAME, Base64.getEncoder().encodeToString(output.slice().getBytes()));
+        point21x21Literal = format("\"%s\"(from_base64('%s'))", LITERAL_FUNCTION_NAME, Base64.getEncoder().encodeToString(stPoint(2.1, 2.1).getBytes()));
     }
 
     @Test
@@ -301,30 +307,26 @@ public class TestSpatialJoinPlanning
                         "WHERE ST_Distance(ST_Point(a.lng, a.lat), ST_Point(b.lng, b.lat)) <= 3.1",
                 anyTree(
                         spatialJoin("st_distance(st_point_a, st_point_b) <= radius",
-                                project(ImmutableMap.of("st_point_a", expression("ST_Point(cast(a_lng as double), cast(a_lng as double))"), "a_name", expression("'x'")),
-                                        project(
-                                                ImmutableMap.of("a_lng", expression("CAST(DECIMAL '2.1' AS decimal(2, 1))")),
-                                                singleRow())),
+                                project(
+                                        ImmutableMap.of("st_point_a", expression(point21x21Literal), "a_name", expression("'x'")),
+                                        singleRow()),
                                 any(
-                                        project(ImmutableMap.of("st_point_b", expression("ST_Point(cast(b_lng as double), cast(b_lng as double))"), "radius", expression("3.1e0"), "b_name", expression("'x'")),
-                                                project(
-                                                        ImmutableMap.of("b_lng", expression("CAST(DECIMAL '2.1' AS decimal(2, 1))")),
-                                                        singleRow()))))));
+                                        project(
+                                                ImmutableMap.of("st_point_b", expression(point21x21Literal), "radius", expression("3.1e0"), "b_name", expression("'x'")),
+                                                singleRow())))));
 
         assertPlan("SELECT b.name, a.name " +
                         "FROM " + singleRow("2.1", "2.1", "'x'") + " AS a (lng, lat, name), " + singleRow("2.1", "2.1", "'x'") + " AS b (lng, lat, name) " +
                         "WHERE ST_Distance(ST_Point(a.lng, a.lat), ST_Point(b.lng, b.lat)) <= 300 / (cos(radians(b.lat)) * 111321)",
                 anyTree(
                         spatialJoin("st_distance(st_point_a, st_point_b) <= radius",
-                                project(ImmutableMap.of("st_point_a", expression("ST_Point(cast(a_lng as double), cast(a_lng as double))"), "a_name", expression("'x'")),
-                                        project(
-                                                ImmutableMap.of("a_lng", expression("CAST(DECIMAL '2.1' AS decimal(2, 1))")),
-                                                singleRow())),
+                                project(
+                                        ImmutableMap.of("st_point_a", expression(point21x21Literal), "a_name", expression("'x'")),
+                                        singleRow()),
                                 any(
-                                        project(ImmutableMap.of("st_point_b", expression("ST_Point(cast(b_lng as double), cast(b_lng as double))"), "radius", expression("3e2 / (cos(radians(cast(b_lng as double))) * 111.321e3)"), "b_name", expression("'x'")),
-                                                project(
-                                                        ImmutableMap.of("b_lng", expression("CAST(DECIMAL '2.1' AS decimal(2, 1))")),
-                                                        singleRow()))))));
+                                        project(
+                                                ImmutableMap.of("st_point_b", expression(point21x21Literal), "radius", expression(doubleLiteral(3e2 / (cos(toRadians(2.1)) * 111.321e3))), "b_name", expression("'x'")),
+                                                singleRow())))));
 
         // distributed
         assertDistributedPlan("SELECT b.name, a.name " +
@@ -335,18 +337,19 @@ public class TestSpatialJoinPlanning
                         spatialJoin("st_distance(st_point_a, st_point_b) <= radius", Optional.of(KDB_TREE_JSON),
                                 anyTree(
                                         unnest(
-                                                project(ImmutableMap.of("partitions", expression(format("spatial_partitions(%s, st_point_a)", kdbTreeLiteral))),
-                                                        project(ImmutableMap.of("st_point_a", expression("ST_Point(cast(a_lng as double), cast(a_lng as double))")),
-                                                                project(
-                                                                        ImmutableMap.of("a_lng", expression("CAST(DECIMAL '2.1' AS decimal(2, 1))")),
-                                                                        singleRow()))))),
+                                                project(
+                                                        ImmutableMap.of(
+                                                                "st_point_a", expression(point21x21Literal),
+                                                                "partitions", expression(format("spatial_partitions(%s, %s)", kdbTreeLiteral, point21x21Literal))),
+                                                        singleRow()))),
                                 anyTree(
                                         unnest(
-                                                project(ImmutableMap.of("partitions", expression(format("spatial_partitions(%s, st_point_b, 3.1e0)", kdbTreeLiteral)), "radius", expression("3.1e0")),
-                                                        project(ImmutableMap.of("st_point_b", expression("ST_Point(cast(b_lng as double), cast(b_lng as double))")),
-                                                                project(
-                                                                        ImmutableMap.of("b_lng", expression("CAST(DECIMAL '2.1' AS decimal(2, 1))")),
-                                                                        singleRow()))))))));
+                                                project(
+                                                        ImmutableMap.of(
+                                                                "st_point_b", expression(point21x21Literal),
+                                                                "partitions", expression(format("spatial_partitions(%s, %s, 3.1e0)", kdbTreeLiteral, point21x21Literal)),
+                                                                "radius", expression("3.1e0")),
+                                                        singleRow()))))));
     }
 
     @Test
@@ -537,5 +540,11 @@ public class TestSpatialJoinPlanning
         return Session.builder(this.getQueryRunner().getDefaultSession())
                 .setSystemProperty(SPATIAL_PARTITIONING_TABLE_NAME, tableName)
                 .build();
+    }
+
+    private static String doubleLiteral(double value)
+    {
+        checkArgument(Double.isFinite(value));
+        return format("%.16E", value);
     }
 }

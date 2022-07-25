@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore;
 
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
@@ -27,6 +28,8 @@ import static java.util.function.Function.identity;
 
 public class PrincipalPrivileges
 {
+    public static final PrincipalPrivileges NO_PRIVILEGES = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
+
     private final SetMultimap<String, HivePrivilegeInfo> userPrivileges;
     private final SetMultimap<String, HivePrivilegeInfo> rolePrivileges;
 

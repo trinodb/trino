@@ -67,7 +67,7 @@ public class ImplementBernoulliSampleAsFilter
                 sample.getSource(),
                 new ComparisonExpression(
                         ComparisonExpression.Operator.LESS_THAN,
-                        new FunctionCallBuilder(metadata)
+                        FunctionCallBuilder.resolve(context.getSession(), metadata)
                                 .setName(QualifiedName.of("rand"))
                                 .build(),
                         new DoubleLiteral(Double.toString(sample.getSampleRatio())))));

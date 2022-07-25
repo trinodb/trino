@@ -19,9 +19,9 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.HIVE_TRANSACTIONAL;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 
@@ -42,8 +42,8 @@ public class TestHiveTransactionalTableInsert
                 hiveTableProperties(type));
 
         try {
-            query("INSERT INTO " + tableName + " (a) VALUES (42)");
-            assertThat(query("SELECT * FROM " + tableName))
+            onTrino().executeQuery("INSERT INTO " + tableName + " (a) VALUES (42)");
+            assertThat(onTrino().executeQuery("SELECT * FROM " + tableName))
                     .containsOnly(row(42));
         }
         finally {

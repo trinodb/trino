@@ -20,7 +20,6 @@ import org.testng.annotations.Test;
 
 import static com.google.common.math.LongMath.factorial;
 import static io.trino.operator.scalar.ArrayCombinationsFunction.combinationCount;
-import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -83,9 +82,9 @@ public class TestArrayCombinationsFunction
     @Test
     public void testLimits()
     {
-        assertInvalidFunction("combinations(sequence(1, 40), -1)", INVALID_FUNCTION_ARGUMENT, "combination size must not be negative: -1");
-        assertInvalidFunction("combinations(sequence(1, 40), 10)", INVALID_FUNCTION_ARGUMENT, "combination size must not exceed 5: 10");
-        assertInvalidFunction("combinations(sequence(1, 100), 5)", INVALID_FUNCTION_ARGUMENT, "combinations exceed max size");
+        assertInvalidFunction("combinations(sequence(1, 40), -1)", "combination size must not be negative: -1");
+        assertInvalidFunction("combinations(sequence(1, 40), 10)", "combination size must not exceed 5: 10");
+        assertInvalidFunction("combinations(sequence(1, 100), 5)", "combinations exceed max size");
     }
 
     @Test

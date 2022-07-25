@@ -16,20 +16,26 @@ package io.trino.plugin.iceberg;
 import io.airlift.json.JsonCodec;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.plugin.iceberg.procedure.IcebergOptimizeHandle;
+import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.SchemaTableName;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
+import org.apache.iceberg.io.LocationProvider;
 
 import javax.inject.Inject;
 
+import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergPageSinkProvider
@@ -74,10 +80,12 @@ public class IcebergPageSinkProvider
         HdfsContext hdfsContext = new HdfsContext(session);
         Schema schema = SchemaParser.fromJson(tableHandle.getSchemaAsJson());
         PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, tableHandle.getPartitionSpecAsJson());
+        LocationProvider locationProvider = getLocationProvider(new SchemaTableName(tableHandle.getSchemaName(), tableHandle.getTableName()),
+                tableHandle.getOutputPath(), tableHandle.getStorageProperties());
         return new IcebergPageSink(
                 schema,
                 partitionSpec,
-                tableHandle.getOutputPath(),
+                locationProvider,
                 fileWriterFactory,
                 pageIndexerFactory,
                 hdfsEnvironment,
@@ -86,6 +94,40 @@ public class IcebergPageSinkProvider
                 jsonCodec,
                 session,
                 tableHandle.getFileFormat(),
+                tableHandle.getStorageProperties(),
                 maxOpenPartitions);
+    }
+
+    @Override
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+    {
+        IcebergTableExecuteHandle executeHandle = (IcebergTableExecuteHandle) tableExecuteHandle;
+        switch (executeHandle.getProcedureId()) {
+            case OPTIMIZE:
+                HdfsContext hdfsContext = new HdfsContext(session);
+                IcebergOptimizeHandle optimizeHandle = (IcebergOptimizeHandle) executeHandle.getProcedureHandle();
+                Schema schema = SchemaParser.fromJson(optimizeHandle.getSchemaAsJson());
+                PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, optimizeHandle.getPartitionSpecAsJson());
+                LocationProvider locationProvider = getLocationProvider(executeHandle.getSchemaTableName(),
+                        executeHandle.getTableLocation(), optimizeHandle.getTableStorageProperties());
+                return new IcebergPageSink(
+                        schema,
+                        partitionSpec,
+                        locationProvider,
+                        fileWriterFactory,
+                        pageIndexerFactory,
+                        hdfsEnvironment,
+                        hdfsContext,
+                        optimizeHandle.getTableColumns(),
+                        jsonCodec,
+                        session,
+                        optimizeHandle.getFileFormat(),
+                        optimizeHandle.getTableStorageProperties(),
+                        maxOpenPartitions);
+            case EXPIRE_SNAPSHOTS:
+            case REMOVE_ORPHAN_FILES:
+                // handled via ConnectorMetadata.executeTableExecute
+        }
+        throw new IllegalArgumentException("Unknown procedure: " + executeHandle.getProcedureId());
     }
 }

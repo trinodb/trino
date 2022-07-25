@@ -13,21 +13,24 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.metadata.FunctionListBuilder;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.function.OperatorType.ADD;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SuppressWarnings("UtilityClassWithoutPrivateConstructor")
 public class TestOperatorValidation
 {
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "ADD operator must have exactly 2 argument.*")
+    @Test
     public void testInvalidArgumentCount()
     {
-        extractScalars(InvalidArgumentCount.class);
+        assertThatThrownBy(() -> extractScalars(InvalidArgumentCount.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("ADD operator must have exactly 2 argument.*");
     }
 
     public static final class InvalidArgumentCount
@@ -42,6 +45,6 @@ public class TestOperatorValidation
 
     private static void extractScalars(Class<?> clazz)
     {
-        new FunctionListBuilder().scalars(clazz);
+        InternalFunctionBundle.builder().scalars(clazz);
     }
 }

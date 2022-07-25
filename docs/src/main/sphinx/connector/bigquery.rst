@@ -2,22 +2,15 @@
 BigQuery connector
 ==================
 
+.. raw:: html
+
+  <img src="../_static/img/bigquery.png" class="connector-logo">
+
 The BigQuery connector allows querying the data stored in `BigQuery
 <https://cloud.google.com/bigquery/>`_. This can be used to join data between
 different systems like BigQuery and Hive. The connector uses the `BigQuery
 Storage API <https://cloud.google.com/bigquery/docs/reference/storage/>`_ to
 read the data from the tables.
-
-Beta disclaimer
----------------
-
-This connector is in Beta and is subject to change.
-
-Changes may include, but are not limited to:
-
-* Type conversion
-* Partitioning
-* Parameters
 
 BigQuery Storage API
 --------------------
@@ -87,7 +80,7 @@ Multiple GCP projects
 
 The BigQuery connector can only access a single GCP project.Thus, if you have
 data in multiple GCP projects, You need to create several catalogs, each
-pointingto a different GCP project. For example, if you have two GCP projects,
+pointing to a different GCP project. For example, if you have two GCP projects,
 one for the sales and one for analytics, you can create two properties files in
 ``etc/catalog`` named ``sales.properties`` and ``analytics.properties``, both
 having ``connector.name=bigquery`` but with different ``project-id``. This will
@@ -109,6 +102,8 @@ The connector has a preliminary support for reading from `BigQuery views
 <https://cloud.google.com/bigquery/docs/views-intro>`_. Please note there are
 a few caveats:
 
+* Reading from views is disabled by default. In order to enable it, set the
+  ``bigquery.views-enabled`` configuration property to ``true``.
 * BigQuery views are not materialized by default, which means that the
   connector needs to materialize them before it can read them. This process
   affects the read performance.
@@ -118,33 +113,33 @@ a few caveats:
   and ``bigquery.view-materialization-dataset`` properties, respectively. The
   service account must have write permission to the project and the dataset in
   order to materialize the view.
-* Reading from views is disabled by default. In order to enable it, set the
-  ``bigquery.views-enabled`` configuration property to ``true``.
 
 Configuration properties
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-===================================================== ============================================================== ==============================================
+===================================================== ============================================================== ======================================================
 Property                                              Description                                                    Default
-===================================================== ============================================================== ==============================================
+===================================================== ============================================================== ======================================================
 ``bigquery.project-id``                               The Google Cloud Project ID where the data reside              Taken from the service account
 ``bigquery.parent-project-id``                        The project ID Google Cloud Project to bill for the export     Taken from the service account
 ``bigquery.parallelism``                              The number of partitions to split the data into                The number of executors
 ``bigquery.views-enabled``                            Enables the connector to read from views and not only tables.  ``false``
                                                       Please read `this section <#reading-from-views>`_ before
                                                       enabling this feature.
+``bigquery.view-expire-duration``                     Expire duration for the materialized view.                     ``24h``
 ``bigquery.view-materialization-project``             The project where the materialized view is going to be created The view's project
 ``bigquery.view-materialization-dataset``             The dataset where the materialized view is going to be created The view's dataset
+``bigquery.skip-view-materialization``                Use REST API to access views instead of Storage API. BigQuery
+                                                      ``BIGNUMERIC`` and ``TIMESTAMP`` types are unsupported.        ``false``
+``bigquery.views-cache-ttl``                          Duration for which the materialization of a view will be       ``15m``
+                                                      cached and reused. Set to ``0ms`` to disable the cache.
 ``bigquery.max-read-rows-retries``                    The number of retries in case of retryable server issues       ``3``
-``bigquery.credentials-key``                          The base64 encoded credentials key                             None. See `authentication <#authentication>`_
-``bigquery.credentials-file``                         The path to the JSON credentials file                          None. See `authentication <#authentication>`_
+``bigquery.credentials-key``                          The base64 encoded credentials key                             None. See the `requirements <#requirements>`_ section.
+``bigquery.credentials-file``                         The path to the JSON credentials file                          None. See the `requirements <#requirements>`_ section.
 ``bigquery.case-insensitive-name-matching``           Match dataset and table names case-insensitively               ``false``
-``bigquery.case-insensitive-name-matching.cache-ttl`` Duration for which remote dataset and table names will be      ``1m``
-                                                      cached. Higher values reduce the number of API calls to
-                                                      BigQuery but can cause newly created dataset or tables to not
-                                                      be visible until the configured duration. Set to ``0ms`` to
-                                                      disable the cache.
-===================================================== ============================================================== ==============================================
+``bigquery.query-results-cache.enabled``              Enable `query results cache
+                                                      <https://cloud.google.com/bigquery/docs/cached-results>`_      ``false``
+===================================================== ============================================================== ======================================================
 
 Data types
 ----------
@@ -152,22 +147,24 @@ Data types
 With a few exceptions, all BigQuery types are mapped directly to their Trino
 counterparts. Here are all the mappings:
 
-=============  ============================ =============================================================================================================
-BigQuery       Trino                        Notes
-=============  ============================ =============================================================================================================
+============== =============================== =============================================================================================================
+BigQuery       Trino                           Notes
+============== =============================== =============================================================================================================
+``ARRAY``      ``ARRAY``
 ``BOOLEAN``    ``BOOLEAN``
 ``BYTES``      ``VARBINARY``
 ``DATE``       ``DATE``
-``DATETIME``   ``TIMESTAMP``
+``DATETIME``   ``TIMESTAMP(6)``
 ``FLOAT``      ``DOUBLE``
-``GEOGRAPHY``  ``VARCHAR``                  In `Well-known text (WKT) <https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_ format
+``GEOGRAPHY``  ``VARCHAR``                     In `Well-known text (WKT) <https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_ format
 ``INTEGER``    ``BIGINT``
-``NUMERIC``    ``DECIMAL(38,9)``
+``NUMERIC``    ``DECIMAL(P,S)``                Defaults to ``38`` as precision and ``9`` as scale
+``BIGNUMERIC`` ``DECIMAL(P,S)``                Precision > 38 is not supported. Note that the default precision and scale of BIGNUMERIC is ``(77, 38)``.
 ``RECORD``     ``ROW``
 ``STRING``     ``VARCHAR``
-``TIME``       ``TIME_WITH_TIME_ZONE``      Time zone is UTC
-``TIMESTAMP``  ``TIMESTAMP_WITH_TIME_ZONE`` Time zone is UTC
-=============  ============================ =============================================================================================================
+``TIME``       ``TIME(6)``
+``TIMESTAMP``  ``TIMESTAMP(6) WITH TIME ZONE`` Time zone is UTC
+============== =============================== =============================================================================================================
 
 System tables
 -------------
@@ -175,6 +172,51 @@ System tables
 For each Trino table which maps to BigQuery view there exists a system table which exposes BigQuery view definition.
 Given a BigQuery view ``customer_view`` you can send query
 ``SELECT * customer_view$view_definition`` to see the SQL which defines view in BigQuery.
+
+.. _bigquery_special_columns:
+
+Special columns
+---------------
+
+In addition to the defined columns, the BigQuery connector exposes
+partition information in a number of hidden columns:
+
+* ``$partition_date``: Equivalent to ``_PARTITIONDATE`` pseudo-column in BigQuery
+
+* ``$partition_time``: Equivalent to ``_PARTITIONTIME`` pseudo-column in BigQuery
+
+You can use these columns in your SQL statements like any other column. They
+can be selected directly, or used in conditional statements. For example, you
+can inspect the partition date and time for each record::
+
+    SELECT *, "$partition_date", "$partition_time"
+    FROM bigquery.web.page_views;
+
+Retrieve all records stored in the partition ``_PARTITIONDATE = '2022-04-07'``::
+
+    SELECT *
+    FROM bigquery.web.page_views
+    WHERE "$partition_date" = date '2022-04-07';
+
+.. note::
+
+  Two special partitions ``__NULL__`` and ``__UNPARTITIONED__`` are not supported.
+
+.. _bigquery-sql-support:
+
+SQL support
+-----------
+
+The connector provides read and write access to data and metadata in the
+BigQuery database, though write access is limited. In addition to the
+:ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements, the connector supports
+the following features:
+
+* :doc:`/sql/create-table`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`
 
 FAQ
 ---
@@ -184,4 +226,3 @@ What is the Pricing for the Storage API?
 
 See the `BigQuery pricing documentation
 <https://cloud.google.com/bigquery/pricing#storage-api>`_.
-

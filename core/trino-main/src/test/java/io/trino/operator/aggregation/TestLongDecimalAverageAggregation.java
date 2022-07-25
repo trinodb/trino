@@ -16,18 +16,18 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
-import static io.trino.spi.type.Decimals.encodeScaledValue;
 
 public class TestLongDecimalAverageAggregation
         extends AbstractTestDecimalAverageAggregation
 {
-    private static final DecimalType LONG_DECIMAL_TYPE = DecimalType.createDecimalType(MAX_SHORT_PRECISION + 1);
+    private static final DecimalType LONG_DECIMAL_TYPE = DecimalType.createDecimalType(MAX_SHORT_PRECISION + 1, 2);
 
     @Override
     protected DecimalType getDecimalType()
@@ -36,14 +36,20 @@ public class TestLongDecimalAverageAggregation
     }
 
     @Override
+    protected DecimalType getExpectedType()
+    {
+        return LONG_DECIMAL_TYPE;
+    }
+
+    @Override
     protected void writeDecimalToBlock(BigDecimal decimal, BlockBuilder blockBuilder)
     {
-        LONG_DECIMAL_TYPE.writeSlice(blockBuilder, encodeScaledValue(decimal));
+        LONG_DECIMAL_TYPE.writeObject(blockBuilder, Decimals.valueOf(decimal));
     }
 
     @Override
     protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(DecimalType.createDecimalType(MAX_SHORT_PRECISION + 1, 2));
+        return ImmutableList.of(LONG_DECIMAL_TYPE);
     }
 }

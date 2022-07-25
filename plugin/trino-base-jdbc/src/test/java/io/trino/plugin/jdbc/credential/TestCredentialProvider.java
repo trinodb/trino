@@ -18,9 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.bootstrap.Bootstrap;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.net.URISyntaxException;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.io.Resources.getResource;
 import static org.testng.Assert.assertEquals;
 
 public class TestCredentialProvider
@@ -54,7 +57,7 @@ public class TestCredentialProvider
     @Test
     public void testKeyStoreBasedCredentialProvider()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("connection-url", "jdbc:h2:mem:config")
                 .put("credential-provider.type", "KEYSTORE")
                 .put("keystore-file-path", getResourceFilePath("credentials.jceks"))
@@ -64,7 +67,7 @@ public class TestCredentialProvider
                 .put("keystore-user-credential-password", "keystore_password_for_user_name")
                 .put("keystore-password-credential-name", "password")
                 .put("keystore-password-credential-password", "keystore_password_for_password")
-                .build();
+                .buildOrThrow();
 
         CredentialProvider credentialProvider = getCredentialProvider(properties);
         assertEquals(credentialProvider.getConnectionUser(Optional.empty()).get(), "user_from_keystore");
@@ -81,6 +84,11 @@ public class TestCredentialProvider
 
     private String getResourceFilePath(String fileName)
     {
-        return this.getClass().getClassLoader().getResource(fileName).getPath();
+        try {
+            return new File(getResource(fileName).toURI()).getPath();
+        }
+        catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

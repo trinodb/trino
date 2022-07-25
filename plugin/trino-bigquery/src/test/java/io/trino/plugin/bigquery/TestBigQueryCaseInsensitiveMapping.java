@@ -19,6 +19,8 @@ import io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TestView;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.stream.Stream;
@@ -37,13 +39,18 @@ public class TestBigQueryCaseInsensitiveMapping
         // TODO extends BaseCaseInsensitiveMappingTest - https://github.com/trinodb/trino/issues/7864
         extends AbstractTestQueryFramework
 {
-    private BigQuerySqlExecutor bigQuerySqlExecutor;
+    protected BigQuerySqlExecutor bigQuerySqlExecutor;
+
+    @BeforeClass(alwaysRun = true)
+    public void initBigQueryExecutor()
+    {
+        this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
         return BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
                 ImmutableMap.of("bigquery.case-insensitive-name-matching", "true"));
@@ -100,6 +107,40 @@ public class TestBigQueryCaseInsensitiveMapping
             assertQuery("SELECT upper_case_name FROM " + trinoSchema + ".nonlowercasetable", "VALUES 'c'");
             assertQuery("SELECT upper_case_name FROM " + bigQuerySchema + ".NonLowerCaseTable", "VALUES 'c'");
             assertQuery("SELECT upper_case_name FROM \"" + bigQuerySchema + "\".\"NonLowerCaseTable\"", "VALUES 'c'");
+            // TODO: test with INSERT and CTAS https://github.com/trinodb/trino/issues/6868, https://github.com/trinodb/trino/issues/6869
+        }
+    }
+
+    @Test
+    public void testNonLowerCaseViewName()
+            throws Exception
+    {
+        String bigQuerySchema = "SomeSchema_" + randomTableSuffix();
+        String trinoSchema = bigQuerySchema.toLowerCase(ENGLISH);
+        String namePrefix = format("%s.Test_Case", bigQuerySchema);
+
+        try (AutoCloseable schema = withSchema(bigQuerySchema);
+                TestView view = new TestView(bigQuerySqlExecutor, namePrefix, "SELECT 'a' AS lower_case_name, 'b' AS Mixed_Case_Name, 'c' AS UPPER_CASE_NAME")) {
+            String viewName = view.getName().substring(bigQuerySchema.length() + 1).toLowerCase(ENGLISH);
+            assertThat(computeActual("SHOW TABLES FROM " + trinoSchema).getOnlyColumn()).contains(viewName);
+            assertEquals(
+                    computeActual("SHOW COLUMNS FROM " + trinoSchema + "." + viewName).getMaterializedRows().stream()
+                            .map(row -> row.getField(0))
+                            .collect(toImmutableSet()),
+                    ImmutableSet.of("lower_case_name", "mixed_case_name", "upper_case_name"));
+
+            assertQuery(
+                    format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", trinoSchema),
+                    format("VALUES '%s'", viewName));
+            assertQuery(
+                    format("SELECT column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'", trinoSchema, viewName),
+                    "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
+
+            // Note: until https://github.com/trinodb/trino/issues/17 is resolved, this is *the* way to access the tables.
+            assertQuery("SELECT lower_case_name FROM " + view.getName(), "VALUES 'a'");
+            assertQuery("SELECT mixed_case_name FROM " + view.getName(), "VALUES 'b'");
+            assertQuery("SELECT upper_case_name FROM " + view.getName(), "VALUES 'c'");
+            assertQuery("SELECT upper_case_name FROM " + view.getName().toLowerCase(ENGLISH), "VALUES 'c'");
             // TODO: test with INSERT and CTAS https://github.com/trinodb/trino/issues/6868, https://github.com/trinodb/trino/issues/6869
         }
     }
@@ -175,33 +216,30 @@ public class TestBigQueryCaseInsensitiveMapping
 
     @Test
     public void testDropSchema()
+            throws Exception
     {
-        String schema = "Test_Drop_Case_Sensitive";
-        bigQuerySqlExecutor.execute(format("DROP SCHEMA IF EXISTS `%s`", schema));
-        bigQuerySqlExecutor.execute(format("CREATE SCHEMA `%s`", schema));
-
-        assertUpdate("DROP SCHEMA " + schema.toLowerCase(ENGLISH));
+        String schemaName = "Test_Drop_Case_Sensitive_" + randomTableSuffix();
+        try (AutoCloseable schema = withSchema(schemaName)) {
+            assertUpdate("DROP SCHEMA " + schemaName.toLowerCase(ENGLISH));
+        }
     }
 
     @Test
     public void testDropSchemaNameClash()
+            throws Exception
     {
-        String schema = "Test_Drop_Case_Sensitive_Clash";
-        bigQuerySqlExecutor.execute(format("DROP SCHEMA IF EXISTS `%s`", schema));
-        bigQuerySqlExecutor.execute(format("DROP SCHEMA IF EXISTS `%s`", schema.toLowerCase(ENGLISH)));
-        bigQuerySqlExecutor.execute(format("CREATE SCHEMA `%s`", schema));
-        bigQuerySqlExecutor.execute(format("CREATE SCHEMA `%s`", schema.toLowerCase(ENGLISH)));
-
-        assertQueryFails("DROP SCHEMA " + schema.toLowerCase(ENGLISH), "Found ambiguous names in BigQuery.*");
-
-        bigQuerySqlExecutor.execute(format("DROP SCHEMA `%s`", schema));
-        bigQuerySqlExecutor.execute(format("DROP SCHEMA `%s`", schema.toLowerCase(ENGLISH)));
+        String schemaName = "Test_Drop_Case_Sensitive_Clash_" + randomTableSuffix();
+        try (AutoCloseable schema = withSchema(schemaName);
+                AutoCloseable secondSchema = withSchema(schemaName.toLowerCase(ENGLISH))) {
+            assertQueryFails("DROP SCHEMA " + schemaName.toLowerCase(ENGLISH), "Found ambiguous names in BigQuery.*");
+        }
     }
 
     private AutoCloseable withSchema(String schemaName)
     {
+        bigQuerySqlExecutor.dropDatasetIfExists(schemaName);
         bigQuerySqlExecutor.createDataset(schemaName);
-        return () -> bigQuerySqlExecutor.dropDataset(schemaName);
+        return () -> bigQuerySqlExecutor.dropDatasetIfExists(schemaName);
     }
 
     /**

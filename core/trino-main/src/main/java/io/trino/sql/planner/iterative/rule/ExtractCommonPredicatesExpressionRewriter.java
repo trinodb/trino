@@ -20,7 +20,7 @@ import io.trino.metadata.Metadata;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 
 import java.util.Collection;
 import java.util.List;
@@ -30,7 +30,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.ExpressionUtils.combinePredicates;
 import static io.trino.sql.ExpressionUtils.extractPredicates;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
-import static io.trino.sql.tree.LogicalBinaryExpression.Operator.OR;
+import static io.trino.sql.tree.LogicalExpression.Operator.OR;
 import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -66,7 +66,7 @@ public final class ExtractCommonPredicatesExpressionRewriter
         }
 
         @Override
-        public Expression rewriteLogicalBinaryExpression(LogicalBinaryExpression node, NodeContext context, ExpressionTreeRewriter<NodeContext> treeRewriter)
+        public Expression rewriteLogicalExpression(LogicalExpression node, NodeContext context, ExpressionTreeRewriter<NodeContext> treeRewriter)
         {
             Expression expression = combinePredicates(
                     metadata,
@@ -75,21 +75,21 @@ public final class ExtractCommonPredicatesExpressionRewriter
                             .map(subExpression -> treeRewriter.rewrite(subExpression, NodeContext.NOT_ROOT_NODE))
                             .collect(toImmutableList()));
 
-            if (!(expression instanceof LogicalBinaryExpression)) {
+            if (!(expression instanceof LogicalExpression)) {
                 return expression;
             }
 
-            Expression simplified = extractCommonPredicates((LogicalBinaryExpression) expression);
+            Expression simplified = extractCommonPredicates((LogicalExpression) expression);
 
             // Prefer AND LogicalBinaryExpression at the root if possible
-            if (context.isRootNode() && simplified instanceof LogicalBinaryExpression && ((LogicalBinaryExpression) simplified).getOperator() == OR) {
-                return distributeIfPossible((LogicalBinaryExpression) simplified);
+            if (context.isRootNode() && simplified instanceof LogicalExpression && ((LogicalExpression) simplified).getOperator() == OR) {
+                return distributeIfPossible((LogicalExpression) simplified);
             }
 
             return simplified;
         }
 
-        private Expression extractCommonPredicates(LogicalBinaryExpression node)
+        private Expression extractCommonPredicates(LogicalExpression node)
         {
             List<List<Expression>> subPredicates = getSubPredicates(node);
 
@@ -102,7 +102,7 @@ public final class ExtractCommonPredicatesExpressionRewriter
                     .map(predicateList -> removeAll(predicateList, commonPredicates))
                     .collect(toImmutableList());
 
-            LogicalBinaryExpression.Operator flippedOperator = node.getOperator().flip();
+            LogicalExpression.Operator flippedOperator = node.getOperator().flip();
 
             List<Expression> uncorrelatedPredicates = uncorrelatedSubPredicates.stream()
                     .map(predicate -> combinePredicates(metadata, flippedOperator, predicate))
@@ -115,11 +115,11 @@ public final class ExtractCommonPredicatesExpressionRewriter
                     .build());
         }
 
-        private static List<List<Expression>> getSubPredicates(LogicalBinaryExpression expression)
+        private static List<List<Expression>> getSubPredicates(LogicalExpression expression)
         {
             return extractPredicates(expression.getOperator(), expression).stream()
-                    .map(predicate -> predicate instanceof LogicalBinaryExpression ?
-                            extractPredicates((LogicalBinaryExpression) predicate) : ImmutableList.of(predicate))
+                    .map(predicate -> predicate instanceof LogicalExpression ?
+                            extractPredicates((LogicalExpression) predicate) : ImmutableList.of(predicate))
                     .collect(toImmutableList());
         }
 
@@ -132,7 +132,7 @@ public final class ExtractCommonPredicatesExpressionRewriter
          * Returns the original expression if the expression is non-deterministic or if the distribution will
          * expand the expression by too much.
          */
-        private Expression distributeIfPossible(LogicalBinaryExpression expression)
+        private Expression distributeIfPossible(LogicalExpression expression)
         {
             if (!isDeterministic(expression, metadata)) {
                 // Do not distribute boolean expressions if there are any non-deterministic elements

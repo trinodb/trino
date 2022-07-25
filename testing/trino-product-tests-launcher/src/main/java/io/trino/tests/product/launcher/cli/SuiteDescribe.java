@@ -142,6 +142,7 @@ public class SuiteDescribe
             out.printf("Suite '%s' with configuration '%s' consists of following test runs: \n", suiteName, this.config);
 
             for (SuiteTestRun testRun : suite.getTestRuns(config)) {
+                testRun = testRun.withConfigApplied(config);
                 TestRun.TestRunOptions runOptions = createTestRunOptions(suiteName, testRun, config);
                 out.printf("\n%s test run %s\n\n", environmentOptions.launcherBin, OptionsPrinter.format(environmentOptions, runOptions));
             }
@@ -156,7 +157,7 @@ public class SuiteDescribe
             testRunOptions.extraOptions = suiteTestRun.getExtraOptions();
             testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments();
             testRunOptions.testJar = testJar;
-            testRunOptions.reportsDir = Paths.get(format("presto-product-tests/target/%s/%s/%s", suiteName, environmentConfig.getConfigName(), suiteTestRun.getEnvironmentName()));
+            testRunOptions.reportsDir = Paths.get(format("testing/trino-product-tests/target/%s/%s/%s", suiteName, environmentConfig.getConfigName(), suiteTestRun.getEnvironmentName()));
             testRunOptions.startupRetries = null;
             testRunOptions.logsDirBase = Optional.empty();
             return testRunOptions;

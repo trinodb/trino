@@ -13,8 +13,8 @@
  */
 package io.trino.connector.system;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.connector.CatalogName;
+import io.trino.metadata.CatalogInfo;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -27,12 +27,13 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.TreeMap;
-import java.util.function.Supplier;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.List;
+import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -43,9 +44,9 @@ abstract class AbstractPropertiesSystemTable
 {
     private final ConnectorTableMetadata tableMetadata;
     private final TransactionManager transactionManager;
-    private final Supplier<Map<CatalogName, Map<String, PropertyMetadata<?>>>> propertySupplier;
+    private final Function<CatalogName, Collection<PropertyMetadata<?>>> catalogProperties;
 
-    protected AbstractPropertiesSystemTable(String tableName, TransactionManager transactionManager, Supplier<Map<CatalogName, Map<String, PropertyMetadata<?>>>> propertySupplier)
+    protected AbstractPropertiesSystemTable(String tableName, TransactionManager transactionManager, Function<CatalogName, Collection<PropertyMetadata<?>>> catalogProperties)
     {
         this.tableMetadata = tableMetadataBuilder(new SchemaTableName("metadata", tableName))
                 .column("catalog_name", createUnboundedVarcharType())
@@ -55,7 +56,7 @@ abstract class AbstractPropertiesSystemTable
                 .column("description", createUnboundedVarcharType())
                 .build();
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.propertySupplier = requireNonNull(propertySupplier, "propertySupplier is null");
+        this.catalogProperties = requireNonNull(catalogProperties, "catalogProperties is null");
     }
 
     @Override
@@ -76,18 +77,23 @@ abstract class AbstractPropertiesSystemTable
         TransactionId transactionId = ((GlobalSystemTransactionHandle) transactionHandle).getTransactionId();
 
         InMemoryRecordSet.Builder table = InMemoryRecordSet.builder(tableMetadata);
-        Map<CatalogName, Map<String, PropertyMetadata<?>>> connectorProperties = propertySupplier.get();
-        for (Entry<String, CatalogName> entry : new TreeMap<>(transactionManager.getCatalogNames(transactionId)).entrySet()) {
-            String catalog = entry.getKey();
-            Map<String, PropertyMetadata<?>> properties = new TreeMap<>(connectorProperties.getOrDefault(entry.getValue(), ImmutableMap.of()));
-            for (PropertyMetadata<?> propertyMetadata : properties.values()) {
-                table.addRow(
-                        catalog,
-                        propertyMetadata.getName(),
-                        firstNonNull(propertyMetadata.getDefaultValue(), "").toString(),
-                        propertyMetadata.getSqlType().toString(),
-                        propertyMetadata.getDescription());
-            }
+
+        List<String> catalogNames = transactionManager.getCatalogs(transactionId).stream()
+                .map(CatalogInfo::getCatalogName)
+                .map(CatalogName::getCatalogName)
+                .sorted()
+                .collect(toImmutableList());
+
+        for (String catalogName : catalogNames) {
+            catalogProperties.apply(new CatalogName(catalogName)).stream()
+                    .sorted(Comparator.comparing(PropertyMetadata::getName))
+                    .forEach(propertyMetadata ->
+                            table.addRow(
+                                    catalogName,
+                                    propertyMetadata.getName(),
+                                    firstNonNull(propertyMetadata.getDefaultValue(), "").toString(),
+                                    propertyMetadata.getSqlType().toString(),
+                                    propertyMetadata.getDescription()));
         }
         return table.build().cursor();
     }

@@ -13,12 +13,6 @@
  */
 package io.trino.plugin.raptor.legacy.metadata;
 
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
-
-import java.sql.ResultSet;
-import java.sql.SQLException;
-
 import static java.util.Objects.requireNonNull;
 
 public class RaptorNode
@@ -40,18 +34,5 @@ public class RaptorNode
     public String getNodeIdentifier()
     {
         return nodeIdentifier;
-    }
-
-    public static class Mapper
-            implements ResultSetMapper<RaptorNode>
-    {
-        @Override
-        public RaptorNode map(int index, ResultSet rs, StatementContext ctx)
-                throws SQLException
-        {
-            return new RaptorNode(
-                    rs.getInt("node_id"),
-                    rs.getString("node_identifier"));
-        }
     }
 }

@@ -19,9 +19,9 @@ import org.testng.annotations.Test;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.KAFKA;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 public class TestKafkaAvroWritesSmokeTest
@@ -36,7 +36,7 @@ public class TestKafkaAvroWritesSmokeTest
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     public void testInsertPrimitiveDataType()
     {
-        assertThat(query(format(
+        assertThat(onTrino().executeQuery(format(
                 "INSERT INTO %s.%s VALUES " +
                         "('jasio', 9223372036854775807, 1234567890.123456789, true), " +
                         "('stasio', -9223372036854775808, -1234567890.123456789, false), " +
@@ -47,7 +47,7 @@ public class TestKafkaAvroWritesSmokeTest
                 ALL_DATATYPES_AVRO_TABLE_NAME)))
                 .updatedRowsCountIsEqualTo(5);
 
-        assertThat(query(format(
+        assertThat(onTrino().executeQuery(format(
                 "SELECT * FROM %s.%s",
                 KAFKA_CATALOG,
                 ALL_DATATYPES_AVRO_TABLE_NAME)))
@@ -62,7 +62,7 @@ public class TestKafkaAvroWritesSmokeTest
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     public void testInsertStructuralDataType()
     {
-        assertQueryFailure(() -> query(format(
+        assertQueryFailure(() -> onTrino().executeQuery(format(
                 "INSERT INTO %s.%s VALUES " +
                         "(ARRAY[100, 102], map_from_entries(ARRAY[('key1', 'value1')]))",
                 KAFKA_CATALOG,

@@ -29,6 +29,8 @@ public interface LocationService
 
     LocationHandle forExistingTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table);
 
+    LocationHandle forOptimize(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table);
+
     /**
      * targetPath and writePath will be root directory of all partition and table paths
      * that may be returned by {@link #getTableWriteInfo(LocationHandle, boolean)} and {@link #getPartitionWriteInfo(LocationHandle, Optional, String)} method.

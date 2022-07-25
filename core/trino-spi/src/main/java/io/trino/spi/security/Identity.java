@@ -32,7 +32,8 @@ public class Identity
     private final String user;
     private final Set<String> groups;
     private final Optional<Principal> principal;
-    private final Map<String, SelectedRole> roles;
+    private final Set<String> enabledRoles;
+    private final Map<String, SelectedRole> catalogRoles;
     private final Map<String, String> extraCredentials;
     private final Optional<Runnable> onDestroy;
 
@@ -40,14 +41,16 @@ public class Identity
             String user,
             Set<String> groups,
             Optional<Principal> principal,
-            Map<String, SelectedRole> roles,
+            Set<String> enabledRoles,
+            Map<String, SelectedRole> catalogRoles,
             Map<String, String> extraCredentials,
             Optional<Runnable> onDestroy)
     {
         this.user = requireNonNull(user, "user is null");
         this.groups = Set.copyOf(requireNonNull(groups, "groups is null"));
         this.principal = requireNonNull(principal, "principal is null");
-        this.roles = Map.copyOf(requireNonNull(roles, "roles is null"));
+        this.enabledRoles = Set.copyOf(requireNonNull(enabledRoles, "enabledRoles is null"));
+        this.catalogRoles = Map.copyOf(requireNonNull(catalogRoles, "connectorRoles is null"));
         this.extraCredentials = Map.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
         this.onDestroy = requireNonNull(onDestroy, "onDestroy is null");
     }
@@ -67,9 +70,23 @@ public class Identity
         return principal;
     }
 
+    public Set<String> getEnabledRoles()
+    {
+        return enabledRoles;
+    }
+
+    /**
+     * @deprecated Use getConnectorRoles
+     */
+    @Deprecated
     public Map<String, SelectedRole> getRoles()
     {
-        return roles;
+        return getCatalogRoles();
+    }
+
+    public Map<String, SelectedRole> getCatalogRoles()
+    {
+        return catalogRoles;
     }
 
     public Map<String, String> getExtraCredentials()
@@ -82,6 +99,7 @@ public class Identity
         return ConnectorIdentity.forUser(user)
                 .withGroups(groups)
                 .withPrincipal(principal)
+                .withEnabledSystemRoles(enabledRoles)
                 .withExtraCredentials(extraCredentials)
                 .build();
     }
@@ -91,7 +109,8 @@ public class Identity
         return ConnectorIdentity.forUser(user)
                 .withGroups(groups)
                 .withPrincipal(principal)
-                .withRole(Optional.ofNullable(roles.get(catalog)))
+                .withEnabledSystemRoles(enabledRoles)
+                .withConnectorRole(Optional.ofNullable(catalogRoles.get(catalog)))
                 .withExtraCredentials(extraCredentials)
                 .build();
     }
@@ -125,9 +144,16 @@ public class Identity
     {
         StringBuilder sb = new StringBuilder("Identity{");
         sb.append("user='").append(user).append('\'');
-        sb.append(", groups=").append(groups);
+        if (!groups.isEmpty()) {
+            sb.append(", groups=").append(groups);
+        }
         principal.ifPresent(principal -> sb.append(", principal=").append(principal));
-        sb.append(", roles=").append(roles);
+        if (!catalogRoles.isEmpty()) {
+            sb.append(", catalogRoles=").append(catalogRoles);
+        }
+        if (!enabledRoles.isEmpty()) {
+            sb.append(", enabledRoles=").append(enabledRoles);
+        }
         // Do not print any internal credential keys
         List<String> filteredCredentials = extraCredentials.keySet().stream()
                 .filter(key -> !key.contains("$internal"))
@@ -135,7 +161,9 @@ public class Identity
         if (filteredCredentials.size() != extraCredentials.size()) {
             filteredCredentials.add("...");
         }
-        sb.append(", extraCredentials=").append(filteredCredentials);
+        if (!extraCredentials.isEmpty()) {
+            sb.append(", extraCredentials=").append(filteredCredentials);
+        }
         sb.append('}');
         return sb.toString();
     }
@@ -155,7 +183,8 @@ public class Identity
         return new Builder(identity.getUser())
                 .withGroups(identity.getGroups())
                 .withPrincipal(identity.getPrincipal())
-                .withRoles(identity.getRoles())
+                .withEnabledRoles(identity.enabledRoles)
+                .withConnectorRoles(identity.getCatalogRoles())
                 .withExtraCredentials(identity.getExtraCredentials());
     }
 
@@ -164,7 +193,8 @@ public class Identity
         private String user;
         private Set<String> groups = new HashSet<>();
         private Optional<Principal> principal = Optional.empty();
-        private Map<String, SelectedRole> roles = new HashMap<>();
+        private Set<String> enabledRoles = new HashSet<>();
+        private Map<String, SelectedRole> connectorRoles = new HashMap<>();
         private Map<String, String> extraCredentials = new HashMap<>();
         private Optional<Runnable> onDestroy = Optional.empty();
 
@@ -190,25 +220,59 @@ public class Identity
             return this;
         }
 
+        public Builder withEnabledRoles(Set<String> enabledRoles)
+        {
+            enabledRoles = new HashSet<>(requireNonNull(enabledRoles, "enabledRoles is null"));
+            this.enabledRoles = new HashSet<>(requireNonNull(enabledRoles, "enabledRoles is null"));
+            return this;
+        }
+
+        /**
+         * @deprecated Use withConnectorRole
+         */
+        @Deprecated
         public Builder withRole(String catalog, SelectedRole role)
+        {
+            return withConnectorRole(catalog, role);
+        }
+
+        /**
+         * @deprecated Use withConnectorRoles
+         */
+        @Deprecated
+        public Builder withRoles(Map<String, SelectedRole> roles)
+        {
+            return withConnectorRoles(roles);
+        }
+
+        /**
+         * @deprecated Use withAdditionalConnectorRoles
+         */
+        @Deprecated
+        public Builder withAdditionalRoles(Map<String, SelectedRole> roles)
+        {
+            return withAdditionalConnectorRoles(roles);
+        }
+
+        public Builder withConnectorRole(String catalog, SelectedRole role)
         {
             requireNonNull(catalog, "catalog is null");
             requireNonNull(role, "role is null");
-            if (this.roles.put(catalog, role) != null) {
+            if (this.connectorRoles.put(catalog, role) != null) {
                 throw new IllegalStateException("There is already role set for " + catalog);
             }
             return this;
         }
 
-        public Builder withRoles(Map<String, SelectedRole> roles)
+        public Builder withConnectorRoles(Map<String, SelectedRole> roles)
         {
-            this.roles = new HashMap<>(requireNonNull(roles, "roles is null"));
+            this.connectorRoles = new HashMap<>(requireNonNull(roles, "roles is null"));
             return this;
         }
 
-        public Builder withAdditionalRoles(Map<String, SelectedRole> roles)
+        public Builder withAdditionalConnectorRoles(Map<String, SelectedRole> roles)
         {
-            this.roles.putAll(requireNonNull(roles, "roles is null"));
+            this.connectorRoles.putAll(requireNonNull(roles, "roles is null"));
             return this;
         }
 
@@ -247,7 +311,7 @@ public class Identity
 
         public Identity build()
         {
-            return new Identity(user, groups, principal, roles, extraCredentials, onDestroy);
+            return new Identity(user, groups, principal, enabledRoles, connectorRoles, extraCredentials, onDestroy);
         }
     }
 

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
-import io.trino.metadata.Metadata;
 import io.trino.orc.metadata.OrcType;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -43,13 +42,13 @@ import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.orc.OrcTester.READER_OPTIONS;
 import static io.trino.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
 import static io.trino.orc.TestingOrcPredicate.ORC_ROW_GROUP_SIZE;
 import static io.trino.orc.TestingOrcPredicate.ORC_STRIPE_SIZE;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
@@ -58,8 +57,6 @@ import static org.testng.Assert.assertNull;
 @Test(singleThreaded = true)
 public class TestStructColumnReader
 {
-    private static final Metadata METADATA = createTestMetadataManager();
-
     private static final Type TEST_DATA_TYPE = VARCHAR;
 
     private static final String STRUCT_COL_NAME = "struct_col";
@@ -68,6 +65,7 @@ public class TestStructColumnReader
 
     @BeforeMethod
     public void setUp()
+            throws IOException
     {
         tempFile = new TempFile();
     }
@@ -282,7 +280,7 @@ public class TestStructColumnReader
         for (String fieldName : fieldNames) {
             typeSignatureParameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(fieldName)), TEST_DATA_TYPE.getTypeSignature())));
         }
-        return METADATA.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
+        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
     }
 
     private Type getTypeNullName(int numFields)
@@ -292,6 +290,6 @@ public class TestStructColumnReader
         for (int i = 0; i < numFields; i++) {
             typeSignatureParameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.empty(), TEST_DATA_TYPE.getTypeSignature())));
         }
-        return METADATA.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
+        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
     }
 }

@@ -72,12 +72,12 @@ public class ElasticsearchNginxProxy
             "}\n";
 
     private final Path configurationPath;
-    private final NginxContainer container;
+    private final NginxContainer<?> container;
 
     public ElasticsearchNginxProxy(Network network, int requestsPerSecond)
             throws IOException
     {
-        container = new NginxContainer("nginx:1.19.8");
+        container = new NginxContainer<>("nginx:1.19.8");
         container.withNetwork(network);
         container.withNetworkAliases("elasticsearch-proxy");
         // Create the Nginx configuration file on host and copy it into a predefined path the container

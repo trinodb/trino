@@ -131,7 +131,7 @@ public final class FileBasedNetworkTopology
 
             topology.put(parts.get(0), new NetworkLocation(segments));
         }
-        return topology.build();
+        return topology.buildOrThrow();
     }
 
     private static RuntimeException invalidFile(int lineNumber, String message)

@@ -23,15 +23,14 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
-import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
+import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 
-import static io.trino.operator.aggregation.TypedSet.createEqualityTypedSet;
+import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
+import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 
 @ScalarFunction("array_except")
 @Description("Returns an array of elements that are in the first array but not the second, without duplicates.")
@@ -44,9 +43,9 @@ public final class ArrayExceptFunction
     public static Block except(
             @TypeParameter("E") Type type,
             @OperatorDependency(
-                    operator = EQUAL,
+                    operator = IS_DISTINCT_FROM,
                     argumentTypes = {"E", "E"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN)) BlockPositionEqual elementEqual,
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionIsDistinctFrom isDistinctOperator,
             @OperatorDependency(
                     operator = HASH_CODE,
                     argumentTypes = "E",
@@ -57,17 +56,17 @@ public final class ArrayExceptFunction
         int leftPositionCount = leftArray.getPositionCount();
         int rightPositionCount = rightArray.getPositionCount();
 
-        if (leftPositionCount == 0) {
+        if (leftPositionCount == 0 || rightPositionCount == 0) {
             return leftArray;
         }
-        TypedSet typedSet = createEqualityTypedSet(type, elementEqual, elementHashCode, leftPositionCount + rightPositionCount, "array_except");
+
+        TypedSet typedSet = createDistinctTypedSet(type, isDistinctOperator, elementHashCode, leftPositionCount, "array_except");
         BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(null, leftPositionCount);
         for (int i = 0; i < rightPositionCount; i++) {
             typedSet.add(rightArray, i);
         }
         for (int i = 0; i < leftPositionCount; i++) {
-            if (!typedSet.contains(leftArray, i)) {
-                typedSet.add(leftArray, i);
+            if (typedSet.add(leftArray, i)) {
                 type.appendTo(leftArray, i, distinctElementBlockBuilder);
             }
         }

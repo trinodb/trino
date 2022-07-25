@@ -67,8 +67,8 @@ public class ThriftPageSource
     {
         // init columns
         requireNonNull(columns, "columns is null");
-        ImmutableList.Builder<String> columnNames = new ImmutableList.Builder<>();
-        ImmutableList.Builder<Type> columnTypes = new ImmutableList.Builder<>();
+        ImmutableList.Builder<String> columnNames = ImmutableList.builder();
+        ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
         for (ColumnHandle columnHandle : columns) {
             ThriftColumnHandle thriftColumnHandle = (ThriftColumnHandle) columnHandle;
             columnNames.add(thriftColumnHandle.getColumnName());
@@ -113,7 +113,7 @@ public class ThriftPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return 0;
     }

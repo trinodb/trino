@@ -29,21 +29,9 @@ public class NumericHistogramStateFactory
     }
 
     @Override
-    public Class<? extends DoubleHistogramAggregation.State> getSingleStateClass()
-    {
-        return SingleState.class;
-    }
-
-    @Override
     public DoubleHistogramAggregation.State createGroupedState()
     {
         return new GroupedState();
-    }
-
-    @Override
-    public Class<? extends DoubleHistogramAggregation.State> getGroupedStateClass()
-    {
-        return GroupedState.class;
     }
 
     public static class GroupedState

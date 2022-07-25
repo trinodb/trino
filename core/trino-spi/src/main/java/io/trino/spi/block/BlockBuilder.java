@@ -78,7 +78,7 @@ public interface BlockBuilder
     }
 
     /**
-     * Write a byte to the current entry;
+     * Close the current entry.
      */
     BlockBuilder closeEntry();
 
@@ -86,23 +86,6 @@ public interface BlockBuilder
      * Appends a null value to the block.
      */
     BlockBuilder appendNull();
-
-    /**
-     * Append a struct to the block and close the entry.
-     */
-    default BlockBuilder appendStructure(Block value)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Do not use this interface outside block package.
-     * Instead, use Block.writePositionTo(BlockBuilder, position)
-     */
-    default BlockBuilder appendStructureInternal(Block block, int position)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
 
     /**
      * Builds the block. This method can be called multiple times.

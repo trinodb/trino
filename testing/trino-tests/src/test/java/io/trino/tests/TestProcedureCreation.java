@@ -24,24 +24,23 @@ import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@Test(singleThreaded = true)
 public class TestProcedureCreation
 {
     @Test
     public void shouldThrowExceptionWhenOptionalArgumentIsNotLast()
     {
         assertThatThrownBy(() -> createTestProcedure(ImmutableList.of(
-                new Procedure.Argument("name", VARCHAR, false, null),
-                new Procedure.Argument("name2", VARCHAR, true, null))))
+                new Procedure.Argument("NAME", VARCHAR, false, null),
+                new Procedure.Argument("NAME2", VARCHAR, true, null))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Optional arguments should follow required ones");
 
         assertThatThrownBy(() -> createTestProcedure(ImmutableList.of(
-                new Procedure.Argument("name", VARCHAR, true, null),
-                new Procedure.Argument("name2", VARCHAR, true, null),
-                new Procedure.Argument("name3", VARCHAR, true, null),
-                new Procedure.Argument("name4", VARCHAR, false, null),
-                new Procedure.Argument("name5", VARCHAR, true, null))))
+                new Procedure.Argument("NAME", VARCHAR, true, null),
+                new Procedure.Argument("NAME2", VARCHAR, true, null),
+                new Procedure.Argument("NAME3", VARCHAR, true, null),
+                new Procedure.Argument("NAME4", VARCHAR, false, null),
+                new Procedure.Argument("NAME5", VARCHAR, true, null))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Optional arguments should follow required ones");
     }
@@ -50,10 +49,10 @@ public class TestProcedureCreation
     public void shouldThrowExceptionWhenArgumentNameRepeates()
     {
         assertThatThrownBy(() -> createTestProcedure(ImmutableList.of(
-                new Procedure.Argument("name", VARCHAR, false, null),
-                new Procedure.Argument("name", VARCHAR, true, null))))
+                new Procedure.Argument("NAME", VARCHAR, false, null),
+                new Procedure.Argument("NAME", VARCHAR, true, null))))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Duplicate argument name: 'name'");
+                .hasMessage("Duplicate argument name: 'NAME'");
     }
 
     @Test
@@ -99,9 +98,9 @@ public class TestProcedureCreation
                 "schema",
                 "name",
                 ImmutableList.of(
-                        new Procedure.Argument("name", VARCHAR, true, null),
-                        new Procedure.Argument("name2", VARCHAR, true, null),
-                        new Procedure.Argument("name3", VARCHAR, true, null)),
+                        new Procedure.Argument("NAME", VARCHAR, true, null),
+                        new Procedure.Argument("NAME2", VARCHAR, true, null),
+                        new Procedure.Argument("NAME3", VARCHAR, true, null)),
                 methodHandle(Procedures.class, "fun1", ConnectorSession.class, Object.class)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Method parameter count must match arguments");

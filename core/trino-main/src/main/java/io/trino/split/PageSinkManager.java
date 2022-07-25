@@ -15,34 +15,27 @@ package io.trino.split;
 
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.InsertTableHandle;
 import io.trino.metadata.OutputTableHandle;
+import io.trino.metadata.TableExecuteHandle;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import javax.inject.Inject;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class PageSinkManager
         implements PageSinkProvider
 {
-    private final ConcurrentMap<CatalogName, ConnectorPageSinkProvider> pageSinkProviders = new ConcurrentHashMap<>();
+    private final CatalogServiceProvider<ConnectorPageSinkProvider> pageSinkProvider;
 
-    public void addConnectorPageSinkProvider(CatalogName catalogName, ConnectorPageSinkProvider pageSinkProvider)
+    @Inject
+    public PageSinkManager(CatalogServiceProvider<ConnectorPageSinkProvider> pageSinkProvider)
     {
-        requireNonNull(catalogName, "catalogName is null");
-        requireNonNull(pageSinkProvider, "pageSinkProvider is null");
-        checkState(pageSinkProviders.put(catalogName, pageSinkProvider) == null, "PageSinkProvider for connector '%s' is already registered", catalogName);
-    }
-
-    public void removeConnectorPageSinkProvider(CatalogName catalogName)
-    {
-        pageSinkProviders.remove(catalogName);
+        this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
     }
 
     @Override
@@ -61,10 +54,16 @@ public class PageSinkManager
         return providerFor(tableHandle.getCatalogName()).createPageSink(tableHandle.getTransactionHandle(), connectorSession, tableHandle.getConnectorHandle());
     }
 
+    @Override
+    public ConnectorPageSink createPageSink(Session session, TableExecuteHandle tableHandle)
+    {
+        // assumes connectorId and catalog are the same
+        ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getCatalogName());
+        return providerFor(tableHandle.getCatalogName()).createPageSink(tableHandle.getTransactionHandle(), connectorSession, tableHandle.getConnectorHandle());
+    }
+
     private ConnectorPageSinkProvider providerFor(CatalogName catalogName)
     {
-        ConnectorPageSinkProvider provider = pageSinkProviders.get(catalogName);
-        checkArgument(provider != null, "No page sink provider for catalog '%s'", catalogName.getCatalogName());
-        return provider;
+        return pageSinkProvider.getService(catalogName);
     }
 }

@@ -54,7 +54,7 @@ import java.util.function.Consumer;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
-import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static io.trino.metadata.NodeState.INACTIVE;
@@ -106,8 +106,8 @@ public final class DiscoveryNodeManager
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
         this.expectedNodeVersion = requireNonNull(expectedNodeVersion, "expectedNodeVersion is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
-        this.nodeStateUpdateExecutor = newSingleThreadScheduledExecutor(threadsNamed("node-state-poller-%s"));
-        this.nodeStateEventExecutor = newCachedThreadPool(threadsNamed("node-state-events-%s"));
+        this.nodeStateUpdateExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("node-state-poller-%s"));
+        this.nodeStateEventExecutor = newCachedThreadPool(daemonThreadsNamed("node-state-events-%s"));
         this.httpsRequired = internalCommunicationConfig.isHttpsRequired();
 
         this.currentNode = findCurrentNode(
@@ -152,6 +152,13 @@ public final class DiscoveryNodeManager
             }
         }, 5, 5, TimeUnit.SECONDS);
         pollWorkers();
+    }
+
+    @PreDestroy
+    public void destroy()
+    {
+        nodeStateUpdateExecutor.shutdown();
+        nodeStateEventExecutor.shutdown();
     }
 
     private void pollWorkers()
@@ -278,13 +285,9 @@ public final class DiscoveryNodeManager
             if (isNodeShuttingDown(node.getNodeIdentifier())) {
                 return SHUTTING_DOWN;
             }
-            else {
-                return ACTIVE;
-            }
+            return ACTIVE;
         }
-        else {
-            return INACTIVE;
-        }
+        return INACTIVE;
     }
 
     private boolean isNodeShuttingDown(String nodeId)
@@ -338,6 +341,12 @@ public final class DiscoveryNodeManager
     {
         // activeNodesByCatalogName is immutable
         return activeNodesByCatalogName.get(catalogName);
+    }
+
+    @Override
+    public synchronized NodesSnapshot getActiveNodesSnapshot()
+    {
+        return new NodesSnapshot(allNodes.getActiveNodes(), activeNodesByCatalogName);
     }
 
     @Override

@@ -13,7 +13,8 @@
  */
 package io.trino.plugin.raptor.legacy.util;
 
-import org.skife.jdbi.v2.ResultIterator;
+import org.jdbi.v3.core.result.ResultIterator;
+import org.jdbi.v3.core.statement.StatementContext;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -55,5 +56,11 @@ public class SynchronizedResultIterator<T>
             closed = true;
             iterator.close();
         }
+    }
+
+    @Override
+    public synchronized StatementContext getContext()
+    {
+        return iterator.getContext();
     }
 }

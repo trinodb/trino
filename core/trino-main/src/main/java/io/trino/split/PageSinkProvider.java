@@ -16,6 +16,7 @@ package io.trino.split;
 import io.trino.Session;
 import io.trino.metadata.InsertTableHandle;
 import io.trino.metadata.OutputTableHandle;
+import io.trino.metadata.TableExecuteHandle;
 import io.trino.spi.connector.ConnectorPageSink;
 
 public interface PageSinkProvider
@@ -23,4 +24,6 @@ public interface PageSinkProvider
     ConnectorPageSink createPageSink(Session session, OutputTableHandle tableHandle);
 
     ConnectorPageSink createPageSink(Session session, InsertTableHandle tableHandle);
+
+    ConnectorPageSink createPageSink(Session session, TableExecuteHandle tableHandle);
 }

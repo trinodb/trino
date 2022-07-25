@@ -15,6 +15,7 @@ package io.trino.plugin.resourcegroups.db;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -23,6 +24,8 @@ import static java.util.concurrent.TimeUnit.HOURS;
 public class DbResourceGroupConfig
 {
     private String configUrl;
+    private String user;
+    private String password;
     private boolean exactMatchSelectorEnabled;
     private Duration maxRefreshInterval = new Duration(1, HOURS);
 
@@ -35,6 +38,33 @@ public class DbResourceGroupConfig
     public DbResourceGroupConfig setConfigDbUrl(String configUrl)
     {
         this.configUrl = configUrl;
+        return this;
+    }
+
+    public String getConfigDbUser()
+    {
+        return user;
+    }
+
+    @Config("resource-groups.config-db-user")
+    @ConfigDescription("Database user name")
+    public DbResourceGroupConfig setConfigDbUser(String configUser)
+    {
+        this.user = configUser;
+        return this;
+    }
+
+    public String getConfigDbPassword()
+    {
+        return password;
+    }
+
+    @ConfigSecuritySensitive
+    @Config("resource-groups.config-db-password")
+    @ConfigDescription("Database password")
+    public DbResourceGroupConfig setConfigDbPassword(String configPassword)
+    {
+        this.password = configPassword;
         return this;
     }
 

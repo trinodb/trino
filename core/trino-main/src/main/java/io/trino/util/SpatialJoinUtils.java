@@ -13,25 +13,15 @@
  */
 package io.trino.util;
 
-import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.Literal;
-import io.trino.sql.tree.SymbolReference;
 
-import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 
 public final class SpatialJoinUtils
 {
@@ -107,60 +97,5 @@ public final class SpatialJoinUtils
         }
 
         return false;
-    }
-
-    public static boolean isSpatialJoinFilter(PlanNode left, PlanNode right, Expression filterExpression)
-    {
-        List<FunctionCall> functionCalls = extractSupportedSpatialFunctions(filterExpression);
-        for (FunctionCall functionCall : functionCalls) {
-            if (isSpatialJoinFilter(left, right, functionCall)) {
-                return true;
-            }
-        }
-
-        List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filterExpression);
-        for (ComparisonExpression spatialComparison : spatialComparisons) {
-            if (spatialComparison.getOperator() == LESS_THAN || spatialComparison.getOperator() == LESS_THAN_OR_EQUAL) {
-                // ST_Distance(a, b) <= r
-                Expression radius = spatialComparison.getRight();
-                if (radius instanceof Literal || (radius instanceof SymbolReference && getSymbolReferences(right.getOutputSymbols()).contains(radius))) {
-                    if (isSpatialJoinFilter(left, right, (FunctionCall) spatialComparison.getLeft())) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
-    }
-
-    private static boolean isSpatialJoinFilter(PlanNode left, PlanNode right, FunctionCall spatialFunction)
-    {
-        List<Expression> arguments = spatialFunction.getArguments();
-        verify(arguments.size() == 2);
-        if (!(arguments.get(0) instanceof SymbolReference) || !(arguments.get(1) instanceof SymbolReference)) {
-            return false;
-        }
-
-        SymbolReference firstSymbol = (SymbolReference) arguments.get(0);
-        SymbolReference secondSymbol = (SymbolReference) arguments.get(1);
-
-        Set<SymbolReference> probeSymbols = getSymbolReferences(left.getOutputSymbols());
-        Set<SymbolReference> buildSymbols = getSymbolReferences(right.getOutputSymbols());
-
-        if (probeSymbols.contains(firstSymbol) && buildSymbols.contains(secondSymbol)) {
-            return true;
-        }
-
-        if (probeSymbols.contains(secondSymbol) && buildSymbols.contains(firstSymbol)) {
-            return true;
-        }
-
-        return false;
-    }
-
-    private static Set<SymbolReference> getSymbolReferences(Collection<Symbol> symbols)
-    {
-        return symbols.stream().map(Symbol::toSymbolReference).collect(toImmutableSet());
     }
 }

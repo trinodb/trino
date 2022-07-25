@@ -21,7 +21,7 @@ function retry() {
     return ${EXIT_CODE}
 }
 
-function hadoop_master_container(){
+function hadoop_master_container() {
     docker-compose -f "${DOCKER_COMPOSE_LOCATION}" ps -q hadoop-master | grep .
 }
 
@@ -76,17 +76,35 @@ function cleanup_hadoop_docker_containers() {
     cleanup_docker_containers "${DOCKER_COMPOSE_LOCATION}"
 }
 
-function termination_handler(){
+function termination_handler() {
     set +e
     cleanup_docker_containers "$@"
     exit 130
+}
+
+# Check that all arguments are the names of non-empty variables.
+function check_vars() {
+    ( # Subshell to preserve xtrace
+        set +x # Disable xtrace to make the messages printed clear
+        local failing=0
+        for arg; do
+            if [[ ! -v "${arg}" ]]; then
+                echo "error: Variable not set: ${arg}" >&2
+                failing=1
+            elif [[ -z "${!arg}" ]]; then
+                echo "error: Variable is empty: ${arg}" >&2
+                failing=1
+            fi
+        done
+        return "$failing"
+    )
 }
 
 SCRIPT_DIR="${BASH_SOURCE%/*}"
 INTEGRATION_TESTS_ROOT="${SCRIPT_DIR}/.."
 PROJECT_ROOT="${INTEGRATION_TESTS_ROOT}/../.."
 DOCKER_COMPOSE_LOCATION="${INTEGRATION_TESTS_ROOT}/conf/docker-compose.yml"
-source "${PROJECT_ROOT}/testing/trino-product-tests/conf/product-tests-defaults.sh"
+source "${INTEGRATION_TESTS_ROOT}/conf/hive-tests-defaults.sh"
 
 # check docker and docker compose installation
 docker-compose version
@@ -192,4 +210,15 @@ function deploy_core_site_xml() {
     exec_in_hadoop_master_container bash -c \
         'sed "${@:2}" "/docker/files/$1" > /etc/hadoop/conf/core-site.xml' \
         bash "$template" "${args[@]}"
+}
+
+# Checks if Gitflow Incremental Builder (GIB) is enabled and the trino-hive-hadoop2 module should be build and/or tested
+function abort_if_not_gib_impacted() {
+    local module=plugin/trino-hive-hadoop2
+    local impacted_log=gib-impacted.log
+    if [ -f "$impacted_log" ] && ! grep -q "^${module}$" "$impacted_log"; then
+        echo >&2 "Module $module not present in $impacted_log, exiting"
+        exit 0
+    fi
+    return 0
 }

@@ -19,16 +19,17 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 
 import java.util.Optional;
-import java.util.function.Function;
+import java.util.OptionalInt;
 
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_MAX_ROWS_PER_PAGE_PROPERTY;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_PRODUCE_PAGES;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_TABLE_SCAN_REDIRECTION_CATALOG;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_TABLE_SCAN_REDIRECTION_SCHEMA;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class TpchQueryRunnerBuilder
-        extends DistributedQueryRunner.Builder
+        extends DistributedQueryRunner.Builder<TpchQueryRunnerBuilder>
 {
     private static final Session DEFAULT_SESSION = testSessionBuilder()
             .setSource("test")
@@ -40,16 +41,11 @@ public final class TpchQueryRunnerBuilder
     private Optional<Boolean> producePages = Optional.empty();
     private Optional<String> destinationCatalog = Optional.empty();
     private Optional<String> destinationSchema = Optional.empty();
+    private OptionalInt splitsPerNode = OptionalInt.empty();
 
     private TpchQueryRunnerBuilder()
     {
         super(DEFAULT_SESSION);
-    }
-
-    @Override
-    public TpchQueryRunnerBuilder amendSession(Function<Session.SessionBuilder, Session.SessionBuilder> amendSession)
-    {
-        return (TpchQueryRunnerBuilder) super.amendSession(amendSession);
     }
 
     public TpchQueryRunnerBuilder withMaxRowsPerPage(int maxRowsPerPage)
@@ -76,6 +72,12 @@ public final class TpchQueryRunnerBuilder
         return this;
     }
 
+    public TpchQueryRunnerBuilder withSplitsPerNode(int splitsPerNode)
+    {
+        this.splitsPerNode = OptionalInt.of(splitsPerNode);
+        return this;
+    }
+
     public static TpchQueryRunnerBuilder builder()
     {
         return new TpchQueryRunnerBuilder();
@@ -92,7 +94,8 @@ public final class TpchQueryRunnerBuilder
             producePages.ifPresent(value -> properties.put(TPCH_PRODUCE_PAGES, value.toString()));
             destinationCatalog.ifPresent(value -> properties.put(TPCH_TABLE_SCAN_REDIRECTION_CATALOG, value));
             destinationSchema.ifPresent(value -> properties.put(TPCH_TABLE_SCAN_REDIRECTION_SCHEMA, value));
-            queryRunner.createCatalog("tpch", "tpch", properties.build());
+            splitsPerNode.ifPresent(value -> properties.put(TPCH_SPLITS_PER_NODE, Integer.toString(value)));
+            queryRunner.createCatalog("tpch", "tpch", properties.buildOrThrow());
             return queryRunner;
         }
         catch (Exception e) {

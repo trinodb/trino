@@ -22,7 +22,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.SystemSessionProperties.DICTIONARY_AGGREGATION;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
+import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestDictionaryAggregation

@@ -15,6 +15,7 @@ package io.trino.operator.join;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.operator.HashArraySizeSupplier;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -47,7 +48,8 @@ public class JoinHashSupplier
             List<List<Block>> channels,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<Integer> sortChannel,
-            List<JoinFilterFunctionFactory> searchFunctionFactories)
+            List<JoinFilterFunctionFactory> searchFunctionFactories,
+            HashArraySizeSupplier hashArraySizeSupplier)
     {
         this.session = requireNonNull(session, "session is null");
         this.addresses = requireNonNull(addresses, "addresses is null");
@@ -69,7 +71,7 @@ public class JoinHashSupplier
         }
 
         this.pages = channelsToPages(channels);
-        this.pagesHash = new PagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder);
+        this.pagesHash = new PagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder, hashArraySizeSupplier);
         this.positionLinks = positionLinksFactoryBuilder.isEmpty() ? Optional.empty() : Optional.of(positionLinksFactoryBuilder.build());
     }
 

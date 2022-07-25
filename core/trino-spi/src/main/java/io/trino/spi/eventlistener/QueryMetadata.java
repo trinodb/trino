@@ -13,6 +13,7 @@
  */
 package io.trino.spi.eventlistener;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.net.URI;
@@ -21,6 +22,9 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
+/**
+ * This class is JSON serializable for convenience and serialization compatibility is not guaranteed across versions.
+ */
 public class QueryMetadata
 {
     private final String queryId;
@@ -40,6 +44,7 @@ public class QueryMetadata
 
     private final Optional<String> payload;
 
+    @JsonCreator
     public QueryMetadata(
             String queryId,
             Optional<String> transactionId,

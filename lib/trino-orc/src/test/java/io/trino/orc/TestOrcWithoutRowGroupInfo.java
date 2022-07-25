@@ -23,7 +23,6 @@ import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.OptionalInt;
 
 import static com.google.common.io.Resources.getResource;
@@ -53,10 +52,10 @@ public class TestOrcWithoutRowGroupInfo
     }
 
     private void testAndVerifyResults(OrcPredicate orcPredicate)
-            throws IOException
+            throws Exception
     {
         // this file was written by minor compaction in hive
-        File file = new File(getResource("orcFileWithoutRowGroupInfo.orc").getPath());
+        File file = new File(getResource("orcFileWithoutRowGroupInfo.orc").toURI());
 
         OrcReader orcReader = createOrcReader(new FileOrcDataSource(file, new OrcReaderOptions()), new OrcReaderOptions()).orElseThrow();
 

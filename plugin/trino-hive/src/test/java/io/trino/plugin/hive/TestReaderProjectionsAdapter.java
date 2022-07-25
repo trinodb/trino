@@ -270,24 +270,7 @@ public class TestReaderProjectionsAdapter
             else {
                 int lastDereference = dereferences.get(dereferences.size() - 1);
 
-                if (currentData.isNull(lastDereference)) {
-                    // Append null if the last dereference is null
-                    builder.appendNull();
-                }
-                else {
-                    // Append actual values otherwise
-                    if (finalType.equals(BIGINT)) {
-                        Long value = currentData.getLong(lastDereference, 0);
-                        builder.writeLong(value);
-                    }
-                    else if (finalType instanceof RowType) {
-                        Block block = currentData.getObject(lastDereference, Block.class);
-                        builder.appendStructure(block);
-                    }
-                    else {
-                        throw new UnsupportedOperationException();
-                    }
-                }
+                finalType.appendTo(currentData, lastDereference, builder);
             }
         }
 

@@ -58,7 +58,7 @@ public class TestGlueInputConverter
         TableInput tblInput = GlueInputConverter.convertTable(testTbl);
 
         assertEquals(tblInput.getName(), testTbl.getTableName());
-        assertEquals(tblInput.getOwner(), testTbl.getOwner());
+        assertEquals(tblInput.getOwner(), testTbl.getOwner().orElse(null));
         assertEquals(tblInput.getTableType(), testTbl.getTableType());
         assertEquals(tblInput.getParameters(), testTbl.getParameters());
         assertColumnList(tblInput.getStorageDescriptor().getColumns(), testTbl.getDataColumns());
@@ -100,7 +100,7 @@ public class TestGlueInputConverter
     private static void assertStorage(StorageDescriptor actual, Storage expected)
     {
         assertEquals(actual.getLocation(), expected.getLocation());
-        assertEquals(actual.getSerdeInfo().getSerializationLibrary(), expected.getStorageFormat().getSerDe());
+        assertEquals(actual.getSerdeInfo().getSerializationLibrary(), expected.getStorageFormat().getSerde());
         assertEquals(actual.getInputFormat(), expected.getStorageFormat().getInputFormat());
         assertEquals(actual.getOutputFormat(), expected.getStorageFormat().getOutputFormat());
 

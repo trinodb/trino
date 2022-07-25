@@ -89,7 +89,7 @@ public class SplitMonitor
                     new SplitCompletedEvent(
                             taskId.getQueryId().toString(),
                             taskId.getStageId().toString(),
-                            Integer.toString(taskId.getId()),
+                            taskId.toString(),
                             splitCatalog,
                             driverStats.getCreateTime().toDate().toInstant(),
                             Optional.ofNullable(driverStats.getStartTime()).map(startTime -> startTime.toDate().toInstant()),

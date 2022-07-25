@@ -23,6 +23,12 @@ public class IntegerDecoder
     @Override
     public void decode(Supplier<Object> getter, BlockBuilder output)
     {
-        output.writeInt(((Number) getter.get()).intValue());
+        Object value = getter.get();
+        if (value == null) {
+            output.appendNull();
+        }
+        else {
+            output.writeInt(((Number) value).intValue());
+        }
     }
 }

@@ -46,6 +46,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -86,6 +87,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -119,7 +121,7 @@ public class TestTrinoDatabaseMetaData
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", server.getBaseDataDir().resolve("hive").toAbsolutePath().toString())
                 .put("hive.security", "sql-standard")
-                .build());
+                .buildOrThrow());
 
         countingMockConnector = new CountingMockConnector();
         server.installPlugin(countingMockConnector.getPlugin());
@@ -134,7 +136,7 @@ public class TestTrinoDatabaseMetaData
         try (Connection connection = createConnection()) {
             connection.setCatalog("hive");
             try (Statement statement = connection.createStatement()) {
-                statement.execute("SET ROLE admin");
+                statement.execute("SET ROLE admin IN hive");
                 statement.execute("CREATE SCHEMA default");
                 statement.execute("CREATE TABLE default.test_table (a varchar)");
                 statement.execute("CREATE VIEW default.test_view AS SELECT * FROM hive.default.test_table");
@@ -259,6 +261,16 @@ public class TestTrinoDatabaseMetaData
             assertEquals(metaData.getDatabaseProductVersion(), "testversion");
             assertEquals(metaData.getDatabaseMajorVersion(), 0);
             assertEquals(metaData.getDatabaseMinorVersion(), 0);
+        }
+    }
+
+    @Test
+    public void testGetUserName()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            assertEquals(metaData.getUserName(), "admin");
         }
     }
 
@@ -658,6 +670,7 @@ public class TestTrinoDatabaseMetaData
                 assertEquals(rs.getString("TABLE_SCHEM"), "information_schema");
                 assertEquals(rs.getString("TABLE_NAME"), "tables");
                 assertEquals(rs.getString("COLUMN_NAME"), "table_name");
+                assertEquals(rs.getString("IS_NULLABLE"), "YES");
                 assertEquals(rs.getInt("DATA_TYPE"), Types.VARCHAR);
                 assertTrue(rs.next());
                 assertEquals(rs.getString("TABLE_CAT"), "hive");
@@ -721,6 +734,14 @@ public class TestTrinoDatabaseMetaData
                 assertTrue(rs.next());
                 assertEquals(rs.getString("COLUMN_NAME"), "table_name");
                 assertFalse(rs.next());
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "tiny", "supplier", "suppkey")) {
+                assertColumnMetadata(rs);
+                assertTrue(rs.next());
+                assertEquals(rs.getString("IS_NULLABLE"), "NO");
             }
         }
 
@@ -1225,6 +1246,17 @@ public class TestTrinoDatabaseMetaData
                         .withListTablesCount(2)
                         .withGetColumnsCount(3000));
 
+        // Equality predicate on catalog name and schema name
+        assertMetadataCalls(
+                connection,
+                readMetaData(
+                        databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, "test\\_schema1", null, null),
+                        list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
+                new MetadataCallsCount()
+                        .withListSchemasCount(0)
+                        .withListTablesCount(1)
+                        .withGetColumnsCount(1000));
+
         // Equality predicate on catalog name, schema name and table name
         assertMetadataCalls(
                 connection,
@@ -1287,8 +1319,8 @@ public class TestTrinoDatabaseMetaData
                                         .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema1", "test_table" + tableIndex, "column_" + columnIndex, "varchar")))
                         .collect(toImmutableList()),
                 new MetadataCallsCount()
-                        .withListSchemasCount(3)
-                        .withListTablesCount(1001)
+                        .withListSchemasCount(2)
+                        .withListTablesCount(1)
                         .withGetColumnsCount(1000));
 
         // LIKE predicate on table name, but no predicate on catalog name and schema name
@@ -1389,12 +1421,12 @@ public class TestTrinoDatabaseMetaData
                         .withGetColumnsCount(3000));
     }
 
-    @Test
-    public void testAssumeLiteralMetadataCalls()
+    @Test(dataProvider = "escapeLiteralParameters")
+    public void testAssumeLiteralMetadataCalls(String escapeLiteralParameter)
             throws Exception
     {
         try (Connection connection = DriverManager.getConnection(
-                format("jdbc:trino://%s?assumeLiteralNamesInMetadataCallsForNonConformingClients=true", server.getAddress()),
+                format("jdbc:trino://%s?%s", server.getAddress(), escapeLiteralParameter),
                 "admin",
                 null)) {
             // getTables's schema name pattern treated as literal
@@ -1467,22 +1499,79 @@ public class TestTrinoDatabaseMetaData
         }
     }
 
+    @DataProvider
+    public Object[][] escapeLiteralParameters()
+    {
+        return new Object[][]{
+                {"assumeLiteralNamesInMetadataCallsForNonConformingClients=true"},
+                {"assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true"},
+                {"assumeLiteralNamesInMetadataCallsForNonConformingClients=false&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true"},
+                {"assumeLiteralNamesInMetadataCallsForNonConformingClients=true&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=false"},
+        };
+    }
+
+    @Test
+    public void testFailedBothEscapeLiteralParameters()
+            throws SQLException
+    {
+        assertThatThrownBy(() -> DriverManager.getConnection(
+                format("jdbc:trino://%s?%s", server.getAddress(), "assumeLiteralNamesInMetadataCallsForNonConformingClients=true&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true"),
+                "admin",
+                null))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property 'assumeLiteralNamesInMetadataCallsForNonConformingClients' is not allowed");
+    }
+
     @Test
     public void testEscapeIfNecessary()
+            throws SQLException
     {
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, null), null);
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, "a"), "a");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, "abc_def"), "abc_def");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, "abc__de_f"), "abc__de_f");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, "abc%def"), "abc%def");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, "abc\\_def"), "abc\\_def");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, false, null), null);
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, false, "a"), "a");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, false, "abc_def"), "abc_def");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, false, "abc__de_f"), "abc__de_f");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, false, "abc%def"), "abc%def");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, false, "abc\\_def"), "abc\\_def");
 
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, null), null);
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, "a"), "a");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, "abc_def"), "abc\\_def");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, "abc__de_f"), "abc\\_\\_de\\_f");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, "abc%def"), "abc\\%def");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, "abc\\_def"), "abc\\\\\\_def");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, false, null), null);
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, false, "a"), "a");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, false, "abc_def"), "abc\\_def");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, false, "abc__de_f"), "abc\\_\\_de\\_f");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, false, "abc%def"), "abc\\%def");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, false, "abc\\_def"), "abc\\\\\\_def");
+
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, true, null), null);
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, true, "a"), "a");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, true, "abc_def"), "abc\\_def");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, true, "abc__de_f"), "abc\\_\\_de\\_f");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, true, "abc\\_def"), "abc\\\\\\_def");
+    }
+
+    @Test
+    public void testStatementsDoNotLeak()
+            throws Exception
+    {
+        TrinoConnection connection = (TrinoConnection) this.connection;
+        DatabaseMetaData metaData = connection.getMetaData();
+
+        // consumed
+        try (ResultSet resultSet = metaData.getCatalogs()) {
+            assertThat(countRows(resultSet)).isEqualTo(5);
+        }
+        try (ResultSet resultSet = metaData.getSchemas(TEST_CATALOG, null)) {
+            assertThat(countRows(resultSet)).isEqualTo(10);
+        }
+        try (ResultSet resultSet = metaData.getTables(TEST_CATALOG, "sf%", null, null)) {
+            assertThat(countRows(resultSet)).isEqualTo(64);
+        }
+
+        // not consumed
+        metaData.getCatalogs().close();
+        metaData.getSchemas(TEST_CATALOG, null).close();
+        metaData.getTables(TEST_CATALOG, "sf%", null, null).close();
+
+        assertThat(connection.activeStatements()).as("activeStatements")
+                .isEqualTo(0);
     }
 
     private static void assertColumnSpec(ResultSet rs, int dataType, Long precision, Long numPrecRadix, String typeName)
@@ -1572,6 +1661,16 @@ public class TestTrinoDatabaseMetaData
                 return readRows(resultSet, columns);
             }
         };
+    }
+
+    private int countRows(ResultSet resultSet)
+            throws Exception
+    {
+        int rows = 0;
+        while (resultSet.next()) {
+            rows++;
+        }
+        return rows;
     }
 
     private Connection createConnection()

@@ -17,11 +17,12 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.trino.RowPagesBuilder;
+import io.trino.execution.StageId;
+import io.trino.execution.TaskId;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.type.Type;
 import io.trino.spiller.SpillSpaceTracker;
 
@@ -78,11 +79,11 @@ public final class GroupByHashYieldAssertion
 
         // mock an adjustable memory pool
         QueryId queryId = new QueryId("test_query");
-        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), DataSize.of(1, GIGABYTE));
+        TaskId anotherTaskId = new TaskId(new StageId("another_query", 0), 0, 0);
+        MemoryPool memoryPool = new MemoryPool(DataSize.of(1, GIGABYTE));
         QueryContext queryContext = new QueryContext(
                 queryId,
                 DataSize.of(512, MEGABYTE),
-                DataSize.of(1024, MEGABYTE),
                 memoryPool,
                 new TestingGcMonitor(),
                 EXECUTOR,
@@ -104,7 +105,7 @@ public final class GroupByHashYieldAssertion
 
             // saturate the pool with a tiny memory left
             long reservedMemoryInBytes = memoryPool.getFreeBytes() - additionalMemoryInBytes;
-            memoryPool.reserve(queryId, "test", reservedMemoryInBytes);
+            memoryPool.reserve(anotherTaskId, "test", reservedMemoryInBytes);
 
             long oldMemoryUsage = operator.getOperatorContext().getDriverContext().getMemoryUsage();
             int oldCapacity = getHashCapacity.apply(operator);
@@ -124,9 +125,12 @@ public final class GroupByHashYieldAssertion
             // between rehash and memory used by aggregator
             if (newMemoryUsage < DataSize.of(4, MEGABYTE).toBytes()) {
                 // free the pool for the next iteration
-                memoryPool.free(queryId, "test", reservedMemoryInBytes);
+                memoryPool.free(anotherTaskId, "test", reservedMemoryInBytes);
                 // this required in case input is blocked
-                operator.getOutput();
+                output = operator.getOutput();
+                if (output != null) {
+                    result.add(output);
+                }
                 continue;
             }
 
@@ -139,13 +143,13 @@ public final class GroupByHashYieldAssertion
                 assertTrue(operator.getOperatorContext().isWaitingForMemory().isDone());
 
                 // assert the hash capacity is not changed; otherwise, we should have yielded
-                assertTrue(oldCapacity == getHashCapacity.apply(operator));
+                assertEquals((int) getHashCapacity.apply(operator), oldCapacity);
 
                 // We are not going to rehash; therefore, assert the memory increase only comes from the aggregator
                 assertLessThan(actualIncreasedMemory, additionalMemoryInBytes);
 
                 // free the pool for the next iteration
-                memoryPool.free(queryId, "test", reservedMemoryInBytes);
+                memoryPool.free(anotherTaskId, "test", reservedMemoryInBytes);
             }
             else {
                 // We failed to finish the page processing i.e. we yielded
@@ -163,8 +167,8 @@ public final class GroupByHashYieldAssertion
                     expectedReservedExtraBytes = oldCapacity * (long) (Long.BYTES * 1.75 + Integer.BYTES) + page.getRetainedSizeInBytes();
                 }
                 else {
-                    // groupAddressByHash, groupIdsByHash, and rawHashByHashPosition double by hashCapacity; while groupAddressByGroupId double by maxFill = hashCapacity / 0.75
-                    expectedReservedExtraBytes = oldCapacity * (long) (Long.BYTES * 1.75 + Integer.BYTES + Byte.BYTES) + page.getRetainedSizeInBytes();
+                    // groupIdsByHash, and rawHashByHashPosition double by hashCapacity
+                    expectedReservedExtraBytes = oldCapacity * (long) (Integer.BYTES + Byte.BYTES);
                 }
                 assertBetweenInclusive(actualIncreasedMemory, expectedReservedExtraBytes, expectedReservedExtraBytes + additionalMemoryInBytes);
 
@@ -172,7 +176,7 @@ public final class GroupByHashYieldAssertion
                 assertNull(operator.getOutput());
 
                 // Free the pool to unblock
-                memoryPool.free(queryId, "test", reservedMemoryInBytes);
+                memoryPool.free(anotherTaskId, "test", reservedMemoryInBytes);
 
                 // Trigger a process through getOutput() or needsInput()
                 output = operator.getOutput();
@@ -186,10 +190,24 @@ public final class GroupByHashYieldAssertion
 
                 // Assert the estimated reserved memory before rehash is very close to the one after rehash
                 long rehashedMemoryUsage = operator.getOperatorContext().getDriverContext().getMemoryUsage();
-                assertBetweenInclusive(rehashedMemoryUsage * 1.0 / newMemoryUsage, 0.99, 1.01);
+                double memoryUsageErrorUpperBound = 1.01;
+                double memoryUsageError = rehashedMemoryUsage * 1.0 / newMemoryUsage;
+                if (memoryUsageError > memoryUsageErrorUpperBound) {
+                    // Usually the error is < 1%, but since MultiChannelGroupByHash.getEstimatedSize
+                    // accounts for changes in completedPagesMemorySize, which is increased if new page is
+                    // added by addNewGroup (an even that cannot be predicted as it depends on the number of unique groups
+                    // in the current page being processed), the difference includes size of the added new page.
+                    // Lower bound is 1% lower than normal because additionalMemoryInBytes includes also aggregator state.
+                    assertBetweenInclusive(rehashedMemoryUsage * 1.0 / (newMemoryUsage + additionalMemoryInBytes), 0.98, memoryUsageErrorUpperBound,
+                            "rehashedMemoryUsage " + rehashedMemoryUsage + ", newMemoryUsage: " + newMemoryUsage);
+                }
+                else {
+                    assertBetweenInclusive(memoryUsageError, 0.99, memoryUsageErrorUpperBound);
+                }
 
                 // unblocked
                 assertTrue(operator.needsInput());
+                assertTrue(operator.getOperatorContext().isWaitingForMemory().isDone());
             }
         }
 

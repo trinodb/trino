@@ -36,7 +36,7 @@ public class WriteCompletedEvent
     private final String partitionName;
     private final String storageFormat;
     private final String writerImplementation;
-    private final String prestoVersion;
+    private final String trinoVersion;
     private final String host;
     private final String principal;
     private final String environment;
@@ -53,7 +53,7 @@ public class WriteCompletedEvent
             @Nullable String partitionName,
             String storageFormat,
             String writerImplementation,
-            String prestoVersion,
+            String trinoVersion,
             String serverAddress,
             @Nullable String principal,
             String environment,
@@ -68,7 +68,7 @@ public class WriteCompletedEvent
         this.partitionName = partitionName;
         this.storageFormat = requireNonNull(storageFormat, "storageFormat is null");
         this.writerImplementation = requireNonNull(writerImplementation, "writerImplementation is null");
-        this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
+        this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.host = requireNonNull(serverAddress, "serverAddress is null");
         this.principal = principal;
         this.environment = requireNonNull(environment, "environment is null");
@@ -121,9 +121,9 @@ public class WriteCompletedEvent
     }
 
     @EventField
-    public String getPrestoVersion()
+    public String getTrinoVersion()
     {
-        return prestoVersion;
+        return trinoVersion;
     }
 
     @EventField(fieldMapping = EventFieldMapping.HOST)

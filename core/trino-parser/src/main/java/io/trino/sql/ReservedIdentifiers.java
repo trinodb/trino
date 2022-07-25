@@ -141,7 +141,7 @@ public final class ReservedIdentifiers
         return names.build();
     }
 
-    private static boolean reserved(String name)
+    public static boolean reserved(String name)
     {
         try {
             return !(PARSER.createExpression(name, new ParsingOptions()) instanceof Identifier);

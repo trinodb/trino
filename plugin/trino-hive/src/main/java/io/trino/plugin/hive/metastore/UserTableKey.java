@@ -30,14 +30,14 @@ public class UserTableKey
     private final Optional<HivePrincipal> principal;
     private final String database;
     private final String table;
-    private final String owner;
+    private final Optional<String> owner;
 
     @JsonCreator
     public UserTableKey(
             @JsonProperty("principal") Optional<HivePrincipal> principal,
             @JsonProperty("database") String database,
             @JsonProperty("table") String table,
-            @JsonProperty("owner") String owner)
+            @JsonProperty("owner") Optional<String> owner)
     {
         this.principal = requireNonNull(principal, "principal is null");
         this.database = requireNonNull(database, "database is null");
@@ -64,7 +64,7 @@ public class UserTableKey
     }
 
     @JsonProperty
-    public String getOwner()
+    public Optional<String> getOwner()
     {
         return owner;
     }
@@ -103,7 +103,7 @@ public class UserTableKey
                 .add("principal", principal)
                 .add("table", table)
                 .add("database", database)
-                .add("owner", owner)
+                .add("owner", owner.orElse(null))
                 .toString();
     }
 }

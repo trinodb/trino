@@ -14,6 +14,8 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.planner.plan.Assignments;
@@ -46,15 +48,15 @@ class PlanBuilder
         this.root = root;
     }
 
-    public static PlanBuilder newPlanBuilder(RelationPlan plan, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments)
+    public static PlanBuilder newPlanBuilder(RelationPlan plan, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, Session session, PlannerContext plannerContext)
     {
-        return newPlanBuilder(plan, analysis, lambdaArguments, ImmutableMap.of());
+        return newPlanBuilder(plan, analysis, lambdaArguments, ImmutableMap.of(), session, plannerContext);
     }
 
-    public static PlanBuilder newPlanBuilder(RelationPlan plan, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, Map<ScopeAware<Expression>, Symbol> mappings)
+    public static PlanBuilder newPlanBuilder(RelationPlan plan, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, Map<ScopeAware<Expression>, Symbol> mappings, Session session, PlannerContext plannerContext)
     {
         return new PlanBuilder(
-                new TranslationMap(plan.getOuterContext(), plan.getScope(), analysis, lambdaArguments, plan.getFieldMappings(), mappings),
+                new TranslationMap(plan.getOuterContext(), plan.getScope(), analysis, lambdaArguments, plan.getFieldMappings(), mappings, session, plannerContext),
                 plan.getRoot());
     }
 

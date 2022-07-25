@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import io.trino.execution.buffer.BufferInfo;
 import io.trino.execution.buffer.OutputBufferInfo;
 import io.trino.operator.TaskStats;
@@ -26,6 +27,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -41,6 +43,7 @@ public class TaskInfo
     private final OutputBufferInfo outputBuffers;
     private final Set<PlanNodeId> noMoreSplits;
     private final TaskStats stats;
+    private final Optional<DataSize> estimatedMemory; // filled in on coordinator
 
     private final boolean needsPlan;
 
@@ -50,6 +53,7 @@ public class TaskInfo
             @JsonProperty("outputBuffers") OutputBufferInfo outputBuffers,
             @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
             @JsonProperty("stats") TaskStats stats,
+            @JsonProperty("estimatedMemory") Optional<DataSize> estimatedMemory,
             @JsonProperty("needsPlan") boolean needsPlan)
     {
         this.taskStatus = requireNonNull(taskStatus, "taskStatus is null");
@@ -57,6 +61,7 @@ public class TaskInfo
         this.outputBuffers = requireNonNull(outputBuffers, "outputBuffers is null");
         this.noMoreSplits = requireNonNull(noMoreSplits, "noMoreSplits is null");
         this.stats = requireNonNull(stats, "stats is null");
+        this.estimatedMemory = requireNonNull(estimatedMemory, "estimatedMemory is null");
 
         this.needsPlan = needsPlan;
     }
@@ -92,6 +97,12 @@ public class TaskInfo
     }
 
     @JsonProperty
+    public Optional<DataSize> getEstimatedMemory()
+    {
+        return estimatedMemory;
+    }
+
+    @JsonProperty
     public boolean isNeedsPlan()
     {
         return needsPlan;
@@ -100,9 +111,9 @@ public class TaskInfo
     public TaskInfo summarize()
     {
         if (taskStatus.getState().isDone()) {
-            return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarizeFinal(), needsPlan);
+            return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarizeFinal(), estimatedMemory, needsPlan);
         }
-        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarize(), needsPlan);
+        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarize(), estimatedMemory, needsPlan);
     }
 
     @Override
@@ -122,11 +133,17 @@ public class TaskInfo
                 new OutputBufferInfo("UNINITIALIZED", OPEN, true, true, 0, 0, 0, 0, bufferStates),
                 ImmutableSet.of(),
                 taskStats,
+                Optional.empty(),
                 true);
     }
 
     public TaskInfo withTaskStatus(TaskStatus newTaskStatus)
     {
-        return new TaskInfo(newTaskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, needsPlan);
+        return new TaskInfo(newTaskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, estimatedMemory, needsPlan);
+    }
+
+    public TaskInfo withEstimatedMemory(DataSize estimatedMemory)
+    {
+        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, Optional.of(estimatedMemory), needsPlan);
     }
 }

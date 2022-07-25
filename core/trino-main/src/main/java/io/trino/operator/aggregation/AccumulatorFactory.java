@@ -14,22 +14,17 @@
 package io.trino.operator.aggregation;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 public interface AccumulatorFactory
 {
-    List<Integer> getInputChannels();
+    List<Class<?>> getLambdaInterfaces();
 
-    boolean hasRemoveInput();
+    Accumulator createAccumulator(List<Supplier<Object>> lambdaProviders);
 
-    Accumulator createAccumulator();
+    Accumulator createIntermediateAccumulator(List<Supplier<Object>> lambdaProviders);
 
-    Accumulator createIntermediateAccumulator();
+    GroupedAccumulator createGroupedAccumulator(List<Supplier<Object>> lambdaProviders);
 
-    GroupedAccumulator createGroupedAccumulator();
-
-    GroupedAccumulator createGroupedIntermediateAccumulator();
-
-    boolean hasOrderBy();
-
-    boolean hasDistinct();
+    GroupedAccumulator createGroupedIntermediateAccumulator(List<Supplier<Object>> lambdaProviders);
 }

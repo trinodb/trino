@@ -68,8 +68,8 @@ public class TestRaptorFileBasedSecurity
     private Session getSession(String user)
     {
         return testSessionBuilder()
-                .setCatalog(queryRunner.getDefaultSession().getCatalog().get())
-                .setSchema(queryRunner.getDefaultSession().getSchema().get())
+                .setCatalog(queryRunner.getDefaultSession().getCatalog())
+                .setSchema(queryRunner.getDefaultSession().getSchema())
                 .setIdentity(Identity.ofUser(user))
                 .build();
     }

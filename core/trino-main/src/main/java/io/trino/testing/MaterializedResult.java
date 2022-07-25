@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
 import io.trino.Session;
+import io.trino.client.StatementStats;
 import io.trino.client.Warning;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -95,10 +96,11 @@ public class MaterializedResult
     private final Optional<String> updateType;
     private final OptionalLong updateCount;
     private final List<Warning> warnings;
+    private final Optional<StatementStats> statementStats;
 
     public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types)
     {
-        this(rows, types, ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of());
+        this(rows, types, ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of(), Optional.empty());
     }
 
     public MaterializedResult(
@@ -108,7 +110,8 @@ public class MaterializedResult
             Set<String> resetSessionProperties,
             Optional<String> updateType,
             OptionalLong updateCount,
-            List<Warning> warnings)
+            List<Warning> warnings,
+            Optional<StatementStats> statementStats)
     {
         this.rows = ImmutableList.copyOf(requireNonNull(rows, "rows is null"));
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
@@ -117,6 +120,7 @@ public class MaterializedResult
         this.updateType = requireNonNull(updateType, "updateType is null");
         this.updateCount = requireNonNull(updateCount, "updateCount is null");
         this.warnings = requireNonNull(warnings, "warnings is null");
+        this.statementStats = requireNonNull(statementStats, "statementStats is null");
     }
 
     public int getRowCount()
@@ -163,6 +167,11 @@ public class MaterializedResult
     public List<Warning> getWarnings()
     {
         return warnings;
+    }
+
+    public Optional<StatementStats> getStatementStats()
+    {
+        return statementStats;
     }
 
     @Override
@@ -357,7 +366,8 @@ public class MaterializedResult
                 resetSessionProperties,
                 updateType,
                 updateCount,
-                warnings);
+                warnings,
+                statementStats);
     }
 
     private static MaterializedRow convertToTestTypes(MaterializedRow trinoRow)

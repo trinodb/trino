@@ -99,12 +99,6 @@ public class DbResourceGroupConfigurationManager
         this.maxRefreshInterval = config.getMaxRefreshInterval();
         this.exactMatchSelectorEnabled = config.getExactMatchSelectorEnabled();
         this.dao = dao;
-        this.dao.createResourceGroupsGlobalPropertiesTable();
-        this.dao.createResourceGroupsTable();
-        this.dao.createSelectorsTable();
-        if (exactMatchSelectorEnabled) {
-            this.dao.createExactMatchSelectorsTable();
-        }
         load();
     }
 
@@ -319,7 +313,7 @@ public class DbResourceGroupConfigurationManager
                 .map(selectorRecord ->
                         new SelectorSpec(
                                 selectorRecord.getUserRegex(),
-                                Optional.empty(),
+                                selectorRecord.getUserGroupRegex(),
                                 selectorRecord.getSourceRegex(),
                                 selectorRecord.getQueryType(),
                                 selectorRecord.getClientTags(),

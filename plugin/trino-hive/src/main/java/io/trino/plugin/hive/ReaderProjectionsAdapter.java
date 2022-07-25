@@ -24,6 +24,8 @@ import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -39,7 +41,7 @@ public class ReaderProjectionsAdapter
     private final List<Type> inputTypes;
 
     public ReaderProjectionsAdapter(
-            List<ColumnHandle> expectedColumns,
+            List<? extends ColumnHandle> expectedColumns,
             ReaderColumns readColumns,
             ColumnTypeGetter typeGetter,
             ProjectionGetter projectionGetter)
@@ -68,7 +70,8 @@ public class ReaderProjectionsAdapter
                 .collect(toImmutableList());
     }
 
-    public Page adaptPage(Page input)
+    @Nullable
+    public Page adaptPage(@Nullable Page input)
     {
         if (input == null) {
             return null;
@@ -150,6 +153,10 @@ public class ReaderProjectionsAdapter
 
         private Block adaptNulls(ColumnarRow columnarRow, Block loadedInternalBlock)
         {
+            if (!columnarRow.mayHaveNull()) {
+                return loadedInternalBlock;
+            }
+
             // TODO: The current implementation copies over data to a new block builder when a null row element is found.
             //  We can optimize this by using a Block implementation that uses a null vector of the parent row block and
             //  the block for the field.

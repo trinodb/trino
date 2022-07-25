@@ -2,6 +2,10 @@
 Google Sheets connector
 =======================
 
+.. raw:: html
+
+  <img src="../_static/img/google-sheets.png" class="connector-logo">
+
 The Google Sheets connector allows reading `Google Sheets <https://www.google.com/sheets/about/>`_ spreadsheets as tables in Trino.
 
 Configuration
@@ -23,7 +27,7 @@ Configuration properties
 The following configuration properties are available:
 
 =================================== =====================================================================
-Property Name                       Description
+Property name                       Description
 =================================== =====================================================================
 ``credentials-path``                Path to the Google API JSON key file
 ``metadata-sheet-id``               Sheet ID of the spreadsheet, that contains the table mapping
@@ -93,3 +97,12 @@ that may impact the usage of this connector. Increasing the cache duration and/o
 may prevent the limit from being reached. Running queries on the ``information_schema.columns``
 table without a schema and table name filter may lead to hitting the limit, as this requires
 fetching the sheet data for every table, unless it is already cached.
+
+.. _google-sheets-sql-support:
+
+SQL support
+-----------
+
+The connector provides :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements to access data and
+metadata in Google Sheets.

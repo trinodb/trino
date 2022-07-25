@@ -28,12 +28,13 @@ import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import static com.google.common.io.Resources.getResource;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -60,7 +61,7 @@ public class BenchmarkGeometryAggregations
 
         @Setup
         public void setUp()
-                throws IOException
+                throws Exception
         {
             queryRunner = LocalQueryRunner.create(testSessionBuilder()
                     .setCatalog("memory")
@@ -69,11 +70,14 @@ public class BenchmarkGeometryAggregations
             queryRunner.installPlugin(new GeoPlugin());
             queryRunner.createCatalog("memory", new MemoryConnectorFactory(), ImmutableMap.of());
 
-            Path path = Paths.get(BenchmarkGeometryAggregations.class.getClassLoader().getResource("us-states.tsv").getPath());
-            String polygonValues = Files.lines(path)
-                    .map(line -> line.split("\t"))
-                    .map(parts -> format("('%s', '%s')", parts[0], parts[1]))
-                    .collect(Collectors.joining(","));
+            Path path = new File(getResource("us-states.tsv").toURI()).toPath();
+            String polygonValues;
+            try (Stream<String> lines = Files.lines(path)) {
+                polygonValues = lines
+                        .map(line -> line.split("\t"))
+                        .map(parts -> format("('%s', '%s')", parts[0], parts[1]))
+                        .collect(Collectors.joining(","));
+            }
 
             queryRunner.execute(
                     format("CREATE TABLE memory.default.us_states AS SELECT ST_GeometryFromText(t.wkt) AS geom FROM (VALUES %s) as t (name, wkt)",
@@ -111,7 +115,7 @@ public class BenchmarkGeometryAggregations
 
     @Test
     public void verify()
-            throws IOException
+            throws Exception
     {
         Context context = new Context();
         try {

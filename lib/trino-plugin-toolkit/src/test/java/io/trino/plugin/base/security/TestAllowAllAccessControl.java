@@ -22,6 +22,7 @@ public class TestAllowAllAccessControl
 {
     @Test
     public void testEverythingImplemented()
+            throws NoSuchMethodException
     {
         assertAllMethodsOverridden(ConnectorAccessControl.class, AllowAllAccessControl.class);
     }

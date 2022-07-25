@@ -90,7 +90,7 @@ public final class SqlDataTypeTest
         QueryAssert assertion = assertThat(queryAssertions.query(session, "SELECT * FROM " + testTable.getName()));
         MaterializedResult expected = queryRunner.execute(session, testCases.stream()
                 .map(TestCase::getExpectedLiteral)
-                .collect(joining(",", "VALUES (", ")")));
+                .collect(joining(",", "VALUES ROW(", ")")));
 
         // Verify types if specified
         for (int column = 0; column < testCases.size(); column++) {
@@ -99,7 +99,7 @@ public final class SqlDataTypeTest
                 Type expectedType = testCase.getExpectedType().get();
                 assertion.outputHasType(column, expectedType);
                 assertThat(expected.getTypes())
-                        .as("Expected literal type (check consistency of expected type and expected literal)")
+                        .as(format("Expected literal type at column %d (check consistency of expected type and expected literal)", column + 1))
                         .element(column).isEqualTo(expectedType);
             }
         }

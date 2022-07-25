@@ -228,6 +228,111 @@ public class TestShowStats
     }
 
     @Test
+    public void testShowStatsWithBoolean()
+    {
+        assertQuery(
+                "SHOW STATS FOR (VALUES true)",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, 'true', 'true'), " +
+                        "   (null, null, null, null, 1, null, null)");
+        assertQuery(
+                "SHOW STATS FOR (VALUES false)",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, 'false', 'false'), " +
+                        "   (null, null, null, null, 1, null, null)");
+        assertQuery(
+                "SHOW STATS FOR (VALUES true, false)",
+                "VALUES " +
+                        "   ('_col0', null, 2, 0, null, 'false', 'true'), " +
+                        "   (null, null, null, null, 2, null, null)");
+    }
+
+    @Test
+    public void testShowStatsWithTimestamp()
+    {
+        // precision 0
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00')",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, '2021-07-20 16:52:00', '2021-07-20 16:52:00'), " +
+                        "   (null, null, null, null, 1, null, null)");
+
+        // precision 3
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00.123')",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, '2021-07-20 16:52:00.123', '2021-07-20 16:52:00.123'), " +
+                        "   (null, null, null, null, 1, null, null)");
+
+        // precision 6
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00.123456')",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, '2021-07-20 16:52:00.123456', '2021-07-20 16:52:00.123456'), " +
+                        "   (null, null, null, null, 1, null, null)");
+
+        // precision 9
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00.123456789')",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, '2021-07-20 16:52:00.123456', '2021-07-20 16:52:00.123456'), " +
+                        "   (null, null, null, null, 1, null, null)");
+
+        // precision 12
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00.123456789012')",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, '2021-07-20 16:52:00.123456', '2021-07-20 16:52:00.123456'), " +
+                        "   (null, null, null, null, 1, null, null)");
+    }
+
+    @Test
+    public void testShowStatsWithTimestampWithTimeZone()
+    {
+        // precision 0
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00 UTC')",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, '2021-07-20 16:52:00 UTC', '2021-07-20 16:52:00 UTC'), " +
+                        "   (null, null, null, null, 1, null, null)");
+
+        // precision 3
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00.123 UTC')",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, '2021-07-20 16:52:00.123 UTC', '2021-07-20 16:52:00.123 UTC'), " +
+                        "   (null, null, null, null, 1, null, null)");
+
+        // precision 6
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00.123999 UTC')",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, '2021-07-20 16:52:00.123 UTC', '2021-07-20 16:52:00.123 UTC'), " +
+                        "   (null, null, null, null, 1, null, null)");
+
+        // precision 9
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00.123999999 UTC')",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, '2021-07-20 16:52:00.123 UTC', '2021-07-20 16:52:00.123 UTC'), " +
+                        "   (null, null, null, null, 1, null, null)");
+
+        // precision 12
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00.123999999999 UTC')",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, '2021-07-20 16:52:00.123 UTC', '2021-07-20 16:52:00.123 UTC'), " +
+                        "   (null, null, null, null, 1, null, null)");
+
+        // non-UTC zone, min < max
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00.123456789 Europe/Warsaw', TIMESTAMP '2021-07-20 16:52:00.123456789 America/Los_Angeles')",
+                "VALUES " +
+                        "   ('_col0', null, 2, 0, null, '2021-07-20 14:52:00.123 UTC', '2021-07-20 23:52:00.123 UTC'), " +
+                        "   (null, null, null, null, 2, null, null)");
+    }
+
+    @Test
     public void testShowStatsWithoutFrom()
     {
         assertQuery(
@@ -497,8 +602,8 @@ public class TestShowStats
                 sessionWith(getSession(), USE_PARTIAL_DISTINCT_LIMIT, "false"),
                 "SHOW STATS FOR (SELECT DISTINCT regionkey FROM nation LIMIT 3)",
                 "VALUES " +
-                        "   ('regionkey', null, null, null, null, null, null), " +
-                        "   (null, null, null, null, null, null, null)");
+                        "   ('regionkey', null, 3, 0, null, 0, 4), " +
+                        "   (null, null, null, null, 3, null, null)");
     }
 
     @Test
@@ -599,11 +704,11 @@ public class TestShowStats
         assertQuery(
                 "SHOW STATS FOR (SELECT * FROM nation_view WHERE regionkey = 0)",
                 "VALUES " +
-                        "   ('nationkey', null, 1, 0, null, 0, 24), " +
-                        "   ('name', 7.08, 1, 0, null, null, null), " +
-                        "   ('comment', 74.28, 1, 0, null, null, null), " +
-                        "   ('regionkey', null, 1, 0, null, 0, 0), " +
-                        "   (null, null, null, null, 1, null, null)");
+                        "   ('nationkey', null, 0.29906975624424414, 0, null, 0, 24), " +
+                        "   ('name', 2.1174138742092485, 0.29906975624424414, 0, null, null, null), " +
+                        "   ('comment', 22.214901493822456, 0.29906975624424414, 0, null, null, null), " +
+                        "   ('regionkey', null, 0.29906975624424414, 0, null, 0, 0), " +
+                        "   (null, null, null, null, 0.29906975624424414, null, null)");
         assertUpdate("DROP VIEW nation_view");
     }
 

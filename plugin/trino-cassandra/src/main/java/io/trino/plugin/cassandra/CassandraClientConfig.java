@@ -13,9 +13,10 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.ProtocolVersion;
-import com.datastax.driver.core.SocketOptions;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
+import com.datastax.oss.driver.api.core.DefaultProtocolVersion;
+import com.datastax.oss.driver.api.core.ProtocolVersion;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
@@ -58,11 +59,11 @@ public class CassandraClientConfig
     private boolean allowDropTable;
     private String username;
     private String password;
-    private Duration clientReadTimeout = new Duration(SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS, MILLISECONDS);
-    private Duration clientConnectTimeout = new Duration(SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS, MILLISECONDS);
+    private Duration clientReadTimeout = new Duration(12_000, MILLISECONDS);
+    private Duration clientConnectTimeout = new Duration(5_000, MILLISECONDS);
     private Integer clientSoLinger;
     private RetryPolicyType retryPolicy = RetryPolicyType.DEFAULT;
-    private boolean useDCAware;
+    private boolean useDCAware = true;
     private String dcAwareLocalDC;
     private int dcAwareUsedHostsPerRemoteDc;
     private boolean dcAwareAllowRemoteDCsForLocal;
@@ -70,7 +71,7 @@ public class CassandraClientConfig
     private boolean tokenAwareShuffleReplicas;
     private List<String> allowedAddresses = ImmutableList.of();
     private Duration noHostAvailableRetryTimeout = new Duration(1, MINUTES);
-    private int speculativeExecutionLimit = 1;
+    private Optional<Integer> speculativeExecutionLimit = Optional.empty();
     private Duration speculativeExecutionDelay = new Duration(500, MILLISECONDS);
     private ProtocolVersion protocolVersion;
     private boolean tlsEnabled;
@@ -119,7 +120,7 @@ public class CassandraClientConfig
     }
 
     @Config("cassandra.consistency-level")
-    public CassandraClientConfig setConsistencyLevel(ConsistencyLevel level)
+    public CassandraClientConfig setConsistencyLevel(DefaultConsistencyLevel level)
     {
         this.consistencyLevel = level;
         return this;
@@ -379,16 +380,15 @@ public class CassandraClientConfig
         return this;
     }
 
-    @Min(1)
-    public int getSpeculativeExecutionLimit()
+    public Optional<@Min(1) Integer> getSpeculativeExecutionLimit()
     {
         return speculativeExecutionLimit;
     }
 
     @Config("cassandra.speculative-execution.limit")
-    public CassandraClientConfig setSpeculativeExecutionLimit(int speculativeExecutionLimit)
+    public CassandraClientConfig setSpeculativeExecutionLimit(Integer speculativeExecutionLimit)
     {
-        this.speculativeExecutionLimit = speculativeExecutionLimit;
+        this.speculativeExecutionLimit = Optional.ofNullable(speculativeExecutionLimit);
         return this;
     }
 
@@ -412,7 +412,7 @@ public class CassandraClientConfig
     }
 
     @Config("cassandra.protocol-version")
-    public CassandraClientConfig setProtocolVersion(ProtocolVersion version)
+    public CassandraClientConfig setProtocolVersion(DefaultProtocolVersion version)
     {
         this.protocolVersion = version;
         return this;

@@ -15,6 +15,7 @@ package io.trino.spi.connector;
 
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public interface DynamicFilter
@@ -23,6 +24,12 @@ public interface DynamicFilter
 
     DynamicFilter EMPTY = new DynamicFilter()
     {
+        @Override
+        public Set<ColumnHandle> getColumnsCovered()
+        {
+            return Set.of();
+        }
+
         @Override
         public CompletableFuture<?> isBlocked()
         {
@@ -47,6 +54,11 @@ public interface DynamicFilter
             return TupleDomain.all();  // no filtering
         }
     };
+
+    /**
+     * Set of keys of a {@link TupleDomain} to be returned from {@link #getCurrentPredicate()} or a superset thereof.
+     */
+    Set<ColumnHandle> getColumnsCovered();
 
     /**
      * Returned a future, which blocks until dynamic filter is narrowed down. Future

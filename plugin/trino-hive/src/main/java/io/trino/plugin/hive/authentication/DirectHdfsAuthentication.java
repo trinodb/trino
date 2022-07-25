@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.authentication;
 
 import io.trino.plugin.hive.ForHdfs;
+import io.trino.spi.security.ConnectorIdentity;
 
 import javax.inject.Inject;
 
@@ -32,7 +33,7 @@ public class DirectHdfsAuthentication
     }
 
     @Override
-    public <R, E extends Exception> R doAs(String user, GenericExceptionAction<R, E> action)
+    public <R, E extends Exception> R doAs(ConnectorIdentity identity, GenericExceptionAction<R, E> action)
             throws E
     {
         return executeActionInDoAs(hadoopAuthentication.getUserGroupInformation(), action);

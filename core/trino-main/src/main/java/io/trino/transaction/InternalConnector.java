@@ -21,7 +21,7 @@ public interface InternalConnector
         extends Connector
 {
     @Override
-    default ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+    default ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
         throw new UnsupportedOperationException();
     }

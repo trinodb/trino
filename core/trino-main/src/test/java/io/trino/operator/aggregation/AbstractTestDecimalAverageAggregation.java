@@ -28,6 +28,8 @@ public abstract class AbstractTestDecimalAverageAggregation
 {
     protected abstract DecimalType getDecimalType();
 
+    protected abstract DecimalType getExpectedType();
+
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
@@ -57,7 +59,8 @@ public abstract class AbstractTestDecimalAverageAggregation
             avg = avg.add(getBigDecimalForCounter(i));
         }
         avg = avg.divide(BigDecimal.valueOf(length), ROUND_HALF_UP);
-        return new SqlDecimal(avg.unscaledValue(), avg.precision(), avg.scale());
+        DecimalType expectedType = getExpectedType();
+        return new SqlDecimal(avg.unscaledValue(), expectedType.getPrecision(), expectedType.getScale());
     }
 
     @Override

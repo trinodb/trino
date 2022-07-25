@@ -59,6 +59,7 @@ public class TestVerifierConfig
                 .setAlwaysReport(false)
                 .setSuiteRepetitions(1)
                 .setCheckCorrectnessEnabled(true)
+                .setCheckDeterminismEnabled(true)
                 .setCheckCpuEnabled(true)
                 .setExplainOnly(false)
                 .setSkipCorrectnessRegex("^$")
@@ -81,13 +82,16 @@ public class TestVerifierConfig
                 .setShadowControlTablePrefix("tmp_verifier_")
                 .setControlTeardownRetries(1)
                 .setTestTeardownRetries(1)
-                .setRunTearDownOnResultMismatch(false));
+                .setRunTearDownOnResultMismatch(false)
+                .setSkipControl(false)
+                .setSimplifiedControlQueriesGenerationEnabled(false)
+                .setSimplifiedControlQueriesOutputDirectory("/tmp/verifier/generated-control-queries"));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("suites", "my_suite")
                 .put("suite", "my_suite")
                 .put("control.query-types", Joiner.on(",").join(CREATE, MODIFY))
@@ -105,6 +109,7 @@ public class TestVerifierConfig
                 .put("suite-repetitions", "2")
                 .put("query-repetitions", "2")
                 .put("check-correctness", "false")
+                .put("check-determinism", "false")
                 .put("check-cpu", "false")
                 .put("explain-only", "true")
                 .put("skip-correctness-regex", "limit")
@@ -135,7 +140,10 @@ public class TestVerifierConfig
                 .put("control.teardown-retries", "5")
                 .put("test.teardown-retries", "7")
                 .put("run-teardown-on-result-mismatch", "true")
-                .build();
+                .put("skip-control", "true")
+                .put("simplified-control-queries-generation-enabled", "true")
+                .put("simplified-control-queries-output-directory", "/tmp/some/directory")
+                .buildOrThrow();
 
         VerifierConfig expected = new VerifierConfig().setTestUsernameOverride("verifier-test")
                 .setSuites("my_suite")
@@ -155,6 +163,7 @@ public class TestVerifierConfig
                 .setSuiteRepetitions(2)
                 .setQueryRepetitions(2)
                 .setCheckCorrectnessEnabled(false)
+                .setCheckDeterminismEnabled(false)
                 .setCheckCpuEnabled(false)
                 .setExplainOnly(true)
                 .setSkipCorrectnessRegex("limit")
@@ -184,7 +193,10 @@ public class TestVerifierConfig
                 .setShadowControlTablePrefix("schema.tmp_")
                 .setControlTeardownRetries(5)
                 .setTestTeardownRetries(7)
-                .setRunTearDownOnResultMismatch(true);
+                .setRunTearDownOnResultMismatch(true)
+                .setSkipControl(true)
+                .setSimplifiedControlQueriesGenerationEnabled(true)
+                .setSimplifiedControlQueriesOutputDirectory("/tmp/some/directory");
 
         assertFullMapping(properties, expected);
     }

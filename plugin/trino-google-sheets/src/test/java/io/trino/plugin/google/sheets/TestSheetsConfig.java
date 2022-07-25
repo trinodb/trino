@@ -45,12 +45,12 @@ public class TestSheetsConfig
     {
         Path credentialsFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("credentials-path", credentialsFile.toString())
                 .put("metadata-sheet-id", "foo_bar_sheet_id#Sheet1")
                 .put("sheets-data-max-cache-size", "2000")
                 .put("sheets-data-expire-after-write", "10m")
-                .build();
+                .buildOrThrow();
 
         SheetsConfig expected = new SheetsConfig()
                 .setCredentialsFilePath(credentialsFile.toString())

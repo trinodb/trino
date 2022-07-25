@@ -29,9 +29,9 @@ public interface OrcChunkLoader
             OrcDataSourceId orcDataSourceId,
             Slice chunk,
             Optional<OrcDecompressor> decompressor,
-            AggregatedMemoryContext systemMemoryContext)
+            AggregatedMemoryContext memoryContext)
     {
-        return create(new MemoryOrcDataReader(orcDataSourceId, chunk, chunk.length()), decompressor, systemMemoryContext);
+        return create(new MemoryOrcDataReader(orcDataSourceId, chunk, chunk.length()), decompressor, memoryContext);
     }
 
     static OrcChunkLoader create(

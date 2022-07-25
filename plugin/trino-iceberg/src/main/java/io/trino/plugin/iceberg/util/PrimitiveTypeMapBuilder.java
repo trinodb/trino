@@ -45,7 +45,7 @@ public class PrimitiveTypeMapBuilder
         for (int i = 0; i < types.size(); i++) {
             visitType(types.get(i), makeCompatibleName(columnNames.get(i)), ImmutableList.of());
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     private void visitType(Type type, String name, List<String> parent)

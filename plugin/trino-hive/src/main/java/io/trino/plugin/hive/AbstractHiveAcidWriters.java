@@ -52,7 +52,7 @@ public abstract class AbstractHiveAcidWriters
     // The original file path looks like .../nnnnnnn_m(_copy_ccc)?
     public static final Pattern ORIGINAL_FILE_PATH_MATCHER = Pattern.compile("(?s)(?<rootDir>.*)/(?<filename>(?<bucketNumber>[\\d]+)_(?<rest>.*)?)$");
     // After compaction, the bucketPath looks like .../base_nnnnnnn(_vmmmmmmm)?/bucket_bbbbb(_aaaa)?
-    public static final Pattern BASE_PATH_MATCHER = Pattern.compile("(?s)(?<rootDir>.*)/(?<dirStart>base_[\\d]+(_v[\\d]+)?)/(?<filenameBase>bucket_(?<bucketNumber>[\\d]+))(?<attemptId>_[\\d]+)?$");
+    public static final Pattern BASE_PATH_MATCHER = Pattern.compile("(?s)(?<rootDir>.*)/(?<dirStart>base_[-]?[\\d]+(_v[\\d]+)?)/(?<filenameBase>bucket_(?<bucketNumber>[\\d]+))(?<attemptId>_[\\d]+)?$");
 
     protected final AcidTransaction transaction;
     protected final OptionalInt bucketNumber;

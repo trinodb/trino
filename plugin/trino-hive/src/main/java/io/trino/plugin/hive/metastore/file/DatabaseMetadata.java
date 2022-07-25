@@ -27,16 +27,16 @@ import static java.util.Objects.requireNonNull;
 public class DatabaseMetadata
 {
     private final Optional<String> writerVersion;
-    private final String ownerName;
-    private final PrincipalType ownerType;
+    private final Optional<String> ownerName;
+    private final Optional<PrincipalType> ownerType;
     private final Optional<String> comment;
     private final Map<String, String> parameters;
 
     @JsonCreator
     public DatabaseMetadata(
             @JsonProperty("writerVersion") Optional<String> writerVersion,
-            @JsonProperty("ownerName") String ownerName,
-            @JsonProperty("ownerType") PrincipalType ownerType,
+            @JsonProperty("ownerName") Optional<String> ownerName,
+            @JsonProperty("ownerType") Optional<PrincipalType> ownerType,
             @JsonProperty("comment") Optional<String> comment,
             @JsonProperty("parameters") Map<String, String> parameters)
     {
@@ -63,13 +63,13 @@ public class DatabaseMetadata
     }
 
     @JsonProperty
-    public String getOwnerName()
+    public Optional<String> getOwnerName()
     {
         return ownerName;
     }
 
     @JsonProperty
-    public PrincipalType getOwnerType()
+    public Optional<PrincipalType> getOwnerType()
     {
         return ownerType;
     }

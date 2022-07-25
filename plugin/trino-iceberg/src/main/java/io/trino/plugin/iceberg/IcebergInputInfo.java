@@ -13,8 +13,10 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -22,16 +24,56 @@ import static java.util.Objects.requireNonNull;
 public class IcebergInputInfo
 {
     private final Optional<Long> snapshotId;
+    private final boolean partitioned;
+    private final String tableDefaultFileFormat;
 
+    @JsonCreator
     public IcebergInputInfo(
-            @JsonProperty("snapshotId") Optional<Long> snapshotId)
+            @JsonProperty("snapshotId") Optional<Long> snapshotId,
+            @JsonProperty("partitioned") boolean partitioned,
+            @JsonProperty("fileFormat") String tableDefaultFileFormat)
     {
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
+        this.partitioned = partitioned;
+        this.tableDefaultFileFormat = requireNonNull(tableDefaultFileFormat, "tableDefaultFileFormat is null");
     }
 
     @JsonProperty
     public Optional<Long> getSnapshotId()
     {
         return snapshotId;
+    }
+
+    @JsonProperty
+    public boolean isPartitioned()
+    {
+        return partitioned;
+    }
+
+    @JsonProperty
+    public String getTableDefaultFileFormat()
+    {
+        return tableDefaultFileFormat;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof IcebergInputInfo)) {
+            return false;
+        }
+        IcebergInputInfo that = (IcebergInputInfo) o;
+        return partitioned == that.partitioned
+                && snapshotId.equals(that.snapshotId)
+                && tableDefaultFileFormat.equals(that.tableDefaultFileFormat);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(snapshotId, partitioned, tableDefaultFileFormat);
     }
 }

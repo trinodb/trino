@@ -130,7 +130,7 @@ public class TestLdapTrinoJdbc
     {
         assertThatThrownBy(() -> DriverManager.getConnection("jdbc:trino://" + prestoServer(), ldapUserName, ldapUserPassword))
                 .isInstanceOf(SQLException.class)
-                .hasMessage("Authentication using username/password requires SSL to be enabled");
+                .hasMessageContaining("Authentication using username/password requires SSL to be enabled");
     }
 
     @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -139,7 +139,7 @@ public class TestLdapTrinoJdbc
         String url = format("jdbc:trino://%s?SSL=true&SSLTrustStorePath=%s&SSLTrustStorePassword=%s", prestoServer(), ldapTruststorePath, "wrong_password");
         assertThatThrownBy(() -> DriverManager.getConnection(url, ldapUserName, ldapUserPassword))
                 .isInstanceOf(SQLException.class)
-                .hasMessage("Error setting up SSL: keystore password was incorrect");
+                .hasMessageContaining("Error setting up SSL: keystore password was incorrect");
     }
 
     @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)

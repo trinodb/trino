@@ -49,7 +49,6 @@ public class ExampleHttpServer
                 new ExampleHttpServerModule());
 
         Injector injector = app
-                .strictConfig()
                 .doNotInitializeLogging()
                 .initialize();
 

@@ -18,8 +18,11 @@ import io.trino.spi.predicate.Utils;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
-import java.util.function.BiConsumer;
+import java.util.OptionalInt;
+import java.util.function.ObjLongConsumer;
 
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidPosition;
@@ -84,6 +87,12 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty(); // size does not vary per position selected
+    }
+
+    @Override
     public long getSizeInBytes()
     {
         return value.getSizeInBytes();
@@ -108,7 +117,7 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(value, value.getRetainedSizeInBytes());
         consumer.accept(this, (long) INSTANCE_SIZE);
@@ -154,7 +163,7 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(@Nullable boolean[] positions, int selectedPositionCount)
     {
         return value.getSizeInBytes();
     }
@@ -237,13 +246,6 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public void writePositionTo(int position, BlockBuilder blockBuilder)
-    {
-        checkReadablePosition(position);
-        value.writePositionTo(0, blockBuilder);
-    }
-
-    @Override
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
         checkReadablePosition(position);
@@ -269,6 +271,12 @@ public class RunLengthEncodedBlock
     {
         checkReadablePosition(position);
         return value;
+    }
+
+    @Override
+    public boolean mayHaveNull()
+    {
+        return positionCount > 0 && value.isNull(0);
     }
 
     @Override

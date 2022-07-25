@@ -14,6 +14,7 @@
 package io.trino.spi.connector;
 
 import io.trino.spi.HostAddress;
+import io.trino.spi.SplitWeight;
 
 import java.util.List;
 
@@ -24,4 +25,14 @@ public interface ConnectorSplit
     List<HostAddress> getAddresses();
 
     Object getInfo();
+
+    default SplitWeight getSplitWeight()
+    {
+        return SplitWeight.standard();
+    }
+
+    default long getRetainedSizeInBytes()
+    {
+        throw new UnsupportedOperationException("This connector does not provide memory accounting capabilities for ConnectorSplit");
+    }
 }

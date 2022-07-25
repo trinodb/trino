@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.MetadataManager;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.scalar.TryFunction;
 import io.trino.sql.ExpressionUtils;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
@@ -66,7 +66,8 @@ import static org.testng.Assert.assertTrue;
 
 public class TestEqualityInference
 {
-    private final Metadata metadata = MetadataManager.createTestMetadataManager();
+    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
+    private final Metadata metadata = functionResolution.getMetadata();
 
     @Test
     public void testTransitivity()
@@ -314,8 +315,8 @@ public class TestEqualityInference
     {
         List<Expression> candidates = ImmutableList.of(
                 new Cast(nameReference("b"), toSqlType(BIGINT), true), // try_cast
-                new FunctionCallBuilder(metadata)
-                        .setName(QualifiedName.of(TryFunction.NAME))
+                functionResolution
+                        .functionCallBuilder(QualifiedName.of(TryFunction.NAME))
                         .addArgument(new FunctionType(ImmutableList.of(), VARCHAR), new LambdaExpression(ImmutableList.of(), nameReference("b")))
                         .build(),
                 new NullIfExpression(nameReference("b"), number(1)),

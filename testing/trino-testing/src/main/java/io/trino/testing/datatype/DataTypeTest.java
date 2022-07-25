@@ -104,7 +104,7 @@ public class DataTypeTest
             checkResults(expectedTypes, expectedResults, filteredRows);
         }
         catch (RuntimeException e) {
-            log.error("Exception caught during query with merged WHERE clause, querying one column at a time", e);
+            log.error(e, "Exception caught during query with merged WHERE clause, querying one column at a time");
             debugTypes(trinoExecutor, session, expectedTypes, expectedResults, testTable);
         }
     }

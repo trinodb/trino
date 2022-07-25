@@ -51,7 +51,7 @@ public class ConfigHdp3
             if (container.getLogicalName().startsWith(PRESTO)) {
                 container.withCopyFileToContainer(forHostPath(
                         // HDP3's handling of timestamps is incompatible with previous versions of Hive (see https://issues.apache.org/jira/browse/HIVE-21002);
-                        // in order for Presto to deal with the differences, we must set catalog properties for Parquet and RCFile
+                        // in order for Trino to deal with the differences, we must set catalog properties for Parquet and RCFile
                         dockerFiles.getDockerFilesHostPath("common/standard/presto-init-hdp3.sh")),
                         "/docker/presto-init.d/presto-init-hdp3.sh");
             }

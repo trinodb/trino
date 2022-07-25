@@ -22,12 +22,12 @@ import io.trino.client.Column;
 import io.trino.client.QueryError;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.StatementClient;
-import io.trino.connector.CatalogName;
 import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.QueryId;
+import io.trino.spi.security.SelectedRole;
 import io.trino.spi.session.ResourceEstimates;
 import io.trino.spi.type.Type;
 import okhttp3.OkHttpClient;
@@ -41,11 +41,12 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.client.StatementClientFactory.newStatementClient;
+import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.spi.session.ResourceEstimates.CPU_TIME;
 import static io.trino.spi.session.ResourceEstimates.EXECUTION_TIME;
 import static io.trino.spi.session.ResourceEstimates.PEAK_MEMORY;
@@ -110,6 +111,7 @@ public abstract class AbstractTestingTrinoClient<T>
                 }
 
                 resultsSession.setWarnings(results.getWarnings());
+                resultsSession.setStatementStats(results.getStats());
 
                 T result = resultsSession.build(client.getSetSessionProperties(), client.getResetSessionProperties());
                 return new ResultWithQueryId<>(new QueryId(results.getId()), result);
@@ -131,14 +133,10 @@ public abstract class AbstractTestingTrinoClient<T>
     {
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties.putAll(session.getSystemProperties());
-        for (Entry<CatalogName, Map<String, String>> catalogAndConnectorProperties : session.getConnectorProperties().entrySet()) {
+        for (Entry<String, Map<String, String>> catalogAndConnectorProperties : session.getCatalogProperties().entrySet()) {
             for (Entry<String, String> connectorProperties : catalogAndConnectorProperties.getValue().entrySet()) {
-                properties.put(catalogAndConnectorProperties.getKey() + "." + connectorProperties.getKey(), connectorProperties.getValue());
-            }
-        }
-        for (Entry<String, Map<String, String>> connectorProperties : session.getUnprocessedCatalogProperties().entrySet()) {
-            for (Entry<String, String> entry : connectorProperties.getValue().entrySet()) {
-                properties.put(connectorProperties.getKey() + "." + entry.getKey(), entry.getValue());
+                String catalogName = catalogAndConnectorProperties.getKey();
+                properties.put(catalogName + "." + connectorProperties.getKey(), connectorProperties.getValue());
             }
         }
 
@@ -150,7 +148,7 @@ public abstract class AbstractTestingTrinoClient<T>
 
         return new ClientSession(
                 server,
-                session.getIdentity().getUser(),
+                Optional.of(session.getIdentity().getUser()),
                 Optional.empty(),
                 session.getSource().orElse(null),
                 session.getTraceToken(),
@@ -161,36 +159,47 @@ public abstract class AbstractTestingTrinoClient<T>
                 session.getPath().toString(),
                 ZoneId.of(session.getTimeZoneKey().getId()),
                 session.getLocale(),
-                resourceEstimates.build(),
-                properties.build(),
+                resourceEstimates.buildOrThrow(),
+                properties.buildOrThrow(),
                 session.getPreparedStatements(),
-                session.getIdentity().getRoles().entrySet().stream()
-                        .collect(toImmutableMap(Entry::getKey, entry ->
-                                new ClientSelectedRole(
-                                        ClientSelectedRole.Type.valueOf(entry.getValue().getType().toString()),
-                                        entry.getValue().getRole()))),
+                getRoles(session),
                 session.getIdentity().getExtraCredentials(),
                 session.getTransactionId().map(Object::toString).orElse(null),
                 clientRequestTimeout,
                 true);
     }
 
+    private static Map<String, ClientSelectedRole> getRoles(Session session)
+    {
+        ImmutableMap.Builder<String, ClientSelectedRole> builder = ImmutableMap.builder();
+        session.getIdentity().getEnabledRoles().forEach(role -> builder.put("system", toClientSelectedRole(new SelectedRole(ROLE, Optional.of(role)))));
+        session.getIdentity().getCatalogRoles().forEach((key, value) -> builder.put(key, toClientSelectedRole(value)));
+        return builder.buildOrThrow();
+    }
+
+    private static ClientSelectedRole toClientSelectedRole(io.trino.spi.security.SelectedRole value)
+    {
+        return new ClientSelectedRole(ClientSelectedRole.Type.valueOf(value.getType().toString()), value.getRole());
+    }
+
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
     {
-        return transaction(trinoServer.getTransactionManager(), trinoServer.getAccessControl())
-                .readOnly()
-                .execute(session, transactionSession -> {
-                    return trinoServer.getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema));
-                });
+        return inTransaction(session, transactionSession ->
+                trinoServer.getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema)));
     }
 
     public boolean tableExists(Session session, String table)
     {
+        return inTransaction(session, transactionSession ->
+                MetadataUtil.tableExists(trinoServer.getMetadata(), transactionSession, table));
+    }
+
+    private <V> V inTransaction(Session session, Function<Session, V> callback)
+    {
         return transaction(trinoServer.getTransactionManager(), trinoServer.getAccessControl())
                 .readOnly()
-                .execute(session, transactionSession -> {
-                    return MetadataUtil.tableExists(trinoServer.getMetadata(), transactionSession, table);
-                });
+                .singleStatement()
+                .execute(session, callback);
     }
 
     public Session getDefaultSession()
@@ -207,7 +216,7 @@ public abstract class AbstractTestingTrinoClient<T>
     {
         return columns.stream()
                 .map(Column::getType)
-                .map(trinoServer.getMetadata()::fromSqlType)
+                .map(trinoServer.getTypeManager()::fromSqlType)
                 .collect(toImmutableList());
     }
 }

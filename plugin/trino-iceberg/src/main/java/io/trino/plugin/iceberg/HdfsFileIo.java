@@ -55,7 +55,7 @@ public class HdfsFileIo
     {
         Path path = new Path(pathString);
         try {
-            environment.doAs(context.getIdentity().getUser(), () -> environment.getFileSystem(context, path).delete(path, false));
+            environment.doAs(context.getIdentity(), () -> environment.getFileSystem(context, path).delete(path, false));
         }
         catch (IOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to delete file: " + path, e);

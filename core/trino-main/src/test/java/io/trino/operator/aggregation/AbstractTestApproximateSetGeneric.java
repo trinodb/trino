@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.stats.cardinality.HyperLogLog;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -39,8 +39,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.airlift.testing.Assertions.assertLessThan;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
-import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.util.Collections.shuffle;
 import static org.testng.Assert.assertEquals;
@@ -54,7 +52,7 @@ public abstract class AbstractTestApproximateSetGeneric
 
     protected abstract Object randomValue();
 
-    protected static final Metadata metadata = createTestMetadataManager();
+    protected static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
 
     protected int getUniqueValuesCount()
     {
@@ -182,10 +180,9 @@ public abstract class AbstractTestApproximateSetGeneric
         return HyperLogLog.newInstance(Slices.wrappedBuffer(hllSerialized.getBytes()));
     }
 
-    private InternalAggregationFunction getAggregationFunction()
+    private TestingAggregationFunction getAggregationFunction()
     {
-        return metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("$approx_set"), fromTypes(getValueType())));
+        return FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("$approx_set"), fromTypes(getValueType()));
     }
 
     private Page createPage(List<?> values)
@@ -194,9 +191,7 @@ public abstract class AbstractTestApproximateSetGeneric
             return new Page(0);
         }
         else {
-            return new Page(values.size(),
-                    createBlock(getValueType(), values),
-                    createBlock(DOUBLE, ImmutableList.copyOf(Collections.nCopies(values.size(), STD_ERROR))));
+            return new Page(values.size(), createBlock(getValueType(), values));
         }
     }
 

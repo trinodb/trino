@@ -14,8 +14,8 @@
 package io.trino.plugin.raptor.legacy.metadata;
 
 import io.trino.spi.connector.SchemaTableName;
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.StatementContext;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -44,10 +44,10 @@ public class ViewResult
     }
 
     public static class Mapper
-            implements ResultSetMapper<ViewResult>
+            implements RowMapper<ViewResult>
     {
         @Override
-        public ViewResult map(int index, ResultSet r, StatementContext ctx)
+        public ViewResult map(ResultSet r, StatementContext ctx)
                 throws SQLException
         {
             SchemaTableName name = new SchemaTableName(

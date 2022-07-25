@@ -2,6 +2,10 @@
 MongoDB connector
 =================
 
+.. raw:: html
+
+  <img src="../_static/img/mongodb.png" class="connector-logo">
+
 The ``mongodb`` connector allows the use of `MongoDB <https://www.mongodb.com/>`_ collections as tables in Trino.
 
 
@@ -10,9 +14,11 @@ Requirements
 
 To connect to MongoDB, you need:
 
-* MongoDB 3.4 or higher.
+* MongoDB 4.0 or higher.
 * Network access from the Trino coordinator and workers to MongoDB.
   Port 27017 is the default port.
+* Write access to the :ref:`schema information collection <table-definition-label>`
+  in MongoDB.
 
 Configuration
 -------------
@@ -24,7 +30,7 @@ replacing the properties as appropriate:
 .. code-block:: text
 
     connector.name=mongodb
-    mongodb.seeds=host1,host:port
+    mongodb.connection-url=mongodb://user:pass@sample.host:27017/
 
 Multiple MongoDB clusters
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -41,9 +47,10 @@ Configuration properties
 The following configuration properties are available:
 
 ========================================== ==============================================================
-Property Name                              Description
+Property name                              Description
 ========================================== ==============================================================
 ``mongodb.seeds``                          List of all MongoDB servers
+``mongodb.connection-url``                 The connection url that the driver uses to connect to a MongoDB deployment
 ``mongodb.schema-collection``              A collection which contains schema information
 ``mongodb.case-insensitive-name-matching`` Match database and collection names case insensitively
 ``mongodb.credentials``                    List of credentials
@@ -53,7 +60,6 @@ Property Name                              Description
 ``mongodb.max-connection-idle-time``       The maximum idle time of a pooled connection
 ``mongodb.connection-timeout``             The socket connect timeout
 ``mongodb.socket-timeout``                 The socket timeout
-``mongodb.socket-keep-alive``              Whether keep-alive is enabled on each socket
 ``mongodb.ssl.enabled``                    Use TLS/SSL for connections to mongod/mongos
 ``mongodb.read-preference``                The read preference
 ``mongodb.write-concern``                  The write concern
@@ -66,14 +72,50 @@ Property Name                              Description
 
 Comma-separated list of ``hostname[:port]`` all MongoDB servers in the same replica set, or a list of MongoDB servers in the same sharded cluster. If a port is not specified, port 27017 will be used.
 
-This property is required; there is no default and at least one seed must be defined.
+This property is deprecated and will be removed in a future release. Use ``mongodb.connection-url`` property instead.
+
+``mongodb.connection-url``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A connection string containing the protocol, credential, and host info for use
+inconnection to your MongoDB deployment.
+
+For example, the connection string may use the format
+``mongodb://<user>:<pass>@<host>:<port>/?<options>`` or
+``mongodb+srv://<user>:<pass>@<host>/?<options>``, depending on the protocol
+used. The user/pass credentials must be for a user with write access to the
+:ref:`schema information collection <table-definition-label>`.
+
+See the `MongoDB Connection URI <https://docs.mongodb.com/drivers/java/sync/current/fundamentals/connection/#connection-uri>`_ for more information.
+
+This property is required; there is no default. A connection url or seeds must be provided to connect to a MongoDB deployment.
 
 ``mongodb.schema-collection``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 As MongoDB is a document database, there is no fixed schema information in the system. So a special collection in each MongoDB database should define the schema of all tables. Please refer the :ref:`table-definition-label` section for the details.
 
-At startup, this connector tries guessing fields' types, but it might not be correct for your collection. In that case, you need to modify it manually. ``CREATE TABLE`` and ``CREATE TABLE AS SELECT`` will create an entry for you.
+At startup, the connector tries to guess the data type of fields based on the mapping in the following table.
+
+================== ================ ================================================
+MongoDB            Trino            Notes
+================== ================ ================================================
+``Boolean``        ``BOOLEAN``
+``Int32``          ``BIGINT``
+``Int64``          ``BIGINT``
+``Double``         ``DOUBLE``
+``Date``           ``TIMESTAMP(3)``
+``String``         ``VARCHAR``
+``Binary``         ``VARBINARY``
+``ObjectId``       ``ObjectId``
+``Object``         ``ROW``
+``Array``          ``ARRAY``        Map to ``ROW`` if the element type is not unique
+``DBRef``          ``ROW``
+================== ================ ================================================
+
+The initial guess can be incorrect for your specific collection. In that case, you need to modify it manually. Please refer the :ref:`table-definition-label` section for the details.
+
+Creating new tables using ``CREATE TABLE`` and ``CREATE TABLE AS SELECT`` automatically create an entry for you.
 
 This property is optional; the default is ``_schema``.
 
@@ -135,13 +177,6 @@ The socket timeout in milliseconds. It is used for I/O socket read and write ope
 
 This property is optional; the default is ``0`` and means no timeout.
 
-``mongodb.socket-keep-alive``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-This flag controls the socket keep alive feature that keeps a connection alive through firewalls.
-
-This property is optional; the default is ``false``.
-
 ``mongodb.ssl.enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -161,8 +196,7 @@ This property is optional; the default is ``PRIMARY``.
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The write concern to use. The available values are
-``ACKNOWLEDGED``, ``FSYNC_SAFE``, ``FSYNCED``, ``JOURNAL_SAFEY``, ``JOURNALED``, ``MAJORITY``,
-``NORMAL``, ``REPLICA_ACKNOWLEDGED``, ``REPLICAS_SAFE`` and ``UNACKNOWLEDGED``.
+``ACKNOWLEDGED``, ``JOURNALED``, ``MAJORITY`` and ``UNACKNOWLEDGED``.
 
 This property is optional; the default is ``ACKNOWLEDGED``.
 
@@ -216,6 +250,10 @@ A schema collection consists of a MongoDB document for a table.
             ]
         }
     }
+
+The connector quotes the fields for a row type when auto-generating the schema.
+However, if the schema is being fixed manually in the collection then
+the fields need to be explicitly quoted. ``row("UpperCase" varchar)``
 
 =============== ========= ============== =============================
 Field           Required  Type           Description
@@ -294,9 +332,63 @@ You can render the ``_id`` field to readable values with a cast to ``VARCHAR``:
      55b151633864d6438c61a9ce  |        1 | bad         |       50.0 | 2015-07-23
     (1 row)
 
-Limitations
+ObjectId timestamp functions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The first four bytes of each `ObjectId <https://docs.mongodb.com/manual/reference/method/ObjectId>`_ represent
+an embedded timestamp of its creation time. Trino provides a couple of functions to take advantage of this MongoDB feature.
+
+.. function:: objectid_timestamp(ObjectId) -> timestamp
+
+    Extracts the timestamp with time zone from a given ObjectId::
+
+        SELECT objectid_timestamp(ObjectId('507f191e810c19729de860ea'));
+        -- 2012-10-17 20:46:22.000 UTC
+
+.. function:: timestamp_objectid(timestamp) -> ObjectId
+
+    Creates an ObjectId from a timestamp with time zone::
+
+        SELECT timestamp_objectid(TIMESTAMP '2021-08-07 17:51:36 +00:00');
+        -- 61 0e c8 28 00 00 00 00 00 00 00 00
+
+In MongoDB, you can filter all the documents created after ``2021-08-07 17:51:36``
+with a query like this:
+
+.. code-block:: text
+
+    db.collection.find({"_id": {"$gt": ObjectId("610ec8280000000000000000")}})
+
+In Trino, the same can be achieved with this query:
+
+.. code-block:: sql
+
+    SELECT *
+    FROM collection
+    WHERE _id > timestamp_objectid(TIMESTAMP '2021-08-07 17:51:36 +00:00');
+
+.. _mongodb-sql-support:
+
+SQL support
 -----------
 
-The following operations are not supported:
+The connector provides read and write access to data and metadata in
+MongoDB. In addition to the :ref:`globally available
+<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
+statements, the connector supports the following features:
 
-- Row deletion with :doc:`/sql/delete`
+* :doc:`/sql/insert`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/alter-table`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`
+* :doc:`/sql/comment`
+
+ALTER TABLE
+^^^^^^^^^^^
+
+The connector supports ``ALTER TABLE RENAME TO``, ``ALTER TABLE ADD COLUMN``
+and ``ALTER TABLE DROP COLUMN`` operations.
+Other uses of ``ALTER TABLE`` are not supported.

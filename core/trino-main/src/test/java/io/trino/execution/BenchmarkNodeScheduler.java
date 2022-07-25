@@ -53,6 +53,7 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -68,6 +69,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.trino.SystemSessionProperties.MAX_UNACKNOWLEDGED_SPLITS_PER_TASK;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -154,16 +156,16 @@ public class BenchmarkNodeScheduler
                 InternalNode node = nodes.get(i);
                 ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();
                 for (int j = 0; j < MAX_SPLITS_PER_NODE + MAX_PENDING_SPLITS_PER_TASK_PER_NODE; j++) {
-                    initialSplits.add(new Split(CONNECTOR_ID, new TestSplitRemote(i), Lifespan.taskWide()));
+                    initialSplits.add(new Split(CONNECTOR_ID, new TestSplitRemote(i)));
                 }
-                TaskId taskId = new TaskId("test", 1, i);
+                TaskId taskId = new TaskId(new StageId("test", 1), i, 0);
                 MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
                 nodeTaskMap.addTask(node, remoteTask);
                 taskMap.put(node, remoteTask);
             }
 
             for (int i = 0; i < SPLITS; i++) {
-                splits.add(new Split(CONNECTOR_ID, new TestSplitRemote(ThreadLocalRandom.current().nextInt(DATA_NODES)), Lifespan.taskWide()));
+                splits.add(new Split(CONNECTOR_ID, new TestSplitRemote(ThreadLocalRandom.current().nextInt(DATA_NODES))));
             }
 
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
@@ -248,6 +250,8 @@ public class BenchmarkNodeScheduler
     private static class TestSplitRemote
             implements ConnectorSplit
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestSplitRemote.class).instanceSize();
+
         private final List<HostAddress> hosts;
 
         public TestSplitRemote(int dataHost)
@@ -271,6 +275,13 @@ public class BenchmarkNodeScheduler
         public Object getInfo()
         {
             return this;
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE
+                    + estimatedSizeOf(hosts, HostAddress::getRetainedSizeInBytes);
         }
     }
 

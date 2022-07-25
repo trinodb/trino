@@ -16,6 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
@@ -246,6 +247,7 @@ public class DecorrelateUnnest
                 ordinalitySymbol,
                 uniqueSymbol,
                 rewrittenUnnest,
+                context.getSession(),
                 metadata,
                 context.getLookup(),
                 context.getIdAllocator(),
@@ -316,6 +318,7 @@ public class DecorrelateUnnest
         private final Symbol ordinalitySymbol;
         private final Symbol uniqueSymbol;
         private final PlanNode sequenceSource;
+        private final Session session;
         private final Metadata metadata;
         private final Lookup lookup;
         private final PlanNodeIdAllocator idAllocator;
@@ -326,6 +329,7 @@ public class DecorrelateUnnest
                 Symbol ordinalitySymbol,
                 Symbol uniqueSymbol,
                 PlanNode sequenceSource,
+                Session session,
                 Metadata metadata,
                 Lookup lookup,
                 PlanNodeIdAllocator idAllocator,
@@ -335,6 +339,7 @@ public class DecorrelateUnnest
             this.ordinalitySymbol = requireNonNull(ordinalitySymbol, "ordinalitySymbol is null");
             this.uniqueSymbol = requireNonNull(uniqueSymbol, "uniqueSymbol is null");
             this.sequenceSource = requireNonNull(sequenceSource, "sequenceSource is null");
+            this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.lookup = requireNonNull(lookup, "lookup is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
@@ -347,12 +352,13 @@ public class DecorrelateUnnest
                 Symbol ordinalitySymbol,
                 Symbol uniqueSymbol,
                 PlanNode sequenceSource,
+                Session session,
                 Metadata metadata,
                 Lookup lookup,
                 PlanNodeIdAllocator idAllocator,
                 SymbolAllocator symbolAllocator)
         {
-            return new Rewriter(leftOutputs, ordinalitySymbol, uniqueSymbol, sequenceSource, metadata, lookup, idAllocator, symbolAllocator)
+            return new Rewriter(leftOutputs, ordinalitySymbol, uniqueSymbol, sequenceSource, session, metadata, lookup, idAllocator, symbolAllocator)
                     .rewrite(root)
                     .getPlan();
         }
@@ -404,7 +410,7 @@ public class DecorrelateUnnest
                         Optional.of(2),
                         Optional.empty());
             }
-            ResolvedFunction fail = metadata.resolveFunction(QualifiedName.of("fail"), fromTypes(VARCHAR));
+            ResolvedFunction fail = metadata.resolveFunction(session, QualifiedName.of("fail"), fromTypes(VARCHAR));
             Expression predicate = new IfExpression(
                     new ComparisonExpression(
                             GREATER_THAN,
@@ -428,7 +434,7 @@ public class DecorrelateUnnest
 
             if (node.isWithTies()) {
                 return new RewriteResult(
-                        rewriteLimitWithTiesWithPartitioning(node, source.getPlan(), metadata, idAllocator, symbolAllocator, ImmutableList.of(uniqueSymbol)),
+                        rewriteLimitWithTiesWithPartitioning(node, source.getPlan(), session, metadata, idAllocator, symbolAllocator, ImmutableList.of(uniqueSymbol)),
                         Optional.empty());
             }
 
@@ -466,7 +472,7 @@ public class DecorrelateUnnest
             // Do not reuse source's rowNumberSymbol, because it might not follow the TopNNode's ordering.
             Symbol rowNumberSymbol = symbolAllocator.newSymbol("row_number", BIGINT);
             WindowNode.Function rowNumberFunction = new WindowNode.Function(
-                    metadata.resolveFunction(QualifiedName.of("row_number"), ImmutableList.of()),
+                    metadata.resolveFunction(session, QualifiedName.of("row_number"), ImmutableList.of()),
                     ImmutableList.of(),
                     DEFAULT_FRAME,
                     false);

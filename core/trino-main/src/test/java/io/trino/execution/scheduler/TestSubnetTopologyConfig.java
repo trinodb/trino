@@ -37,10 +37,10 @@ public class TestSubnetTopologyConfig
     public void testExplicitPropertyMappings()
             throws IOException
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("node-scheduler.network-topology.subnet.cidr-prefix-lengths", "24,26")
                 .put("node-scheduler.network-topology.subnet.ip-address-protocol", "IPv6")
-                .build();
+                .buildOrThrow();
 
         SubnetTopologyConfig expected = new SubnetTopologyConfig()
                 .setCidrPrefixLengths("24,26")

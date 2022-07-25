@@ -15,11 +15,9 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.PlanAssert;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -50,6 +48,7 @@ import static io.trino.cost.PlanNodeStatsEstimate.unknown;
 import static io.trino.cost.StatsAndCosts.empty;
 import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.trino.sql.ExpressionUtils.and;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
@@ -65,6 +64,7 @@ import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -88,7 +88,7 @@ public class TestJoinNodeFlattener
         queryRunner = null;
     }
 
-    @Test(expectedExceptions = IllegalStateException.class)
+    @Test
     public void testDoesNotAllowOuterJoin()
     {
         PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
@@ -103,7 +103,9 @@ public class TestJoinNodeFlattener
                 ImmutableList.of(a1),
                 ImmutableList.of(b1),
                 Optional.empty());
-        toMultiJoinNode(queryRunner.getMetadata(), outerJoin, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), new TypeAnalyzer(new SqlParser(), queryRunner.getMetadata()), p.getTypes());
+        assertThatThrownBy(() -> toMultiJoinNode(queryRunner.getPlannerContext(), outerJoin, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageMatching("join type must be.*");
     }
 
     @Test
@@ -137,7 +139,7 @@ public class TestJoinNodeFlattener
                 .setOutputSymbols(a1, b1, c1)
                 .build();
         assertEquals(
-                toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), new TypeAnalyzer(new SqlParser(), queryRunner.getMetadata()), p.getTypes()),
+                toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()),
                 expected);
     }
 
@@ -164,7 +166,7 @@ public class TestJoinNodeFlattener
                                 equiJoinClause(a, b))),
                 valuesC,
                 equiJoinClause(d, c));
-        MultiJoinNode actual = toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, true, testSessionBuilder().build(), new TypeAnalyzer(new SqlParser(), queryRunner.getMetadata()), p.getTypes());
+        MultiJoinNode actual = toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, true, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes());
         assertEquals(actual.getOutputSymbols(), ImmutableList.of(d, c));
         assertEquals(actual.getFilter(), and(createEqualsExpression(a, b), createEqualsExpression(d, c)));
         assertTrue(actual.isPushedProjectionThroughJoin());
@@ -210,7 +212,7 @@ public class TestJoinNodeFlattener
                                 equiJoinClause(a, b))),
                 valuesC,
                 equiJoinClause(d, c));
-        MultiJoinNode actual = toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, true, testSessionBuilder().build(), new TypeAnalyzer(new SqlParser(), queryRunner.getMetadata()), p.getTypes());
+        MultiJoinNode actual = toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, true, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes());
         assertEquals(actual.getOutputSymbols(), ImmutableList.of(d, c));
         assertEquals(actual.getFilter(), createEqualsExpression(d, c));
         assertFalse(actual.isPushedProjectionThroughJoin());
@@ -262,7 +264,7 @@ public class TestJoinNodeFlattener
                 .setOutputSymbols(a1, b1)
                 .build();
         assertEquals(
-                toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), new TypeAnalyzer(new SqlParser(), queryRunner.getMetadata()), p.getTypes()),
+                toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()),
                 expected);
     }
 
@@ -308,7 +310,7 @@ public class TestJoinNodeFlattener
                 ImmutableList.of(a1, b1, b2, c1, c2),
                 false);
         assertEquals(
-                toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), new TypeAnalyzer(new SqlParser(), queryRunner.getMetadata()), p.getTypes()),
+                toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()),
                 expected);
     }
 
@@ -366,7 +368,7 @@ public class TestJoinNodeFlattener
                 .setOutputSymbols(a1, b1, c1, d1, d2, e1, e2)
                 .build();
         assertEquals(
-                toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, 5, false, testSessionBuilder().build(), new TypeAnalyzer(new SqlParser(), queryRunner.getMetadata()), p.getTypes()),
+                toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, 5, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()),
                 expected);
     }
 
@@ -426,7 +428,7 @@ public class TestJoinNodeFlattener
                 .setOutputSymbols(a1, b1, c1, d1, d2, e1, e2)
                 .build();
         assertEquals(
-                toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, 2, false, testSessionBuilder().build(), new TypeAnalyzer(new SqlParser(), queryRunner.getMetadata()), p.getTypes()),
+                toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, 2, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()),
                 expected);
     }
 
@@ -442,7 +444,7 @@ public class TestJoinNodeFlattener
 
     private PlanBuilder planBuilder(PlanNodeIdAllocator planNodeIdAllocator)
     {
-        return new PlanBuilder(planNodeIdAllocator, queryRunner.getMetadata());
+        return new PlanBuilder(planNodeIdAllocator, queryRunner.getMetadata(), queryRunner.getDefaultSession());
     }
 
     private void assertPlan(TypeProvider typeProvider, PlanNode actual, PlanMatchPattern pattern)
@@ -450,6 +452,7 @@ public class TestJoinNodeFlattener
         PlanAssert.assertPlan(
                 testSessionBuilder().build(),
                 dummyMetadata(),
+                queryRunner.getFunctionManager(),
                 node -> unknown(),
                 new Plan(actual, typeProvider, empty()), noLookup(),
                 pattern);

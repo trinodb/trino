@@ -24,18 +24,23 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.Type;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.util.Collections.singletonList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
@@ -55,9 +60,11 @@ public class TestTimestamp
     {
         MessageType parquetSchema = parseMessageType("message hive_timestamp { optional int64 test (TIMESTAMP_MILLIS); }");
         ContiguousSet<Long> epochMillisValues = ContiguousSet.create(Range.closedOpen((long) -1_000, (long) 1_000), DiscreteDomain.longs());
-        ImmutableList.Builder<SqlTimestamp> timestamps = new ImmutableList.Builder<>();
+        ImmutableList.Builder<SqlTimestamp> timestampsMillis = ImmutableList.builder();
+        ImmutableList.Builder<Long> bigints = ImmutableList.builder();
         for (long value : epochMillisValues) {
-            timestamps.add(SqlTimestamp.fromMillis(3, value));
+            timestampsMillis.add(SqlTimestamp.fromMillis(3, value));
+            bigints.add(value);
         }
 
         List<ObjectInspector> objectInspectors = singletonList(javaLongObjectInspector);
@@ -66,7 +73,7 @@ public class TestTimestamp
         ConnectorSession session = getHiveSession(new HiveConfig());
 
         try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("test", "parquet")) {
-            JobConf jobConf = new JobConf();
+            JobConf jobConf = new JobConf(newEmptyConfiguration());
             jobConf.setEnum(WRITER_VERSION, PARQUET_1_0);
 
             ParquetTester.writeParquetColumn(
@@ -77,40 +84,46 @@ public class TestTimestamp
                     getStandardStructObjectInspector(columnNames, objectInspectors),
                     new Iterator<?>[] {epochMillisValues.iterator()},
                     Optional.of(parquetSchema),
-                    false);
+                    false,
+                    DateTimeZone.getDefault());
 
-            Iterator<SqlTimestamp> expectedValues = timestamps.build().iterator();
-            try (ConnectorPageSource pageSource = StandardFileFormats.TRINO_PARQUET.createFileFormatReader(session, HDFS_ENVIRONMENT, tempFile.getFile(), columnNames, ImmutableList.of(TIMESTAMP_MILLIS))) {
-                // skip a page to exercise the decoder's skip() logic
-                Page firstPage = pageSource.getNextPage();
+            testReadingAs(TIMESTAMP_MILLIS, session, tempFile, columnNames, timestampsMillis.build());
+            testReadingAs(BIGINT, session, tempFile, columnNames, bigints.build());
+        }
+    }
 
-                assertTrue(firstPage.getPositionCount() > 0, "Expected first page to have at least 1 row");
+    private void testReadingAs(Type type, ConnectorSession session, ParquetTester.TempFile tempFile, List<String> columnNames, List<?> expectedValues)
+             throws IOException
+    {
+        Iterator<?> expected = expectedValues.iterator();
+        try (ConnectorPageSource pageSource = StandardFileFormats.TRINO_PARQUET.createFileFormatReader(session, HDFS_ENVIRONMENT, tempFile.getFile(), columnNames, ImmutableList.of(type))) {
+            // skip a page to exercise the decoder's skip() logic
+            Page firstPage = pageSource.getNextPage();
+            assertTrue(firstPage.getPositionCount() > 0, "Expected first page to have at least 1 row");
 
-                for (int i = 0; i < firstPage.getPositionCount(); i++) {
-                    expectedValues.next();
-                }
-
-                int pageCount = 1;
-                while (!pageSource.isFinished()) {
-                    Page page = pageSource.getNextPage();
-                    if (page == null) {
-                        continue;
-                    }
-                    pageCount++;
-                    Block block = page.getBlock(0);
-
-                    for (int i = 0; i < block.getPositionCount(); i++) {
-                        assertThat(TIMESTAMP_MILLIS.getObjectValue(session, block, i))
-                                .isEqualTo(expectedValues.next());
-                    }
-                }
-
-                assertThat(pageCount)
-                        .withFailMessage("Expected more than one page but processed %s", pageCount)
-                        .isGreaterThan(1);
+            for (int i = 0; i < firstPage.getPositionCount(); i++) {
+                expected.next();
             }
 
-            assertFalse(expectedValues.hasNext(), "Read fewer values than expected");
+            int pageCount = 1;
+            while (!pageSource.isFinished()) {
+                Page page = pageSource.getNextPage();
+                if (page == null) {
+                    continue;
+                }
+                pageCount++;
+                Block block = page.getBlock(0);
+
+                for (int i = 0; i < block.getPositionCount(); i++) {
+                    assertThat(type.getObjectValue(session, block, i)).isEqualTo(expected.next());
+                }
+            }
+
+            assertThat(pageCount)
+                    .withFailMessage("Expected more than one page but processed %s", pageCount)
+                    .isGreaterThan(1);
+
+            assertFalse(expected.hasNext(), "Read fewer values than expected");
         }
     }
 }

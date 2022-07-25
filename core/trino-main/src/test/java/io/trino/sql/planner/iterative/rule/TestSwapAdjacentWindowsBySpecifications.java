@@ -15,8 +15,8 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.WindowNode;
@@ -26,7 +26,6 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -39,12 +38,11 @@ import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 public class TestSwapAdjacentWindowsBySpecifications
         extends BaseRuleTest
 {
-    private final MetadataManager metadata = createTestMetadataManager();
-    private ResolvedFunction resolvedFunction;
+    private final ResolvedFunction resolvedFunction;
 
     public TestSwapAdjacentWindowsBySpecifications()
     {
-        resolvedFunction = metadata.resolveFunction(QualifiedName.of("avg"), fromTypes(BIGINT));
+        resolvedFunction = new TestingFunctionResolution().resolveFunction(QualifiedName.of("avg"), fromTypes(BIGINT));
     }
 
     @Test

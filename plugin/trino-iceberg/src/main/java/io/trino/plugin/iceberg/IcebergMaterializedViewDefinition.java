@@ -47,7 +47,6 @@ public class IcebergMaterializedViewDefinition
     private final Optional<String> schema;
     private final List<Column> columns;
     private final Optional<String> comment;
-    private final String owner;
 
     public static String encodeMaterializedViewData(IcebergMaterializedViewDefinition definition)
     {
@@ -75,8 +74,7 @@ public class IcebergMaterializedViewDefinition
                 definition.getColumns().stream()
                         .map(column -> new Column(column.getName(), column.getType()))
                         .collect(toImmutableList()),
-                definition.getComment(),
-                definition.getOwner());
+                definition.getComment());
     }
 
     @JsonCreator
@@ -85,15 +83,13 @@ public class IcebergMaterializedViewDefinition
             @JsonProperty("catalog") Optional<String> catalog,
             @JsonProperty("schema") Optional<String> schema,
             @JsonProperty("columns") List<Column> columns,
-            @JsonProperty("comment") Optional<String> comment,
-            @JsonProperty("owner") String owner)
+            @JsonProperty("comment") Optional<String> comment)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.columns = List.copyOf(requireNonNull(columns, "columns is null"));
         this.comment = requireNonNull(comment, "comment is null");
-        this.owner = requireNonNull(owner, "owner is null");
 
         if (catalog.isEmpty() && schema.isPresent()) {
             throw new IllegalArgumentException("catalog must be present if schema is present");
@@ -133,12 +129,6 @@ public class IcebergMaterializedViewDefinition
         return comment;
     }
 
-    @JsonProperty
-    public String getOwner()
-    {
-        return owner;
-    }
-
     @Override
     public String toString()
     {
@@ -148,7 +138,6 @@ public class IcebergMaterializedViewDefinition
         schema.ifPresent(value -> joiner.add("schema=" + value));
         joiner.add("columns=" + columns);
         comment.ifPresent(value -> joiner.add("comment=" + value));
-        joiner.add("owner=" + owner);
         return getClass().getSimpleName() + joiner;
     }
 

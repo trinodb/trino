@@ -13,13 +13,15 @@
  */
 package io.trino.sql;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.metadata.Metadata;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import org.testng.annotations.Test;
 
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.sql.tree.LogicalExpression.Operator.AND;
 import static org.testng.Assert.assertEquals;
 
 public class TestExpressionUtils
@@ -37,20 +39,15 @@ public class TestExpressionUtils
 
         assertEquals(
                 ExpressionUtils.and(a, b, c, d, e),
-                and(and(and(a, b), and(c, d)), e));
+                new LogicalExpression(AND, ImmutableList.of(a, b, c, d, e)));
 
         assertEquals(
                 ExpressionUtils.combineConjuncts(metadata, a, b, a, c, d, c, e),
-                and(and(and(a, b), and(c, d)), e));
+                new LogicalExpression(AND, ImmutableList.of(a, b, c, d, e)));
     }
 
     private static Identifier name(String name)
     {
         return new Identifier(name);
-    }
-
-    private LogicalBinaryExpression and(Expression left, Expression right)
-    {
-        return new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND, left, right);
     }
 }

@@ -21,7 +21,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.TableProperties;
 import io.trino.metadata.TableProperties.TablePartitioning;
 import io.trino.spi.connector.ColumnHandle;
@@ -30,7 +29,7 @@ import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.NoOpSymbolResolver;
@@ -64,10 +63,12 @@ import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
+import io.trino.sql.planner.plan.SimpleTableExecuteNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
+import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
@@ -118,28 +119,26 @@ public final class PropertyDerivations
 
     public static ActualProperties derivePropertiesRecursively(
             PlanNode node,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             Session session,
             TypeProvider types,
             TypeAnalyzer typeAnalyzer)
     {
         List<ActualProperties> inputProperties = node.getSources().stream()
-                .map(source -> derivePropertiesRecursively(source, metadata, typeOperators, session, types, typeAnalyzer))
+                .map(source -> derivePropertiesRecursively(source, plannerContext, session, types, typeAnalyzer))
                 .collect(toImmutableList());
-        return deriveProperties(node, inputProperties, metadata, typeOperators, session, types, typeAnalyzer);
+        return deriveProperties(node, inputProperties, plannerContext, session, types, typeAnalyzer);
     }
 
     public static ActualProperties deriveProperties(
             PlanNode node,
             List<ActualProperties> inputProperties,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             Session session,
             TypeProvider types,
             TypeAnalyzer typeAnalyzer)
     {
-        ActualProperties output = node.accept(new Visitor(metadata, typeOperators, session, types, typeAnalyzer), inputProperties);
+        ActualProperties output = node.accept(new Visitor(plannerContext, session, types, typeAnalyzer), inputProperties);
 
         output.getNodePartitioning().ifPresent(partitioning ->
                 verify(node.getOutputSymbols().containsAll(partitioning.getColumns()), "Node-level partitioning properties contain columns not present in node's output"));
@@ -157,28 +156,25 @@ public final class PropertyDerivations
     public static ActualProperties streamBackdoorDeriveProperties(
             PlanNode node,
             List<ActualProperties> inputProperties,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             Session session,
             TypeProvider types,
             TypeAnalyzer typeAnalyzer)
     {
-        return node.accept(new Visitor(metadata, typeOperators, session, types, typeAnalyzer), inputProperties);
+        return node.accept(new Visitor(plannerContext, session, types, typeAnalyzer), inputProperties);
     }
 
     private static class Visitor
             extends PlanVisitor<ActualProperties, List<ActualProperties>>
     {
-        private final Metadata metadata;
-        private final TypeOperators typeOperators;
+        private final PlannerContext plannerContext;
         private final Session session;
         private final TypeProvider types;
         private final TypeAnalyzer typeAnalyzer;
 
-        public Visitor(Metadata metadata, TypeOperators typeOperators, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
+        public Visitor(PlannerContext plannerContext, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
         {
-            this.metadata = metadata;
-            this.typeOperators = typeOperators;
+            this.plannerContext = plannerContext;
             this.session = session;
             this.types = types;
             this.typeAnalyzer = typeAnalyzer;
@@ -230,7 +226,7 @@ public final class PropertyDerivations
             }
 
             return ActualProperties.builderFrom(properties)
-                    .global(partitionedOn(ARBITRARY_DISTRIBUTION, ImmutableList.of(node.getIdColumn()), Optional.empty()))
+                    .global(partitionedOn(ARBITRARY_DISTRIBUTION, ImmutableList.of(node.getIdColumn()), Optional.of(ImmutableList.of(node.getIdColumn()))))
                     .local(newLocalProperties.build())
                     .build();
         }
@@ -472,6 +468,30 @@ public final class PropertyDerivations
         }
 
         @Override
+        public ActualProperties visitTableExecute(TableExecuteNode node, List<ActualProperties> inputProperties)
+        {
+            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+
+            if (properties.isCoordinatorOnly()) {
+                return ActualProperties.builder()
+                        .global(coordinatorSingleStreamPartition())
+                        .build();
+            }
+            return ActualProperties.builder()
+                    .global(properties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
+                    .build();
+        }
+
+        @Override
+        public ActualProperties visitSimpleTableExecuteNode(SimpleTableExecuteNode node, List<ActualProperties> inputProperties)
+        {
+            // metadata operations always run on the coordinator
+            return ActualProperties.builder()
+                    .global(coordinatorSingleStreamPartition())
+                    .build();
+        }
+
+        @Override
         public ActualProperties visitJoin(JoinNode node, List<ActualProperties> inputProperties)
         {
             ActualProperties probeProperties = inputProperties.get(0);
@@ -567,7 +587,7 @@ public final class PropertyDerivations
                             .constants(ImmutableMap.<Symbol, NullableValue>builder()
                                     .putAll(probeProperties.getConstants())
                                     .putAll(indexProperties.getConstants())
-                                    .build())
+                                    .buildOrThrow())
                             .build();
                 case SOURCE_OUTER:
                     return ActualProperties.builderFrom(probeProperties)
@@ -685,9 +705,8 @@ public final class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
-                    metadata,
-                    typeOperators,
+            DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResult(
+                    plannerContext,
                     session,
                     node.getPredicate(),
                     types);
@@ -716,7 +735,7 @@ public final class PropertyDerivations
 
                 Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, expression);
                 Type type = requireNonNull(expressionTypes.get(NodeRef.of(expression)));
-                ExpressionInterpreter optimizer = new ExpressionInterpreter(expression, metadata, session, expressionTypes);
+                ExpressionInterpreter optimizer = new ExpressionInterpreter(expression, plannerContext, session, expressionTypes);
                 // TODO:
                 // We want to use a symbol resolver that looks up in the constants from the input subplan
                 // to take advantage of constant-folding for complex expressions
@@ -807,7 +826,7 @@ public final class PropertyDerivations
         @Override
         public ActualProperties visitTableScan(TableScanNode node, List<ActualProperties> inputProperties)
         {
-            TableProperties layout = metadata.getTableProperties(session, node.getTable());
+            TableProperties layout = plannerContext.getMetadata().getTableProperties(session, node.getTable());
             Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
             ActualProperties.Builder properties = ActualProperties.builder();

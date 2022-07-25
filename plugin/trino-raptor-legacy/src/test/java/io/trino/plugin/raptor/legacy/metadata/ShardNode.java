@@ -13,16 +13,10 @@
  */
 package io.trino.plugin.raptor.legacy.metadata;
 
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
-
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Objects;
 import java.util.UUID;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.plugin.raptor.legacy.util.UuidUtil.uuidFromBytes;
 import static java.util.Objects.requireNonNull;
 
 public class ShardNode
@@ -73,18 +67,5 @@ public class ShardNode
                 .add("shardUuid", shardUuid)
                 .add("nodeIdentifier", nodeIdentifier)
                 .toString();
-    }
-
-    public static class Mapper
-            implements ResultSetMapper<ShardNode>
-    {
-        @Override
-        public ShardNode map(int index, ResultSet r, StatementContext ctx)
-                throws SQLException
-        {
-            return new ShardNode(
-                    uuidFromBytes(r.getBytes("shard_uuid")),
-                    r.getString("node_identifier"));
-        }
     }
 }

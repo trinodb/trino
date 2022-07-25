@@ -68,7 +68,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
-import static io.trino.metadata.MetadataListing.listCatalogs;
+import static io.trino.metadata.MetadataListing.listCatalogNames;
 import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataListing.listTableColumns;
 import static io.trino.metadata.MetadataListing.listTables;
@@ -85,6 +85,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.type.TypeUtils.getDisplayLabel;
 import static java.lang.Math.min;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnJdbcTable
@@ -153,7 +154,7 @@ public class ColumnJdbcTable
             return tupleDomain;
         }
         Predicate<Map<ColumnHandle, NullableValue>> predicate = constraint.predicate().get();
-        Set<ColumnHandle> predicateColumns = constraint.getColumns().orElseThrow(() -> new VerifyException("columns not present for a predicate"));
+        Set<ColumnHandle> predicateColumns = constraint.getPredicateColumns().orElseThrow(() -> new VerifyException("columns not present for a predicate"));
 
         boolean hasSchemaPredicate = predicateColumns.contains(TABLE_SCHEMA_COLUMN);
         boolean hasTablePredicate = predicateColumns.contains(TABLE_NAME_COLUMN);
@@ -173,7 +174,7 @@ public class ColumnJdbcTable
             return tupleDomain;
         }
 
-        List<String> catalogs = listCatalogs(session, metadata, accessControl, catalogFilter).keySet().stream()
+        List<String> catalogs = listCatalogNames(session, metadata, accessControl, catalogFilter).stream()
                 .filter(catalogName -> predicate.test(ImmutableMap.of(TABLE_CATALOG_COLUMN, toNullableValue(catalogName))))
                 .collect(toImmutableList());
 
@@ -196,7 +197,7 @@ public class ColumnJdbcTable
                             .map(CatalogSchemaName::getSchemaName)
                             .collect(toVarcharDomain())
                             .simplify(MAX_DOMAIN_SIZE))
-                    .build());
+                    .buildOrThrow());
         }
 
         List<CatalogSchemaTableName> tables = schemas.stream()
@@ -226,7 +227,7 @@ public class ColumnJdbcTable
                         .map(catalogSchemaTableName -> catalogSchemaTableName.getSchemaTableName().getTableName())
                         .collect(toVarcharDomain())
                         .simplify(MAX_DOMAIN_SIZE))
-                .build());
+                .buildOrThrow());
     }
 
     @Override
@@ -247,12 +248,17 @@ public class ColumnJdbcTable
         Domain schemaDomain = constraint.getDomains().get().getOrDefault(1, Domain.all(createUnboundedVarcharType()));
         Domain tableDomain = constraint.getDomains().get().getOrDefault(2, Domain.all(createUnboundedVarcharType()));
 
-        for (String catalog : listCatalogs(session, metadata, accessControl, catalogFilter).keySet()) {
+        if (isNonLowercase(schemaFilter) || isNonLowercase(tableFilter)) {
+            // Non-lowercase predicate will never match a lowercase name (until TODO https://github.com/trinodb/trino/issues/17)
+            return table.build().cursor();
+        }
+
+        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogFilter)) {
             if (!catalogDomain.includesNullableValue(utf8Slice(catalog))) {
                 continue;
             }
 
-            if ((schemaDomain.isAll() && tableDomain.isAll()) || (schemaFilter.isPresent() && tableFilter.isPresent())) {
+            if ((schemaDomain.isAll() && tableDomain.isAll()) || schemaFilter.isPresent()) {
                 QualifiedTablePrefix tablePrefix = tablePrefix(catalog, schemaFilter, tableFilter);
                 Map<SchemaTableName, List<ColumnMetadata>> tableColumns = listTableColumns(session, metadata, accessControl, tablePrefix);
                 addColumnsRow(table, catalog, tableColumns, omitDateTimeTypePrecision);
@@ -281,6 +287,11 @@ public class ColumnJdbcTable
             }
         }
         return table.build().cursor();
+    }
+
+    private static boolean isNonLowercase(Optional<String> filter)
+    {
+        return filter.filter(value -> !value.equals(value.toLowerCase(ENGLISH))).isPresent();
     }
 
     private static void addColumnsRow(Builder builder, String catalog, Map<SchemaTableName, List<ColumnMetadata>> columns, boolean isOmitTimestampPrecision)
@@ -315,7 +326,7 @@ public class ColumnJdbcTable
                     null,
                     charOctetLength(column.getType()),
                     ordinalPosition,
-                    "",
+                    column.isNullable() ? "YES" : "NO",
                     null,
                     null,
                     null,

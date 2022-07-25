@@ -16,6 +16,7 @@ package io.trino.spiller;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
+import io.trino.FeaturesConfig;
 import io.trino.RowPagesBuilder;
 import io.trino.SequencePageBuilder;
 import io.trino.memory.context.AggregatedMemoryContext;
@@ -23,9 +24,9 @@ import io.trino.operator.PartitionFunction;
 import io.trino.operator.SpillContext;
 import io.trino.operator.TestingOperatorContext;
 import io.trino.spi.Page;
+import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Type;
 import io.trino.spiller.PartitioningSpiller.PartitioningSpillResult;
-import io.trino.sql.analyzer.FeaturesConfig;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -42,7 +43,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -76,7 +76,7 @@ public class TestGenericPartitioningSpiller
         featuresConfig.setSpillerThreads(8);
         featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
         SingleStreamSpillerFactory singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(
-                createTestMetadataManager(),
+                new TestingBlockEncodingSerde(),
                 new SpillerStats(),
                 featuresConfig,
                 new NodeSpillConfig());
@@ -215,8 +215,8 @@ public class TestGenericPartitioningSpiller
 
     private static AggregatedMemoryContext mockMemoryContext(ScheduledExecutorService scheduledExecutor)
     {
-        // It's important to use OperatorContext's system memory context, because it does additional bookkeeping.
-        return TestingOperatorContext.create(scheduledExecutor).newAggregateSystemMemoryContext();
+        // It's important to use OperatorContext's memory context, because it does additional bookkeeping.
+        return TestingOperatorContext.create(scheduledExecutor).newAggregateUserMemoryContext();
     }
 
     private static SpillContext mockSpillContext()

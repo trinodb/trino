@@ -176,20 +176,16 @@ public class TestHttpTokenPoller
     }
 
     @Test
-    public void testTokenReceivedRetriesUntilHTTP_OK()
+    public void testTokenReceivedRetriesUntilNotErrorReturned()
     {
         server.enqueue(status(HTTP_UNAVAILABLE));
         server.enqueue(status(HTTP_UNAVAILABLE));
         server.enqueue(status(HTTP_UNAVAILABLE));
         server.enqueue(status(202));
-        server.enqueue(status(303));
-        server.enqueue(status(HTTP_OK));
-        server.enqueue(status(HTTP_OK));
-        server.enqueue(status(HTTP_OK));
 
         tokenPoller.tokenReceived(tokenUri());
 
-        assertThat(server.getRequestCount()).isEqualTo(6);
+        assertThat(server.getRequestCount()).isEqualTo(4);
     }
 
     @Test

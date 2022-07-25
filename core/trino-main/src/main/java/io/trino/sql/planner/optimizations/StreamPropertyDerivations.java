@@ -24,7 +24,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.TableProperties;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.LocalProperty;
-import io.trino.spi.type.TypeOperators;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -54,10 +54,12 @@ import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
+import io.trino.sql.planner.plan.SimpleTableExecuteNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
+import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
@@ -105,42 +107,39 @@ public final class StreamPropertyDerivations
 
     public static StreamProperties derivePropertiesRecursively(
             PlanNode node,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             Session session,
             TypeProvider types,
             TypeAnalyzer typeAnalyzer)
     {
         List<StreamProperties> inputProperties = node.getSources().stream()
-                .map(source -> derivePropertiesRecursively(source, metadata, typeOperators, session, types, typeAnalyzer))
+                .map(source -> derivePropertiesRecursively(source, plannerContext, session, types, typeAnalyzer))
                 .collect(toImmutableList());
-        return deriveProperties(node, inputProperties, metadata, typeOperators, session, types, typeAnalyzer);
+        return deriveProperties(node, inputProperties, plannerContext, session, types, typeAnalyzer);
     }
 
     public static StreamProperties deriveProperties(
             PlanNode node,
             StreamProperties inputProperties,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             Session session,
             TypeProvider types,
             TypeAnalyzer typeAnalyzer)
     {
-        return deriveProperties(node, ImmutableList.of(inputProperties), metadata, typeOperators, session, types, typeAnalyzer);
+        return deriveProperties(node, ImmutableList.of(inputProperties), plannerContext, session, types, typeAnalyzer);
     }
 
     public static StreamProperties deriveProperties(
             PlanNode node,
             List<StreamProperties> inputProperties,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             Session session,
             TypeProvider types,
             TypeAnalyzer typeAnalyzer)
     {
         requireNonNull(node, "node is null");
         requireNonNull(inputProperties, "inputProperties is null");
-        requireNonNull(metadata, "metadata is null");
+        requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(session, "session is null");
         requireNonNull(types, "types is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
@@ -153,13 +152,12 @@ public final class StreamPropertyDerivations
                 inputProperties.stream()
                         .map(properties -> properties.otherActualProperties)
                         .collect(toImmutableList()),
-                metadata,
-                typeOperators,
+                plannerContext,
                 session,
                 types,
                 typeAnalyzer);
 
-        StreamProperties result = node.accept(new Visitor(metadata, session), inputProperties)
+        StreamProperties result = node.accept(new Visitor(plannerContext.getMetadata(), session), inputProperties)
                 .withOtherActualProperties(otherProperties);
 
         result.getPartitioningColumns().ifPresent(columns ->
@@ -447,6 +445,20 @@ public final class StreamPropertyDerivations
         }
 
         @Override
+        public StreamProperties visitTableExecute(TableExecuteNode node, List<StreamProperties> inputProperties)
+        {
+            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            // table execute only outputs the row count and fragments
+            return properties.withUnspecifiedPartitioning();
+        }
+
+        @Override
+        public StreamProperties visitSimpleTableExecuteNode(SimpleTableExecuteNode node, List<StreamProperties> context)
+        {
+            return StreamProperties.singleStream();
+        }
+
+        @Override
         public StreamProperties visitRefreshMaterializedView(RefreshMaterializedViewNode node, List<StreamProperties> inputProperties)
         {
             return StreamProperties.singleStream();
@@ -686,8 +698,6 @@ public final class StreamPropertyDerivations
 
             checkArgument(distribution != SINGLE || this.partitioningColumns.equals(Optional.of(ImmutableList.of())),
                     "Single stream must be partitioned on empty set");
-            checkArgument(distribution == SINGLE || !this.partitioningColumns.equals(Optional.of(ImmutableList.of())),
-                    "Multiple streams must not be partitioned on empty set");
 
             this.ordered = ordered;
             checkArgument(!ordered || distribution == SINGLE, "Ordered must be a single stream");

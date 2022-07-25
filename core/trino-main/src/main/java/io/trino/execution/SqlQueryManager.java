@@ -156,6 +156,12 @@ public class SqlQueryManager
     }
 
     @Override
+    public void outputTaskFailed(TaskId taskId, Throwable failure)
+    {
+        queryTracker.getQuery(taskId.getQueryId()).outputTaskFailed(taskId, failure);
+    }
+
+    @Override
     public void addStateChangeListener(QueryId queryId, StateChangeListener<QueryState> listener)
     {
         requireNonNull(listener, "listener is null");

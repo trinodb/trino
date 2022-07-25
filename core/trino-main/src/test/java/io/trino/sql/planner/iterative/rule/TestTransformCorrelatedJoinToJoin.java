@@ -38,7 +38,7 @@ public class TestTransformCorrelatedJoinToJoin
     @Test
     public void testRewriteInnerCorrelatedJoin()
     {
-        tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getMetadata()))
+        tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -62,7 +62,7 @@ public class TestTransformCorrelatedJoinToJoin
                                         TRUE_LITERAL,
                                         values("b"))));
 
-        tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getMetadata()))
+        tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -95,7 +95,7 @@ public class TestTransformCorrelatedJoinToJoin
     @Test
     public void testRewriteLeftCorrelatedJoin()
     {
-        tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getMetadata()))
+        tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -121,7 +121,7 @@ public class TestTransformCorrelatedJoinToJoin
                                         TRUE_LITERAL,
                                         values("b"))));
 
-        tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getMetadata()))
+        tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -154,7 +154,7 @@ public class TestTransformCorrelatedJoinToJoin
     @Test
     public void doesNotFireOnUncorrelated()
     {
-        tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getMetadata()))
+        tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(),
                         p.values(p.symbol("a")),

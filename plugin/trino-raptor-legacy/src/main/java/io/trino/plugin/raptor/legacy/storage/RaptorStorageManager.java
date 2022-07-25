@@ -35,8 +35,8 @@ import io.trino.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
 import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.OrcType;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.raptor.legacy.RaptorColumnHandle;
-import io.trino.plugin.raptor.legacy.RaptorConnectorId;
 import io.trino.plugin.raptor.legacy.backup.BackupManager;
 import io.trino.plugin.raptor.legacy.backup.BackupStore;
 import io.trino.plugin.raptor.legacy.metadata.ColumnInfo;
@@ -162,7 +162,7 @@ public class RaptorStorageManager
             StorageService storageService,
             Optional<BackupStore> backupStore,
             StorageManagerConfig config,
-            RaptorConnectorId connectorId,
+            CatalogName catalogName,
             BackupManager backgroundBackupManager,
             ShardRecoveryManager recoveryManager,
             ShardRecorder shardRecorder,
@@ -176,7 +176,7 @@ public class RaptorStorageManager
                 recoveryManager,
                 shardRecorder,
                 typeManager,
-                connectorId.toString(),
+                catalogName.toString(),
                 config.getDeletionThreads(),
                 config.getShardRecoveryTimeout(),
                 config.getMaxShardRows(),
@@ -240,7 +240,7 @@ public class RaptorStorageManager
         orcReaderOptions = orcReaderOptions.withMaxReadBlockSize(HUGE_MAX_READ_BLOCK_SIZE);
         OrcDataSource dataSource = openShard(shardUuid, orcReaderOptions);
 
-        AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
+        AggregatedMemoryContext memoryUsage = newSimpleAggregatedMemoryContext();
 
         try {
             OrcReader reader = OrcReader.createOrcReader(dataSource, orcReaderOptions)
@@ -278,7 +278,7 @@ public class RaptorStorageManager
                     fileReadTypes,
                     predicate,
                     UTC,
-                    systemMemoryUsage,
+                    memoryUsage,
                     INITIAL_BATCH_SIZE,
                     RaptorPageSource::handleException);
 
@@ -287,7 +287,7 @@ public class RaptorStorageManager
                 shardRewriter = Optional.of(createShardRewriter(transactionId.getAsLong(), bucketNumber, shardUuid));
             }
 
-            return new RaptorPageSource(shardRewriter, recordReader, columnAdaptations, dataSource, systemMemoryUsage);
+            return new RaptorPageSource(shardRewriter, recordReader, columnAdaptations, dataSource, memoryUsage);
         }
         catch (IOException | RuntimeException e) {
             closeQuietly(dataSource);

@@ -33,8 +33,8 @@ import io.trino.server.protocol.Slug;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.tree.Statement;
+import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
-import io.trino.util.StatementUtils;
 
 import javax.inject.Inject;
 
@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.util.StatementUtils.getQueryType;
 import static io.trino.util.StatementUtils.isTransactionControlStatement;
 import static java.util.Objects.requireNonNull;
 
@@ -93,6 +94,7 @@ public class LocalDispatchQueryFactory
     @Override
     public DispatchQuery createDispatchQuery(
             Session session,
+            Optional<TransactionId> existingTransactionId,
             String query,
             PreparedQuery preparedQuery,
             Slug slug,
@@ -100,6 +102,7 @@ public class LocalDispatchQueryFactory
     {
         WarningCollector warningCollector = warningCollectorFactory.create();
         QueryStateMachine stateMachine = QueryStateMachine.begin(
+                existingTransactionId,
                 query,
                 preparedQuery.getPrepareSql(),
                 session,
@@ -111,7 +114,7 @@ public class LocalDispatchQueryFactory
                 executor,
                 metadata,
                 warningCollector,
-                StatementUtils.getQueryType(preparedQuery.getStatement().getClass()));
+                getQueryType(preparedQuery.getStatement()));
 
         // It is important that `queryCreatedEvent` is called here. Moving it past the `executor.submit` below
         // can result in delivering query-created event after query analysis has already started.

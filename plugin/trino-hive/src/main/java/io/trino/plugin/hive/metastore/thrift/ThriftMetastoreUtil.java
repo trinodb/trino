@@ -158,9 +158,9 @@ public final class ThriftMetastoreUtil
         org.apache.hadoop.hive.metastore.api.Database result = new org.apache.hadoop.hive.metastore.api.Database();
         result.setName(database.getDatabaseName());
         database.getLocation().ifPresent(result::setLocationUri);
-        result.setOwnerName(database.getOwnerName());
+        result.setOwnerName(database.getOwnerName().orElse(null));
 
-        result.setOwnerType(fromTrinoPrincipalType(database.getOwnerType()));
+        result.setOwnerType(database.getOwnerType().map(ThriftMetastoreUtil::fromTrinoPrincipalType).orElse(null));
         database.getComment().ifPresent(result::setDescription);
         result.setParameters(database.getParameters());
         return result;
@@ -173,12 +173,12 @@ public final class ThriftMetastoreUtil
         return result;
     }
 
-    static org.apache.hadoop.hive.metastore.api.Table toMetastoreApiTable(Table table)
+    public static org.apache.hadoop.hive.metastore.api.Table toMetastoreApiTable(Table table)
     {
         org.apache.hadoop.hive.metastore.api.Table result = new org.apache.hadoop.hive.metastore.api.Table();
         result.setDbName(table.getDatabaseName());
         result.setTableName(table.getTableName());
-        result.setOwner(table.getOwner());
+        result.setOwner(table.getOwner().orElse(null));
         result.setTableType(table.getTableType());
         result.setParameters(table.getParameters());
         result.setPartitionKeys(table.getPartitionColumns().stream().map(ThriftMetastoreUtil::toMetastoreApiFieldSchema).collect(toImmutableList()));
@@ -205,7 +205,7 @@ public final class ThriftMetastoreUtil
                     .collect(toImmutableList()));
         }
 
-        return new PrincipalPrivilegeSet(userPrivileges.build(), ImmutableMap.of(), rolePrivileges.build());
+        return new PrincipalPrivilegeSet(userPrivileges.buildOrThrow(), ImmutableMap.of(), rolePrivileges.buildOrThrow());
     }
 
     public static PrivilegeGrantInfo toMetastoreApiPrivilegeGrantInfo(HivePrivilegeInfo privilegeInfo)
@@ -279,7 +279,7 @@ public final class ThriftMetastoreUtil
             return true;
         }
 
-        if (identity.getRole().isPresent() && identity.getRole().get().getType() == SelectedRole.Type.NONE) {
+        if (identity.getConnectorRole().isPresent() && identity.getConnectorRole().get().getType() == SelectedRole.Type.NONE) {
             return false;
         }
 
@@ -301,7 +301,7 @@ public final class ThriftMetastoreUtil
 
     public static Stream<String> listEnabledRoles(ConnectorIdentity identity, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants)
     {
-        if (identity.getRole().isPresent() && identity.getRole().get().getType() == SelectedRole.Type.NONE) {
+        if (identity.getConnectorRole().isPresent() && identity.getConnectorRole().get().getType() == SelectedRole.Type.NONE) {
             return Stream.of(PUBLIC_ROLE_NAME);
         }
         HivePrincipal principal = HivePrincipal.from(identity);
@@ -363,8 +363,8 @@ public final class ThriftMetastoreUtil
         return Database.builder()
                 .setDatabaseName(database.getName())
                 .setLocation(Optional.ofNullable(database.getLocationUri()))
-                .setOwnerName(ownerName)
-                .setOwnerType(ownerType)
+                .setOwnerName(Optional.of(ownerName))
+                .setOwnerType(Optional.of(ownerType))
                 .setComment(Optional.ofNullable(database.getDescription()))
                 .setParameters(parameters)
                 .build();
@@ -389,7 +389,7 @@ public final class ThriftMetastoreUtil
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(table.getDbName())
                 .setTableName(table.getTableName())
-                .setOwner(nullToEmpty(table.getOwner()))
+                .setOwner(Optional.ofNullable(table.getOwner()))
                 .setTableType(table.getTableType())
                 .setDataColumns(schema.stream()
                         .map(ThriftMetastoreUtil::fromMetastoreApiFieldSchema)
@@ -417,12 +417,12 @@ public final class ThriftMetastoreUtil
         return serdeInfo.getSerializationLib() != null &&
                 (table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
                         (serdeInfo.getParameters() != null && serdeInfo.getParameters().get(AVRO_SCHEMA_URL_KEY) != null)) &&
-                serdeInfo.getSerializationLib().equals(AVRO.getSerDe());
+                serdeInfo.getSerializationLib().equals(AVRO.getSerde());
     }
 
     public static boolean isCsvTable(org.apache.hadoop.hive.metastore.api.Table table)
     {
-        return CSV.getSerDe().equals(getSerdeInfo(table).getSerializationLib());
+        return CSV.getSerde().equals(getSerdeInfo(table).getSerializationLib());
     }
 
     public static List<FieldSchema> csvSchemaFields(List<FieldSchema> schemas)
@@ -703,7 +703,7 @@ public final class ThriftMetastoreUtil
         serdeInfo.setParameters(storage.getSerdeParameters());
 
         StorageDescriptor sd = new StorageDescriptor();
-        sd.setLocation(emptyToNull(storage.getLocation()));
+        sd.setLocation(emptyToNull(storage.getOptionalLocation().orElse(null)));
         sd.setCols(columns.stream()
                 .map(ThriftMetastoreUtil::toMetastoreApiFieldSchema)
                 .collect(toImmutableList()));
@@ -794,7 +794,7 @@ public final class ThriftMetastoreUtil
             result.put("STATS_GENERATED_VIA_STATS_TASK", "workaround for potential lack of HIVE-12730");
         }
 
-        return result.build();
+        return result.buildOrThrow();
     }
 
     public static ColumnStatisticsObj createMetastoreColumnStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics, OptionalLong rowCount)

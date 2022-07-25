@@ -39,7 +39,7 @@ import static java.util.Objects.requireNonNull;
 public class TableMetadata
 {
     private final Optional<String> writerVersion;
-    private final String owner;
+    private final Optional<String> owner;
     private final String tableType;
     private final List<Column> dataColumns;
     private final List<Column> partitionColumns;
@@ -59,7 +59,7 @@ public class TableMetadata
     @JsonCreator
     public TableMetadata(
             @JsonProperty("writerVersion") Optional<String> writerVersion,
-            @JsonProperty("owner") String owner,
+            @JsonProperty("owner") Optional<String> owner,
             @JsonProperty("tableType") String tableType,
             @JsonProperty("dataColumns") List<Column> dataColumns,
             @JsonProperty("partitionColumns") List<Column> partitionColumns,
@@ -131,7 +131,7 @@ public class TableMetadata
     }
 
     @JsonProperty
-    public String getOwner()
+    public Optional<String> getOwner()
     {
         return owner;
     }
