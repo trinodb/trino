@@ -76,6 +76,9 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import org.apache.avro.file.DataFileStream;
+import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
@@ -87,6 +90,7 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
+import org.apache.iceberg.avro.AvroSchemaUtil;
 import org.apache.iceberg.data.DeleteFilter;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
@@ -174,6 +178,8 @@ import static org.joda.time.DateTimeZone.UTC;
 public class IcebergPageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    private static final String AVRO_FIELD_ID = "field-id";
+
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final OrcReaderOptions orcReaderOptions;
@@ -284,6 +290,7 @@ public class IcebergPageSourceProvider
                 split.getLength(),
                 split.getFileSize(),
                 split.getFileFormat(),
+                split.getSchemaAsJson().map(SchemaParser::fromJson),
                 requiredColumns,
                 effectivePredicate,
                 table.getNameMappingJson().map(NameMappingParser::fromJson),
@@ -315,6 +322,7 @@ public class IcebergPageSourceProvider
                 fileWriterFactory,
                 hdfsEnvironment,
                 hdfsContext,
+                fileIoProvider,
                 jsonCodec,
                 session,
                 split.getFileFormat(),
@@ -329,6 +337,7 @@ public class IcebergPageSourceProvider
                 pageIndexerFactory,
                 hdfsEnvironment,
                 hdfsContext,
+                fileIoProvider,
                 tableSchema.columns().stream().map(column -> getColumnHandle(column, typeManager)).collect(toImmutableList()),
                 jsonCodec,
                 session,
@@ -359,6 +368,7 @@ public class IcebergPageSourceProvider
             long length,
             long fileSize,
             IcebergFileFormat fileFormat,
+            Optional<Schema> fileSchema,
             List<IcebergColumnHandle> dataColumns,
             TupleDomain<IcebergColumnHandle> predicate,
             Optional<NameMapping> nameMapping,
@@ -416,6 +426,15 @@ public class IcebergPageSourceProvider
                         fileFormatDataSourceStats,
                         nameMapping,
                         partitionKeys);
+            case AVRO:
+                return createAvroPageSource(
+                        fileIoProvider.createFileIo(hdfsContext, session.getQueryId()),
+                        path,
+                        start,
+                        length,
+                        fileSchema.orElseThrow(),
+                        nameMapping,
+                        dataColumns);
             default:
                 throw new TrinoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
         }
@@ -922,6 +941,114 @@ public class IcebergPageSourceProvider
             }
             throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, message, e);
         }
+    }
+
+    private ReaderPageSource createAvroPageSource(
+            FileIO fileIo,
+            Path path,
+            long start,
+            long length,
+            Schema fileSchema,
+            Optional<NameMapping> nameMapping,
+            List<IcebergColumnHandle> columns)
+    {
+        ConstantPopulatingPageSource.Builder constantPopulatingPageSourceBuilder = ConstantPopulatingPageSource.builder();
+        int avroSourceChannel = 0;
+
+        Optional<ReaderColumns> columnProjections = projectColumns(columns);
+
+        List<IcebergColumnHandle> readColumns = columnProjections
+                .map(readerColumns -> (List<IcebergColumnHandle>) readerColumns.get().stream().map(IcebergColumnHandle.class::cast).collect(toImmutableList()))
+                .orElse(columns);
+
+        // The column orders in the generated schema might be different from the original order
+        try (DataFileStream<GenericRecord> avroFileReader = new DataFileStream<>(fileIo.newInputFile(path.toString()).newStream(), new GenericDatumReader<>())) {
+            org.apache.avro.Schema avroSchema = avroFileReader.getSchema();
+            List<org.apache.avro.Schema.Field> fileFields = avroSchema.getFields();
+            if (nameMapping.isPresent() && fileFields.stream().noneMatch(IcebergPageSourceProvider::hasId)) {
+                fileFields = fileFields.stream()
+                        .map(field -> setMissingFieldId(field, nameMapping.get(), ImmutableList.of(field.name())))
+                        .collect(toImmutableList());
+            }
+
+            Map<Integer, org.apache.avro.Schema.Field> fileColumnsByIcebergId = mapIdsToAvroFields(fileFields);
+
+            ImmutableList.Builder<String> columnNames = ImmutableList.builder();
+            ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
+            ImmutableList.Builder<Boolean> rowIndexChannels = ImmutableList.builder();
+
+            for (IcebergColumnHandle column : readColumns) {
+                verify(column.isBaseColumn(), "Column projections must be based from a root column");
+                org.apache.avro.Schema.Field field = fileColumnsByIcebergId.get(column.getId());
+
+                if (column.isPathColumn()) {
+                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(path.toString())));
+                }
+                // For delete
+                else if (column.isRowPositionColumn()) {
+                    rowIndexChannels.add(true);
+                    columnNames.add(ROW_POSITION.name());
+                    columnTypes.add(BIGINT);
+                    constantPopulatingPageSourceBuilder.addDelegateColumn(avroSourceChannel);
+                    avroSourceChannel++;
+                }
+                else if (field == null) {
+                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), null));
+                }
+                else {
+                    rowIndexChannels.add(false);
+                    columnNames.add(column.getName());
+                    columnTypes.add(column.getType());
+                    constantPopulatingPageSourceBuilder.addDelegateColumn(avroSourceChannel);
+                    avroSourceChannel++;
+                }
+            }
+
+            return new ReaderPageSource(
+                    constantPopulatingPageSourceBuilder.build(new IcebergAvroPageSource(
+                            fileIo,
+                            path.toString(),
+                            start,
+                            length,
+                            fileSchema,
+                            nameMapping,
+                            columnNames.build(),
+                            columnTypes.build(),
+                            rowIndexChannels.build(),
+                            newSimpleAggregatedMemoryContext())),
+                    columnProjections);
+        }
+        catch (IOException e) {
+            throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, e);
+        }
+    }
+
+    private static boolean hasId(org.apache.avro.Schema.Field field)
+    {
+        return AvroSchemaUtil.hasFieldId(field);
+    }
+
+    private static org.apache.avro.Schema.Field setMissingFieldId(org.apache.avro.Schema.Field field, NameMapping nameMapping, List<String> qualifiedPath)
+    {
+        MappedField mappedField = nameMapping.find(qualifiedPath);
+
+        org.apache.avro.Schema schema = field.schema();
+        if (mappedField != null && mappedField.id() != null) {
+            field.addProp(AVRO_FIELD_ID, mappedField.id());
+        }
+
+        return new org.apache.avro.Schema.Field(field, schema);
+    }
+
+    private static Map<Integer, org.apache.avro.Schema.Field> mapIdsToAvroFields(List<org.apache.avro.Schema.Field> fields)
+    {
+        ImmutableMap.Builder<Integer, org.apache.avro.Schema.Field> fieldsById = ImmutableMap.builder();
+        for (org.apache.avro.Schema.Field field : fields) {
+            if (AvroSchemaUtil.hasFieldId(field)) {
+                fieldsById.put(AvroSchemaUtil.getFieldId(field), field);
+            }
+        }
+        return fieldsById.buildOrThrow();
     }
 
     /**

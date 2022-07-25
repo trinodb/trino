@@ -40,6 +40,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.types.Types;
 import org.weakref.jmx.Managed;
 
@@ -126,6 +127,7 @@ public class IcebergFileWriterFactory
             JobConf jobConf,
             ConnectorSession session,
             HdfsContext hdfsContext,
+            FileIoProvider fileIoProvider,
             IcebergFileFormat fileFormat,
             MetricsConfig metricsConfig,
             Map<String, String> storageProperties)
@@ -136,6 +138,8 @@ public class IcebergFileWriterFactory
                 return createParquetWriter(MetricsConfig.getDefault(), outputPath, icebergSchema, jobConf, session, hdfsContext);
             case ORC:
                 return createOrcWriter(metricsConfig, outputPath, icebergSchema, jobConf, session, storageProperties, getOrcStringStatisticsLimit(session));
+            case AVRO:
+                return createAvroWriter(fileIoProvider.createFileIo(hdfsContext, session.getQueryId()), outputPath, icebergSchema, jobConf, session);
             default:
                 throw new TrinoException(NOT_SUPPORTED, "File format not supported: " + fileFormat);
         }
@@ -146,6 +150,7 @@ public class IcebergFileWriterFactory
             JobConf jobConf,
             ConnectorSession session,
             HdfsContext hdfsContext,
+            FileIoProvider fileIoProvider,
             IcebergFileFormat fileFormat,
             Map<String, String> storageProperties)
     {
@@ -154,6 +159,8 @@ public class IcebergFileWriterFactory
                 return createParquetWriter(FULL_METRICS_CONFIG, outputPath, POSITION_DELETE_SCHEMA, jobConf, session, hdfsContext);
             case ORC:
                 return createOrcWriter(FULL_METRICS_CONFIG, outputPath, POSITION_DELETE_SCHEMA, jobConf, session, storageProperties, DataSize.ofBytes(Integer.MAX_VALUE));
+            case AVRO:
+                return createAvroWriter(fileIoProvider.createFileIo(hdfsContext, session.getQueryId()), outputPath, POSITION_DELETE_SCHEMA, jobConf, session);
             default:
                 throw new TrinoException(NOT_SUPPORTED, "File format not supported: " + fileFormat);
         }
@@ -298,5 +305,37 @@ public class IcebergFileWriterFactory
             }
         }
         return orcWriterOptions;
+    }
+
+    private IcebergFileWriter createAvroWriter(
+            FileIO fileIo,
+            Path outputPath,
+            Schema icebergSchema,
+            JobConf jobConf,
+            ConnectorSession session)
+    {
+        try {
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), outputPath, jobConf);
+
+            Callable<Void> rollbackAction = () -> {
+                fileSystem.delete(outputPath, false);
+                return null;
+            };
+
+            List<Type> columnTypes = icebergSchema.columns().stream()
+                    .map(column -> toTrinoType(column.type(), typeManager))
+                    .collect(toImmutableList());
+
+            return new IcebergAvroFileWriter(
+                    fileIo,
+                    outputPath,
+                    rollbackAction,
+                    icebergSchema,
+                    columnTypes,
+                    getCompressionCodec(session));
+        }
+        catch (IOException e) {
+            throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating AVRO file", e);
+        }
     }
 }
