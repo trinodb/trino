@@ -235,7 +235,10 @@ public class IcebergSplitSource
                 continue;
             }
             if (recordScannedFiles) {
-                scannedFiles.add(new DataFileWithDeleteFiles(scanTask.file(), scanTask.deletes()));
+                // Positional and Equality deletes can only be cleaned up if the whole table has been optimized.
+                // Equality deletes may apply to many files, and position deletes may be grouped together. This makes it difficult to know if they are obsolete.
+                List<org.apache.iceberg.DeleteFile> fullyAppliedDeletes = tableHandle.getEnforcedPredicate().isAll() ? scanTask.deletes() : ImmutableList.of();
+                scannedFiles.add(new DataFileWithDeleteFiles(scanTask.file(), fullyAppliedDeletes));
             }
             splits.add(icebergSplit);
         }
