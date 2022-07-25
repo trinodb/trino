@@ -45,6 +45,9 @@ To use Iceberg, you need:
 Configuration
 -------------
 
+To configure the Iceberg connector, create a catalog properties file in
+``etc/catalog`` named, for example, ``iceberg.properties``, to mount the
+Iceberg connector as the ``iceberg`` catalog.
 The connector supports two Iceberg catalog types, you may use either a Hive
 metastore service (HMS) or AWS Glue. The catalog type is determined by the
 ``iceberg.catalog.type`` property, it can be set to either ``HIVE_METASTORE``
