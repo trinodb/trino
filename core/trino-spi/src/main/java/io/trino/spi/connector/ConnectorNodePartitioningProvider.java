@@ -20,9 +20,6 @@ import java.util.function.ToIntFunction;
 
 public interface ConnectorNodePartitioningProvider
 {
-    // TODO: Use ConnectorPartitionHandle (instead of int) to represent individual buckets.
-    // Currently, it's mixed. listPartitionHandles used CPartitionHandle whereas the other functions used int.
-
     ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle);
 
     ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle);
