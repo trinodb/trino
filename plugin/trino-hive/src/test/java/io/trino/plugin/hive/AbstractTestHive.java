@@ -5678,8 +5678,7 @@ public abstract class AbstractTestHive
                 assertEquals(insertLayout.get().getPartitionColumns(), ImmutableList.of("column1", "column2"));
                 ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMap(transaction.getTransactionHandle(), session, partitioningHandle);
                 assertEquals(connectorBucketNodeMap.getBucketCount(), 32);
-                assertTrue(connectorBucketNodeMap.hasFixedMapping());
-                assertEquals(connectorBucketNodeMap.getFixedMapping().size(), 32);
+                assertFalse(connectorBucketNodeMap.hasFixedMapping());
             }
         }
         finally {
@@ -5773,8 +5772,7 @@ public abstract class AbstractTestHive
             assertEquals(newTableLayout.get().getPartitionColumns(), ImmutableList.of("column1", "column2"));
             ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMap(transaction.getTransactionHandle(), session, partitioningHandle);
             assertEquals(connectorBucketNodeMap.getBucketCount(), 32);
-            assertTrue(connectorBucketNodeMap.hasFixedMapping());
-            assertEquals(connectorBucketNodeMap.getFixedMapping().size(), 32);
+            assertFalse(connectorBucketNodeMap.hasFixedMapping());
         }
     }
 

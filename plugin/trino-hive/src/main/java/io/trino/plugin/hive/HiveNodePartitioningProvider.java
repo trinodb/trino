@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
@@ -29,14 +27,9 @@ import io.trino.spi.type.TypeOperators;
 
 import javax.inject.Inject;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.function.ToIntFunction;
-import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static java.util.Objects.requireNonNull;
 
@@ -85,7 +78,7 @@ public class HiveNodePartitioningProvider
             return createBucketNodeMap(handle.getBucketCount());
         }
 
-        // Create a bucket to node mapping. Consecutive buckets are assigned
+        // Allocate a fixed number of buckets. Trino will assign consecutive buckets
         // to shuffled nodes (e.g "1 -> node2, 2 -> node1, 3 -> node2, 4 -> node1, ...").
         // Hash function generates consecutive bucket numbers within a partition
         // (e.g "(part1, bucket1) -> 1234, (part1, bucket2) -> 1235, ...").
@@ -95,23 +88,7 @@ public class HiveNodePartitioningProvider
         // However, number of partitions is not known here
         // If number of workers < ( P * B), we need multiple writers per node to fully
         // parallelize the write within a worker
-        return createBucketNodeMap(createArbitraryBucketToNode(
-                ImmutableList.copyOf(nodeManager.getRequiredWorkerNodes()),
-                nodeManager.getRequiredWorkerNodes().size() * PARTITIONED_BUCKETS_PER_NODE));
-    }
-
-    private static List<Node> createArbitraryBucketToNode(List<Node> nodes, int bucketCount)
-    {
-        return cyclingShuffledStream(nodes)
-                .limit(bucketCount)
-                .collect(toImmutableList());
-    }
-
-    private static <T> Stream<T> cyclingShuffledStream(Collection<T> collection)
-    {
-        List<T> list = new ArrayList<>(collection);
-        Collections.shuffle(list);
-        return Stream.generate(() -> list).flatMap(List::stream);
+        return createBucketNodeMap(nodeManager.getRequiredWorkerNodes().size() * PARTITIONED_BUCKETS_PER_NODE);
     }
 
     @Override
