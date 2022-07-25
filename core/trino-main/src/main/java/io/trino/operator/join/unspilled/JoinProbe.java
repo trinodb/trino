@@ -17,6 +17,7 @@ import com.google.common.primitives.Ints;
 import io.trino.operator.join.LookupSource;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.RunLengthEncodedBlock;
 
 import javax.annotation.Nullable;
 
@@ -30,23 +31,28 @@ import static java.util.Objects.requireNonNull;
 
 public class JoinProbe
 {
+    private static final int RLE_MASK = 0;
+    private static final int NON_RLE_MASK = -1;
+
     public static class JoinProbeFactory
     {
         private final int[] probeOutputChannels;
         private final int[] probeJoinChannels;
         private final int probeHashChannel; // only valid when >= 0
+        private final boolean hasFilter;
 
-        public JoinProbeFactory(int[] probeOutputChannels, List<Integer> probeJoinChannels, OptionalInt probeHashChannel)
+        public JoinProbeFactory(int[] probeOutputChannels, List<Integer> probeJoinChannels, OptionalInt probeHashChannel, boolean hasFilter)
         {
             this.probeOutputChannels = probeOutputChannels;
             this.probeJoinChannels = Ints.toArray(probeJoinChannels);
             this.probeHashChannel = probeHashChannel.orElse(-1);
+            this.hasFilter = hasFilter;
         }
 
         public JoinProbe createJoinProbe(Page page, LookupSource lookupSource)
         {
             Page probePage = page.getLoadedPage(probeJoinChannels);
-            return new JoinProbe(probeOutputChannels, page, probePage, lookupSource, probeHashChannel >= 0 ? page.getBlock(probeHashChannel).getLoadedBlock() : null);
+            return new JoinProbe(probeOutputChannels, page, probePage, lookupSource, probeHashChannel >= 0 ? page.getBlock(probeHashChannel).getLoadedBlock() : null, hasFilter);
         }
     }
 
@@ -58,9 +64,16 @@ public class JoinProbe
     private final Block probeHashBlock;
     private final LookupSource lookupSource;
     private final long[] joinPositionCache;
+    private final boolean isRle;
+    /**
+     * This value is 0xFFFFFFFF for non-rle and 0x00000000 for rle. This way if we access cache by:
+     * `cache[position & rleMask]` we will always get the first position for RLE and the proper position for non-rle.
+     * This way there is no branch (if) in the code
+     */
+    private final int rleMask;
     private int position = -1;
 
-    private JoinProbe(int[] probeOutputChannels, Page page, Page probePage, LookupSource lookupSource, @Nullable Block probeHashBlock)
+    private JoinProbe(int[] probeOutputChannels, Page page, Page probePage, LookupSource lookupSource, @Nullable Block probeHashBlock, boolean hasFilter)
     {
         this.probeOutputChannels = requireNonNull(probeOutputChannels, "probeOutputChannels is null");
         this.page = requireNonNull(page, "page is null");
@@ -69,6 +82,8 @@ public class JoinProbe
         this.lookupSource = requireNonNull(lookupSource, "lookupSource is null");
         this.probeHashBlock = probeHashBlock;
 
+        isRle = hasOnlyRleBlocks(probePage);
+        rleMask = isRle ? RLE_MASK : NON_RLE_MASK;
         joinPositionCache = fillCache();
     }
 
@@ -90,7 +105,7 @@ public class JoinProbe
 
     public long getCurrentJoinPosition()
     {
-        return joinPositionCache[position];
+        return joinPositionCache[position & rleMask];
     }
 
     public int getPosition()
@@ -103,8 +118,25 @@ public class JoinProbe
         return page;
     }
 
+    public boolean isRle()
+    {
+        return isRle;
+    }
+
     private long[] fillCache()
     {
+        if (isRle) {
+            long[] joinPositionCache = new long[1];
+            if (rowContainsNull(0)) {
+                joinPositionCache[0] = -1;
+            }
+            else {
+                joinPositionCache[0] = lookupSource.getJoinPosition(0, probePage, page);
+            }
+
+            return joinPositionCache;
+        }
+
         long[] joinPositionCache = new long[positionCount];
         Arrays.fill(joinPositionCache, -1);
         if (probeMayHaveNull(probePage)) {
@@ -178,5 +210,19 @@ public class JoinProbe
             }
         }
         return false;
+    }
+
+    private static boolean hasOnlyRleBlocks(Page probePage)
+    {
+        if (probePage.getChannelCount() == 0) {
+            return false;
+        }
+
+        for (int i = 0; i < probePage.getChannelCount(); i++) {
+            if (!(probePage.getBlock(i) instanceof RunLengthEncodedBlock)) {
+                return false;
+            }
+        }
+        return true;
     }
 }
