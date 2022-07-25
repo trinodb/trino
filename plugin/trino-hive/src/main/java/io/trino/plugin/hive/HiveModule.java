@@ -67,6 +67,7 @@ public class HiveModule
 
         binder.bind(HiveSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);
+        binder.bind(HiveColumnProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveAnalyzeProperties.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, HiveMaterializedViewPropertiesProvider.class)
                 .setDefault().toInstance(ImmutableList::of);

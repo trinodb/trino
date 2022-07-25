@@ -35,6 +35,7 @@ import static io.airlift.units.DataSize.Unit.TERABYTE;
 import static io.trino.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.FINISHED;
+import static io.trino.execution.QueryState.FINISHING;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.execution.TestQueryRunnerUtil.cancelQuery;
@@ -291,7 +292,7 @@ public class TestQueues
             throws InterruptedException
     {
         QueryId queryId = createQuery(queryRunner, session, query);
-        waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
+        waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHING, FINISHED));
         Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getResourceGroupId();
         assertTrue(resourceGroupId.isPresent(), "Query should have a resource group");
         assertEquals(resourceGroupId.get(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId.get()));

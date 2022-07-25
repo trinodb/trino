@@ -23,15 +23,16 @@ import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogFactory;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProviderModule;
 import io.trino.connector.ConnectorManager;
 import io.trino.connector.ConnectorServicesProvider;
+import io.trino.connector.DefaultCatalogFactory;
 import io.trino.connector.system.AnalyzePropertiesSystemTable;
 import io.trino.connector.system.CatalogSystemTable;
 import io.trino.connector.system.ColumnPropertiesSystemTable;
 import io.trino.connector.system.GlobalSystemConnector;
-import io.trino.connector.system.GlobalSystemConnectorFactory;
 import io.trino.connector.system.MaterializedViewPropertiesSystemTable;
 import io.trino.connector.system.MaterializedViewSystemTable;
 import io.trino.connector.system.NodeSystemTable;
@@ -289,6 +290,7 @@ public class LocalQueryRunner
     private final ExpressionCompiler expressionCompiler;
     private final JoinFilterFunctionCompiler joinFilterFunctionCompiler;
     private final JoinCompiler joinCompiler;
+    private final CatalogFactory catalogFactory;
     private final ConnectorManager connectorManager;
     private final PluginManager pluginManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
@@ -390,20 +392,19 @@ public class LocalQueryRunner
         HandleResolver handleResolver = new HandleResolver();
 
         NodeInfo nodeInfo = new NodeInfo("test");
-        this.connectorManager = new ConnectorManager(
+        this.catalogFactory = new DefaultCatalogFactory(
                 metadata,
-                catalogManager,
                 accessControl,
                 handleResolver,
                 nodeManager,
-                nodeInfo,
-                testingVersionEmbedder(),
                 pageSorter,
                 pageIndexerFactory,
+                nodeInfo,
+                testingVersionEmbedder(),
                 transactionManager,
-                eventListenerManager,
                 typeManager,
                 nodeSchedulerConfig);
+        this.connectorManager = new ConnectorManager(catalogFactory, catalogManager);
         this.splitManager = new SplitManager(createSplitManagerProvider(connectorManager), new QueryManagerConfig());
         this.pageSourceManager = new PageSourceManager(createPageSourceProvider(connectorManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(connectorManager));
@@ -443,7 +444,7 @@ public class LocalQueryRunner
 
         this.planFragmenter = new PlanFragmenter(metadata, functionManager, new QueryManagerConfig());
 
-        GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
+        GlobalSystemConnector globalSystemConnector = new GlobalSystemConnector(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
                 new CatalogSystemTable(metadata, accessControl),
                 new TableCommentSystemTable(metadata, accessControl),
@@ -459,7 +460,7 @@ public class LocalQueryRunner
         exchangeManagerRegistry = new ExchangeManagerRegistry(new ExchangeHandleResolver());
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
-                connectorManager,
+                catalogFactory,
                 globalFunctionCatalog,
                 new NoOpResourceGroupManager(),
                 accessControl,
@@ -474,8 +475,7 @@ public class LocalQueryRunner
                 handleResolver,
                 exchangeManagerRegistry);
 
-        connectorManager.addConnectorFactory(globalSystemConnectorFactory, ignored -> globalSystemConnectorFactory.getClass().getClassLoader());
-        connectorManager.createCatalog(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
+        connectorManager.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, GlobalSystemConnector.NAME, globalSystemConnector);
 
         // rewrite session to use managed SessionPropertyMetadata
         Optional<TransactionId> transactionId = withInitialTransaction ? Optional.of(transactionManager.beginTransaction(true)) : defaultSession.getTransactionId();
@@ -717,11 +717,12 @@ public class LocalQueryRunner
         return expressionCompiler;
     }
 
-    public void createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
+    public CatalogHandle createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
-        nodeManager.addCurrentNodeConnector(new CatalogName(catalogName));
-        connectorManager.addConnectorFactory(connectorFactory, ignored -> connectorFactory.getClass().getClassLoader());
-        connectorManager.createCatalog(catalogName, connectorFactory.getName(), properties);
+        catalogFactory.addConnectorFactory(connectorFactory, ignored -> connectorFactory.getClass().getClassLoader());
+        CatalogHandle catalogHandle = connectorManager.createCatalog(catalogName, connectorFactory.getName(), properties);
+        nodeManager.addCurrentNodeCatalog(catalogHandle);
+        return catalogHandle;
     }
 
     @Override
@@ -739,8 +740,8 @@ public class LocalQueryRunner
     @Override
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        nodeManager.addCurrentNodeConnector(new CatalogName(catalogName));
-        connectorManager.createCatalog(catalogName, connectorName, properties);
+        CatalogHandle catalogHandle = connectorManager.createCatalog(catalogName, connectorName, properties);
+        nodeManager.addCurrentNodeCatalog(catalogHandle);
     }
 
     public LocalQueryRunner printPlan()
@@ -1119,7 +1120,7 @@ public class LocalQueryRunner
                                 columnPropertyManager,
                                 tablePropertyManager,
                                 materializedViewPropertyManager),
-                        new ShowStatsRewrite(queryExplainerFactory, statsCalculator),
+                        new ShowStatsRewrite(plannerContext.getMetadata(), queryExplainerFactory, statsCalculator),
                         new ExplainRewrite(queryExplainerFactory, new QueryPreparer(sqlParser)))));
     }
 

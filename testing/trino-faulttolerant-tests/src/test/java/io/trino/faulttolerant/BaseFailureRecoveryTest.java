@@ -29,8 +29,8 @@ import io.trino.spi.ErrorType;
 import io.trino.spi.QueryId;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
 import io.trino.tpch.TpchTable;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.intellij.lang.annotations.Language;
@@ -219,13 +219,13 @@ public abstract class BaseFailureRecoveryTest
         assertThatQuery(query)
                 .withSession(session)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.EXTERNAL))
-                .at(intermediateDistributedStage())
+                .at(distributedStage())
                 .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
                 .finishesSuccessfully(queryAssertion);
 
         assertThatQuery(query)
                 .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
-                .at(intermediateDistributedStage())
+                .at(distributedStage())
                 .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
                 .finishesSuccessfully();
 
@@ -563,7 +563,7 @@ public abstract class BaseFailureRecoveryTest
             String tableName = "table_" + randomTableSuffix();
             setup.ifPresent(sql -> getQueryRunner().execute(noRetries(session), resolveTableName(sql, tableName)));
 
-            ResultWithQueryId<MaterializedResult> resultWithQueryId = null;
+            MaterializedResultWithQueryId resultWithQueryId = null;
             RuntimeException failure = null;
             try {
                 resultWithQueryId = getDistributedQueryRunner().executeWithQueryId(withTraceToken(session, traceToken), resolveTableName(query, tableName));
@@ -722,7 +722,7 @@ public abstract class BaseFailureRecoveryTest
         private final Optional<MaterializedResult> updatedTableStatistics;
 
         private ExecutionResult(
-                ResultWithQueryId<MaterializedResult> resultWithQueryId,
+                MaterializedResultWithQueryId resultWithQueryId,
                 Optional<MaterializedResult> updatedTableContent,
                 Optional<MaterializedResult> updatedTableStatistics)
         {
@@ -781,6 +781,11 @@ public abstract class BaseFailureRecoveryTest
     protected static Function<MaterializedResult, Integer> intermediateDistributedStage()
     {
         return result -> findStageId(result, stage -> !stage.isCoordinatorOnly() && !stage.getSubStages().isEmpty());
+    }
+
+    protected static Function<MaterializedResult, Integer> distributedStage()
+    {
+        return result -> findStageId(result, stage -> !stage.isCoordinatorOnly());
     }
 
     protected static Function<MaterializedResult, Integer> leafStage()

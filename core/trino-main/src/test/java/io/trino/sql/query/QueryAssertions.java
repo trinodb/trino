@@ -49,7 +49,6 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
@@ -57,6 +56,7 @@ import static io.trino.cost.StatsCalculator.noopStatsCalculator;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.trino.sql.query.QueryAssertions.ExpressionAssert.newExpressionAssert;
 import static io.trino.sql.query.QueryAssertions.QueryAssert.newQueryAssert;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
@@ -74,7 +74,7 @@ public class QueryAssertions
     public QueryAssertions()
     {
         this(testSessionBuilder()
-                .setCatalog("local")
+                .setCatalog(TEST_CATALOG_NAME)
                 .setSchema("default")
                 .build());
     }
@@ -439,9 +439,7 @@ public class QueryAssertions
                                 runner.getFunctionManager(),
                                 noopStatsCalculator(),
                                 plan,
-                                PlanMatchPattern.output(
-                                        PlanMatchPattern.exchange(
-                                                PlanMatchPattern.node(TableScanNode.class))));
+                                PlanMatchPattern.output(PlanMatchPattern.node(TableScanNode.class)));
                     });
 
             if (!skipResultsCorrectnessCheckForPushdown) {
@@ -460,7 +458,6 @@ public class QueryAssertions
         @SafeVarargs
         public final QueryAssert isNotFullyPushedDown(Class<? extends PlanNode>... retainedNodes)
         {
-            checkArgument(retainedNodes.length > 0, "No retainedNodes");
             PlanMatchPattern expectedPlan = PlanMatchPattern.node(TableScanNode.class);
             for (Class<? extends PlanNode> retainedNode : ImmutableList.copyOf(retainedNodes).reverse()) {
                 expectedPlan = PlanMatchPattern.node(retainedNode, expectedPlan);

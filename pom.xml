@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>390-SNAPSHOT</version>
+    <version>392-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -627,7 +627,7 @@
             <dependency>
                 <groupId>io.trino.benchto</groupId>
                 <artifactId>benchto-driver</artifactId>
-                <version>0.17</version>
+                <version>0.18</version>
             </dependency>
 
             <dependency>
@@ -1656,6 +1656,12 @@
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
                 <version>42.3.4</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.roaringbitmap</groupId>
+                <artifactId>RoaringBitmap</artifactId>
+                <version>0.9.25</version>
             </dependency>
 
             <dependency>

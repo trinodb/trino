@@ -90,7 +90,7 @@ import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBu
 import static io.trino.execution.buffer.OutputBuffers.createSpoolingExchangeOutputBuffers;
 import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
 import static io.trino.failuredetector.FailureDetector.State.GONE;
-import static io.trino.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
+import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.ErrorType.INTERNAL_ERROR;
 import static io.trino.spi.ErrorType.USER_ERROR;
@@ -567,7 +567,7 @@ public class FaultTolerantStageScheduler
     {
         ImmutableListMultimap.Builder<PlanNodeId, Split> result = ImmutableListMultimap.builder();
         for (PlanNodeId planNodeId : exchangeSourceHandles.keySet()) {
-            result.put(planNodeId, new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.copyOf(exchangeSourceHandles.get(planNodeId))))));
+            result.put(planNodeId, new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.copyOf(exchangeSourceHandles.get(planNodeId))))));
         }
         return result.build();
     }

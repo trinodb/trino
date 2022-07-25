@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
@@ -111,6 +110,7 @@ import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static org.testng.Assert.assertEquals;
@@ -162,7 +162,7 @@ public class TestEffectivePredicateExtractor
         public TableProperties getTableProperties(Session session, TableHandle handle)
         {
             return new TableProperties(
-                    new CatalogName("test"),
+                    TEST_CATALOG_HANDLE,
                     TestingConnectorTransactionHandle.INSTANCE,
                     new ConnectorTableProperties(
                             ((PredicatedTableHandle) handle.getConnectorHandle()).getPredicate(),
@@ -1233,7 +1233,7 @@ public class TestEffectivePredicateExtractor
     private static TableHandle makeTableHandle(TupleDomain<ColumnHandle> predicate)
     {
         return new TableHandle(
-                new CatalogName("test"),
+                TEST_CATALOG_HANDLE,
                 new PredicatedTableHandle(predicate),
                 TestingTransactionHandle.create());
     }

@@ -20,6 +20,7 @@ import java.util.OptionalInt;
 
 import static io.trino.spi.block.ArrayBlock.createArrayBlockInternal;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
+import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidPositions;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
@@ -183,7 +184,7 @@ public abstract class AbstractArrayBlock
         if (clazz != Block.class) {
             throw new IllegalArgumentException("clazz must be Block.class");
         }
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
 
         int startValueOffset = getOffset(position);
         int endValueOffset = getOffset(position + 1);
@@ -193,7 +194,7 @@ public abstract class AbstractArrayBlock
     @Override
     public Block getSingleValueBlock(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
 
         int startValueOffset = getOffset(position);
         int valueLength = getOffset(position + 1) - startValueOffset;
@@ -210,7 +211,7 @@ public abstract class AbstractArrayBlock
     @Override
     public long getEstimatedDataSizeForStats(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
 
         if (isNull(position)) {
             return 0;
@@ -230,25 +231,18 @@ public abstract class AbstractArrayBlock
     @Override
     public boolean isNull(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         boolean[] valueIsNull = getValueIsNull();
         return valueIsNull != null && valueIsNull[position + getOffsetBase()];
     }
 
     public <T> T apply(ArrayBlockFunction<T> function, int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
 
         int startValueOffset = getOffset(position);
         int endValueOffset = getOffset(position + 1);
         return function.apply(getRawElementBlock(), startValueOffset, endValueOffset - startValueOffset);
-    }
-
-    private void checkReadablePosition(int position)
-    {
-        if (position < 0 || position >= getPositionCount()) {
-            throw new IllegalArgumentException("position is not valid");
-        }
     }
 
     public interface ArrayBlockFunction<T>

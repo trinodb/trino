@@ -16,7 +16,7 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.QualifiedObjectName;
@@ -56,7 +56,7 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
+import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -104,9 +104,8 @@ public class CallTask
 
         Session session = stateMachine.getSession();
         QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName());
-        CatalogName catalogName = plannerContext.getMetadata().getCatalogHandle(stateMachine.getSession(), procedureName.getCatalogName())
-                .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, call, "Catalog '%s' does not exist", procedureName.getCatalogName()));
-        Procedure procedure = procedureRegistry.resolve(catalogName, procedureName.asSchemaTableName());
+        CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), stateMachine.getSession(), call, procedureName.getCatalogName());
+        Procedure procedure = procedureRegistry.resolve(catalogHandle, procedureName.asSchemaTableName());
 
         // map declared argument names to positions
         Map<String, Integer> positions = new HashMap<>();
@@ -192,10 +191,10 @@ public class CallTask
         Iterator<Object> valuesIterator = asList(values).iterator();
         for (Class<?> type : methodType.parameterList()) {
             if (ConnectorSession.class.equals(type)) {
-                arguments.add(session.toConnectorSession(catalogName));
+                arguments.add(session.toConnectorSession(catalogHandle));
             }
             else if (ConnectorAccessControl.class.equals(type)) {
-                arguments.add(new InjectedConnectorAccessControl(accessControl, session.toSecurityContext(), catalogName.getCatalogName()));
+                arguments.add(new InjectedConnectorAccessControl(accessControl, session.toSecurityContext(), procedureName.getCatalogName()));
             }
             else {
                 arguments.add(valuesIterator.next());

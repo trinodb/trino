@@ -39,7 +39,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
-import static io.trino.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
 import static io.trino.sql.planner.plan.SemiJoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -55,7 +54,9 @@ public class TestDetermineSemiJoinDistributionType
     @BeforeClass
     public void setUp()
     {
-        tester = defaultRuleTester(ImmutableList.of(), ImmutableMap.of(), Optional.of(NODES_COUNT));
+        tester = RuleTester.builder()
+                .withNodeCountForStats(NODES_COUNT)
+                .build();
     }
 
     @AfterClass(alwaysRun = true)

@@ -18,7 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.SequencePageBuilder;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
@@ -61,6 +61,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DIST
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -77,7 +78,7 @@ public class TestLocalExchange
     private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
     private static final Session SESSION = testSessionBuilder().build();
 
-    private final ConcurrentMap<CatalogName, ConnectorNodePartitioningProvider> partitionManagers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogHandle, ConnectorNodePartitioningProvider> partitionManagers = new ConcurrentHashMap<>();
     private NodePartitioningManager nodePartitioningManager;
 
     @BeforeMethod
@@ -90,9 +91,9 @@ public class TestLocalExchange
         nodePartitioningManager = new NodePartitioningManager(
                 nodeScheduler,
                 new BlockTypeOperators(new TypeOperators()),
-                catalogName -> {
-                    ConnectorNodePartitioningProvider result = partitionManagers.get(catalogName);
-                    checkArgument(result != null, catalogName + " does not have a partition manager");
+                catalogHandle -> {
+                    ConnectorNodePartitioningProvider result = partitionManagers.get(catalogHandle);
+                    checkArgument(result != null, "No partition manager for catalog handle: %s", catalogHandle);
                     return result;
                 });
     }
@@ -468,10 +469,10 @@ public class TestLocalExchange
         };
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT);
         partitionManagers.put(
-                new CatalogName("foo"),
+                TEST_CATALOG_HANDLE,
                 connectorNodePartitioningProvider);
         PartitioningHandle partitioningHandle = new PartitioningHandle(
-                Optional.of(new CatalogName("foo")),
+                Optional.of(TEST_CATALOG_HANDLE),
                 Optional.of(TestingTransactionHandle.create()),
                 connectorPartitioningHandle);
         LocalExchange localExchange = new LocalExchange(

@@ -65,12 +65,12 @@ public class ComposableStatsCalculator
     }
 
     @Override
-    public PlanNodeStatsEstimate calculateStats(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
+    public PlanNodeStatsEstimate calculateStats(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
     {
         Iterator<Rule<?>> ruleIterator = getCandidates(node).iterator();
         while (ruleIterator.hasNext()) {
             Rule<?> rule = ruleIterator.next();
-            Optional<PlanNodeStatsEstimate> calculatedStats = calculateStats(rule, node, sourceStats, lookup, session, types);
+            Optional<PlanNodeStatsEstimate> calculatedStats = calculateStats(rule, node, sourceStats, lookup, session, types, tableStatsProvider);
             if (calculatedStats.isPresent()) {
                 return calculatedStats.get();
             }
@@ -78,17 +78,17 @@ public class ComposableStatsCalculator
         return PlanNodeStatsEstimate.unknown();
     }
 
-    private static <T extends PlanNode> Optional<PlanNodeStatsEstimate> calculateStats(Rule<T> rule, PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
+    private static <T extends PlanNode> Optional<PlanNodeStatsEstimate> calculateStats(Rule<T> rule, PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
     {
         @SuppressWarnings("unchecked")
         T typedNode = (T) node;
-        return rule.calculate(typedNode, sourceStats, lookup, session, types);
+        return rule.calculate(typedNode, sourceStats, lookup, session, types, tableStatsProvider);
     }
 
     public interface Rule<T extends PlanNode>
     {
         Pattern<T> getPattern();
 
-        Optional<PlanNodeStatsEstimate> calculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types);
+        Optional<PlanNodeStatsEstimate> calculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider);
     }
 }

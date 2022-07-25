@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.testing.TempFile;
-import io.trino.connector.CatalogName;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.orc.OrcWriteValidation;
@@ -72,6 +71,7 @@ import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.iceberg.types.Types.NestedField.optional;
@@ -81,7 +81,6 @@ import static org.testng.Assert.assertNull;
 
 public class TestIcebergNodeLocalDynamicSplitPruning
 {
-    private static final String ICEBERG_CATALOG_NAME = "iceberg";
     private static final String SCHEMA_NAME = "test";
     private static final String TABLE_NAME = "test";
     private static final Column KEY_COLUMN = new Column("a_integer", HIVE_INT, Optional.empty());
@@ -166,7 +165,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 SplitWeight.standard());
 
         TableHandle tableHandle = new TableHandle(
-                new CatalogName(ICEBERG_CATALOG_NAME),
+                TEST_CATALOG_HANDLE,
                 new IcebergTableHandle(
                         SCHEMA_NAME,
                         TABLE_NAME,

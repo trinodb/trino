@@ -16,7 +16,7 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 
 import java.util.Set;
 import java.util.function.Consumer;
@@ -27,7 +27,7 @@ public interface InternalNodeManager
 {
     Set<InternalNode> getNodes(NodeState state);
 
-    Set<InternalNode> getActiveConnectorNodes(CatalogName catalogName);
+    Set<InternalNode> getActiveCatalogNodes(CatalogHandle catalogHandle);
 
     NodesSnapshot getActiveNodesSnapshot();
 
@@ -46,9 +46,9 @@ public interface InternalNodeManager
     class NodesSnapshot
     {
         private final Set<InternalNode> allNodes;
-        private final SetMultimap<CatalogName, InternalNode> connectorNodes;
+        private final SetMultimap<CatalogHandle, InternalNode> connectorNodes;
 
-        public NodesSnapshot(Set<InternalNode> allActiveNodes, SetMultimap<CatalogName, InternalNode> activeNodesByCatalogName)
+        public NodesSnapshot(Set<InternalNode> allActiveNodes, SetMultimap<CatalogHandle, InternalNode> activeNodesByCatalogName)
         {
             requireNonNull(allActiveNodes, "allActiveNodes is null");
             requireNonNull(activeNodesByCatalogName, "activeNodesByCatalogName is null");
@@ -61,9 +61,9 @@ public interface InternalNodeManager
             return allNodes;
         }
 
-        public Set<InternalNode> getConnectorNodes(CatalogName catalogName)
+        public Set<InternalNode> getConnectorNodes(CatalogHandle catalogHandle)
         {
-            return connectorNodes.get(catalogName);
+            return connectorNodes.get(catalogHandle);
         }
     }
 }

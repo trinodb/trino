@@ -57,6 +57,7 @@ public class HiveConnector
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> schemaProperties;
     private final List<PropertyMetadata<?>> tableProperties;
+    private final List<PropertyMetadata<?>> columnProperties;
     private final List<PropertyMetadata<?>> analyzeProperties;
     private final List<PropertyMetadata<?>> materializedViewProperties;
 
@@ -79,6 +80,7 @@ public class HiveConnector
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
             List<PropertyMetadata<?>> schemaProperties,
             List<PropertyMetadata<?>> tableProperties,
+            List<PropertyMetadata<?>> columnProperties,
             List<PropertyMetadata<?>> analyzeProperties,
             List<PropertyMetadata<?>> materializedViewProperties,
             Optional<ConnectorAccessControl> accessControl,
@@ -99,6 +101,7 @@ public class HiveConnector
                 .collect(toImmutableList());
         this.schemaProperties = ImmutableList.copyOf(requireNonNull(schemaProperties, "schemaProperties is null"));
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
+        this.columnProperties = ImmutableList.copyOf(requireNonNull(columnProperties, "columnProperties is null"));
         this.analyzeProperties = ImmutableList.copyOf(requireNonNull(analyzeProperties, "analyzeProperties is null"));
         this.materializedViewProperties = requireNonNull(materializedViewProperties, "materializedViewProperties is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -166,6 +169,12 @@ public class HiveConnector
     public List<PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getColumnProperties()
+    {
+        return this.columnProperties;
     }
 
     @Override

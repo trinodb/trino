@@ -11,26 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.connector;
+package io.trino.cost;
 
-@Deprecated
-public final class NotPartitionedPartitionHandle
-        extends ConnectorPartitionHandle
+import io.trino.metadata.TableHandle;
+import io.trino.spi.statistics.TableStatistics;
+
+public interface TableStatsProvider
 {
-    public static final ConnectorPartitionHandle NOT_PARTITIONED = new NotPartitionedPartitionHandle();
-
-    private NotPartitionedPartitionHandle() {}
-
-    @SuppressWarnings({"EqualsWhichDoesntCheckParameterClass", "ObjectEquality"})
-    @Override
-    public boolean equals(Object obj)
-    {
-        return obj == NOT_PARTITIONED;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return getClass().hashCode();
-    }
+    TableStatistics getTableStatistics(TableHandle tableHandle);
 }

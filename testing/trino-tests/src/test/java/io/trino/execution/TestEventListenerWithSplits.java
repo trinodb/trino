@@ -16,8 +16,11 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.execution.EventsAwaitingQueries.MaterializedResultWithEvents;
+import io.trino.execution.EventsCollector.QueryEvents;
 import io.trino.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
 import io.trino.plugin.resourcegroups.ResourceGroupManagerPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -31,12 +34,10 @@ import io.trino.spi.eventlistener.SplitCompletedEvent;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -45,6 +46,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.execution.TestQueues.createResourceGroupId;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -92,7 +94,7 @@ public class TestEventListenerWithSplits
         queryRunner.getCoordinator().getResourceGroupManager().get()
                 .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
 
-        queries = new EventsAwaitingQueries(generatedEvents, queryRunner, Duration.ofSeconds(1));
+        queries = new EventsAwaitingQueries(generatedEvents, queryRunner);
 
         return queryRunner;
     }
@@ -106,12 +108,9 @@ public class TestEventListenerWithSplits
     public void testSplitsForNormalQuery()
             throws Exception
     {
-        // We expect the following events
-        // QueryCreated: 1, QueryCompleted: 1, Splits: SPLITS_PER_NODE (leaf splits) + LocalExchange[SINGLE] split + Aggregation/Output split
-        int expectedEvents = 1 + 1 + SPLITS_PER_NODE + 1 + 1;
-        runQueryAndWaitForEvents("SELECT sum(linenumber) FROM lineitem", expectedEvents);
+        QueryEvents queryEvents = runQueryAndWaitForEvents("SELECT sum(linenumber) FROM lineitem").getQueryEvents();
 
-        QueryCreatedEvent queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
+        QueryCreatedEvent queryCreatedEvent = queryEvents.getQueryCreatedEvent();
         assertEquals(queryCreatedEvent.getContext().getServerVersion(), "testversion");
         assertEquals(queryCreatedEvent.getContext().getServerAddress(), "127.0.0.1");
         assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
@@ -119,7 +118,7 @@ public class TestEventListenerWithSplits
         assertEquals(queryCreatedEvent.getMetadata().getQuery(), "SELECT sum(linenumber) FROM lineitem");
         assertFalse(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent());
 
-        QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        QueryCompletedEvent queryCompletedEvent = queryEvents.getQueryCompletedEvent();
         assertTrue(queryCompletedEvent.getContext().getResourceGroupId().isPresent());
         assertEquals(queryCompletedEvent.getContext().getResourceGroupId().get(), createResourceGroupId("global", "user-user"));
         assertEquals(queryCompletedEvent.getIoMetadata().getOutput(), Optional.empty());
@@ -130,7 +129,7 @@ public class TestEventListenerWithSplits
         assertFalse(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent());
         assertEquals(queryCompletedEvent.getStatistics().getCompletedSplits(), SPLITS_PER_NODE + 2);
 
-        List<SplitCompletedEvent> splitCompletedEvents = generatedEvents.getSplitCompletedEvents();
+        List<SplitCompletedEvent> splitCompletedEvents = queryEvents.waitForSplitCompletedEvents(SPLITS_PER_NODE + 2, new Duration(30, SECONDS));
         assertEquals(splitCompletedEvents.size(), SPLITS_PER_NODE + 2); // leaf splits + aggregation split
 
         // All splits must have the same query ID
@@ -145,8 +144,8 @@ public class TestEventListenerWithSplits
                 .mapToLong(e -> e.getStatistics().getCompletedPositions())
                 .sum();
 
-        MaterializedResult result = runQueryAndWaitForEvents("SELECT count(*) FROM lineitem", expectedEvents);
-        long expectedCompletedPositions = (long) result.getMaterializedRows().get(0).getField(0);
+        MaterializedResultWithEvents result = runQueryAndWaitForEvents("SELECT count(*) FROM lineitem");
+        long expectedCompletedPositions = (long) result.getMaterializedResult().getMaterializedRows().get(0).getField(0);
         assertEquals(actualCompletedPositions, expectedCompletedPositions);
 
         QueryStatistics statistics = queryCompletedEvent.getStatistics();
@@ -191,9 +190,9 @@ public class TestEventListenerWithSplits
             throws Exception
     {
         // QueryCreated: 1, QueryCompleted: 1, Splits: 1
-        runQueryAndWaitForEvents("SELECT 1", 3);
+        QueryEvents queryEvents = runQueryAndWaitForEvents("SELECT 1").getQueryEvents();
 
-        QueryCreatedEvent queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
+        QueryCreatedEvent queryCreatedEvent = queryEvents.getQueryCreatedEvent();
         assertEquals(queryCreatedEvent.getContext().getServerVersion(), "testversion");
         assertEquals(queryCreatedEvent.getContext().getServerAddress(), "127.0.0.1");
         assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
@@ -202,7 +201,7 @@ public class TestEventListenerWithSplits
         assertEquals(queryCreatedEvent.getMetadata().getQuery(), "SELECT 1");
         assertFalse(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent());
 
-        QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        QueryCompletedEvent queryCompletedEvent = queryEvents.getQueryCompletedEvent();
         assertTrue(queryCompletedEvent.getContext().getResourceGroupId().isPresent());
         assertEquals(queryCompletedEvent.getContext().getResourceGroupId().get(), createResourceGroupId("global", "user-user"));
         assertEquals(queryCompletedEvent.getStatistics().getTotalRows(), 0L);
@@ -211,14 +210,14 @@ public class TestEventListenerWithSplits
         assertFalse(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent());
         assertEquals(queryCompletedEvent.getContext().getQueryType().get(), QueryType.SELECT);
 
-        List<SplitCompletedEvent> splitCompletedEvents = generatedEvents.getSplitCompletedEvents();
+        List<SplitCompletedEvent> splitCompletedEvents = queryEvents.waitForSplitCompletedEvents(1, new Duration(30, SECONDS));
         assertEquals(splitCompletedEvents.get(0).getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
         assertEquals(splitCompletedEvents.get(0).getStatistics().getCompletedPositions(), 1);
     }
 
-    private MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected)
+    private MaterializedResultWithEvents runQueryAndWaitForEvents(@Language("SQL") String sql)
             throws Exception
     {
-        return queries.runQueryAndWaitForEvents(sql, numEventsExpected, getSession());
+        return queries.runQueryAndWaitForEvents(sql, getSession());
     }
 }

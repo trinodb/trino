@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.connector.TestingTableFunctions.SimpleTableFunction;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.procedure.TestProcedure;
@@ -30,6 +31,7 @@ import io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -42,6 +44,7 @@ import java.util.Optional;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
+import static io.trino.spi.connector.TableProcedureExecutionMode.coordinatorOnly;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -110,6 +113,8 @@ public class TestMockConnector
                                 })
                                 .withMetrics(schemaTableName -> new Metrics(ImmutableMap.of("test_metric", new LongCount(1))))
                                 .withProcedures(ImmutableSet.of(new TestProcedure().get()))
+                                .withTableProcedures(ImmutableSet.of(new TableProcedureMetadata("TESTING_TABLE_PROCEDURE", coordinatorOnly(), ImmutableList.of())))
+                                .withTableFunctions(ImmutableSet.of(new SimpleTableFunction()))
                                 .withSchemaProperties(() -> ImmutableList.<PropertyMetadata<?>>builder()
                                         .add(booleanProperty("boolean_schema_property", "description", false, false))
                                         .build())
@@ -222,6 +227,22 @@ public class TestMockConnector
         assertUpdate("CALL mock.default.test_procedure()");
         assertThatThrownBy(() -> assertUpdate("CALL mock.default.non_exist_procedure()"))
                 .hasMessage("Procedure not registered: default.non_exist_procedure");
+    }
+
+    @Test
+    public void testTableProcedure()
+    {
+        assertQuerySucceeds("ALTER TABLE mock.default.test_table EXECUTE TESTING_TABLE_PROCEDURE()");
+        assertQueryFails("ALTER TABLE mock.default.test_table EXECUTE NON_EXISTING_TABLE_PROCEDURE()", "Table procedure not registered: NON_EXISTING_TABLE_PROCEDURE");
+    }
+
+    @Test
+    public void testTableFunction()
+    {
+        assertThatThrownBy(() -> assertUpdate("SELECT * FROM TABLE(mock.system.simple_table_function())"))
+                .hasMessage("execution by operator is not yet implemented for table function simple_table_function");
+        assertThatThrownBy(() -> assertUpdate("SELECT * FROM TABLE(mock.system.non_existing_table_function())"))
+                .hasMessageContaining("Table function mock.system.non_existing_table_function not registered");
     }
 
     @Test

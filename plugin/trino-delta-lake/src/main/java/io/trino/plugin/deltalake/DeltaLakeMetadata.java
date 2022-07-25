@@ -50,6 +50,7 @@ import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFacto
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
@@ -573,14 +574,34 @@ public class DeltaLakeMetadata
             return locationUri;
         });
 
+        String queryId = session.getQueryId();
+
         Database database = Database.builder()
                 .setDatabaseName(schemaName)
                 .setLocation(location)
                 .setOwnerType(Optional.of(owner.getType()))
                 .setOwnerName(Optional.of(owner.getName()))
+                .setParameters(ImmutableMap.of(PRESTO_QUERY_ID_NAME, queryId))
                 .build();
 
-        metastore.createDatabase(database);
+        // Ensure the database has queryId set. This is relied on for exception handling
+        verify(
+                getQueryId(database).orElseThrow(() -> new IllegalArgumentException("Query id is not present")).equals(queryId),
+                "Database does not have correct query id set",
+                database);
+
+        try {
+            metastore.createDatabase(database);
+        }
+        catch (SchemaAlreadyExistsException e) {
+            // Ignore SchemaAlreadyExistsException when table looks like created by us.
+            // This may happen when an actually successful metastore create call is retried
+            // e.g. because of a timeout on our side.
+            Optional<Database> existingDatabase = metastore.getDatabase(schemaName);
+            if (existingDatabase.isEmpty() || !isCreatedBy(existingDatabase.get(), queryId)) {
+                throw e;
+            }
+        }
     }
 
     @Override
@@ -954,6 +975,12 @@ public class DeltaLakeMetadata
         }
 
         return Optional.empty();
+    }
+
+    private static boolean isCreatedBy(Database database, String queryId)
+    {
+        Optional<String> databaseQueryId = getQueryId(database);
+        return databaseQueryId.isPresent() && databaseQueryId.get().equals(queryId);
     }
 
     private static boolean isCreatedBy(Table table, String queryId)
@@ -2458,6 +2485,11 @@ public class DeltaLakeMetadata
                 physicalName,
                 physicalType,
                 isPartitionKey ? PARTITION_KEY : REGULAR);
+    }
+
+    private static Optional<String> getQueryId(Database database)
+    {
+        return Optional.ofNullable(database.getParameters().get(PRESTO_QUERY_ID_NAME));
     }
 
     private static Optional<String> getQueryId(Table table)

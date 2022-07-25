@@ -16,7 +16,7 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -54,6 +54,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 
 public class TestUnaliasSymbolReferences
         extends BasePlanTest
@@ -84,14 +85,14 @@ public class TestUnaliasSymbolReferences
                                                     dynamicFilterExpression(metadata, session, probeColumn1, dynamicFilterId1),
                                                     dynamicFilterExpression(metadata, session, probeColumn2, dynamicFilterId2)),
                                             p.tableScan(
-                                                    tableHandle(session, probeTable),
+                                                    tableHandle(probeTable),
                                                     ImmutableList.of(probeColumn1, probeColumn2),
                                                     ImmutableMap.of(
                                                             probeColumn1, new TpchColumnHandle("nationkey", BIGINT),
                                                             probeColumn2, new TpchColumnHandle("suppkey", BIGINT))))),
                             p.project(
                                     Assignments.of(buildAlias1, buildColumnSymbol.toSymbolReference(), buildAlias2, buildColumnSymbol.toSymbolReference()),
-                                    p.tableScan(tableHandle(session, buildTable), ImmutableList.of(buildColumnSymbol), ImmutableMap.of(buildColumnSymbol, column))),
+                                    p.tableScan(tableHandle(buildTable), ImmutableList.of(buildColumnSymbol), ImmutableMap.of(buildColumnSymbol, column))),
                             ImmutableList.of(),
                             ImmutableList.of(),
                             ImmutableList.of(buildAlias1, buildAlias2),
@@ -131,7 +132,8 @@ public class TestUnaliasSymbolReferences
                     planBuilder.getTypes(),
                     symbolAllocator,
                     idAllocator,
-                    WarningCollector.NOOP);
+                    WarningCollector.NOOP,
+                    new CachingTableStatsProvider(metadata, session));
 
             Plan actual = new Plan(optimized, planBuilder.getTypes(), StatsAndCosts.empty());
             PlanAssert.assertPlan(session, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actual, pattern);
@@ -144,10 +146,10 @@ public class TestUnaliasSymbolReferences
         return createDynamicFilterExpression(session, metadata, id, BigintType.BIGINT, symbol.toSymbolReference());
     }
 
-    private TableHandle tableHandle(Session session, String tableName)
+    private static TableHandle tableHandle(String tableName)
     {
         return new TableHandle(
-                new CatalogName(session.getCatalog().get()),
+                TEST_CATALOG_HANDLE,
                 new TpchTableHandle(TINY_SCHEMA_NAME, tableName, TINY_SCALE_FACTOR),
                 TestingTransactionHandle.create());
     }

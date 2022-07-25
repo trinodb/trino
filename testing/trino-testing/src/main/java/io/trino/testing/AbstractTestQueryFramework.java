@@ -465,7 +465,7 @@ public abstract class AbstractTestQueryFramework
             Consumer<MaterializedResult> resultAssertion)
     {
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
-        ResultWithQueryId<MaterializedResult> resultWithQueryId = queryRunner.executeWithQueryId(session, query);
+        MaterializedResultWithQueryId resultWithQueryId = queryRunner.executeWithQueryId(session, query);
         QueryStats queryStats = queryRunner.getCoordinator()
                 .getQueryManager()
                 .getFullQueryInfo(resultWithQueryId.getQueryId())
@@ -605,7 +605,7 @@ public abstract class AbstractTestQueryFramework
     {
         return inTransaction(getSession(), transactionSession -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
-            getQueryRunner().getMetadata().getCatalogHandle(transactionSession, tableHandle.getCatalogName().getCatalogName());
+            getQueryRunner().getMetadata().getCatalogHandle(transactionSession, tableHandle.getCatalogHandle().getCatalogName());
             return getQueryRunner().getMetadata().getTableMetadata(transactionSession, tableHandle);
         });
     }

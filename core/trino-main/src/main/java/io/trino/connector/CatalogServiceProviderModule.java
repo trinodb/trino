@@ -17,7 +17,6 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import io.trino.SystemSessionPropertiesProvider;
-import io.trino.connector.ConnectorManager.ConnectorServices;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.CatalogProcedures;
 import io.trino.metadata.CatalogTableFunctions;

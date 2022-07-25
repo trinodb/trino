@@ -65,6 +65,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static com.google.cloud.bigquery.TableDefinition.Type.EXTERNAL;
 import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
@@ -79,7 +80,6 @@ import static io.trino.plugin.bigquery.BigQueryPseudoColumn.PARTITION_TIME;
 import static io.trino.plugin.bigquery.BigQueryTableHandle.BigQueryPartitionType.INGESTION;
 import static io.trino.plugin.bigquery.BigQueryType.toField;
 import static io.trino.plugin.bigquery.BigQueryUtil.isWildcardTable;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -180,7 +180,7 @@ public class BigQueryMetadata
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String remoteSchemaName : remoteSchemaNames) {
             try {
-                Iterable<Table> tables = client.listTables(DatasetId.of(projectId, remoteSchemaName), TABLE, VIEW, MATERIALIZED_VIEW);
+                Iterable<Table> tables = client.listTables(DatasetId.of(projectId, remoteSchemaName), TABLE, VIEW, MATERIALIZED_VIEW, EXTERNAL);
                 for (Table table : tables) {
                     // filter ambiguous tables
                     client.toRemoteTable(projectId, remoteSchemaName, table.getTableId().getTable().toLowerCase(ENGLISH), tables)
@@ -258,7 +258,7 @@ public class BigQueryMetadata
             columnMetadata.add(PARTITION_DATE.getColumnMetadata());
             columnMetadata.add(PARTITION_TIME.getColumnMetadata());
         }
-        return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata.build());
+        return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata.build(), ImmutableMap.of(), handle.getComment());
     }
 
     @Override
@@ -372,12 +372,6 @@ public class BigQueryMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
-        if (tableMetadata.getComment().isPresent()) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
-        }
-        if (tableMetadata.getColumns().stream().anyMatch(column -> column.getComment() != null)) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
-        }
         try {
             createTable(session, tableMetadata);
         }
@@ -400,14 +394,15 @@ public class BigQueryMetadata
         }
 
         List<Field> fields = tableMetadata.getColumns().stream()
-                .map(column -> toField(column.getName(), column.getType()))
+                .map(column -> toField(column.getName(), column.getType(), column.getComment()))
                 .collect(toImmutableList());
 
         TableId tableId = TableId.of(schemaName, tableName);
         TableDefinition tableDefinition = StandardTableDefinition.of(Schema.of(fields));
-        TableInfo tableInfo = TableInfo.newBuilder(tableId, tableDefinition).build();
+        TableInfo.Builder tableInfo = TableInfo.newBuilder(tableId, tableDefinition);
+        tableMetadata.getComment().ifPresent(tableInfo::setDescription);
 
-        bigQueryClientFactory.create(session).createTable(tableInfo);
+        bigQueryClientFactory.create(session).createTable(tableInfo.build());
     }
 
     @Override

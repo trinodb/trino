@@ -32,6 +32,7 @@ import org.mariadb.jdbc.Driver;
 import java.util.Properties;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class MariaDbClientModule
         implements Module
@@ -40,6 +41,7 @@ public class MariaDbClientModule
     public void configure(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(MariaDbClient.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(MariaDbJdbcConfig.class);
         binder.install(new DecimalModule());
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }

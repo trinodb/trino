@@ -24,6 +24,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.ptf.ConnectorTableFunction;
 import org.testng.annotations.Test;
@@ -51,6 +52,7 @@ public class TestClassLoaderSafeWrappers
         testClassLoaderSafe(ConnectorSplitManager.class, ClassLoaderSafeConnectorSplitManager.class);
         testClassLoaderSafe(ConnectorNodePartitioningProvider.class, ClassLoaderSafeNodePartitioningProvider.class);
         testClassLoaderSafe(ConnectorSplitSource.class, ClassLoaderSafeConnectorSplitSource.class);
+        testClassLoaderSafe(UpdatablePageSource.class, ClassLoaderSafeUpdatablePageSource.class);
         testClassLoaderSafe(SystemTable.class, ClassLoaderSafeSystemTable.class);
         testClassLoaderSafe(ConnectorRecordSetProvider.class, ClassLoaderSafeConnectorRecordSetProvider.class);
         testClassLoaderSafe(RecordSet.class, ClassLoaderSafeRecordSet.class);

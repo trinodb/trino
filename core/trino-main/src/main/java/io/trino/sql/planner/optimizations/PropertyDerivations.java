@@ -646,9 +646,13 @@ public final class PropertyDerivations
                 if (inputProperties.size() == 1) {
                     ActualProperties inputProperty = inputProperties.get(0);
                     if (inputProperty.isEffectivelySingleStream() && node.getOrderingScheme().isEmpty()) {
+                        verify(node.getInputs().size() == 1);
+                        Map<Symbol, Symbol> inputToOutput = exchangeInputToOutput(node, 0);
                         // Single stream input's local sorting and grouping properties are preserved
                         // In case of merging exchange, it's orderingScheme takes precedence
-                        localProperties.addAll(inputProperty.getLocalProperties());
+                        localProperties.addAll(LocalProperties.translate(
+                                inputProperty.getLocalProperties(),
+                                symbol -> Optional.ofNullable(inputToOutput.get(symbol))));
                     }
                 }
 

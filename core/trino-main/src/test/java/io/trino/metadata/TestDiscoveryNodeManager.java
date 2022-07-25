@@ -26,7 +26,7 @@ import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogName;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.failuredetector.NoOpFailureDetector;
 import io.trino.server.InternalCommunicationConfig;
 import org.testng.annotations.BeforeMethod;
@@ -93,7 +93,7 @@ public class TestDiscoveryNodeManager
         try {
             AllNodes allNodes = manager.getAllNodes();
 
-            Set<InternalNode> connectorNodes = manager.getActiveConnectorNodes(new CatalogName("system"));
+            Set<InternalNode> connectorNodes = manager.getActiveCatalogNodes(GlobalSystemConnector.CATALOG_HANDLE);
             assertEquals(connectorNodes.size(), 4);
             assertTrue(connectorNodes.stream().anyMatch(InternalNode::isCoordinator));
 

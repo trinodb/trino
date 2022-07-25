@@ -37,6 +37,7 @@ import io.trino.parquet.RichColumnDescriptor;
 import io.trino.parquet.predicate.Predicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
+import io.trino.plugin.base.classloader.ClassLoaderSafeUpdatablePageSource;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
@@ -114,7 +115,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -336,17 +336,19 @@ public class IcebergPageSourceProvider
                 table.getStorageProperties(),
                 maxOpenPartitions);
 
-        return new IcebergPageSource(
-                tableSchema,
-                icebergColumns,
-                requiredColumns,
-                readColumns,
-                dataPageSource.get(),
-                projectionsAdapter,
-                Optional.of(deleteFilter).filter(filter -> filter.hasPosDeletes() || filter.hasEqDeletes()),
-                positionDeleteSink,
-                updatedRowPageSinkSupplier,
-                table.getUpdatedColumns());
+        return new ClassLoaderSafeUpdatablePageSource(
+                new IcebergPageSource(
+                        tableSchema,
+                        icebergColumns,
+                        requiredColumns,
+                        readColumns,
+                        dataPageSource.get(),
+                        projectionsAdapter,
+                        Optional.of(deleteFilter).filter(filter -> filter.hasPosDeletes() || filter.hasEqDeletes()),
+                        positionDeleteSink,
+                        updatedRowPageSinkSupplier,
+                        table.getUpdatedColumns()),
+                getClass().getClassLoader());
     }
 
     private ReaderPageSource createDataPageSource(
@@ -556,12 +558,15 @@ public class IcebergPageSourceProvider
                             reader.getCompressionKind()),
                     columnProjections);
         }
-        catch (Exception e) {
+        catch (IOException | RuntimeException e) {
             if (orcDataSource != null) {
                 try {
                     orcDataSource.close();
                 }
-                catch (IOException ignored) {
+                catch (IOException ex) {
+                    if (!e.equals(ex)) {
+                        e.addSuppressed(ex);
+                    }
                 }
             }
             if (e instanceof TrinoException) {
@@ -604,7 +609,7 @@ public class IcebergPageSourceProvider
                         .map(nestedColumn -> {
                             ImmutableList.Builder<String> nextQualifiedPath = ImmutableList.<String>builder()
                                     .addAll(qualifiedPath);
-                            if (column.getColumnType().equals(OrcType.OrcTypeKind.LIST)) {
+                            if (column.getColumnType() == OrcType.OrcTypeKind.LIST) {
                                 // The Trino ORC reader uses "item" for list element names, but the NameMapper expects "element"
                                 nextQualifiedPath.add("element");
                             }
@@ -643,7 +648,7 @@ public class IcebergPageSourceProvider
         Traverser.forTree(OrcColumn::getNestedColumns)
                 .depthFirstPreOrder(columns)
                 .forEach(column -> {
-                    String fieldId = (column.getAttributes().get(ORC_ICEBERG_ID_KEY));
+                    String fieldId = column.getAttributes().get(ORC_ICEBERG_ID_KEY);
                     if (fieldId != null) {
                         columnsById.put(Integer.parseInt(fieldId), column);
                     }
@@ -898,7 +903,10 @@ public class IcebergPageSourceProvider
                     dataSource.close();
                 }
             }
-            catch (IOException ignored) {
+            catch (IOException ex) {
+                if (!e.equals(ex)) {
+                    e.addSuppressed(ex);
+                }
             }
             if (e instanceof TrinoException) {
                 throw (TrinoException) e;
@@ -918,6 +926,7 @@ public class IcebergPageSourceProvider
 
     /**
      * Create a new NameMapping with the same names but converted to lowercase.
+     *
      * @param nameMapping The original NameMapping, potentially containing non-lowercase characters
      */
     private static NameMapping convertToLowercase(NameMapping nameMapping)
@@ -959,8 +968,8 @@ public class IcebergPageSourceProvider
                 return fullyProjectedLayout();
             }
 
-            Map<Integer, List<List<Integer>>> dereferencesByField = fieldIdDereferences.stream().collect(
-                    Collectors.groupingBy(
+            Map<Integer, List<List<Integer>>> dereferencesByField = fieldIdDereferences.stream()
+                    .collect(groupingBy(
                             sequence -> sequence.get(0),
                             mapping(sequence -> sequence.subList(1, sequence.size()), toUnmodifiableList())));
 
@@ -984,7 +993,7 @@ public class IcebergPageSourceProvider
     }
 
     /**
-     * Creates a mapping between the input {@param columns} and base columns if required.
+     * Creates a mapping between the input {@code columns} and base columns if required.
      */
     public static Optional<ReaderColumns> projectColumns(List<IcebergColumnHandle> columns)
     {
@@ -1025,7 +1034,7 @@ public class IcebergPageSourceProvider
         }
 
         ImmutableMap.Builder<ColumnDescriptor, Domain> predicate = ImmutableMap.builder();
-        effectivePredicate.getDomains().get().forEach((columnHandle, domain) -> {
+        effectivePredicate.getDomains().orElseThrow().forEach((columnHandle, domain) -> {
             String baseType = columnHandle.getType().getTypeSignature().getBase();
             // skip looking up predicates for complex types as Parquet only stores stats for primitives
             if (!baseType.equals(StandardTypes.MAP) && !baseType.equals(StandardTypes.ARRAY) && !baseType.equals(StandardTypes.ROW)) {

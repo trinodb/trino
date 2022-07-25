@@ -17,13 +17,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
+import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.CostProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
+import io.trino.cost.TableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzeMetadata;
 import io.trino.metadata.Metadata;
@@ -33,7 +36,7 @@ import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
 import io.trino.metadata.TableMetadata;
-import io.trino.spi.StandardErrorCode;
+import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -84,7 +87,6 @@ import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
-import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
@@ -92,7 +94,6 @@ import io.trino.sql.tree.Query;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.Statement;
-import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.Update;
@@ -119,6 +120,8 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.zip;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
@@ -127,6 +130,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
@@ -235,9 +239,11 @@ public class LogicalPlanner
 
         planSanityChecker.validateIntermediatePlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
 
+        TableStatsProvider tableStatsProvider = new CachingTableStatsProvider(metadata, session);
+
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
             for (PlanOptimizer optimizer : planOptimizers) {
-                root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector);
+                root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector, tableStatsProvider);
                 requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
 
                 if (LOG.isDebugEnabled()) {
@@ -263,7 +269,7 @@ public class LogicalPlanner
 
         StatsAndCosts statsAndCosts = StatsAndCosts.empty();
         if (collectPlanStatistics) {
-            StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
+            StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, tableStatsProvider);
             CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, types);
             statsAndCosts = StatsAndCosts.create(root, statsProvider, costProvider);
         }
@@ -392,12 +398,15 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, destination.getCatalogName(), tableMetadata);
+        String catalogName = destination.getCatalogName();
+        CatalogHandle catalogHandle = metadata.getCatalogHandle(session, catalogName)
+                .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, query, "Destination catalog '%s' does not exist", catalogName));
+        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogHandle, tableMetadata);
         return createTableWriterPlan(
                 analysis,
                 plan.getRoot(),
                 visibleFields(plan),
-                new CreateReference(destination.getCatalogName(), tableMetadata, newTableLayout),
+                new CreateReference(catalogName, tableMetadata, newTableLayout),
                 columnNames,
                 tableMetadata.getColumns(),
                 newTableLayout,
@@ -475,7 +484,7 @@ public class LogicalPlanner
         plan = planner.addRowFilters(
                 table,
                 plan,
-                failIfPredicateIsNotMeet(metadata, session, PERMISSION_DENIED, AccessDeniedException.PREFIX + "Cannot insert row that does not match to a row filter"),
+                failIfPredicateIsNotMet(metadata, session, PERMISSION_DENIED, AccessDeniedException.PREFIX + "Cannot insert row that does not match to a row filter"),
                 node -> {
                     Scope accessControlScope = analysis.getAccessControlScope(table);
                     // hidden fields are not accessible in insert
@@ -489,8 +498,7 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        String catalogName = tableHandle.getCatalogName().getCatalogName();
-        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
+        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, tableHandle.getCatalogHandle(), tableMetadata.getMetadata());
 
         if (materializedViewRefreshWriterTarget.isPresent()) {
             return createTableWriterPlan(
@@ -519,19 +527,19 @@ public class LogicalPlanner
                 statisticsMetadata);
     }
 
-    private static Function<Expression, Expression> failIfPredicateIsNotMeet(Metadata metadata, Session session, StandardErrorCode errorCode, String errorMessage)
+    private static Function<Expression, Expression> failIfPredicateIsNotMet(Metadata metadata, Session session, ErrorCodeSupplier errorCode, String errorMessage)
     {
-        ResolvedFunction fail = metadata.resolveFunction(session, QualifiedName.of("fail"), fromTypes(INTEGER, VARCHAR));
-        return predicate -> new IfExpression(
-                predicate,
-                TRUE_LITERAL,
-                new Cast(
-                        new FunctionCall(
-                                fail.toQualifiedName(),
-                                ImmutableList.of(
-                                        new Cast(new LongLiteral(Long.toString(errorCode.toErrorCode().getCode())), toSqlType(INTEGER)),
-                                        new Cast(new StringLiteral(errorMessage), toSqlType(VARCHAR)))),
-                        toSqlType(BOOLEAN)));
+        FunctionCall fail = failFunction(metadata, session, errorCode, errorMessage);
+        return predicate -> new IfExpression(predicate, TRUE_LITERAL, new Cast(fail, toSqlType(BOOLEAN)));
+    }
+
+    public static FunctionCall failFunction(Metadata metadata, Session session, ErrorCodeSupplier errorCode, String errorMessage)
+    {
+        return FunctionCallBuilder.resolve(session, metadata)
+                .setName(QualifiedName.of("fail"))
+                .addArgument(INTEGER, new GenericLiteral("INTEGER", Integer.toString(errorCode.toErrorCode().getCode())))
+                .addArgument(VARCHAR, new GenericLiteral("VARCHAR", errorMessage))
+                .build();
     }
 
     private RelationPlan createInsertPlan(Analysis analysis, Insert insertStatement)
@@ -696,7 +704,6 @@ public class LogicalPlanner
 
         checkState(fromType instanceof VarcharType || fromType instanceof CharType, "inserting non-character value to column of character type");
         ResolvedFunction spaceTrimmedLength = metadata.resolveFunction(session, QualifiedName.of("$space_trimmed_length"), fromTypes(VARCHAR));
-        ResolvedFunction fail = metadata.resolveFunction(session, QualifiedName.of("fail"), fromTypes(VARCHAR));
 
         return new IfExpression(
                 // check if the trimmed value fits in the target type
@@ -710,14 +717,10 @@ public class LogicalPlanner
                                 new GenericLiteral("BIGINT", "0"))),
                 new Cast(expression, toSqlType(toType)),
                 new Cast(
-                        new FunctionCall(
-                                fail.toQualifiedName(),
-                                ImmutableList.of(new Cast(
-                                        new StringLiteral(format(
-                                                "Cannot truncate non-space characters when casting from %s to %s on INSERT",
-                                                fromType.getDisplayName(),
-                                                toType.getDisplayName())),
-                                        toSqlType(VARCHAR)))),
+                        failFunction(metadata, session, INVALID_CAST_ARGUMENT, format(
+                                "Cannot truncate non-space characters when casting from %s to %s on INSERT",
+                                fromType.getDisplayName(),
+                                toType.getDisplayName())),
                         toSqlType(toType)));
     }
 

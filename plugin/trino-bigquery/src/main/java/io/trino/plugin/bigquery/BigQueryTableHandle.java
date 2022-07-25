@@ -41,6 +41,7 @@ public class BigQueryTableHandle
     private final Optional<BigQueryPartitionType> partitionType;
     private final TupleDomain<ColumnHandle> constraint;
     private final Optional<List<ColumnHandle>> projectedColumns;
+    private final Optional<String> comment;
 
     @JsonCreator
     public BigQueryTableHandle(
@@ -49,7 +50,8 @@ public class BigQueryTableHandle
             @JsonProperty("type") String type,
             @JsonProperty("partitionType") Optional<BigQueryPartitionType> partitionType,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
-            @JsonProperty("projectedColumns") Optional<List<ColumnHandle>> projectedColumns)
+            @JsonProperty("projectedColumns") Optional<List<ColumnHandle>> projectedColumns,
+            @JsonProperty("comment") Optional<String> comment)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.remoteTableName = requireNonNull(remoteTableName, "remoteTableName is null");
@@ -57,6 +59,7 @@ public class BigQueryTableHandle
         this.partitionType = requireNonNull(partitionType, "partitionType is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.projectedColumns = requireNonNull(projectedColumns, "projectedColumns is null");
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
     public BigQueryTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName, TableInfo tableInfo)
@@ -67,7 +70,8 @@ public class BigQueryTableHandle
                 tableInfo.getDefinition().getType().toString(),
                 getPartitionType(tableInfo.getDefinition()),
                 TupleDomain.all(),
-                Optional.empty());
+                Optional.empty(),
+                Optional.ofNullable(tableInfo.getDescription()));
     }
 
     @JsonProperty
@@ -106,6 +110,12 @@ public class BigQueryTableHandle
         return projectedColumns;
     }
 
+    @JsonProperty
+    public Optional<String> getComment()
+    {
+        return comment;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -122,13 +132,14 @@ public class BigQueryTableHandle
                 Objects.equals(type, that.type) &&
                 Objects.equals(partitionType, that.partitionType) &&
                 Objects.equals(constraint, that.constraint) &&
-                Objects.equals(projectedColumns, that.projectedColumns);
+                Objects.equals(projectedColumns, that.projectedColumns) &&
+                Objects.equals(comment, that.comment);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaTableName, type, partitionType, constraint, projectedColumns);
+        return Objects.hash(schemaTableName, type, partitionType, constraint, projectedColumns, comment);
     }
 
     @Override
@@ -141,17 +152,18 @@ public class BigQueryTableHandle
                 .add("partitionType", partitionType)
                 .add("constraint", constraint)
                 .add("projectedColumns", projectedColumns)
+                .add("comment", comment)
                 .toString();
     }
 
     BigQueryTableHandle withConstraint(TupleDomain<ColumnHandle> newConstraint)
     {
-        return new BigQueryTableHandle(schemaTableName, remoteTableName, type, partitionType, newConstraint, projectedColumns);
+        return new BigQueryTableHandle(schemaTableName, remoteTableName, type, partitionType, newConstraint, projectedColumns, comment);
     }
 
     BigQueryTableHandle withProjectedColumns(List<ColumnHandle> newProjectedColumns)
     {
-        return new BigQueryTableHandle(schemaTableName, remoteTableName, type, partitionType, constraint, Optional.of(newProjectedColumns));
+        return new BigQueryTableHandle(schemaTableName, remoteTableName, type, partitionType, constraint, Optional.of(newProjectedColumns), comment);
     }
 
     public enum BigQueryPartitionType

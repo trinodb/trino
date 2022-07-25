@@ -11,15 +11,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.connector;
+package io.trino.testing;
 
-@SuppressWarnings("ClassMayBeInterface")
-@Deprecated
-public abstract class ConnectorPartitionHandle
+import io.trino.spi.QueryId;
+
+public class QueryFailedException
+        extends RuntimeException
 {
-    @Override
-    public abstract boolean equals(Object obj);
+    private final QueryId queryId;
 
-    @Override
-    public abstract int hashCode();
+    public QueryFailedException(QueryId queryId, String message)
+    {
+        super(message);
+        this.queryId = queryId;
+    }
+
+    public QueryFailedException(QueryId queryId, String message, Throwable cause)
+    {
+        super(message, cause);
+        this.queryId = queryId;
+    }
+
+    public QueryId getQueryId()
+    {
+        return queryId;
+    }
 }

@@ -53,9 +53,9 @@ import io.trino.sql.planner.planprinter.IoPlanPrinter.IoPlan.TableColumnInfo;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
@@ -1980,17 +1980,19 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testEmptyBucketedTable()
     {
-        // go through all storage formats to make sure the empty buckets are correctly created
-        testWithAllStorageFormats(this::testEmptyBucketedTable);
+        // create empty bucket files for all storage formats and compression codecs
+        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            for (HiveCompressionCodec compressionCodec : HiveCompressionCodec.values()) {
+                if ((storageFormat == HiveStorageFormat.AVRO) && (compressionCodec == HiveCompressionCodec.LZ4)) {
+                    continue;
+                }
+                testEmptyBucketedTable(storageFormat, compressionCodec, true);
+            }
+            testEmptyBucketedTable(storageFormat, HiveCompressionCodec.GZIP, false);
+        }
     }
 
-    private void testEmptyBucketedTable(Session session, HiveStorageFormat storageFormat)
-    {
-        testEmptyBucketedTable(session, storageFormat, true);
-        testEmptyBucketedTable(session, storageFormat, false);
-    }
-
-    private void testEmptyBucketedTable(Session session, HiveStorageFormat storageFormat, boolean createEmpty)
+    private void testEmptyBucketedTable(HiveStorageFormat storageFormat, HiveCompressionCodec compressionCodec, boolean createEmpty)
     {
         String tableName = "test_empty_bucketed_table";
 
@@ -2015,11 +2017,13 @@ public abstract class BaseHiveConnectorTest
         assertEquals(computeActual("SELECT * from " + tableName).getRowCount(), 0);
 
         // make sure that we will get one file per bucket regardless of writer count configured
-        Session parallelWriter = Session.builder(getParallelWriteSession())
+        Session session = Session.builder(getSession())
+                .setSystemProperty("task_writer_count", "4")
                 .setCatalogSessionProperty(catalog, "create_empty_bucket_files", String.valueOf(createEmpty))
+                .setCatalogSessionProperty(catalog, "compression_codec", compressionCodec.name())
                 .build();
-        assertUpdate(parallelWriter, "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c0')", 1);
-        assertUpdate(parallelWriter, "INSERT INTO " + tableName + " VALUES ('a1', 'b1', 'c1')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c0')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES ('a1', 'b1', 'c1')", 1);
 
         assertQuery("SELECT * from " + tableName, "VALUES ('a0', 'b0', 'c0'), ('a1', 'b1', 'c1')");
 
@@ -4721,7 +4725,7 @@ public abstract class BaseHiveConnectorTest
         assertQuery(session, "SELECT * FROM " + tableName, format("VALUES (%s)", formatTimestamp(value)));
 
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(
+        MaterializedResultWithQueryId queryResult = queryRunner.executeWithQueryId(
                 session,
                 format("SELECT * FROM %s WHERE t < %s", tableName, formatTimestamp(value)));
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
@@ -4752,7 +4756,7 @@ public abstract class BaseHiveConnectorTest
         // to account for the fact that ORC stats are stored at millisecond precision and Trino rounds timestamps,
         // we filter by timestamps that differ from the actual value by at least 1ms, to observe pruning
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
-        ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(
+        MaterializedResultWithQueryId queryResult = queryRunner.executeWithQueryId(
                 session,
                 format("SELECT * FROM test_orc_timestamp_predicate_pushdown WHERE t < %s", formatTimestamp(value.minusNanos(MILLISECONDS.toNanos(1)))));
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
@@ -4841,7 +4845,7 @@ public abstract class BaseHiveConnectorTest
                 results -> assertThat(results.getRowCount()).isEqualTo(0));
     }
 
-    private QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, ResultWithQueryId<MaterializedResult> queryResult)
+    private QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, MaterializedResultWithQueryId queryResult)
     {
         return queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryResult.getQueryId());
     }
@@ -5377,8 +5381,8 @@ public abstract class BaseHiveConnectorTest
             @Language("SQL") String query = "SELECT count(value1) FROM test_bucketed_select GROUP BY key1";
             @Language("SQL") String expectedQuery = "SELECT count(comment) FROM orders GROUP BY orderkey";
 
-            assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(1));
-            assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(2));
+            assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(0));
+            assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(1));
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_bucketed_select");

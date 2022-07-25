@@ -15,7 +15,7 @@ package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
@@ -96,10 +96,12 @@ public class CreateMaterializedViewTask
                 .map(field -> new ViewColumn(field.getName().get(), field.getType().getTypeId()))
                 .collect(toImmutableList());
 
-        CatalogName catalogName = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, name.getCatalogName());
+        String catalogName = name.getCatalogName();
+        CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, catalogName);
 
         Map<String, Object> properties = materializedViewPropertyManager.getProperties(
                 catalogName,
+                catalogHandle,
                 statement.getProperties(),
                 session,
                 plannerContext,

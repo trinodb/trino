@@ -17,6 +17,7 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryLister;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
@@ -72,6 +73,7 @@ public class HiveMetadataFactory
     private final ScheduledExecutorService heartbeatService;
     private final DirectoryLister directoryLister;
     private final long perTransactionFileStatusCacheMaximumSize;
+    private final PartitionProjectionService partitionProjectionService;
 
     @Inject
     public HiveMetadataFactory(
@@ -92,7 +94,8 @@ public class HiveMetadataFactory
             Set<SystemTableProvider> systemTableProviders,
             HiveMaterializedViewMetadataFactory hiveMaterializedViewMetadataFactory,
             AccessControlMetadataFactory accessControlMetadataFactory,
-            DirectoryLister directoryLister)
+            DirectoryLister directoryLister,
+            PartitionProjectionService partitionProjectionService)
     {
         this(
                 catalogName,
@@ -124,7 +127,8 @@ public class HiveMetadataFactory
                 hiveMaterializedViewMetadataFactory,
                 accessControlMetadataFactory,
                 directoryLister,
-                hiveConfig.getPerTransactionFileStatusCacheMaximumSize());
+                hiveConfig.getPerTransactionFileStatusCacheMaximumSize(),
+                partitionProjectionService);
     }
 
     public HiveMetadataFactory(
@@ -157,7 +161,8 @@ public class HiveMetadataFactory
             HiveMaterializedViewMetadataFactory hiveMaterializedViewMetadataFactory,
             AccessControlMetadataFactory accessControlMetadataFactory,
             DirectoryLister directoryLister,
-            long perTransactionFileStatusCacheMaximumSize)
+            long perTransactionFileStatusCacheMaximumSize,
+            PartitionProjectionService partitionProjectionService)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -196,6 +201,7 @@ public class HiveMetadataFactory
         this.heartbeatService = requireNonNull(heartbeatService, "heartbeatService is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.perTransactionFileStatusCacheMaximumSize = perTransactionFileStatusCacheMaximumSize;
+        this.partitionProjectionService = requireNonNull(partitionProjectionService, "partitionProjectionService is null");
     }
 
     @Override
@@ -240,6 +246,7 @@ public class HiveMetadataFactory
                 systemTableProviders,
                 hiveMaterializedViewMetadataFactory.create(hiveMetastoreClosure),
                 accessControlMetadataFactory.create(metastore),
-                directoryLister);
+                directoryLister,
+                partitionProjectionService);
     }
 }

@@ -19,7 +19,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
-import io.trino.connector.CatalogName;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.exchange.ExchangeManagerRegistry;
@@ -599,6 +598,12 @@ public class SqlQueryExecution
     }
 
     @Override
+    public void resultsConsumed()
+    {
+        stateMachine.resultsConsumed();
+    }
+
+    @Override
     public ListenableFuture<QueryState> getStateChange(QueryState currentState)
     {
         return stateMachine.getStateChange(currentState);
@@ -675,8 +680,8 @@ public class SqlQueryExecution
             // Allow set session statements and queries on internal system connectors to run without waiting
             Collection<TableHandle> tables = analysis.getTables();
             return !tables.stream()
-                    .map(TableHandle::getCatalogName)
-                    .allMatch(CatalogName::isInternalSystemConnector);
+                    .map(TableHandle::getCatalogHandle)
+                    .allMatch(catalogName -> catalogName.getType().isInternal());
         }
         return true;
     }

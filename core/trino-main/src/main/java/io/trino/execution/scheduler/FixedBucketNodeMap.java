@@ -18,10 +18,9 @@ import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.NoSuchElementException;
 import java.util.function.ToIntFunction;
 
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 // the bucket to node mapping is fixed and pre-assigned
@@ -37,29 +36,19 @@ public class FixedBucketNodeMap
     }
 
     @Override
-    public Optional<InternalNode> getAssignedNode(int bucketedId)
+    public InternalNode getAssignedNode(int bucketId)
     {
-        return Optional.of(bucketToNode.get(bucketedId));
+        InternalNode node = bucketToNode.get(bucketId);
+        if (node == null) {
+            throw new NoSuchElementException("No node for bucket: " + bucketId);
+        }
+        return node;
     }
 
     @Override
     public int getBucketCount()
     {
         return bucketToNode.size();
-    }
-
-    @Override
-    public int getNodeCount()
-    {
-        return toIntExact(bucketToNode.stream()
-                .distinct()
-                .count());
-    }
-
-    @Override
-    public void assignBucketToNode(int bucketedId, InternalNode node)
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override

@@ -94,7 +94,7 @@ public class TestRuleTester
                             (node, captures, context) -> Result.empty()))
                     .on(p ->
                             p.tableScan(
-                                    new TableHandle(tester.getCurrentConnectorId(), new TpchTableHandle("sf1", "nation", 1.0), TestingTransactionHandle.create()),
+                                    new TableHandle(tester.getCurrentCatalogHandle(), new TpchTableHandle("sf1", "nation", 1.0), TestingTransactionHandle.create()),
                                     List.of(p.symbol("x")),
                                     Map.of(p.symbol("x"), new TestingColumnHandle("column"))));
 

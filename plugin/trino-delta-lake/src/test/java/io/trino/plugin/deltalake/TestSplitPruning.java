@@ -20,7 +20,6 @@ import io.trino.operator.OperatorStats;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -135,10 +134,10 @@ public class TestSplitPruning
                 Set.of(),
                 0);
 
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResult result = getDistributedQueryRunner().execute(
                 getSession(),
                 format("SELECT name FROM %s WHERE val IS NOT NULL", tableName));
-        assertEquals(result.getResult().getOnlyColumnAsSet(), Set.of("a5", "b5", "a6", "b6"));
+        assertEquals(result.getOnlyColumnAsSet(), Set.of("a5", "b5", "a6", "b6"));
     }
 
     @Test

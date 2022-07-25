@@ -53,6 +53,7 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatisticType;
@@ -831,18 +832,51 @@ public class TestHiveGlueMetastore
     public void testGetPartitionsFilterIsNullWithValue()
             throws Exception
     {
-        TupleDomain<String> isNullFilter = new PartitionFilterBuilder()
-                .addDomain(PARTITION_KEY, Domain.onlyNull(VarcharType.VARCHAR))
-                .build();
         List<String> partitionList = new ArrayList<>();
         partitionList.add("100");
         partitionList.add(null);
+
         doGetPartitionsFilterTest(
                 CREATE_TABLE_COLUMNS_PARTITIONED_VARCHAR,
                 PARTITION_KEY,
                 partitionList,
-                ImmutableList.of(isNullFilter),
+                ImmutableList.of(new PartitionFilterBuilder()
+                        // IS NULL
+                        .addDomain(PARTITION_KEY, Domain.onlyNull(VarcharType.VARCHAR))
+                        .build()),
                 ImmutableList.of(ImmutableList.of(GlueExpressionUtil.NULL_STRING)));
+
+        doGetPartitionsFilterTest(
+                CREATE_TABLE_COLUMNS_PARTITIONED_VARCHAR,
+                PARTITION_KEY,
+                partitionList,
+                ImmutableList.of(new PartitionFilterBuilder()
+                        // IS NULL or is a specific value
+                        .addDomain(PARTITION_KEY, Domain.create(ValueSet.of(VARCHAR, utf8Slice("100")), true))
+                        .build()),
+                ImmutableList.of(ImmutableList.of("100", GlueExpressionUtil.NULL_STRING)));
+    }
+
+    @Test
+    public void testGetPartitionsFilterEqualsOrIsNullWithValue()
+            throws Exception
+    {
+        TupleDomain<String> equalsOrIsNullFilter = new PartitionFilterBuilder()
+                .addStringValues(PARTITION_KEY, "2020-03-01")
+                .addDomain(PARTITION_KEY, Domain.onlyNull(VarcharType.VARCHAR))
+                .build();
+        List<String> partitionList = new ArrayList<>();
+        partitionList.add("2020-01-01");
+        partitionList.add("2020-02-01");
+        partitionList.add("2020-03-01");
+        partitionList.add(null);
+
+        doGetPartitionsFilterTest(
+                CREATE_TABLE_COLUMNS_PARTITIONED_VARCHAR,
+                PARTITION_KEY,
+                partitionList,
+                ImmutableList.of(equalsOrIsNullFilter),
+                ImmutableList.of(ImmutableList.of("2020-03-01", GlueExpressionUtil.NULL_STRING)));
     }
 
     @Test
@@ -920,6 +954,27 @@ public class TestHiveGlueMetastore
                 {CREATE_TABLE_COLUMNS_PARTITIONED_DATE, DateType.DATE, "2022-07-11"},
                 {CREATE_TABLE_COLUMNS_PARTITIONED_TIMESTAMP, TimestampType.TIMESTAMP_MILLIS, "2022-07-11 01:02:03.123"},
         };
+    }
+
+    @Test
+    public void testGetPartitionsFilterEqualsAndIsNotNull()
+            throws Exception
+    {
+        TupleDomain<String> equalsAndIsNotNullFilter = new PartitionFilterBuilder()
+                .addDomain(PARTITION_KEY, Domain.notNull(VarcharType.VARCHAR))
+                .addBigintValues(PARTITION_KEY2, 300L)
+                .build();
+
+        doGetPartitionsFilterTest(
+                CREATE_TABLE_COLUMNS_PARTITIONED_TWO_KEYS,
+                ImmutableList.of(PARTITION_KEY, PARTITION_KEY2),
+                ImmutableList.of(
+                        PartitionValues.make("2020-01-01", "100"),
+                        PartitionValues.make("2020-02-01", "200"),
+                        PartitionValues.make("2020-03-01", "300"),
+                        PartitionValues.make(null, "300")),
+                ImmutableList.of(equalsAndIsNotNullFilter),
+                ImmutableList.of(ImmutableList.of(PartitionValues.make("2020-03-01", "300"))));
     }
 
     @Test

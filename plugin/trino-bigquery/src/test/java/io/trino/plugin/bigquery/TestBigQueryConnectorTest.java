@@ -25,6 +25,7 @@ import io.trino.testing.sql.TestView;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
+import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -70,8 +71,6 @@ public class TestBigQueryConnectorTest
             case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_NOT_NULL_CONSTRAINT:
             case SUPPORTS_CREATE_TABLE_WITH_DATA:
-            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
-            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_DELETE:
             case SUPPORTS_INSERT:
             case SUPPORTS_ADD_COLUMN:
@@ -622,6 +621,27 @@ public class TestBigQueryConnectorTest
         }
         finally {
             onBigQuery("DROP SNAPSHOT TABLE IF EXISTS test." + snapshotTable);
+        }
+    }
+
+    @Test
+    @Parameters("testing.gcp-storage-bucket")
+    public void testBigQueryExternalTable(String gcpStorageBucket)
+    {
+        // Prerequisite: upload region.csv in resources directory to gs://{testing.gcp-storage-bucket}/tpch/tiny/region.csv
+        String externalTable = "test_external" + randomTableSuffix();
+        try {
+            onBigQuery("CREATE EXTERNAL TABLE test." + externalTable + " OPTIONS (format = 'CSV', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])");
+            assertQuery("SELECT table_type FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + externalTable + "'", "VALUES 'BASE TABLE'");
+
+            assertThat(query("DESCRIBE test." + externalTable)).matches("DESCRIBE tpch.region");
+            assertThat(query("SELECT * FROM test." + externalTable)).matches("SELECT * FROM tpch.region");
+
+            assertUpdate("DROP TABLE test." + externalTable);
+            assertQueryReturnsEmptyResult("SELECT * FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + externalTable + "'");
+        }
+        finally {
+            onBigQuery("DROP EXTERNAL TABLE IF EXISTS test." + externalTable);
         }
     }
 

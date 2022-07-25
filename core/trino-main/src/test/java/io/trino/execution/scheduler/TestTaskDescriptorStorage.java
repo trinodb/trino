@@ -16,7 +16,7 @@ package io.trino.execution.scheduler;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.StageId;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
@@ -29,6 +29,7 @@ import java.util.Optional;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY;
+import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -186,10 +187,10 @@ public class TestTaskDescriptorStorage
 
     private static TaskDescriptor createTaskDescriptor(int partitionId, DataSize retainedSize, String catalogName)
     {
-        return createTaskDescriptor(partitionId, retainedSize, Optional.of(new CatalogName(catalogName)));
+        return createTaskDescriptor(partitionId, retainedSize, Optional.of(createTestCatalogHandle(catalogName)));
     }
 
-    private static TaskDescriptor createTaskDescriptor(int partitionId, DataSize retainedSize, Optional<CatalogName> catalog)
+    private static TaskDescriptor createTaskDescriptor(int partitionId, DataSize retainedSize, Optional<CatalogHandle> catalog)
     {
         return new TaskDescriptor(
                 partitionId,
@@ -201,8 +202,8 @@ public class TestTaskDescriptorStorage
     private static Optional<String> getCatalogName(TaskDescriptor descriptor)
     {
         return descriptor.getNodeRequirements()
-                .getCatalogName()
-                .map(CatalogName::getCatalogName);
+                .getCatalogHandle()
+                .map(CatalogHandle::getCatalogName);
     }
 
     private static boolean isStorageCapacityExceededFailure(Throwable t)

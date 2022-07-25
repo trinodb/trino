@@ -18,6 +18,8 @@ import io.airlift.slice.Slice;
 
 import java.util.List;
 
+import static io.trino.spi.block.BlockUtil.checkReadablePosition;
+
 public abstract class AbstractSingleMapBlock
         implements Block
 {
@@ -35,9 +37,7 @@ public abstract class AbstractSingleMapBlock
 
     private int getAbsolutePosition(int position)
     {
-        if (position < 0 || position >= getPositionCount()) {
-            throw new IllegalArgumentException("position is not valid");
-        }
+        checkReadablePosition(this, position);
         return position + getOffset();
     }
 
