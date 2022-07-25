@@ -123,7 +123,6 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
@@ -269,8 +268,7 @@ public class CoordinatorModule
 
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, PlanOptimizersFactory.class)
-                .setDefault().to(PlanOptimizers.class).in(Scopes.SINGLETON);
+        binder.bind(PlanOptimizersFactory.class).to(PlanOptimizers.class).in(Scopes.SINGLETON);
 
         // Optimizer/Rule Stats exporter
         binder.bind(RuleStatsRecorder.class).in(Scopes.SINGLETON);
