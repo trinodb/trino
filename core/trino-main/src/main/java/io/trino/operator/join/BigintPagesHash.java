@@ -54,6 +54,7 @@ public final class BigintPagesHash
 
     private final long hashCollisions;
     private final double expectedHashCollisions;
+    private final boolean uniqueMapping;
 
     public BigintPagesHash(
             LongArrayList addresses,
@@ -83,6 +84,7 @@ public final class BigintPagesHash
         // We will process addresses in batches, to save memory on array of hashes.
         int positionsInStep = Math.min(addresses.size() + 1, (int) CACHE_SIZE.toBytes() / Integer.SIZE);
         long hashCollisionsLocal = 0;
+        boolean uniqueMapping = true;
 
         for (int step = 0; step * positionsInStep <= addresses.size(); step++) {
             int stepBeginPosition = step * positionsInStep;
@@ -111,6 +113,7 @@ public final class BigintPagesHash
                         // found a slot for this key
                         // link the new key position to the current key position
                         realPosition = positionLinks.link(realPosition, currentKey);
+                        uniqueMapping = false;
 
                         // key[pos] updated outside of this loop
                         break;
@@ -124,6 +127,7 @@ public final class BigintPagesHash
                 values[pos] = value;
             }
         }
+        this.uniqueMapping = uniqueMapping;
 
         size = sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes() +
                 sizeOf(key) + sizeOf(values);
@@ -253,6 +257,12 @@ public final class BigintPagesHash
         int blockPosition = decodePosition(pageAddress);
 
         pagesHashStrategy.appendTo(blockIndex, blockPosition, pageBuilder, outputChannelOffset);
+    }
+
+    @Override
+    public boolean isMappingUnique()
+    {
+        return uniqueMapping;
     }
 
     private boolean isPositionNull(int position)

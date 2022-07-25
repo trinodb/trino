@@ -54,6 +54,11 @@ public class JoinStatisticsCounter
 
     public void recordProbe(int numSourcePositions)
     {
+        recordProbe(numSourcePositions, 1);
+    }
+
+    public void recordProbe(int numSourcePositions, int numberOfValues)
+    {
         int bucket;
         if (numSourcePositions <= INDIVIDUAL_BUCKETS) {
             bucket = numSourcePositions;
@@ -67,8 +72,8 @@ public class JoinStatisticsCounter
         else {
             bucket = INDIVIDUAL_BUCKETS + 3;
         }
-        logHistogramCounters[2 * bucket]++;
-        logHistogramCounters[2 * bucket + 1] += numSourcePositions;
+        logHistogramCounters[2 * bucket] += numberOfValues;
+        logHistogramCounters[2 * bucket + 1] += numSourcePositions * numberOfValues;
     }
 
     @Override

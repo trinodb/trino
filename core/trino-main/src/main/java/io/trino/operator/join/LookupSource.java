@@ -64,4 +64,14 @@ public interface LookupSource
 
     @Override
     void close();
+
+    /**
+     * @return true if there is a certainty that every position from the probe side is joined
+     * with at most a single position on the build side.
+     * This is true for queries where joins are carried out on the indexed/unique column.
+     */
+    default boolean isMappingUnique()
+    {
+        return false;
+    }
 }

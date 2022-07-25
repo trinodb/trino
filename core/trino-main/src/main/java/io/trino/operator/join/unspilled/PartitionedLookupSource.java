@@ -95,6 +95,7 @@ public class PartitionedLookupSource
     private final int shiftSize;
     @Nullable
     private final OuterPositionTracker outerPositionTracker;
+    private final boolean uniqueMapping;
 
     private boolean closed;
 
@@ -109,6 +110,9 @@ public class PartitionedLookupSource
         this.partitionMask = lookupSources.size() - 1;
         this.shiftSize = numberOfTrailingZeros(lookupSources.size()) + 1;
         this.outerPositionTracker = outerPositionTracker.orElse(null);
+
+        uniqueMapping = lookupSources.stream()
+                .allMatch(lookupSource -> lookupSource.isMappingUnique());
     }
 
     @Override
@@ -413,5 +417,11 @@ public class PartitionedLookupSource
                 referenceCount.decrementAndGet();
             }
         }
+    }
+
+    @Override
+    public boolean isMappingUnique()
+    {
+        return uniqueMapping;
     }
 }

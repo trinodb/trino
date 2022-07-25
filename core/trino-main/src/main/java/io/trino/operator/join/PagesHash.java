@@ -49,4 +49,12 @@ public interface PagesHash
     }
 
     void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset);
+
+    /**
+     * {@link LookupSource#isMappingUnique()}
+     */
+    default boolean isMappingUnique()
+    {
+        return false;
+    }
 }
