@@ -118,7 +118,7 @@ public class RangerSystemAccessControlImpl
                 UserGroupInformation.loginUserFromKeytab(principal, keytab);
             }
             catch (IOException ioe) {
-                LOG.error("Kerberos login failed", ioe);
+                LOG.error(ioe, "Kerberos login failed");
                 throw new RuntimeException(ioe);
             }
         }
