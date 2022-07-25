@@ -31,13 +31,17 @@ public class IcebergMetadataFactory
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final TrinoCatalogFactory catalogFactory;
     private final HdfsEnvironment hdfsEnvironment;
+    private final long globalMetadataCacheTtl;
+    private final int maxCacheSize;
+    private final long globalMetadataCacheTtlForListing;
+    private final CatalogType catalogType;
 
     @Inject
     public IcebergMetadataFactory(
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
             TrinoCatalogFactory catalogFactory,
-            HdfsEnvironment hdfsEnvironment)
+            HdfsEnvironment hdfsEnvironment, IcebergConfig icebergConfig)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         // TODO consider providing TypeOperators in ConnectorContext to increase cache reuse
@@ -45,10 +49,24 @@ public class IcebergMetadataFactory
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.globalMetadataCacheTtl = icebergConfig.getGlobalMetadataCacheTtl();
+        this.maxCacheSize = icebergConfig.getMaxCacheSize();
+        this.globalMetadataCacheTtlForListing = icebergConfig.getMetadataCacheSchemaTableListingTtl();
+        this.catalogType = icebergConfig.getCatalogType();
+    }
+
+    public TrinoCatalogFactory getCatalogFactory()
+    {
+        return catalogFactory;
     }
 
     public IcebergMetadata create(ConnectorIdentity identity)
     {
         return new IcebergMetadata(typeManager, typeOperators, commitTaskCodec, catalogFactory.create(identity), hdfsEnvironment);
+    }
+
+    public CachedIcebergMetadata createCachedMetadata(ConnectorIdentity identity)
+    {
+        return new CachedIcebergMetadata(this, catalogType, typeManager, typeOperators, commitTaskCodec, catalogFactory.create(identity), hdfsEnvironment, globalMetadataCacheTtl, maxCacheSize, globalMetadataCacheTtlForListing);
     }
 }

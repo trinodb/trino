@@ -64,6 +64,7 @@ import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -145,6 +146,20 @@ public abstract class BaseIcebergConnectorTest
     {
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(Map.of("iceberg.file-format", format.name()))
+                .setInitialTables(ImmutableList.<TpchTable<?>>builder()
+                        .addAll(REQUIRED_TPCH_TABLES)
+                        .add(LINE_ITEM)
+                        .build())
+                .build();
+    }
+
+    protected QueryRunner createQueryRunnerWithMetadataCacheEnabled() throws Exception
+    {
+        Map<String, String> propertiesMap = new HashMap<String, String>();
+        propertiesMap.put("iceberg.file-format", format.name());
+        propertiesMap.put("iceberg.metastore-cache-enabled", "true");
+        return IcebergQueryRunner.builder()
+                .setIcebergProperties(propertiesMap)
                 .setInitialTables(ImmutableList.<TpchTable<?>>builder()
                         .addAll(REQUIRED_TPCH_TABLES)
                         .add(LINE_ITEM)
@@ -4372,6 +4387,19 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query(format("SELECT * FROM %s", tableName)))
                 .matches("VALUES (INTEGER '1', CAST(ROW(11) AS ROW(\"another identifier\"INTEGER)))");
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMetadataCacheCorrectness() throws Exception
+    {
+        Session session = Session.builder(getSession()).build();
+        MaterializedResult resultWithCacheDisabled = getQueryRunner().execute(
+                session, "SELECT * FROM nation where name like 'I%' order by name");
+        QueryRunner runnerWithCacheEnabled = createQueryRunnerWithMetadataCacheEnabled();
+        MaterializedResult resultWithCacheEnabled = runnerWithCacheEnabled.execute(
+                session, "SELECT * FROM nation where name like 'I%' order by name");
+        assertEquals(resultWithCacheDisabled.getMaterializedRows(), resultWithCacheEnabled.getMaterializedRows());
+        assertEquals(resultWithCacheDisabled.getRowCount(), resultWithCacheEnabled.getRowCount());
     }
 
     @Override

@@ -299,6 +299,38 @@ public class TrinoGlueCatalog
                 metadata);
     }
 
+    public String getRefreshedLocation(ConnectorSession session, SchemaTableName table)
+    {
+        LOG.info("Getting refresh table location for table " + table);
+        TableOperations operations = tableOperationsProvider.createTableOperations(
+                this,
+                        session,
+                        table.getSchemaName(),
+                        table.getTableName(),
+                 Optional.empty(),
+                Optional.empty());
+        GlueIcebergTableOperations glueIcebergTableOperations = (GlueIcebergTableOperations) operations;
+        return glueIcebergTableOperations.getRefreshedLocation(false);
+    }
+
+    public Table loadTableWithoutCache(ConnectorSession session, SchemaTableName table)
+    {
+        TableOperations operations = tableOperationsProvider.createTableOperations(
+                this,
+                        session,
+                        table.getSchemaName(),
+                        table.getTableName(),
+                 Optional.empty(),
+                Optional.empty());
+        TableMetadata metadata = new BaseTable(operations, quotedTableName(table)).operations().current();
+        return getIcebergTableWithMetadata(
+                this,
+                tableOperationsProvider,
+                session,
+                table,
+                metadata);
+    }
+
     @Override
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {

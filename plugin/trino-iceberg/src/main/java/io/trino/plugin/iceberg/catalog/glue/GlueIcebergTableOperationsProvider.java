@@ -60,7 +60,7 @@ public class GlueIcebergTableOperationsProvider
         return new GlueIcebergTableOperations(
                 glueClient,
                 stats,
-                fileIoProvider.createFileIo(new HdfsContext(session), session.getQueryId()),
+                fileIoProvider.createFileIo(new HdfsContext(session), session != null ? session.getQueryId() : null),
                 session,
                 database,
                 table,

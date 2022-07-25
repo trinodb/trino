@@ -113,8 +113,7 @@ public class HdfsEnvironment
 
         public HdfsContext(ConnectorSession session)
         {
-            requireNonNull(session, "session is null");
-            this.identity = requireNonNull(session.getIdentity(), "session.getIdentity() is null");
+            this.identity = session != null ? session.getIdentity() : null;
         }
 
         public ConnectorIdentity getIdentity()

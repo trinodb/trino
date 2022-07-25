@@ -63,6 +63,10 @@ public class IcebergConfig
     private double minimumAssignedSplitWeight = 0.05;
     private boolean allowLegacySnapshotSyntax;
     private Optional<String> materializedViewsStorageSchema = Optional.empty();
+    private boolean globalMetadataCacheEnabled;
+    private long globalMetadataCacheTtl = 10000;
+    private int maxCacheSize = 1000;
+    private long metadataCacheSchemaTableListingTtl = 10;
 
     public CatalogType getCatalogType()
     {
@@ -317,6 +321,59 @@ public class IcebergConfig
     public IcebergConfig setMaterializedViewsStorageSchema(String materializedViewsStorageSchema)
     {
         this.materializedViewsStorageSchema = Optional.ofNullable(materializedViewsStorageSchema);
+        return this;
+    }
+
+    public boolean isGlobalMetadataCacheEnabled()
+    {
+        return globalMetadataCacheEnabled;
+    }
+
+    // Caches metadata operations like getTable/getTableStats etc across query transactions
+    @Config("iceberg.metastore-cache-enabled")
+    @ConfigDescription("Enabling caching of iceberg metadata operations across query transactions")
+    public IcebergConfig setGlobalMetadataCacheEnabled(boolean globalMetadataCache)
+    {
+        this.globalMetadataCacheEnabled = globalMetadataCache;
+        return this;
+    }
+
+    public long getGlobalMetadataCacheTtl()
+    {
+        return globalMetadataCacheTtl;
+    }
+
+    @Config("iceberg.metastore-cache-ttl")
+    @ConfigDescription("Ttl for global metadata cache")
+    public IcebergConfig setGlobalMetadataCacheTtl(long globalMetadataCacheTtl)
+    {
+        this.globalMetadataCacheTtl = globalMetadataCacheTtl;
+        return this;
+    }
+
+    public int getMaxCacheSize()
+    {
+        return maxCacheSize;
+    }
+
+    @Config("iceberg.metastore-cache-size")
+    @ConfigDescription("Max no of entires in the cache")
+    public IcebergConfig setMaxCacheSize(int maxCacheSize)
+    {
+        this.maxCacheSize = maxCacheSize;
+        return this;
+    }
+
+    public long getMetadataCacheSchemaTableListingTtl()
+    {
+        return metadataCacheSchemaTableListingTtl;
+    }
+
+    @Config("iceberg.metastore-cache-listing-ttl")
+    @ConfigDescription("Ttl for metadata cache for listing operations like schema listing, table listing etc")
+    public IcebergConfig setMetadataCacheSchemaTableListingTtl(long metadataCacheSchemaTableListingTtl)
+    {
+        this.metadataCacheSchemaTableListingTtl = metadataCacheSchemaTableListingTtl;
         return this;
     }
 }

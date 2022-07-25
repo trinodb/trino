@@ -85,8 +85,8 @@ public abstract class AbstractIcebergTableOperations
             Optional<String> owner,
             Optional<String> location)
     {
+        this.session = session;
         this.fileIo = requireNonNull(fileIo, "fileIo is null");
-        this.session = requireNonNull(session, "session is null");
         this.database = requireNonNull(database, "database is null");
         this.tableName = requireNonNull(table, "table is null");
         this.owner = requireNonNull(owner, "owner is null");
@@ -151,6 +151,11 @@ public abstract class AbstractIcebergTableOperations
         }
 
         shouldRefresh = true;
+    }
+
+    public String getCurrentMetadataLocation()
+    {
+        return currentMetadataLocation;
     }
 
     protected abstract String getRefreshedLocation(boolean invalidateCaches);

@@ -75,7 +75,7 @@ public class TrinoHiveCatalogFactory
     {
         return new TrinoHiveCatalog(
                 catalogName,
-                memoizeMetastore(metastoreFactory.createMetastore(Optional.of(identity)), 1000),
+                memoizeMetastore(metastoreFactory.createMetastore(Optional.ofNullable(identity)), 1000),
                 hdfsEnvironment,
                 typeManager,
                 tableOperationsProvider,

@@ -58,7 +58,11 @@ public class TestIcebergConfig
                 .setTargetMaxFileSize(DataSize.of(1, GIGABYTE))
                 .setMinimumAssignedSplitWeight(0.05)
                 .setAllowLegacySnapshotSyntax(false)
-                .setMaterializedViewsStorageSchema(null));
+                .setMaterializedViewsStorageSchema(null)
+                .setGlobalMetadataCacheEnabled(false)
+                .setGlobalMetadataCacheTtl(10000L)
+                .setMaxCacheSize(1000)
+                .setMetadataCacheSchemaTableListingTtl(10L));
     }
 
     @Test
@@ -83,6 +87,10 @@ public class TestIcebergConfig
                 .put("iceberg.minimum-assigned-split-weight", "0.01")
                 .put("iceberg.allow-legacy-snapshot-syntax", "true")
                 .put("iceberg.materialized-views.storage-schema", "mv_storage_schema")
+                .put("iceberg.metastore-cache-enabled", "true")
+                .put("iceberg.metastore-cache-ttl", "6000")
+                .put("iceberg.metastore-cache-size", "500")
+                .put("iceberg.metastore-cache-listing-ttl", "20")
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
@@ -103,7 +111,11 @@ public class TestIcebergConfig
                 .setTargetMaxFileSize(DataSize.of(1, MEGABYTE))
                 .setMinimumAssignedSplitWeight(0.01)
                 .setAllowLegacySnapshotSyntax(true)
-                .setMaterializedViewsStorageSchema("mv_storage_schema");
+                .setMaterializedViewsStorageSchema("mv_storage_schema")
+                .setGlobalMetadataCacheEnabled(true)
+                .setGlobalMetadataCacheTtl(6000L)
+                .setMaxCacheSize(500)
+                .setMetadataCacheSchemaTableListingTtl(20);
 
         assertFullMapping(properties, expected);
     }

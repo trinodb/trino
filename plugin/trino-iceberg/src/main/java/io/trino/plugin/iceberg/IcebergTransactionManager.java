@@ -33,17 +33,21 @@ public class IcebergTransactionManager
     private final IcebergMetadataFactory metadataFactory;
     private final ClassLoader classLoader;
     private final ConcurrentMap<ConnectorTransactionHandle, MemoizedMetadata> transactions = new ConcurrentHashMap<>();
+    private static boolean isGlobalMetadataCacheEnabled;
+    private final CatalogType catalogType;
 
     @Inject
-    public IcebergTransactionManager(IcebergMetadataFactory metadataFactory)
+    public IcebergTransactionManager(IcebergMetadataFactory metadataFactory, IcebergConfig icebergConfig)
     {
-        this(metadataFactory, Thread.currentThread().getContextClassLoader());
+        this(metadataFactory, Thread.currentThread().getContextClassLoader(), icebergConfig);
     }
 
-    public IcebergTransactionManager(IcebergMetadataFactory metadataFactory, ClassLoader classLoader)
+    public IcebergTransactionManager(IcebergMetadataFactory metadataFactory, ClassLoader classLoader, IcebergConfig icebergConfig)
     {
         this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
+        this.catalogType = icebergConfig.getCatalogType();
+        this.isGlobalMetadataCacheEnabled = icebergConfig.isGlobalMetadataCacheEnabled();
     }
 
     public void begin(ConnectorTransactionHandle transactionHandle)
@@ -54,7 +58,12 @@ public class IcebergTransactionManager
 
     public IcebergMetadata get(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity)
     {
-        return transactions.get(transactionHandle).get(identity);
+        if (isGlobalMetadataCacheEnabled && catalogType.equals(CatalogType.GLUE)) {
+            return transactions.get(transactionHandle).getCachedMetadata(identity);
+        }
+        else {
+            return transactions.get(transactionHandle).get(identity);
+        }
     }
 
     public void commit(ConnectorTransactionHandle transaction)
@@ -79,6 +88,9 @@ public class IcebergTransactionManager
         @GuardedBy("this")
         private IcebergMetadata metadata;
 
+        @GuardedBy("this")
+        private CachedIcebergMetadata cachedMetadata;
+
         public synchronized Optional<IcebergMetadata> optionalGet()
         {
             return Optional.ofNullable(metadata);
@@ -92,6 +104,16 @@ public class IcebergTransactionManager
                 }
             }
             return metadata;
+        }
+
+        public synchronized IcebergMetadata getCachedMetadata(ConnectorIdentity identity)
+        {
+            if (cachedMetadata == null) {
+                try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+                    cachedMetadata = metadataFactory.createCachedMetadata(identity);
+                }
+            }
+            return cachedMetadata;
         }
     }
 }
