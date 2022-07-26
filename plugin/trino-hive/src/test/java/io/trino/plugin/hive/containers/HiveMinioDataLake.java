@@ -52,17 +52,17 @@ public class HiveMinioDataLake
     private State state = State.INITIAL;
     private MinioClient minioClient;
 
-    public HiveMinioDataLake(String bucketName)
+    public HiveMinioDataLake(String bucketName, boolean useHiveServer2)
     {
-        this(bucketName, HiveHadoop.DEFAULT_IMAGE);
+        this(bucketName, HiveHadoop.DEFAULT_IMAGE, useHiveServer2);
     }
 
-    public HiveMinioDataLake(String bucketName, String hiveHadoopImage)
+    public HiveMinioDataLake(String bucketName, String hiveHadoopImage, boolean useHiveServer2)
     {
-        this(bucketName, ImmutableMap.of("/etc/hadoop/conf/core-site.xml", getPathFromClassPathResource("hive_minio_datalake/hive-core-site.xml")), hiveHadoopImage);
+        this(bucketName, ImmutableMap.of("/etc/hadoop/conf/core-site.xml", getPathFromClassPathResource("hive_minio_datalake/hive-core-site.xml")), hiveHadoopImage, useHiveServer2);
     }
 
-    public HiveMinioDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage)
+    public HiveMinioDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage, boolean useHiveServer2)
     {
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
         Network network = closer.register(newNetwork());
@@ -78,7 +78,8 @@ public class HiveMinioDataLake
         HiveHadoop.Builder hiveHadoopBuilder = HiveHadoop.builder()
                 .withImage(hiveHadoopImage)
                 .withNetwork(network)
-                .withFilesToMount(hiveHadoopFilesToMount);
+                .withFilesToMount(hiveHadoopFilesToMount)
+                .withHiveServer2(useHiveServer2);
         this.hiveHadoop = closer.register(hiveHadoopBuilder.build());
     }
 

@@ -27,7 +27,7 @@ public abstract class BaseDeltaLakeAwsConnectorSmokeTest
     @Override
     protected HiveMinioDataLake createHiveMinioDataLake()
     {
-        hiveMinioDataLake = new HiveMinioDataLake(bucketName);
+        hiveMinioDataLake = new HiveMinioDataLake(bucketName, false);
         hiveMinioDataLake.start();
         return hiveMinioDataLake;
     }

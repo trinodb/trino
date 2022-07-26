@@ -73,7 +73,7 @@ public class TestDeltaLakeDynamicFiltering
             throws Exception
     {
         verify(new DynamicFilterConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
-        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(BUCKET_NAME));
+        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(BUCKET_NAME, false));
         hiveMinioDataLake.start();
 
         QueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(

@@ -42,7 +42,7 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
+        this.hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName, true));
         this.hiveMinioDataLake.start();
 
         DistributedQueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(

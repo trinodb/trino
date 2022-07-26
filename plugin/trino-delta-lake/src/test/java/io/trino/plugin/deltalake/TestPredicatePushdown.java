@@ -56,7 +56,7 @@ public class TestPredicatePushdown
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(BUCKET_NAME));
+        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(BUCKET_NAME, false));
         hiveMinioDataLake.start();
         return createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,

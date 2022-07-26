@@ -45,7 +45,7 @@ public class TestDeltaLakeDelete
     {
         verify(!new ParquetWriterConfig().isParquetOptimizedWriterEnabled(), "This test assumes the optimized Parquet writer is disabled by default");
 
-        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
+        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName, false));
         hiveMinioDataLake.start();
         QueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,

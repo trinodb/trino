@@ -43,7 +43,7 @@ public class TestDeltaLakePreferredPartitioning
                 !new ParquetWriterConfig().isParquetOptimizedWriterEnabled(),
                 "This test assumes the optimized Parquet writer is disabled by default");
 
-        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(TEST_BUCKET_NAME));
+        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(TEST_BUCKET_NAME, false));
         hiveMinioDataLake.start();
         return createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,

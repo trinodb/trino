@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.containers;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.log.Logger;
@@ -25,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.trino.testing.containers.TestContainers.getPathFromClassPathResource;
 import static java.lang.String.format;
 
 public class HiveHadoop
@@ -101,6 +103,17 @@ public class HiveHadoop
             this.image = DEFAULT_IMAGE;
             this.hostName = HOST_NAME;
             this.exposePorts = ImmutableSet.of(HIVE_METASTORE_PORT);
+        }
+
+        public HiveHadoop.Builder withHiveServer2(boolean useHiveServer2)
+        {
+            ImmutableMap.Builder<String, String> filesToMountBuilder = ImmutableMap.builder();
+            filesToMountBuilder.putAll(filesToMount);
+            if (!useHiveServer2) {
+                filesToMountBuilder.put("/etc/supervisord.conf", getPathFromClassPathResource("containers/hive_hadoop/supervisord.conf"));
+            }
+            filesToMount = filesToMountBuilder.buildOrThrow();
+            return self;
         }
 
         @Override

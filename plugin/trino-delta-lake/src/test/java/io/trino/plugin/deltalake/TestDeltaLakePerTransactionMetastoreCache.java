@@ -79,7 +79,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
         boolean createdDeltaLake = false;
         if (hiveMinioDataLake == null) {
             // share environment between testcases to speed things up
-            hiveMinioDataLake = new HiveMinioDataLake(BUCKET_NAME);
+            hiveMinioDataLake = new HiveMinioDataLake(BUCKET_NAME, false);
             hiveMinioDataLake.start();
             createdDeltaLake = true;
         }

@@ -310,7 +310,7 @@ public final class DeltaLakeQueryRunner
         {
             String bucketName = "test-bucket";
 
-            HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(bucketName);
+            HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(bucketName, false);
             hiveMinioDataLake.start();
             DistributedQueryRunner queryRunner = createS3DeltaLakeQueryRunner(
                     DELTA_CATALOG,

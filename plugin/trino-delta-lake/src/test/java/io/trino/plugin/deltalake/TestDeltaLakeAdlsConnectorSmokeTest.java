@@ -92,7 +92,8 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
         HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(
                 bucketName,
                 ImmutableMap.of("/etc/hadoop/conf/core-site.xml", hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString()),
-                HiveHadoop.HIVE3_IMAGE);
+                HiveHadoop.HIVE3_IMAGE,
+                false);
         hiveMinioDataLake.start();
         return hiveMinioDataLake;
     }

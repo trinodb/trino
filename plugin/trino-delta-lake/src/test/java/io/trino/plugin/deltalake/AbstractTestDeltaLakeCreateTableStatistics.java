@@ -84,7 +84,7 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
             throws Exception
     {
         this.bucketName = "delta-test-create-table-statistics-" + randomTableSuffix();
-        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
+        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName, false));
         hiveMinioDataLake.start();
         ImmutableMap.Builder<String, String> queryRunnerProperties = ImmutableMap.builder();
         queryRunnerProperties.putAll(additionalProperties());

@@ -53,7 +53,7 @@ public class TestDeltaLakeAnalyze
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
+        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName, false));
         hiveMinioDataLake.start();
         return DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
