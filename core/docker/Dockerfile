@@ -19,7 +19,7 @@ ENV JAVA_HOME /usr/lib/jvm/zulu17
 RUN \
     set -xeu && \
     apt-get update -q && \
-    apt-get install -y -q less python curl && \
+    apt-get install -y -q less python3 curl && \
     rm -rf /var/lib/apt/lists/* && \
     groupadd trino --gid 1000 && \
     useradd trino --uid 1000 --gid 1000 && \
