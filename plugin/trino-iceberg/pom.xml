@@ -16,6 +16,8 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.iceberg.version>0.14.0</dep.iceberg.version>
+
+        <air.test.parallel>instances</air.test.parallel>
     </properties>
 
     <dependencies>
