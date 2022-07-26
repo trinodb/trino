@@ -27,6 +27,7 @@ import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -75,6 +76,7 @@ import static io.trino.plugin.hive.util.CompressionConfigUtil.configureCompressi
 import static io.trino.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.toIntExact;
@@ -393,6 +395,8 @@ public class DeltaLakeUpdatablePageSource
         int unmodifiedColumnIndex = 0;
         int updatedColumnIndex = 0;
         Block[] fullPage = new Block[allDataColumns.size()];
+        ColumnarRow columnarRow = toColumnarRow(rowIdBlock);
+        ColumnarRow unmodifiedColumnsColumnarRow = null;
 
         for (int targetChannel = 0; targetChannel < allDataColumns.size(); targetChannel++) {
             if (updatedColumns.contains(allDataColumns.get(targetChannel))) {
@@ -400,8 +404,11 @@ public class DeltaLakeUpdatablePageSource
                 updatedColumnIndex++;
             }
             else {
-                Block unmodifiedColumns = rowIdBlock.getChildren().get(1);
-                fullPage[targetChannel] = unmodifiedColumns.getChildren().get(unmodifiedColumnIndex);
+                Block unmodifiedColumns = columnarRow.getField(1);
+                if (unmodifiedColumnsColumnarRow == null) {
+                    unmodifiedColumnsColumnarRow = toColumnarRow(unmodifiedColumns);
+                }
+                fullPage[targetChannel] = unmodifiedColumnsColumnarRow.getField(unmodifiedColumnIndex);
                 unmodifiedColumnIndex++;
             }
         }
