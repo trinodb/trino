@@ -15,6 +15,9 @@ package io.trino.tests.product.deltalake;
 
 import org.testng.annotations.Test;
 
+import java.util.List;
+
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
@@ -30,6 +33,7 @@ import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestDeltaLakeAlterTableCompatibility
         extends BaseTestDeltaLakeS3Storage
@@ -162,6 +166,32 @@ public class TestDeltaLakeAlterTableCompatibility
         try {
             assertQueryFailure(() -> onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".col IS 'test column comment'"))
                     .hasMessageMatching(".* Table .* requires Delta Lake writer version 3 which is not supported");
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoAlterTablePreservesTableMetadata()
+    {
+        String tableName = "test_trino_alter_table_preserves_table_metadata_" + randomTableSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        onDelta().executeQuery(format("" +
+                        "CREATE TABLE default.%s (col int) " +
+                        "USING DELTA LOCATION 's3://%s/%s'" +
+                        "TBLPROPERTIES ('delta.appendOnly' = true)",
+                tableName,
+                bucketName,
+                tableDirectory));
+        try {
+            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".col IS 'test column comment'");
+            onTrino().executeQuery("COMMENT ON TABLE delta.default." + tableName + " IS 'test table comment'");
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_column INT");
+
+            List<?> properties = getOnlyElement(onDelta().executeQuery("SHOW TBLPROPERTIES " + tableName + "(delta.appendOnly)").rows());
+            assertTrue(Boolean.parseBoolean((String) properties.get(1)));
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
