@@ -153,7 +153,7 @@ public class MetadataEntry
         }
     }
 
-    public static Map<String, String> buildDeltaMetadataConfiguration(Optional<Long> checkpointInterval)
+    public static Map<String, String> configurationForNewTable(Optional<Long> checkpointInterval)
     {
         return checkpointInterval
                 .map(value -> ImmutableMap.of(DELTA_CHECKPOINT_INTERVAL_PROPERTY, String.valueOf(value)))
