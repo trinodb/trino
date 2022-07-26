@@ -633,7 +633,7 @@ public class MemoryMetadata
         if (materializedViews.remove(viewName) == null) {
             throw new ViewNotFoundException(viewName);
         }
-        materializedViews.remove(viewName);
+        tableIds.remove(viewName);
     }
 
     @Override
