@@ -27,6 +27,7 @@ public class RangerAdminClientImpl
 {
     private static final String cacheFilename = "trino-policies.json";
 
+    @Override
     public ServicePolicies getServicePoliciesIfUpdated(long lastKnownVersion, long lastActivationTimeInMillis) throws Exception
     {
         String basedir = System.getProperty("basedir");
