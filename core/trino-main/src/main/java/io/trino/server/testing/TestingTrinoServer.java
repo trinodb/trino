@@ -42,6 +42,7 @@ import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogManagerModule;
 import io.trino.connector.ConnectorManager;
+import io.trino.connector.ConnectorServicesProvider;
 import io.trino.cost.StatsCalculator;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.eventlistener.EventListenerConfig;
@@ -58,6 +59,7 @@ import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.metadata.AllNodes;
+import io.trino.metadata.CatalogManager;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
@@ -439,6 +441,10 @@ public class TestingTrinoServer
     {
         CatalogHandle catalogHandle = connectorManager.createCatalog(catalogName, connectorName, properties);
         updateConnectorIdAnnouncement(announcer, catalogHandle, nodeManager);
+
+        EventListenerManager eventListenerManager = injector.getInstance(EventListenerManager.class);
+        connectorManager.getConnectorServices(catalogHandle).getEventListeners().forEach(eventListenerManager::addEventListener);
+
         return catalogHandle;
     }
 
