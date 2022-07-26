@@ -172,7 +172,9 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ex
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnComments;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnInvariants;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnMappingMode;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnsNullability;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isAppendOnly;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeSchemaAsJson;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
@@ -1204,6 +1206,15 @@ public class DeltaLakeMetadata
             String fileSystem = new Path(table.getLocation()).toUri().getScheme();
             throw new TrinoException(NOT_SUPPORTED, format("Inserts are not supported on the %s filesystem", fileSystem));
         }
+        Map<String, Boolean> columnNullabilities = getColumnsNullability(table.getMetadataEntry());
+        boolean nonNullableColumnsExist = columnNullabilities.values().stream().anyMatch(nullability -> !nullability);
+        if (nonNullableColumnsExist) {
+            throw new TrinoException(NOT_SUPPORTED, "Inserts are not supported for tables with non-nullable columns");
+        }
+        Map<String, String> columnInvariants = getColumnInvariants(table.getMetadataEntry());
+        if (!columnInvariants.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Inserts are not supported for tables with delta invariants");
+        }
         checkSupportedWriterVersion(session, table.getSchemaTableName());
 
         List<DeltaLakeColumnHandle> inputColumns = columns.stream()
@@ -1383,6 +1394,15 @@ public class DeltaLakeMetadata
         if (!allowWrite(session, handle)) {
             String fileSystem = new Path(handle.getLocation()).toUri().getScheme();
             throw new TrinoException(NOT_SUPPORTED, format("Updates are not supported on the %s filesystem", fileSystem));
+        }
+        Map<String, Boolean> columnNullabilities = getColumnsNullability(handle.getMetadataEntry());
+        boolean nonNullableColumnsExist = columnNullabilities.values().stream().anyMatch(nullability -> !nullability);
+        if (nonNullableColumnsExist) {
+            throw new TrinoException(NOT_SUPPORTED, "Updates are not supported for tables with non-nullable columns");
+        }
+        Map<String, String> columnInvariants = getColumnInvariants(handle.getMetadataEntry());
+        if (!columnInvariants.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Updates are not supported for tables with delta invariants");
         }
         checkSupportedWriterVersion(session, handle.getSchemaTableName());
 
