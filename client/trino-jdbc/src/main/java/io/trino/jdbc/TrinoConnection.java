@@ -507,7 +507,17 @@ public class TrinoConnection
         if (timeout < 0) {
             throw new SQLException("Timeout is negative");
         }
-        return !isClosed();
+
+        if (isClosed()) {
+            return false;
+        }
+
+        try (TrinoStatement statement = doCreateStatement()) {
+            return statement.internalExecute("SELECT 1");
+        }
+        catch (SQLException e) {
+            return false;
+        }
     }
 
     @Override

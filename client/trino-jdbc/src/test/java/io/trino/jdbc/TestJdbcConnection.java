@@ -292,6 +292,23 @@ public class TestJdbcConnection
     }
 
     @Test
+    public void testIsValid()
+            throws SQLException
+    {
+        try (Connection connection = createConnection()) {
+            assertTrue(connection.isValid(0));
+        }
+
+        try (Connection connection = createInvalidConnection()) {
+            assertFalse(connection.isValid(0));
+        }
+
+        Connection connection = createConnection();
+        connection.close();
+        assertFalse(connection.isValid(0));
+    }
+
+    @Test
     public void testApplicationName()
             throws SQLException
     {
@@ -550,6 +567,12 @@ public class TestJdbcConnection
     {
         String url = format("jdbc:trino://%s/hive/default?%s", server.getAddress(), extra);
         return DriverManager.getConnection(url, "admin", null);
+    }
+
+    private Connection createInvalidConnection()
+            throws SQLException
+    {
+        return DriverManager.getConnection("jdbc:trino://invalid:1234", "admin", null);
     }
 
     private static Set<String> listTables(Connection connection)
