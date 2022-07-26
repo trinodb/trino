@@ -177,7 +177,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.is
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeSchemaAsJson;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.validateType;
-import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.buildDeltaMetadataConfiguration;
+import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.configurationForNewTable;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.getMandatoryCurrentVersion;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
@@ -682,7 +682,7 @@ public class DeltaLakeMetadata
                         deltaLakeColumns,
                         partitionColumns,
                         columnComments,
-                        buildDeltaMetadataConfiguration(checkpointInterval),
+                        configurationForNewTable(checkpointInterval),
                         CREATE_TABLE_OPERATION,
                         session,
                         nodeVersion,
@@ -948,7 +948,7 @@ public class DeltaLakeMetadata
                     handle.getInputColumns(),
                     handle.getPartitionedBy(),
                     ImmutableMap.of(),
-                    buildDeltaMetadataConfiguration(handle.getCheckpointInterval()),
+                    configurationForNewTable(handle.getCheckpointInterval()),
                     CREATE_TABLE_AS_OPERATION,
                     session,
                     nodeVersion,
@@ -1017,8 +1017,6 @@ public class DeltaLakeMetadata
                     .map(column -> toColumnHandle(column, column.getName(), column.getType(), partitionColumns))
                     .collect(toImmutableList());
 
-            Optional<Long> checkpointInterval = DeltaLakeTableProperties.getCheckpointInterval(tableMetadata.getProperties());
-
             TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, handle.getLocation());
             appendTableEntries(
                     commitVersion,
@@ -1027,7 +1025,7 @@ public class DeltaLakeMetadata
                     columns,
                     partitionColumns,
                     getColumnComments(handle.getMetadataEntry()),
-                    buildDeltaMetadataConfiguration(checkpointInterval),
+                    handle.getMetadataEntry().getConfiguration(),
                     SET_TBLPROPERTIES_OPERATION,
                     session,
                     nodeVersion,
@@ -1064,8 +1062,6 @@ public class DeltaLakeMetadata
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
             comment.ifPresent(s -> columnComments.put(deltaLakeColumnHandle.getName(), s));
 
-            Optional<Long> checkpointInterval = DeltaLakeTableProperties.getCheckpointInterval(tableMetadata.getProperties());
-
             TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, deltaLakeTableHandle.getLocation());
             appendTableEntries(
                     commitVersion,
@@ -1074,7 +1070,7 @@ public class DeltaLakeMetadata
                     columns,
                     partitionColumns,
                     columnComments.buildOrThrow(),
-                    buildDeltaMetadataConfiguration(checkpointInterval),
+                    deltaLakeTableHandle.getMetadataEntry().getConfiguration(),
                     CHANGE_COLUMN_OPERATION,
                     session,
                     nodeVersion,
@@ -1111,8 +1107,6 @@ public class DeltaLakeMetadata
                 columnComments.put(newColumnMetadata.getName(), newColumnMetadata.getComment());
             }
 
-            Optional<Long> checkpointInterval = DeltaLakeTableProperties.getCheckpointInterval(tableMetadata.getProperties());
-
             TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, handle.getLocation());
             appendTableEntries(
                     commitVersion,
@@ -1121,7 +1115,7 @@ public class DeltaLakeMetadata
                     columnsBuilder.build(),
                     partitionColumns,
                     columnComments.buildOrThrow(),
-                    buildDeltaMetadataConfiguration(checkpointInterval),
+                    handle.getMetadataEntry().getConfiguration(),
                     ADD_COLUMN_OPERATION,
                     session,
                     nodeVersion,
