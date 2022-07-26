@@ -50,6 +50,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -275,6 +276,17 @@ public abstract class BaseJdbcClient
         SchemaTableName schemaTableName = tableHandle.getRequiredNamedRelation().getSchemaTableName();
         RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
 
+        Set<String> primaryKeyColumnNames = new HashSet<>();
+        try (Connection connection = connectionFactory.openConnection(session);
+                ResultSet resultSet = getPrimaryKeys(tableHandle, connection.getMetaData())) {
+            while (resultSet.next()) {
+                primaryKeyColumnNames.add(resultSet.getString("COLUMN_NAME"));
+            }
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+
         try (Connection connection = connectionFactory.openConnection(session);
                 ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
             int allColumns = 0;
@@ -305,6 +317,7 @@ public abstract class BaseJdbcClient
                         .setColumnType(mapping.getType())
                         .setNullable(nullable)
                         .setComment(comment)
+                        .setPrimaryKey(primaryKeyColumnNames.contains(columnName))
                         .build()));
                 if (columnMapping.isEmpty()) {
                     UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
@@ -347,6 +360,16 @@ public abstract class BaseJdbcClient
                 escapeNamePattern(remoteTableName.getSchemaName(), metadata.getSearchStringEscape()).orElse(null),
                 escapeNamePattern(Optional.of(remoteTableName.getTableName()), metadata.getSearchStringEscape()).orElse(null),
                 null);
+    }
+
+    protected ResultSet getPrimaryKeys(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
+            throws SQLException
+    {
+        RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
+        return metadata.getPrimaryKeys(
+                remoteTableName.getCatalogName().orElse(null),
+                remoteTableName.getSchemaName().orElse(null),
+                remoteTableName.getTableName());
     }
 
     @Override

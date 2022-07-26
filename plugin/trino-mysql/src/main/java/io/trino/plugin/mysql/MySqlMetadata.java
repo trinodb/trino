@@ -16,20 +16,23 @@ package io.trino.plugin.mysql;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorTableVersioningLayout;
 import io.trino.spi.connector.SchemaTableName;
 
-import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.connector.PointerType.TARGET_ID;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Objects.requireNonNull;
 
 public class MySqlMetadata
@@ -80,13 +83,18 @@ public class MySqlMetadata
         if (handle.getEndVersion().isEmpty()) {
             return Optional.empty();
         }
-        // find "id" column
-        Map<String, ColumnHandle> columnHandle = getColumnHandles(session, table);
-        Optional<ColumnHandle> idColumn = columnHandle.entrySet().stream()
-                .filter(entry -> entry.getKey().equals("id"))
-                .map(Map.Entry::getValue)
-                .findAny();
-        return idColumn.map(id -> new ConnectorTableVersioningLayout(handle.withStrictVersioning(true), ImmutableSet.of(id), true));
+        Set<JdbcColumnHandle> primaryKeys = getColumnHandles(session, table).values().stream()
+                .map(JdbcColumnHandle.class::cast)
+                .filter(JdbcColumnHandle::isPrimaryKey)
+                .collect(toImmutableSet());
+        if (primaryKeys.size() != 1) {
+            return Optional.empty();
+        }
+        JdbcColumnHandle primaryKeyColumn = getOnlyElement(primaryKeys);
+        if (primaryKeyColumn.getColumnType() != BIGINT && primaryKeyColumn.getColumnType() != INTEGER) {
+            return Optional.empty();
+        }
+        return Optional.of(new ConnectorTableVersioningLayout(handle.withStrictVersioning(true), ImmutableSet.of(primaryKeyColumn), true));
     }
 
     @Override

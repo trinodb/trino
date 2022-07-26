@@ -34,11 +34,12 @@ public final class JdbcColumnHandle
     private final Type columnType;
     private final boolean nullable;
     private final Optional<String> comment;
+    private final boolean primaryKey;
 
     // All and only required fields
     public JdbcColumnHandle(String columnName, JdbcTypeHandle jdbcTypeHandle, Type columnType)
     {
-        this(columnName, jdbcTypeHandle, columnType, true, Optional.empty());
+        this(columnName, jdbcTypeHandle, columnType, true, Optional.empty(), false);
     }
 
     /**
@@ -51,13 +52,15 @@ public final class JdbcColumnHandle
             @JsonProperty("jdbcTypeHandle") JdbcTypeHandle jdbcTypeHandle,
             @JsonProperty("columnType") Type columnType,
             @JsonProperty("nullable") boolean nullable,
-            @JsonProperty("comment") Optional<String> comment)
+            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("primaryKey") boolean primaryKey)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.jdbcTypeHandle = requireNonNull(jdbcTypeHandle, "jdbcTypeHandle is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.nullable = nullable;
         this.comment = requireNonNull(comment, "comment is null");
+        this.primaryKey = primaryKey;
     }
 
     @JsonProperty
@@ -88,6 +91,12 @@ public final class JdbcColumnHandle
     public Optional<String> getComment()
     {
         return comment;
+    }
+
+    @JsonProperty
+    public boolean isPrimaryKey()
+    {
+        return primaryKey;
     }
 
     public ColumnMetadata getColumnMetadata()
@@ -153,6 +162,7 @@ public final class JdbcColumnHandle
         private Type columnType;
         private boolean nullable = true;
         private Optional<String> comment = Optional.empty();
+        private boolean primaryKey;
 
         public Builder() {}
 
@@ -195,6 +205,12 @@ public final class JdbcColumnHandle
             return this;
         }
 
+        public Builder setPrimaryKey(boolean primaryKey)
+        {
+            this.primaryKey = primaryKey;
+            return this;
+        }
+
         public JdbcColumnHandle build()
         {
             return new JdbcColumnHandle(
@@ -202,7 +218,8 @@ public final class JdbcColumnHandle
                     jdbcTypeHandle,
                     columnType,
                     nullable,
-                    comment);
+                    comment,
+                    primaryKey);
         }
     }
 }
