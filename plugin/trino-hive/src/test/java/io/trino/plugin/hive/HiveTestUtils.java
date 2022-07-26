@@ -35,7 +35,10 @@ import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
 import io.trino.plugin.hive.rubix.RubixEnabledConfig;
 import io.trino.plugin.hive.s3.HiveS3Config;
 import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
+import io.trino.plugin.hive.s3select.IonSqlQueryBuilderProvider;
+import io.trino.plugin.hive.s3select.S3SelectLineRecordReaderProvider;
 import io.trino.plugin.hive.s3select.S3SelectRecordCursorProvider;
+import io.trino.plugin.hive.s3select.S3SelectSerDeDataTypeMapper;
 import io.trino.plugin.hive.s3select.TrinoS3ClientFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.block.Block;
@@ -156,7 +159,8 @@ public final class HiveTestUtils
     public static Set<HiveRecordCursorProvider> getDefaultHiveRecordCursorProviders(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
     {
         return ImmutableSet.<HiveRecordCursorProvider>builder()
-                .add(new S3SelectRecordCursorProvider(hdfsEnvironment, new TrinoS3ClientFactory(hiveConfig)))
+                .add(new S3SelectRecordCursorProvider(hdfsEnvironment, new TrinoS3ClientFactory(hiveConfig), new S3SelectLineRecordReaderProvider(),
+                        new S3SelectSerDeDataTypeMapper(), new IonSqlQueryBuilderProvider()))
                 .build();
     }
 
