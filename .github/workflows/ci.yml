@@ -61,7 +61,7 @@ jobs:
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN clean install -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
+          $RETRY $MAVEN clean verify -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -90,17 +90,17 @@ jobs:
           cache: 'maven'
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
-      - name: Maven Install
+      - name: Maven Package
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN clean package ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           # Run Error Prone on one module with a retry to ensure all runtime dependencies are fetched
-          $RETRY $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P gib,errorprone-compiler -pl ':trino-spi'
+          $RETRY $MAVEN ${MAVEN_TEST} -T C1 clean verify -DskipTests -P gib,errorprone-compiler -pl ':trino-spi'
           # The main Error Prone run
-          $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P gib,errorprone-compiler \
+          $MAVEN ${MAVEN_TEST} -T C1 clean verify -DskipTests -P gib,errorprone-compiler \
             -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
 
   web-ui-checks:
@@ -164,6 +164,9 @@ jobs:
           path: |
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
+      - name: Clean local Maven repo
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: rm -rf ~/.m2/repository
 
   hive-tests:
     runs-on: ubuntu-latest
@@ -288,6 +291,9 @@ jobs:
           path: |
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
+      - name: Clean local Maven repo
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: rm -rf ~/.m2/repository
 
   test-other-modules:
     runs-on: ubuntu-latest
@@ -360,6 +366,9 @@ jobs:
           path: |
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
+      - name: Clean local Maven repo
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: rm -rf ~/.m2/repository
 
   build-test-matrix:
     runs-on: ubuntu-latest
@@ -527,6 +536,9 @@ jobs:
           path: |
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
+      - name: Clean local Maven repo
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: rm -rf ~/.m2/repository
 
   build-pt:
     runs-on: ubuntu-latest
@@ -593,6 +605,9 @@ jobs:
             testing/trino-product-tests/target/*-executable.jar
             client/trino-cli/target/*-executable.jar
           retention-days: 1
+      - name: Clean local Maven repo
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: rm -rf ~/.m2/repository
 
   pt:
     runs-on: ubuntu-latest
