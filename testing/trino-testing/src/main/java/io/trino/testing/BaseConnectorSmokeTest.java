@@ -144,6 +144,11 @@ public abstract class BaseConnectorSmokeTest
         return "(a bigint, b double)";
     }
 
+    protected String expectedValues(String values)
+    {
+        return format("SELECT CAST(a AS bigint), CAST(b AS double) FROM (VALUES %s) AS t (a, b)", values);
+    }
+
     @Test
     public void testCreateTableAsSelect()
     {
@@ -172,9 +177,9 @@ public abstract class BaseConnectorSmokeTest
         }
 
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", getCreateTableDefaultDefinition())) {
-            assertUpdate("INSERT INTO " + table.getName() + " (a, b) VALUES (42, -38.5)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (a, b) VALUES (42, -38.5), (13, 99.9)", 2);
             assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
-                    .matches("VALUES (BIGINT '42', -385e-1)");
+                    .matches(expectedValues("(42, -38.5), (13, 99.9)"));
         }
     }
 
@@ -241,12 +246,18 @@ public abstract class BaseConnectorSmokeTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update", "AS TABLE tpch.tiny.nation")) {
-            String tableName = table.getName();
-            assertUpdate("UPDATE " + tableName + " SET nationkey = 100 + nationkey WHERE regionkey = 2", 5);
-            assertThat(query("SELECT * FROM " + tableName))
-                    .skippingTypesCheck()
-                    .matches("SELECT IF(regionkey=2, nationkey + 100, nationkey) nationkey, name, regionkey, comment FROM tpch.tiny.nation");
+        if (!hasBehavior(SUPPORTS_INSERT)) {
+            throw new AssertionError("Cannot test UPDATE without INSERT");
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_", getCreateTableDefaultDefinition())) {
+            assertUpdate("INSERT INTO " + table.getName() + " (a, b) SELECT regionkey, regionkey * 2.5 FROM region", "SELECT count(*) FROM region");
+            assertThat(query("SELECT a, b FROM " + table.getName()))
+                    .matches(expectedValues("(0, 0.0), (1, 2.5), (2, 5.0), (3, 7.5), (4, 10.0)"));
+
+            assertUpdate("UPDATE " + table.getName() + " SET b = b + 1.2 WHERE a % 2 = 0", 3);
+            assertThat(query("SELECT a, b FROM " + table.getName()))
+                    .matches(expectedValues("(0, 1.2), (1, 2.5), (2, 6.2), (3, 7.5), (4, 11.2)"));
         }
     }
 
