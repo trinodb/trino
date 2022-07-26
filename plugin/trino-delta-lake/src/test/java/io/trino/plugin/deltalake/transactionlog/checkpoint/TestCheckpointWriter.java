@@ -34,6 +34,7 @@ import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Int128;
@@ -52,6 +53,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -63,6 +65,7 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.TRANSACTION;
+import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -393,7 +396,13 @@ public class TestCheckpointWriter
             Object statsValue = stats.get(key);
             if (statsValue instanceof RowBlock) {
                 RowBlock rowBlock = (RowBlock) statsValue;
-                comparableStats.put(key, rowBlock.getChildren().stream().map(Block::getLogicalSizeInBytes).collect(toImmutableList()));
+                ColumnarRow columnarRow = toColumnarRow(rowBlock);
+                int size = columnarRow.getFieldCount();
+                ImmutableList<Long> logicalSizes = IntStream.range(0, size)
+                        .mapToObj(columnarRow::getField)
+                        .map(Block::getLogicalSizeInBytes)
+                        .collect(toImmutableList());
+                comparableStats.put(key, logicalSizes);
             }
             else {
                 comparableStats.put(key, statsValue);
