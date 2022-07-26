@@ -82,6 +82,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                     .asList();
 
     private static final List<String> NON_TPCH_TABLES = ImmutableList.of(
+            "invariants",
             "person",
             "foo",
             "bar",
