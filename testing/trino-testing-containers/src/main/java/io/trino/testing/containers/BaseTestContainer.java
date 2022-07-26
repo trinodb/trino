@@ -131,6 +131,7 @@ public abstract class BaseTestContainer
 
     public void stop()
     {
+        log.error(container.getLogs());
         container.stop();
     }
 
