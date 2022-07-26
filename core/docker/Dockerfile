@@ -22,7 +22,7 @@ RUN \
     rm -rf /var/cache/yum && \
     alternatives --set python /usr/bin/python3 && \
     groupadd trino --gid 1000 && \
-    useradd trino --uid 1000 --gid 1000 && \
+    useradd trino --uid 1000 --gid 1000 --create-home && \
     mkdir -p /usr/lib/trino /data/trino && \
     chown -R "trino:trino" /usr/lib/trino /data/trino
 
