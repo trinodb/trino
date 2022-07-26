@@ -373,6 +373,34 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                                         .collect(toImmutableList())));
     }
 
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    public void testPreventingWritesToTableWithNotNullableColumns()
+    {
+        String tableName = "test_preventing_inserts_into_table_with_not_nullable_columns_" + randomTableSuffix();
+
+        try {
+            onDelta().executeQuery("CREATE TABLE default." + tableName + "( " +
+                    " id INT NOT NULL, " +
+                    " a_number INT) " +
+                    "USING DELTA " +
+                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
+
+            onDelta().executeQuery("INSERT INTO " + tableName + " VALUES(1,1)");
+            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (2, 2)"))
+                    .hasMessageContaining("Inserts are not supported for tables with non-nullable columns");
+            assertThat(onTrino().executeQuery("SELECT * FROM " + tableName))
+                    .containsOnly(row(1, 1));
+            onDelta().executeQuery("UPDATE " + tableName + " SET a_number = 2 WHERE id = 1");
+            assertQueryFailure(() -> onTrino().executeQuery("UPDATE " + tableName + " SET a_number = 3 WHERE id = 1"))
+                    .hasMessageContaining("Updates are not supported for tables with non-nullable columns");
+            assertThat(onTrino().executeQuery("SELECT * FROM " + tableName))
+                    .containsOnly(row(1, 2));
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
     @DataProvider
     public Object[][] compressionCodecs()
     {

@@ -47,6 +47,7 @@ import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
@@ -344,22 +345,7 @@ public final class DeltaLakeSchemaSupport
 
     public static Map<String, String> getColumnComments(MetadataEntry metadataEntry)
     {
-        return Optional.ofNullable(metadataEntry.getSchemaString())
-                .map(DeltaLakeSchemaSupport::getColumnComments)
-                .orElseThrow(() -> new IllegalStateException("Serialized schema not found in transaction log for " + metadataEntry.getName()));
-    }
-
-    private static Map<String, String> getColumnComments(String json)
-    {
-        try {
-            return stream(OBJECT_MAPPER.readTree(json).get("fields").elements())
-                    .map(field -> new AbstractMap.SimpleEntry<>(field.get("name").asText(), getComment(field)))
-                    .filter(entry -> entry.getValue() != null)
-                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-        }
-        catch (JsonProcessingException e) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, getLocation(e), "Failed to parse serialized schema: " + json, e);
-        }
+        return getColumnProperties(metadataEntry, DeltaLakeSchemaSupport::getComment);
     }
 
     @Nullable
@@ -367,6 +353,43 @@ public final class DeltaLakeSchemaSupport
     {
         JsonNode comment = node.get("metadata").get("comment");
         return comment == null ? null : comment.asText();
+    }
+
+    public static Map<String, Boolean> getColumnsNullability(MetadataEntry metadataEntry)
+    {
+        return getColumnProperties(metadataEntry, node -> node.get("nullable").asBoolean());
+    }
+
+    public static Map<String, String> getColumnInvariants(MetadataEntry metadataEntry)
+    {
+        return getColumnProperties(metadataEntry, DeltaLakeSchemaSupport::getInvariants);
+    }
+
+    @Nullable
+    private static String getInvariants(JsonNode node)
+    {
+        JsonNode invariants = node.get("metadata").get("delta.invariants");
+        return invariants == null ? null : invariants.asText();
+    }
+
+    public static <T> Map<String, T> getColumnProperties(MetadataEntry metadataEntry, Function<JsonNode, T> extractor)
+    {
+        return Optional.ofNullable(metadataEntry.getSchemaString())
+                .map(json -> getColumnProperty(json, extractor))
+                .orElseThrow(() -> new IllegalStateException("Serialized schema not found in transaction log for " + metadataEntry.getName()));
+    }
+
+    private static <T> Map<String, T> getColumnProperty(String json, Function<JsonNode, T> extractor)
+    {
+        try {
+            return stream(OBJECT_MAPPER.readTree(json).get("fields").elements())
+                    .map(field -> new AbstractMap.SimpleEntry<>(field.get("name").asText(), extractor.apply(field)))
+                    .filter(entry -> entry.getValue() != null)
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        }
+        catch (JsonProcessingException e) {
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, getLocation(e), "Failed to parse serialized schema: " + json, e);
+        }
     }
 
     private static Type buildType(TypeManager typeManager, JsonNode typeNode, boolean usePhysicalName)

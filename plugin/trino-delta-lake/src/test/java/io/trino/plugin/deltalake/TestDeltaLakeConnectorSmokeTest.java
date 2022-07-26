@@ -160,6 +160,16 @@ public class TestDeltaLakeConnectorSmokeTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testReadingTableWithDeltaColumnInvariant()
+    {
+        assertThat(getQueryRunner().execute("SELECT * FROM invariants").getRowCount()).isEqualTo(1);
+        assertThatThrownBy(() -> query("INSERT INTO invariants VALUES(2)"))
+                .hasMessageContaining("Inserts are not supported for tables with delta invariants");
+        assertThatThrownBy(() -> query("UPDATE invariants SET dummy = 3 WHERE dummy = 1"))
+                .hasMessageContaining("Updates are not supported for tables with delta invariants");
+    }
+
     @DataProvider
     public static Object[][] writesLockInvalidContentsValuesProvider()
     {
