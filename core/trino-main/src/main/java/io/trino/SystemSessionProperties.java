@@ -182,6 +182,7 @@ public final class SystemSessionProperties
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
     public static final String FAULT_TOLERANT_EXECUTION_FORCE_PREFERRED_WRITE_PARTITIONING_ENABLED = "fault_tolerant_execution_force_preferred_write_partitioning_enabled";
     public static final String PAGE_PARTITIONING_BUFFER_POOL_SIZE = "page_partitioning_buffer_pool_size";
+    public static final String IGNORE_BROKEN_CATALOGS = "ignore_broken_catalogs";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -911,7 +912,12 @@ public final class SystemSessionProperties
                 integerProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE,
                         "Maximum number of free buffers in the per task partitioned page buffer pool. Setting this to zero effectively disables the pool",
                         taskManagerConfig.getPagePartitioningBufferPoolSize(),
-                        true));
+                        true),
+                booleanProperty(
+                        IGNORE_BROKEN_CATALOGS,
+                        "Ignore broken catalogs in metadata retrieval",
+                        false,
+                        false));
     }
 
     @Override
@@ -1623,5 +1629,10 @@ public final class SystemSessionProperties
     public static int getPagePartitioningBufferPoolSize(Session session)
     {
         return session.getSystemProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE, Integer.class);
+    }
+
+    public static boolean isIgnoreBrokenCatalogs(Session session)
+    {
+        return session.getSystemProperty(IGNORE_BROKEN_CATALOGS, Boolean.class);
     }
 }
