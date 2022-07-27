@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
@@ -137,17 +138,10 @@ public class Server
 
             // Connector event listeners are only supported for statically loaded catalogs
             // TODO: remove connector event listeners or add support for dynamic loading from connector
-            CatalogManager catalogManager = injector.getInstance(CatalogManager.class);
-            ConnectorServicesProvider connectorServicesProvider = injector.getInstance(ConnectorServicesProvider.class);
-            EventListenerManager eventListenerManager = injector.getInstance(EventListenerManager.class);
-            catalogManager.getCatalogNames().stream()
-                    .map(catalogManager::getCatalog)
-                    .flatMap(Optional::stream)
-                    .map(Catalog::getCatalogHandle)
-                    .map(connectorServicesProvider::getConnectorServices)
-                    .map(ConnectorServices::getEventListeners)
-                    .flatMap(Collection::stream)
-                    .forEach(eventListenerManager::addEventListener);
+            addConnectorEventListeners(
+                    injector.getInstance(CatalogManager.class),
+                    injector.getInstance(ConnectorServicesProvider.class),
+                    injector.getInstance(EventListenerManager.class));
 
             // TODO: remove this huge hack
             updateConnectorIds(injector.getInstance(Announcer.class), injector.getInstance(CatalogManager.class));
@@ -187,6 +181,22 @@ public class Server
             log.error(e);
             System.exit(1);
         }
+    }
+
+    @VisibleForTesting
+    public static void addConnectorEventListeners(
+            CatalogManager catalogManager,
+            ConnectorServicesProvider connectorServicesProvider,
+            EventListenerManager eventListenerManager)
+    {
+        catalogManager.getCatalogNames().stream()
+                .map(catalogManager::getCatalog)
+                .flatMap(Optional::stream)
+                .map(Catalog::getCatalogHandle)
+                .map(connectorServicesProvider::getConnectorServices)
+                .map(ConnectorServices::getEventListeners)
+                .flatMap(Collection::stream)
+                .forEach(eventListenerManager::addEventListener);
     }
 
     @SuppressWarnings("unchecked")
