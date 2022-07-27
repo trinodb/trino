@@ -15,6 +15,7 @@ import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.jmx.JmxPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.Plugin;
 import io.trino.spi.security.Identity;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
@@ -82,12 +83,13 @@ public class SnowflakeQueryRunner
         extraProperties.forEach(builder::addExtraProperty);
         DistributedQueryRunner queryRunner = builder.build();
 
-        createSnowflakeQueryRunner(server, connectorName, warehouse, database, connectorProperties, createUserContextView, tpchTables, queryRunner.getDefaultSession(), queryRunner);
+        createSnowflakeQueryRunner(server, new TestingSnowflakePlugin(), connectorName, warehouse, database, connectorProperties, createUserContextView, tpchTables, queryRunner.getDefaultSession(), queryRunner);
         return queryRunner;
     }
 
     protected static void createSnowflakeQueryRunner(
             SnowflakeServer server,
+            Plugin snowflakePlugin,
             String connectorName,
             Optional<String> warehouse,
             Optional<String> database,
@@ -119,7 +121,7 @@ public class SnowflakeQueryRunner
             warehouse.ifPresent(warehouseName -> properties.put("snowflake.warehouse", warehouseName));
             database.ifPresent(databaseName -> properties.put("snowflake.database", databaseName));
 
-            queryRunner.installPlugin(new TestingSnowflakePlugin());
+            queryRunner.installPlugin(snowflakePlugin);
             queryRunner.createCatalog(SNOWFLAKE_CATALOG, connectorName, properties.buildOrThrow());
 
             copyTpchTables(queryRunner, TPCH_CATALOG, TINY_SCHEMA_NAME, session, tpchTables);
