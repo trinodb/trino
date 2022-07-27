@@ -14,9 +14,17 @@
 package io.trino.plugin.deltalake.transactionlog;
 
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import io.trino.plugin.base.type.DecodedTimestamp;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -29,26 +37,40 @@ import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 
+import javax.annotation.Nullable;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
+import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_INSTANT;
@@ -69,6 +91,114 @@ public class DeltaLakeParquetStatisticsUtils
                         !metadata.getStatistics().isNumNullsSet() || metadata.getStatistics().isEmpty() ||
                         // Columns with NaN values are marked by `hasNonNullValue` = false by the Parquet reader. See issue: https://issues.apache.org/jira/browse/PARQUET-1246
                         (!metadata.getStatistics().hasNonNullValue() && metadata.getStatistics().getNumNulls() != metadata.getValueCount()));
+    }
+
+    @Nullable
+    public static Object jsonValueToTrinoValue(Type type, @Nullable Object jsonValue)
+    {
+        if (jsonValue == null) {
+            return null;
+        }
+
+        if (type == SMALLINT || type == TINYINT || type == INTEGER) {
+            return (long) (int) jsonValue;
+        }
+        if (type == BIGINT) {
+            return (long) (int) jsonValue;
+        }
+        if (type == REAL) {
+            return (long) floatToRawIntBits((float) (double) jsonValue);
+        }
+        if (type == DOUBLE) {
+            return (double) jsonValue;
+        }
+        if (type instanceof DecimalType decimalType) {
+            BigDecimal decimal = new BigDecimal((String) jsonValue);
+
+            if (decimalType.isShort()) {
+                return Decimals.encodeShortScaledValue(decimal, decimalType.getScale());
+            }
+            return Decimals.encodeScaledValue(decimal, decimalType.getScale());
+        }
+        if (type instanceof VarcharType) {
+            return utf8Slice((String) jsonValue);
+        }
+        if (type == DateType.DATE) {
+            return LocalDate.parse((String) jsonValue).toEpochDay();
+        }
+        if (type == TIMESTAMP_MILLIS) {
+            return Instant.parse((String) jsonValue).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+        }
+        if (type instanceof RowType rowType) {
+            Map<?, ?> values = (Map<?, ?>) jsonValue;
+            List<Type> fieldTypes = rowType.getTypeParameters();
+            BlockBuilder blockBuilder = new RowBlockBuilder(fieldTypes, null, 1);
+            BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
+            for (int i = 0; i < values.size(); ++i) {
+                Type fieldType = fieldTypes.get(i);
+                String fieldName = rowType.getFields().get(i).getName().orElseThrow(() -> new IllegalArgumentException("Field name must exist"));
+                Object fieldValue = jsonValueToTrinoValue(fieldType, values.remove(fieldName));
+                writeNativeValue(fieldType, singleRowBlockWriter, fieldValue);
+            }
+            checkState(values.isEmpty(), "All fields must be converted into Trino value: %s", values);
+
+            blockBuilder.closeEntry();
+            return blockBuilder.build();
+        }
+
+        throw new UnsupportedOperationException("Unsupported type: " + type);
+    }
+
+    public static Map<String, Object> toJsonValues(Map<String, Type> columnTypeMapping, Map<String, Object> values)
+    {
+        Map<String, Object> jsonValues = new HashMap<>();
+        for (Map.Entry<String, Object> value : values.entrySet()) {
+            Type type = columnTypeMapping.get(value.getKey());
+            // TODO: Add support for row type
+            if (type instanceof ArrayType || type instanceof MapType || type instanceof RowType) {
+                continue;
+            }
+            jsonValues.put(value.getKey(), toJsonValue(columnTypeMapping.get(value.getKey()), value.getValue()));
+        }
+        return jsonValues;
+    }
+
+    @Nullable
+    private static Object toJsonValue(Type type, @Nullable Object value)
+    {
+        if (value == null) {
+            return null;
+        }
+
+        if (type == SMALLINT || type == TINYINT || type == INTEGER || type == BIGINT) {
+            return value;
+        }
+        if (type == REAL) {
+            return intBitsToFloat(toIntExact((long) value));
+        }
+        if (type == DOUBLE) {
+            return value;
+        }
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            if (decimalType.isShort()) {
+                return Decimals.toString((long) value, decimalType.getScale());
+            }
+            return Decimals.toString((Int128) value, decimalType.getScale());
+        }
+
+        if (type instanceof VarcharType) {
+            return ((Slice) value).toStringUtf8();
+        }
+        if (type == DateType.DATE) {
+            return LocalDate.ofEpochDay((long) value).format(ISO_LOCAL_DATE);
+        }
+        if (type == TIMESTAMP_TZ_MILLIS) {
+            Instant ts = Instant.ofEpochMilli(unpackMillisUtc((long) value));
+            return ISO_INSTANT.format(ZonedDateTime.ofInstant(ts, UTC));
+        }
+
+        throw new UnsupportedOperationException("Unsupported type: " + type);
     }
 
     public static Map<String, Object> jsonEncodeMin(Map<String, Optional<Statistics<?>>> stats, Map<String, Type> typeForColumn)

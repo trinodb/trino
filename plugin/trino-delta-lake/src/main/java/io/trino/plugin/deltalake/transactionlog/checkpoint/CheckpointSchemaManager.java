@@ -106,7 +106,7 @@ public class CheckpointSchemaManager
         return metadataEntryType;
     }
 
-    public RowType getAddEntryType(MetadataEntry metadataEntry)
+    public RowType getAddEntryType(MetadataEntry metadataEntry, boolean requireWriteStatsAsJson, boolean requireWriteStatsAsStruct)
     {
         List<DeltaLakeColumnMetadata> allColumns = extractSchema(metadataEntry, typeManager);
         List<DeltaLakeColumnMetadata> minMaxColumns = columnsWithStats(metadataEntry, typeManager);
@@ -143,8 +143,12 @@ public class CheckpointSchemaManager
         addFields.add(RowType.field("size", BigintType.BIGINT));
         addFields.add(RowType.field("modificationTime", BigintType.BIGINT));
         addFields.add(RowType.field("dataChange", BooleanType.BOOLEAN));
-        addFields.add(RowType.field("stats", VarcharType.createUnboundedVarcharType()));
-        addFields.add(RowType.field("stats_parsed", RowType.from(statsColumns.build())));
+        if (requireWriteStatsAsJson) {
+            addFields.add(RowType.field("stats", VarcharType.createUnboundedVarcharType()));
+        }
+        if (requireWriteStatsAsStruct) {
+            addFields.add(RowType.field("stats_parsed", RowType.from(statsColumns.build())));
+        }
         addFields.add(RowType.field("tags", stringMap));
 
         return RowType.from(addFields.build());
