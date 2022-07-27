@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
+        <version>440-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>trino-plugin-archetype-builder</artifactId>
+    <packaging>pom</packaging>
+    <description>Trino - Maven Archetype Builder for Trino Plugins</description>
+
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-example-plugin</artifactId>
+            <version>0.1-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-resources-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-sources</id>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <phase>generate-sources</phase>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/trino-example-plugin</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${project.basedir}/../trino-example-plugin</directory>
+                                    <excludes>
+                                        <exclude>**/*.iml</exclude>
+                                        <exclude>target</exclude>
+                                    </excludes>
+                                    <filtering>false</filtering>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>overwrite-generated-meta</id>
+                        <!-- Run after archetype:create-from-project -->
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <phase>process-sources</phase>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/trino-example-plugin/target/generated-sources/archetype/src/main/resources/META-INF/maven</outputDirectory>
+                            <overwrite>true</overwrite>
+                            <resources>
+                                <resource>
+                                    <directory>${project.basedir}/src/main/resources/META-INF/maven</directory>
+                                    <filtering>false</filtering>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>overwrite-generated-pom</id>
+                        <!-- Run after archetype:create-from-project -->
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <phase>process-sources</phase>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/trino-example-plugin/target/generated-sources/archetype</outputDirectory>
+                            <overwrite>true</overwrite>
+                            <resources>
+                                <resource>
+                                    <directory>${project.basedir}/src/main/resources</directory>
+                                    <filtering>true</filtering>
+                                    <includes>
+                                        <include>pom.xml</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-invoker-plugin</artifactId>
+                <version>3.3.0</version>
+                <configuration>
+                    <pomIncludes>
+                        <pomInclude>pom.xml</pomInclude>
+                    </pomIncludes>
+                    <projectsDirectory>${project.build.directory}/trino-example-plugin/target/generated-sources/archetype</projectsDirectory>
+                    <noLog>false</noLog>
+                    <streamLogs>true</streamLogs>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>generate-archetype</id>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <phase>generate-sources</phase>
+                        <configuration>
+                            <projectsDirectory>${project.build.directory}/trino-example-plugin</projectsDirectory>
+
+                            <goals>
+                                <goal>org.apache.maven.plugins:maven-archetype-plugin:3.2.1:create-from-project -Darchetype.properties=${project.basedir}/archetype.properties -Darchetype.postPhase=validate</goal>
+                            </goals>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>package-archetype</id>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <phase>package</phase>
+                        <configuration>
+                            <goals>
+                                <!-- gib could be enabled by the CI workflow but it would fail -->
+                                <goal>package -Dgib.disable</goal>
+                            </goals>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>install-archetype</id>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <phase>install</phase>
+                        <configuration>
+                            <goals>
+                                <goal>install -Dgib.disable</goal>
+                            </goals>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>deploy-archetype</id>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <phase>deploy</phase>
+                        <configuration>
+                            <goals>
+                                <goal>deploy -Dgib.disable</goal>
+                            </goals>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

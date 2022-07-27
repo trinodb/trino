@@ -87,6 +87,41 @@ of a library that Trino uses internally.
 For an example `pom.xml` file, see the example HTTP connector in the
 `plugin/trino-example-http` directory in the Trino source tree.
 
+## Building plugins via Maven Archetype
+
+To generate a complete example plugin Maven project, use the Maven Archetype.
+It will require the following parameters:
+
+* `archetypeVersion` should match a released Trino version
+* `groupId` and `artifactId` are chosen by the plugin author
+* `classPrefix` is used as the prefix for all Java classes in the plugin
+* `connectorName` is used as the name of the connector
+
+After creating the project, it also needs to be initialized as a git repository
+and commited, before it can be built. Example:
+
+```bash
+mvn archetype:generate \
+  -DarchetypeGroupId=io.trino \
+  -DarchetypeArtifactId=trino-plugin-archetype \
+  -DarchetypeVersion=$trinoVersion \
+  -DgroupId=$groupId \
+  -DartifactId=$artifactId \
+  -DclassPrefix=$classPrefix \
+  -DconnectorName=$connectorName
+
+cd $artifactId
+git init
+git add --all .
+git commit -m "Initial commit"
+
+mvn clean package
+```
+
+The example connector provides a single table with 3 columns and queries
+for table table return a single row. To change that, start with modifying
+the `ExampleMetadata` and `ExampleRecordSetProvider` classes.
+
 ## Deploying a custom plugin
 
 Because Trino plugins use the `trino-plugin` packaging type, building

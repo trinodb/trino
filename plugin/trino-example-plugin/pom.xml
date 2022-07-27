@@ -186,11 +186,6 @@
                 <artifactId>trino-maven-plugin</artifactId>
                 <version>13</version>
                 <extensions>true</extensions>
-                <configuration>
-                    <pluginClassName>io.trino.spi.Plugin</pluginClassName>
-                    <spiGroupId>io.trino</spiGroupId>
-                    <spiArtifactId>trino-spi</spiArtifactId>
-                </configuration>
             </plugin>
 
             <plugin>
