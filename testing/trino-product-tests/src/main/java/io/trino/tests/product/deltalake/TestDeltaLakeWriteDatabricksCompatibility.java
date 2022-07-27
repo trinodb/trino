@@ -25,6 +25,7 @@ import java.util.stream.Stream;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_73;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
@@ -201,6 +202,87 @@ public class TestDeltaLakeWriteDatabricksCompatibility
                 row(3, 3, 1)))) {
             onTrino().executeQuery(format("DELETE FROM delta.default.%s WHERE %s = 0", table.name(), partitionColumn));
             assertTable(table, table.rows().filter(not(row -> row.partition() == 0)));
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoRespectsDatabricksSettingNonNullableColumn()
+    {
+        String tableName = "test_databricks_table_with_nonnullable_columns_" + randomTableSuffix();
+
+        onDelta().executeQuery(format(
+                "CREATE TABLE default.%1$s (non_nullable_col INT NOT NULL, nullable_col INT) USING DELTA LOCATION '%2$s%1$s'",
+                tableName,
+                getBaseLocation()));
+
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 2)");
+            assertQueryFailure(() -> onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (null, 4)"))
+                    .hasMessageContaining("NOT NULL constraint violated for column: non_nullable_col");
+            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (null, 5)"))
+                    .hasMessageContaining("NULL value not allowed for NOT NULL column: non_nullable_col");
+
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(row(1, 2));
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(row(1, 2));
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    public void testDatabricksRespectsTrinoSettingNonNullableColumn()
+    {
+        String tableName = "test_trino_table_with_nonnullable_columns_" + randomTableSuffix();
+
+        onTrino().executeQuery("CREATE TABLE delta.default.\"" + tableName + "\" " +
+                "(non_nullable_col INT NOT NULL, nullable_col INT) " +
+                "WITH (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "')");
+
+        try {
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 2)");
+            assertQueryFailure(() -> onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (null, 4)"))
+                    .hasMessageContaining("NOT NULL constraint violated for column: non_nullable_col");
+            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (null, 5)"))
+                    .hasMessageContaining("NULL value not allowed for NOT NULL column: non_nullable_col");
+
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(row(1, 2));
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(row(1, 2));
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    public void testInsertingIntoDatabricksTableWithAddedNotNullConstraint()
+    {
+        String tableName = "test_databricks_table_altered_after_initial_write_" + randomTableSuffix();
+
+        onDelta().executeQuery(format(
+                "CREATE TABLE default.%1$s (non_nullable_col INT, nullable_col INT) USING DELTA LOCATION '%2$s%1$s'",
+                tableName,
+                getBaseLocation()));
+
+        try {
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 2)");
+            onDelta().executeQuery("ALTER TABLE default." + tableName + " ALTER COLUMN non_nullable_col SET NOT NULL");
+            assertQueryFailure(() -> onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (null, 4)"))
+                    .hasMessageContaining("NOT NULL constraint violated for column: non_nullable_col");
+            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (null, 5)"))
+                    .hasMessageContaining("NULL value not allowed for NOT NULL column: non_nullable_col");
+
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(row(1, 2));
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(row(1, 2));
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 
