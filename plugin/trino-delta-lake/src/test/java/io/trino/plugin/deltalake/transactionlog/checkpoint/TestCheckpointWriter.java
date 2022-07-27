@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake.transactionlog.checkpoint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slice;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
@@ -82,7 +83,7 @@ public class TestCheckpointWriter
     }
 
     @Test
-    public void testCheckpointWriteReadRoundtrip()
+    public void testCheckpointWriteReadJsonRoundtrip()
             throws IOException
     {
         MetadataEntry metadataEntry = new MetadataEntry(
@@ -114,6 +115,7 @@ public class TestCheckpointWriter
                         "{\"name\":\"s2\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}]},\"nullable\":true,\"metadata\":{}}]}",
                 ImmutableList.of("part_key"),
                 ImmutableMap.of(
+                        "delta.checkpoint.writeStatsAsStruct", "false",
                         "configOption1", "blah",
                         "configOption2", "plah"),
                 1000);
@@ -175,6 +177,76 @@ public class TestCheckpointWriter
                 ImmutableMap.of(
                         "someTag", "someValue",
                         "otherTag", "otherValue"));
+
+        RemoveFileEntry removeFileEntry = new RemoveFileEntry(
+                "removeFilePath",
+                1000,
+                true);
+
+        CheckpointEntries entries = new CheckpointEntries(
+                metadataEntry,
+                protocolEntry,
+                ImmutableSet.of(transactionEntry),
+                ImmutableSet.of(addFileEntryJsonStats),
+                ImmutableSet.of(removeFileEntry));
+
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, HDFS_ENVIRONMENT);
+
+        File targetFile = File.createTempFile("testCheckpointWriteReadRoundtrip-", ".checkpoint.parquet");
+        targetFile.deleteOnExit();
+
+        Path targetPath = new Path("file://" + targetFile.getAbsolutePath());
+        targetFile.delete(); // file must not exist when writer is called
+        writer.write(SESSION, entries, targetPath);
+
+        CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, true);
+        assertEquals(readEntries.getTransactionEntries(), entries.getTransactionEntries());
+        assertEquals(readEntries.getRemoveFileEntries(), entries.getRemoveFileEntries());
+        assertEquals(readEntries.getMetadataEntry(), entries.getMetadataEntry());
+        assertEquals(readEntries.getProtocolEntry(), entries.getProtocolEntry());
+        assertEquals(
+                readEntries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()),
+                entries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
+    }
+
+    @Test
+    public void testCheckpointWriteReadParquetStatisticsRoundtrip()
+            throws IOException
+    {
+        MetadataEntry metadataEntry = new MetadataEntry(
+                "metadataId",
+                "metadataName",
+                "metadataDescription",
+                new MetadataEntry.Format(
+                        "metadataFormatProvider",
+                        ImmutableMap.of(
+                                "formatOptionX", "blah",
+                                "fomatOptionY", "plah")),
+                "{\"type\":\"struct\",\"fields\":" +
+                        "[{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"str\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"dec_short\",\"type\":\"decimal(5,1)\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"dec_long\",\"type\":\"decimal(25,3)\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"l\",\"type\":\"long\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"in\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"sh\",\"type\":\"short\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"byt\",\"type\":\"byte\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"fl\",\"type\":\"float\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"dou\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"bool\",\"type\":\"boolean\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"bin\",\"type\":\"binary\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"dat\",\"type\":\"date\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"arr\",\"type\":{\"type\":\"array\",\"elementType\":\"integer\",\"containsNull\":true},\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"m\",\"type\":{\"type\":\"map\",\"keyType\":\"integer\",\"valueType\":\"string\",\"valueContainsNull\":true},\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"row\",\"type\":{\"type\":\"struct\",\"fields\":[{\"name\":\"s1\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"s2\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}]},\"nullable\":true,\"metadata\":{}}]}",
+                ImmutableList.of("part_key"),
+                ImmutableMap.of(
+                        "configOption1", "blah",
+                        "configOption2", "plah"),
+                1000);
+        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20);
+        TransactionEntry transactionEntry = new TransactionEntry("appId", 1, 1001);
 
         Block[] minMaxRowFieldBlocks = new Block[]{
                 nativeValueToBlock(IntegerType.INTEGER, 1L),
@@ -251,7 +323,7 @@ public class TestCheckpointWriter
                 metadataEntry,
                 protocolEntry,
                 ImmutableSet.of(transactionEntry),
-                ImmutableSet.of(addFileEntryJsonStats, addFileEntryParquetStats),
+                ImmutableSet.of(addFileEntryParquetStats),
                 ImmutableSet.of(removeFileEntry));
 
         CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, HDFS_ENVIRONMENT);
@@ -394,6 +466,9 @@ public class TestCheckpointWriter
                         .map(Block::getLogicalSizeInBytes)
                         .collect(toImmutableList());
                 comparableStats.put(key, logicalSizes);
+            }
+            else if (statsValue instanceof Slice) {
+                comparableStats.put(key, ((Slice) statsValue).toStringUtf8());
             }
             else {
                 comparableStats.put(key, statsValue);
