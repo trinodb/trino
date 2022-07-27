@@ -263,6 +263,39 @@ public class TestDeltaLakeDatabricksInsertCompatibility
         }
     }
 
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    public void testCheckConstraintsCompatibility()
+    {
+        // CHECK constraint is not supported by Trino
+        String tableName = "test_check_constraint_not_supported_" + randomTableSuffix();
+
+        onDelta().executeQuery("CREATE TABLE default." + tableName +
+                "(id INT,  a_number INT) " +
+                "USING DELTA " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
+        onDelta().executeQuery("ALTER TABLE default." + tableName + " ADD CONSTRAINT id_constraint CHECK (id < 100)");
+
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " (id, a_number) VALUES (1, 1)");
+
+            assertThat(onTrino().executeQuery("SELECT id, a_number FROM " + tableName))
+                    .containsOnly(row(1, 1));
+
+            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (2, 2)"))
+                    .hasMessageMatching(".*Table default." + tableName + " requires Delta Lake writer version 3 which is not supported");
+            assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a_number = 1"))
+                    .hasMessageMatching(".*Table default." + tableName + " requires Delta Lake writer version 3 which is not supported");
+            assertQueryFailure(() -> onTrino().executeQuery("UPDATE delta.default." + tableName + " SET a_number = 10 WHERE id = 1"))
+                    .hasMessageMatching(".*Table default." + tableName + " requires Delta Lake writer version 3 which is not supported");
+
+            assertThat(onTrino().executeQuery("SELECT id, a_number FROM " + tableName))
+                    .containsOnly(row(1, 1));
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE default." + tableName);
+        }
+    }
+
     @Test(groups = {DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
     public void testGeneratedColumnsCompatibility()
     {
