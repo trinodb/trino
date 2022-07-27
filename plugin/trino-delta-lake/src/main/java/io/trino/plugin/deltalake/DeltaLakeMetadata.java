@@ -428,8 +428,9 @@ public class DeltaLakeMetadata
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) table;
         String location = metastore.getTableLocation(tableHandle.getSchemaTableName(), session);
         Map<String, String> columnComments = getColumnComments(tableHandle.getMetadataEntry());
+        Map<String, Boolean> columnsNullability = getColumnsNullability(tableHandle.getMetadataEntry());
         List<ColumnMetadata> columns = getColumns(tableHandle.getMetadataEntry()).stream()
-                .map(column -> getColumnMetadata(column, columnComments.get(column.getName())))
+                .map(column -> getColumnMetadata(column, columnComments.get(column.getName()), columnsNullability.getOrDefault(column.getName(), true)))
                 .collect(toImmutableList());
 
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.<String, Object>builder()
@@ -474,7 +475,10 @@ public class DeltaLakeMetadata
     {
         DeltaLakeTableHandle table = (DeltaLakeTableHandle) tableHandle;
         DeltaLakeColumnHandle column = (DeltaLakeColumnHandle) columnHandle;
-        return getColumnMetadata(column, getColumnComments(table.getMetadataEntry()).get(column.getName()));
+        return getColumnMetadata(
+                column,
+                getColumnComments(table.getMetadataEntry()).get(column.getName()),
+                getColumnsNullability(table.getMetadataEntry()).getOrDefault(column.getName(), true));
     }
 
     /**
@@ -536,8 +540,9 @@ public class DeltaLakeMetadata
                 // intentionally skip case when table snapshot is present but it lacks metadata portion
                 return metastore.getMetadata(metastore.getSnapshot(table, session), session).stream().map(metadata -> {
                     Map<String, String> columnComments = getColumnComments(metadata);
+                    Map<String, Boolean> columnsNullability = getColumnsNullability(metadata);
                     List<ColumnMetadata> columnMetadata = getColumns(metadata).stream()
-                            .map(column -> getColumnMetadata(column, columnComments.get(column.getName())))
+                            .map(column -> getColumnMetadata(column, columnComments.get(column.getName()), columnsNullability.getOrDefault(column.getName(), true)))
                             .collect(toImmutableList());
                     return TableColumnsMetadata.forTable(table, columnMetadata);
                 });
@@ -686,6 +691,8 @@ public class DeltaLakeMetadata
                 Map<String, String> columnComments = tableMetadata.getColumns().stream()
                         .filter(column -> column.getComment() != null)
                         .collect(toImmutableMap(ColumnMetadata::getName, ColumnMetadata::getComment));
+                Map<String, Boolean> columnsNullability = tableMetadata.getColumns().stream()
+                        .collect(toImmutableMap(ColumnMetadata::getName, ColumnMetadata::isNullable));
                 TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriterWithoutTransactionIsolation(session, targetPath.toString());
                 appendTableEntries(
                         0,
@@ -694,7 +701,7 @@ public class DeltaLakeMetadata
                         deltaLakeColumns,
                         partitionColumns,
                         columnComments,
-                        deltaLakeColumns.stream().collect(toImmutableMap(DeltaLakeColumnHandle::getName, ignored -> true)),
+                        columnsNullability,
                         deltaLakeColumns.stream().collect(toImmutableMap(DeltaLakeColumnHandle::getName, ignored -> ImmutableMap.of())),
                         configurationForNewTable(checkpointInterval),
                         CREATE_TABLE_OPERATION,
@@ -1126,6 +1133,9 @@ public class DeltaLakeMetadata
             if (newColumnMetadata.getComment() != null) {
                 columnComments.put(newColumnMetadata.getName(), newColumnMetadata.getComment());
             }
+            ImmutableMap.Builder<String, Boolean> columnsNullability = ImmutableMap.builder();
+            columnsNullability.putAll(getColumnsNullability(handle.getMetadataEntry()));
+            columnsNullability.put(newColumnMetadata.getName(), newColumnMetadata.isNullable());
 
             ImmutableMap.Builder<String, Boolean> columnNullability = ImmutableMap.builder();
             columnNullability.putAll(getColumnsNullability(handle.getMetadataEntry()));
@@ -1235,11 +1245,6 @@ public class DeltaLakeMetadata
         if (!allowWrite(session, table)) {
             String fileSystem = new Path(table.getLocation()).toUri().getScheme();
             throw new TrinoException(NOT_SUPPORTED, format("Inserts are not supported on the %s filesystem", fileSystem));
-        }
-        Map<String, Boolean> columnNullabilities = getColumnsNullability(table.getMetadataEntry());
-        boolean nonNullableColumnsExist = columnNullabilities.values().stream().anyMatch(nullability -> !nullability);
-        if (nonNullableColumnsExist) {
-            throw new TrinoException(NOT_SUPPORTED, "Inserts are not supported for tables with non-nullable columns");
         }
         Map<String, String> columnInvariants = getColumnInvariants(table.getMetadataEntry());
         if (!columnInvariants.isEmpty()) {
@@ -1431,11 +1436,7 @@ public class DeltaLakeMetadata
             String fileSystem = new Path(handle.getLocation()).toUri().getScheme();
             throw new TrinoException(NOT_SUPPORTED, format("Updates are not supported on the %s filesystem", fileSystem));
         }
-        Map<String, Boolean> columnNullabilities = getColumnsNullability(handle.getMetadataEntry());
-        boolean nonNullableColumnsExist = columnNullabilities.values().stream().anyMatch(nullability -> !nullability);
-        if (nonNullableColumnsExist) {
-            throw new TrinoException(NOT_SUPPORTED, "Updates are not supported for tables with non-nullable columns");
-        }
+
         Map<String, String> columnInvariants = getColumnInvariants(handle.getMetadataEntry());
         if (!columnInvariants.isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Updates are not supported for tables with delta invariants");
@@ -2548,13 +2549,14 @@ public class DeltaLakeMetadata
         return metastore;
     }
 
-    private static ColumnMetadata getColumnMetadata(DeltaLakeColumnHandle column, @Nullable String comment)
+    private static ColumnMetadata getColumnMetadata(DeltaLakeColumnHandle column, @Nullable String comment, boolean nullability)
     {
         return ColumnMetadata.builder()
                 .setName(column.getName())
                 .setType(column.getType())
                 .setHidden(column.getColumnType() == SYNTHESIZED)
                 .setComment(Optional.ofNullable(comment))
+                .setNullable(nullability)
                 .build();
     }
 
