@@ -77,6 +77,8 @@ public final class SystemSessionProperties
     public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
     public static final String PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS = "preferred_write_partitioning_min_number_of_partitions";
     public static final String SCALE_WRITERS = "scale_writers";
+    public static final String TASK_SCALE_WRITERS_ENABLED = "task_scale_writers_enabled";
+    public static final String TASK_SCALE_WRITERS_MAX_WRITER_COUNT = "task_scale_writers_max_writer_count";
     public static final String WRITER_MIN_SIZE = "writer_min_size";
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
     public static final String EXECUTION_POLICY = "execution_policy";
@@ -275,6 +277,16 @@ public final class SystemSessionProperties
                         "Scale out writers based on throughput (use minimum necessary)",
                         featuresConfig.isScaleWriters(),
                         false),
+                booleanProperty(
+                        TASK_SCALE_WRITERS_ENABLED,
+                        "Scale the number of concurrent table writers per task based on throughput",
+                        taskManagerConfig.isScaleWritersEnabled(),
+                        false),
+                integerProperty(
+                        TASK_SCALE_WRITERS_MAX_WRITER_COUNT,
+                        "Maximum number of writers per task up to which scaling will happen if task.scale-writers.enabled is set",
+                        taskManagerConfig.getScaleWritersMaxWriterCount(),
+                        true),
                 dataSizeProperty(
                         WRITER_MIN_SIZE,
                         "Target minimum size of writer output when scaling writers",
@@ -913,6 +925,16 @@ public final class SystemSessionProperties
     public static boolean isScaleWriters(Session session)
     {
         return session.getSystemProperty(SCALE_WRITERS, Boolean.class);
+    }
+
+    public static boolean isTaskScaleWritersEnabled(Session session)
+    {
+        return session.getSystemProperty(TASK_SCALE_WRITERS_ENABLED, Boolean.class);
+    }
+
+    public static int getTaskScaleWritersMaxWriterCount(Session session)
+    {
+        return session.getSystemProperty(TASK_SCALE_WRITERS_MAX_WRITER_COUNT, Integer.class);
     }
 
     public static DataSize getWriterMinSize(Session session)

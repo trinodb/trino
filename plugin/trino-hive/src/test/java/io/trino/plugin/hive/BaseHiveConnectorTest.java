@@ -59,6 +59,7 @@ import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import io.trino.type.TypeDeserializer;
 import org.apache.hadoop.fs.Path;
+import org.assertj.core.api.AbstractLongAssert;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
@@ -97,10 +98,17 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.intersection;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.COLOCATED_JOIN;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE;
+import static io.trino.SystemSessionProperties.SCALE_WRITERS;
+import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
+import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_MAX_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.USE_TABLE_SCAN_NODE_PARTITIONING;
+import static io.trino.SystemSessionProperties.WRITER_MIN_SIZE;
 import static io.trino.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
@@ -1828,6 +1836,8 @@ public abstract class BaseHiveConnectorTest
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
                 .setSystemProperty("scale_writers", "false")
+                // task scale writers should be disabled since we want to write with a single task writer
+                .setSystemProperty("task_scale_writers_enabled", "false")
                 .build();
         assertUpdate(session, createTableSql, 1000000);
         assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(expectedTableWriters);
@@ -1838,6 +1848,8 @@ public abstract class BaseHiveConnectorTest
         DataSize maxSize = DataSize.of(1, MEGABYTE);
         session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                // task scale writers should be disabled since we want to write with a single task writer
+                .setSystemProperty("task_scale_writers_enabled", "false")
                 .setCatalogSessionProperty("hive", "target_max_file_size", maxSize.toString())
                 .build();
 
@@ -1870,6 +1882,8 @@ public abstract class BaseHiveConnectorTest
         // verify the default behavior is one file per node per partition
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                // task scale writers should be disabled since we want to write a single file
+                .setSystemProperty("task_scale_writers_enabled", "false")
                 .setSystemProperty("scale_writers", "false")
                 .build();
         assertUpdate(session, createTableSql, 1000000);
@@ -1881,6 +1895,8 @@ public abstract class BaseHiveConnectorTest
         DataSize maxSize = DataSize.of(1, MEGABYTE);
         session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                // task scale writers should be disabled since we want to write with a single task writer
+                .setSystemProperty("task_scale_writers_enabled", "false")
                 .setCatalogSessionProperty("hive", "target_max_file_size", maxSize.toString())
                 .build();
 
@@ -3843,12 +3859,7 @@ public abstract class BaseHiveConnectorTest
         assertQuery(bucketedSession, "SELECT count(*) a FROM orders t1 JOIN customer t2 on t1.custkey=t2.custkey", "SELECT count(*) FROM orders");
         assertQuery(bucketedSession, "SELECT count(distinct custkey) FROM orders");
 
-        assertQuery(
-                Session.builder(bucketedSession).setSystemProperty("task_writer_count", "1").build(),
-                "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
-        assertQuery(
-                Session.builder(bucketedSession).setSystemProperty("task_writer_count", "4").build(),
-                "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
+        assertQuery("SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
     }
 
     @Test
@@ -3869,6 +3880,7 @@ public abstract class BaseHiveConnectorTest
             assertUpdate(
                     Session.builder(session)
                             .setSystemProperty("scale_writers", "true")
+                            .setSystemProperty("task_scale_writers_enabled", "false")
                             .setSystemProperty("writer_min_size", "32MB")
                             .build(),
                     createTableSql,
@@ -3892,6 +3904,7 @@ public abstract class BaseHiveConnectorTest
             assertUpdate(
                     Session.builder(session)
                             .setSystemProperty("scale_writers", "true")
+                            .setSystemProperty("task_scale_writers_enabled", "false")
                             .setSystemProperty("writer_min_size", "1MB")
                             .setCatalogSessionProperty(catalog, "parquet_writer_block_size", "4MB")
                             .build(),
@@ -3904,6 +3917,71 @@ public abstract class BaseHiveConnectorTest
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS scale_writers_large");
+        }
+    }
+
+    @Test
+    public void testMultipleWritersWhenTaskScaleWritersIsEnabled()
+    {
+        long workers = (long) computeScalar("SELECT count(*) FROM system.runtime.nodes");
+        int taskMaxScaleWriterCount = 4;
+        testTaskScaleWriters(getSession(), DataSize.of(200, KILOBYTE), taskMaxScaleWriterCount, false)
+                .isBetween(workers + 1, workers * taskMaxScaleWriterCount);
+    }
+
+    @Test
+    public void testTaskWritersDoesNotScaleWithLargeMinWriterSize()
+    {
+        long workers = (long) computeScalar("SELECT count(*) FROM system.runtime.nodes");
+        // In the case of streaming, the number of writers is equal to the number of workers
+        testTaskScaleWriters(getSession(), DataSize.of(2, GIGABYTE), 4, false).isEqualTo(workers);
+    }
+
+    @Test
+    public void testWritersAcrossMultipleWorkersWhenScaleWritersIsEnabled()
+    {
+        long workers = (long) computeScalar("SELECT count(*) FROM system.runtime.nodes");
+        int taskMaxScaleWriterCount = 2;
+        // It is only applicable for pipeline execution mode, since we are testing
+        // when both "scaleWriters" and "taskScaleWriters" are enabled, the writers are
+        // scaling upto multiple worker nodes.
+        testTaskScaleWriters(getSession(), DataSize.of(200, KILOBYTE), taskMaxScaleWriterCount, true)
+                .isBetween((long) taskMaxScaleWriterCount + workers, workers * taskMaxScaleWriterCount);
+    }
+
+    protected AbstractLongAssert<?> testTaskScaleWriters(
+            Session session,
+            DataSize writerMinSize,
+            int taskMaxScaleWriterCount,
+            boolean scaleWriters)
+    {
+        String tableName = "task_scale_writers_" + randomTableSuffix();
+        try {
+            @Language("SQL") String createTableSql = format(
+                    "CREATE TABLE %s WITH (format = 'ORC') AS SELECT * FROM tpch.sf5.orders",
+                    tableName);
+            assertUpdate(
+                    Session.builder(session)
+                            .setSystemProperty(SCALE_WRITERS, String.valueOf(scaleWriters))
+                            .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "true")
+                            .setSystemProperty(WRITER_MIN_SIZE, writerMinSize.toString())
+                            .setSystemProperty(TASK_SCALE_WRITERS_MAX_WRITER_COUNT, String.valueOf(taskMaxScaleWriterCount))
+                            // Set the value higher than sf1 input data size such that fault-tolerant scheduler
+                            // shouldn't add new task and scaling only happens through the local scaling exchange.
+                            .setSystemProperty(FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE, "2GB")
+                            // Set the value of orc strip size low to increase the frequency at which
+                            // physicalWrittenDataSize is updated through ConnectorPageSink#getCompletedBytes()
+                            .setCatalogSessionProperty(catalog, "orc_optimized_writer_min_stripe_size", "2MB")
+                            .setCatalogSessionProperty(catalog, "orc_optimized_writer_max_stripe_size", "2MB")
+                            .build(),
+                    createTableSql,
+                    (long) computeActual("SELECT count(*) FROM tpch.sf5.orders").getOnlyValue());
+
+            long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM " + tableName);
+            return assertThat(files);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
 
@@ -8297,6 +8375,7 @@ public abstract class BaseHiveConnectorTest
     {
         return Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "4")
+                .setSystemProperty("task_scale_writers_enabled", "false")
                 .build();
     }
 
