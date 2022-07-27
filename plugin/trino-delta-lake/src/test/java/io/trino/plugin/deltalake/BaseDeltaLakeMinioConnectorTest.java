@@ -104,8 +104,8 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         switch (connectorBehavior) {
             case SUPPORTS_DELETE:
             case SUPPORTS_ROW_LEVEL_DELETE:
-                return true;
             case SUPPORTS_UPDATE:
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return true;
             case SUPPORTS_MERGE:
                 return true;
@@ -116,11 +116,16 @@ public abstract class BaseDeltaLakeMinioConnectorTest
             case SUPPORTS_DROP_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
             case SUPPORTS_RENAME_SCHEMA:
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
             default:
                 return super.hasBehavior(connectorBehavior);
         }
+    }
+
+    @Override
+    protected String errorMessageForInsertIntoNotNullColumn(String columnName)
+    {
+        return "NULL value not allowed for NOT NULL column: " + columnName;
     }
 
     @Override
@@ -768,6 +773,25 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                         "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer'])",
                 }
         };
+    }
+
+    @Test
+    public void testTableWithNonNullableColumns()
+    {
+        String tableName = "test_table_with_non_nullable_columns_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(col1 INTEGER NOT NULL, col2 INTEGER, col3 INTEGER)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES(1, 10, 100)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES(2, 20, 200)", 1);
+        assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(null, 30, 300)"))
+                .hasMessageContaining("NULL value not allowed for NOT NULL column: col1");
+
+        //TODO this should fail https://github.com/trinodb/trino/issues/13434
+        assertUpdate("INSERT INTO " + tableName + " VALUES(TRY(5/0), 40, 400)", 1);
+        //TODO these 2 should fail  https://github.com/trinodb/trino/issues/13435
+        assertUpdate("UPDATE " + tableName + " SET col2 = NULL where col3 = 100", 1);
+        assertUpdate("UPDATE " + tableName + " SET col2 = TRY(5/0) where col3 = 200", 1);
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES(1, null, 100), (2, null, 200), (null, 40, 400)");
     }
 
     @Override
