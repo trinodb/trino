@@ -54,6 +54,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DIST
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -91,7 +92,9 @@ public class LocalExchange
             List<Type> types,
             Optional<Integer> partitionHashChannel,
             DataSize maxBufferedBytes,
-            BlockTypeOperators blockTypeOperators)
+            BlockTypeOperators blockTypeOperators,
+            Supplier<Long> physicalWrittenBytesSupplier,
+            DataSize writerMinSize)
     {
         ImmutableList.Builder<LocalExchangeSource> sources = ImmutableList.builder();
         int bufferCount = computeBufferCount(partitioning, defaultConcurrency, partitionChannels);
@@ -124,6 +127,14 @@ public class LocalExchange
                 checkState(sourceIterator.hasNext(), "no more sources");
                 return new PassthroughExchanger(sourceIterator.next(), maxBufferedBytes.toBytes() / bufferCount, memoryManager::updateMemoryUsage);
             };
+        }
+        else if (partitioning.equals(SCALED_WRITER_DISTRIBUTION)) {
+            exchangerSupplier = () -> new ScaleWriterExchanger(
+                    buffers,
+                    memoryManager,
+                    maxBufferedBytes.toBytes(),
+                    physicalWrittenBytesSupplier,
+                    writerMinSize);
         }
         else if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent()) {
             exchangerSupplier = () -> {
@@ -344,6 +355,12 @@ public class LocalExchange
         else if (partitioning.equals(FIXED_PASSTHROUGH_DISTRIBUTION)) {
             bufferCount = defaultConcurrency;
             checkArgument(partitionChannels.isEmpty(), "Passthrough exchange must not have partition channels");
+        }
+        else if (partitioning.equals(SCALED_WRITER_DISTRIBUTION)) {
+            // Even when scale writers is enabled, the buffer count or the number of drivers will remain constant.
+            // However, only some of them are actively doing the work.
+            bufferCount = defaultConcurrency;
+            checkArgument(partitionChannels.isEmpty(), "Scaled writer exchange must not have partition channels");
         }
         else if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent()) {
             // partitioned exchange

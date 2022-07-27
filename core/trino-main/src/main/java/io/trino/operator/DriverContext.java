@@ -275,7 +275,7 @@ public class DriverContext
 
     public long getPhysicalWrittenDataSize()
     {
-        // Avoid using stream api due to performance reasons
+        // Avoid using stream api for performance reasons
         long physicalWrittenBytes = 0;
         for (OperatorContext context : operatorContexts) {
             physicalWrittenBytes += context.getPhysicalWrittenDataSize();
