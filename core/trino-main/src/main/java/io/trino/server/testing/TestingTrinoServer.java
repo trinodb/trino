@@ -42,6 +42,7 @@ import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogManagerModule;
 import io.trino.connector.ConnectorManager;
+import io.trino.connector.ConnectorServicesProvider;
 import io.trino.cost.StatsCalculator;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.eventlistener.EventListenerConfig;
@@ -58,6 +59,7 @@ import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.metadata.AllNodes;
+import io.trino.metadata.CatalogManager;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
@@ -72,6 +74,7 @@ import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.GracefulShutdownHandler;
 import io.trino.server.PluginManager;
+import io.trino.server.Server;
 import io.trino.server.ServerMainModule;
 import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.ShutdownAction;
@@ -445,6 +448,20 @@ public class TestingTrinoServer
     public void loadExchangeManager(String name, Map<String, String> properties)
     {
         exchangeManagerRegistry.loadExchangeManager(name, properties);
+    }
+
+    /**
+     * Add the event listeners from connectors.  Connector event listeners are
+     * only supported for statically loaded catalogs, and this doesn't match up
+     * with the model of the testing Trino server.  This method should only be
+     * called once after all catalogs are added.
+     */
+    public void addConnectorEventListeners()
+    {
+        Server.addConnectorEventListeners(
+                injector.getInstance(CatalogManager.class),
+                injector.getInstance(ConnectorServicesProvider.class),
+                injector.getInstance(EventListenerManager.class));
     }
 
     public Path getBaseDataDir()
