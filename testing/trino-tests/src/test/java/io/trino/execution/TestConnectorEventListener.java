@@ -41,6 +41,8 @@ public class TestConnectorEventListener
     {
         closer = Closer.create();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION).setNodeCount(1).build();
+        closer.register(queryRunner);
+
         queryRunner.installPlugin(new Plugin()
         {
             @Override
@@ -51,8 +53,9 @@ public class TestConnectorEventListener
                         .build());
             }
         });
-        closer.register(queryRunner);
         queryRunner.createCatalog("mock-catalog", "mock");
+
+        queryRunner.getCoordinator().addConnectorEventListeners();
         queries = new EventsAwaitingQueries(generatedEvents, queryRunner);
     }
 
