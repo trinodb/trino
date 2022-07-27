@@ -10,24 +10,19 @@ Builds the Trino Docker image
 -h       Display help
 -a       Build the specified comma-separated architectures, defaults to amd64,arm64
 -r       Build the specified Trino release version, downloads all required artifacts
--j       Azul JDK version as published in https://hub.docker.com/r/azul/zulu-openjdk
 EOF
 }
 
 ARCHITECTURES=(amd64 arm64)
 TRINO_VERSION=
-AZUL_DOCKER_TAG="17.0.4"
 
-while getopts ":a:h:r:j:" o; do
+while getopts ":a:h:r:" o; do
     case "${o}" in
         a)
             IFS=, read -ra ARCHITECTURES <<< "$OPTARG"
             ;;
         r)
             TRINO_VERSION=${OPTARG}
-            ;;
-        j)
-            AZUL_DOCKER_TAG=${OPTARG}
             ;;
         h)
             usage
@@ -75,15 +70,14 @@ cp -R default "${WORK_DIR}/"
 TAG_PREFIX="trino:${TRINO_VERSION}"
 
 for arch in "${ARCHITECTURES[@]}"; do
-    echo "🫙  Building the image for $arch using azul/zulu-openjdk:${AZUL_DOCKER_TAG} as a base"
+    echo "🫙  Building the image for $arch"
     docker build \
         "${WORK_DIR}" \
         --pull \
         --platform "linux/$arch" \
         -f Dockerfile \
         -t "${TAG_PREFIX}-$arch" \
-        --build-arg "TRINO_VERSION=${TRINO_VERSION}" \
-        --build-arg "AZUL_DOCKER_TAG=${AZUL_DOCKER_TAG}"
+        --build-arg "TRINO_VERSION=${TRINO_VERSION}"
 done
 
 echo "🧹 Cleaning up the build context directory"
