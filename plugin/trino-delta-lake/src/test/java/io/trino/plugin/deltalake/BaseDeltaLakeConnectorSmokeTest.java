@@ -1111,6 +1111,77 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test(dataProvider = "testCheckpointWriteStatsAsStructDataProvider")
+    public void testCheckpointWriteStatsAsStruct(String type, String inputValue, String nullsFraction, String statsValue)
+    {
+        verifySupportsInsert();
+
+        String tableName = "test_checkpoint_write_stats_as_struct_" + randomTableSuffix();
+
+        // Set 'checkpoint_interval' as 1 to write 'stats_parsed' field every INSERT
+        assertUpdate(
+                format("CREATE TABLE %s (col %s) WITH (location = '%s', checkpoint_interval = 1)",
+                        tableName,
+                        type,
+                        getLocationForTable(bucketName, tableName)));
+        assertUpdate("INSERT INTO " + tableName + " SELECT " + inputValue, 1);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('col', null, null, " + nullsFraction + ", null, " + statsValue + ", " + statsValue + ")," +
+                        "(null, null, null, null, 1.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @DataProvider
+    public Object[][] testCheckpointWriteStatsAsStructDataProvider()
+    {
+        return new Object[][] {
+                {"boolean", "true", "0.0", "null"},
+                {"integer", "1", "0.0", "1"},
+                {"tinyint", "2", "0.0", "2"},
+                {"smallint", "3", "0.0", "3"},
+                {"bigint", "1000", "0.0", "1000"},
+                {"real", "0.1", "0.0", "0.1"},
+                {"double", "1.0", "0.0", "1.0"},
+                {"decimal(3,2)", "3.14", "0.0", "3.14"},
+                {"decimal(30,1)", "12345", "0.0", "12345.0"},
+                {"varchar", "'test'", "0.0", "null"},
+                {"varbinary", "X'65683F'", "0.0", "null"},
+                {"date", "date '2021-02-03'", "0.0", "'2021-02-03'"},
+                {"timestamp(3) with time zone", "timestamp '2001-08-22 03:04:05.321 -08:00'", "0.0", "'2001-08-22 11:04:05.321 UTC'"},
+                {"array(int)", "array[1]", "null", "null"},
+                {"map(varchar,int)", "map(array['foo', 'bar'], array[1, 2])", "null", "null"},
+                {"row(x bigint)", "cast(row(1) as row(x bigint))", "null", "null"},
+        };
+    }
+
+    @Test
+    public void testCheckpointWriteStatsAsStructWithPartiallyUnsupportedColumnStats()
+    {
+        verifySupportsInsert();
+
+        String tableName = "test_checkpoint_write_stats_as_struct_partially_unsupported_" + randomTableSuffix();
+
+        // Column statistics on boolean column is unsupported
+        assertUpdate(
+                format("CREATE TABLE %s (col integer, unsupported boolean) WITH (location = '%s', checkpoint_interval = 1)",
+                        tableName,
+                        getLocationForTable(bucketName, tableName)));
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, true)", 1);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('col', null, null, 0.0, null, 1, 1)," +
+                        "('unsupported', null, null, 0.0, null, null, null)," +
+                        "(null, null, null, null, 1.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Test
     public void testDeltaLakeTableLocationChanged()
             throws Exception

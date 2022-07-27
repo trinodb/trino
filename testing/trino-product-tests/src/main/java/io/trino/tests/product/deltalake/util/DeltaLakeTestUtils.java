@@ -23,6 +23,7 @@ import static java.lang.String.format;
 public final class DeltaLakeTestUtils
 {
     public static final String DATABRICKS_104_RUNTIME_VERSION = "10.4";
+    public static final String DATABRICKS_91_RUNTIME_VERSION = "9.1";
 
     private DeltaLakeTestUtils() {}
 
