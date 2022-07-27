@@ -1900,6 +1900,7 @@ public class TestHiveTransactionalTable
             // these 3 properties are necessary to make sure there is more than 1 original file created
             onTrino().executeQuery("SET SESSION scale_writers = true");
             onTrino().executeQuery("SET SESSION writer_min_size = '4kB'");
+            onTrino().executeQuery("SET SESSION task_scale_writers_enabled = false");
             onTrino().executeQuery("SET SESSION task_writer_count = 2");
             onTrino().executeQuery(format(
                     "CREATE TABLE %s WITH (transactional = true) AS SELECT * FROM tpch.sf1000.orders LIMIT 100000", tableName));
@@ -1920,6 +1921,7 @@ public class TestHiveTransactionalTable
             // these 3 properties are necessary to make sure there is more than 1 original file created
             onTrino().executeQuery("SET SESSION scale_writers = true");
             onTrino().executeQuery("SET SESSION writer_min_size = '4kB'");
+            onTrino().executeQuery("SET SESSION task_scale_writers_enabled = false");
             onTrino().executeQuery("SET SESSION task_writer_count = 2");
             onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true) AS SELECT * FROM tpch.sf1000.orders LIMIT 100000", tableName));
 
@@ -1985,6 +1987,7 @@ public class TestHiveTransactionalTable
                             "FROM tpch.sf1000.orders LIMIT 0", tableName, isPartitioned ? ", partitioned_by = ARRAY['orderpriority']" : ""));
             onTrino().executeQuery("SET SESSION scale_writers = true");
             onTrino().executeQuery("SET SESSION writer_min_size = '4kB'");
+            onTrino().executeQuery("SET SESSION task_scale_writers_enabled = false");
             onTrino().executeQuery("SET SESSION task_writer_count = 4");
             onTrino().executeQuery("SET SESSION hive.target_max_file_size = '1MB'");
 

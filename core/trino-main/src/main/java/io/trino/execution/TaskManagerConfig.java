@@ -75,6 +75,11 @@ public class TaskManagerConfig
     private Duration interruptStuckSplitTasksTimeout = new Duration(15, TimeUnit.MINUTES);
     private Duration interruptStuckSplitTasksDetectionInterval = new Duration(2, TimeUnit.MINUTES);
 
+    private boolean scaleWritersEnabled = true;
+    // The default value is 8 because it is better in performance compare to 2 or 4
+    // and acceptable in terms of resource utilization since values like 32 or higher could take
+    // more resources, hence potentially affect the other concurrent queries in the cluster.
+    private int scaleWritersMaxWriterCount = 8;
     private int writerCount = 1;
     // cap task concurrency to 32 in order to avoid small pages produced by local partitioning exchanges
     private int taskConcurrency = min(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 32);
@@ -382,6 +387,33 @@ public class TaskManagerConfig
     public TaskManagerConfig setInfoMaxAge(Duration infoMaxAge)
     {
         this.infoMaxAge = infoMaxAge;
+        return this;
+    }
+
+    public boolean isScaleWritersEnabled()
+    {
+        return scaleWritersEnabled;
+    }
+
+    @Config("task.scale-writers.enabled")
+    @ConfigDescription("Scale the number of concurrent table writers per task based on throughput")
+    public TaskManagerConfig setScaleWritersEnabled(boolean scaleWritersEnabled)
+    {
+        this.scaleWritersEnabled = scaleWritersEnabled;
+        return this;
+    }
+
+    @Min(1)
+    public int getScaleWritersMaxWriterCount()
+    {
+        return scaleWritersMaxWriterCount;
+    }
+
+    @Config("task.scale-writers.max-writer-count")
+    @ConfigDescription("Maximum number of writers per task up to which scaling will happen if task.scale-writers.enabled is set")
+    public TaskManagerConfig setScaleWritersMaxWriterCount(int scaleWritersMaxWriterCount)
+    {
+        this.scaleWritersMaxWriterCount = scaleWritersMaxWriterCount;
         return this;
     }
 

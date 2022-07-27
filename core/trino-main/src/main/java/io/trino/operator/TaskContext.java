@@ -332,6 +332,16 @@ public class TaskContext
         return stat;
     }
 
+    public long getPhysicalWrittenDataSize()
+    {
+        // Avoid using stream api for performance reasons
+        long physicalWrittenBytes = 0;
+        for (PipelineContext context : pipelineContexts) {
+            physicalWrittenBytes += context.getPhysicalWrittenDataSize();
+        }
+        return physicalWrittenBytes;
+    }
+
     public Duration getFullGcTime()
     {
         long startFullGcTimeNanos = this.startFullGcTimeNanos.get();

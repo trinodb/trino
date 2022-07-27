@@ -508,6 +508,8 @@ public abstract class BaseDeltaLakeMinioConnectorTest
 
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                // task scale writers should be disabled since we want to write with a single task writer
+                .setSystemProperty("task_scale_writers_enabled", "false")
                 .setCatalogSessionProperty("delta_lake", "experimental_parquet_optimized_writer_enabled", "true")
                 .build();
         assertUpdate(session, createTableSql, 100000);
@@ -518,6 +520,8 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         DataSize maxSize = DataSize.of(40, DataSize.Unit.KILOBYTE);
         session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                // task scale writers should be disabled since we want to write with a single task writer
+                .setSystemProperty("task_scale_writers_enabled", "false")
                 .setCatalogSessionProperty("delta_lake", "experimental_parquet_optimized_writer_enabled", "true")
                 .setCatalogSessionProperty("delta_lake", "target_max_file_size", maxSize.toString())
                 .build();

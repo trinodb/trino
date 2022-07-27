@@ -4565,6 +4565,8 @@ public abstract class BaseIcebergConnectorTest
 
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                // task scale writers should be disabled since we want to write with a single task writer
+                .setSystemProperty("task_scale_writers_enabled", "false")
                 .build();
         assertUpdate(session, createTableSql, 100000);
         List<String> initialFiles = getActiveFiles(tableName);
@@ -4574,6 +4576,8 @@ public abstract class BaseIcebergConnectorTest
         DataSize maxSize = DataSize.of(40, DataSize.Unit.KILOBYTE);
         session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                // task scale writers should be disabled since we want to write with a single task writer
+                .setSystemProperty("task_scale_writers_enabled", "false")
                 .setCatalogSessionProperty("iceberg", "target_max_file_size", maxSize.toString())
                 .build();
 

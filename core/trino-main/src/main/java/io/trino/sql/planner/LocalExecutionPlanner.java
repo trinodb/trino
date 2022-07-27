@@ -298,7 +298,9 @@ import static io.trino.SystemSessionProperties.getAggregationOperatorUnspillMemo
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
+import static io.trino.SystemSessionProperties.getTaskScaleWritersMaxWriterCount;
 import static io.trino.SystemSessionProperties.getTaskWriterCount;
+import static io.trino.SystemSessionProperties.getWriterMinSize;
 import static io.trino.SystemSessionProperties.isAdaptivePartialAggregationEnabled;
 import static io.trino.SystemSessionProperties.isEnableCoordinatorDynamicFiltersDistribution;
 import static io.trino.SystemSessionProperties.isEnableLargeDynamicFilters;
@@ -341,6 +343,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DIST
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
@@ -3194,7 +3197,8 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
-            context.setDriverInstanceCount(getTaskWriterCount(session));
+            int writerCount = isLocalScaledWriterExchange(node.getSource()) ? getTaskScaleWritersMaxWriterCount(session) : getTaskWriterCount(session);
+            context.setDriverInstanceCount(writerCount);
 
             PhysicalOperation source = node.getSource().accept(this, context);
 
@@ -3393,7 +3397,8 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableExecute(TableExecuteNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
-            context.setDriverInstanceCount(getTaskWriterCount(session));
+            int writerCount = isLocalScaledWriterExchange(node.getSource()) ? getTaskScaleWritersMaxWriterCount(session) : getTaskWriterCount(session);
+            context.setDriverInstanceCount(writerCount);
 
             PhysicalOperation source = node.getSource().accept(this, context);
 
@@ -3502,6 +3507,17 @@ public class LocalExecutionPlanner
             return createLocalExchange(node, context);
         }
 
+        private boolean isLocalScaledWriterExchange(PlanNode node)
+        {
+            Optional<PlanNode> result = searchFrom(node)
+                    .where(planNode -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope() == LOCAL)
+                    .findFirst();
+
+            return result.isPresent()
+                    && result.get() instanceof ExchangeNode
+                    && ((ExchangeNode) result.get()).getPartitioningScheme().getPartitioning().getHandle().equals(SCALED_WRITER_DISTRIBUTION);
+        }
+
         private PhysicalOperation createLocalMerge(ExchangeNode node, LocalExecutionPlanContext context)
         {
             checkArgument(node.getOrderingScheme().isPresent(), "orderingScheme is absent");
@@ -3525,7 +3541,9 @@ public class LocalExecutionPlanner
                     types,
                     Optional.empty(),
                     maxLocalExchangeBufferSize,
-                    blockTypeOperators);
+                    blockTypeOperators,
+                    context.getTaskContext()::getPhysicalWrittenDataSize,
+                    getWriterMinSize(session));
 
             List<Symbol> expectedLayout = node.getInputs().get(0);
             Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(expectedLayout, source.getLayout());
@@ -3598,7 +3616,9 @@ public class LocalExecutionPlanner
                     types,
                     hashChannel,
                     maxLocalExchangeBufferSize,
-                    blockTypeOperators);
+                    blockTypeOperators,
+                    context.getTaskContext()::getPhysicalWrittenDataSize,
+                    getWriterMinSize(session));
             for (int i = 0; i < node.getSources().size(); i++) {
                 DriverFactoryParameters driverFactoryParameters = driverFactoryParametersList.get(i);
                 PhysicalOperation source = driverFactoryParameters.getSource();
