@@ -34,8 +34,6 @@ import static java.util.Objects.requireNonNull;
 public class RubixModule
         implements Module
 {
-    private static final String RUBIX_DISTRIBUTED_FS_CLASS_NAME = CachingPrestoDistributedFileSystem.class.getName();
-
     @Override
     public void configure(Binder binder)
     {
@@ -68,6 +66,8 @@ public class RubixModule
     static class DefaultRubixHdfsInitializer
             implements RubixHdfsInitializer
     {
+        private static final String RUBIX_DISTRIBUTED_FS_CLASS_NAME = CachingPrestoDistributedFileSystem.class.getName();
+
         private HdfsAuthenticationConfig authenticationConfig;
 
         @Inject
