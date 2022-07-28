@@ -59,7 +59,7 @@ public class IcebergPageSource
     private final int[] expectedColumnIndexes;
     private final ConnectorPageSource delegate;
     private final Optional<ReaderProjectionsAdapter> projectionsAdapter;
-    private final Optional<RowPredicate> deletePredicate;
+    private final Supplier<Optional<RowPredicate>> deletePredicate;
     private final Supplier<IcebergPositionDeletePageSink> positionDeleteSinkSupplier;
     private final Supplier<IcebergPageSink> updatedRowPageSinkSupplier;
     // An array with one element per field in the $row_id column. The value in the array points to the
@@ -83,7 +83,7 @@ public class IcebergPageSource
             List<IcebergColumnHandle> requiredColumns,
             ConnectorPageSource delegate,
             Optional<ReaderProjectionsAdapter> projectionsAdapter,
-            Optional<RowPredicate> deletePredicate,
+            Supplier<Optional<RowPredicate>> deletePredicate,
             Supplier<IcebergPositionDeletePageSink> positionDeleteSinkSupplier,
             Supplier<IcebergPageSink> updatedRowPageSinkSupplier,
             List<IcebergColumnHandle> updatedColumns)
@@ -159,8 +159,9 @@ public class IcebergPageSource
                 return null;
             }
 
-            if (deletePredicate.isPresent()) {
-                dataPage = deletePredicate.get().filterPage(dataPage);
+            Optional<RowPredicate> deleteFilterPredicate = deletePredicate.get();
+            if (deleteFilterPredicate.isPresent()) {
+                dataPage = deleteFilterPredicate.get().filterPage(dataPage);
             }
 
             if (projectionsAdapter.isPresent()) {

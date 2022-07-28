@@ -43,12 +43,6 @@ public final class EqualityDeleteFilter
     }
 
     @Override
-    public Schema schema()
-    {
-        return schema;
-    }
-
-    @Override
     public RowPredicate createPredicate(List<IcebergColumnHandle> columns)
     {
         Type[] types = columns.stream()
