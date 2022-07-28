@@ -42,8 +42,8 @@ public class FlushHiveMetastoreCacheProcedure
 
     private static final String PARAM_SCHEMA_NAME = "SCHEMA_NAME";
     private static final String PARAM_TABLE_NAME = "TABLE_NAME";
-    private static final String PARAM_PARTITION_COLUMN = "PARTITION_COLUMN";
-    private static final String PARAM_PARTITION_VALUE = "PARTITION_VALUE";
+    private static final String PARAM_PARTITION_COLUMNS = "PARTITION_COLUMNS";
+    private static final String PARAM_PARTITION_VALUES = "PARTITION_VALUES";
 
     private static final String PROCEDURE_USAGE_EXAMPLES = format(
             "Valid usages:%n" +
@@ -53,8 +53,8 @@ public class FlushHiveMetastoreCacheProcedure
             // Use lowercase parameter names per convention. In the usage example the names are not delimited.
             PARAM_SCHEMA_NAME.toLowerCase(ENGLISH),
             PARAM_TABLE_NAME.toLowerCase(ENGLISH),
-            PARAM_PARTITION_COLUMN.toLowerCase(ENGLISH),
-            PARAM_PARTITION_VALUE.toLowerCase(ENGLISH));
+            PARAM_PARTITION_COLUMNS.toLowerCase(ENGLISH),
+            PARAM_PARTITION_VALUES.toLowerCase(ENGLISH));
 
     private static final MethodHandle FLUSH_HIVE_METASTORE_CACHE = methodHandle(
             FlushHiveMetastoreCacheProcedure.class,
@@ -84,8 +84,8 @@ public class FlushHiveMetastoreCacheProcedure
                         new Procedure.Argument("$FAKE_FIRST_PARAMETER", VARCHAR, false, FAKE_PARAM_DEFAULT_VALUE),
                         new Procedure.Argument(PARAM_SCHEMA_NAME, VARCHAR, false, null),
                         new Procedure.Argument(PARAM_TABLE_NAME, VARCHAR, false, null),
-                        new Procedure.Argument(PARAM_PARTITION_COLUMN, new ArrayType(VARCHAR), false, null),
-                        new Procedure.Argument(PARAM_PARTITION_VALUE, new ArrayType(VARCHAR), false, null)),
+                        new Procedure.Argument(PARAM_PARTITION_COLUMNS, new ArrayType(VARCHAR), false, null),
+                        new Procedure.Argument(PARAM_PARTITION_VALUES, new ArrayType(VARCHAR), false, null)),
                 FLUSH_HIVE_METASTORE_CACHE.bindTo(this));
     }
 
@@ -108,7 +108,7 @@ public class FlushHiveMetastoreCacheProcedure
 
         checkState(
                 partitionColumns.size() == partitionValues.size(),
-                "Parameters partition_column and partition_value should have same length");
+                "Parameters partition_columns and partition_values should have same length");
 
         if (schemaName.isEmpty() && tableName.isEmpty() && partitionColumns.isEmpty()) {
             cachingHiveMetastore.flushCache();

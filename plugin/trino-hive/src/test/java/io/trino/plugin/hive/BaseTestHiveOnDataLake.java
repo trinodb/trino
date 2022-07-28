@@ -230,9 +230,9 @@ public abstract class BaseTestHiveOnDataLake
         assertQueryReturnsEmptyResult(queryUsingPartitionCacheForValue1);
         assertQueryReturnsEmptyResult(queryUsingPartitionCacheForValue2);
 
-        // Refresh cache for schema_name => 'dummy_schema', table_name => 'dummy_table', partition_column =>
+        // Refresh cache for schema_name => 'dummy_schema', table_name => 'dummy_table', partition_columns =>
         getQueryRunner().execute(format(
-                "CALL system.flush_metadata_cache(schema_name => '%s', table_name => '%s', partition_column => ARRAY['%s'], partition_value => ARRAY['%s'])",
+                "CALL system.flush_metadata_cache(schema_name => '%s', table_name => '%s', partition_columns => ARRAY['%s'], partition_values => ARRAY['%s'])",
                 HIVE_TEST_SCHEMA,
                 tableName,
                 partitionColumn,
