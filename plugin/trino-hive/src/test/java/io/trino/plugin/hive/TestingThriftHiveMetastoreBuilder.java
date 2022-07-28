@@ -119,8 +119,7 @@ public final class TestingThriftHiveMetastoreBuilder
                 new TokenDelegationThriftMetastoreFactory(
                         metastoreLocator,
                         thriftMetastoreConfig,
-                        new ThriftMetastoreAuthenticationConfig(),
-                        hdfsEnvironment),
+                        new ThriftMetastoreAuthenticationConfig()),
                 new HiveMetastoreConfig().isHideDeltaLakeTables(),
                 hiveConfig.isTranslateHiveViews(),
                 thriftMetastoreConfig,
