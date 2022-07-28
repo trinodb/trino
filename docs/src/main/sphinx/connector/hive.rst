@@ -1064,7 +1064,7 @@ The following procedures are available:
 
   Flush all Hive metadata caches.
 
-* ``system.flush_metadata_cache(schema_name => ..., table_name => ..., partition_columns => ARRAY[...], partition_values => ARRAY[...])``
+* ``system.flush_metadata_cache(schema_name => ..., table_name => ..., partition_column => ARRAY[...], partition_value => ARRAY[...])``
 
   Flush Hive metadata cache entries connected with selected partition.
   Procedure requires named parameters to be passed
