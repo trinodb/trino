@@ -154,7 +154,6 @@ public class DeltaLakePageSink
 
         Map<String, String> canonicalToOriginalPartitionColumns = originalPartitionColumns.stream()
                 .collect(toImmutableMap(TransactionLogAccess::canonicalizeColumnName, identity()));
-        // sample weight column is passed separately, so index must be calculated without this column
         for (int inputIndex = 0; inputIndex < inputColumns.size(); inputIndex++) {
             DeltaLakeColumnHandle column = inputColumns.get(inputIndex);
             switch (column.getColumnType()) {
