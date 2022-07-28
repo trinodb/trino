@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -1123,7 +1122,10 @@ public class IcebergMetadata
                 IcebergSessionProperties.EXPIRE_SNAPSHOTS_MIN_RETENTION);
 
         long expireTimestampMillis = session.getStart().toEpochMilli() - retention.toMillis();
-        expireSnapshots(table, expireTimestampMillis, session, executeHandle.getSchemaTableName());
+
+        table.expireSnapshots()
+                .expireOlderThan(expireTimestampMillis)
+                .commit();
     }
 
     private static void validateTableExecuteParameters(
@@ -1161,44 +1163,6 @@ public class IcebergMetadata
                 minRetention,
                 minRetentionParameterName,
                 sessionMinRetentionParameterName);
-    }
-
-    private void expireSnapshots(Table table, long expireTimestamp, ConnectorSession session, SchemaTableName schemaTableName)
-    {
-        Set<String> originalFiles = buildSetOfValidFiles(table);
-        table.expireSnapshots().expireOlderThan(expireTimestamp).cleanExpiredFiles(false).commit();
-        Set<String> validFiles = buildSetOfValidFiles(table);
-        try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsEnvironment.HdfsContext(session), new Path(table.location()));
-            Sets.SetView<String> filesToDelete = difference(originalFiles, validFiles);
-            for (String filePath : filesToDelete) {
-                log.debug("Deleting file %s while expiring snapshots %s", filePath, schemaTableName.getTableName());
-                fileSystem.delete(new Path(filePath), false);
-            }
-        }
-        catch (IOException e) {
-            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed accessing data for table: " + schemaTableName, e);
-        }
-    }
-
-    private static Set<String> buildSetOfValidFiles(Table table)
-    {
-        List<Snapshot> snapshots = ImmutableList.copyOf(table.snapshots());
-        Stream<String> dataFiles = snapshots.stream()
-                .map(Snapshot::snapshotId)
-                .flatMap(snapshotId -> stream(table.newScan().useSnapshot(snapshotId).planFiles()))
-                .map(fileScanTask -> fileScanTask.file().path().toString());
-        Stream<String> manifests = snapshots.stream()
-                .flatMap(snapshot -> snapshot.allManifests().stream())
-                .map(ManifestFile::path);
-        Stream<String> manifestLists = snapshots.stream()
-                .map(Snapshot::manifestListLocation);
-        Stream<String> otherMetadataFiles = concat(
-                metadataFileLocations(table, false).stream(),
-                Stream.of(versionHintLocation(table)));
-        return concat(dataFiles, manifests, manifestLists, otherMetadataFiles)
-                .map(file -> URI.create(file).getPath())
-                .collect(toImmutableSet());
     }
 
     public void executeRemoveOrphanFiles(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
