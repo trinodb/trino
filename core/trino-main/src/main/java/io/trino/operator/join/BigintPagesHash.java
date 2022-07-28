@@ -23,6 +23,8 @@ import io.trino.spi.block.Block;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
 import java.util.Arrays;
 import java.util.List;
 
@@ -42,12 +44,18 @@ public final class BigintPagesHash
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(BigintPagesHash.class).instanceSize();
     private static final DataSize CACHE_SIZE = DataSize.of(128, KILOBYTE);
+    // Keeping values in a separate array greatly improves performance but icreases memory footprint significantly.
+    // This cut-off value prevents excesive memory consumption for big build sides while increasing performance
+    // for smaller ones
+    private static final int VALUES_ARRAY_MAX_SIZE = 2097152;
+
     private final LongArrayList addresses;
     private final List<Block> joinChannelBlocks;
     private final PagesHashStrategy pagesHashStrategy;
 
     private final int mask;
     private final int[] key;
+    @Nullable
     private final long[] values;
     private final long size;
 
@@ -76,7 +84,13 @@ public final class BigintPagesHash
 
         mask = hashSize - 1;
         key = new int[hashSize];
-        values = new long[hashSize];
+
+        if (hashSize >= VALUES_ARRAY_MAX_SIZE) {
+            values = new long[hashSize];
+        }
+        else {
+            values = null;
+        }
         Arrays.fill(key, -1);
 
         // We will process addresses in batches, to save memory on array of hashes.
@@ -105,8 +119,7 @@ public final class BigintPagesHash
                 // look for an empty slot or a slot containing this key
                 while (key[pos] != -1) {
                     int currentKey = key[pos];
-                    long currentValue = values[pos];
-                    if (value == currentValue) {
+                    if (valuesMatch(value, pos)) {
                         // found a slot for this key
                         // link the new key position to the current key position
                         realPosition = positionLinks.link(realPosition, currentKey);
@@ -120,7 +133,9 @@ public final class BigintPagesHash
                 }
 
                 key[pos] = realPosition;
-                values[pos] = value;
+                if (values != null) {
+                    values[pos] = value;
+                }
             }
         }
 
@@ -167,7 +182,7 @@ public final class BigintPagesHash
         int pos = getHashPosition(value, mask);
 
         while (key[pos] != -1) {
-            if (values[pos] == value) {
+            if (valuesMatch(value, pos)) {
                 return key[pos];
             }
             // increment position and mask to handler wrap around
@@ -184,6 +199,17 @@ public final class BigintPagesHash
         int blockPosition = decodePosition(pageAddress);
 
         pagesHashStrategy.appendTo(blockIndex, blockPosition, pageBuilder, outputChannelOffset);
+    }
+
+    private boolean valuesMatch(long value, int position)
+    {
+        if (values != null) {
+            return value == values[position];
+        }
+        long address = addresses.getLong(key[position]);
+        int blockIndex = decodeSliceIndex(address);
+        int blockPosition = decodePosition(address);
+        return value == joinChannelBlocks.get(blockIndex).getLong(blockPosition, 0);
     }
 
     private boolean isPositionNull(int position)
