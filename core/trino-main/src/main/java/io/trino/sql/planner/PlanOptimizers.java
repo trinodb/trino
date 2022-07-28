@@ -257,6 +257,7 @@ import io.trino.sql.planner.optimizations.OptimizerStats;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.optimizations.PredicatePushDown;
 import io.trino.sql.planner.optimizations.ReplicateJoinAndSemiJoinInDelete;
+import io.trino.sql.planner.optimizations.SkewJoinOptimizer;
 import io.trino.sql.planner.optimizations.StatsRecordingPlanOptimizer;
 import io.trino.sql.planner.optimizations.TransformQuantifiedComparisonApplyToCorrelatedJoin;
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
@@ -850,6 +851,9 @@ public class PlanOptimizers
                             // Must run before AddExchanges
                             .add(new DetermineTableScanNodePartitioning(metadata, nodePartitioningManager, taskCountEstimator))
                             .build()));
+
+            // Must be run before AddExchanges because we add new symbols to distribute by.
+            builder.add(new SkewJoinOptimizer(metadata));
 
             builder.add(
                     new IterativeOptimizer(

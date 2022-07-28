@@ -125,6 +125,28 @@ public class TestExpressionVerifier
         assertTrue(verifier.process(expression("y IS DISTINCT FROM x"), expression("b IS DISTINCT FROM a")));
     }
 
+    @Test
+    public void testArrayConstructor()
+    {
+        SymbolAliases symbolAliases = SymbolAliases.builder()
+                .put("a", new SymbolReference("x"))
+                .put("b", new SymbolReference("y"))
+                .build();
+
+        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
+
+        // Complete match flat
+        assertTrue(verifier.process(expression("ARRAY[1,2,3]"), expression("ARRAY[1,2,3]")));
+        // Complete match nested
+        assertTrue(verifier.process(expression("ARRAY[ARRAY[1,2,3]]"), expression("ARRAY[ARRAY[1,2,3]]")));
+        // Different value on right
+        assertFalse(verifier.process(expression("ARRAY[ARRAY[1,2,3]]"), expression("ARRAY[ARRAY[1,2,4]]")));
+        // Different value on left
+        assertFalse(verifier.process(expression("ARRAY[ARRAY[1,2,4]]"), expression("ARRAY[ARRAY[1,2,3]]")));
+        // Different size
+        assertFalse(verifier.process(expression("ARRAY[ARRAY[1,2]]"), expression("ARRAY[ARRAY[1,2,3]]")));
+    }
+
     private Expression expression(String sql)
     {
         return rewriteIdentifiersToSymbolReferences(parser.createExpression(sql, new ParsingOptions()));

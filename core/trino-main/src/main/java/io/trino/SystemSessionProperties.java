@@ -25,6 +25,7 @@ import io.trino.memory.NodeMemoryConfig;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.type.ArrayType;
 import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
@@ -48,6 +49,7 @@ import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 
@@ -59,6 +61,8 @@ public final class SystemSessionProperties
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
     public static final String JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR = "join_multi_clause_independence_factor";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
+    public static final String SKEWED_JOIN_METADATA = "skewed_join_metadata";
+    public static final String SKEWED_JOIN_REPLICATION_FACTOR = "skewed_join_replication_factor";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
@@ -237,6 +241,20 @@ public final class SystemSessionProperties
                         DISTRIBUTED_INDEX_JOIN,
                         "Distribute index joins on join keys instead of executing inline",
                         optimizerConfig.isDistributedIndexJoinsEnabled(),
+                        false),
+                new PropertyMetadata<>(
+                        SKEWED_JOIN_METADATA,
+                        "Columns that have a skewed distribution and their corresponding keys",
+                        new ArrayType(new ArrayType(VARCHAR)),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> (List<?>) value,
+                        value -> value),
+                integerProperty(
+                        SKEWED_JOIN_REPLICATION_FACTOR,
+                        "Number of partitions to shard the skewed key",
+                        3,
                         false),
                 integerProperty(
                         HASH_PARTITION_COUNT,
@@ -902,6 +920,17 @@ public final class SystemSessionProperties
     public static boolean isDistributedIndexJoinEnabled(Session session)
     {
         return session.getSystemProperty(DISTRIBUTED_INDEX_JOIN, Boolean.class);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static List<List<String>> getSkewedJoinMetadata(Session session)
+    {
+        return session.getSystemProperty(SKEWED_JOIN_METADATA, List.class);
+    }
+
+    public static int getSkewedJoinReplicationFactor(Session session)
+    {
+        return session.getSystemProperty(SKEWED_JOIN_REPLICATION_FACTOR, Integer.class);
     }
 
     public static int getHashPartitionCount(Session session)
