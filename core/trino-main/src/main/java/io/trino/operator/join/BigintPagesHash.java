@@ -48,7 +48,6 @@ public final class BigintPagesHash
 
     private final int mask;
     private final int[] key;
-    private final long[] values;
     private final long size;
 
     private final long hashCollisions;
@@ -76,7 +75,6 @@ public final class BigintPagesHash
 
         mask = hashSize - 1;
         key = new int[hashSize];
-        values = new long[hashSize];
         Arrays.fill(key, -1);
 
         // We will process addresses in batches, to save memory on array of hashes.
@@ -105,8 +103,7 @@ public final class BigintPagesHash
                 // look for an empty slot or a slot containing this key
                 while (key[pos] != -1) {
                     int currentKey = key[pos];
-                    long currentValue = values[pos];
-                    if (value == currentValue) {
+                    if (value == getValue(key[pos])) {
                         // found a slot for this key
                         // link the new key position to the current key position
                         realPosition = positionLinks.link(realPosition, currentKey);
@@ -120,14 +117,22 @@ public final class BigintPagesHash
                 }
 
                 key[pos] = realPosition;
-                values[pos] = value;
             }
         }
 
         size = sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes() +
-                sizeOf(key) + sizeOf(values);
+                sizeOf(key);
         hashCollisions = hashCollisionsLocal;
         expectedHashCollisions = estimateNumberOfHashCollisions(addresses.size(), hashSize);
+    }
+
+    private long getValue(int realPosition)
+    {
+        long address = addresses.getLong(realPosition);
+        int blockIndex = decodeSliceIndex(address);
+        int blockPosition = decodePosition(address);
+        long value = joinChannelBlocks.get(blockIndex).getLong(blockPosition, 0);
+        return value;
     }
 
     @Override
@@ -167,7 +172,7 @@ public final class BigintPagesHash
         int pos = getHashPosition(value, mask);
 
         while (key[pos] != -1) {
-            if (values[pos] == value) {
+            if (getValue(key[pos]) == value) {
                 return key[pos];
             }
             // increment position and mask to handler wrap around
