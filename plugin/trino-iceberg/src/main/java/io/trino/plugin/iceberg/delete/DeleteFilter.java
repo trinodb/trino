@@ -14,13 +14,10 @@
 package io.trino.plugin.iceberg.delete;
 
 import io.trino.plugin.iceberg.IcebergColumnHandle;
-import org.apache.iceberg.Schema;
 
 import java.util.List;
 
 public interface DeleteFilter
 {
-    Schema schema();
-
     RowPredicate createPredicate(List<IcebergColumnHandle> columns);
 }
