@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.druid;
 
-import io.airlift.log.Logger;
 import io.trino.plugin.druid.ingestion.IndexTaskBuilder;
 import io.trino.plugin.druid.ingestion.TimestampSpec;
 import io.trino.testing.datatype.ColumnSetup;
@@ -27,13 +26,13 @@ import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class DruidCreateAndInsertDataSetup
         implements DataSetup
 {
-    private static final Logger log = Logger.get(DruidCreateAndInsertDataSetup.class);
     private final TestingDruidServer druidServer;
     private final String dataSourceNamePrefix;
 
@@ -51,7 +50,7 @@ public class DruidCreateAndInsertDataSetup
             ingestData(testTable, inputs);
         }
         catch (Exception e) {
-            log.error(e);
+            throw new RuntimeException(e);
         }
         return testTable;
     }
@@ -64,21 +63,26 @@ public class DruidCreateAndInsertDataSetup
         TimestampSpec timestampSpec = getTimestampSpec(inputs);
         builder.setTimestampSpec(timestampSpec);
 
-        List<ColumnSetup> normalInputs = inputs.stream().filter(input -> !isTimestampDimension(input)).collect(Collectors.toList());
-        for (int index = 0; index < inputs.size() - 1; index++) {
-            builder.addColumn(format("col_%s", index), normalInputs.get(index).getDeclaredType().orElse("string"));
+        List<ColumnSetup> normalInputs = inputs.stream()
+                .filter(input -> !isTimestampDimension(input))
+                .collect(toImmutableList());
+        int index = 0;
+        for (ColumnSetup input : normalInputs) {
+            builder.addColumn(format("col_%s", index), input.getDeclaredType().orElse("string"));
+            index++;
         }
 
         String dataFilePath = format("%s/%s.tsv", druidServer.getHostWorkingDirectory(), testTable.getName());
         writeTsvFile(dataFilePath, inputs);
 
-        log.debug(builder.build());
         this.druidServer.ingestData(testTable.getName(), builder.build(), dataFilePath);
     }
 
     private TimestampSpec getTimestampSpec(List<ColumnSetup> inputs)
     {
-        List<ColumnSetup> timestampInputs = inputs.stream().filter(this::isTimestampDimension).collect(Collectors.toList());
+        List<ColumnSetup> timestampInputs = inputs.stream()
+                .filter(this::isTimestampDimension)
+                .collect(toImmutableList());
 
         if (timestampInputs.size() > 1) {
             throw new UnsupportedOperationException("Druid only allows one timestamp field");
@@ -94,16 +98,16 @@ public class DruidCreateAndInsertDataSetup
         }
         String type = input.getDeclaredType().get();
 
-        // TODO: support more types
         return type.startsWith("timestamp");
     }
 
     private void writeTsvFile(String dataFilePath, List<ColumnSetup> inputs)
             throws IOException
     {
-        File file = new File(dataFilePath);
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(file, UTF_8))) {
-            writer.write(inputs.stream().map(ColumnSetup::getInputLiteral).collect(Collectors.joining("\t")));
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(new File(dataFilePath), UTF_8))) {
+            writer.write(inputs.stream()
+                    .map(ColumnSetup::getInputLiteral)
+                    .collect(Collectors.joining("\t")));
         }
     }
 }
