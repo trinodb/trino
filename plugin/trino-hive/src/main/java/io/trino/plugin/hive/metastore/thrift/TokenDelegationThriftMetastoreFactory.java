@@ -17,7 +17,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.collect.cache.NonEvictableLoadingCache;
-import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
@@ -46,8 +45,7 @@ public class TokenDelegationThriftMetastoreFactory
     public TokenDelegationThriftMetastoreFactory(
             MetastoreLocator metastoreLocator,
             ThriftMetastoreConfig thriftConfig,
-            ThriftMetastoreAuthenticationConfig authenticationConfig,
-            HdfsEnvironment hdfsEnvironment)
+            ThriftMetastoreAuthenticationConfig authenticationConfig)
     {
         this.clientProvider = requireNonNull(metastoreLocator, "metastoreLocator is null");
         this.impersonationEnabled = thriftConfig.isImpersonationEnabled();
