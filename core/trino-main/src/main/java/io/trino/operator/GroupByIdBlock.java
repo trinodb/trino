@@ -13,9 +13,7 @@
  */
 package io.trino.operator;
 
-import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
@@ -55,7 +53,7 @@ public class GroupByIdBlock
     @Override
     public Block getRegion(int positionOffset, int length)
     {
-        return block.getRegion(positionOffset, length);
+        throw new UnsupportedOperationException("GroupByIdBlock does not support getRegion");
     }
 
     @Override
@@ -77,87 +75,15 @@ public class GroupByIdBlock
     }
 
     @Override
-    public Block copyRegion(int positionOffset, int length)
+    public Block copyRegion(int position, int length)
     {
-        return block.copyRegion(positionOffset, length);
-    }
-
-    @Override
-    public int getSliceLength(int position)
-    {
-        return block.getSliceLength(position);
-    }
-
-    @Override
-    public byte getByte(int position, int offset)
-    {
-        return block.getByte(position, offset);
-    }
-
-    @Override
-    public short getShort(int position, int offset)
-    {
-        return block.getShort(position, offset);
-    }
-
-    @Override
-    public int getInt(int position, int offset)
-    {
-        return block.getInt(position, offset);
+        throw new UnsupportedOperationException("GroupByIdBlock does not support copyRegion");
     }
 
     @Override
     public long getLong(int position, int offset)
     {
         return block.getLong(position, offset);
-    }
-
-    @Override
-    public Slice getSlice(int position, int offset, int length)
-    {
-        return block.getSlice(position, offset, length);
-    }
-
-    @Override
-    public <T> T getObject(int position, Class<T> clazz)
-    {
-        return block.getObject(position, clazz);
-    }
-
-    @Override
-    public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
-    {
-        return block.bytesEqual(position, offset, otherSlice, otherOffset, length);
-    }
-
-    @Override
-    public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
-    {
-        return block.bytesCompare(position, offset, length, otherSlice, otherOffset, otherLength);
-    }
-
-    @Override
-    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
-    {
-        block.writeBytesTo(position, offset, length, blockBuilder);
-    }
-
-    @Override
-    public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
-    {
-        return block.equals(position, offset, otherBlock, otherPosition, otherOffset, length);
-    }
-
-    @Override
-    public long hash(int position, int offset, int length)
-    {
-        return block.hash(position, offset, length);
-    }
-
-    @Override
-    public int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength)
-    {
-        return block.compareTo(leftPosition, leftOffset, leftLength, rightBlock, rightPosition, rightOffset, rightLength);
     }
 
     @Override
