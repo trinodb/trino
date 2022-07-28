@@ -134,6 +134,8 @@ public class DruidJdbcClient
     private static final String DRUID_CATALOG = "druid";
     // All the datasources in Druid are created under schema "druid"
     private static final String DRUID_SCHEMA = "druid";
+
+    // TODO We could also re-evaluate this logic by using a new Calendar for each row if necessary
     private static final Calendar UTC_CALENDAR = Calendar.getInstance(TimeZone.getTimeZone(UTC));
 
     private static final DateTimeFormatter LOCAL_DATE_TIME = new DateTimeFormatterBuilder()
@@ -309,7 +311,7 @@ public class DruidJdbcClient
         return ColumnMapping.longMapping(
                 timestampType,
                 (resultSet, columnIndex) -> {
-                    // Druis's ResultSet depends on JDBC Connection TimeZone, so we pass the Calendar to get the result at UTC.
+                    // Druid's ResultSet depends on JDBC Connection TimeZone, so we pass the Calendar to get the result at UTC.
                     Instant instant = Instant.ofEpochMilli(resultSet.getTimestamp(columnIndex, UTC_CALENDAR).getTime());
                     LocalDateTime timestamp = LocalDateTime.ofInstant(instant, UTC);
                     return toTrinoTimestamp(timestampType, timestamp);
