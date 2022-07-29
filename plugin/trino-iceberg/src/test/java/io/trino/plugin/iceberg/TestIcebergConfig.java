@@ -58,7 +58,6 @@ public class TestIcebergConfig
                 .setDeleteSchemaLocationsFallback(false)
                 .setTargetMaxFileSize(DataSize.of(1, GIGABYTE))
                 .setMinimumAssignedSplitWeight(0.05)
-                .setAllowLegacySnapshotSyntax(false)
                 .setMaterializedViewsStorageSchema(null));
     }
 
@@ -83,7 +82,6 @@ public class TestIcebergConfig
                 .put("iceberg.delete-schema-locations-fallback", "true")
                 .put("iceberg.target-max-file-size", "1MB")
                 .put("iceberg.minimum-assigned-split-weight", "0.01")
-                .put("iceberg.allow-legacy-snapshot-syntax", "true")
                 .put("iceberg.materialized-views.storage-schema", "mv_storage_schema")
                 .buildOrThrow();
 
@@ -105,7 +103,6 @@ public class TestIcebergConfig
                 .setDeleteSchemaLocationsFallback(true)
                 .setTargetMaxFileSize(DataSize.of(1, MEGABYTE))
                 .setMinimumAssignedSplitWeight(0.01)
-                .setAllowLegacySnapshotSyntax(true)
                 .setMaterializedViewsStorageSchema("mv_storage_schema");
 
         assertFullMapping(properties, expected);

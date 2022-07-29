@@ -385,16 +385,13 @@ public class TestIcebergAnalyze
     @Test
     public void testAnalyzeSnapshot()
     {
-        Session session = Session.builder(getSession())
-                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "allow_legacy_snapshot_syntax", "true")
-                .build();
         String tableName = "test_analyze_snapshot_" + randomTableSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (a) AS VALUES 11", 1);
         long snapshotId = getCurrentSnapshotId(tableName);
         assertUpdate("INSERT INTO " + tableName + " VALUES 22", 1);
-        assertThatThrownBy(() -> query(session, "ANALYZE \"%s@%d\"".formatted(tableName, snapshotId)))
-                .hasMessage("Cannot analyze old snapshot " + snapshotId);
+        assertThatThrownBy(() -> query("ANALYZE \"%s@%d\"".formatted(tableName, snapshotId)))
+                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, snapshotId));
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES 11, 22");
 
@@ -490,16 +487,13 @@ public class TestIcebergAnalyze
     @Test
     public void testDropStatsSnapshot()
     {
-        Session session = Session.builder(getSession())
-                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "allow_legacy_snapshot_syntax", "true")
-                .build();
         String tableName = "test_drop_stats_snapshot_" + randomTableSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (a) AS VALUES 11", 1);
         long snapshotId = getCurrentSnapshotId(tableName);
         assertUpdate("INSERT INTO " + tableName + " VALUES 22", 1);
-        assertThatThrownBy(() -> query(session, "ALTER TABLE \"%s@%d\" EXECUTE DROP_EXTENDED_STATS".formatted(tableName, snapshotId)))
-                .hasMessage("Cannot execute table procedure DROP_EXTENDED_STATS on old snapshot " + snapshotId);
+        assertThatThrownBy(() -> query("ALTER TABLE \"%s@%d\" EXECUTE DROP_EXTENDED_STATS".formatted(tableName, snapshotId)))
+                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, snapshotId));
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES 11, 22");
 

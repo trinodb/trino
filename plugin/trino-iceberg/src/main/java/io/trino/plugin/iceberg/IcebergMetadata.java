@@ -145,7 +145,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -188,7 +187,6 @@ import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getExpireSnapshotMinRetention;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getRemoveOrphanFilesMinRetention;
-import static io.trino.plugin.iceberg.IcebergSessionProperties.isAllowLegacySnapshotSyntax;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isStatisticsEnabled;
@@ -220,7 +218,6 @@ import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.DROP_EXT
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.EXPIRE_SNAPSHOTS;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.OPTIMIZE;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.REMOVE_ORPHAN_FILES;
-import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -264,8 +261,6 @@ public class IcebergMetadata
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final TrinoCatalog catalog;
     private final TrinoFileSystemFactory fileSystemFactory;
-
-    private final Map<String, Long> snapshotIds = new ConcurrentHashMap<>();
 
     private Transaction transaction;
 
@@ -332,16 +327,11 @@ public class IcebergMetadata
             return null;
         }
 
-        if (name.getSnapshotId().isPresent() && endVersion.isPresent()) {
-            throw new TrinoException(GENERIC_USER_ERROR, "Cannot specify end version both in table name and FOR clause");
-        }
-
         Optional<Long> tableSnapshotId;
         Schema tableSchema;
         Optional<PartitionSpec> partitionSpec;
-        if (endVersion.isPresent() || name.getSnapshotId().isPresent()) {
-            long snapshotId = endVersion.map(connectorTableVersion -> getSnapshotIdFromVersion(table, connectorTableVersion))
-                    .orElseGet(() -> resolveSnapshotId(table, name.getSnapshotId().get(), isAllowLegacySnapshotSyntax(session)));
+        if (endVersion.isPresent()) {
+            long snapshotId = getSnapshotIdFromVersion(table, endVersion.get());
             tableSnapshotId = Optional.of(snapshotId);
             tableSchema = schemaFor(table, snapshotId);
             partitionSpec = Optional.empty();
@@ -436,21 +426,15 @@ public class IcebergMetadata
                 // Handled above.
                 break;
             case HISTORY:
-                if (name.getSnapshotId().isPresent()) {
-                    throw new TrinoException(NOT_SUPPORTED, "Snapshot ID not supported for history table: " + systemTableName);
-                }
                 return Optional.of(new HistoryTable(systemTableName, table));
             case SNAPSHOTS:
-                if (name.getSnapshotId().isPresent()) {
-                    throw new TrinoException(NOT_SUPPORTED, "Snapshot ID not supported for snapshots table: " + systemTableName);
-                }
                 return Optional.of(new SnapshotsTable(systemTableName, typeManager, table));
             case PARTITIONS:
-                return Optional.of(new PartitionTable(systemTableName, typeManager, table, getSnapshotId(table, name.getSnapshotId(), isAllowLegacySnapshotSyntax(session))));
+                return Optional.of(new PartitionTable(systemTableName, typeManager, table, getCurrentSnapshotId(table)));
             case MANIFESTS:
-                return Optional.of(new ManifestsTable(systemTableName, table, getSnapshotId(table, name.getSnapshotId(), isAllowLegacySnapshotSyntax(session))));
+                return Optional.of(new ManifestsTable(systemTableName, table, getCurrentSnapshotId(table)));
             case FILES:
-                return Optional.of(new FilesTable(systemTableName, typeManager, table, getSnapshotId(table, name.getSnapshotId(), isAllowLegacySnapshotSyntax(session))));
+                return Optional.of(new FilesTable(systemTableName, typeManager, table, getCurrentSnapshotId(table)));
             case PROPERTIES:
                 return Optional.of(new PropertiesTable(systemTableName, table));
         }
@@ -2088,19 +2072,9 @@ public class IcebergMetadata
         catalog.setTablePrincipal(session, tableName, principal);
     }
 
-    private Optional<Long> getSnapshotId(Table table, Optional<Long> snapshotId, boolean allowLegacySnapshotSyntax)
+    private Optional<Long> getCurrentSnapshotId(Table table)
     {
-        // table.name() is an encoded version of SchemaTableName
-        return snapshotId
-                .map(id -> resolveSnapshotId(table, id, allowLegacySnapshotSyntax))
-                .or(() -> Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId));
-    }
-
-    private long resolveSnapshotId(Table table, long id, boolean allowLegacySnapshotSyntax)
-    {
-        return snapshotIds.computeIfAbsent(
-                table.name() + "@" + id,
-                ignored -> IcebergUtil.resolveSnapshotId(table, id, allowLegacySnapshotSyntax));
+        return Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId);
     }
 
     Table getIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)

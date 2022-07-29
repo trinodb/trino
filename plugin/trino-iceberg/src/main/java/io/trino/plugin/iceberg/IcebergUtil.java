@@ -83,12 +83,10 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Lists.reverse;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
-import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static io.trino.plugin.iceberg.IcebergMetadata.ORC_BLOOM_FILTER_COLUMNS_KEY;
 import static io.trino.plugin.iceberg.IcebergMetadata.ORC_BLOOM_FILTER_FPP_KEY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
@@ -215,31 +213,6 @@ public final class IcebergUtil
         }
 
         return properties.buildOrThrow();
-    }
-
-    @Deprecated
-    public static long resolveSnapshotId(Table table, long snapshotId, boolean allowLegacySnapshotSyntax)
-    {
-        if (!allowLegacySnapshotSyntax) {
-            throw new TrinoException(
-                    NOT_SUPPORTED,
-                    format(
-                            "Failed to access snapshot %s for table %s. This syntax for accessing Iceberg tables is not "
-                                    + "supported. Use the AS OF syntax OR set the catalog session property "
-                                    + "allow_legacy_snapshot_syntax=true for temporarily restoring previous behavior.",
-                            snapshotId,
-                            table.name()));
-        }
-
-        if (table.snapshot(snapshotId) != null) {
-            return snapshotId;
-        }
-
-        return reverse(table.history()).stream()
-                .filter(entry -> entry.timestampMillis() <= snapshotId)
-                .map(HistoryEntry::snapshotId)
-                .findFirst()
-                .orElseThrow(() -> new TrinoException(ICEBERG_INVALID_SNAPSHOT_ID, format("Invalid snapshot [%s] for table: %s", snapshotId, table)));
     }
 
     public static List<IcebergColumnHandle> getColumns(Schema schema, TypeManager typeManager)
