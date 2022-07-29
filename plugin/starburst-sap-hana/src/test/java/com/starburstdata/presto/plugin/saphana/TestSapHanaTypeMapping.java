@@ -160,7 +160,7 @@ public class TestSapHanaTypeMapping
     {
         assertThatThrownBy(() ->
                 trinoCreateAsSelect("test_unsupported")
-                        .setupTestTable(List.of(new DataTypeTest.Input<>(dataType, value, false)))
+                        .setupTemporaryRelation(List.of(new DataTypeTest.Input<>(dataType, value, false)))
                         .close())
                 .hasStackTraceContaining(expectedMessage);
     }
