@@ -27,7 +27,9 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.net.HostAndPort;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.JsonResponseHandler;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StaticBodyGenerator;
@@ -103,6 +105,7 @@ public class PinotClient
 {
     private static final Logger LOG = Logger.get(PinotClient.class);
     private static final String APPLICATION_JSON = "application/json";
+
     private static final Pattern BROKER_PATTERN = Pattern.compile("Broker_(.*)_(\\d+)");
     private static final String TIME_BOUNDARY_NOT_FOUND_ERROR_CODE = "404";
     private static final JsonCodec<Map<String, Map<String, List<String>>>> ROUTING_TABLE_CODEC = mapJsonCodec(String.class, mapJsonCodec(String.class, listJsonCodec(String.class)));
@@ -114,11 +117,12 @@ public class PinotClient
     private static final String TABLE_SCHEMA_API_TEMPLATE = "tables/%s/schema";
     private static final String ROUTING_TABLE_API_TEMPLATE = "debug/routingTable/%s";
     private static final String TIME_BOUNDARY_API_TEMPLATE = "debug/timeBoundary/%s";
-    private static final String QUERY_URL_TEMPLATE = "http://%s/query/sql";
+    private static final String QUERY_URL_TEMPLATE = "query/sql";
 
     private final List<URI> controllerUrls;
     private final HttpClient httpClient;
     private final PinotHostMapper pinotHostMapper;
+    private final String scheme;
 
     private final NonEvictableLoadingCache<String, List<String>> brokersForTableCache;
     private final NonEvictableLoadingCache<Object, Multimap<String, String>> allTablesCache;
@@ -152,6 +156,7 @@ public class PinotClient
         this.brokerResponseCodec = requireNonNull(brokerResponseCodec, "brokerResponseCodec is null");
         requireNonNull(config, "config is null");
         this.pinotHostMapper = requireNonNull(pinotHostMapper, "pinotHostMapper is null");
+        this.scheme = config.isTlsEnabled() ? "https" : "http";
 
         this.controllerUrls = config.getControllerUrls();
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -213,8 +218,12 @@ public class PinotClient
     {
         ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
         controllerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
+        URI controllerPathUri = uriBuilderFrom(getControllerUrl())
+                .scheme(scheme)
+                .appendPath(path)
+                .build();
         return doHttpActionWithHeadersJson(
-                Request.Builder.prepareGet().setUri(uriBuilderFrom(getControllerUrl()).appendPath(path).build()),
+                Request.Builder.prepareGet().setUri(controllerPathUri),
                 Optional.empty(),
                 codec,
                 additionalHeadersBuilder.build());
@@ -224,8 +233,13 @@ public class PinotClient
     {
         ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
         brokerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
+        HttpUriBuilder builder = HttpUriBuilder.uriBuilder().hostAndPort(HostAndPort.fromString(getBrokerHost(table)));
+        URI brokerPathUri = builder
+                .scheme(scheme)
+                .appendPath(path)
+                .build();
         return doHttpActionWithHeadersJson(
-                Request.Builder.prepareGet().setUri(URI.create(format("http://%s/%s", getBrokerHost(table), path))),
+                Request.Builder.prepareGet().setUri(brokerPathUri),
                 Optional.empty(),
                 codec,
                 additionalHeadersBuilder.build());
@@ -526,10 +540,14 @@ public class PinotClient
     {
         String queryRequest = QUERY_REQUEST_JSON_CODEC.toJson(new QueryRequest(query.getQuery()));
         return doWithRetries(PinotSessionProperties.getPinotRetryCount(session), retryNumber -> {
-            String queryHost = getBrokerHost(query.getTable());
-            LOG.info("Query '%s' on broker host '%s'", queryHost, query.getQuery());
-            Request.Builder builder = Request.Builder.preparePost()
-                    .setUri(URI.create(format(QUERY_URL_TEMPLATE, queryHost)));
+            HttpUriBuilder httpUriBuilder = HttpUriBuilder.uriBuilder().hostAndPort(HostAndPort.fromString(getBrokerHost(query.getTable())));
+            URI queryPathUri = httpUriBuilder
+                    .scheme(scheme)
+                    .appendPath(QUERY_URL_TEMPLATE)
+                    .build();
+            LOG.info("Query '%s' on broker host '%s'", query.getQuery(), queryPathUri);
+            Request.Builder builder = Request.Builder.preparePost().setUri(queryPathUri);
+
             ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
             brokerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
             BrokerResponseNative response = doHttpActionWithHeadersJson(builder, Optional.of(queryRequest), brokerResponseCodec,

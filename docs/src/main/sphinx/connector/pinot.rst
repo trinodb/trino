@@ -74,6 +74,7 @@ Property name                                             Required   Description
 ``pinot.aggregation-pushdown.enabled``                    No         Push down aggregation queries, default is ``true``.
 ``pinot.count-distinct-pushdown.enabled``                 No         Push down count distinct queries to Pinot, default is ``true``.
 ``pinot.target-segment-page-size``                        No         Max allowed page size for segment query, default is ``1MB``.
+``pinot.tls.enabled``                                     No         Enable TLS for all connections, default is ``false``.
 ========================================================= ========== ==============================================================================
 
 If ``pinot.controller.authentication.type`` is set to ``PASSWORD`` then both ``pinot.controller.authentication.user`` and

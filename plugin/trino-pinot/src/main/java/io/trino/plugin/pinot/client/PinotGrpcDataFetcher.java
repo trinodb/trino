@@ -250,6 +250,7 @@ public class PinotGrpcDataFetcher
                     .setSql(query)
                     .setSegments(segments)
                     .setEnableStreaming(true)
+                    .setBrokerId("trino-coordinator-grpc")
                     .setBrokerRequest(brokerRequest);
             return new ResponseIterator(client.submit(requestBuilder.build()));
         }

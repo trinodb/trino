@@ -23,6 +23,7 @@ import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
 import javax.annotation.PostConstruct;
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 
@@ -63,6 +64,7 @@ public class PinotConfig
     private boolean aggregationPushdownEnabled = true;
     private boolean countDistinctPushdownEnabled = true;
     private boolean grpcEnabled = true;
+    private boolean tlsEnabled;
     private DataSize targetSegmentPageSize = DataSize.of(1, MEGABYTE);
 
     @NotEmpty(message = "pinot.controller-urls cannot be empty")
@@ -239,6 +241,18 @@ public class PinotConfig
         return this;
     }
 
+    public boolean isTlsEnabled()
+    {
+        return tlsEnabled;
+    }
+
+    @Config("pinot.tls.enabled")
+    public PinotConfig setTlsEnabled(boolean tlsEnabled)
+    {
+        this.tlsEnabled = tlsEnabled;
+        return this;
+    }
+
     public DataSize getTargetSegmentPageSize()
     {
         return this.targetSegmentPageSize;
@@ -257,5 +271,20 @@ public class PinotConfig
         checkState(
                 !countDistinctPushdownEnabled || aggregationPushdownEnabled,
                 "Invalid configuration: pinot.aggregation-pushdown.enabled must be enabled if pinot.count-distinct-pushdown.enabled");
+    }
+
+    @AssertTrue(message = "Controller URL should use HTTPS scheme when TLS is enabled")
+    public boolean isControllerUrlValidWhenTlsEnabled()
+    {
+        if (!isTlsEnabled()) {
+            return true;
+        }
+        for (URI url : getControllerUrls()) {
+            String scheme = url.getScheme();
+            if (scheme != null && !"https".equalsIgnoreCase(scheme)) {
+                return false;
+            }
+        }
+        return true;
     }
 }
