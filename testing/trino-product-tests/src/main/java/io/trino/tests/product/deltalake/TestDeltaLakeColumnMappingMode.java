@@ -34,8 +34,6 @@ import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 public class TestDeltaLakeColumnMappingMode
         extends BaseTestDeltaLakeS3Storage
 {
-    // TODO: Add test with 'delta.columnMapping.mode'='id' table property. This requires Databricks runtime version 10.2 or higher version.
-
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
     public void testColumnMappingModeNone()
     {
@@ -58,6 +56,27 @@ public class TestDeltaLakeColumnMappingMode
                     .containsOnly(expectedRows);
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
                     .containsOnly(expectedRows);
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    public void testColumnMappingModeId()
+    {
+        String tableName = "test_dl_column_mapping_mode_id" + randomTableSuffix();
+
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                " (a_number INT)" +
+                " USING delta " +
+                " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                " TBLPROPERTIES ('delta.columnMapping.mode'='id')");
+
+        try {
+            assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .hasMessageContaining("Only 'name' or 'none' is supported for the 'delta.columnMapping.mode' table property");
         }
         finally {
             onDelta().executeQuery("DROP TABLE default." + tableName);
