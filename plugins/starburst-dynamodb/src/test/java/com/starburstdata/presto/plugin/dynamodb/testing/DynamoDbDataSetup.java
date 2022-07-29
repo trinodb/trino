@@ -14,6 +14,7 @@ import io.airlift.log.Logger;
 import io.trino.testing.datatype.ColumnSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TemporaryRelation;
 import io.trino.testing.sql.TestTable;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
@@ -54,7 +55,7 @@ public class DynamoDbDataSetup
     }
 
     @Override
-    public TestTable setupTestTable(List<ColumnSetup> inputs)
+    public TemporaryRelation setupTemporaryRelation(List<ColumnSetup> inputs)
     {
         TestTable testTable = createTestTable(inputs);
         try {
