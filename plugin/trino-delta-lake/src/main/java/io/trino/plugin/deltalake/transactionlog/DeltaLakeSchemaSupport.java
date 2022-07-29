@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.transactionlog;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
@@ -128,38 +129,61 @@ public final class DeltaLakeSchemaSupport
                 .collect(toImmutableList());
     }
 
-    public static String serializeSchemaAsJson(List<DeltaLakeColumnHandle> columns, Map<String, String> columnComments)
+    public static String serializeSchemaAsJson(
+            List<DeltaLakeColumnHandle> columns,
+            Map<String, String> columnComments,
+            Map<String, Boolean> columnNullability,
+            Map<String, Map<String, Object>> columnMetadata)
     {
         try {
-            return OBJECT_MAPPER.writeValueAsString(serializeStructType(columns, columnComments));
+            return OBJECT_MAPPER.writeValueAsString(serializeStructType(columns, columnComments, columnNullability, columnMetadata));
         }
         catch (JsonProcessingException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, getLocation(e), "Failed to encode Delta Lake schema", e);
         }
     }
 
-    private static Map<String, Object> serializeStructType(List<DeltaLakeColumnHandle> columns, Map<String, String> columnComments)
+    private static Map<String, Object> serializeStructType(
+            List<DeltaLakeColumnHandle> columns,
+            Map<String, String> columnComments,
+            Map<String, Boolean> columnNullability,
+            Map<String, Map<String, Object>> columnMetadata)
     {
         ImmutableMap.Builder<String, Object> schema = ImmutableMap.builder();
 
-        schema.put("fields", columns.stream().map(column -> serializeStructField(column.getName(), column.getType(), columnComments.get(column.getName()))).collect(toImmutableList()));
+        schema.put("fields", columns.stream()
+                .map(column -> {
+                    String columnName = column.getName();
+                    return serializeStructField(
+                            column.getName(),
+                            column.getType(),
+                            columnComments.get(columnName),
+                            columnNullability.get(columnName),
+                            columnMetadata.get(columnName));
+                })
+                .collect(toImmutableList()));
         schema.put("type", "struct");
 
         return schema.buildOrThrow();
     }
 
-    private static Map<String, Object> serializeStructField(String name, Type type, @Nullable String comment)
+    private static Map<String, Object> serializeStructField(String name, Type type, @Nullable String comment, @Nullable Boolean nullable, @Nullable Map<String, Object> metadata)
     {
         ImmutableMap.Builder<String, Object> fieldContents = ImmutableMap.builder();
 
-        ImmutableMap.Builder<String, Object> metadata = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Object> columnMetadata = ImmutableMap.builder();
         if (comment != null) {
-            metadata.put("comment", comment);
+            columnMetadata.put("comment", comment);
+        }
+        if (metadata != null) {
+            metadata.entrySet().stream()
+                    .filter(entry -> !entry.getKey().equals("comment"))
+                    .forEach(entry -> columnMetadata.put(entry.getKey(), entry.getValue()));
         }
 
-        fieldContents.put("metadata", metadata.buildOrThrow());
+        fieldContents.put("metadata", columnMetadata.buildOrThrow());
         fieldContents.put("name", name);
-        fieldContents.put("nullable", true); // TODO: Is column nullability configurable in Trino?
+        fieldContents.put("nullable", nullable != null ? nullable : true);
         fieldContents.put("type", serializeColumnType(type));
 
         return fieldContents.buildOrThrow();
@@ -207,7 +231,8 @@ public final class DeltaLakeSchemaSupport
         ImmutableMap.Builder<String, Object> fields = ImmutableMap.builder();
 
         fields.put("type", "struct");
-        fields.put("fields", rowType.getFields().stream().map(field -> serializeStructField(field.getName().orElse(null), field.getType(), null)).collect(toImmutableList()));
+        fields.put("fields", rowType.getFields().stream()
+                .map(field -> serializeStructField(field.getName().orElse(null), field.getType(), null, null, null)).collect(toImmutableList()));
 
         return fields.buildOrThrow();
     }
@@ -370,6 +395,11 @@ public final class DeltaLakeSchemaSupport
     {
         JsonNode invariants = node.get("metadata").get("delta.invariants");
         return invariants == null ? null : invariants.asText();
+    }
+
+    public static Map<String, Map<String, Object>> getColumnsMetadata(MetadataEntry metadataEntry)
+    {
+        return getColumnProperties(metadataEntry, node -> OBJECT_MAPPER.convertValue(node.get("metadata"), new TypeReference<>(){}));
     }
 
     public static <T> Map<String, T> getColumnProperties(MetadataEntry metadataEntry, Function<JsonNode, T> extractor)
