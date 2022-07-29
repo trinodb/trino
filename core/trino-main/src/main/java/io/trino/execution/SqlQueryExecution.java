@@ -201,20 +201,6 @@ public class SqlQueryExecution
                 tableExecuteContextManager.unregisterTableExecuteContextForQuery(stateMachine.getQueryId());
             });
 
-            // when the query finishes cache the final query info, and clear the reference to the output stage
-            AtomicReference<SqlQueryScheduler> queryScheduler = this.queryScheduler;
-            stateMachine.addStateChangeListener(state -> {
-                if (!state.isDone()) {
-                    return;
-                }
-
-                // query is now done, so abort any work that is still running
-                SqlQueryScheduler scheduler = queryScheduler.get();
-                if (scheduler != null) {
-                    scheduler.abort();
-                }
-            });
-
             this.remoteTaskFactory = new MemoryTrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.coordinatorTaskManager = requireNonNull(coordinatorTaskManager, "coordinatorTaskManager is null");
@@ -530,13 +516,6 @@ public class SqlQueryExecution
                 taskDescriptorStorage);
 
         queryScheduler.set(scheduler);
-
-        // if query was canceled during scheduler creation, abort the scheduler
-        // directly since the callback may have already fired
-        if (stateMachine.isDone()) {
-            scheduler.abort();
-            queryScheduler.set(null);
-        }
     }
 
     @Override
