@@ -34,20 +34,20 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public class TokenDelegationThriftMetastoreFactory
+public class IdentityAwareMetastoreClientFactory
 {
-    private final MetastoreLocator clientProvider;
+    private final TokenAwareMetastoreClientFactory clientProvider;
     private final boolean impersonationEnabled;
     private final boolean authenticationEnabled;
     private final NonEvictableLoadingCache<String, String> delegationTokenCache;
 
     @Inject
-    public TokenDelegationThriftMetastoreFactory(
-            MetastoreLocator metastoreLocator,
+    public IdentityAwareMetastoreClientFactory(
+            TokenAwareMetastoreClientFactory tokenAwareMetastoreClientFactory,
             ThriftMetastoreConfig thriftConfig,
             ThriftMetastoreAuthenticationConfig authenticationConfig)
     {
-        this.clientProvider = requireNonNull(metastoreLocator, "metastoreLocator is null");
+        this.clientProvider = requireNonNull(tokenAwareMetastoreClientFactory, "tokeAwareMetastoreClientFactory is null");
         this.impersonationEnabled = thriftConfig.isImpersonationEnabled();
         this.authenticationEnabled = authenticationConfig.getAuthenticationType() != ThriftMetastoreAuthenticationType.NONE;
 
@@ -64,7 +64,7 @@ public class TokenDelegationThriftMetastoreFactory
         return clientProvider.createMetastoreClient(Optional.empty());
     }
 
-    public ThriftMetastoreClient createMetastoreClient(Optional<ConnectorIdentity> identity)
+    public ThriftMetastoreClient createMetastoreClientFor(Optional<ConnectorIdentity> identity)
             throws TException
     {
         if (!impersonationEnabled) {

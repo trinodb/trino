@@ -29,7 +29,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
-public class TestStaticMetastoreLocator
+public class TestStaticTokenAwareMetastoreClientFactory
 {
     private static final ThriftMetastoreClient DEFAULT_CLIENT = createFakeMetastoreClient();
     private static final ThriftMetastoreClient FALLBACK_CLIENT = createFakeMetastoreClient();
@@ -58,59 +58,59 @@ public class TestStaticMetastoreLocator
     public void testDefaultHiveMetastore()
             throws TException
     {
-        MetastoreLocator locator = createMetastoreLocator(CONFIG_WITH_FALLBACK, ImmutableMap.of(DEFAULT_URI, Optional.of(DEFAULT_CLIENT)));
-        assertEqualHiveClient(locator.createMetastoreClient(Optional.empty()), DEFAULT_CLIENT);
+        TokenAwareMetastoreClientFactory clientFactory = createMetastoreClientFactory(CONFIG_WITH_FALLBACK, ImmutableMap.of(DEFAULT_URI, Optional.of(DEFAULT_CLIENT)));
+        assertEqualHiveClient(clientFactory.createMetastoreClient(Optional.empty()), DEFAULT_CLIENT);
     }
 
     @Test
     public void testFallbackHiveMetastore()
             throws TException
     {
-        MetastoreLocator locator = createMetastoreLocator(CONFIG_WITH_FALLBACK, ImmutableMap.of(DEFAULT_URI, Optional.empty(), FALLBACK_URI, Optional.of(FALLBACK_CLIENT)));
-        assertEqualHiveClient(locator.createMetastoreClient(Optional.empty()), FALLBACK_CLIENT);
+        TokenAwareMetastoreClientFactory clientFactory = createMetastoreClientFactory(CONFIG_WITH_FALLBACK, ImmutableMap.of(DEFAULT_URI, Optional.empty(), FALLBACK_URI, Optional.of(FALLBACK_CLIENT)));
+        assertEqualHiveClient(clientFactory.createMetastoreClient(Optional.empty()), FALLBACK_CLIENT);
     }
 
     @Test
     public void testFallbackHiveMetastoreFails()
     {
-        MetastoreLocator locator = createMetastoreLocator(CONFIG_WITH_FALLBACK, ImmutableMap.of());
-        assertCreateClientFails(locator, "Failed connecting to Hive metastore: [default:8080, fallback:8090, fallback2:8090]");
+        TokenAwareMetastoreClientFactory clientFactory = createMetastoreClientFactory(CONFIG_WITH_FALLBACK, ImmutableMap.of());
+        assertCreateClientFails(clientFactory, "Failed connecting to Hive metastore: [default:8080, fallback:8090, fallback2:8090]");
     }
 
     @Test
     public void testMetastoreFailedWithoutFallback()
     {
-        MetastoreLocator locator = createMetastoreLocator(CONFIG_WITHOUT_FALLBACK, ImmutableMap.of(DEFAULT_URI, Optional.empty()));
-        assertCreateClientFails(locator, "Failed connecting to Hive metastore: [default:8080]");
+        TokenAwareMetastoreClientFactory clientFactory = createMetastoreClientFactory(CONFIG_WITHOUT_FALLBACK, ImmutableMap.of(DEFAULT_URI, Optional.empty()));
+        assertCreateClientFails(clientFactory, "Failed connecting to Hive metastore: [default:8080]");
     }
 
     @Test
     public void testFallbackHiveMetastoreWithHiveUser()
             throws TException
     {
-        MetastoreLocator locator = createMetastoreLocator(CONFIG_WITH_FALLBACK_WITH_USER, ImmutableMap.of(DEFAULT_URI, Optional.empty(), FALLBACK_URI, Optional.empty(), FALLBACK2_URI, Optional.of(FALLBACK_CLIENT)));
-        assertEqualHiveClient(locator.createMetastoreClient(Optional.empty()), FALLBACK_CLIENT);
+        TokenAwareMetastoreClientFactory clientFactory = createMetastoreClientFactory(CONFIG_WITH_FALLBACK_WITH_USER, ImmutableMap.of(DEFAULT_URI, Optional.empty(), FALLBACK_URI, Optional.empty(), FALLBACK2_URI, Optional.of(FALLBACK_CLIENT)));
+        assertEqualHiveClient(clientFactory.createMetastoreClient(Optional.empty()), FALLBACK_CLIENT);
     }
 
     @Test
     public void testMetastoreFailedWithoutFallbackWithHiveUser()
     {
-        MetastoreLocator locator = createMetastoreLocator(CONFIG_WITHOUT_FALLBACK_WITH_USER, ImmutableMap.of(DEFAULT_URI, Optional.empty()));
-        assertCreateClientFails(locator, "Failed connecting to Hive metastore: [default:8080]");
+        TokenAwareMetastoreClientFactory clientFactory = createMetastoreClientFactory(CONFIG_WITHOUT_FALLBACK_WITH_USER, ImmutableMap.of(DEFAULT_URI, Optional.empty()));
+        assertCreateClientFails(clientFactory, "Failed connecting to Hive metastore: [default:8080]");
     }
 
     @Test
     public void testFallbackHiveMetastoreOnTimeOut()
             throws TException
     {
-        MetastoreLocator cluster = createMetastoreLocator(CONFIG_WITH_FALLBACK, CLIENTS);
+        TokenAwareMetastoreClientFactory clientFactory = createMetastoreClientFactory(CONFIG_WITH_FALLBACK, CLIENTS);
 
-        ThriftMetastoreClient metastoreClient1 = cluster.createMetastoreClient(Optional.empty());
+        ThriftMetastoreClient metastoreClient1 = clientFactory.createMetastoreClient(Optional.empty());
         assertEqualHiveClient(metastoreClient1, DEFAULT_CLIENT);
 
         assertGetTableException(metastoreClient1);
 
-        ThriftMetastoreClient metastoreClient2 = cluster.createMetastoreClient(Optional.empty());
+        ThriftMetastoreClient metastoreClient2 = clientFactory.createMetastoreClient(Optional.empty());
         assertEqualHiveClient(metastoreClient2, FALLBACK_CLIENT);
 
         assertGetTableException(metastoreClient2);
@@ -120,22 +120,22 @@ public class TestStaticMetastoreLocator
     public void testFallbackHiveMetastoreOnAllTimeOut()
             throws TException
     {
-        MetastoreLocator cluster = createMetastoreLocator(CONFIG_WITH_FALLBACK, CLIENTS);
+        TokenAwareMetastoreClientFactory clientFactory = createMetastoreClientFactory(CONFIG_WITH_FALLBACK, CLIENTS);
 
-        ThriftMetastoreClient metastoreClient1 = cluster.createMetastoreClient(Optional.empty());
+        ThriftMetastoreClient metastoreClient1 = clientFactory.createMetastoreClient(Optional.empty());
         assertEqualHiveClient(metastoreClient1, DEFAULT_CLIENT);
 
         for (int i = 0; i < 20; ++i) {
             assertGetTableException(metastoreClient1);
         }
 
-        ThriftMetastoreClient metastoreClient2 = cluster.createMetastoreClient(Optional.empty());
+        ThriftMetastoreClient metastoreClient2 = clientFactory.createMetastoreClient(Optional.empty());
         assertEqualHiveClient(metastoreClient2, FALLBACK_CLIENT);
 
         assertGetTableException(metastoreClient2);
 
         // Still get FALLBACK_CLIENT because DEFAULT_CLIENT failed more times before and therefore longer backoff
-        ThriftMetastoreClient metastoreClient3 = cluster.createMetastoreClient(Optional.empty());
+        ThriftMetastoreClient metastoreClient3 = clientFactory.createMetastoreClient(Optional.empty());
         assertEqualHiveClient(metastoreClient3, FALLBACK_CLIENT);
     }
 
@@ -144,20 +144,20 @@ public class TestStaticMetastoreLocator
             throws TException
     {
         TestingTicker ticker = new TestingTicker();
-        MetastoreLocator cluster = createMetastoreLocator(CONFIG_WITH_FALLBACK, CLIENTS, ticker);
+        TokenAwareMetastoreClientFactory clientFactory = createMetastoreClientFactory(CONFIG_WITH_FALLBACK, CLIENTS, ticker);
 
         ticker.increment(10, NANOSECONDS);
-        ThriftMetastoreClient metastoreClient1 = cluster.createMetastoreClient(Optional.empty());
+        ThriftMetastoreClient metastoreClient1 = clientFactory.createMetastoreClient(Optional.empty());
         assertEqualHiveClient(metastoreClient1, DEFAULT_CLIENT);
         assertGetTableException(metastoreClient1);
 
         ticker.increment(10, NANOSECONDS);
-        ThriftMetastoreClient metastoreClient2 = cluster.createMetastoreClient(Optional.empty());
+        ThriftMetastoreClient metastoreClient2 = clientFactory.createMetastoreClient(Optional.empty());
         assertEqualHiveClient(metastoreClient2, FALLBACK_CLIENT);
 
         // even after backoff for DEFAULT_CLIENT passes we should stick to client which we saw working correctly most recently
-        ticker.increment(StaticMetastoreLocator.Backoff.MAX_BACKOFF, NANOSECONDS);
-        ThriftMetastoreClient metastoreClient3 = cluster.createMetastoreClient(Optional.empty());
+        ticker.increment(StaticTokenAwareMetastoreClientFactory.Backoff.MAX_BACKOFF, NANOSECONDS);
+        ThriftMetastoreClient metastoreClient3 = clientFactory.createMetastoreClient(Optional.empty());
         assertEqualHiveClient(metastoreClient3, FALLBACK_CLIENT);
     }
 
@@ -166,20 +166,20 @@ public class TestStaticMetastoreLocator
             throws TException
     {
         TestingTicker ticker = new TestingTicker();
-        MetastoreLocator cluster = createMetastoreLocator(CONFIG_WITH_FALLBACK, CLIENTS, ticker);
+        TokenAwareMetastoreClientFactory clientFactory = createMetastoreClientFactory(CONFIG_WITH_FALLBACK, CLIENTS, ticker);
 
         ticker.increment(10, NANOSECONDS);
-        ThriftMetastoreClient metastoreClient1 = cluster.createMetastoreClient(Optional.empty());
+        ThriftMetastoreClient metastoreClient1 = clientFactory.createMetastoreClient(Optional.empty());
         assertEqualHiveClient(metastoreClient1, DEFAULT_CLIENT);
         assertGetTableException(metastoreClient1);
 
         ticker.increment(10, NANOSECONDS);
-        ThriftMetastoreClient metastoreClient2 = cluster.createMetastoreClient(Optional.empty());
+        ThriftMetastoreClient metastoreClient2 = clientFactory.createMetastoreClient(Optional.empty());
         assertEqualHiveClient(metastoreClient2, FALLBACK_CLIENT);
         assertGetTableException(metastoreClient2);
 
         ticker.increment(10, NANOSECONDS);
-        ThriftMetastoreClient metastoreClient3 = cluster.createMetastoreClient(Optional.empty());
+        ThriftMetastoreClient metastoreClient3 = clientFactory.createMetastoreClient(Optional.empty());
         assertEqualHiveClient(metastoreClient3, DEFAULT_CLIENT);
     }
 
@@ -190,21 +190,21 @@ public class TestStaticMetastoreLocator
                 .hasMessageContaining("Read timeout");
     }
 
-    private static void assertCreateClientFails(MetastoreLocator locator, String message)
+    private static void assertCreateClientFails(TokenAwareMetastoreClientFactory clientFactory, String message)
     {
-        assertThatThrownBy(() -> locator.createMetastoreClient(Optional.empty()))
+        assertThatThrownBy(() -> clientFactory.createMetastoreClient(Optional.empty()))
                 .hasCauseInstanceOf(TException.class)
                 .hasMessage(message);
     }
 
-    private static MetastoreLocator createMetastoreLocator(StaticMetastoreConfig config, Map<String, Optional<ThriftMetastoreClient>> clients)
+    private static TokenAwareMetastoreClientFactory createMetastoreClientFactory(StaticMetastoreConfig config, Map<String, Optional<ThriftMetastoreClient>> clients)
     {
-        return createMetastoreLocator(config, clients, Ticker.systemTicker());
+        return createMetastoreClientFactory(config, clients, Ticker.systemTicker());
     }
 
-    private static MetastoreLocator createMetastoreLocator(StaticMetastoreConfig config, Map<String, Optional<ThriftMetastoreClient>> clients, Ticker ticker)
+    private static TokenAwareMetastoreClientFactory createMetastoreClientFactory(StaticMetastoreConfig config, Map<String, Optional<ThriftMetastoreClient>> clients, Ticker ticker)
     {
-        return new StaticMetastoreLocator(config, new ThriftMetastoreAuthenticationConfig(), new MockThriftMetastoreClientFactory(clients), ticker);
+        return new StaticTokenAwareMetastoreClientFactory(config, new ThriftMetastoreAuthenticationConfig(), new MockThriftMetastoreClientFactory(clients), ticker);
     }
 
     private static ThriftMetastoreClient createFakeMetastoreClient()

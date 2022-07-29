@@ -41,21 +41,21 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class StaticMetastoreLocator
-        implements MetastoreLocator
+public class StaticTokenAwareMetastoreClientFactory
+        implements TokenAwareMetastoreClientFactory
 {
     private final List<Backoff> backoffs;
     private final ThriftMetastoreClientFactory clientFactory;
     private final String metastoreUsername;
 
     @Inject
-    public StaticMetastoreLocator(StaticMetastoreConfig config, ThriftMetastoreAuthenticationConfig authenticationConfig, ThriftMetastoreClientFactory clientFactory)
+    public StaticTokenAwareMetastoreClientFactory(StaticMetastoreConfig config, ThriftMetastoreAuthenticationConfig authenticationConfig, ThriftMetastoreClientFactory clientFactory)
     {
         this(config, authenticationConfig, clientFactory, Ticker.systemTicker());
     }
 
     @VisibleForTesting
-    StaticMetastoreLocator(StaticMetastoreConfig config, ThriftMetastoreAuthenticationConfig authenticationConfig, ThriftMetastoreClientFactory clientFactory, Ticker ticker)
+    StaticTokenAwareMetastoreClientFactory(StaticMetastoreConfig config, ThriftMetastoreAuthenticationConfig authenticationConfig, ThriftMetastoreClientFactory clientFactory, Ticker ticker)
     {
         this(config.getMetastoreUris(), config.getMetastoreUsername(), clientFactory, ticker);
 
@@ -66,17 +66,17 @@ public class StaticMetastoreLocator
                 authenticationConfig.getAuthenticationType());
     }
 
-    public StaticMetastoreLocator(List<URI> metastoreUris, @Nullable String metastoreUsername, ThriftMetastoreClientFactory clientFactory)
+    public StaticTokenAwareMetastoreClientFactory(List<URI> metastoreUris, @Nullable String metastoreUsername, ThriftMetastoreClientFactory clientFactory)
     {
         this(metastoreUris, metastoreUsername, clientFactory, Ticker.systemTicker());
     }
 
-    private StaticMetastoreLocator(List<URI> metastoreUris, @Nullable String metastoreUsername, ThriftMetastoreClientFactory clientFactory, Ticker ticker)
+    private StaticTokenAwareMetastoreClientFactory(List<URI> metastoreUris, @Nullable String metastoreUsername, ThriftMetastoreClientFactory clientFactory, Ticker ticker)
     {
         requireNonNull(metastoreUris, "metastoreUris is null");
         checkArgument(!metastoreUris.isEmpty(), "metastoreUris must specify at least one URI");
         this.backoffs = metastoreUris.stream()
-                .map(StaticMetastoreLocator::checkMetastoreUri)
+                .map(StaticTokenAwareMetastoreClientFactory::checkMetastoreUri)
                 .map(uri -> HostAndPort.fromParts(uri.getHost(), uri.getPort()))
                 .map(address -> new Backoff(address, ticker))
                 .collect(toImmutableList());
