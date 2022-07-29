@@ -17,7 +17,7 @@ import org.apache.thrift.TException;
 
 import java.util.Optional;
 
-public interface MetastoreLocator
+public interface TokenAwareMetastoreClientFactory
 {
     /**
      * Create a connected {@link ThriftMetastoreClient}

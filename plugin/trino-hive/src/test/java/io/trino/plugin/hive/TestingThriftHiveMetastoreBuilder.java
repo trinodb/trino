@@ -26,14 +26,14 @@ import io.trino.plugin.hive.azure.TrinoAzureConfigurationInitializer;
 import io.trino.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
 import io.trino.plugin.hive.gcs.HiveGcsConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.thrift.MetastoreLocator;
-import io.trino.plugin.hive.metastore.thrift.TestingMetastoreLocator;
+import io.trino.plugin.hive.metastore.thrift.IdentityAwareMetastoreClientFactory;
+import io.trino.plugin.hive.metastore.thrift.TestingTokenAwareMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
-import io.trino.plugin.hive.metastore.thrift.TokenDelegationThriftMetastoreFactory;
+import io.trino.plugin.hive.metastore.thrift.TokenAwareMetastoreClientFactory;
 import io.trino.plugin.hive.s3.HiveS3Config;
 import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 
@@ -57,7 +57,7 @@ public final class TestingThriftHiveMetastoreBuilder
             new HdfsConfig(),
             new NoHdfsAuthentication());
 
-    private MetastoreLocator metastoreLocator;
+    private TokenAwareMetastoreClientFactory tokenAwareMetastoreClientFactory;
     private HiveConfig hiveConfig = new HiveConfig();
     private ThriftMetastoreConfig thriftMetastoreConfig = new ThriftMetastoreConfig();
     private HdfsEnvironment hdfsEnvironment = HDFS_ENVIRONMENT;
@@ -73,24 +73,24 @@ public final class TestingThriftHiveMetastoreBuilder
     {
         requireNonNull(address, "address is null");
         requireNonNull(timeout, "timeout is null");
-        checkState(metastoreLocator == null, "Metastore client already set");
-        metastoreLocator = new TestingMetastoreLocator(HiveTestUtils.SOCKS_PROXY, address, timeout);
+        checkState(tokenAwareMetastoreClientFactory == null, "Metastore client already set");
+        tokenAwareMetastoreClientFactory = new TestingTokenAwareMetastoreClientFactory(HiveTestUtils.SOCKS_PROXY, address, timeout);
         return this;
     }
 
     public TestingThriftHiveMetastoreBuilder metastoreClient(HostAndPort address)
     {
         requireNonNull(address, "address is null");
-        checkState(metastoreLocator == null, "Metastore client already set");
-        metastoreLocator = new TestingMetastoreLocator(HiveTestUtils.SOCKS_PROXY, address);
+        checkState(tokenAwareMetastoreClientFactory == null, "Metastore client already set");
+        tokenAwareMetastoreClientFactory = new TestingTokenAwareMetastoreClientFactory(HiveTestUtils.SOCKS_PROXY, address);
         return this;
     }
 
     public TestingThriftHiveMetastoreBuilder metastoreClient(ThriftMetastoreClient client)
     {
         requireNonNull(client, "client is null");
-        checkState(metastoreLocator == null, "Metastore client already set");
-        metastoreLocator = token -> client;
+        checkState(tokenAwareMetastoreClientFactory == null, "Metastore client already set");
+        tokenAwareMetastoreClientFactory = token -> client;
         return this;
     }
 
@@ -114,10 +114,10 @@ public final class TestingThriftHiveMetastoreBuilder
 
     public ThriftMetastore build()
     {
-        checkState(metastoreLocator != null, "metastore client not set");
+        checkState(tokenAwareMetastoreClientFactory != null, "metastore client not set");
         ThriftHiveMetastoreFactory metastoreFactory = new ThriftHiveMetastoreFactory(
-                new TokenDelegationThriftMetastoreFactory(
-                        metastoreLocator,
+                new IdentityAwareMetastoreClientFactory(
+                        tokenAwareMetastoreClientFactory,
                         thriftMetastoreConfig,
                         new ThriftMetastoreAuthenticationConfig()),
                 new HiveMetastoreConfig().isHideDeltaLakeTables(),
