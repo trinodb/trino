@@ -405,7 +405,7 @@ public class CheckpointEntryIterator
         return DeltaLakeTransactionLogEntry.addFileEntry(result);
     }
 
-    private DeltaLakeParquetFileStatistics parseStatisticsFromParquet(Block statsRowBlock) // TODO: Fix
+    private DeltaLakeParquetFileStatistics parseStatisticsFromParquet(Block statsRowBlock)
     {
         if (metadataEntry == null) {
             throw new TrinoException(DELTA_LAKE_BAD_DATA, "Checkpoint file found without metadata entry");
