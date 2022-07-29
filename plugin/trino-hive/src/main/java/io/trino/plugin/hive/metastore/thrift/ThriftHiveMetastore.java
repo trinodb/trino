@@ -143,7 +143,7 @@ public class ThriftHiveMetastore
 
     private final Optional<ConnectorIdentity> identity;
     private final HdfsEnvironment hdfsEnvironment;
-    private final TokenDelegationThriftMetastoreFactory metastoreFactory;
+    private final IdentityAwareMetastoreClientFactory metastoreClientFactory;
     private final double backoffScaleFactor;
     private final Duration minBackoffDelay;
     private final Duration maxBackoffDelay;
@@ -158,7 +158,7 @@ public class ThriftHiveMetastore
     public ThriftHiveMetastore(
             Optional<ConnectorIdentity> identity,
             HdfsEnvironment hdfsEnvironment,
-            TokenDelegationThriftMetastoreFactory metastoreFactory,
+            IdentityAwareMetastoreClientFactory metastoreClientFactory,
             double backoffScaleFactor,
             Duration minBackoffDelay,
             Duration maxBackoffDelay,
@@ -172,7 +172,7 @@ public class ThriftHiveMetastore
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
+        this.metastoreClientFactory = requireNonNull(metastoreClientFactory, "metastoreClientFactory is null");
         this.backoffScaleFactor = backoffScaleFactor;
         this.minBackoffDelay = requireNonNull(minBackoffDelay, "minBackoffDelay is null");
         this.maxBackoffDelay = requireNonNull(maxBackoffDelay, "maxBackoffDelay is null");
@@ -1848,7 +1848,7 @@ public class ThriftHiveMetastore
     private ThriftMetastoreClient createMetastoreClient()
             throws TException
     {
-        return metastoreFactory.createMetastoreClient(identity);
+        return metastoreClientFactory.createMetastoreClientFor(identity);
     }
 
     private RetryDriver retry()

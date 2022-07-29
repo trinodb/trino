@@ -22,8 +22,8 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class TestingMetastoreLocator
-        implements MetastoreLocator
+public class TestingTokenAwareMetastoreClientFactory
+        implements TokenAwareMetastoreClientFactory
 {
     private static final HiveMetastoreAuthentication AUTHENTICATION = new NoHiveMetastoreAuthentication();
     public static final Duration TIMEOUT = new Duration(20, SECONDS);
@@ -31,12 +31,12 @@ public class TestingMetastoreLocator
     private final DefaultThriftMetastoreClientFactory factory;
     private final HostAndPort address;
 
-    public TestingMetastoreLocator(Optional<HostAndPort> socksProxy, HostAndPort address)
+    public TestingTokenAwareMetastoreClientFactory(Optional<HostAndPort> socksProxy, HostAndPort address)
     {
         this(socksProxy, address, TIMEOUT);
     }
 
-    public TestingMetastoreLocator(Optional<HostAndPort> socksProxy, HostAndPort address, Duration timeout)
+    public TestingTokenAwareMetastoreClientFactory(Optional<HostAndPort> socksProxy, HostAndPort address, Duration timeout)
     {
         this.factory = new DefaultThriftMetastoreClientFactory(Optional.empty(), socksProxy, timeout, AUTHENTICATION, "localhost");
         this.address = requireNonNull(address, "address is null");

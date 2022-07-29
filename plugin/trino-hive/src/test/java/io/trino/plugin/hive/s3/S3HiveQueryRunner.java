@@ -20,7 +20,7 @@ import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
-import io.trino.plugin.hive.metastore.thrift.TestingMetastoreLocator;
+import io.trino.plugin.hive.metastore.thrift.TestingTokenAwareMetastoreClientFactory;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
 
@@ -84,7 +84,7 @@ public final class S3HiveQueryRunner
             extends HiveQueryRunner.Builder<Builder>
     {
         private HostAndPort hiveMetastoreEndpoint;
-        private Duration thriftMetastoreTimeout = TestingMetastoreLocator.TIMEOUT;
+        private Duration thriftMetastoreTimeout = TestingTokenAwareMetastoreClientFactory.TIMEOUT;
         private String s3Endpoint;
         private String s3AccessKey;
         private String s3SecretKey;
