@@ -123,17 +123,6 @@ public final class JoinTestUtils
             RowPagesBuilder buildPages,
             Optional<InternalJoinFilterFunction> filterFunction)
     {
-        return setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, filterFunction, true);
-    }
-
-    public static BuildSideSetup setupBuildSide(
-            NodePartitioningManager nodePartitioningManager,
-            boolean parallelBuild,
-            TaskContext taskContext,
-            RowPagesBuilder buildPages,
-            Optional<InternalJoinFilterFunction> filterFunction,
-            boolean enableSingleChannelBigintLookupSource)
-    {
         Optional<JoinFilterFunctionCompiler.JoinFilterFunctionFactory> filterFunctionFactory = filterFunction
                 .map(function -> (session, addresses, pages) -> new StandardJoinFilterFunction(function, addresses, pages));
 
@@ -195,7 +184,7 @@ public final class JoinTestUtils
                 Optional.empty(),
                 ImmutableList.of(),
                 100,
-                new PagesIndex.TestingFactory(false, enableSingleChannelBigintLookupSource),
+                new PagesIndex.TestingFactory(false),
                 incrementalLoadFactorHashArraySizeSupplier(taskContext.getSession()));
         return new BuildSideSetup(lookupSourceFactoryManager, buildOperatorFactory, sourceOperatorFactory, partitionCount);
     }
