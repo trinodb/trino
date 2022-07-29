@@ -17,7 +17,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.ColumnSetup;
 import io.trino.testing.datatype.DataSetup;
-import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TemporaryRelation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -58,14 +58,14 @@ public final class SqlDataTypeTest
     public SqlDataTypeTest execute(QueryRunner queryRunner, Session session, DataSetup dataSetup)
     {
         checkState(!testCases.isEmpty(), "No test cases");
-        try (TestTable testTable = dataSetup.setupTestTable(unmodifiableList(testCases))) {
+        try (TemporaryRelation testTable = dataSetup.setupTemporaryRelation(unmodifiableList(testCases))) {
             verifySelect(queryRunner, session, testTable);
             verifyPredicate(queryRunner, session, testTable);
         }
         return this;
     }
 
-    private void verifySelect(QueryRunner queryRunner, Session session, TestTable testTable)
+    private void verifySelect(QueryRunner queryRunner, Session session, TemporaryRelation testTable)
     {
         @SuppressWarnings("resource") // Closing QueryAssertions would close the QueryRunner
         QueryAssertions queryAssertions = new QueryAssertions(queryRunner);
@@ -95,7 +95,7 @@ public final class SqlDataTypeTest
         assertion.matches(expected);
     }
 
-    private void verifyPredicate(QueryRunner queryRunner, Session session, TestTable testTable)
+    private void verifyPredicate(QueryRunner queryRunner, Session session, TemporaryRelation testTable)
     {
         String queryWithAll = "SELECT 'all found' FROM " + testTable.getName() + "__c WHERE " +
                 IntStream.range(0, testCases.size())

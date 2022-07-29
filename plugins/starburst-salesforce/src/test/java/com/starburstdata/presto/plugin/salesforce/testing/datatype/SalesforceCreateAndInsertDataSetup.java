@@ -39,7 +39,7 @@ public class SalesforceCreateAndInsertDataSetup
     }
 
     @Override
-    public TestTable setupTestTable(List<ColumnSetup> inputs)
+    public TestTable setupTemporaryRelation(List<ColumnSetup> inputs)
     {
         TestTable testTable = createTestTable(inputs);
         try {
