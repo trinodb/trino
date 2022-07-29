@@ -171,6 +171,7 @@ public class TestDeltaLakePageSink
                 new GroupByHashPageIndexerFactory(new JoinCompiler(new TypeOperators()), new BlockTypeOperators()),
                 HDFS_ENVIRONMENT,
                 JsonCodec.jsonCodec(DataFileInfo.class),
+                JsonCodec.jsonCodec(DeltaLakeMergeResult.class),
                 stats,
                 deltaLakeConfig,
                 new TestingTypeManager(),

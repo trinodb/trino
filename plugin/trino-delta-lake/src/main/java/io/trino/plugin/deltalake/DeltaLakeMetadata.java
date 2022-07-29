@@ -70,9 +70,11 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -83,6 +85,7 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RetryMode;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
@@ -146,6 +149,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
+import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.MERGE_ROW_ID_TYPE;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.ROW_ID_COLUMN_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.ROW_ID_COLUMN_TYPE;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.fileModifiedTimeColumnHandle;
@@ -197,6 +201,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
+import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static io.trino.spi.predicate.Range.greaterThanOrEqual;
 import static io.trino.spi.predicate.Range.lessThanOrEqual;
@@ -245,6 +250,7 @@ public class DeltaLakeMetadata
     public static final String CREATE_TABLE_OPERATION = "CREATE TABLE";
     public static final String ADD_COLUMN_OPERATION = "ADD COLUMNS";
     public static final String INSERT_OPERATION = "WRITE";
+    public static final String MERGE_OPERATION = "MERGE";
     public static final String DELETE_OPERATION = "DELETE";
     public static final String UPDATE_OPERATION = "UPDATE";
     public static final String OPTIMIZE_OPERATION = "OPTIMIZE";
@@ -272,6 +278,7 @@ public class DeltaLakeMetadata
     private final boolean unsafeWritesEnabled;
     private final JsonCodec<DataFileInfo> dataFileInfoCodec;
     private final JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec;
+    private final JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec;
     private final TransactionLogWriterFactory transactionLogWriterFactory;
     private final String nodeVersion;
     private final String nodeId;
@@ -290,6 +297,7 @@ public class DeltaLakeMetadata
             boolean unsafeWritesEnabled,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec,
+            JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec,
             TransactionLogWriterFactory transactionLogWriterFactory,
             NodeManager nodeManager,
             CheckpointWriterManager checkpointWriterManager,
@@ -308,6 +316,7 @@ public class DeltaLakeMetadata
         this.unsafeWritesEnabled = unsafeWritesEnabled;
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
         this.updateResultJsonCodec = requireNonNull(updateResultJsonCodec, "updateResultJsonCodec is null");
+        this.mergeResultJsonCodec = requireNonNull(mergeResultJsonCodec, "mergeResultJsonCodec is null");
         this.transactionLogWriterFactory = requireNonNull(transactionLogWriterFactory, "transactionLogWriterFactory is null");
         this.nodeVersion = nodeManager.getCurrentNode().getVersion();
         this.nodeId = nodeManager.getCurrentNode().getNodeIdentifier();
@@ -1246,6 +1255,12 @@ public class DeltaLakeMetadata
 
         // This check acts as a safeguard in cases where the input columns may differ from the table metadata case-sensitively
         checkAllColumnsPassedOnInsert(tableMetadata, inputColumns);
+
+        return createInsertHandle(session, retryMode, table, inputColumns, tableMetadata);
+    }
+
+    private DeltaLakeInsertTableHandle createInsertHandle(ConnectorSession session, RetryMode retryMode, DeltaLakeTableHandle table, List<DeltaLakeColumnHandle> inputColumns, ConnectorTableMetadata tableMetadata)
+    {
         String tableLocation = getLocation(tableMetadata.getProperties());
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsContext(session), new Path(tableLocation));
@@ -1458,6 +1473,134 @@ public class DeltaLakeMetadata
     public void finishUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
         finishWrite(session, tableHandle, fragments);
+    }
+
+    @Override
+    public RowChangeParadigm getRowChangeParadigm(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return DELETE_ROW_AND_INSERT_ROW;
+    }
+
+    @Override
+    public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return new DeltaLakeColumnHandle(ROW_ID_COLUMN_NAME, MERGE_ROW_ID_TYPE, ROW_ID_COLUMN_NAME, MERGE_ROW_ID_TYPE, SYNTHESIZED);
+    }
+
+    @Override
+    public Optional<ConnectorPartitioningHandle> getUpdateLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return Optional.of(DeltaLakeUpdateHandle.INSTANCE);
+    }
+
+    @Override
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    {
+        DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
+        if (isAppendOnly(handle.getMetadataEntry())) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot update rows from a table with '" + APPEND_ONLY_CONFIGURATION_KEY + "' set to true");
+        }
+        if (!allowWrite(session, handle)) {
+            String fileSystem = new Path(handle.getLocation()).toUri().getScheme();
+            throw new TrinoException(NOT_SUPPORTED, format("Updates are not supported on the %s filesystem", fileSystem));
+        }
+        if (getColumnsNullability(handle.getMetadataEntry()).values().stream().anyMatch(nullability -> !nullability)) {
+            throw new TrinoException(NOT_SUPPORTED, "Updates are not supported for tables with non-nullable columns");
+        }
+        if (!getColumnInvariants(handle.getMetadataEntry()).isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Updates are not supported for tables with delta invariants");
+        }
+        checkSupportedWriterVersion(session, handle.getSchemaTableName());
+
+        ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle);
+
+        List<DeltaLakeColumnHandle> inputColumns = getColumns(handle.getMetadataEntry()).stream()
+                .filter(column -> column.getColumnType() != SYNTHESIZED)
+                .collect(toImmutableList());
+
+        DeltaLakeInsertTableHandle insertHandle = createInsertHandle(session, retryMode, handle, inputColumns, tableMetadata);
+
+        return new DeltaLakeMergeTableHandle(handle, insertHandle);
+    }
+
+    @Override
+    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        DeltaLakeTableHandle handle = ((DeltaLakeMergeTableHandle) tableHandle).getTableHandle();
+
+        List<DeltaLakeMergeResult> mergeResults = fragments.stream()
+                .map(Slice::getBytes)
+                .map(mergeResultJsonCodec::fromJson)
+                .collect(toImmutableList());
+
+        List<String> oldFiles = mergeResults.stream()
+                .map(DeltaLakeMergeResult::getOldFile)
+                .flatMap(Optional::stream)
+                .collect(toImmutableList());
+
+        List<DataFileInfo> newFiles = mergeResults.stream()
+                .map(DeltaLakeMergeResult::getNewFile)
+                .flatMap(Optional::stream)
+                .collect(toImmutableList());
+
+        if (handle.isRetriesEnabled()) {
+            cleanExtraOutputFilesForUpdate(session, handle.getLocation(), newFiles);
+        }
+
+        Optional<Long> checkpointInterval = handle.getMetadataEntry().getCheckpointInterval();
+
+        String tableLocation = metastore.getTableLocation(handle.getSchemaTableName(), session);
+
+        boolean writeCommitted = false;
+        try {
+            TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, tableLocation);
+
+            long createdTime = Instant.now().toEpochMilli();
+
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsContext(session), new Path(tableLocation));
+            long currentVersion = getMandatoryCurrentVersion(fileSystem, new Path(tableLocation));
+            if (currentVersion != handle.getReadVersion()) {
+                throw new TransactionConflictException(format("Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s", handle.getReadVersion(), currentVersion));
+            }
+            long commitVersion = currentVersion + 1;
+
+            transactionLogWriter.appendCommitInfoEntry(
+                    new CommitInfoEntry(
+                            commitVersion,
+                            createdTime,
+                            session.getUser(),
+                            session.getUser(),
+                            MERGE_OPERATION,
+                            ImmutableMap.of("queryId", session.getQueryId()),
+                            null,
+                            null,
+                            "trino-" + nodeVersion + "-" + nodeId,
+                            handle.getReadVersion(),
+                            ISOLATION_LEVEL,
+                            true));
+            // TODO: Delta writes another field "operationMetrics" (https://github.com/trinodb/trino/issues/12005)
+
+            long writeTimestamp = Instant.now().toEpochMilli();
+
+            for (String file : oldFiles) {
+                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(file, writeTimestamp, true));
+            }
+
+            List<String> partitionColumns = handle.getMetadataEntry().getOriginalPartitionColumns();
+            appendAddFileEntries(transactionLogWriter, newFiles, partitionColumns, true);
+
+            transactionLogWriter.flush();
+            writeCommitted = true;
+
+            writeCheckpointIfNeeded(session, new SchemaTableName(handle.getSchemaName(), handle.getTableName()), checkpointInterval, commitVersion);
+        }
+        catch (IOException | RuntimeException e) {
+            if (!writeCommitted) {
+                // TODO perhaps it should happen in a background thread (https://github.com/trinodb/trino/issues/12011)
+                cleanupFailedWrite(session, tableLocation, newFiles);
+            }
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry", e);
+        }
     }
 
     @Override
@@ -1690,8 +1833,13 @@ public class DeltaLakeMetadata
                 .map(updateResultJsonCodec::fromJson)
                 .collect(toImmutableList());
 
+        List<DataFileInfo> newFiles = updateResults.stream()
+                .map(DeltaLakeUpdateResult::getNewFile)
+                .flatMap(Optional::stream)
+                .collect(toImmutableList());
+
         if (handle.isRetriesEnabled()) {
-            cleanExtraOutputFilesForUpdate(session, handle.getLocation(), updateResults);
+            cleanExtraOutputFilesForUpdate(session, handle.getLocation(), newFiles);
         }
 
         String tableLocation = metastore.getTableLocation(handle.getSchemaTableName(), session);
@@ -1747,11 +1895,7 @@ public class DeltaLakeMetadata
             }
             appendAddFileEntries(
                     transactionLogWriter,
-                    updateResults.stream()
-                            .map(DeltaLakeUpdateResult::getNewFile)
-                            .filter(Optional::isPresent)
-                            .map(Optional::get)
-                            .collect(toImmutableList()),
+                    newFiles,
                     handle.getMetadataEntry().getOriginalPartitionColumns(),
                     true);
 
@@ -1762,11 +1906,7 @@ public class DeltaLakeMetadata
         catch (Exception e) {
             if (!writeCommitted) {
                 // TODO perhaps it should happen in a background thread (https://github.com/trinodb/trino/issues/12011)
-                cleanupFailedWrite(session, tableLocation, updateResults.stream()
-                        .map(DeltaLakeUpdateResult::getNewFile)
-                        .filter(Optional::isPresent)
-                        .map(Optional::get)
-                        .collect(toImmutableList()));
+                cleanupFailedWrite(session, tableLocation, newFiles);
             }
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry", e);
         }
@@ -2249,12 +2389,9 @@ public class DeltaLakeMetadata
         cleanExtraOutputFiles(session, writtenFilePaths);
     }
 
-    private void cleanExtraOutputFilesForUpdate(ConnectorSession session, String baseLocation, List<DeltaLakeUpdateResult> validUpdateResults)
+    private void cleanExtraOutputFilesForUpdate(ConnectorSession session, String baseLocation, List<DataFileInfo> newFiles)
     {
-        Set<String> writtenFilePaths = validUpdateResults.stream()
-                .map(DeltaLakeUpdateResult::getNewFile)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+        Set<String> writtenFilePaths = newFiles.stream()
                 .map(dataFileInfo -> baseLocation + "/" + dataFileInfo.getPath())
                 .collect(toImmutableSet());
 

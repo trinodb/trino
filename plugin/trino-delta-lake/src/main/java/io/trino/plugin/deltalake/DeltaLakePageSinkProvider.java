@@ -20,6 +20,8 @@ import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeSink;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -27,6 +29,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.type.TypeManager;
+import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
@@ -38,8 +41,10 @@ public class DeltaLakePageSinkProvider
     private final PageIndexerFactory pageIndexerFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final JsonCodec<DataFileInfo> dataFileInfoCodec;
+    private final JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec;
     private final DeltaLakeWriterStats stats;
     private final int maxPartitionsPerWriter;
+    private final DateTimeZone parquetDateTimeZone;
     private final TypeManager typeManager;
     private final String trinoVersion;
 
@@ -48,6 +53,7 @@ public class DeltaLakePageSinkProvider
             PageIndexerFactory pageIndexerFactory,
             HdfsEnvironment hdfsEnvironment,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
+            JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec,
             DeltaLakeWriterStats stats,
             DeltaLakeConfig deltaLakeConfig,
             TypeManager typeManager,
@@ -56,8 +62,10 @@ public class DeltaLakePageSinkProvider
         this.pageIndexerFactory = pageIndexerFactory;
         this.hdfsEnvironment = hdfsEnvironment;
         this.dataFileInfoCodec = dataFileInfoCodec;
+        this.mergeResultJsonCodec = requireNonNull(mergeResultJsonCodec, "mergeResultJsonCodec is null");
         this.stats = stats;
         this.maxPartitionsPerWriter = deltaLakeConfig.getMaxPartitionsPerWriter();
+        this.parquetDateTimeZone = deltaLakeConfig.getParquetDateTimeZone();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.trinoVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
     }
@@ -120,5 +128,25 @@ public class DeltaLakePageSinkProvider
         }
 
         throw new IllegalArgumentException("Unknown procedure: " + executeHandle.getProcedureId());
+    }
+
+    @Override
+    public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle)
+    {
+        DeltaLakeMergeTableHandle merge = (DeltaLakeMergeTableHandle) mergeHandle;
+        DeltaLakeInsertTableHandle tableHandle = merge.getInsertTableHandle();
+        ConnectorPageSink pageSink = createPageSink(transactionHandle, session, tableHandle);
+
+        return new DeltaLakeMergeSink(
+                hdfsEnvironment,
+                session,
+                parquetDateTimeZone,
+                trinoVersion,
+                dataFileInfoCodec,
+                mergeResultJsonCodec,
+                stats,
+                tableHandle.getLocation(),
+                pageSink,
+                tableHandle.getInputColumns());
     }
 }

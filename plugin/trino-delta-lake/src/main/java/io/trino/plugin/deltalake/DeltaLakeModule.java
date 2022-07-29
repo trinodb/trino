@@ -146,6 +146,7 @@ public class DeltaLakeModule
 
         jsonCodecBinder(binder).bindJsonCodec(DataFileInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(DeltaLakeUpdateResult.class);
+        jsonCodecBinder(binder).bindJsonCodec(DeltaLakeMergeResult.class);
         binder.bind(DeltaLakeWriterStats.class).in(Scopes.SINGLETON);
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class)
