@@ -146,7 +146,7 @@ public class TestDruidTypeMapping
         assertThatThrownBy(() ->
                 SqlDataTypeTest.create()
                         .addRoundTrip("__time", "timestamp", "2020-01-01 00:00:00.000", TIMESTAMP_MILLIS, "TIMESTAMP '2020-01-01 00:00:00.000'")
-                        .addRoundTrip("col_0", "double", "-Infinity", DOUBLE, "-infinity()")
+                        .addRoundTrip("col_0", "float", "-Infinity", DOUBLE, "-infinity()")
                         .execute(getQueryRunner(), druidCreateAndInsert("test_float_with_negative_infinity")))
                 .hasMessageMatching(".*class java.lang.String cannot be cast to class java.lang.Number.*");
     }
