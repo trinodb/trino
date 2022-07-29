@@ -20,6 +20,7 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode;
+import io.trino.plugin.base.security.FunctionAccessControlRule.FunctionPrivilege;
 import io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -61,7 +62,6 @@ import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivileg
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.UPDATE;
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
-import static io.trino.spi.function.FunctionKind.TABLE;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
@@ -136,6 +136,7 @@ public class FileBasedSystemAccessControl
     private final Optional<List<SystemInformationRule>> systemInformationRules;
     private final List<CatalogSchemaAccessControlRule> schemaRules;
     private final List<CatalogTableAccessControlRule> tableRules;
+    private final List<CatalogFunctionAccessControlRule> functionRules;
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
     private final List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules;
     private final Set<AnyCatalogPermissionsRule> anyCatalogPermissionsRules;
@@ -149,6 +150,7 @@ public class FileBasedSystemAccessControl
             Optional<List<SystemInformationRule>> systemInformationRules,
             List<CatalogSchemaAccessControlRule> schemaRules,
             List<CatalogTableAccessControlRule> tableRules,
+            List<CatalogFunctionAccessControlRule> functionRules,
             List<SessionPropertyAccessControlRule> sessionPropertyRules,
             List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules)
     {
@@ -159,6 +161,7 @@ public class FileBasedSystemAccessControl
         this.systemInformationRules = systemInformationRules;
         this.schemaRules = schemaRules;
         this.tableRules = tableRules;
+        this.functionRules = functionRules;
         this.sessionPropertyRules = sessionPropertyRules;
         this.catalogSessionPropertyRules = catalogSessionPropertyRules;
 
@@ -951,11 +954,33 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
+    public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName function)
     {
-        if (functionKind == TABLE) {
-            denyExecuteFunction(functionName.toString());
+        // TODO config to disable for old function kinds
+        AccessMode requiredCatalogAccess = FunctionKind.TABLE.equals(functionKind) ? ALL : READ_ONLY;
+        if (!checkFunctionPermission(systemSecurityContext, function, requiredCatalogAccess, FunctionPrivilege.SELECT)) {
+            denyExecuteFunction(function.toString());
         }
+    }
+
+    private boolean checkFunctionPermission(SystemSecurityContext context, CatalogSchemaRoutineName function, AccessMode requiredCatalogAccess, FunctionPrivilege checkPrivilege)
+    {
+
+        if (!canAccessCatalog(context, function.getCatalogName(), requiredCatalogAccess)) {
+            return false;
+        }
+
+        if (INFORMATION_SCHEMA_NAME.equals(function.getSchemaName())) {
+            return true;
+        }
+
+        Identity identity = context.getIdentity();
+        for (CatalogFunctionAccessControlRule rule : functionRules) {
+            if (rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), function)) {
+                return rule.getPrivileges().contains(checkPrivilege);
+            }
+        }
+        return false;
     }
 
     @Override
@@ -1097,6 +1122,7 @@ public class FileBasedSystemAccessControl
         private Optional<List<SystemInformationRule>> systemInformationRules = Optional.empty();
         private List<CatalogSchemaAccessControlRule> schemaRules = ImmutableList.of(CatalogSchemaAccessControlRule.ALLOW_ALL);
         private List<CatalogTableAccessControlRule> tableRules = ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL);
+        private List<CatalogFunctionAccessControlRule> functionRules = ImmutableList.of(CatalogFunctionAccessControlRule.ALLOW_ALL);
         private List<SessionPropertyAccessControlRule> sessionPropertyRules = ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL);
         private List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules = ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL);
 
@@ -1157,6 +1183,12 @@ public class FileBasedSystemAccessControl
             return this;
         }
 
+        public Builder setFunctionRules(List<CatalogFunctionAccessControlRule> functionRules)
+        {
+            this.functionRules = functionRules;
+            return this;
+        }
+
         public Builder setSessionPropertyRules(List<SessionPropertyAccessControlRule> sessionPropertyRules)
         {
             this.sessionPropertyRules = sessionPropertyRules;
@@ -1179,6 +1211,7 @@ public class FileBasedSystemAccessControl
                     systemInformationRules,
                     schemaRules,
                     tableRules,
+                    functionRules,
                     sessionPropertyRules,
                     catalogSessionPropertyRules);
         }
