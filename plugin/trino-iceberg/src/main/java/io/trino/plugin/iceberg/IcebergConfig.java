@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -35,6 +36,7 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+@DefunctConfig("iceberg.allow-legacy-snapshot-syntax")
 public class IcebergConfig
 {
     public static final int FORMAT_VERSION_SUPPORT_MIN = 1;
@@ -64,7 +66,6 @@ public class IcebergConfig
     // to avoid deleting those files if Trino is unable to check.
     private boolean deleteSchemaLocationsFallback;
     private double minimumAssignedSplitWeight = 0.05;
-    private boolean allowLegacySnapshotSyntax;
     private Optional<String> materializedViewsStorageSchema = Optional.empty();
 
     public CatalogType getCatalogType()
@@ -306,20 +307,6 @@ public class IcebergConfig
     public double getMinimumAssignedSplitWeight()
     {
         return minimumAssignedSplitWeight;
-    }
-
-    @Config("iceberg.allow-legacy-snapshot-syntax")
-    @Deprecated
-    public IcebergConfig setAllowLegacySnapshotSyntax(boolean allowLegacySnapshotSyntax)
-    {
-        this.allowLegacySnapshotSyntax = allowLegacySnapshotSyntax;
-        return this;
-    }
-
-    @Deprecated
-    public boolean isAllowLegacySnapshotSyntax()
-    {
-        return allowLegacySnapshotSyntax;
     }
 
     @NotNull

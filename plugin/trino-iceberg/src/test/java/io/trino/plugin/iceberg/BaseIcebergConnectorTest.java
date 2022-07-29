@@ -71,7 +71,6 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -84,7 +83,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.concat;
-import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
@@ -4561,16 +4559,13 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testOptimizeSnapshot()
     {
-        Session session = Session.builder(getSession())
-                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "allow_legacy_snapshot_syntax", "true")
-                .build();
         String tableName = "test_optimize_snapshot_" + randomTableSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (a) AS VALUES 11", 1);
         long snapshotId = getCurrentSnapshotId(tableName);
         assertUpdate("INSERT INTO " + tableName + " VALUES 22", 1);
-        assertThatThrownBy(() -> query(session, "ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE".formatted(tableName, snapshotId)))
-                .hasMessage("Cannot execute table procedure OPTIMIZE on old snapshot " + snapshotId);
+        assertThatThrownBy(() -> query("ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE".formatted(tableName, snapshotId)))
+                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, snapshotId));
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES 11, 22");
 
@@ -4918,16 +4913,13 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testExpireSnapshotsOnSnapshot()
     {
-        Session session = Session.builder(getSession())
-                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "allow_legacy_snapshot_syntax", "true")
-                .build();
         String tableName = "test_expire_snapshots_on_snapshot_" + randomTableSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (a) AS VALUES 11", 1);
         long snapshotId = getCurrentSnapshotId(tableName);
         assertUpdate("INSERT INTO " + tableName + " VALUES 22", 1);
-        assertThatThrownBy(() -> query(session, "ALTER TABLE \"%s@%d\" EXECUTE EXPIRE_SNAPSHOTS".formatted(tableName, snapshotId)))
-                .hasMessage("Cannot execute table procedure EXPIRE_SNAPSHOTS on old snapshot " + snapshotId);
+        assertThatThrownBy(() -> query("ALTER TABLE \"%s@%d\" EXECUTE EXPIRE_SNAPSHOTS".formatted(tableName, snapshotId)))
+                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, snapshotId));
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES 11, 22");
 
@@ -5098,16 +5090,13 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testRemoveOrphanFilesOnSnapshot()
     {
-        Session session = Session.builder(getSession())
-                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "allow_legacy_snapshot_syntax", "true")
-                .build();
         String tableName = "test_remove_orphan_files_on_snapshot_" + randomTableSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (a) AS VALUES 11", 1);
         long snapshotId = getCurrentSnapshotId(tableName);
         assertUpdate("INSERT INTO " + tableName + " VALUES 22", 1);
-        assertThatThrownBy(() -> query(session, "ALTER TABLE \"%s@%d\" EXECUTE REMOVE_ORPHAN_FILES".formatted(tableName, snapshotId)))
-                .hasMessage("Cannot execute table procedure REMOVE_ORPHAN_FILES on old snapshot " + snapshotId);
+        assertThatThrownBy(() -> query("ALTER TABLE \"%s@%d\" EXECUTE REMOVE_ORPHAN_FILES".formatted(tableName, snapshotId)))
+                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, snapshotId));
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES 11, 22");
 
@@ -5243,29 +5232,27 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testModifyingOldSnapshotIsNotPossible()
     {
-        Session sessionWithLegacySyntaxSupport = Session.builder(getSession())
-                .setCatalogSessionProperty("iceberg", "allow_legacy_snapshot_syntax", "true")
-                .build();
         String tableName = "test_modifying_old_snapshot_" + randomTableSuffix();
         assertUpdate(format("CREATE TABLE %s (col int)", tableName));
         assertUpdate(format("INSERT INTO %s VALUES 1,2,3", tableName), 3);
         long oldSnapshotId = getCurrentSnapshotId(tableName);
         assertUpdate(format("INSERT INTO %s VALUES 4,5,6", tableName), 3);
-        assertQuery(sessionWithLegacySyntaxSupport, format("SELECT * FROM \"%s@%d\"", tableName, oldSnapshotId), "VALUES 1,2,3");
-        assertThatThrownBy(() -> query(sessionWithLegacySyntaxSupport, format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, oldSnapshotId)))
-                .hasMessage("Modifying old snapshot is not supported in Iceberg");
-        assertThatThrownBy(() -> query(sessionWithLegacySyntaxSupport, format("DELETE FROM \"%s@%d\" WHERE col = 5", tableName, oldSnapshotId)))
-                .hasMessage("Modifying old snapshot is not supported in Iceberg");
-        assertThatThrownBy(() -> query(sessionWithLegacySyntaxSupport, format("UPDATE \"%s@%d\" SET col = 50 WHERE col = 5", tableName, oldSnapshotId)))
-                .hasMessage("Modifying old snapshot is not supported in Iceberg");
-        // TODO Change to assertThatThrownBy because the syntax `table@versionid` should not be supported for DML operations
-        assertUpdate(sessionWithLegacySyntaxSupport, format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, getCurrentSnapshotId(tableName)), 3);
-        assertUpdate(sessionWithLegacySyntaxSupport, format("DELETE FROM \"%s@%d\" WHERE col = 9", tableName, getCurrentSnapshotId(tableName)), 1);
-        assertThatThrownBy(() -> assertUpdate(sessionWithLegacySyntaxSupport, format("UPDATE \"%s@%d\" set col = 50 WHERE col = 5", tableName, getCurrentSnapshotId(tableName))))
-                .hasMessage("Partition spec missing in the table handle");
-        // TODO Change to assertThatThrownBy because the syntax `table@versionid` should not be supported for DML operations
-        assertQuerySucceeds(sessionWithLegacySyntaxSupport, format("ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE", tableName, getCurrentSnapshotId(tableName)));
-        assertQuery(format("SELECT * FROM %s", tableName), "VALUES 1,2,3,4,5,6,7,8");
+        assertQuery(format("SELECT * FROM %s FOR VERSION AS OF %d", tableName, oldSnapshotId), "VALUES 1,2,3");
+        assertThatThrownBy(() -> query(format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, oldSnapshotId)))
+                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, oldSnapshotId));
+        assertThatThrownBy(() -> query(format("DELETE FROM \"%s@%d\" WHERE col = 5", tableName, oldSnapshotId)))
+                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, oldSnapshotId));
+        assertThatThrownBy(() -> query(format("UPDATE \"%s@%d\" SET col = 50 WHERE col = 5", tableName, oldSnapshotId)))
+                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, oldSnapshotId));
+        assertThatThrownBy(() -> query(format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, getCurrentSnapshotId(tableName))))
+                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, getCurrentSnapshotId(tableName)));
+        assertThatThrownBy(() -> query(format("DELETE FROM \"%s@%d\" WHERE col = 9", tableName, getCurrentSnapshotId(tableName))))
+                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, getCurrentSnapshotId(tableName)));
+        assertThatThrownBy(() -> assertUpdate(format("UPDATE \"%s@%d\" set col = 50 WHERE col = 5", tableName, getCurrentSnapshotId(tableName))))
+                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, getCurrentSnapshotId(tableName)));
+        assertThatThrownBy(() -> query(format("ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE", tableName, oldSnapshotId)))
+                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, oldSnapshotId));
+        assertQuery(format("SELECT * FROM %s", tableName), "VALUES 1,2,3,4,5,6");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -5309,43 +5296,8 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(format("INSERT INTO %s VALUES(1, 1)", tableName), 1);
         List<Long> ids = getSnapshotsIdsByCreationOrder(tableName);
 
-        assertQuery(sessionWithLegacySyntaxSupport(), format("SELECT count(*) FROM \"%s@%d\"", tableName, ids.get(0)), "VALUES(0)");
-        assertQuery(sessionWithLegacySyntaxSupport(), format("SELECT * FROM \"%s@%d\"", tableName, ids.get(1)), "VALUES(1,1)");
-        assertUpdate(format("DROP TABLE %s", tableName));
-    }
-
-    @Test
-    public void testLegacySnapshotSyntaxSupport()
-    {
-        String tableName = "test_legacy_snapshot_access" + randomTableSuffix();
-        assertUpdate(format("CREATE TABLE %s (a BIGINT, b BIGINT)", tableName));
-        assertUpdate(format("INSERT INTO %s VALUES(1, 1)", tableName), 1);
-        List<Long> ids = getSnapshotsIdsByCreationOrder(tableName);
-        // come up with a timestamp value in future that is not an already existing id
-        long futureTimeStamp = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(5);
-        while (ids.contains(futureTimeStamp)) {
-            futureTimeStamp += TimeUnit.MINUTES.toMillis(5);
-        }
-
-        String selectAllFromFutureTimeStamp = format("SELECT * FROM \"%s@%d\"", tableName, futureTimeStamp);
-        String selectAllFromLatestId = format("SELECT * FROM \"%s@%d\"", tableName, getLast(ids));
-        String selectFromPartitionsTable = format("SELECT record_count FROM \"%s$partitions@%d\"", tableName, getLast(ids));
-
-        assertQuery(sessionWithLegacySyntaxSupport(), selectAllFromFutureTimeStamp, "VALUES(1, 1)");
-        assertQuery(sessionWithLegacySyntaxSupport(), selectAllFromLatestId, "VALUES(1, 1)");
-        assertQuery(sessionWithLegacySyntaxSupport(), selectFromPartitionsTable, "VALUES(1)");
-
-        // DISABLED
-        String errorMessage = "Failed to access snapshot .* for table .*. This syntax for accessing Iceberg tables is not "
-                + "supported. Use the AS OF syntax OR set the catalog session property "
-                + "allow_legacy_snapshot_syntax=true for temporarily restoring previous behavior.";
-        assertThatThrownBy(() -> query(getSession(), selectAllFromFutureTimeStamp))
-                .hasMessageMatching(errorMessage);
-        assertThatThrownBy(() -> query(getSession(), selectAllFromLatestId))
-                .hasMessageMatching(errorMessage);
-        assertThatThrownBy(() -> query(getSession(), selectFromPartitionsTable))
-                .hasMessageMatching(errorMessage);
-
+        assertQuery(format("SELECT count(*) FROM %s FOR VERSION AS OF %d", tableName, ids.get(0)), "VALUES(0)");
+        assertQuery(format("SELECT * FROM %s FOR VERSION AS OF %d", tableName, ids.get(1)), "VALUES(1,1)");
         assertUpdate(format("DROP TABLE %s", tableName));
     }
 
@@ -5361,8 +5313,7 @@ public abstract class BaseIcebergConnectorTest
 
         assertQuery(format("SELECT * FROM %s", tableName), "SELECT * FROM (VALUES(1,1), (2,2), (3,3))");
         assertQuery(
-                sessionWithLegacySyntaxSupport(),
-                format("SELECT * FROM %1$s EXCEPT (SELECT * FROM \"%1$s@%2$d\" EXCEPT SELECT * FROM \"%1$s@%3$d\")", tableName, ids.get(2), ids.get(1)),
+                format("SELECT * FROM %1$s EXCEPT (SELECT * FROM %1$s FOR VERSION AS OF %2$d EXCEPT SELECT * FROM %1$s FOR VERSION AS OF %3$d)", tableName, ids.get(2), ids.get(1)),
                 "SELECT * FROM (VALUES(1,1), (3,3))");
         assertUpdate(format("DROP TABLE %s", tableName));
     }
@@ -5904,12 +5855,5 @@ public abstract class BaseIcebergConnectorTest
                 .getMaterializedRows().stream()
                 .map(row -> (Long) row.getField(idField))
                 .collect(toList());
-    }
-
-    private Session sessionWithLegacySyntaxSupport()
-    {
-        return Session.builder(getSession())
-                .setCatalogSessionProperty("iceberg", "allow_legacy_snapshot_syntax", "true")
-                .build();
     }
 }
