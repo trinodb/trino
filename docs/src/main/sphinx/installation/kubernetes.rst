@@ -2,8 +2,6 @@
 Deploying Trino on Kubernetes
 ==============================
 
-.. _what-is-plural:
-
 `Plural <https://plural.sh/>`_ is a free, open-source tool that enables you to self-host and manage Trino on Kubernetes with the cloud provider of your choice. It includes baked-in SSO, automated upgrades, secret encryption, and tailored Grafana dashboards.
 
 Trino is available as a one-line install with the Plural CLI without prior Kubernetes knowledge.
@@ -60,6 +58,8 @@ Accessing your Trino installation
 
 Now, head over to ``trino.YOUR_SUBDOMAIN.onplural.sh`` to access the Trino UI. If you set up a different subdomain for Trino during installation, make sure to use that instead.
 
+.. _installing-plural-console:
+
 Installing the Plural Console
 -----------------------------
 
@@ -75,6 +75,8 @@ Accessing your Plural Console
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To monitor and manage your Trino installation, head over to the Plural Console at ``console.YOUR_SUBDOMAIN.onplural.sh``.
+
+.. _uninstalling-trino:
 
 Uninstalling Trino on Plural
 ----------------------------
