@@ -82,6 +82,8 @@ If ``pinot.controller.authentication.type`` is set to ``PASSWORD`` then both ``p
 If ``pinot.broker.authentication.type`` is set to ``PASSWORD`` then both ``pinot.broker.authentication.user`` and
 ``pinot.broker.authentication.password`` are required.
 
+If ``pinot.controller-urls`` uses ``https`` scheme then TLS is enabled for all connections including brokers.
+
 gRPC configuration properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

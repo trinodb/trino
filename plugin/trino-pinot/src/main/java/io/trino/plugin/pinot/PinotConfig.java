@@ -23,6 +23,7 @@ import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
 import javax.annotation.PostConstruct;
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 
@@ -239,6 +240,11 @@ public class PinotConfig
         return this;
     }
 
+    public boolean isTlsEnabled()
+    {
+        return "https".equalsIgnoreCase(getControllerUrls().get(0).getScheme());
+    }
+
     public DataSize getTargetSegmentPageSize()
     {
         return this.targetSegmentPageSize;
@@ -257,5 +263,14 @@ public class PinotConfig
         checkState(
                 !countDistinctPushdownEnabled || aggregationPushdownEnabled,
                 "Invalid configuration: pinot.aggregation-pushdown.enabled must be enabled if pinot.count-distinct-pushdown.enabled");
+    }
+
+    @AssertTrue(message = "All controller URLs must have the same scheme")
+    public boolean allUrlSchemesEqual()
+    {
+        return controllerUrls.stream()
+                .map(URI::getScheme)
+                .distinct()
+                .count() == 1;
     }
 }
