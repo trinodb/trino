@@ -18,9 +18,8 @@ import io.trino.operator.OperatorStats;
 import io.trino.spi.QueryId;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
 import org.testng.annotations.Test;
 
 import java.sql.PreparedStatement;
@@ -174,7 +173,7 @@ public class TestOracleParallelQueries
 
         Session session = sessionBuilder.build();
 
-        ResultWithQueryId<MaterializedResult> result = queryRunner.executeWithQueryId(session, format("SELECT TO_BASE64(CHECKSUM(%s)) FROM %s", column, tableName));
+        MaterializedResultWithQueryId result = queryRunner.executeWithQueryId(session, format("SELECT TO_BASE64(CHECKSUM(%s)) FROM %s", column, tableName));
         QueryId queryId = result.getQueryId();
         QueryInfo fullQueryInfo = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryId);
 
