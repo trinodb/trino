@@ -26,7 +26,6 @@ import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.thrift.DefaultThriftMetastoreClientFactory;
-import io.trino.plugin.hive.metastore.thrift.IdentityAwareMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.StaticMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.StaticTokenAwareMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastore;
@@ -100,7 +99,6 @@ public class TestDeltaLakePerTransactionMetastoreCache
                         binder.bind(TokenAwareMetastoreClientFactory.class).to(StaticTokenAwareMetastoreClientFactory.class).in(Scopes.SINGLETON);
                         configBinder(binder).bindConfig(StaticMetastoreConfig.class);
                         configBinder(binder).bindConfig(ThriftMetastoreConfig.class);
-                        binder.bind(IdentityAwareMetastoreClientFactory.class);
                         binder.bind(ThriftMetastoreFactory.class).to(ThriftHiveMetastoreFactory.class).in(Scopes.SINGLETON);
                         newExporter(binder).export(ThriftMetastoreFactory.class)
                                 .as(generator -> generator.generatedNameOf(ThriftHiveMetastore.class));

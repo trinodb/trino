@@ -13,107 +13,13 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.trino.collect.cache.NonEvictableLoadingCache;
-import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType;
-import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.thrift.TException;
 
-import javax.inject.Inject;
-
-import java.io.Closeable;
-import java.io.IOException;
 import java.util.Optional;
 
-import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
-import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-
-public class IdentityAwareMetastoreClientFactory
+public interface IdentityAwareMetastoreClientFactory
 {
-    private final TokenAwareMetastoreClientFactory clientProvider;
-    private final boolean impersonationEnabled;
-    private final boolean authenticationEnabled;
-    private final NonEvictableLoadingCache<String, String> delegationTokenCache;
-
-    @Inject
-    public IdentityAwareMetastoreClientFactory(
-            TokenAwareMetastoreClientFactory tokenAwareMetastoreClientFactory,
-            ThriftMetastoreConfig thriftConfig,
-            ThriftMetastoreAuthenticationConfig authenticationConfig)
-    {
-        this.clientProvider = requireNonNull(tokenAwareMetastoreClientFactory, "tokeAwareMetastoreClientFactory is null");
-        this.impersonationEnabled = thriftConfig.isImpersonationEnabled();
-        this.authenticationEnabled = authenticationConfig.getAuthenticationType() != ThriftMetastoreAuthenticationType.NONE;
-
-        this.delegationTokenCache = buildNonEvictableCache(
-                CacheBuilder.newBuilder()
-                        .expireAfterWrite(thriftConfig.getDelegationTokenCacheTtl().toMillis(), MILLISECONDS)
-                        .maximumSize(thriftConfig.getDelegationTokenCacheMaximumSize()),
-                CacheLoader.from(this::loadDelegationToken));
-    }
-
-    private ThriftMetastoreClient createMetastoreClient()
-            throws TException
-    {
-        return clientProvider.createMetastoreClient(Optional.empty());
-    }
-
-    public ThriftMetastoreClient createMetastoreClientFor(Optional<ConnectorIdentity> identity)
-            throws TException
-    {
-        if (!impersonationEnabled) {
-            return createMetastoreClient();
-        }
-
-        String username = identity.map(ConnectorIdentity::getUser)
-                .orElseThrow(() -> new IllegalStateException("End-user name should exist when metastore impersonation is enabled"));
-        if (authenticationEnabled) {
-            String delegationToken;
-            try {
-                delegationToken = delegationTokenCache.getUnchecked(username);
-            }
-            catch (UncheckedExecutionException e) {
-                throwIfInstanceOf(e.getCause(), TrinoException.class);
-                throw e;
-            }
-            return clientProvider.createMetastoreClient(Optional.of(delegationToken));
-        }
-
-        ThriftMetastoreClient client = createMetastoreClient();
-        setMetastoreUserOrClose(client, username);
-        return client;
-    }
-
-    private String loadDelegationToken(String username)
-    {
-        try (ThriftMetastoreClient client = createMetastoreClient()) {
-            return client.getDelegationToken(username);
-        }
-        catch (TException e) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, e);
-        }
-    }
-
-    private static void setMetastoreUserOrClose(ThriftMetastoreClient client, String username)
-            throws TException
-    {
-        try {
-            client.setUGI(username);
-        }
-        catch (Throwable t) {
-            // close client and suppress any error from close
-            try (Closeable ignored = client) {
-                throw t;
-            }
-            catch (IOException e) {
-                // impossible; will be suppressed
-            }
-        }
-    }
+    ThriftMetastoreClient createMetastoreClientFor(Optional<ConnectorIdentity> identity)
+            throws TException;
 }
