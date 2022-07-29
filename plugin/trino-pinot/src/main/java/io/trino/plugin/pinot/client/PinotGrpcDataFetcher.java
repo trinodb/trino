@@ -178,13 +178,13 @@ public class PinotGrpcDataFetcher
             implements GrpcQueryClientFactory
     {
         // Extracted from org.apache.pinot.common.utils.TlsUtils
-        private static final String KEYSTORE_TYPE = "keystore.type";
-        private static final String KEYSTORE_PATH = "keystore.path";
-        private static final String KEYSTORE_PASSWORD = "keystore.password";
-        private static final String TRUSTSTORE_TYPE = "truststore.type";
-        private static final String TRUSTSTORE_PATH = "truststore.path";
-        private static final String TRUSTSTORE_PASSWORD = "truststore.password";
-        private static final String SSL_PROVIDER = "ssl.provider";
+        private static final String KEYSTORE_TYPE = GRPC_TLS_PREFIX + "." + "keystore.type";
+        private static final String KEYSTORE_PATH = GRPC_TLS_PREFIX + "." + "keystore.path";
+        private static final String KEYSTORE_PASSWORD = GRPC_TLS_PREFIX + "." + "keystore.password";
+        private static final String TRUSTSTORE_TYPE = GRPC_TLS_PREFIX + "." + "truststore.type";
+        private static final String TRUSTSTORE_PATH = GRPC_TLS_PREFIX + "." + "truststore.path";
+        private static final String TRUSTSTORE_PASSWORD = GRPC_TLS_PREFIX + "." + "truststore.password";
+        private static final String SSL_PROVIDER = GRPC_TLS_PREFIX + "." + "ssl.provider";
 
         private final GrpcQueryClient.Config config;
 
@@ -193,17 +193,21 @@ public class PinotGrpcDataFetcher
         {
             requireNonNull(grpcClientConfig, "grpcClientConfig is null");
             requireNonNull(tlsConfig, "tlsConfig is null");
-            this.config = new GrpcQueryClient.Config(ImmutableMap.<String, Object>builder()
-                    .put(CONFIG_MAX_INBOUND_MESSAGE_BYTES_SIZE, String.valueOf(grpcClientConfig.getMaxInboundMessageSize().toBytes()))
-                    .put(CONFIG_USE_PLAIN_TEXT, String.valueOf(grpcClientConfig.isUsePlainText()))
-                    .put(GRPC_TLS_PREFIX + "." + KEYSTORE_TYPE, tlsConfig.getKeystoreType())
-                    .put(GRPC_TLS_PREFIX + "." + KEYSTORE_PATH, tlsConfig.getKeystorePath())
-                    .put(GRPC_TLS_PREFIX + "." + KEYSTORE_PASSWORD, tlsConfig.getKeystorePassword())
-                    .put(GRPC_TLS_PREFIX + "." + TRUSTSTORE_TYPE, tlsConfig.getTruststoreType())
-                    .put(GRPC_TLS_PREFIX + "." + TRUSTSTORE_PATH, tlsConfig.getTruststorePath())
-                    .put(GRPC_TLS_PREFIX + "." + TRUSTSTORE_PASSWORD, tlsConfig.getTruststorePassword())
-                    .put(GRPC_TLS_PREFIX + "." + SSL_PROVIDER, tlsConfig.getSslProvider())
-                    .buildOrThrow());
+
+            ImmutableMap.Builder<String, Object> tlsConfigBuilder = ImmutableMap.builder();
+            if (tlsConfig.getKeystorePath().isPresent()) {
+                tlsConfigBuilder.put(KEYSTORE_TYPE, tlsConfig.getKeystoreType());
+                tlsConfigBuilder.put(KEYSTORE_PATH, tlsConfig.getKeystorePath().get());
+                tlsConfig.getKeystorePassword().ifPresent(password -> tlsConfigBuilder.put(KEYSTORE_PASSWORD, password));
+            }
+            if (tlsConfig.getTruststorePath().isPresent()) {
+                tlsConfigBuilder.put(TRUSTSTORE_TYPE, tlsConfig.getTruststoreType());
+                tlsConfigBuilder.put(TRUSTSTORE_PATH, tlsConfig.getTruststorePath().get());
+                tlsConfig.getTruststorePassword().ifPresent(password -> tlsConfigBuilder.put(TRUSTSTORE_PASSWORD, password));
+            }
+            tlsConfigBuilder.put(SSL_PROVIDER, tlsConfig.getSslProvider());
+
+            this.config = new GrpcQueryClient.Config(tlsConfigBuilder.buildOrThrow());
         }
 
         @Override
