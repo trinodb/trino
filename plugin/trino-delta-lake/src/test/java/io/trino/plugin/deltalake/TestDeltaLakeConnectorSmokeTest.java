@@ -170,6 +170,26 @@ public class TestDeltaLakeConnectorSmokeTest
                 .hasMessageContaining("Updates are not supported for tables with delta invariants");
     }
 
+    @Test
+    public void testSchemaEvolutionOnTableWithColumnInvariant()
+    {
+        String tableName = "test_schema_evolution_on_table_with_column_invariant_" + randomTableSuffix();
+        hiveMinioDataLake.copyResources("databricks/invariants", tableName);
+        getQueryRunner().execute(format("CREATE TABLE %s (ignored int) WITH (location = '%s')",
+                tableName,
+                getLocationForTable(bucketName, tableName)));
+
+        assertThatThrownBy(() -> query("INSERT INTO invariants VALUES(2)"))
+                .hasMessageContaining("Inserts are not supported for tables with delta invariants");
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c INT");
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".c IS 'example column comment'");
+        assertUpdate("COMMENT ON TABLE " + tableName + " IS 'example table comment'");
+
+        assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(2, 2)"))
+                .hasMessageContaining("Inserts are not supported for tables with delta invariants");
+    }
+
     @DataProvider
     public static Object[][] writesLockInvalidContentsValuesProvider()
     {
