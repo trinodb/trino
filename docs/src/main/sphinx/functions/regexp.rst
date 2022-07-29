@@ -82,11 +82,10 @@ with a few notable exceptions:
     Evaluates the regular expression ``pattern`` and determines if it is
     contained within ``string``.
 
-    This function is similar to the ``LIKE`` operator, except that the
-    pattern only needs to be contained within ``string``, rather than
-    needing to match all of ``string``. In other words, this performs a
-    *contains* operation rather than a *match* operation. You can match
-    the entire string by anchoring the pattern using ``^`` and ``$``::
+    The ``pattern`` only needs to be contained within
+    ``string``, rather than needing to match all of ``string``. In other words,
+    this performs a *contains* operation rather than a *match* operation. You can
+    match the entire string by anchoring the pattern using ``^`` and ``$``::
 
         SELECT regexp_like('1a 2b 14m', '\d+b'); -- true
 
