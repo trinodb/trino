@@ -50,6 +50,7 @@ public class ThriftMetastoreAuthenticationModule
         @Override
         public void configure(Binder binder)
         {
+            binder.bind(IdentityAwareMetastoreClientFactory.class).to(UgiBasedMetastoreClientFactory.class).in(SINGLETON);
             binder.bind(HiveMetastoreAuthentication.class).to(NoHiveMetastoreAuthentication.class).in(SINGLETON);
         }
     }
@@ -60,6 +61,7 @@ public class ThriftMetastoreAuthenticationModule
         @Override
         public void configure(Binder binder)
         {
+            binder.bind(IdentityAwareMetastoreClientFactory.class).to(TokenFetchingMetastoreClientFactory.class).in(SINGLETON);
             binder.bind(HiveMetastoreAuthentication.class).to(KerberosHiveMetastoreAuthentication.class).in(SINGLETON);
             configBinder(binder).bindConfig(MetastoreKerberosConfig.class);
         }
