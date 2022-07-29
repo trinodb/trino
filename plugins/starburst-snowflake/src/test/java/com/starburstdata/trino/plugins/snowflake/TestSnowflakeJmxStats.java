@@ -11,6 +11,7 @@ package com.starburstdata.trino.plugins.snowflake;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
+import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
@@ -26,6 +27,7 @@ import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.dis
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public class TestSnowflakeJmxStats
@@ -64,8 +66,10 @@ public class TestSnowflakeJmxStats
         getQueryRunner().execute(getSession(), "SELECT * FROM nation LIMIT 1");
         MaterializedResult rows = getQueryRunner().execute(
                 getSession(),
-                "SELECT \"authenticate.time.alltime.count\", \"obtainsamlassertion.time.alltime.count\" " +
-                        "FROM jmx.current.\"starburst.plugin.snowflake.auth:name=snowflake,type=statscollectingoktaauthclient\"");
+                format(
+                        "SELECT \"authenticate.time.alltime.count\", \"obtainsamlassertion.time.alltime.count\""
+                        + " FROM jmx.current.\"%s.auth:name=snowflake,type=statscollectingoktaauthclient\"",
+                        getJmxDomainBase()));
         // we are running with 2 nodes
         assertEquals(rows.getRowCount(), 1);
         MaterializedRow oktaStatsRow = rows.getMaterializedRows().get(0);
@@ -75,12 +79,23 @@ public class TestSnowflakeJmxStats
 
         rows = getQueryRunner().execute(
                 getSession(),
-                "SELECT \"generatesamlrequest.time.alltime.count\", \"requestoauthtoken.time.alltime.count\" " +
-                        "FROM jmx.current.\"starburst.plugin.snowflake.auth:name=snowflake,type=statscollectingsnowflakeauthclient\"");
+                format(
+                        "SELECT \"generatesamlrequest.time.alltime.count\", \"requestoauthtoken.time.alltime.count\""
+                        + " FROM jmx.current.\"%s.auth:name=snowflake,type=statscollectingsnowflakeauthclient\"",
+                        getJmxDomainBase()));
         assertEquals(rows.getRowCount(), 1);
         MaterializedRow snowflakeStatsRow = rows.getMaterializedRows().get(0);
         // We should have made each call to Snowflake only once; after that, the cache should have been used
         assertEquals(snowflakeStatsRow.getField(0), 1.0);
         assertEquals(snowflakeStatsRow.getField(1), 1.0);
+    }
+
+    /**
+     * Get the JMX domain base; either the plugin's base package name or whatever
+     * is provided when binding {@link ConnectorObjectNameGeneratorModule}.
+     */
+    protected String getJmxDomainBase()
+    {
+        return "starburst.plugin.snowflake";
     }
 }
