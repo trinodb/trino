@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -104,25 +105,23 @@ public class TestDruidTypeMapping
     @Test
     public void testFloat()
     {
-        //TODO Map Druid's Float data type to Trino's Real data type
         SqlDataTypeTest.create()
                 .addRoundTrip("__time", "timestamp", "2020-01-01 00:00:00.000", TIMESTAMP_MILLIS, "TIMESTAMP '2020-01-01 00:00:00.000'")
-                .addRoundTrip("col_0", "float", "NULL", DOUBLE, "DOUBLE '0.0'")
-                .addRoundTrip("col_1", "float", "0.0", DOUBLE, "DOUBLE '0.0'")
-                .addRoundTrip("col_2", "float", "3.14", DOUBLE, "DOUBLE '3.14'")
-                .addRoundTrip("col_3", "float", "3.1415927", DOUBLE, "DOUBLE '3.1415927'")
-                .addRoundTrip("col_4", "float", "Invalid String", DOUBLE, "DOUBLE '0.0'")
+                .addRoundTrip("col_0", "float", "NULL", REAL, "REAL '0.0'")
+                .addRoundTrip("col_1", "float", "0.0", REAL, "REAL '0.0'")
+                .addRoundTrip("col_2", "float", "3.14", REAL, "REAL '3.14'")
+                .addRoundTrip("col_3", "float", "3.1415927", REAL, "REAL '3.1415927'")
+                .addRoundTrip("col_4", "float", "Invalid String", REAL, "REAL '0.0'")
                 .execute(getQueryRunner(), druidCreateAndInsert("test_float"));
     }
 
     @Test
     public void testFloatNaN()
     {
-        //TODO Map Druid's Float data type to Trino's Real data type
         assertThatThrownBy(() ->
                 SqlDataTypeTest.create()
                         .addRoundTrip("__time", "timestamp", "2020-01-01 00:00:00.000", TIMESTAMP_MILLIS, "TIMESTAMP '2020-01-01 00:00:00.000'")
-                        .addRoundTrip("col_0", "float", "NaN", DOUBLE, "CAST(nan() AS double)")
+                        .addRoundTrip("col_0", "float", "NaN", REAL, "CAST(nan() AS real)")
                         .execute(getQueryRunner(), druidCreateAndInsert("test_float_with_nan")))
                 .hasMessageMatching(".*class java.lang.String cannot be cast to class java.lang.Number.*");
     }
@@ -130,11 +129,10 @@ public class TestDruidTypeMapping
     @Test
     public void testFloatInfinity()
     {
-        //TODO Map Druid's Float data type to Trino's Real data type
         assertThatThrownBy(() ->
                 SqlDataTypeTest.create()
                         .addRoundTrip("__time", "timestamp", "2020-01-01 00:00:00.000", TIMESTAMP_MILLIS, "TIMESTAMP '2020-01-01 00:00:00.000'")
-                        .addRoundTrip("col_0", "float", "Infinity", DOUBLE, "+infinity()")
+                        .addRoundTrip("col_0", "float", "Infinity", REAL, "+infinity()")
                         .execute(getQueryRunner(), druidCreateAndInsert("test_float_with_positive_infinity")))
                 .hasMessageMatching(".*class java.lang.String cannot be cast to class java.lang.Number.*");
     }
@@ -142,11 +140,10 @@ public class TestDruidTypeMapping
     @Test
     public void testFloatNegativeInfinity()
     {
-        //TODO Map Druid's Float data type to Trino's Real data type
         assertThatThrownBy(() ->
                 SqlDataTypeTest.create()
                         .addRoundTrip("__time", "timestamp", "2020-01-01 00:00:00.000", TIMESTAMP_MILLIS, "TIMESTAMP '2020-01-01 00:00:00.000'")
-                        .addRoundTrip("col_0", "float", "-Infinity", DOUBLE, "-infinity()")
+                        .addRoundTrip("col_0", "float", "-Infinity", REAL, "-infinity()")
                         .execute(getQueryRunner(), druidCreateAndInsert("test_float_with_negative_infinity")))
                 .hasMessageMatching(".*class java.lang.String cannot be cast to class java.lang.Number.*");
     }
