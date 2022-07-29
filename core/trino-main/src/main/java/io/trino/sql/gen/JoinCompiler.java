@@ -425,10 +425,10 @@ public class JoinCompiler
         ifStatement.condition(notEqual(hashChannel, constantNull(hashChannelField.getType())));
         ifStatement.ifTrue(
                 bigintType.invoke(
-                        "getLong",
-                        long.class,
-                        hashChannel.invoke("get", Object.class, blockIndex).cast(Block.class),
-                        blockPosition)
+                                "getLong",
+                                long.class,
+                                hashChannel.invoke("get", Object.class, blockIndex).cast(Block.class),
+                                blockPosition)
                         .ret());
 
         hashPositionMethod
