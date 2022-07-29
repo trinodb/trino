@@ -55,11 +55,16 @@ import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hbase.security.User;
 import org.apache.phoenix.jdbc.PhoenixDriver;
 import org.apache.phoenix.jdbc.PhoenixEmbeddedDriver;
+import org.apache.phoenix.query.HBaseFactoryProvider;
+import org.apache.phoenix.query.QueryServices;
+import org.apache.phoenix.util.ReadOnlyProps;
 
 import javax.annotation.PreDestroy;
 
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.Properties;
@@ -162,7 +167,24 @@ public class PhoenixClientModule
         }
 
         PhoenixEmbeddedDriver.ConnectionInfo connectionInfo = PhoenixEmbeddedDriver.ConnectionInfo.create(config.getConnectionUrl());
-        connectionInfo.asProps().asMap().forEach(connectionProperties::setProperty);
+        ReadOnlyProps props = connectionInfo.asProps();
+        props.asMap().forEach(connectionProperties::setProperty);
+        if (connectionInfo.getKeytab() != null) {
+            Configuration conf = HBaseFactoryProvider.getConfigurationFactory().getConfiguration();
+            for (Map.Entry<String, String> entry : props) {
+                conf.set(entry.getKey(), entry.getValue());
+            }
+            conf.set("hadoop.security.authentication", "Kerberos");
+            conf.set(QueryServices.HBASE_CLIENT_KEYTAB, connectionInfo.getKeytab());
+            conf.set(QueryServices.HBASE_CLIENT_PRINCIPAL, connectionInfo.getPrincipal());
+            UserGroupInformation.setConfiguration(conf);
+            try {
+                User.login(conf, QueryServices.HBASE_CLIENT_KEYTAB, QueryServices.HBASE_CLIENT_PRINCIPAL, null);
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
         return connectionProperties;
     }
 
