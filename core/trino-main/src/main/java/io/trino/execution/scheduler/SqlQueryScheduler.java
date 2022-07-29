@@ -487,17 +487,6 @@ public class SqlQueryScheduler
         }
     }
 
-    public synchronized void abort()
-    {
-        try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
-            coordinatorStagesScheduler.abort();
-            DistributedStagesScheduler distributedStagesScheduler = this.distributedStagesScheduler.get();
-            if (distributedStagesScheduler != null) {
-                distributedStagesScheduler.abort();
-            }
-        }
-    }
-
     public void failTask(TaskId taskId, Throwable failureCause)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
