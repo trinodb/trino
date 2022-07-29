@@ -87,10 +87,10 @@ public class TestIcebergReadVersionedTable
     public void testEndVersionInTableNameAndForClauseShouldFail()
     {
         assertQueryFails("SELECT * FROM \"test_iceberg_read_versioned_table@" + v1SnapshotId + "\" FOR VERSION AS OF " + v1SnapshotId,
-                "Cannot specify end version both in table name and FOR clause");
+                "Invalid Iceberg table name: test_iceberg_read_versioned_table@%d".formatted(v1SnapshotId));
 
         assertQueryFails("SELECT * FROM \"test_iceberg_read_versioned_table@" + v1SnapshotId + "\" FOR TIMESTAMP AS OF " + timestampLiteral(v1EpochMillis, 9),
-                "Cannot specify end version both in table name and FOR clause");
+                "Invalid Iceberg table name: test_iceberg_read_versioned_table@%d".formatted(v1SnapshotId));
     }
 
     @Test
