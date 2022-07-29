@@ -94,7 +94,7 @@ public class DeltaLakeParquetStatisticsUtils
 
     private static Optional<Object> getMin(Type type, Statistics<?> statistics)
     {
-        if (statistics.genericGetMin() == null) {
+        if (statistics.genericGetMin() == null || !statistics.hasNonNullValue()) {
             return Optional.empty();
         }
 
@@ -171,7 +171,7 @@ public class DeltaLakeParquetStatisticsUtils
 
     private static Optional<Object> getMax(Type type, Statistics<?> statistics)
     {
-        if (statistics.genericGetMax() == null) {
+        if (statistics.genericGetMax() == null || !statistics.hasNonNullValue()) {
             return Optional.empty();
         }
 

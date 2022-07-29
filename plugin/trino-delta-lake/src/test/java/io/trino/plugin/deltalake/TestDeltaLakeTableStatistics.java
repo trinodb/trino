@@ -140,4 +140,16 @@ public class TestDeltaLakeTableStatistics
                         "('val_col', null, null, 0.0, null, 23, 26)," +
                         "(null, null, null, null, 3.0, null, null)");
     }
+
+    @Test
+    public void testShowStatsForAllNullColumn()
+    {
+        assertUpdate("CREATE TABLE show_stats_with_null AS SELECT CAST(NULL AS INT) col", 1);
+        assertQuery(
+                "SHOW STATS FOR show_stats_with_null",
+                "VALUES " +
+                        //  column_name | data_size | distinct_values_count | nulls_fraction | row_count | low_value | high_value
+                        "('col', 0.0, null, 1.0, null, null, null)," +
+                        "(null, null, null, null, 1.0, null, null)");
+    }
 }
