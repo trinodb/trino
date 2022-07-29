@@ -90,7 +90,6 @@ import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_AMBIGUOUS_TABLE_NAME;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
-import static io.trino.plugin.pinot.PinotErrorCode.PINOT_INVALID_CONFIGURATION;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_BROKER;
 import static io.trino.plugin.pinot.PinotMetadata.SCHEMA_NAME;
 import static java.lang.String.format;
@@ -152,9 +151,6 @@ public class PinotClient
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)).jsonCodec(Schema.class);
         this.brokerResponseCodec = requireNonNull(brokerResponseCodec, "brokerResponseCodec is null");
         requireNonNull(config, "config is null");
-        if (config.getControllerUrls() == null || config.getControllerUrls().isEmpty()) {
-            throw new PinotException(PINOT_INVALID_CONFIGURATION, Optional.empty(), "No pinot controllers specified");
-        }
         this.pinotHostMapper = requireNonNull(pinotHostMapper, "pinotHostMapper is null");
 
         this.controllerUrls = config.getControllerUrls();

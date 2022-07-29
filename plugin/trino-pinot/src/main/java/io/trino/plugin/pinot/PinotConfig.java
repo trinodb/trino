@@ -23,6 +23,7 @@ import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
 import javax.annotation.PostConstruct;
+import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 
 import java.net.URI;
@@ -64,7 +65,7 @@ public class PinotConfig
     private boolean grpcEnabled = true;
     private DataSize targetSegmentPageSize = DataSize.of(1, MEGABYTE);
 
-    @NotNull
+    @NotEmpty(message = "pinot.controller-urls cannot be empty")
     public List<URI> getControllerUrls()
     {
         return controllerUrls;
