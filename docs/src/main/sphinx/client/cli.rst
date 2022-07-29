@@ -13,9 +13,10 @@ Requirements
 The CLI requires a Java virtual machine available on the path.
 It can be used with Java version 8 and higher.
 
-The CLI uses the :doc:`Trino client REST API
-</develop/client-protocol>` over HTTP/HTTPS to communicate with the
-coordinator on the cluster.
+The CLI uses the :doc:`Trino client REST API </develop/client-protocol>` over
+HTTP/HTTPS to communicate with the coordinator on the cluster.
+
+.. _cli-installation:
 
 Installation
 ------------
@@ -37,7 +38,11 @@ the version:
 
     java -jar trino-cli-*-executable.jar --version
 
-The syntax can be used for the examples in the following sections.
+The syntax can be used for the examples in the following sections. In addition,
+using the ``java`` command allows you to add configuration options for the Java
+runtime with the ``-D`` syntax. You can use this for debugging and
+troubleshooting, such as when :ref:`specifying additional Kerberos debug options
+<cli-kerberos-debug>`.
 
 Running the CLI
 ---------------
@@ -328,27 +333,29 @@ To access a Trino cluster configured to use :doc:`/security/jwt`, use the
 Kerberos authentication
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-In addition to the options that are required when connecting to an unauthorized
-Trino coordinator, invoking the CLI with Kerberos support enabled requires a
-number of additional command line options. The simplest way to invoke the CLI is
-with a wrapper script.
+The Trino CLI can connect to a Trino cluster that has :doc:`/security/kerberos`
+enabled.
+
+Invoking the CLI with Kerberos support enabled requires a number of additional
+command line options. You also need the :ref:`Kerberos configuration files
+<server_kerberos_principals>` for your user on the machine running the CLI. The
+simplest way to invoke the CLI is with a wrapper script:
 
 .. code-block:: text
 
     #!/bin/bash
 
     ./trino \
-      --server https://trino-coordinator.example.com:7778 \
+      --server https://trino.example.com \
       --krb5-config-path /etc/krb5.conf \
       --krb5-principal someuser@EXAMPLE.COM \
       --krb5-keytab-path /home/someuser/someuser.keytab \
-      --krb5-remote-service-name trino \
-      --keystore-path /tmp/trino.jks \
-      --keystore-password password \
-      --catalog <catalog> \
-      --schema <schema>
+      --krb5-remote-service-name trino
 
-The following table list the available options for Kerberos authentication:
+When using Kerberos authentication, access to the Trino coordinator must be
+through :doc:`TLS and HTTPS </security/tls>`.
+
+The following table lists the available options for Kerberos authentication:
 
 .. list-table:: CLI options for Kerberos authentication
   :widths: 40, 60
@@ -373,8 +380,32 @@ The following table list the available options for Kerberos authentication:
     - Remote kerberos service principal pattern. Defaults to
       ``${SERVICE}@${HOST}``.
 
-See :doc:`/security/cli` for more information on configuring and using Kerberos
-with the CLI.
+.. _cli-kerberos-debug:
+
+Additional Kerberos debugging information
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can enable additional Kerberos debugging information for the Trino CLI
+process by passing ``-Dsun.security.krb5.debug=true``,
+``-Dtrino.client.debugKerberos=true``, and
+``-Djava.security.debug=gssloginconfig,configfile,configparser,logincontext``
+as a JVM argument when :ref:`starting the CLI process <cli-installation>`:
+
+.. code-block:: text
+
+    java \
+      -Dsun.security.krb5.debug=true \
+      -Djava.security.debug=gssloginconfig,configfile,configparser,logincontext \
+      -Dtrino.client.debugKerberos=true \
+      -jar trino-cli-*-executable.jar \
+      --server https://trino.example.com \
+      --krb5-config-path /etc/krb5.conf \
+      --krb5-principal someuser@EXAMPLE.COM \
+      --krb5-keytab-path /home/someuser/someuser.keytab \
+      --krb5-remote-service-name trino
+
+For help with interpreting Kerberos debugging messages, see :ref:`additional
+resources <kerberos-debug>`.
 
 Pagination
 ----------
