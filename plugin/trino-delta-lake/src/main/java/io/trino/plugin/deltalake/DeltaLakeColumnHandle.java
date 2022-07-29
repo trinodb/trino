@@ -27,6 +27,8 @@ import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.trino.plugin.deltalake.DeltaHiveTypeTranslator.toHiveType;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.SYNTHESIZED;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
@@ -38,6 +40,11 @@ public class DeltaLakeColumnHandle
 
     public static final String ROW_ID_COLUMN_NAME = "$row_id";
     public static final Type ROW_ID_COLUMN_TYPE = BIGINT;
+
+    public static final Type MERGE_ROW_ID_TYPE = rowType(
+            field("path", VARCHAR),
+            field("position", BIGINT),
+            field("partition", VARCHAR));
 
     public static final String PATH_COLUMN_NAME = "$path";
     public static final Type PATH_TYPE = VARCHAR;

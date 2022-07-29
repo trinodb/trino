@@ -172,6 +172,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
             case SUPPORTS_DELETE:
             case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
                 return true;
 
             default:

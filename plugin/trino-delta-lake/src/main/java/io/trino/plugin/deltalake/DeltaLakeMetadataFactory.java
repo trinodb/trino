@@ -42,6 +42,7 @@ public class DeltaLakeMetadataFactory
     private final DeltaLakeAccessControlMetadataFactory accessControlMetadataFactory;
     private final JsonCodec<DataFileInfo> dataFileInfoCodec;
     private final JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec;
+    private final JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec;
     private final TransactionLogWriterFactory transactionLogWriterFactory;
     private final NodeManager nodeManager;
     private final CheckpointWriterManager checkpointWriterManager;
@@ -65,6 +66,7 @@ public class DeltaLakeMetadataFactory
             DeltaLakeConfig deltaLakeConfig,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec,
+            JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec,
             TransactionLogWriterFactory transactionLogWriterFactory,
             NodeManager nodeManager,
             CheckpointWriterManager checkpointWriterManager,
@@ -78,6 +80,7 @@ public class DeltaLakeMetadataFactory
         this.accessControlMetadataFactory = requireNonNull(accessControlMetadataFactory, "accessControlMetadataFactory is null");
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
         this.updateResultJsonCodec = requireNonNull(updateResultJsonCodec, "updateResultJsonCodec is null");
+        this.mergeResultJsonCodec = requireNonNull(mergeResultJsonCodec, "mergeResultJsonCodec is null");
         this.transactionLogWriterFactory = requireNonNull(transactionLogWriterFactory, "transactionLogWriterFactory is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.checkpointWriterManager = requireNonNull(checkpointWriterManager, "checkpointWriterManager is null");
@@ -114,6 +117,7 @@ public class DeltaLakeMetadataFactory
                 unsafeWritesEnabled,
                 dataFileInfoCodec,
                 updateResultJsonCodec,
+                mergeResultJsonCodec,
                 transactionLogWriterFactory,
                 nodeManager,
                 checkpointWriterManager,

@@ -47,6 +47,10 @@ public class DeltaLakeNodePartitioningProvider
             List<Type> partitionChannelTypes,
             int bucketCount)
     {
+        if (partitioningHandle instanceof DeltaLakeUpdateHandle) {
+            return new DeltaLakeUpdateBucketFunction(bucketCount);
+        }
+
         DeltaLakePartitioningHandle handle = (DeltaLakePartitioningHandle) partitioningHandle;
         return new DeltaLakeBucketFunction(typeOperators, handle.getPartitioningColumns(), bucketCount);
     }
