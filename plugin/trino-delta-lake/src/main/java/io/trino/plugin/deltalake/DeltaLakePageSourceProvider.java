@@ -42,6 +42,7 @@ import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -49,9 +50,12 @@ import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.ROW_ID_COLUMN_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMaxReadBlockSize;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.hive.HiveSessionProperties.isParquetUseColumnIndex;
+import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.PARQUET_ROW_INDEX_COLUMN;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakePageSourceProvider
@@ -117,12 +121,27 @@ public class DeltaLakePageSourceProvider
 
         Map<String, Optional<String>> partitionKeys = split.getPartitionKeys();
 
+        List<String> partitionValues = new ArrayList<>();
+        if (deltaLakeColumns.stream().anyMatch(column -> column.getName().equals(ROW_ID_COLUMN_NAME))) {
+            for (DeltaLakeColumnMetadata column : extractSchema(table.getMetadataEntry(), typeManager)) {
+                Optional<String> value = partitionKeys.get(column.getName());
+                if (value != null) {
+                    partitionValues.add(value.orElse(null));
+                }
+            }
+        }
+
         List<DeltaLakeColumnHandle> regularColumns = deltaLakeColumns.stream()
-                .filter(column -> column.getColumnType() == REGULAR)
+                .filter(column -> (column.getColumnType() == REGULAR) || column.getName().equals(ROW_ID_COLUMN_NAME))
                 .collect(toImmutableList());
 
         List<HiveColumnHandle> hiveColumnHandles = regularColumns.stream()
-                .map(DeltaLakeColumnHandle::toHiveColumnHandle)
+                .map(column -> {
+                    if (column.getName().equals(ROW_ID_COLUMN_NAME)) {
+                        return PARQUET_ROW_INDEX_COLUMN;
+                    }
+                    return column.toHiveColumnHandle();
+                })
                 .collect(toImmutableList());
 
         Path path = new Path(split.getPath());
@@ -166,7 +185,14 @@ public class DeltaLakePageSourceProvider
 
         verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");
 
-        return new DeltaLakePageSource(deltaLakeColumns, partitionKeys, pageSource.get(), split.getPath(), split.getFileSize(), split.getFileModifiedTime());
+        return new DeltaLakePageSource(
+                deltaLakeColumns,
+                partitionKeys,
+                partitionValues,
+                pageSource.get(),
+                split.getPath(),
+                split.getFileSize(),
+                split.getFileModifiedTime());
     }
 
     private static TupleDomain<HiveColumnHandle> getParquetTupleDomain(TupleDomain<DeltaLakeColumnHandle> effectivePredicate)

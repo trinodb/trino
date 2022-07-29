@@ -220,6 +220,7 @@ public class DeltaLakeUpdatablePageSource
         this.pageSourceDelegate = new DeltaLakePageSource(
                 delegatedColumns,
                 partitionKeys,
+                ImmutableList.of(),
                 parquetPageSource.get(),
                 path,
                 fileSize,
