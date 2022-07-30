@@ -146,11 +146,6 @@ public abstract class BaseIcebergConnectorTest
         this.format = requireNonNull(format, "format is null");
     }
 
-    protected Map<String, String> additionalIcebergProperties()
-    {
-        return ImmutableMap.of();
-    }
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -158,7 +153,6 @@ public abstract class BaseIcebergConnectorTest
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.file-format", format.name())
-                        .putAll(additionalIcebergProperties())
                         .buildOrThrow())
                 .setInitialTables(ImmutableList.<TpchTable<?>>builder()
                         .addAll(REQUIRED_TPCH_TABLES)
