@@ -77,6 +77,7 @@ public class PinotModule
         binder.bind(PinotSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(PinotPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(PinotClient.class).in(Scopes.SINGLETON);
+        binder.bind(PinotTypeConverter.class).in(Scopes.SINGLETON);
         binder.bind(ExecutorService.class).annotatedWith(ForPinot.class)
                 .toInstance(newCachedThreadPool(threadsNamed("pinot-metadata-fetcher-" + catalogName)));
 
