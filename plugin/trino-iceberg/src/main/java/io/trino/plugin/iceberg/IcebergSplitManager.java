@@ -16,7 +16,10 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
+import io.trino.spi.HostAddress;
+import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -41,12 +44,14 @@ public class IcebergSplitManager
 
     private final IcebergTransactionManager transactionManager;
     private final TypeManager typeManager;
+    private final NodeManager nodeManager;
 
     @Inject
-    public IcebergSplitManager(IcebergTransactionManager transactionManager, TypeManager typeManager)
+    public IcebergSplitManager(IcebergTransactionManager transactionManager, TypeManager typeManager, NodeManager nodeManager)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     @Override
@@ -59,6 +64,30 @@ public class IcebergSplitManager
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
 
+        switch (table.getTableType()) {
+            case FILES:
+            case HISTORY:
+            case SNAPSHOTS:
+            case MANIFESTS:
+            case PARTITIONS:
+            case PROPERTIES:
+                HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
+                ConnectorSplit split = new IcebergSystemSplit(address);
+                return new FixedSplitSource(ImmutableList.of(split));
+            case DATA:
+                return getDataSplits(transaction, session, dynamicFilter, constraint, table);
+            default:
+                throw new IllegalArgumentException("Unknown table type '" + table.getTableType() + "'");
+        }
+    }
+
+    private ConnectorSplitSource getDataSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            DynamicFilter dynamicFilter,
+            Constraint constraint,
+            IcebergTableHandle table)
+    {
         if (table.getSnapshotId().isEmpty()) {
             if (table.isRecordScannedFiles()) {
                 return new FixedSplitSource(ImmutableList.of(), ImmutableList.of());

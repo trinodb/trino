@@ -25,7 +25,6 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.HiveApplyProjectionUtil;
@@ -67,7 +66,6 @@ import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
-import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
@@ -195,6 +193,8 @@ import static io.trino.plugin.iceberg.IcebergUtil.schemaFromMetadata;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.trino.plugin.iceberg.TableType.DATA;
+import static io.trino.plugin.iceberg.TableType.HISTORY;
+import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog.DEPENDS_ON_TABLES;
@@ -298,11 +298,6 @@ public class IcebergMetadata
         }
 
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
-        if (name.getTableType() != DATA) {
-            // Pretend the table does not exist to produce better error message in case of table redirects to Hive
-            return null;
-        }
-
         BaseTable table;
         try {
             table = (BaseTable) catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
@@ -313,6 +308,11 @@ public class IcebergMetadata
 
         if (name.getSnapshotId().isPresent() && endVersion.isPresent()) {
             throw new TrinoException(GENERIC_USER_ERROR, "Cannot specify end version both in table name and FOR clause");
+        }
+
+        if ((name.getTableType() == HISTORY || name.getTableType() == SNAPSHOTS) && (name.getSnapshotId().isPresent() || endVersion.isPresent())) {
+            SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
+            throw new TrinoException(NOT_SUPPORTED, "Versioning not supported for metadata table: " + systemTableName);
         }
 
         Optional<Long> tableSnapshotId;
@@ -380,60 +380,6 @@ public class IcebergMetadata
                 return snapshotId;
         }
         throw new TrinoException(NOT_SUPPORTED, "Version pointer type is not supported: " + version.getPointerType());
-    }
-
-    @Override
-    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
-    {
-        return getRawSystemTable(session, tableName)
-                .map(systemTable -> new ClassLoaderSafeSystemTable(systemTable, getClass().getClassLoader()));
-    }
-
-    private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
-    {
-        IcebergTableName name = IcebergTableName.from(tableName.getTableName());
-        if (name.getTableType() == DATA) {
-            return Optional.empty();
-        }
-
-        // load the base table for the system table
-        Table table;
-        try {
-            table = catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
-        }
-        catch (TableNotFoundException e) {
-            return Optional.empty();
-        }
-        catch (UnknownTableTypeException e) {
-            // avoid dealing with non Iceberg tables
-            return Optional.empty();
-        }
-
-        SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
-        switch (name.getTableType()) {
-            case DATA:
-                // Handled above.
-                break;
-            case HISTORY:
-                if (name.getSnapshotId().isPresent()) {
-                    throw new TrinoException(NOT_SUPPORTED, "Snapshot ID not supported for history table: " + systemTableName);
-                }
-                return Optional.of(new HistoryTable(systemTableName, table));
-            case SNAPSHOTS:
-                if (name.getSnapshotId().isPresent()) {
-                    throw new TrinoException(NOT_SUPPORTED, "Snapshot ID not supported for snapshots table: " + systemTableName);
-                }
-                return Optional.of(new SnapshotsTable(systemTableName, typeManager, table));
-            case PARTITIONS:
-                return Optional.of(new PartitionTable(systemTableName, typeManager, table, getSnapshotId(table, name.getSnapshotId(), isAllowLegacySnapshotSyntax(session))));
-            case MANIFESTS:
-                return Optional.of(new ManifestsTable(systemTableName, table, getSnapshotId(table, name.getSnapshotId(), isAllowLegacySnapshotSyntax(session))));
-            case FILES:
-                return Optional.of(new FilesTable(systemTableName, typeManager, table, getSnapshotId(table, name.getSnapshotId(), isAllowLegacySnapshotSyntax(session))));
-            case PROPERTIES:
-                return Optional.of(new PropertiesTable(systemTableName, table));
-        }
-        return Optional.empty();
     }
 
     @Override
@@ -522,8 +468,26 @@ public class IcebergMetadata
     {
         IcebergTableHandle tableHandle = (IcebergTableHandle) table;
         Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
-        List<ColumnMetadata> columns = getColumnMetadatas(SchemaParser.fromJson(tableHandle.getTableSchemaJson()));
-        return new ConnectorTableMetadata(tableHandle.getSchemaTableName(), columns, getIcebergTableProperties(icebergTable), getTableComment(icebergTable));
+
+        switch (tableHandle.getTableType()) {
+            case FILES:
+                return new FilesTable(tableHandle.getSchemaTableName(), typeManager, icebergTable, tableHandle.getSnapshotId()).getTableMetadata();
+            case HISTORY:
+                return new HistoryTable(tableHandle.getSchemaTableName(), icebergTable).getTableMetadata();
+            case SNAPSHOTS:
+                return new SnapshotsTable(tableHandle.getSchemaTableName(), typeManager, icebergTable).getTableMetadata();
+            case MANIFESTS:
+                return new ManifestsTable(tableHandle.getSchemaTableName(), icebergTable, tableHandle.getSnapshotId()).getTableMetadata();
+            case PARTITIONS:
+                return new PartitionTable(tableHandle.getSchemaTableName(), typeManager, icebergTable, tableHandle.getSnapshotId()).getTableMetadata();
+            case PROPERTIES:
+                return new PropertiesTable(tableHandle.getSchemaTableName(), icebergTable).getTableMetadata();
+            case DATA:
+                List<ColumnMetadata> columns = getColumnMetadatas(SchemaParser.fromJson(tableHandle.getTableSchemaJson()));
+                return new ConnectorTableMetadata(tableHandle.getSchemaTableName(), columns, getIcebergTableProperties(icebergTable), getTableComment(icebergTable));
+            default:
+                throw new IllegalArgumentException("Unknown table type '" + tableHandle.getTableType() + "'");
+        }
     }
 
     @Override
@@ -538,13 +502,30 @@ public class IcebergMetadata
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        for (IcebergColumnHandle columnHandle : getColumns(icebergTable.schema(), typeManager)) {
-            columnHandles.put(columnHandle.getName(), columnHandle);
+        switch (table.getTableType()) {
+            case FILES:
+                return new FilesTable(table.getSchemaTableName(), typeManager, icebergTable, table.getSnapshotId()).getColumnHandles();
+            case HISTORY:
+                return new HistoryTable(table.getSchemaTableName(), icebergTable).getColumnHandles();
+            case SNAPSHOTS:
+                return new SnapshotsTable(table.getSchemaTableName(), typeManager, icebergTable).getColumnHandles();
+            case MANIFESTS:
+                return new ManifestsTable(table.getSchemaTableName(), icebergTable, table.getSnapshotId()).getColumnHandles();
+            case PARTITIONS:
+                return new PartitionTable(table.getSchemaTableName(), typeManager, icebergTable, table.getSnapshotId()).getColumnHandles();
+            case PROPERTIES:
+                return new PropertiesTable(table.getSchemaTableName(), icebergTable).getColumnHandles();
+            case DATA:
+                ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+                for (IcebergColumnHandle columnHandle : getColumns(icebergTable.schema(), typeManager)) {
+                    columnHandles.put(columnHandle.getName(), columnHandle);
+                }
+                columnHandles.put(FILE_PATH.getColumnName(), pathColumnHandle());
+                columnHandles.put(FILE_MODIFIED_TIME.getColumnName(), fileModifiedTimeColumnHandle());
+                return columnHandles.buildOrThrow();
+            default:
+                throw new IllegalArgumentException("Unknown table type '" + table.getTableType() + "'");
         }
-        columnHandles.put(FILE_PATH.getColumnName(), pathColumnHandle());
-        columnHandles.put(FILE_MODIFIED_TIME.getColumnName(), fileModifiedTimeColumnHandle());
-        return columnHandles.buildOrThrow();
     }
 
     @Override
@@ -1816,6 +1797,11 @@ public class IcebergMetadata
             return Optional.empty();
         }
 
+        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) handle;
+        if (icebergTableHandle.getTableType() != DATA) {
+            return Optional.empty();
+        }
+
         // Create projected column representations for supported sub expressions. Simple column references and chain of
         // dereferences on a variable are supported right now.
         Set<ConnectorExpression> projectedExpressions = projections.stream()
@@ -1824,8 +1810,6 @@ public class IcebergMetadata
 
         Map<ConnectorExpression, ProjectedColumnRepresentation> columnProjections = projectedExpressions.stream()
                 .collect(toImmutableMap(identity(), HiveApplyProjectionUtil::createProjectedColumnRepresentation));
-
-        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) handle;
 
         // all references are simple variables
         if (columnProjections.values().stream().allMatch(ProjectedColumnRepresentation::isVariable)) {
