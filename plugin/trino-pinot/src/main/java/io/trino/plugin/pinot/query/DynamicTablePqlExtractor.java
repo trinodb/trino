@@ -65,6 +65,10 @@ public final class DynamicTablePqlExtractor
                     .map(PinotColumnHandle::getExpression)
                     .collect(joining(", ")));
         }
+        if (table.getHavingExpression().isPresent()) {
+            builder.append(" having ")
+                    .append(table.getHavingExpression().get());
+        }
         if (!table.getOrderBy().isEmpty()) {
             builder.append(" order by ")
                     .append(table.getOrderBy().stream()
