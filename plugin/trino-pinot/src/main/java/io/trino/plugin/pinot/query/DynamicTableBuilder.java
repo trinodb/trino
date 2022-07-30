@@ -116,13 +116,19 @@ public final class DynamicTableBuilder
             groupByColumns = getPinotColumns(schemaTableName, queryContext.getGroupByExpressions(), ImmutableList.of(), columnHandles, pinotTypeResolver, aggregateTypes);
         }
 
+        Optional<String> havingExpression = Optional.empty();
+        if (queryContext.getHavingFilter() != null) {
+            String formatted = formatFilter(schemaTableName, queryContext.getHavingFilter(), columnHandles);
+            havingExpression = Optional.of(formatted);
+        }
+
         Optional<String> filter = Optional.empty();
         if (pinotQuery.getFilterExpression() != null) {
             String formatted = formatFilter(schemaTableName, queryContext.getFilter(), columnHandles);
             filter = Optional.of(formatted);
         }
 
-        return new DynamicTable(pinotTableName, suffix, selectColumns, filter, groupByColumns, ImmutableList.of(), orderBy, OptionalLong.of(queryContext.getLimit()), getOffset(queryContext), query);
+        return new DynamicTable(pinotTableName, suffix, selectColumns, filter, groupByColumns, ImmutableList.of(), havingExpression, orderBy, OptionalLong.of(queryContext.getLimit()), getOffset(queryContext), query);
     }
 
     private static List<PinotColumnHandle> getPinotColumns(SchemaTableName schemaTableName, List<ExpressionContext> expressions, List<String> aliases, Map<String, ColumnHandle> columnHandles, PinotTypeResolver pinotTypeResolver, Map<String, PinotColumnNameAndTrinoType> aggregateTypes)
