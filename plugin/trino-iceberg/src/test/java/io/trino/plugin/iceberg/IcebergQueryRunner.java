@@ -124,10 +124,14 @@ public final class IcebergQueryRunner
 
                 queryRunner.installPlugin(new IcebergPlugin());
                 Map<String, String> icebergProperties = new HashMap<>(this.icebergProperties.buildOrThrow());
-                if (!icebergProperties.containsKey("iceberg.catalog.type")) {
-                    Path dataDir = metastoreDirectory.map(File::toPath).orElseGet(() -> queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data"));
+                String catalogType = icebergProperties.get("iceberg.catalog.type");
+                Path dataDir = metastoreDirectory.map(File::toPath).orElseGet(() -> queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data"));
+                if (catalogType == null) {
                     icebergProperties.put("iceberg.catalog.type", "TESTING_FILE_METASTORE");
                     icebergProperties.put("hive.metastore.catalog.dir", dataDir.toString());
+                }
+                if ("jdbc".equalsIgnoreCase(catalogType) && !icebergProperties.containsKey("iceberg.jdbc-catalog.default-warehouse-dir")) {
+                    icebergProperties.put("iceberg.jdbc-catalog.default-warehouse-dir", dataDir.toString());
                 }
 
                 queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
