@@ -2248,4 +2248,21 @@ public abstract class AbstractPinotIntegrationSmokeTest
         assertThat(query("SELECT string_col FROM " + JSON_TYPE_TABLE + " WHERE json_col = JSON '{\"id\":0,\"name\":\"user_0\"}'"))
                 .matches("VALUES VARCHAR 'string_0'");
     }
+
+    @Test
+    public void testHavingClause()
+    {
+        assertThat(query("SELECT city, \"sum(long_number)\" FROM \"SELECT city, SUM(long_number)" +
+                "  FROM my_table" +
+                "  GROUP BY city" +
+                "  HAVING SUM(long_number) > 10000\""))
+                .matches("VALUES (VARCHAR 'Los Angeles', DOUBLE '50000.0')," +
+                        "  (VARCHAR 'New York', DOUBLE '20000.0')")
+                .isFullyPushedDown();
+        assertThat(query("SELECT city, \"sum(long_number)\" FROM \"SELECT city, SUM(long_number) FROM my_table" +
+                "  GROUP BY city HAVING SUM(long_number) > 14\"" +
+                "  WHERE city != 'New York'"))
+                .matches("VALUES (VARCHAR 'Los Angeles', DOUBLE '50000.0')")
+                .isFullyPushedDown();
+    }
 }
