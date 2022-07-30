@@ -13,11 +13,8 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import org.testng.SkipException;
-
-import java.util.Map;
 
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 
@@ -27,13 +24,6 @@ public class TestIcebergAvroConnectorTest
     public TestIcebergAvroConnectorTest()
     {
         super(AVRO);
-    }
-
-    @Override
-    protected Map<String, String> additionalIcebergProperties()
-    {
-        // Iceberg AVRO doesn't support ZSTD (connector's default) compression codec
-        return ImmutableMap.of("iceberg.compression-codec", "SNAPPY");
     }
 
     @Override
