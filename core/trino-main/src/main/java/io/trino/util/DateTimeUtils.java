@@ -35,11 +35,14 @@ import org.joda.time.format.PeriodFormatter;
 import org.joda.time.format.PeriodFormatterBuilder;
 import org.joda.time.format.PeriodParser;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -230,6 +233,8 @@ public final class DateTimeUtils
     {
         IntervalField end = endField.orElse(startField);
 
+        checkMillisPrecisionNotExceeded(value, startField, end);
+
         if (startField == IntervalField.DAY && end == IntervalField.SECOND) {
             return parsePeriodMillis(INTERVAL_DAY_SECOND_FORMATTER, value, startField, end);
         }
@@ -405,6 +410,32 @@ public final class DateTimeUtils
         }
 
         return new PeriodFormatter(builder.toPrinter(), new OrderedPeriodParser(parsers));
+    }
+
+    private static final Pattern SECONDS_FROM_INTERVAL_PATTERN = Pattern.compile("(^-?| |:)(?<seconds>(\\d+(\\.\\d*)?)|(\\.\\d+))$");
+
+    private static void checkMillisPrecisionNotExceeded(String value, IntervalField startField, IntervalField endField)
+    {
+        if (endField != IntervalField.SECOND) {
+            return;
+        }
+
+        String secondsString;
+        Matcher matcher = SECONDS_FROM_INTERVAL_PATTERN.matcher(value);
+        if (matcher.find()) {
+            secondsString = matcher.group("seconds");
+        }
+        else {
+            throw new IllegalArgumentException(
+                    format("Invalid INTERVAL %s TO %s value: %s", startField, endField, value));
+        }
+
+        BigDecimal seconds = new BigDecimal(secondsString);
+        int decimalPrecision = Math.max(0, seconds.stripTrailingZeros().scale());
+        if (decimalPrecision > 3) {
+            throw new IllegalArgumentException(
+                    format("Invalid interval. Milliseconds precision is exceeded in seconds literal: %s", secondsString));
+        }
     }
 
     private static class OrderedPeriodParser
