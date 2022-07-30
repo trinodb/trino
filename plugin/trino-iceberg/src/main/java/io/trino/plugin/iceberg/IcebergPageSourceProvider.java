@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.graph.Traverser;
+import com.google.common.primitives.Ints;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.TrinoFileSystem;
@@ -54,14 +55,19 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
+import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteFilter;
 import io.trino.plugin.iceberg.delete.IcebergPositionDeletePageSink;
 import io.trino.plugin.iceberg.delete.PositionDeleteFilter;
 import io.trino.plugin.iceberg.delete.RowPredicate;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
@@ -70,6 +76,9 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.RecordSet;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
@@ -89,6 +98,7 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
+import org.apache.iceberg.Table;
 import org.apache.iceberg.avro.AvroSchemaUtil;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.LocationProvider;
@@ -124,6 +134,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -167,6 +178,7 @@ import static io.trino.plugin.iceberg.TypeConverter.ICEBERG_BINARY_TYPE;
 import static io.trino.plugin.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static io.trino.plugin.iceberg.delete.EqualityDeleteFilter.readEqualityDeletes;
 import static io.trino.plugin.iceberg.delete.PositionDeleteFilter.readPositionDeletes;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -205,6 +217,7 @@ public class IcebergPageSourceProvider
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final IcebergFileWriterFactory fileWriterFactory;
     private final PageIndexerFactory pageIndexerFactory;
+    private final TrinoCatalogFactory catalogFactory;
     private final int maxOpenPartitions;
 
     @Inject
@@ -217,6 +230,7 @@ public class IcebergPageSourceProvider
             JsonCodec<CommitTaskData> jsonCodec,
             IcebergFileWriterFactory fileWriterFactory,
             PageIndexerFactory pageIndexerFactory,
+            TrinoCatalogFactory catalogFactory,
             IcebergConfig icebergConfig)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -227,6 +241,7 @@ public class IcebergPageSourceProvider
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
+        this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         requireNonNull(icebergConfig, "icebergConfig is null");
         this.maxOpenPartitions = icebergConfig.getMaxPartitionsPerWriter();
     }
@@ -240,9 +255,37 @@ public class IcebergPageSourceProvider
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
-        IcebergSplit split = (IcebergSplit) connectorSplit;
-        IcebergTableHandle table = (IcebergTableHandle) connectorTable;
+        if (connectorTable instanceof IcebergTableHandle table) {
+            return createDataPageSource(session, connectorSplit, table, columns, dynamicFilter);
+        }
+        else if (connectorTable instanceof IcebergSystemTableHandle systemTableHandle) {
+            SchemaTableName schemaTableName = systemTableHandle.getSchemaTableName();
+            Table icebergTable = catalogFactory.create(session.getIdentity()).loadTable(session, schemaTableName);
+            IcebergSystemTable systemTable = switch (systemTableHandle.getTableType()) {
+                case FILES -> new FilesTable(schemaTableName, typeManager, icebergTable, systemTableHandle.getSnapshotId());
+                case HISTORY -> new HistoryTable(schemaTableName, icebergTable);
+                case SNAPSHOTS -> new SnapshotsTable(schemaTableName, typeManager, icebergTable);
+                case MANIFESTS -> new ManifestsTable(schemaTableName, icebergTable, systemTableHandle.getSnapshotId());
+                case PARTITIONS -> new PartitionTable(schemaTableName, typeManager, icebergTable, systemTableHandle.getSnapshotId());
+                case PROPERTIES -> new PropertiesTable(schemaTableName, icebergTable);
+                default -> throw new IllegalArgumentException("Unknown table type '" + systemTableHandle.getTableType() + "'");
+            };
 
+            return createSystemPageSource(columns, systemTableHandle, session, transaction, systemTable);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + connectorTable.getClass().getName() + "'");
+        }
+    }
+
+    private ConnectorPageSource createDataPageSource(
+            ConnectorSession session,
+            ConnectorSplit connectorSplit,
+            IcebergTableHandle table,
+            List<ColumnHandle> columns,
+            DynamicFilter dynamicFilter)
+    {
+        IcebergSplit split = (IcebergSplit) connectorSplit;
         List<IcebergColumnHandle> icebergColumns = columns.stream()
                 .map(IcebergColumnHandle.class::cast)
                 .collect(toImmutableList());
@@ -387,6 +430,50 @@ public class IcebergPageSourceProvider
                         updatedRowPageSinkSupplier,
                         table.getUpdatedColumns()),
                 getClass().getClassLoader());
+    }
+
+    private ConnectorPageSource createSystemPageSource(
+            List<ColumnHandle> columns,
+            IcebergSystemTableHandle systemTableHandle,
+            ConnectorSession session,
+            ConnectorTransactionHandle transaction,
+            IcebergSystemTable systemTable)
+    {
+        List<ColumnMetadata> tableColumns = systemTable.getTableMetadata().getColumns();
+
+        Map<String, Integer> columnsByName = new HashMap<>();
+        for (int i = 0; i < tableColumns.size(); i++) {
+            ColumnMetadata column = tableColumns.get(i);
+            if (columnsByName.put(column.getName(), i) != null) {
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Duplicate column name: " + column.getName());
+            }
+        }
+
+        ImmutableList.Builder<Integer> userToSystemFieldIndex = ImmutableList.builder();
+        for (ColumnHandle column : columns) {
+            String columnName = ((IcebergColumnHandle) column).getName();
+
+            Integer index = columnsByName.get(columnName);
+            if (index == null) {
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Column does not exist: %s.%s", systemTableHandle.getSchemaTableName(), columnName));
+            }
+
+            userToSystemFieldIndex.add(index);
+        }
+
+        TupleDomain<ColumnHandle> constraint = systemTableHandle.getConstraint();
+        if (constraint.isNone()) {
+            return new EmptyPageSource();
+        }
+        TupleDomain<Integer> newConstraint = constraint.transformKeys(columnHandle ->
+                columnsByName.get(((IcebergColumnHandle) columnHandle).getName()));
+
+        try {
+            return new MappedPageSource(systemTable.pageSource(transaction, session, newConstraint), userToSystemFieldIndex.build());
+        }
+        catch (UnsupportedOperationException e) {
+            return new io.trino.spi.connector.RecordPageSource(new MappedRecordSet(toRecordSet(transaction, systemTable, session, newConstraint), userToSystemFieldIndex.build()));
+        }
     }
 
     private Set<IcebergColumnHandle> requiredColumnsForDeletes(Schema schema, List<DeleteFile> deletes)
@@ -1388,6 +1475,304 @@ public class IcebergPageSourceProvider
         public Optional<Long> getEndRowPosition()
         {
             return endRowPosition;
+        }
+    }
+
+    private static RecordSet toRecordSet(ConnectorTransactionHandle sourceTransaction, IcebergSystemTable table, ConnectorSession session, TupleDomain<Integer> constraint)
+    {
+        return new RecordSet()
+        {
+            private final List<Type> types = table.getTableMetadata().getColumns().stream()
+                    .map(ColumnMetadata::getType)
+                    .collect(toImmutableList());
+
+            @Override
+            public List<Type> getColumnTypes()
+            {
+                return types;
+            }
+
+            @Override
+            public RecordCursor cursor()
+            {
+                return table.cursor(sourceTransaction, session, constraint);
+            }
+        };
+    }
+
+    private static class MappedPageSource
+            implements ConnectorPageSource
+    {
+        private final ConnectorPageSource delegate;
+        private final int[] delegateFieldIndex;
+
+        public MappedPageSource(ConnectorPageSource delegate, List<Integer> delegateFieldIndex)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+            this.delegateFieldIndex = Ints.toArray(requireNonNull(delegateFieldIndex, "delegateFieldIndex is null"));
+        }
+
+        @Override
+        public long getCompletedBytes()
+        {
+            return delegate.getCompletedBytes();
+        }
+
+        @Override
+        public long getReadTimeNanos()
+        {
+            return delegate.getReadTimeNanos();
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return delegate.isFinished();
+        }
+
+        @Override
+        public Page getNextPage()
+        {
+            Page nextPage = delegate.getNextPage();
+            if (nextPage == null) {
+                return null;
+            }
+            return nextPage.getColumns(delegateFieldIndex);
+        }
+
+        @Override
+        public long getMemoryUsage()
+        {
+            return delegate.getMemoryUsage();
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            delegate.close();
+        }
+    }
+
+    private static class RecordPageSource
+            implements ConnectorPageSource
+    {
+        private static final int ROWS_PER_REQUEST = 4096;
+        private final RecordCursor cursor;
+        private final List<Type> types;
+        private final PageBuilder pageBuilder;
+        private boolean closed;
+
+        public RecordPageSource(RecordSet recordSet)
+        {
+            this(requireNonNull(recordSet, "recordSet is null").getColumnTypes(), recordSet.cursor());
+        }
+
+        public RecordPageSource(List<Type> types, RecordCursor cursor)
+        {
+            this.cursor = requireNonNull(cursor, "cursor is null");
+            this.types = List.copyOf(requireNonNull(types, "types is null"));
+            this.pageBuilder = new PageBuilder(this.types);
+        }
+
+        public RecordCursor getCursor()
+        {
+            return cursor;
+        }
+
+        @Override
+        public long getCompletedBytes()
+        {
+            return cursor.getCompletedBytes();
+        }
+
+        @Override
+        public long getReadTimeNanos()
+        {
+            return cursor.getReadTimeNanos();
+        }
+
+        @Override
+        public long getMemoryUsage()
+        {
+            return cursor.getMemoryUsage() + pageBuilder.getSizeInBytes();
+        }
+
+        @Override
+        public void close()
+        {
+            closed = true;
+            cursor.close();
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return closed && pageBuilder.isEmpty();
+        }
+
+        @Override
+        public Page getNextPage()
+        {
+            if (!closed) {
+                for (int i = 0; i < ROWS_PER_REQUEST && !pageBuilder.isFull(); i++) {
+                    if (!cursor.advanceNextPosition()) {
+                        closed = true;
+                        break;
+                    }
+
+                    pageBuilder.declarePosition();
+                    for (int column = 0; column < types.size(); column++) {
+                        BlockBuilder output = pageBuilder.getBlockBuilder(column);
+                        if (cursor.isNull(column)) {
+                            output.appendNull();
+                        }
+                        else {
+                            Type type = types.get(column);
+                            Class<?> javaType = type.getJavaType();
+                            if (javaType == boolean.class) {
+                                type.writeBoolean(output, cursor.getBoolean(column));
+                            }
+                            else if (javaType == long.class) {
+                                type.writeLong(output, cursor.getLong(column));
+                            }
+                            else if (javaType == double.class) {
+                                type.writeDouble(output, cursor.getDouble(column));
+                            }
+                            else if (javaType == Slice.class) {
+                                Slice slice = cursor.getSlice(column);
+                                type.writeSlice(output, slice, 0, slice.length());
+                            }
+                            else {
+                                type.writeObject(output, cursor.getObject(column));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // only return a page if the buffer is full or we are finishing
+            if ((closed && !pageBuilder.isEmpty()) || pageBuilder.isFull()) {
+                Page page = pageBuilder.build();
+                pageBuilder.reset();
+                return page;
+            }
+
+            return null;
+        }
+    }
+
+    private static class MappedRecordSet
+            implements RecordSet
+    {
+        private final RecordSet delegate;
+        private final int[] delegateFieldIndex;
+        private final List<Type> columnTypes;
+
+        public MappedRecordSet(RecordSet delegate, List<Integer> delegateFieldIndex)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+            this.delegateFieldIndex = Ints.toArray(requireNonNull(delegateFieldIndex, "delegateFieldIndex is null"));
+
+            List<Type> types = delegate.getColumnTypes();
+            this.columnTypes = delegateFieldIndex.stream().map(types::get).collect(toImmutableList());
+        }
+
+        @Override
+        public List<Type> getColumnTypes()
+        {
+            return columnTypes;
+        }
+
+        @Override
+        public RecordCursor cursor()
+        {
+            return new MappedRecordCursor(delegate.cursor(), delegateFieldIndex);
+        }
+
+        private static class MappedRecordCursor
+                implements RecordCursor
+        {
+            private final RecordCursor delegate;
+            private final int[] delegateFieldIndex;
+
+            private MappedRecordCursor(RecordCursor delegate, int[] delegateFieldIndex)
+            {
+                this.delegate = delegate;
+                this.delegateFieldIndex = delegateFieldIndex;
+            }
+
+            @Override
+            public long getCompletedBytes()
+            {
+                return delegate.getCompletedBytes();
+            }
+
+            @Override
+            public long getReadTimeNanos()
+            {
+                return delegate.getReadTimeNanos();
+            }
+
+            @Override
+            public Type getType(int field)
+            {
+                return delegate.getType(toDelegateField(field));
+            }
+
+            @Override
+            public boolean advanceNextPosition()
+            {
+                return delegate.advanceNextPosition();
+            }
+
+            @Override
+            public boolean getBoolean(int field)
+            {
+                return delegate.getBoolean(toDelegateField(field));
+            }
+
+            @Override
+            public long getLong(int field)
+            {
+                return delegate.getLong(toDelegateField(field));
+            }
+
+            @Override
+            public double getDouble(int field)
+            {
+                return delegate.getDouble(toDelegateField(field));
+            }
+
+            @Override
+            public Slice getSlice(int field)
+            {
+                return delegate.getSlice(toDelegateField(field));
+            }
+
+            @Override
+            public Object getObject(int field)
+            {
+                return delegate.getObject(toDelegateField(field));
+            }
+
+            @Override
+            public boolean isNull(int field)
+            {
+                return delegate.isNull(toDelegateField(field));
+            }
+
+            @Override
+            public void close()
+            {
+                delegate.close();
+            }
+
+            private int toDelegateField(int field)
+            {
+                checkElementIndex(field, delegateFieldIndex.length, "field");
+                return delegateFieldIndex[field];
+            }
         }
     }
 }

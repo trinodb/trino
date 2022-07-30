@@ -18,6 +18,7 @@ import io.trino.plugin.iceberg.util.PageListBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -25,7 +26,6 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
@@ -36,12 +36,18 @@ import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
+import org.apache.iceberg.types.Types;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static io.trino.plugin.iceberg.IcebergUtil.createColumnHandle;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -50,48 +56,59 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ManifestsTable
-        implements SystemTable
+        implements IcebergSystemTable
 {
     private final ConnectorTableMetadata tableMetadata;
     private final Table icebergTable;
+    private final Map<String, ColumnHandle> columnHandles;
     private final Optional<Long> snapshotId;
 
     public ManifestsTable(SchemaTableName tableName, Table icebergTable, Optional<Long> snapshotId)
     {
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
-
-        tableMetadata = new ConnectorTableMetadata(
-                tableName,
-                ImmutableList.<ColumnMetadata>builder()
-                        .add(new ColumnMetadata("path", VARCHAR))
-                        .add(new ColumnMetadata("length", BIGINT))
-                        .add(new ColumnMetadata("partition_spec_id", INTEGER))
-                        .add(new ColumnMetadata("added_snapshot_id", BIGINT))
-                        .add(new ColumnMetadata("added_data_files_count", INTEGER))
-                        .add(new ColumnMetadata("added_rows_count", BIGINT))
-                        .add(new ColumnMetadata("existing_data_files_count", INTEGER))
-                        .add(new ColumnMetadata("existing_rows_count", BIGINT))
-                        .add(new ColumnMetadata("deleted_data_files_count", INTEGER))
-                        .add(new ColumnMetadata("deleted_rows_count", BIGINT))
-                        .add(new ColumnMetadata("partitions", new ArrayType(RowType.rowType(
+        List<IcebergColumnHandle> columnHandlesList = ImmutableList.<IcebergColumnHandle>builder()
+                .add(createColumnHandle(createColumnIdentity(Types.NestedField.required(1, "path", Types.StringType.get())), VARCHAR))
+                .add(createColumnHandle(createColumnIdentity(Types.NestedField.required(2, "length", Types.LongType.get())), BIGINT))
+                .add(createColumnHandle(createColumnIdentity(Types.NestedField.required(3, "partition_spec_id", Types.IntegerType.get())), INTEGER))
+                .add(createColumnHandle(createColumnIdentity(Types.NestedField.required(4, "added_snapshot_id", Types.LongType.get())), BIGINT))
+                .add(createColumnHandle(createColumnIdentity(Types.NestedField.required(5, "added_data_files_count", Types.IntegerType.get())), INTEGER))
+                .add(createColumnHandle(createColumnIdentity(Types.NestedField.required(6, "added_rows_count", Types.LongType.get())), BIGINT))
+                .add(createColumnHandle(createColumnIdentity(Types.NestedField.required(7, "existing_data_files_count", Types.IntegerType.get())), INTEGER))
+                .add(createColumnHandle(createColumnIdentity(Types.NestedField.required(8, "existing_rows_count", Types.LongType.get())), BIGINT))
+                .add(createColumnHandle(createColumnIdentity(Types.NestedField.required(9, "deleted_data_files_count", Types.IntegerType.get())), INTEGER))
+                .add(createColumnHandle(createColumnIdentity(Types.NestedField.required(10, "deleted_rows_count", Types.LongType.get())), BIGINT))
+                .add(createColumnHandle(
+                        createColumnIdentity(Types.NestedField.required(11, "partitions", Types.ListType.ofRequired(9, Types.StructType.of(
+                                Types.NestedField.required(12, "contains_null", Types.BooleanType.get()),
+                                Types.NestedField.optional(13, "contains_nan", Types.BooleanType.get()),
+                                Types.NestedField.optional(14, "lower_bound", Types.StringType.get()),
+                                Types.NestedField.optional(15, "upper_bound", Types.StringType.get()))))),
+                        new ArrayType(RowType.rowType(
                                 RowType.field("contains_null", BOOLEAN),
                                 RowType.field("contains_nan", BOOLEAN),
                                 RowType.field("lower_bound", VARCHAR),
                                 RowType.field("upper_bound", VARCHAR)))))
-                        .build());
+                .build();
+        columnHandles = columnHandlesList.stream()
+                .collect(toImmutableMap(IcebergColumnHandle::getName, Function.identity()));
+        tableMetadata = new ConnectorTableMetadata(
+                tableName,
+                columnHandlesList.stream()
+                        .map(icebergColumnHandle -> new ColumnMetadata(icebergColumnHandle.getName(), icebergColumnHandle.getType()))
+                        .collect(Collectors.toUnmodifiableList()));
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
-    }
-
-    @Override
-    public Distribution getDistribution()
-    {
-        return Distribution.SINGLE_COORDINATOR;
     }
 
     @Override
     public ConnectorTableMetadata getTableMetadata()
     {
         return tableMetadata;
+    }
+
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles()
+    {
+        return columnHandles;
     }
 
     @Override

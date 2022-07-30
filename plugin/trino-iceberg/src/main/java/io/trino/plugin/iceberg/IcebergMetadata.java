@@ -29,7 +29,6 @@ import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.hive.HiveApplyProjectionUtil;
 import io.trino.plugin.hive.HiveApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.trino.plugin.hive.HiveWrittenPartitions;
@@ -72,7 +71,6 @@ import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
-import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
@@ -200,6 +198,8 @@ import static io.trino.plugin.iceberg.IcebergUtil.schemaFromMetadata;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.trino.plugin.iceberg.TableType.DATA;
+import static io.trino.plugin.iceberg.TableType.HISTORY;
+import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog.DEPENDS_ON_TABLES;
@@ -285,13 +285,13 @@ public class IcebergMetadata
     }
 
     @Override
-    public IcebergTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         throw new UnsupportedOperationException("This method is not supported because getTableHandle with versions is implemented instead");
     }
 
     @Override
-    public IcebergTableHandle getTableHandle(
+    public ConnectorTableHandle getTableHandle(
             ConnectorSession session,
             SchemaTableName tableName,
             Optional<ConnectorTableVersion> startVersion,
@@ -302,11 +302,6 @@ public class IcebergMetadata
         }
 
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
-        if (name.getTableType() != DATA) {
-            // Pretend the table does not exist to produce better error message in case of table redirects to Hive
-            return null;
-        }
-
         BaseTable table;
         try {
             table = (BaseTable) catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
@@ -317,6 +312,11 @@ public class IcebergMetadata
 
         if (name.getSnapshotId().isPresent() && endVersion.isPresent()) {
             throw new TrinoException(GENERIC_USER_ERROR, "Cannot specify end version both in table name and FOR clause");
+        }
+
+        if ((name.getTableType() == HISTORY || name.getTableType() == SNAPSHOTS) && (name.getSnapshotId().isPresent() || endVersion.isPresent())) {
+            SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
+            throw new TrinoException(NOT_SUPPORTED, "Versioning not supported for metadata table: " + systemTableName);
         }
 
         Optional<Long> tableSnapshotId;
@@ -335,26 +335,35 @@ public class IcebergMetadata
             partitionSpec = Optional.of(table.spec());
         }
 
-        Map<String, String> tableProperties = table.properties();
-        String nameMappingJson = tableProperties.get(TableProperties.DEFAULT_NAME_MAPPING);
-        return new IcebergTableHandle(
+        if (name.getTableType() == DATA) {
+            Map<String, String> tableProperties = table.properties();
+            String nameMappingJson = tableProperties.get(TableProperties.DEFAULT_NAME_MAPPING);
+            return new IcebergTableHandle(
+                    tableName.getSchemaName(),
+                    name.getTableName(),
+                    name.getTableType(),
+                    tableSnapshotId,
+                    SchemaParser.toJson(tableSchema),
+                    partitionSpec.map(PartitionSpecParser::toJson),
+                    table.operations().current().formatVersion(),
+                    TupleDomain.all(),
+                    TupleDomain.all(),
+                    ImmutableSet.of(),
+                    Optional.ofNullable(nameMappingJson),
+                    table.location(),
+                    table.properties(),
+                    NO_RETRIES,
+                    ImmutableList.of(),
+                    false,
+                    Optional.empty());
+        }
+
+        return new IcebergSystemTableHandle(
                 tableName.getSchemaName(),
                 name.getTableName(),
                 name.getTableType(),
                 tableSnapshotId,
-                SchemaParser.toJson(tableSchema),
-                partitionSpec.map(PartitionSpecParser::toJson),
-                table.operations().current().formatVersion(),
-                TupleDomain.all(),
-                TupleDomain.all(),
-                ImmutableSet.of(),
-                Optional.ofNullable(nameMappingJson),
-                table.location(),
-                table.properties(),
-                NO_RETRIES,
-                ImmutableList.of(),
-                false,
-                Optional.empty());
+                TupleDomain.all());
     }
 
     private static long getSnapshotIdFromVersion(Table table, ConnectorTableVersion version)
@@ -387,64 +396,21 @@ public class IcebergMetadata
     }
 
     @Override
-    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
-    {
-        return getRawSystemTable(session, tableName)
-                .map(systemTable -> new ClassLoaderSafeSystemTable(systemTable, getClass().getClassLoader()));
-    }
-
-    private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
-    {
-        IcebergTableName name = IcebergTableName.from(tableName.getTableName());
-        if (name.getTableType() == DATA) {
-            return Optional.empty();
-        }
-
-        // load the base table for the system table
-        Table table;
-        try {
-            table = catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
-        }
-        catch (TableNotFoundException e) {
-            return Optional.empty();
-        }
-        catch (UnknownTableTypeException e) {
-            // avoid dealing with non Iceberg tables
-            return Optional.empty();
-        }
-
-        SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
-        switch (name.getTableType()) {
-            case DATA:
-                // Handled above.
-                break;
-            case HISTORY:
-                if (name.getSnapshotId().isPresent()) {
-                    throw new TrinoException(NOT_SUPPORTED, "Snapshot ID not supported for history table: " + systemTableName);
-                }
-                return Optional.of(new HistoryTable(systemTableName, table));
-            case SNAPSHOTS:
-                if (name.getSnapshotId().isPresent()) {
-                    throw new TrinoException(NOT_SUPPORTED, "Snapshot ID not supported for snapshots table: " + systemTableName);
-                }
-                return Optional.of(new SnapshotsTable(systemTableName, typeManager, table));
-            case PARTITIONS:
-                return Optional.of(new PartitionTable(systemTableName, typeManager, table, getSnapshotId(table, name.getSnapshotId(), isAllowLegacySnapshotSyntax(session))));
-            case MANIFESTS:
-                return Optional.of(new ManifestsTable(systemTableName, table, getSnapshotId(table, name.getSnapshotId(), isAllowLegacySnapshotSyntax(session))));
-            case FILES:
-                return Optional.of(new FilesTable(systemTableName, typeManager, table, getSnapshotId(table, name.getSnapshotId(), isAllowLegacySnapshotSyntax(session))));
-            case PROPERTIES:
-                return Optional.of(new PropertiesTable(systemTableName, table));
-        }
-        return Optional.empty();
-    }
-
-    @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        if (tableHandle instanceof IcebergTableHandle table) {
+            return getDataTableProperties(session, table);
+        }
+        else if (tableHandle instanceof IcebergSystemTableHandle) {
+            return new ConnectorTableProperties();
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
+    }
 
+    private ConnectorTableProperties getDataTableProperties(ConnectorSession session, IcebergTableHandle table)
+    {
         if (table.getSnapshotId().isEmpty()) {
             // A table with missing snapshot id produces no splits, so we optimize here by returning
             // TupleDomain.none() as the predicate
@@ -524,10 +490,27 @@ public class IcebergMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        IcebergTableHandle tableHandle = (IcebergTableHandle) table;
-        Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
-        List<ColumnMetadata> columns = getColumnMetadatas(SchemaParser.fromJson(tableHandle.getTableSchemaJson()));
-        return new ConnectorTableMetadata(tableHandle.getSchemaTableName(), columns, getIcebergTableProperties(icebergTable), getTableComment(icebergTable));
+        if (table instanceof IcebergTableHandle tableHandle) {
+            Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
+            List<ColumnMetadata> columns = getColumnMetadatas(SchemaParser.fromJson(tableHandle.getTableSchemaJson()));
+            return new ConnectorTableMetadata(tableHandle.getSchemaTableName(), columns, getIcebergTableProperties(icebergTable), getTableComment(icebergTable));
+        }
+        else if (table instanceof IcebergSystemTableHandle tableHandle) {
+            Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
+            IcebergSystemTable icebergSystemTable = switch (tableHandle.getTableType()) {
+                case FILES -> new FilesTable(tableHandle.getSchemaTableName(), typeManager, icebergTable, tableHandle.getSnapshotId());
+                case HISTORY -> new HistoryTable(tableHandle.getSchemaTableName(), icebergTable);
+                case SNAPSHOTS -> new SnapshotsTable(tableHandle.getSchemaTableName(), typeManager, icebergTable);
+                case MANIFESTS -> new ManifestsTable(tableHandle.getSchemaTableName(), icebergTable, tableHandle.getSnapshotId());
+                case PARTITIONS -> new PartitionTable(tableHandle.getSchemaTableName(), typeManager, icebergTable, tableHandle.getSnapshotId());
+                case PROPERTIES -> new PropertiesTable(tableHandle.getSchemaTableName(), icebergTable);
+                default -> throw new IllegalArgumentException("Unknown table type '" + tableHandle.getTableType() + "'");
+            };
+            return icebergSystemTable.getTableMetadata();
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + table.getClass().getName() + "'");
+        }
     }
 
     @Override
@@ -539,16 +522,32 @@ public class IcebergMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
-
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        for (IcebergColumnHandle columnHandle : getColumns(icebergTable.schema(), typeManager)) {
-            columnHandles.put(columnHandle.getName(), columnHandle);
+        if (tableHandle instanceof IcebergTableHandle icebergTableHandle) {
+            Table icebergTable = catalog.loadTable(session, icebergTableHandle.getSchemaTableName());
+            ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+            for (IcebergColumnHandle columnHandle : getColumns(icebergTable.schema(), typeManager)) {
+                columnHandles.put(columnHandle.getName(), columnHandle);
+            }
+            columnHandles.put(FILE_PATH.getColumnName(), pathColumnHandle());
+            columnHandles.put(FILE_MODIFIED_TIME.getColumnName(), fileModifiedTimeColumnHandle());
+            return columnHandles.buildOrThrow();
         }
-        columnHandles.put(FILE_PATH.getColumnName(), pathColumnHandle());
-        columnHandles.put(FILE_MODIFIED_TIME.getColumnName(), fileModifiedTimeColumnHandle());
-        return columnHandles.buildOrThrow();
+        else if (tableHandle instanceof IcebergSystemTableHandle icebergSystemTableHandle) {
+            Table icebergTable = catalog.loadTable(session, icebergSystemTableHandle.getSchemaTableName());
+            return switch (icebergSystemTableHandle.getTableType()) {
+                case FILES -> new FilesTable(icebergSystemTableHandle.getSchemaTableName(), typeManager, icebergTable, icebergSystemTableHandle.getSnapshotId()).getColumnHandles();
+                case HISTORY -> new HistoryTable(icebergSystemTableHandle.getSchemaTableName(), icebergTable).getColumnHandles();
+                case SNAPSHOTS -> new SnapshotsTable(icebergSystemTableHandle.getSchemaTableName(), typeManager, icebergTable).getColumnHandles();
+                case MANIFESTS -> new ManifestsTable(icebergSystemTableHandle.getSchemaTableName(), icebergTable, icebergSystemTableHandle.getSnapshotId()).getColumnHandles();
+                case PARTITIONS ->
+                        new PartitionTable(icebergSystemTableHandle.getSchemaTableName(), typeManager, icebergTable, icebergSystemTableHandle.getSnapshotId()).getColumnHandles();
+                case PROPERTIES -> new PropertiesTable(icebergSystemTableHandle.getSchemaTableName(), icebergTable).getColumnHandles();
+                default -> throw new IllegalArgumentException("Unknown table type '" + icebergSystemTableHandle.getTableType() + "'");
+            };
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
     }
 
     @Override
@@ -586,9 +585,7 @@ public class IcebergMetadata
                             return Stream.of(TableColumnsMetadata.forRedirectedTable(tableName));
                         }
 
-                        Table icebergTable = catalog.loadTable(session, tableName);
-                        List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema());
-                        return Stream.of(TableColumnsMetadata.forTable(tableName, columns));
+                        return Stream.of(TableColumnsMetadata.forTable(tableName, getTableMetadata(session, tableName).getColumns()));
                     }
                     catch (TableNotFoundException e) {
                         // Table disappeared during listing operation
@@ -641,7 +638,15 @@ public class IcebergMetadata
     @Override
     public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)
     {
-        catalog.updateTableComment(session, ((IcebergTableHandle) tableHandle).getSchemaTableName(), comment);
+        if (tableHandle instanceof IcebergTableHandle table) {
+            catalog.updateTableComment(session, table.getSchemaTableName(), comment);
+        }
+        else if (tableHandle instanceof IcebergSystemTableHandle) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid operation for the system table " + tableHandle);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
     }
 
     @Override
@@ -695,9 +700,16 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
-        return getWriteLayout(icebergTable.schema(), icebergTable.spec(), false);
+        if (tableHandle instanceof IcebergTableHandle table) {
+            Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+            return getWriteLayout(icebergTable.schema(), icebergTable.spec(), false);
+        }
+        else if (tableHandle instanceof IcebergSystemTableHandle) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid operation for the system table " + tableHandle);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
     }
 
     private Optional<ConnectorTableLayout> getWriteLayout(Schema tableSchema, PartitionSpec partitionSpec, boolean forceRepartitioning)
@@ -729,14 +741,21 @@ public class IcebergMetadata
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        if (tableHandle instanceof IcebergTableHandle table) {
+            Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
-        validateNotModifyingOldSnapshot(table, icebergTable);
+            validateNotModifyingOldSnapshot(table, icebergTable);
 
-        beginTransaction(icebergTable);
+            beginTransaction(icebergTable);
 
-        return newWritableTableHandle(table.getSchemaTableName(), icebergTable, retryMode);
+            return newWritableTableHandle(table.getSchemaTableName(), icebergTable, retryMode);
+        }
+        else if (tableHandle instanceof IcebergSystemTableHandle) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid operation for the system table " + tableHandle);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
     }
 
     private IcebergWritableTableHandle newWritableTableHandle(SchemaTableName name, Table table, RetryMode retryMode)
@@ -870,26 +889,32 @@ public class IcebergMetadata
             Map<String, Object> executeProperties,
             RetryMode retryMode)
     {
-        IcebergTableHandle tableHandle = (IcebergTableHandle) connectorTableHandle;
+        if (connectorTableHandle instanceof IcebergTableHandle tableHandle) {
+            IcebergTableProcedureId procedureId;
+            try {
+                procedureId = IcebergTableProcedureId.valueOf(procedureName);
+            }
+            catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Unknown procedure '" + procedureName + "'");
+            }
 
-        IcebergTableProcedureId procedureId;
-        try {
-            procedureId = IcebergTableProcedureId.valueOf(procedureName);
-        }
-        catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Unknown procedure '" + procedureName + "'");
-        }
+            switch (procedureId) {
+                case OPTIMIZE:
+                    return getTableHandleForOptimize(session, tableHandle, executeProperties, retryMode);
+                case EXPIRE_SNAPSHOTS:
+                    return getTableHandleForExpireSnapshots(session, tableHandle, executeProperties);
+                case REMOVE_ORPHAN_FILES:
+                    return getTableHandleForRemoveOrphanFiles(session, tableHandle, executeProperties);
+            }
 
-        switch (procedureId) {
-            case OPTIMIZE:
-                return getTableHandleForOptimize(session, tableHandle, executeProperties, retryMode);
-            case EXPIRE_SNAPSHOTS:
-                return getTableHandleForExpireSnapshots(session, tableHandle, executeProperties);
-            case REMOVE_ORPHAN_FILES:
-                return getTableHandleForRemoveOrphanFiles(session, tableHandle, executeProperties);
+            throw new IllegalArgumentException("Unknown procedure: " + procedureId);
         }
-
-        throw new IllegalArgumentException("Unknown procedure: " + procedureId);
+        else if (connectorTableHandle instanceof IcebergSystemTableHandle) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid operation for the system table " + connectorTableHandle);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + connectorTableHandle.getClass().getName() + "'");
+        }
     }
 
     private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimize(ConnectorSession session, IcebergTableHandle tableHandle, Map<String, Object> executeProperties, RetryMode retryMode)
@@ -964,16 +989,23 @@ public class IcebergMetadata
             ConnectorTableExecuteHandle tableExecuteHandle,
             ConnectorTableHandle updatedSourceTableHandle)
     {
-        IcebergTableExecuteHandle executeHandle = (IcebergTableExecuteHandle) tableExecuteHandle;
-        IcebergTableHandle table = (IcebergTableHandle) updatedSourceTableHandle;
-        switch (executeHandle.getProcedureId()) {
-            case OPTIMIZE:
-                return beginOptimize(session, executeHandle, table);
-            case EXPIRE_SNAPSHOTS:
-            case REMOVE_ORPHAN_FILES:
-                // handled via executeTableExecute
+        if (updatedSourceTableHandle instanceof IcebergTableHandle table) {
+            IcebergTableExecuteHandle executeHandle = (IcebergTableExecuteHandle) tableExecuteHandle;
+            switch (executeHandle.getProcedureId()) {
+                case OPTIMIZE:
+                    return beginOptimize(session, executeHandle, table);
+                case EXPIRE_SNAPSHOTS:
+                case REMOVE_ORPHAN_FILES:
+                    // handled via executeTableExecute
+            }
+            throw new IllegalArgumentException("Unknown procedure '" + executeHandle.getProcedureId() + "'");
         }
-        throw new IllegalArgumentException("Unknown procedure '" + executeHandle.getProcedureId() + "'");
+        else if (updatedSourceTableHandle instanceof IcebergSystemTableHandle) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid operation for the system table " + updatedSourceTableHandle);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + updatedSourceTableHandle.getClass().getName() + "'");
+        }
     }
 
     private BeginTableExecuteResult<ConnectorTableExecuteHandle, ConnectorTableHandle> beginOptimize(
@@ -1246,7 +1278,19 @@ public class IcebergMetadata
     @Override
     public Optional<Object> getInfo(ConnectorTableHandle tableHandle)
     {
-        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
+        if (tableHandle instanceof IcebergTableHandle icebergTableHandle) {
+            return getDataInfo(icebergTableHandle);
+        }
+        else if (tableHandle instanceof IcebergSystemTableHandle) {
+            return Optional.empty();
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
+    }
+
+    public Optional<Object> getDataInfo(IcebergTableHandle icebergTableHandle)
+    {
         Optional<Boolean> partitioned = icebergTableHandle.getPartitionSpecJson()
                 .map(partitionSpecJson -> PartitionSpecParser.fromJson(SchemaParser.fromJson(icebergTableHandle.getTableSchemaJson()), partitionSpecJson).isPartitioned());
 
@@ -1259,19 +1303,47 @@ public class IcebergMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        catalog.dropTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
+        if (tableHandle instanceof IcebergTableHandle icebergTableHandle) {
+            catalog.dropTable(session, icebergTableHandle.getSchemaTableName());
+        }
+        else if (tableHandle instanceof IcebergSystemTableHandle) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid operation for the system table " + tableHandle);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
     }
 
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTable)
     {
-        catalog.renameTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName(), newTable);
+        if (tableHandle instanceof IcebergTableHandle icebergTableHandle) {
+            catalog.renameTable(session, icebergTableHandle.getSchemaTableName(), newTable);
+        }
+        else if (tableHandle instanceof IcebergSystemTableHandle) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid operation for the system table " + tableHandle);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
     }
 
     @Override
     public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Optional<Object>> properties)
     {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        if (tableHandle instanceof IcebergTableHandle icebergTableHandle) {
+            setDataTableProperties(session, icebergTableHandle, properties);
+        }
+        else if (tableHandle instanceof IcebergSystemTableHandle) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid operation for the system table " + tableHandle);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
+    }
+
+    private void setDataTableProperties(ConnectorSession session, IcebergTableHandle table, Map<String, Optional<Object>> properties)
+    {
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
         Set<String> unsupportedProperties = difference(properties.keySet(), UPDATABLE_TABLE_PROPERTIES);
@@ -1353,28 +1425,79 @@ public class IcebergMetadata
     @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
-        // TODO https://github.com/trinodb/trino/issues/13587 Allow NOT NULL constraint when the table is empty
-        if (!column.isNullable()) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding not null columns");
+        if (tableHandle instanceof IcebergTableHandle icebergTableHandle) {
+            // TODO https://github.com/trinodb/trino/issues/13587 Allow NOT NULL constraint when the table is empty
+            if (!column.isNullable()) {
+                throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding not null columns");
+            }
+            Table icebergTable = catalog.loadTable(session, icebergTableHandle.getSchemaTableName());
+            icebergTable.updateSchema().addColumn(column.getName(), toIcebergType(column.getType()), column.getComment()).commit();
         }
-        Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
-        icebergTable.updateSchema().addColumn(column.getName(), toIcebergType(column.getType()), column.getComment()).commit();
+        else if (tableHandle instanceof IcebergSystemTableHandle) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid operation for the system table " + tableHandle);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
     }
 
     @Override
     public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
-        IcebergColumnHandle handle = (IcebergColumnHandle) column;
-        Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
-        icebergTable.updateSchema().deleteColumn(handle.getName()).commit();
+        if (tableHandle instanceof IcebergTableHandle icebergTableHandle) {
+            IcebergColumnHandle handle = (IcebergColumnHandle) column;
+            Table icebergTable = catalog.loadTable(session, icebergTableHandle.getSchemaTableName());
+            icebergTable.updateSchema().deleteColumn(handle.getName()).commit();
+        }
+        else if (tableHandle instanceof IcebergSystemTableHandle) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid operation for the system table " + tableHandle);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
     }
 
     @Override
     public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
-        IcebergColumnHandle columnHandle = (IcebergColumnHandle) source;
-        Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
-        icebergTable.updateSchema().renameColumn(columnHandle.getName(), target).commit();
+        if (tableHandle instanceof IcebergTableHandle icebergTableHandle) {
+            IcebergColumnHandle columnHandle = (IcebergColumnHandle) source;
+            Table icebergTable = catalog.loadTable(session, icebergTableHandle.getSchemaTableName());
+            icebergTable.updateSchema().renameColumn(columnHandle.getName(), target).commit();
+        }
+        else if (tableHandle instanceof IcebergSystemTableHandle) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid operation for the system table " + tableHandle);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
+    }
+
+    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName table)
+    {
+        IcebergTableName icebergTableName = IcebergTableName.from(table.getTableName());
+        SchemaTableName schemaTableNameWithoutTableType = new SchemaTableName(table.getSchemaName(), icebergTableName.getTableName());
+        Table icebergTable = catalog.loadTable(session, schemaTableNameWithoutTableType);
+        return switch (icebergTableName.getTableType()) {
+            case FILES -> new FilesTable(schemaTableNameWithoutTableType, typeManager, icebergTable, Optional.empty()).getTableMetadata();
+            case HISTORY -> new HistoryTable(schemaTableNameWithoutTableType, icebergTable).getTableMetadata();
+            case SNAPSHOTS -> new SnapshotsTable(schemaTableNameWithoutTableType, typeManager, icebergTable).getTableMetadata();
+            case MANIFESTS -> new ManifestsTable(schemaTableNameWithoutTableType, icebergTable, Optional.empty()).getTableMetadata();
+            case PARTITIONS -> new PartitionTable(schemaTableNameWithoutTableType, typeManager, icebergTable, Optional.empty()).getTableMetadata();
+            case PROPERTIES -> new PropertiesTable(schemaTableNameWithoutTableType, icebergTable).getTableMetadata();
+            case DATA -> getTableMetadata(table, icebergTable);
+            default -> throw new IllegalArgumentException("Unknown table type '" + icebergTableName.getTableType() + "'");
+        };
+    }
+
+    private ConnectorTableMetadata getTableMetadata(SchemaTableName table, Table icebergTable)
+    {
+        ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+        columns.addAll(getColumnMetadatas(icebergTable.schema()));
+        columns.add(pathColumnMetadata());
+        columns.add(fileModifiedTimeColumnMetadata());
+
+        return new ConnectorTableMetadata(table, columns.build(), getIcebergTableProperties(icebergTable), getTableComment(icebergTable));
     }
 
     private List<ColumnMetadata> getColumnMetadatas(Schema schema)
@@ -1410,70 +1533,115 @@ public class IcebergMetadata
     @Override
     public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
     {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        verifyTableVersionForUpdate(table);
+        if (tableHandle instanceof IcebergTableHandle table) {
+            verifyTableVersionForUpdate(table);
 
-        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
-        validateNotModifyingOldSnapshot(table, icebergTable);
+            Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+            validateNotModifyingOldSnapshot(table, icebergTable);
 
-        beginTransaction(icebergTable);
-        return table.withRetryMode(retryMode);
+            beginTransaction(icebergTable);
+            return table.withRetryMode(retryMode);
+        }
+        else if (tableHandle instanceof IcebergSystemTableHandle) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid operation for the system table " + tableHandle);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
     }
 
     @Override
     public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
-        finishWrite(session, (IcebergTableHandle) tableHandle, fragments, false);
+        if (tableHandle instanceof IcebergTableHandle table) {
+            finishWrite(session, table, fragments, false);
+        }
+        else if (tableHandle instanceof IcebergSystemTableHandle) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid operation for the system table " + tableHandle);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
     }
 
     @Override
     public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getColumnHandle(MetadataColumns.ROW_POSITION, typeManager);
+        if (tableHandle instanceof IcebergTableHandle) {
+            return getColumnHandle(MetadataColumns.ROW_POSITION, typeManager);
+        }
+        else if (tableHandle instanceof IcebergSystemTableHandle) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid operation for the system table " + tableHandle);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
     }
 
     @Override
     public ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns, RetryMode retryMode)
     {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        verifyTableVersionForUpdate(table);
+        if (tableHandle instanceof IcebergTableHandle table) {
+            verifyTableVersionForUpdate(table);
 
-        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
-        validateNotModifyingOldSnapshot(table, icebergTable);
+            Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+            validateNotModifyingOldSnapshot(table, icebergTable);
 
-        beginTransaction(icebergTable);
-        return table.withRetryMode(retryMode)
-                .withUpdatedColumns(updatedColumns.stream()
-                        .map(IcebergColumnHandle.class::cast)
-                        .collect(toImmutableList()));
+            beginTransaction(icebergTable);
+            return table.withRetryMode(retryMode)
+                    .withUpdatedColumns(updatedColumns.stream()
+                            .map(IcebergColumnHandle.class::cast)
+                            .collect(toImmutableList()));
+        }
+        else if (tableHandle instanceof IcebergSystemTableHandle) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid operation for the system table " + tableHandle);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
     }
 
     @Override
     public void finishUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
-        finishWrite(session, (IcebergTableHandle) tableHandle, fragments, true);
+        if (tableHandle instanceof IcebergTableHandle table) {
+            finishWrite(session, table, fragments, true);
+        }
+        else if (tableHandle instanceof IcebergSystemTableHandle) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid operation for the system table " + tableHandle);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
     }
 
     @Override
     public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
     {
-        List<NestedField> unmodifiedColumns = new ArrayList<>();
-        unmodifiedColumns.add(MetadataColumns.ROW_POSITION);
+        if (tableHandle instanceof IcebergTableHandle table) {
+            List<NestedField> unmodifiedColumns = new ArrayList<>();
+            unmodifiedColumns.add(MetadataColumns.ROW_POSITION);
 
-        // Include all the non-updated columns. These are needed when writing the new data file with updated column values.
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        Set<Integer> updatedFields = updatedColumns.stream()
-                .map(IcebergColumnHandle.class::cast)
-                .map(IcebergColumnHandle::getId)
-                .collect(toImmutableSet());
-        for (NestedField column : SchemaParser.fromJson(table.getTableSchemaJson()).columns()) {
-            if (!updatedFields.contains(column.fieldId())) {
-                unmodifiedColumns.add(column);
+            // Include all the non-updated columns. These are needed when writing the new data file with updated column values.
+            Set<Integer> updatedFields = updatedColumns.stream()
+                    .map(IcebergColumnHandle.class::cast)
+                    .map(IcebergColumnHandle::getId)
+                    .collect(toImmutableSet());
+            for (NestedField column : SchemaParser.fromJson(table.getTableSchemaJson()).columns()) {
+                if (!updatedFields.contains(column.fieldId())) {
+                    unmodifiedColumns.add(column);
+                }
             }
-        }
 
-        NestedField rowIdField = NestedField.required(TRINO_UPDATE_ROW_ID, TRINO_ROW_ID_NAME, StructType.of(unmodifiedColumns));
-        return getColumnHandle(rowIdField, typeManager);
+            NestedField rowIdField = NestedField.required(TRINO_UPDATE_ROW_ID, TRINO_ROW_ID_NAME, StructType.of(unmodifiedColumns));
+            return getColumnHandle(rowIdField, typeManager);
+        }
+        else if (tableHandle instanceof IcebergSystemTableHandle) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid operation for the system table " + tableHandle);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
     }
 
     @Override
@@ -1681,24 +1849,30 @@ public class IcebergMetadata
     @Override
     public OptionalLong executeDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        if (tableHandle instanceof IcebergTableHandle handle) {
+            Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
 
-        Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
+            icebergTable.newDelete()
+                    .deleteFromRowFilter(toIcebergExpression(handle.getEnforcedPredicate()))
+                    .commit();
 
-        icebergTable.newDelete()
-                .deleteFromRowFilter(toIcebergExpression(handle.getEnforcedPredicate()))
-                .commit();
-
-        Map<String, String> summary = icebergTable.currentSnapshot().summary();
-        String deletedRowsStr = summary.get(DELETED_RECORDS_PROP);
-        if (deletedRowsStr == null) {
-            // TODO Iceberg should guarantee this is always present (https://github.com/apache/iceberg/issues/4647)
-            return OptionalLong.empty();
+            Map<String, String> summary = icebergTable.currentSnapshot().summary();
+            String deletedRowsStr = summary.get(DELETED_RECORDS_PROP);
+            if (deletedRowsStr == null) {
+                // TODO Iceberg should guarantee this is always present (https://github.com/apache/iceberg/issues/4647)
+                return OptionalLong.empty();
+            }
+            long deletedRecords = Long.parseLong(deletedRowsStr);
+            long removedPositionDeletes = Long.parseLong(summary.getOrDefault(REMOVED_POS_DELETES_PROP, "0"));
+            long removedEqualityDeletes = Long.parseLong(summary.getOrDefault(REMOVED_EQ_DELETES_PROP, "0"));
+            return OptionalLong.of(deletedRecords - removedPositionDeletes - removedEqualityDeletes);
         }
-        long deletedRecords = Long.parseLong(deletedRowsStr);
-        long removedPositionDeletes = Long.parseLong(summary.getOrDefault(REMOVED_POS_DELETES_PROP, "0"));
-        long removedEqualityDeletes = Long.parseLong(summary.getOrDefault(REMOVED_EQ_DELETES_PROP, "0"));
-        return OptionalLong.of(deletedRecords - removedPositionDeletes - removedEqualityDeletes);
+        else if (tableHandle instanceof IcebergSystemTableHandle) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid operation for the system table " + tableHandle);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
     }
 
     public void rollback()
@@ -1709,7 +1883,35 @@ public class IcebergMetadata
     @Override
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
-        IcebergTableHandle table = (IcebergTableHandle) handle;
+        if (handle instanceof IcebergTableHandle icebergTableHandle) {
+            return applyDataFilter(session, icebergTableHandle, constraint);
+        }
+        else if (handle instanceof IcebergSystemTableHandle icebergSystemTableHandle) {
+            return applySystemFilter(icebergSystemTableHandle, constraint);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + handle.getClass().getName() + "'");
+        }
+    }
+
+    private Optional<ConstraintApplicationResult<ConnectorTableHandle>> applySystemFilter(IcebergSystemTableHandle table, Constraint constraint)
+    {
+        TupleDomain<ColumnHandle> oldDomain = table.getConstraint();
+        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        if (oldDomain.equals(newDomain) && constraint.predicate().isEmpty()) {
+            return Optional.empty();
+        }
+
+        if (oldDomain.equals(newDomain)) {
+            return Optional.empty();
+        }
+
+        table = new IcebergSystemTableHandle(table.getSchemaName(), table.getTableName(), table.getTableType(), table.getSnapshotId(), newDomain);
+        return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary(), false));
+    }
+
+    private Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyDataFilter(ConnectorSession session, IcebergTableHandle table, Constraint constraint)
+    {
         ConstraintExtractor.ExtractionResult extractionResult = extractTupleDomain(constraint);
         TupleDomain<IcebergColumnHandle> predicate = extractionResult.getTupleDomain();
         if (predicate.isAll()) {
@@ -1813,6 +2015,23 @@ public class IcebergMetadata
             List<ConnectorExpression> projections,
             Map<String, ColumnHandle> assignments)
     {
+        if (handle instanceof IcebergTableHandle icebergTableHandle) {
+            return applyDataProjection(session, icebergTableHandle, projections, assignments);
+        }
+        else if (handle instanceof IcebergSystemTableHandle) {
+            return Optional.empty();
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + handle.getClass().getName() + "'");
+        }
+    }
+
+    private Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyDataProjection(
+            ConnectorSession session,
+            IcebergTableHandle icebergTableHandle,
+            List<ConnectorExpression> projections,
+            Map<String, ColumnHandle> assignments)
+    {
         if (!isProjectionPushdownEnabled(session)) {
             return Optional.empty();
         }
@@ -1825,8 +2044,6 @@ public class IcebergMetadata
 
         Map<ConnectorExpression, ProjectedColumnRepresentation> columnProjections = projectedExpressions.stream()
                 .collect(toImmutableMap(identity(), HiveApplyProjectionUtil::createProjectedColumnRepresentation));
-
-        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) handle;
 
         // all references are simple variables
         if (columnProjections.values().stream().allMatch(ProjectedColumnRepresentation::isVariable)) {
@@ -1910,13 +2127,19 @@ public class IcebergMetadata
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        if (!isStatisticsEnabled(session)) {
-            return TableStatistics.empty();
+        if (tableHandle instanceof IcebergTableHandle handle) {
+            if (!isStatisticsEnabled(session)) {
+                return TableStatistics.empty();
+            }
+            Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
+            return TableStatisticsMaker.getTableStatistics(typeManager, handle, icebergTable);
         }
-
-        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
-        return TableStatisticsMaker.getTableStatistics(typeManager, handle, icebergTable);
+        else if (tableHandle instanceof IcebergSystemTableHandle) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid operation for the system table " + tableHandle);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
     }
 
     @Override
@@ -1966,11 +2189,18 @@ public class IcebergMetadata
     @Override
     public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, RetryMode retryMode)
     {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
-        beginTransaction(icebergTable);
+        if (tableHandle instanceof IcebergTableHandle table) {
+            Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+            beginTransaction(icebergTable);
 
-        return newWritableTableHandle(table.getSchemaTableName(), icebergTable, retryMode);
+            return newWritableTableHandle(table.getSchemaTableName(), icebergTable, retryMode);
+        }
+        else if (tableHandle instanceof IcebergSystemTableHandle) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid operation for the system table " + tableHandle);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
     }
 
     @Override
@@ -2085,15 +2315,14 @@ public class IcebergMetadata
         catalog.renameMaterializedView(session, source, target);
     }
 
-    public Optional<TableToken> getTableToken(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Optional<TableToken> getTableToken(ConnectorSession session, IcebergTableHandle tableHandle)
     {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
         return Optional.ofNullable(icebergTable.currentSnapshot())
                 .map(snapshot -> new TableToken(snapshot.snapshotId()));
     }
 
-    public boolean isTableCurrent(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<TableToken> tableToken)
+    public boolean isTableCurrent(ConnectorSession session, IcebergTableHandle tableHandle, Optional<TableToken> tableToken)
     {
         Optional<TableToken> currentToken = getTableToken(session, tableHandle);
 
@@ -2135,20 +2364,25 @@ public class IcebergMetadata
             String schema = strings.get(0);
             String name = strings.get(1);
             SchemaTableName schemaTableName = new SchemaTableName(schema, name);
-            IcebergTableHandle tableHandle = getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty());
+            ConnectorTableHandle tableHandle = getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty());
 
             if (tableHandle == null) {
                 throw new MaterializedViewNotFoundException(materializedViewName);
             }
-            Optional<TableToken> tableToken;
-            if (entry.getValue().isEmpty()) {
-                tableToken = Optional.empty();
+            if (tableHandle instanceof IcebergTableHandle icebergTableHandle) {
+                Optional<TableToken> tableToken;
+                if (entry.getValue().isEmpty()) {
+                    tableToken = Optional.empty();
+                }
+                else {
+                    tableToken = Optional.of(new TableToken(Long.parseLong(entry.getValue())));
+                }
+                if (!isTableCurrent(session, icebergTableHandle, tableToken)) {
+                    return new MaterializedViewFreshness(false);
+                }
             }
             else {
-                tableToken = Optional.of(new TableToken(Long.parseLong(entry.getValue())));
-            }
-            if (!isTableCurrent(session, tableHandle, tableToken)) {
-                return new MaterializedViewFreshness(false);
+                throw new TrinoException(ICEBERG_INVALID_METADATA, format("Invalid table name in '%s' property: %s'", DEPENDS_ON_TABLES, strings));
             }
         }
         return new MaterializedViewFreshness(true);
@@ -2169,7 +2403,15 @@ public class IcebergMetadata
     @Override
     public void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Optional<String> comment)
     {
-        catalog.updateColumnComment(session, ((IcebergTableHandle) tableHandle).getSchemaTableName(), ((IcebergColumnHandle) column).getColumnIdentity(), comment);
+        if (tableHandle instanceof IcebergTableHandle table) {
+            catalog.updateColumnComment(session, table.getSchemaTableName(), ((IcebergColumnHandle) column).getColumnIdentity(), comment);
+        }
+        else if (tableHandle instanceof IcebergSystemTableHandle) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid operation for the system table " + tableHandle);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + tableHandle.getClass().getName() + "'");
+        }
     }
 
     @Override

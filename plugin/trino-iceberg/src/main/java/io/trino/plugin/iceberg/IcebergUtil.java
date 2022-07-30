@@ -653,4 +653,14 @@ public final class IcebergUtil
             throw new TrinoException(INVALID_TABLE_PROPERTY, format("Orc bloom filter columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(orcBloomFilterColumns), allColumns)));
         }
     }
+
+    public static IcebergColumnHandle createColumnHandle(ColumnIdentity columnIdentity, io.trino.spi.type.Type type)
+    {
+        return new IcebergColumnHandle(
+                columnIdentity,
+                type,
+                ImmutableList.of(),
+                type,
+                Optional.empty());
+    }
 }

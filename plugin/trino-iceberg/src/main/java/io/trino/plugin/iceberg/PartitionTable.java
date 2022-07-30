@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -25,13 +26,13 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.Partitioning;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
@@ -52,12 +53,18 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
+import static io.trino.plugin.iceberg.ColumnIdentity.primitiveColumnIdentity;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
+import static io.trino.plugin.iceberg.IcebergUtil.createColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
@@ -66,9 +73,10 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static org.apache.iceberg.types.Types.NestedField.optional;
 
 public class PartitionTable
-        implements SystemTable
+        implements IcebergSystemTable
 {
     private final TypeManager typeManager;
     private final Table icebergTable;
@@ -81,6 +89,7 @@ public class PartitionTable
     private final List<RowType> columnMetricTypes;
     private final List<io.trino.spi.type.Type> resultTypes;
     private final ConnectorTableMetadata connectorTableMetadata;
+    private final Map<String, ColumnHandle> columnHandles;
 
     public PartitionTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, Optional<Long> snapshotId)
     {
@@ -92,14 +101,15 @@ public class PartitionTable
         List<NestedField> columns = icebergTable.schema().columns();
         this.partitionFields = getAllPartitionFields(icebergTable);
 
-        ImmutableList.Builder<ColumnMetadata> columnMetadataBuilder = ImmutableList.builder();
+        ImmutableList.Builder<IcebergColumnHandle> columnHandleBuilder = ImmutableList.builder();
 
         this.partitionColumnType = getPartitionColumnType(partitionFields, icebergTable.schema());
+        AtomicInteger nextColumnId = new AtomicInteger(0);
         partitionColumnType.ifPresent(icebergPartitionColumn ->
-                columnMetadataBuilder.add(new ColumnMetadata("partition", icebergPartitionColumn.rowType)));
+                columnHandleBuilder.add(createColumnHandle(createColumnIdentity(Types.NestedField.required(nextColumnId.decrementAndGet(), "partition", Partitioning.partitionType(icebergTable))), icebergPartitionColumn.rowType)));
 
         Stream.of("record_count", "file_count", "total_size")
-                .forEach(metric -> columnMetadataBuilder.add(new ColumnMetadata(metric, BIGINT)));
+                .forEach(metric -> columnHandleBuilder.add(createColumnHandle(primitiveColumnIdentity(nextColumnId.decrementAndGet(), metric), BIGINT)));
 
         Set<Integer> identityPartitionIds = getIdentityPartitions(icebergTable.spec()).keySet().stream()
                 .map(PartitionField::sourceId)
@@ -111,7 +121,17 @@ public class PartitionTable
 
         this.dataColumnType = getMetricsColumnType(this.nonPartitionPrimitiveColumns);
         if (dataColumnType.isPresent()) {
-            columnMetadataBuilder.add(new ColumnMetadata("data", dataColumnType.get()));
+            List<NestedField> dataStructFieldTypes = columns.stream()
+                    .map(column -> optional(nextColumnId.decrementAndGet(),
+                            column.name(),
+                            Types.ListType.ofRequired(nextColumnId.decrementAndGet(),
+                            Types.StructType.of(
+                                    optional(nextColumnId.decrementAndGet(), "min", column.type()),
+                                    optional(nextColumnId.decrementAndGet(), "max", column.type()),
+                                    optional(nextColumnId.decrementAndGet(), "null_count", Types.LongType.get()),
+                                    optional(nextColumnId.decrementAndGet(), "nan_count", Types.LongType.get())))))
+                    .collect(toImmutableList());
+            columnHandleBuilder.add(createColumnHandle(createColumnIdentity(optional(nextColumnId.decrementAndGet(), "data", Types.StructType.of(dataStructFieldTypes))), dataColumnType.get()));
             this.columnMetricTypes = dataColumnType.get().getFields().stream()
                     .map(RowType.Field::getType)
                     .map(RowType.class::cast)
@@ -121,7 +141,13 @@ public class PartitionTable
             this.columnMetricTypes = ImmutableList.of();
         }
 
-        ImmutableList<ColumnMetadata> columnMetadata = columnMetadataBuilder.build();
+        List<IcebergColumnHandle> columnHandlesList = columnHandleBuilder.build();
+        List<ColumnMetadata> columnMetadata = columnHandlesList.stream()
+                .map(icebergColumnHandle -> new ColumnMetadata(icebergColumnHandle.getName(), icebergColumnHandle.getType()))
+                .collect(Collectors.toUnmodifiableList());
+        columnHandles = columnHandlesList.stream()
+                .collect(toImmutableMap(IcebergColumnHandle::getName, Function.identity()));
+
         this.resultTypes = columnMetadata.stream()
                 .map(ColumnMetadata::getType)
                 .collect(toImmutableList());
@@ -129,15 +155,15 @@ public class PartitionTable
     }
 
     @Override
-    public Distribution getDistribution()
-    {
-        return Distribution.SINGLE_COORDINATOR;
-    }
-
-    @Override
     public ConnectorTableMetadata getTableMetadata()
     {
         return connectorTableMetadata;
+    }
+
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles()
+    {
+        return columnHandles;
     }
 
     private static List<PartitionField> getAllPartitionFields(Table icebergTable)

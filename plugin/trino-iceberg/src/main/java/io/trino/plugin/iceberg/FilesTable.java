@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.plugin.iceberg.util.PageListBuilder;
 import io.trino.spi.Page;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -25,7 +26,6 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TypeManager;
@@ -42,19 +42,38 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
+import static io.trino.plugin.iceberg.IcebergUtil.createColumnHandle;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.DataFile.COLUMN_SIZES;
+import static org.apache.iceberg.DataFile.CONTENT;
+import static org.apache.iceberg.DataFile.EQUALITY_IDS;
+import static org.apache.iceberg.DataFile.FILE_FORMAT;
+import static org.apache.iceberg.DataFile.FILE_PATH;
+import static org.apache.iceberg.DataFile.FILE_SIZE;
+import static org.apache.iceberg.DataFile.KEY_METADATA;
+import static org.apache.iceberg.DataFile.LOWER_BOUNDS;
+import static org.apache.iceberg.DataFile.NAN_VALUE_COUNTS;
+import static org.apache.iceberg.DataFile.NULL_VALUE_COUNTS;
+import static org.apache.iceberg.DataFile.RECORD_COUNT;
+import static org.apache.iceberg.DataFile.SPLIT_OFFSETS;
+import static org.apache.iceberg.DataFile.UPPER_BOUNDS;
+import static org.apache.iceberg.DataFile.VALUE_COUNTS;
 
 public class FilesTable
-        implements SystemTable
+        implements IcebergSystemTable
 {
     private final ConnectorTableMetadata tableMetadata;
+    private final Map<String, ColumnHandle> columnHandles;
     private final Table icebergTable;
     private final Optional<Long> snapshotId;
 
@@ -62,36 +81,42 @@ public class FilesTable
     {
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
 
-        tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"),
-                ImmutableList.<ColumnMetadata>builder()
-                        .add(new ColumnMetadata("content", INTEGER))
-                        .add(new ColumnMetadata("file_path", VARCHAR))
-                        .add(new ColumnMetadata("file_format", VARCHAR))
-                        .add(new ColumnMetadata("record_count", BIGINT))
-                        .add(new ColumnMetadata("file_size_in_bytes", BIGINT))
-                        .add(new ColumnMetadata("column_sizes", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("null_value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("nan_value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("lower_bounds", typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
-                        .add(new ColumnMetadata("upper_bounds", typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
-                        .add(new ColumnMetadata("key_metadata", VARBINARY))
-                        .add(new ColumnMetadata("split_offsets", new ArrayType(BIGINT)))
-                        .add(new ColumnMetadata("equality_ids", new ArrayType(INTEGER)))
-                        .build());
+        List<IcebergColumnHandle> columnHandlesList = ImmutableList.<IcebergColumnHandle>builder()
+                .add(createColumnHandle(createColumnIdentity(CONTENT), INTEGER))
+                .add(createColumnHandle(createColumnIdentity(FILE_PATH), VARCHAR))
+                .add(createColumnHandle(createColumnIdentity(FILE_FORMAT), VARCHAR))
+                .add(createColumnHandle(createColumnIdentity(RECORD_COUNT), BIGINT))
+                .add(createColumnHandle(createColumnIdentity(FILE_SIZE), BIGINT))
+                .add(createColumnHandle(createColumnIdentity(COLUMN_SIZES), typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
+                .add(createColumnHandle(createColumnIdentity(VALUE_COUNTS), typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
+                .add(createColumnHandle(createColumnIdentity(NULL_VALUE_COUNTS), typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
+                .add(createColumnHandle(createColumnIdentity(NAN_VALUE_COUNTS), typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
+                .add(createColumnHandle(createColumnIdentity(LOWER_BOUNDS), typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
+                .add(createColumnHandle(createColumnIdentity(UPPER_BOUNDS), typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
+                .add(createColumnHandle(createColumnIdentity(KEY_METADATA), VARBINARY))
+                .add(createColumnHandle(createColumnIdentity(SPLIT_OFFSETS), new ArrayType(BIGINT)))
+                .add(createColumnHandle(createColumnIdentity(EQUALITY_IDS), new ArrayType(INTEGER)))
+                .build();
+        columnHandles = columnHandlesList.stream()
+                .collect(toImmutableMap(IcebergColumnHandle::getName, Function.identity()));
+        tableMetadata = new ConnectorTableMetadata(
+                requireNonNull(tableName, "tableName is null"),
+                columnHandlesList.stream()
+                        .map(icebergColumnHandle -> new ColumnMetadata(icebergColumnHandle.getName(), icebergColumnHandle.getType()))
+                        .collect(Collectors.toUnmodifiableList()));
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
-    }
-
-    @Override
-    public Distribution getDistribution()
-    {
-        return Distribution.SINGLE_COORDINATOR;
     }
 
     @Override
     public ConnectorTableMetadata getTableMetadata()
     {
         return tableMetadata;
+    }
+
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles()
+    {
+        return columnHandles;
     }
 
     @Override

@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.iceberg.util.PageListBuilder;
 import io.trino.spi.Page;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -23,42 +24,54 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.iceberg.Table;
 
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.iceberg.ColumnIdentity.primitiveColumnIdentity;
+import static io.trino.plugin.iceberg.IcebergUtil.createColumnHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class PropertiesTable
-        implements SystemTable
+        implements IcebergSystemTable
 {
     private final ConnectorTableMetadata tableMetadata;
+    private final Map<String, ColumnHandle> columnHandles;
     private final Table icebergTable;
 
     public PropertiesTable(SchemaTableName tableName, Table icebergTable)
     {
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
 
-        this.tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"),
-                ImmutableList.<ColumnMetadata>builder()
-                        .add(new ColumnMetadata("key", VARCHAR))
-                        .add(new ColumnMetadata("value", VARCHAR))
-                        .build());
-    }
-
-    @Override
-    public Distribution getDistribution()
-    {
-        return Distribution.SINGLE_COORDINATOR;
+        List<IcebergColumnHandle> columnHandlesList = ImmutableList.<IcebergColumnHandle>builder()
+                .add(createColumnHandle(primitiveColumnIdentity(1, "key"), VARCHAR))
+                .add(createColumnHandle(primitiveColumnIdentity(2, "value"), VARCHAR))
+                .build();
+        columnHandles = columnHandlesList.stream()
+                .collect(toImmutableMap(IcebergColumnHandle::getName, Function.identity()));
+        this.tableMetadata = new ConnectorTableMetadata(
+                requireNonNull(tableName, "tableName is null"),
+                columnHandlesList.stream()
+                        .map(icebergColumnHandle -> new ColumnMetadata(icebergColumnHandle.getName(), icebergColumnHandle.getType()))
+                        .collect(Collectors.toUnmodifiableList()));
     }
 
     @Override
     public ConnectorTableMetadata getTableMetadata()
     {
         return tableMetadata;
+    }
+
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles()
+    {
+        return columnHandles;
     }
 
     @Override

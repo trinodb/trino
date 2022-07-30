@@ -18,7 +18,11 @@ import io.airlift.units.Duration;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
+import io.trino.spi.HostAddress;
+import io.trino.spi.NodeManager;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -26,6 +30,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
@@ -44,13 +49,15 @@ public class IcebergSplitManager
     private final IcebergTransactionManager transactionManager;
     private final TypeManager typeManager;
     private final HdfsEnvironment hdfsEnvironment;
+    private final NodeManager nodeManager;
 
     @Inject
-    public IcebergSplitManager(IcebergTransactionManager transactionManager, TypeManager typeManager, HdfsEnvironment hdfsEnvironment)
+    public IcebergSplitManager(IcebergTransactionManager transactionManager, TypeManager typeManager, HdfsEnvironment hdfsEnvironment, NodeManager nodeManager)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     @Override
@@ -61,8 +68,38 @@ public class IcebergSplitManager
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
-        IcebergTableHandle table = (IcebergTableHandle) handle;
+        if (handle instanceof IcebergTableHandle table) {
+            return getDataSplits(transaction, session, dynamicFilter, constraint, table);
+        }
+        else if (handle instanceof IcebergSystemTableHandle table) {
+            TupleDomain<ColumnHandle> tableConstraint = table.getConstraint();
 
+            switch (table.getTableType()) {
+                case FILES:
+                case HISTORY:
+                case SNAPSHOTS:
+                case MANIFESTS:
+                case PARTITIONS:
+                case PROPERTIES:
+                    HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
+                    ConnectorSplit split = new IcebergSystemSplit(address, tableConstraint);
+                    return new FixedSplitSource(ImmutableList.of(split));
+                default:
+                    throw new IllegalArgumentException("Unknown table type '" + table.getTableType() + "'");
+            }
+        }
+        else {
+            throw new IllegalArgumentException("Unknown connector table handle type '" + handle.getClass().getName() + "'");
+        }
+    }
+
+    private ConnectorSplitSource getDataSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            DynamicFilter dynamicFilter,
+            Constraint constraint,
+            IcebergTableHandle table)
+    {
         if (table.getSnapshotId().isEmpty()) {
             if (table.isRecordScannedFiles()) {
                 return new FixedSplitSource(ImmutableList.of(), ImmutableList.of());

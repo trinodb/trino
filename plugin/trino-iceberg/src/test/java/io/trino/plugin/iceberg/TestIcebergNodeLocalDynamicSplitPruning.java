@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.testing.TempFile;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.GroupByHashPageIndexerFactory;
@@ -26,14 +27,20 @@ import io.trino.orc.OrcWriter;
 import io.trino.orc.OrcWriterOptions;
 import io.trino.orc.OrcWriterStats;
 import io.trino.orc.OutputStreamOrcDataSink;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
+import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.spi.Page;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.block.BlockBuilder;
@@ -43,6 +50,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.testing.TestingConnectorSession;
@@ -52,22 +60,29 @@ import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.types.Types;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
+import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -82,6 +97,8 @@ import static org.testng.Assert.assertNull;
 
 public class TestIcebergNodeLocalDynamicSplitPruning
 {
+    private File metastoreDir;
+    private HiveMetastore metastore;
     private static final String SCHEMA_NAME = "test";
     private static final String TABLE_NAME = "test";
     private static final Column KEY_COLUMN = new Column("a_integer", HIVE_INT, Optional.empty());
@@ -99,6 +116,22 @@ public class TestIcebergNodeLocalDynamicSplitPruning
     private static final OrcWriterConfig ORC_WRITER_CONFIG = new OrcWriterConfig();
     private static final ParquetReaderConfig PARQUET_READER_CONFIG = new ParquetReaderConfig();
     private static final ParquetWriterConfig PARQUET_WRITER_CONFIG = new ParquetWriterConfig();
+
+    @BeforeClass
+    public void setup()
+            throws IOException
+    {
+        File tempDir = Files.createTempDirectory("test_iceberg_split_source").toFile();
+        metastoreDir = new File(tempDir, "iceberg_data");
+        metastore = createTestingFileHiveMetastore(metastoreDir);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+            throws IOException
+    {
+        deleteRecursively(metastoreDir.getParentFile().toPath(), ALLOW_INSECURE);
+    }
 
     @Test
     public void testDynamicSplitPruning()
@@ -150,7 +183,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
         }
     }
 
-    private static ConnectorPageSource createTestingPageSource(HiveTransactionHandle transaction, IcebergConfig icebergConfig, File outputFile, DynamicFilter dynamicFilter)
+    private ConnectorPageSource createTestingPageSource(HiveTransactionHandle transaction, IcebergConfig icebergConfig, File outputFile, DynamicFilter dynamicFilter)
     {
         IcebergSplit split = new IcebergSplit(
                 "file:///" + outputFile.getAbsolutePath(),
@@ -188,6 +221,20 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 transaction);
 
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
+        TrinoCatalogFactory hiveCatalogFactory = identity -> {
+            TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
+            IcebergTableOperationsProvider operationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory);
+            return new TrinoHiveCatalog(
+                    new CatalogName("hive"),
+                    memoizeMetastore(metastore, 1000),
+                    fileSystemFactory,
+                    new TestingTypeManager(),
+                    operationsProvider,
+                    "test",
+                    false,
+                    false,
+                    false);
+        };
         IcebergPageSourceProvider provider = new IcebergPageSourceProvider(
                 new HdfsFileSystemFactory(HDFS_ENVIRONMENT),
                 stats,
@@ -197,6 +244,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 new JsonCodecFactory().jsonCodec(CommitTaskData.class),
                 new IcebergFileWriterFactory(TESTING_TYPE_MANAGER, new NodeVersion("trino_test"), stats, ORC_WRITER_CONFIG),
                 new GroupByHashPageIndexerFactory(new JoinCompiler(TESTING_TYPE_MANAGER.getTypeOperators()), new BlockTypeOperators()),
+                hiveCatalogFactory,
                 icebergConfig);
 
         return provider.createPageSource(

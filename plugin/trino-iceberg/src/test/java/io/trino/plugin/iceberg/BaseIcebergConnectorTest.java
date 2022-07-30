@@ -5665,6 +5665,81 @@ public abstract class BaseIcebergConnectorTest
         assertThat(e).hasMessageMatching("Failed to create file.*|Could not create new table directory");
     }
 
+    @Test
+    public void testVersionedQueriesOnTableWithPartionSpecEvolution()
+    {
+        String tableName = "test_versioned_queries_partition_spec_evolution_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (d DATE, b BIGINT) WITH (partitioning = ARRAY['d'])");
+        long v1SnapshotId = getLatestSnapshotId(tableName);
+        assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                "(NULL, 101)," +
+                "(DATE '2021-10-01', 10), " +
+                "(DATE '2021-12-01', 11)", 3);
+        long v2SnapshotId = getLatestSnapshotId(tableName);
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['month(d)']");
+        assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                "(DATE '2022-01-01', 101), " +
+                "(DATE '2022-01-02', 102), " +
+                "(DATE '2022-02-01', 201)", 3);
+        long v3SnapshotId = getLatestSnapshotId(tableName);
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['day(d)']");
+        assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                "(DATE '2022-03-01', 301), " +
+                "(DATE '2022-03-02', 302)", 2);
+        long v4SnapshotId = getLatestSnapshotId(tableName);
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES " +
+                "(NULL, 101)," +
+                "(DATE '2021-10-01', 10), " +
+                "(DATE '2021-12-01', 11), " +
+                "(DATE '2022-01-01', 101), " +
+                "(DATE '2022-01-02', 102), " +
+                "(DATE '2022-02-01', 201), " +
+                "(DATE '2022-03-01', 301), " +
+                "(DATE '2022-03-02', 302)");
+
+        assertQueryReturnsEmptyResult("SELECT partition FROM \"" + tableName + "$partitions\" FOR VERSION AS OF " + v1SnapshotId);
+        assertQueryReturnsEmptyResult("SELECT partitions FROM \"" + tableName + "$manifests\" FOR VERSION AS OF " + v1SnapshotId);
+
+        assertThat(query("SELECT partition FROM \"" + tableName + "$partitions\" FOR VERSION AS OF " + v2SnapshotId))
+                .matches("VALUES " +
+                        "CAST(ROW(ROW(NULL, NULL, NULL)) AS row(row(d date, d_month integer, d_day date))), " +
+                        "CAST(ROW(ROW(DATE '2021-10-01', NULL, NULL)) AS row(row(d date, d_month integer, d_day date))), " +
+                        "CAST(ROW(ROW(DATE '2021-12-01', NULL, NULL)) AS row(row(d date, d_month integer, d_day date)))");
+        assertThat(query("SELECT partitions FROM \"" + tableName + "$manifests\" FOR VERSION AS OF " + v2SnapshotId))
+                .matches("VALUES " +
+                        "CAST(ROW(ARRAY[ROW(true, false, '2021-10-01', '2021-12-01')]) AS row(array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
+
+        assertThat(query("SELECT partition FROM \"" + tableName + "$partitions\" FOR VERSION AS OF " + v3SnapshotId))
+                .matches("VALUES " +
+                        "CAST(ROW(ROW(NULL, NULL, NULL)) AS row(row(d date, d_month integer, d_day date))), " +
+                        "CAST(ROW(ROW(DATE '2021-10-01', NULL, NULL)) AS row(row(d date, d_month integer, d_day date))), " +
+                        "CAST(ROW(ROW(DATE '2021-12-01', NULL, NULL)) AS row(row(d date, d_month integer, d_day date))), " +
+                        "CAST(ROW(ROW(NULL, INTEGER '624', NULL)) AS row(row(d date, d_month integer, d_day date))), " +
+                        "CAST(ROW(ROW(NULL, INTEGER '625', NULL)) AS row(row(d date, d_month integer, d_day date)))");
+        assertThat(query("SELECT partitions FROM \"" + tableName + "$manifests\" FOR VERSION AS OF " + v3SnapshotId))
+                .matches("VALUES " +
+                        "CAST(ROW(ARRAY[ROW(true, false, '2021-10-01', '2021-12-01')]) AS row(array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
+                        "CAST(ROW(ARRAY[ROW(false, false, '2022-01', '2022-02')]) AS row(array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
+
+        assertThat(query("SELECT partition FROM \"" + tableName + "$partitions\" FOR VERSION AS OF " + v4SnapshotId))
+                .matches("VALUES " +
+                        "CAST(ROW(ROW(NULL, NULL, NULL)) AS row(row(d date, d_month integer, d_day date))), " +
+                        "CAST(ROW(ROW(DATE '2021-10-01', NULL, NULL)) AS row(row(d date, d_month integer, d_day date))), " +
+                        "CAST(ROW(ROW(DATE '2021-12-01', NULL, NULL)) AS row(row(d date, d_month integer, d_day date))), " +
+                        "CAST(ROW(ROW(NULL, INTEGER '624', NULL)) AS row(row(d date, d_month integer, d_day date))), " +
+                        "CAST(ROW(ROW(NULL, INTEGER '625', NULL)) AS row(row(d date, d_month integer, d_day date))), " +
+                        "CAST(ROW(ROW(NULL, NULL, DATE '2022-03-01')) AS row(row(d date, d_month integer, d_day date))), " +
+                        "CAST(ROW(ROW(NULL, NULL, DATE '2022-03-02')) AS row(row(d date, d_month integer, d_day date)))");
+        assertThat(query("SELECT partitions FROM \"" + tableName + "$manifests\" FOR VERSION AS OF " + v4SnapshotId))
+                .matches("VALUES " +
+                        "CAST(ROW(ARRAY[ROW(true, false, '2021-10-01', '2021-12-01')]) AS row(array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
+                        "CAST(ROW(ARRAY[ROW(false, false, '2022-01', '2022-02')]) AS row(array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
+                        "CAST(ROW(ARRAY[ROW(false, false, '2022-03-01', '2022-03-02')]) AS row(array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
+
+        dropTable(tableName);
+    }
+
     private Session prepareCleanUpSession()
     {
         return Session.builder(getSession())
