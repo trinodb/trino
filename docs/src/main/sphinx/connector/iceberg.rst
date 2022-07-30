@@ -47,7 +47,7 @@ Configuration
 
 The connector supports multiple Iceberg catalog types, you may use either a Hive
 metastore service (HMS), AWS Glue, or a REST catalog. The catalog type is determined by the
-``iceberg.catalog.type`` property, it can be set to ``HIVE_METASTORE``, ``GLUE``, or ``REST``.
+``iceberg.catalog.type`` property, it can be set to ``HIVE_METASTORE``, ``GLUE``, ``JDBC``, or ``REST``.
 
 
 .. _iceberg-hive-catalog:
@@ -79,6 +79,8 @@ configuration properties as the Hive connector's Glue setup. See
 
     connector.name=iceberg
     iceberg.catalog.type=glue
+
+.. _iceberg-rest-catalog:
 
 REST catalog
 ^^^^^^^^^^^^^^
@@ -116,6 +118,29 @@ Property Name                                        Description
     connector.name=iceberg
     iceberg.catalog.type=rest
     iceberg.rest-catalog.uri=http://iceberg-with-rest:8181
+
+
+.. _iceberg-jdbc-catalog:
+
+JDBC catalog
+^^^^^^^^^^^^
+
+.. warning::
+
+  The JDBC catalog may face the compatibility issue if Iceberg introduces breaking changes in the future.
+  Consider the :ref:`REST catalog <iceberg-rest-catalog>` as an alternative solution.
+
+At a minimum, ``iceberg.jdbc-catalog.connection-url`` and
+``iceberg.jdbc-catalog.catalog-name`` must be configured.
+When using any database besides PostgreSQL, a JDBC driver jar file must be placed in the plugin directory.
+
+.. code-block:: text
+
+    connector.name=iceberg
+    iceberg.catalog.type=jdbc
+    iceberg.jdbc-catalog.catalog-name=test
+    iceberg.jdbc-catalog.connection-url=jdbc:postgresql://example.net:5432/database?user=admin&password=test
+    iceberg.jdbc-catalog.default-warehouse-dir=s3://bucket
 
 
 General configuration
