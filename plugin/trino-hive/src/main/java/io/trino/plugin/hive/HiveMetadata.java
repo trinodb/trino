@@ -318,6 +318,7 @@ public class HiveMetadata
 
     public static final String PRESTO_VERSION_NAME = "presto_version";
     public static final String TRINO_CREATED_BY = "trino_created_by";
+    public static final String TRINO_QUERY_ID_NAME = "trino_query_id";
     public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
     public static final String BUCKETING_VERSION = "bucketing_version";
     public static final String TABLE_COMMENT = "comment";

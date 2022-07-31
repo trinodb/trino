@@ -157,6 +157,7 @@ import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.replaceWithNewVariables;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.plugin.iceberg.ConstraintExtractor.extractTupleDomain;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
@@ -777,6 +778,7 @@ public class IcebergMetadata
             cleanExtraOutputFiles(session, writtenFiles.build());
         }
 
+        appendFiles.set(TRINO_QUERY_ID_NAME, session.getQueryId());
         appendFiles.commit();
         transaction.commitTransaction();
         transaction = null;
@@ -1066,6 +1068,7 @@ public class IcebergMetadata
         }
 
         RewriteFiles rewriteFiles = transaction.newRewrite();
+        rewriteFiles.set(TRINO_QUERY_ID_NAME, session.getQueryId());
         rewriteFiles.rewriteFiles(scannedDataFiles, fullyAppliedDeleteFiles, newFiles, ImmutableSet.of());
         // Table.snapshot method returns null if there is no matching snapshot
         Snapshot snapshot = requireNonNull(icebergTable.snapshot(optimizeHandle.getSnapshotId()), "snapshot is null");
@@ -1679,6 +1682,7 @@ public class IcebergMetadata
 
         icebergTable.newDelete()
                 .deleteFromRowFilter(toIcebergExpression(handle.getEnforcedPredicate()))
+                .set(TRINO_QUERY_ID_NAME, session.getQueryId())
                 .commit();
 
         Map<String, String> summary = icebergTable.currentSnapshot().summary();
@@ -2017,6 +2021,7 @@ public class IcebergMetadata
 
         // Update the 'dependsOnTables' property that tracks tables on which the materialized view depends and the corresponding snapshot ids of the tables
         appendFiles.set(DEPENDS_ON_TABLES, dependencies);
+        appendFiles.set(TRINO_QUERY_ID_NAME, session.getQueryId());
         appendFiles.commit();
 
         transaction.commitTransaction();
