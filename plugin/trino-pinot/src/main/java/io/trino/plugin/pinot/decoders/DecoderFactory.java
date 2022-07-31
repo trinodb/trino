@@ -22,6 +22,7 @@ import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
 
 import java.util.Optional;
 
@@ -59,6 +60,9 @@ public class DecoderFactory
         }
         else if (type instanceof ArrayType) {
             return new ArrayDecoder(type);
+        }
+        else if (type instanceof VarbinaryType) {
+            return new VarbinaryDecoder();
         }
         else {
             return new VarcharDecoder();
