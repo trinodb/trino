@@ -26,8 +26,6 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
 import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.common.utils.DataSchema.ColumnDataType;
 
@@ -39,6 +37,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_DECODE_ERROR;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
+import static io.trino.plugin.pinot.decoders.VarbinaryDecoder.toBytes;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -330,16 +329,6 @@ public class PinotSegmentPageSource
             return Slices.wrappedBuffer(toBytes(currentDataTable.getDataTable().getString(rowIndex, columnIndex)));
         }
         return Slices.EMPTY_SLICE;
-    }
-
-    private static byte[] toBytes(String stringValue)
-    {
-        try {
-            return Hex.decodeHex(stringValue.toCharArray());
-        }
-        catch (DecoderException e) {
-            throw new IllegalArgumentException("Value: " + stringValue + " is not Hex encoded", e);
-        }
     }
 
     private Slice getUtf8Slice(String value)
