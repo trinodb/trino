@@ -92,21 +92,28 @@ public final class PinotQueryBuilder
 
     private static void generateFilterPql(StringBuilder pqlBuilder, PinotTableHandle tableHandle, Optional<String> timePredicate)
     {
-        Optional<String> filterClause = getFilterClause(tableHandle.getConstraint(), timePredicate);
+        Optional<String> filterClause = getFilterClause(tableHandle.getConstraint(), timePredicate, false);
         if (filterClause.isPresent()) {
             pqlBuilder.append(" WHERE ")
                     .append(filterClause.get());
         }
     }
 
-    public static Optional<String> getFilterClause(TupleDomain<ColumnHandle> tupleDomain, Optional<String> timePredicate)
+    public static Optional<String> getFilterClause(TupleDomain<ColumnHandle> tupleDomain, Optional<String> timePredicate, boolean forHavingClause)
     {
         ImmutableList.Builder<String> conjunctsBuilder = ImmutableList.builder();
+        checkState((forHavingClause && timePredicate.isEmpty()) || !forHavingClause, "Unexpected time predicate with having clause");
         timePredicate.ifPresent(conjunctsBuilder::add);
         if (!tupleDomain.equals(TupleDomain.all())) {
             Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().orElseThrow();
             for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
-                conjunctsBuilder.add(toPredicate(((PinotColumnHandle) entry.getKey()).getColumnName(), entry.getValue()));
+                PinotColumnHandle pinotColumnHandle = (PinotColumnHandle) entry.getKey();
+                // If this is for a having clause, only include aggregate columns.
+                // If this is for a where clause, only include non-aggregate columns.
+                // i.e. (forHavingClause && isAggregate) || (!forHavingClause && !isAggregate)
+                if (forHavingClause == pinotColumnHandle.isAggregate()) {
+                    conjunctsBuilder.add(toPredicate(pinotColumnHandle, entry.getValue()));
+                }
             }
         }
         List<String> conjuncts = conjunctsBuilder.build();
@@ -118,8 +125,9 @@ public final class PinotQueryBuilder
         }
     }
 
-    private static String toPredicate(String columnName, Domain domain)
+    private static String toPredicate(PinotColumnHandle pinotColumnHandle, Domain domain)
     {
+        String predicateArgument = pinotColumnHandle.isAggregate() ? pinotColumnHandle.getExpression() : quoteIdentifier(pinotColumnHandle.getColumnName());
         List<String> disjuncts = new ArrayList<>();
         List<Object> singleValues = new ArrayList<>();
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
@@ -130,10 +138,10 @@ public final class PinotQueryBuilder
             else {
                 List<String> rangeConjuncts = new ArrayList<>();
                 if (!range.isLowUnbounded()) {
-                    rangeConjuncts.add(toConjunct(columnName, range.isLowInclusive() ? ">=" : ">", convertValue(range.getType(), range.getLowBoundedValue())));
+                    rangeConjuncts.add(toConjunct(predicateArgument, range.isLowInclusive() ? ">=" : ">", convertValue(range.getType(), range.getLowBoundedValue())));
                 }
                 if (!range.isHighUnbounded()) {
-                    rangeConjuncts.add(toConjunct(columnName, range.isHighInclusive() ? "<=" : "<", convertValue(range.getType(), range.getHighBoundedValue())));
+                    rangeConjuncts.add(toConjunct(predicateArgument, range.isHighInclusive() ? "<=" : "<", convertValue(range.getType(), range.getHighBoundedValue())));
                 }
                 // If rangeConjuncts is null, then the range was ALL, which is not supported in pql
                 checkState(!rangeConjuncts.isEmpty());
@@ -142,10 +150,10 @@ public final class PinotQueryBuilder
         }
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(toConjunct(columnName, "=", getOnlyElement(singleValues)));
+            disjuncts.add(toConjunct(predicateArgument, "=", getOnlyElement(singleValues)));
         }
         else if (singleValues.size() > 1) {
-            disjuncts.add(inClauseValues(columnName, singleValues));
+            disjuncts.add(inClauseValues(predicateArgument, singleValues));
         }
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
     }
@@ -169,12 +177,12 @@ public final class PinotQueryBuilder
         if (value instanceof Slice) {
             value = ((Slice) value).toStringUtf8();
         }
-        return format("%s %s %s", quoteIdentifier(columnName), operator, singleQuote(value));
+        return format("%s %s %s", columnName, operator, singleQuote(value));
     }
 
     private static String inClauseValues(String columnName, List<Object> singleValues)
     {
-        return format("%s IN (%s)", quoteIdentifier(columnName), singleValues.stream()
+        return format("%s IN (%s)", columnName, singleValues.stream()
                 .map(PinotQueryBuilder::singleQuote)
                 .collect(joining(", ")));
     }

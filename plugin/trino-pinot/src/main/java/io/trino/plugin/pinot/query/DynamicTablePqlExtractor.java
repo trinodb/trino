@@ -54,7 +54,7 @@ public final class DynamicTablePqlExtractor
         builder.append(table.getTableName());
         builder.append(table.getSuffix().orElse(""));
 
-        Optional<String> filter = getFilter(table.getFilter(), tupleDomain);
+        Optional<String> filter = getFilter(table.getFilter(), tupleDomain, false);
         if (filter.isPresent()) {
             builder.append(" where ")
                     .append(filter.get());
@@ -65,9 +65,10 @@ public final class DynamicTablePqlExtractor
                     .map(PinotColumnHandle::getExpression)
                     .collect(joining(", ")));
         }
-        if (table.getHavingExpression().isPresent()) {
+        Optional<String> havingClause = getFilter(table.getHavingExpression(), tupleDomain, true);
+        if (havingClause.isPresent()) {
             builder.append(" having ")
-                    .append(table.getHavingExpression().get());
+                    .append(havingClause.get());
         }
         if (!table.getOrderBy().isEmpty()) {
             builder.append(" order by ")
@@ -86,9 +87,9 @@ public final class DynamicTablePqlExtractor
         return builder.toString();
     }
 
-    private static Optional<String> getFilter(Optional<String> filter, TupleDomain<ColumnHandle> tupleDomain)
+    private static Optional<String> getFilter(Optional<String> filter, TupleDomain<ColumnHandle> tupleDomain, boolean forHavingClause)
     {
-        Optional<String> tupleFilter = getFilterClause(tupleDomain, Optional.empty());
+        Optional<String> tupleFilter = getFilterClause(tupleDomain, Optional.empty(), forHavingClause);
 
         if (tupleFilter.isPresent() && filter.isPresent()) {
             return Optional.of(format("%s AND %s", encloseInParentheses(tupleFilter.get()), encloseInParentheses(filter.get())));
