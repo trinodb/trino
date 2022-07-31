@@ -2264,5 +2264,17 @@ public abstract class AbstractPinotIntegrationSmokeTest
                 "  WHERE city != 'New York'"))
                 .matches("VALUES (VARCHAR 'Los Angeles', DOUBLE '50000.0')")
                 .isFullyPushedDown();
+        assertThat(query("SELECT city, SUM(long_number)" +
+                "  FROM my_table" +
+                "  GROUP BY city" +
+                "  HAVING SUM(long_number) > 10000"))
+                .matches("VALUES (VARCHAR 'Los Angeles', BIGINT '50000')," +
+                        "  (VARCHAR 'New York', BIGINT '20000')")
+                .isFullyPushedDown();
+        assertThat(query("SELECT city, SUM(long_number) FROM my_table" +
+                "  WHERE city != 'New York'" +
+                "  GROUP BY city HAVING SUM(long_number) > 10000"))
+                .matches("VALUES (VARCHAR 'Los Angeles', BIGINT '50000')")
+                .isFullyPushedDown();
     }
 }
