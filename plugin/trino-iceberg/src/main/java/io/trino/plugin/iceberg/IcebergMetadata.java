@@ -106,6 +106,7 @@ import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SnapshotUpdate;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
@@ -157,7 +158,6 @@ import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.replaceWithNewVariables;
-import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.plugin.iceberg.ConstraintExtractor.extractTupleDomain;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
@@ -230,6 +230,11 @@ public class IcebergMetadata
         implements ConnectorMetadata
 {
     private static final Logger log = Logger.get(IcebergMetadata.class);
+
+    public static final String TRINO_QUERY_ID_NAME = "trino_query_id";
+
+    public static final String TRINO_VERSION = "trino_version";
+
     private static final Pattern PATH_PATTERN = Pattern.compile("(.*)/[^/]+");
     private static final int OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION = 2;
     private static final int CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION = 2;
@@ -671,7 +676,9 @@ public class IcebergMetadata
     {
         if (fragments.isEmpty()) {
             // Commit the transaction if the table is being created without data
-            transaction.newFastAppend().commit();
+            AppendFiles appendFiles = transaction.newFastAppend();
+            getExtraSummaryMetadata(session).forEach(appendFiles::set);
+            appendFiles.commit();
             transaction.commitTransaction();
             transaction = null;
             return Optional.empty();
@@ -778,7 +785,7 @@ public class IcebergMetadata
             cleanExtraOutputFiles(session, writtenFiles.build());
         }
 
-        appendFiles.set(TRINO_QUERY_ID_NAME, session.getQueryId());
+        getExtraSummaryMetadata(session).forEach(appendFiles::set);
         appendFiles.commit();
         transaction.commitTransaction();
         transaction = null;
@@ -1073,6 +1080,7 @@ public class IcebergMetadata
         // Table.snapshot method returns null if there is no matching snapshot
         Snapshot snapshot = requireNonNull(icebergTable.snapshot(optimizeHandle.getSnapshotId()), "snapshot is null");
         rewriteFiles.validateFromSnapshot(snapshot.snapshotId());
+        getExtraSummaryMetadata(session).forEach(rewriteFiles::set);
         rewriteFiles.commit();
         transaction.commitTransaction();
         transaction = null;
@@ -1284,6 +1292,7 @@ public class IcebergMetadata
         }
 
         try {
+            getExtraSummaryMetadata(session).forEach(updateProperties::set);
             updateProperties.commit();
         }
         catch (RuntimeException e) {
@@ -1576,6 +1585,7 @@ public class IcebergMetadata
             }
 
             rowDelta.validateDataFilesExist(referencedDataFiles.build());
+            getExtraSummaryMetadata(session).forEach(rowDelta::set);
             try {
                 rowDelta.commit();
             }
@@ -1604,6 +1614,7 @@ public class IcebergMetadata
             if (!fullyDeletedFiles.isEmpty()) {
                 DeleteFiles deleteFiles = transaction.newDelete();
                 fullyDeletedFiles.keySet().forEach(deleteFiles::deleteFile);
+                getExtraSummaryMetadata(session).forEach(deleteFiles::set);
                 deleteFiles.commit();
             }
             transaction.commitTransaction();
@@ -1680,10 +1691,11 @@ public class IcebergMetadata
 
         Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
 
-        icebergTable.newDelete()
-                .deleteFromRowFilter(toIcebergExpression(handle.getEnforcedPredicate()))
-                .set(TRINO_QUERY_ID_NAME, session.getQueryId())
-                .commit();
+        SnapshotUpdate<DeleteFiles> deleteBuilder = icebergTable.newDelete()
+                .deleteFromRowFilter(toIcebergExpression(handle.getEnforcedPredicate()));
+
+        getExtraSummaryMetadata(session).forEach(deleteBuilder::set);
+        deleteBuilder.commit();
 
         Map<String, String> summary = icebergTable.currentSnapshot().summary();
         String deletedRowsStr = summary.get(DELETED_RECORDS_PROP);
@@ -2021,7 +2033,7 @@ public class IcebergMetadata
 
         // Update the 'dependsOnTables' property that tracks tables on which the materialized view depends and the corresponding snapshot ids of the tables
         appendFiles.set(DEPENDS_ON_TABLES, dependencies);
-        appendFiles.set(TRINO_QUERY_ID_NAME, session.getQueryId());
+        getExtraSummaryMetadata(session).forEach(appendFiles::set);
         appendFiles.commit();
 
         transaction.commitTransaction();
@@ -2076,6 +2088,23 @@ public class IcebergMetadata
             throw new TrinoException(NOT_SUPPORTED, "Materialized View rename across schemas is not supported");
         }
         catalog.renameMaterializedView(session, source, target);
+    }
+
+    // Information that should be added to every generated Iceberg snapshot, in its summary.
+    // TODO - Consider moving this to the catalog module (on commit).
+    public static Map<String, String> getExtraSummaryMetadata(ConnectorSession session, Optional<String> trinoVersion)
+    {
+        ImmutableMap.Builder<String, String> snapshotSummary = ImmutableMap.<String, String>builder()
+                .put(TRINO_QUERY_ID_NAME, session.getQueryId());
+
+        trinoVersion.map(version -> snapshotSummary.put(TRINO_VERSION, version));
+
+        return snapshotSummary.buildOrThrow();
+    }
+
+    public static Map<String, String> getExtraSummaryMetadata(ConnectorSession session)
+    {
+        return getExtraSummaryMetadata(session, Optional.empty());
     }
 
     public Optional<TableToken> getTableToken(ConnectorSession session, ConnectorTableHandle tableHandle)

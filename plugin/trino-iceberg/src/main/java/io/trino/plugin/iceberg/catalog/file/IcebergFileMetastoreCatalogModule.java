@@ -34,6 +34,7 @@ public class IcebergFileMetastoreCatalogModule
     protected void setup(Binder binder)
     {
         install(new FileMetastoreModule());
+
         binder.bind(IcebergTableOperationsProvider.class).to(FileMetastoreTableOperationsProvider.class).in(Scopes.SINGLETON);
         binder.bind(TrinoCatalogFactory.class).to(TrinoHiveCatalogFactory.class).in(Scopes.SINGLETON);
         binder.bind(MetastoreValidator.class).asEagerSingleton();
