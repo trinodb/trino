@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
@@ -93,6 +94,7 @@ import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterrup
 import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
 import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
@@ -5052,6 +5054,262 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testCreateEmptyTableSummaryHasTrinoQueryId()
+    {
+        final String tableName = "test_create_empty_table_query_id" + randomTableSuffix();
+        QueryId createTableQueryId = getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), "CREATE TABLE " + tableName + " (a  bigint, b bigint)")
+                .getQueryId();
+
+        assertThat(getLatestQueryIdFromSnapshotSummary(tableName))
+                .isEqualTo(createTableQueryId);
+    }
+
+    @Test
+    public void testUnpartitionedInsertionSummaryHasTrinoQueryId()
+    {
+        final String tableName = "test_insert_table_trino_query_id" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", tableName));
+
+        QueryId insertQueryId = getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), format("INSERT INTO %s VALUES (1, 1)", tableName))
+                .getQueryId();
+
+        assertThat(getLatestQueryIdFromSnapshotSummary(tableName))
+                .isEqualTo(insertQueryId);
+    }
+
+    @Test
+    public void testCTASSummaryHasTrinoQueryId()
+    {
+        final String sourceTableName = "test_source_table_for_ctas" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", sourceTableName));
+        assertUpdate(format("INSERT INTO %s VALUES(1, 1)", sourceTableName), 1);
+
+        final String ctasTableName = "test_ctas_table_query_id" + randomTableSuffix();
+        QueryId createTableQueryId = getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), format("CREATE TABLE %s AS SELECT * FROM %s", ctasTableName, sourceTableName))
+                .getQueryId();
+
+        assertThat(getLatestQueryIdFromSnapshotSummary(ctasTableName))
+                .isEqualTo(createTableQueryId);
+    }
+
+    @Test
+    public void testCreatePartitionedTableSummaryHasTrinoQueryId()
+    {
+        final String tableName = "test_create_empty_partitioned_table_query_id" + randomTableSuffix();
+        QueryId createTableQueryId = getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), format("CREATE TABLE %s(a  bigint, b bigint) WITH (partitioning = ARRAY['bucket(a, 2)', 'b'])", tableName))
+                .getQueryId();
+
+        assertThat(getLatestQueryIdFromSnapshotSummary(tableName))
+                .isEqualTo(createTableQueryId);
+    }
+
+    @Test
+    public void testPartitionedInsertionSummaryHasTrinoQueryId()
+    {
+        final String tableName = "test_partitioned_insert_summary_query_id" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint) WITH (partitioning = ARRAY['bucket(a, 2)', 'b'])", tableName));
+
+        QueryId insertQueryId = getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), format("INSERT INTO %s VALUES (1, 1)", tableName))
+                .getQueryId();
+
+        assertThat(getLatestQueryIdFromSnapshotSummary(tableName))
+                .isEqualTo(insertQueryId);
+    }
+
+    @Test
+    public void testV1PartitionDeleteSummaryHasTrinoQueryId()
+    {
+        final String tableName = "test_v1_partition_delete_summary_query_id" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint) WITH (partitioning = ARRAY['a'])", tableName));
+        assertUpdate(format("INSERT INTO %s VALUES(1, 0)", tableName), 1);
+        assertUpdate(format("INSERT INTO %s VALUES(1, 1), (1, 2), (1, 3), (1, 4)", tableName), 4);
+
+        QueryId v1PartitionDelete = getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), format("DELETE FROM %s WHERE a = 1", tableName))
+                .getQueryId();
+
+        assertThat(getLatestQueryIdFromSnapshotSummary(tableName))
+                .isEqualTo(v1PartitionDelete);
+    }
+
+    @Test
+    public void testV2PartitionDeleteSummaryHasTrinoQueryId()
+    {
+        final String tableName = "test_v2_partition_delete_summary_query_id" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint) WITH (format_version = 2, partitioning = ARRAY['a'])", tableName));
+        assertUpdate(format("INSERT INTO %s VALUES(1, 0)", tableName), 1);
+        assertUpdate(format("INSERT INTO %s VALUES(1, 1), (1, 2), (1, 3), (1, 4)", tableName), 4);
+
+        QueryId v2PartitionDelete = getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), format("DELETE FROM %s WHERE a = 1", tableName))
+                .getQueryId();
+
+        assertThat(getLatestQueryIdFromSnapshotSummary(tableName))
+                .isEqualTo(v2PartitionDelete);
+    }
+
+    // TODO - This test is out dated as two commits during the transaction was a bug.
+    @Test
+    public void testRowLevelDeleteSummaryHasTrinoQueryId()
+    {
+        final String tableName = "test_row_level_delete_summary_query_id" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", tableName));
+        assertUpdate(format("INSERT INTO %s VALUES(1, 0)", tableName), 1);
+        assertUpdate(format("INSERT INTO %s VALUES(1, 1), (1, 2), (1, 3), (1, 4)", tableName), 4);
+        // No snapshot generated
+        assertUpdate(format("ALTER TABLE %s SET PROPERTIES format_version = 2", tableName));
+
+        // Row level delete that generates a single MOR file and leaves original file as some rows are still valid.
+        QueryId singleRowDeleteQueryId = getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), format("DELETE FROM %s WHERE a = 1 AND b = 2", tableName))
+                .getQueryId();
+
+        assertThat(getLatestQueryIdFromSnapshotSummary(tableName))
+                .isEqualTo(singleRowDeleteQueryId);
+
+        // Delete that generates MOR files and also removes a file that's no longer present in the latest snapshot
+        // This generates two snapshots as part of a transaction, one for the MOR files and one for cleaning up
+        // the unneeded files.
+        QueryId multiRowDeleteWithFileCleanUpQueryId = getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), format("DELETE FROM %s WHERE a = 1", tableName))
+                .getQueryId();
+
+        // Ensure two snapshots from one transaction are generated, one for row deltas and one for removing the empty
+        // files (BaseRowDelta and StreamingDelete)
+        assertThat(getQueryIdsFromSnapshotSummariesByCreationOrder(tableName))
+                .endsWith(multiRowDeleteWithFileCleanUpQueryId, multiRowDeleteWithFileCleanUpQueryId)
+                .size().isEqualTo(6);
+    }
+
+    @Test
+    public void testExpireSnapshotsDoesNotGenerateNewSnapshot()
+    {
+        final String tableName = "test_row_level_delete_summary_query_id" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", tableName));
+        assertUpdate(format("INSERT INTO %s VALUES(1, 0)", tableName), 1);
+
+        QueryId latestSnapshotQueryId = getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), format("INSERT INTO %s VALUES(1, 1), (1, 2), (1, 3), (1, 4)", tableName))
+                .getQueryId();
+
+        assertThat(getSnapshotsIdsByCreationOrder(tableName))
+                .size().isEqualTo(3);
+
+        assertThat(getQueryIdsFromSnapshotSummariesByCreationOrder(tableName))
+                .endsWith(latestSnapshotQueryId);
+
+        assertUpdate(format("ALTER TABLE %s EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')", tableName));
+
+        // Ensure there's only one snapshot remaining
+        assertThat(getSnapshotsIdsByCreationOrder(tableName))
+                .size().isEqualTo(1);
+
+        // Ensure the remaining snapshot is the same snapshot as the last insert
+        assertThat(getQueryIdsFromSnapshotSummariesByCreationOrder(tableName))
+                .containsExactly(latestSnapshotQueryId)
+                .size().isEqualTo(1);
+    }
+
+    @Test
+    public void testEndToEndTableSummariesHaveTrinoQueryId()
+    {
+        final String tableName = "test_e2e_snapshot_query_ids" + randomTableSuffix();
+        final List<QueryId> queryIds = new ArrayList<>();
+
+        // Create
+        QueryId createTableQueryId = getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), format("CREATE TABLE %s (a  bigint, b bigint)", tableName))
+                .getQueryId();
+        queryIds.add(createTableQueryId);
+
+        assertThat(getQueryIdsFromSnapshotSummariesByCreationOrder(tableName))
+                .containsExactlyElementsOf(queryIds)
+                .size().isEqualTo(1);
+
+        // Insert
+        QueryId appendQueryId = getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), format("INSERT INTO %s VALUES(1, 1)", tableName))
+                .getQueryId();
+        queryIds.add(appendQueryId);
+
+        assertThat(getQueryIdsFromSnapshotSummariesByCreationOrder(tableName))
+                .containsExactlyElementsOf(queryIds)
+                .size().isEqualTo(2);
+
+        // Multi-value insert
+        QueryId multiValueInsert = getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), format("INSERT INTO %s VALUES (1, 2), (2, 1), (2, 2)", tableName))
+                .getQueryId();
+        queryIds.add(multiValueInsert);
+
+        assertThat(getQueryIdsFromSnapshotSummariesByCreationOrder(tableName))
+                .containsExactlyElementsOf(queryIds)
+                .size().isEqualTo(3);
+
+        int snapshotIdCountBeforeUpgradeToV2 = getSnapshotsIdsByCreationOrder(tableName).size();
+
+        // Upgrade to Format v2 - this does not create a snapshot with a summary
+        QueryId alterTablePropertiesToFormatV2 = getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), format("ALTER TABLE %s SET PROPERTIES format_version = 2", tableName))
+                .getQueryId();
+
+        // Ensure this query did not generate a snapshot and its associated query id is not in any summaries
+        assertThat(getSnapshotsIdsByCreationOrder(tableName))
+                .hasSize(snapshotIdCountBeforeUpgradeToV2);
+
+        assertThat(getQueryIdsFromSnapshotSummariesByCreationOrder(tableName))
+                .doesNotContain(alterTablePropertiesToFormatV2);
+
+        // Delete one row in the file with 3 rows generated during multi-value insertion
+        QueryId rowLevelDelete = getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), format("DELETE FROM %s WHERE a = 2 AND b = 1", tableName))
+                .getQueryId();
+        queryIds.add(rowLevelDelete);
+
+        assertThat(getQueryIdsFromSnapshotSummariesByCreationOrder(tableName))
+                .containsExactlyElementsOf(queryIds)
+                .size().isEqualTo(4);
+
+        // Delete which generates a MOR file for the row (1, 2) and removes entirely the file for the row (1, 1).
+        // This generates two snapshots within the same transaction (both with the same query id)
+        QueryId rowLevelDeleteWhichAlsoDeletesWholeFile = getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), format("DELETE FROM %s WHERE a = 1", tableName))
+                .getQueryId();
+        // Add twice - once for row level update and once for removal of file where all rows are now in delta files.
+        queryIds.add(rowLevelDeleteWhichAlsoDeletesWholeFile);
+        queryIds.add(rowLevelDeleteWhichAlsoDeletesWholeFile);
+
+        assertThat(getQueryIdsFromSnapshotSummariesByCreationOrder(tableName))
+                .containsExactlyElementsOf(queryIds);
+
+        // Ensure there is a query id in each snapshot generated
+        assertThat(getSnapshotsIdsByCreationOrder(tableName))
+                .hasSameSizeAs(queryIds);
+    }
+
+    @Test
+    public void testOptimizeSnapshotSummaryHasTrinoQueryId()
+    {
+        String tableName = "test_optimize_unpartitioned" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", tableName));
+        assertUpdate(format("ALTER TABLE %s SET PROPERTIES format_version = 2", tableName));
+        assertUpdate(format("INSERT INTO %s VALUES(1, 1)", tableName), 1);
+        assertUpdate(format("INSERT INTO %s VALUES(2, 2)", tableName), 1);
+
+        QueryId optimizeQueryId = getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), "ALTER TABLE " + tableName + " EXECUTE optimize")
+                .getQueryId();
+
+        assertThat(getLatestQueryIdFromSnapshotSummary(tableName))
+                .isEqualTo(optimizeQueryId);
+    }
+
     @Override
     protected OptionalInt maxTableNameLength()
     {
@@ -5141,6 +5399,25 @@ public abstract class BaseIcebergConnectorTest
                 .getMaterializedRows().stream()
                 .map(row -> (Long) row.getField(idField))
                 .collect(toList());
+    }
+
+    private List<QueryId> getQueryIdsFromSnapshotSummariesByCreationOrder(String tableName)
+    {
+        return getQueryRunner().execute(
+                format("SELECT json_extract_scalar(CAST(SUMMARY AS JSON), '$.%s') FROM \"%s$snapshots\"", TRINO_QUERY_ID_NAME, tableName))
+                .getOnlyColumn()
+                .map(column -> QueryId.valueOf((String) column))
+                .collect(toList());
+    }
+
+    private QueryId getLatestQueryIdFromSnapshotSummary(String tableName)
+    {
+        return Iterables.getOnlyElement(
+                getQueryRunner().execute(
+                format("SELECT json_extract_scalar(CAST(summary AS json), '$.%s') AS summary FROM \"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1", TRINO_QUERY_ID_NAME, tableName))
+                .getOnlyColumn()
+                .map(column -> QueryId.valueOf((String) column))
+                .collect(toList()));
     }
 
     private Session sessionWithLegacySyntaxSupport()
