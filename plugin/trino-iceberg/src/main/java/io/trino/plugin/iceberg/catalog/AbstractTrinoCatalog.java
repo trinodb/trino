@@ -257,15 +257,15 @@ public abstract class AbstractTrinoCatalog
                 .buildOrThrow();
     }
 
-    protected <T> SnapshotUpdate<T> setDefaultSnapshotUpdateProps(ConnectorSession session, SnapshotUpdate<T> update)
+    protected <T> SnapshotUpdate<T> setSnapshotSummaryExtraMetadata(ConnectorSession session, SnapshotUpdate<T> update)
     {
-        getDefaultSnapshotUpdateProperties(session)
+        extraSummaryMetadata(session)
                 .forEach(update::set);
         // return the update for method chaining.
         return update;
     }
 
-    protected Map<String, String> getDefaultSnapshotUpdateProperties(ConnectorSession session)
+    protected Map<String, String> extraSummaryMetadata(ConnectorSession session)
     {
         return ImmutableMap.<String, String>builder()
                 .put(TRINO_CREATED_BY, TRINO_CREATED_BY_VALUE)
