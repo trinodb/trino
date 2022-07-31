@@ -166,6 +166,7 @@ Pinot                        Trino
 ``FLOAT``                    ``REAL``
 ``DOUBLE``                   ``DOUBLE``
 ``STRING``                   ``VARCHAR``
+``BYTES``                    ``VARBINARY``
 ``INT_ARRAY``                ``VARCHAR``
 ``LONG_ARRAY``               ``VARCHAR``
 ``FLOAT_ARRAY``              ``VARCHAR``

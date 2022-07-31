@@ -2183,4 +2183,24 @@ public abstract class AbstractPinotIntegrationSmokeTest
                         "(56, VARCHAR 'string_8400', BIGINT '1')," +
                         "(1000, VARCHAR 'string1_8401', BIGINT '1')");
     }
+
+    @Test
+    public void testVarbinary()
+    {
+        String expectedValues = "VALUES (X'')," +
+                "  (X'73 74 72 69 6e 67 5f 30')," +
+                "  (X'73 74 72 69 6e 67 5f 31 32 30 30')," +
+                "  (X'73 74 72 69 6e 67 5f 32 34 30 30')," +
+                "  (X'73 74 72 69 6e 67 5f 33 36 30 30')," +
+                "  (X'73 74 72 69 6e 67 5f 34 38 30 30')," +
+                "  (X'73 74 72 69 6e 67 5f 36 30 30 30')," +
+                "  (X'73 74 72 69 6e 67 5f 37 32 30 30')," +
+                "  (X'73 74 72 69 6e 67 5f 38 34 30 30')," +
+                "  (X'73 74 72 69 6e 67 5f 39 36 30 30')";
+        // The filter on string_col is to have a deterministic result set: the default limit for broker queries is 10 rows.
+        assertThat(query("SELECT bytes_col FROM alltypes WHERE string_col != 'array_null'"))
+                .matches(expectedValues);
+        assertThat(query("SELECT bytes_col FROM \"SELECT bytes_col, string_col FROM alltypes\" WHERE string_col != 'array_null'"))
+                .matches(expectedValues);
+    }
 }
