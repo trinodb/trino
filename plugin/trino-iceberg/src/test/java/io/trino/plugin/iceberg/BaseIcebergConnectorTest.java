@@ -5189,8 +5189,8 @@ public abstract class BaseIcebergConnectorTest
                 .size().isEqualTo(6);
     }
 
-    @Test
     @Ignore
+    @Test
     public void testExpireSnapshotsDoesNotGenerateNewSnapshot()
     {
         final String tableName = "test_row_level_delete_summary_query_id" + randomTableSuffix();

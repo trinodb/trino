@@ -80,6 +80,8 @@ public abstract class AbstractTrinoCatalog
     // Be compatible with views defined by the Hive connector, which can be useful under certain conditions.
     protected static final String TRINO_CREATED_BY = HiveMetadata.TRINO_CREATED_BY;
     protected static final String TRINO_CREATED_BY_VALUE = "Trino Iceberg connector";
+    protected static final String TRINO_VERSION_NAME = "trino_version";
+    protected static final String TRINO_QUERY_ID_NAME = "trino_query_id";
     protected static final String PRESTO_VIEW_COMMENT = HiveMetadata.PRESTO_VIEW_COMMENT;
     protected static final String PRESTO_VERSION_NAME = HiveMetadata.PRESTO_VERSION_NAME;
     protected static final String PRESTO_QUERY_ID_NAME = HiveMetadata.PRESTO_QUERY_ID_NAME;
@@ -261,7 +263,6 @@ public abstract class AbstractTrinoCatalog
     {
         extraSummaryMetadata(session)
                 .forEach(update::set);
-        // return the update for method chaining.
         return update;
     }
 
@@ -269,8 +270,8 @@ public abstract class AbstractTrinoCatalog
     {
         return ImmutableMap.<String, String>builder()
                 .put(TRINO_CREATED_BY, TRINO_CREATED_BY_VALUE)
-                .put(PRESTO_VERSION_NAME, trinoVersion)
-                .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
+                .put(TRINO_VERSION_NAME, trinoVersion)
+                .put(TRINO_QUERY_ID_NAME, session.getQueryId())
                 .buildOrThrow();
     }
 
