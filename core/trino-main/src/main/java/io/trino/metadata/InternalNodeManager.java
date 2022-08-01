@@ -17,10 +17,17 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 import io.trino.connector.CatalogHandle;
+import io.trino.spi.HostAddress;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.metadata.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
 
 public interface InternalNodeManager
@@ -38,6 +45,8 @@ public interface InternalNodeManager
     AllNodes getAllNodes();
 
     void refreshNodes();
+
+    NodeMap createNodeMap(Optional<CatalogHandle> catalogHandle);
 
     void addNodeChangeListener(Consumer<AllNodes> listener);
 
@@ -65,5 +74,30 @@ public interface InternalNodeManager
         {
             return connectorNodes.get(catalogHandle);
         }
+    }
+
+    static NodeMap createNodeMapInternal(InternalNodeManager nodeManager, Optional<CatalogHandle> catalogHandle, BiConsumer<UnknownHostException, InternalNode> unknownHostHandler)
+    {
+        Set<InternalNode> nodes = catalogHandle
+                .map(nodeManager::getActiveCatalogNodes)
+                .orElseGet(() -> nodeManager.getNodes(ACTIVE));
+
+        Set<String> coordinatorNodeIds = nodeManager.getCoordinators().stream()
+                .map(InternalNode::getNodeIdentifier)
+                .collect(toImmutableSet());
+
+        ImmutableSetMultimap.Builder<HostAddress, InternalNode> byHostAndPort = ImmutableSetMultimap.builder();
+        ImmutableSetMultimap.Builder<InetAddress, InternalNode> byHost = ImmutableSetMultimap.builder();
+        for (InternalNode node : nodes) {
+            try {
+                byHostAndPort.put(node.getHostAndPort(), node);
+                byHost.put(node.getInternalAddress(), node);
+            }
+            catch (UnknownHostException e) {
+                unknownHostHandler.accept(e, node);
+            }
+        }
+
+        return new NodeMap(byHostAndPort.build(), byHost.build(), ImmutableSetMultimap.of(), coordinatorNodeIds);
     }
 }

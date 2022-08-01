@@ -16,6 +16,8 @@ package io.trino.server;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
@@ -35,6 +37,7 @@ import io.airlift.jmx.JmxModule;
 import io.airlift.json.JsonModule;
 import io.airlift.log.LogJmxModule;
 import io.airlift.log.Logger;
+import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.client.NodeVersion;
@@ -42,6 +45,7 @@ import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogManagerModule;
 import io.trino.connector.ConnectorServices;
 import io.trino.connector.ConnectorServicesProvider;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.eventlistener.EventListenerModule;
 import io.trino.exchange.ExchangeManagerModule;
@@ -50,6 +54,9 @@ import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.warnings.WarningCollectorModule;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
+import io.trino.metadata.DiscoveryNodeManager;
+import io.trino.metadata.InternalNode;
+import io.trino.metadata.NodeMap;
 import io.trino.metadata.StaticCatalogStore;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AccessControlModule;
@@ -64,14 +71,17 @@ import io.trino.version.EmbedVersion;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static io.trino.server.TrinoSystemRequirements.verifyJvmRequirements;
@@ -144,7 +154,7 @@ public class Server
                     injector.getInstance(EventListenerManager.class));
 
             // TODO: remove this huge hack
-            updateConnectorIds(injector.getInstance(Announcer.class), injector.getInstance(CatalogManager.class));
+            Set<CatalogHandle> catalogHandles = updateCatalogHandleIds(injector.getInstance(Announcer.class), injector.getInstance(CatalogManager.class));
 
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
@@ -161,6 +171,9 @@ public class Server
             injector.getInstance(optionalKey(OAuth2Client.class)).ifPresent(OAuth2Client::load);
 
             injector.getInstance(Announcer.class).start();
+
+            // wait for the updateConnectorIds announcement to get announced and read
+            waitForCatalogRegistration(injector, catalogHandles);
 
             injector.getInstance(StartupStatus.class).startupComplete();
 
@@ -221,29 +234,32 @@ public class Server
         return ImmutableList.of();
     }
 
-    private static void updateConnectorIds(Announcer announcer, CatalogManager catalogManager)
+    private static Set<CatalogHandle> updateCatalogHandleIds(Announcer announcer, CatalogManager catalogManager)
     {
         // get existing announcement
         ServiceAnnouncement announcement = getTrinoAnnouncement(announcer.getServiceAnnouncements());
 
-        // automatically build catalogHandleIds if not configured
-        String catalogHandleIds = catalogManager.getCatalogNames().stream()
+        // automatically build catalogHandles if not configured
+        Set<CatalogHandle> catalogHandles = catalogManager.getCatalogNames().stream()
                 .map(catalogManager::getCatalog)
                 .flatMap(Optional::stream)
                 .map(Catalog::getCatalogHandle)
-                .map(CatalogHandle::getId)
-                .distinct()
-                .sorted()
-                .collect(joining(","));
+                .collect(toImmutableSet());
 
         // build announcement with updated sources
         ServiceAnnouncementBuilder builder = serviceAnnouncement(announcement.getType());
         builder.addProperties(announcement.getProperties());
-        builder.addProperty("catalogHandleIds", catalogHandleIds);
+        builder.addProperty("catalogHandleIds", catalogHandles
+                .stream()
+                .map(CatalogHandle::getId)
+                .sorted()
+                .collect(joining(",")));
 
         // update announcement
         announcer.removeServiceAnnouncement(announcement.getId());
         announcer.addServiceAnnouncement(builder.build());
+
+        return catalogHandles;
     }
 
     private static ServiceAnnouncement getTrinoAnnouncement(Set<ServiceAnnouncement> announcements)
@@ -270,5 +286,33 @@ public class Server
             return;
         }
         log.info("%s: %s", name, path);
+    }
+
+    private static void waitForCatalogRegistration(Injector injector, Set<CatalogHandle> catalogHandles)
+            throws InterruptedException
+    {
+        // Wait until the DiscoveryNodeManager finds this own node as registered and having catalogs
+        // This signals that the DiscoveryNodeManager has received the connectorids announcement above
+        // This is necessary because we only want to say startup is complete when catalogs have been registered
+        // and there are several layers of async caches in between the Announcer and DiscoveryNodeManager
+        DiscoveryNodeManager nodeManager = injector.getInstance(DiscoveryNodeManager.class);
+        NodeConfig nodeConfig = injector.getInstance(NodeConfig.class);
+
+        // Since all catalogs get registered together, just wait for an arbitrary catalog to be registered
+        // NOTE: the system catalog gets registered by default, so ignore the system catalog
+        Set<CatalogHandle> catalogNamesWithoutSystem = Sets.difference(catalogHandles, ImmutableSet.of(GlobalSystemConnector.CATALOG_HANDLE));
+        Optional<CatalogHandle> waitForCatalog = catalogNamesWithoutSystem.stream().findFirst();
+        if (waitForCatalog.isEmpty()) {
+            return;
+        }
+        while (true) {
+            NodeMap nodeMap = nodeManager.createNodeMap(waitForCatalog);
+            for (Map.Entry<InetAddress, InternalNode> entry : nodeMap.getNodesByHost().entries()) {
+                if (entry.getValue().getNodeIdentifier().equals(nodeConfig.getNodeId())) {
+                    return;
+                }
+            }
+            Thread.sleep(1_000);
+        }
     }
 }

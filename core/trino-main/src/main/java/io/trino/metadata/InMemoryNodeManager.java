@@ -27,6 +27,7 @@ import javax.inject.Inject;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -139,6 +140,12 @@ public class InMemoryNodeManager
     public void refreshNodes()
     {
         // no-op
+    }
+
+    @Override
+    public NodeMap createNodeMap(Optional<CatalogHandle> catalogName)
+    {
+        return InternalNodeManager.createNodeMapInternal(this, catalogName, (unknownHostException, node) -> {});
     }
 
     @Override

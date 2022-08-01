@@ -17,6 +17,7 @@ import io.trino.execution.NodeTaskMap;
 import io.trino.execution.PartitionedSplitsInfo;
 import io.trino.execution.RemoteTask;
 import io.trino.metadata.InternalNode;
+import io.trino.metadata.NodeMap;
 import io.trino.spi.SplitWeight;
 
 import java.util.HashMap;

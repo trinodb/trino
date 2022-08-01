@@ -11,10 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.scheduler;
+package io.trino.metadata;
 
 import com.google.common.collect.SetMultimap;
-import io.trino.metadata.InternalNode;
+import io.trino.execution.scheduler.NetworkLocation;
 import io.trino.spi.HostAddress;
 
 import java.net.InetAddress;

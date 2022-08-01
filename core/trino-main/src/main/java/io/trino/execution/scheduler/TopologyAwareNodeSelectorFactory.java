@@ -27,6 +27,7 @@ import io.trino.connector.CatalogHandle;
 import io.trino.execution.NodeTaskMap;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.NodeMap;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 

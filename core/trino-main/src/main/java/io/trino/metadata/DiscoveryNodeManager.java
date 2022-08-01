@@ -14,6 +14,7 @@
 package io.trino.metadata;
 
 import com.google.common.base.Splitter;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -27,6 +28,7 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
+import io.trino.collect.cache.NonEvictableCache;
 import io.trino.connector.CatalogHandle;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.server.InternalCommunicationConfig;
@@ -55,6 +57,8 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.connector.system.GlobalSystemConnector.CATALOG_HANDLE;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static io.trino.metadata.NodeState.INACTIVE;
@@ -71,6 +75,10 @@ public final class DiscoveryNodeManager
     private static final Logger log = Logger.get(DiscoveryNodeManager.class);
 
     private static final Splitter CATALOG_HANDLE_ID_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+    private final NonEvictableCache<InternalNode, Object> inaccessibleNodeLogCache = buildNonEvictableCache(
+            CacheBuilder.newBuilder()
+                    .expireAfterWrite(30, TimeUnit.SECONDS));
+
     private final ServiceSelector serviceSelector;
     private final FailureDetector failureDetector;
     private final NodeVersion expectedNodeVersion;
@@ -362,6 +370,16 @@ public final class DiscoveryNodeManager
     }
 
     @Override
+    public synchronized NodeMap createNodeMap(Optional<CatalogHandle> catalogHandle)
+    {
+        return InternalNodeManager.createNodeMapInternal(this, catalogHandle, (unknownHostException, node) -> {
+            if (markInaccessibleNode(node)) {
+                log.warn(unknownHostException, "Unable to resolve host name for node: %s", node);
+            }
+        });
+    }
+
+    @Override
     public synchronized void addNodeChangeListener(Consumer<AllNodes> listener)
     {
         listeners.add(requireNonNull(listener, "listener is null"));
@@ -397,5 +415,14 @@ public final class DiscoveryNodeManager
     private static boolean isCoordinator(ServiceDescriptor service)
     {
         return Boolean.parseBoolean(service.getProperties().get("coordinator"));
+    }
+
+    /**
+     * Returns true if node has been marked as inaccessible, or false if it was known to be inaccessible.
+     */
+    private boolean markInaccessibleNode(InternalNode node)
+    {
+        Object marker = new Object();
+        return uncheckedCacheGet(inaccessibleNodeLogCache, node, () -> marker) == marker;
     }
 }
