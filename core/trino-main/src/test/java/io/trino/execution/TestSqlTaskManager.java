@@ -54,11 +54,15 @@ import io.trino.version.EmbedVersion;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import javax.annotation.concurrent.GuardedBy;
+
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
@@ -254,6 +258,7 @@ public class TestSqlTaskManager
 
     @Test
     public void testFailStuckSplitTasks()
+            throws InterruptedException, ExecutionException, TimeoutException
     {
         TestingTicker ticker = new TestingTicker();
 
@@ -270,6 +275,9 @@ public class TestSqlTaskManager
         taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(mockSplitRunner));
         taskExecutor.start();
 
+        // wait for the task executor to start processing the split
+        mockSplitRunner.waitForStart();
+
         TaskManagerConfig taskManagerConfig = new TaskManagerConfig()
                 .setInterruptStuckSplitTasksEnabled(true)
                 .setInterruptStuckSplitTasksDetectionInterval(new Duration(10, SECONDS))
@@ -277,11 +285,21 @@ public class TestSqlTaskManager
                 .setInterruptStuckSplitTasksTimeout(new Duration(10, SECONDS));
 
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(taskManagerConfig, new NodeMemoryConfig(), taskExecutor, stackTraceElements -> true)) {
+            sqlTaskManager.addStateChangeListener(TASK_ID, (state) -> {
+                if (state.isDone()) {
+                    taskExecutor.removeTask(taskHandle);
+                }
+            });
+
             ticker.increment(30, SECONDS);
             sqlTaskManager.failStuckSplitTasks();
 
+            mockSplitRunner.waitForFinish();
             assertEquals(sqlTaskManager.getAllTaskInfo().size(), 1);
             assertEquals(sqlTaskManager.getAllTaskInfo().get(0).getTaskStatus().getState(), TaskState.FAILED);
+        }
+        finally {
+            taskExecutor.stop();
         }
     }
 
@@ -451,17 +469,45 @@ public class TestSqlTaskManager
     private static class MockSplitRunner
             implements SplitRunner
     {
-        private SettableFuture<Boolean> interrupted = SettableFuture.create();
+        private final SettableFuture<Void> startedFuture = SettableFuture.create();
+        private final SettableFuture<Void> finishedFuture = SettableFuture.create();
+
+        @GuardedBy("this")
+        private Thread runnerThread;
+        @GuardedBy("this")
+        private boolean closed;
+
+        public void waitForStart()
+                throws ExecutionException, InterruptedException, TimeoutException
+        {
+            startedFuture.get(10, SECONDS);
+        }
+
+        public void waitForFinish()
+                throws ExecutionException, InterruptedException, TimeoutException
+        {
+            finishedFuture.get(10, SECONDS);
+        }
 
         @Override
-        public boolean isFinished()
+        public synchronized boolean isFinished()
         {
-            return interrupted.isDone();
+            return closed;
         }
 
         @Override
         public ListenableFuture<Void> processFor(Duration duration)
         {
+            startedFuture.set(null);
+            synchronized (this) {
+                runnerThread = Thread.currentThread();
+
+                if (closed) {
+                    finishedFuture.set(null);
+                    return immediateVoidFuture();
+                }
+            }
+
             while (true) {
                 try {
                     Thread.sleep(100000);
@@ -470,19 +516,29 @@ public class TestSqlTaskManager
                     break;
                 }
             }
-            interrupted.set(true);
+
+            synchronized (this) {
+                closed = true;
+            }
+            finishedFuture.set(null);
+
             return immediateVoidFuture();
         }
 
         @Override
         public String getInfo()
         {
-            return "";
+            return "MockSplitRunner";
         }
 
         @Override
-        public void close()
+        public synchronized void close()
         {
+            closed = true;
+
+            if (runnerThread != null) {
+                runnerThread.interrupt();
+            }
         }
     }
 
