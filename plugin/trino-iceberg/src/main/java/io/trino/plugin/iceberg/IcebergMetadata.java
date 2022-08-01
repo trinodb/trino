@@ -1189,7 +1189,7 @@ public class IcebergMetadata
     private void removeOrphanMetadataFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, long expireTimestamp)
     {
         ImmutableSet<String> manifests = stream(table.snapshots())
-                .flatMap(snapshot -> snapshot.allManifests().stream())
+                .flatMap(snapshot -> snapshot.allManifests(table.io()).stream())
                 .map(ManifestFile::path)
                 .collect(toImmutableSet());
         List<String> manifestLists = ReachableFileUtil.manifestListLocations(table);
@@ -1721,7 +1721,7 @@ public class IcebergMetadata
             Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
             Long snapshotId = table.getSnapshotId().orElseThrow(() -> new IllegalStateException("Snapshot id must be present"));
-            Set<Integer> partitionSpecIds = icebergTable.snapshot(snapshotId).allManifests().stream()
+            Set<Integer> partitionSpecIds = icebergTable.snapshot(snapshotId).allManifests(icebergTable.io()).stream()
                     .map(ManifestFile::partitionSpecId)
                     .collect(toImmutableSet());
 
