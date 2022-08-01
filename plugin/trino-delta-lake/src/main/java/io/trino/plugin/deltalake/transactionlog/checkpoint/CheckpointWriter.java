@@ -24,14 +24,11 @@ import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileS
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.RecordFileWriter;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.DateTimeEncoding;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
@@ -43,11 +40,9 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeSchemaProperties.buildHiveSchema;
 import static io.trino.plugin.hive.HiveCompressionCodec.SNAPPY;
@@ -55,11 +50,7 @@ import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.util.CompressionConfigUtil.configureCompression;
 import static io.trino.plugin.hive.util.ConfigurationUtils.toJobConf;
-import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
-import static io.trino.spi.type.TypeUtils.writeNativeValue;
-import static java.lang.Math.multiplyExact;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toMap;
 
 public class CheckpointWriter
 {
@@ -207,7 +198,7 @@ public class CheckpointWriter
         // stats to checkpoint and if addEntryFile contains parsed stats, we
         // will write parsed stats to the checkpoint.
         writeJsonStats(entryBlockBuilder, entryType, addFileEntry);
-        writeParsedStats(entryBlockBuilder, entryType, addFileEntry);
+        writeParsedStats(entryBlockBuilder, addFileEntry);
         writeStringMap(entryBlockBuilder, entryType, 7, "tags", addFileEntry.getTags());
         blockBuilder.closeEntry();
 
@@ -224,83 +215,11 @@ public class CheckpointWriter
         writeString(entryBlockBuilder, entryType, 5, "stats", statsJson);
     }
 
-    private void writeParsedStats(BlockBuilder entryBlockBuilder, RowType entryType, AddFileEntry addFileEntry)
+    private void writeParsedStats(BlockBuilder entryBlockBuilder, AddFileEntry addFileEntry)
     {
-        RowType statsType = getInternalRowType(entryType, 6, "stats_parsed");
         if (addFileEntry.getStats().isEmpty() || !(addFileEntry.getStats().get() instanceof DeltaLakeParquetFileStatistics)) {
             entryBlockBuilder.appendNull();
-            return;
         }
-        DeltaLakeParquetFileStatistics stats = (DeltaLakeParquetFileStatistics) addFileEntry.getStats().get();
-        BlockBuilder statsBlockBuilder = entryBlockBuilder.beginBlockEntry();
-
-        writeLong(statsBlockBuilder, statsType, 0, "numRecords", stats.getNumRecords().orElse(null));
-        writeMinMaxMapAsFields(statsBlockBuilder, statsType, 1, "minValues", stats.getMinValues());
-        writeMinMaxMapAsFields(statsBlockBuilder, statsType, 2, "maxValues", stats.getMaxValues());
-        writeObjectMapAsFields(statsBlockBuilder, statsType, 3, "nullCount", stats.getNullCount());
-        entryBlockBuilder.closeEntry();
-    }
-
-    private void writeMinMaxMapAsFields(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, Optional<Map<String, Object>> values)
-    {
-        RowType.Field valuesField = validateAndGetField(type, fieldId, fieldName);
-        RowType valuesFieldType = (RowType) valuesField.getType();
-        writeObjectMapAsFields(blockBuilder, type, fieldId, fieldName, preprocessMinMaxValues(valuesFieldType, values));
-    }
-
-    private void writeObjectMapAsFields(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, Optional<Map<String, Object>> values)
-    {
-        RowType.Field valuesField = validateAndGetField(type, fieldId, fieldName);
-        RowType valuesFieldType = (RowType) valuesField.getType();
-        BlockBuilder fieldBlockBuilder = blockBuilder.beginBlockEntry();
-        if (values.isEmpty()) {
-            blockBuilder.appendNull();
-        }
-        else {
-            for (RowType.Field valueField : valuesFieldType.getFields()) {
-                // anonymous row fields are not expected here
-                Object value = values.get().get(valueField.getName().orElseThrow());
-                if (valueField.getType() instanceof RowType) {
-                    Block rowBlock = (Block) value;
-                    checkState(rowBlock.getPositionCount() == 1, "Invalid RowType statistics for writing Delta Lake checkpoint");
-                    if (rowBlock.isNull(0)) {
-                        fieldBlockBuilder.appendNull();
-                    }
-                    else {
-                        valueField.getType().appendTo(rowBlock, 0, fieldBlockBuilder);
-                    }
-                }
-                else {
-                    writeNativeValue(valueField.getType(), fieldBlockBuilder, value);
-                }
-            }
-        }
-        blockBuilder.closeEntry();
-    }
-
-    private Optional<Map<String, Object>> preprocessMinMaxValues(RowType valuesType, Optional<Map<String, Object>> valuesOptional)
-    {
-        return valuesOptional.map(
-                values -> {
-                    Map<String, Type> fieldTypes = valuesType.getFields().stream().collect(toMap(
-                            // anonymous row fields are not expected here
-                            field -> field.getName().orElseThrow(),
-                            RowType.Field::getType));
-
-                    return values.entrySet().stream()
-                            .collect(toMap(
-                                    Map.Entry::getKey,
-                                    entry -> {
-                                        Type type = fieldTypes.get(entry.getKey());
-                                        Object value = entry.getValue();
-                                        if (type instanceof TimestampType) {
-                                            // We need to remap TIMESTAMP WITH TIME ZONE -> TIMESTAMP here because of
-                                            // inconsistency in what type is used for DL "timestamp" type in data processing and in min/max statistics map.
-                                            value = multiplyExact(DateTimeEncoding.unpackMillisUtc((long) value), MICROSECONDS_PER_MILLISECOND);
-                                        }
-                                        return value;
-                                    }));
-                });
     }
 
     private void writeRemoveFileEntry(PageBuilder pageBuilder, RowType entryType, RemoveFileEntry removeFileEntry)
