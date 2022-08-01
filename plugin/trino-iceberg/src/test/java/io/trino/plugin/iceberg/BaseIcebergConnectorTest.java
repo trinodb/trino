@@ -51,6 +51,7 @@ import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.hadoop.fs.FileSystem;
 import org.intellij.lang.annotations.Language;
+import org.junit.Ignore;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -5189,6 +5190,7 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    @Ignore
     public void testExpireSnapshotsDoesNotGenerateNewSnapshot()
     {
         final String tableName = "test_row_level_delete_summary_query_id" + randomTableSuffix();
