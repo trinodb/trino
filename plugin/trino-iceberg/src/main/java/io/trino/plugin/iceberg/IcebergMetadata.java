@@ -679,7 +679,7 @@ public class IcebergMetadata
         if (fragments.isEmpty()) {
             // Commit the transaction if the table is being created without data
             AppendFiles appendFiles = transaction.newFastAppend();
-            getExtraSummaryMetadata(session).forEach(appendFiles::set);
+            setCommonSnapshotMetadata(appendFiles, session);
             appendFiles.commit();
             transaction.commitTransaction();
             transaction = null;
@@ -787,7 +787,7 @@ public class IcebergMetadata
             cleanExtraOutputFiles(session, writtenFiles.build());
         }
 
-        getExtraSummaryMetadata(session).forEach(appendFiles::set);
+        setCommonSnapshotMetadata(appendFiles, session);
         appendFiles.commit();
         transaction.commitTransaction();
         transaction = null;
@@ -1082,7 +1082,7 @@ public class IcebergMetadata
         // Table.snapshot method returns null if there is no matching snapshot
         Snapshot snapshot = requireNonNull(icebergTable.snapshot(optimizeHandle.getSnapshotId()), "snapshot is null");
         rewriteFiles.validateFromSnapshot(snapshot.snapshotId());
-        getExtraSummaryMetadata(session).forEach(rewriteFiles::set);
+        setCommonSnapshotMetadata(rewriteFiles, session);
         rewriteFiles.commit();
         transaction.commitTransaction();
         transaction = null;
@@ -1294,7 +1294,8 @@ public class IcebergMetadata
         }
 
         try {
-            getExtraSummaryMetadata(session).forEach(updateProperties::set);
+            // UpdateProperties is not a SnapshotUpdaate<?> and they don't have the same `set` method.
+            getExtraSummaryMetadata(session, Optional.empty()).forEach(updateProperties::set);
             updateProperties.commit();
         }
         catch (RuntimeException e) {
@@ -1587,7 +1588,7 @@ public class IcebergMetadata
             }
 
             rowDelta.validateDataFilesExist(referencedDataFiles.build());
-            getExtraSummaryMetadata(session).forEach(rowDelta::set);
+            setCommonSnapshotMetadata(rowDelta, session);
             try {
                 rowDelta.commit();
             }
@@ -1616,7 +1617,7 @@ public class IcebergMetadata
             if (!fullyDeletedFiles.isEmpty()) {
                 DeleteFiles deleteFiles = transaction.newDelete();
                 fullyDeletedFiles.keySet().forEach(deleteFiles::deleteFile);
-                getExtraSummaryMetadata(session).forEach(deleteFiles::set);
+                setCommonSnapshotMetadata(deleteFiles, session);
                 deleteFiles.commit();
             }
             transaction.commitTransaction();
@@ -1696,7 +1697,7 @@ public class IcebergMetadata
         SnapshotUpdate<DeleteFiles> deleteBuilder = icebergTable.newDelete()
                 .deleteFromRowFilter(toIcebergExpression(handle.getEnforcedPredicate()));
 
-        getExtraSummaryMetadata(session).forEach(deleteBuilder::set);
+        setCommonSnapshotMetadata(deleteBuilder, session);
         deleteBuilder.commit();
 
         Map<String, String> summary = icebergTable.currentSnapshot().summary();
@@ -2035,7 +2036,7 @@ public class IcebergMetadata
 
         // Update the 'dependsOnTables' property that tracks tables on which the materialized view depends and the corresponding snapshot ids of the tables
         appendFiles.set(DEPENDS_ON_TABLES, dependencies);
-        getExtraSummaryMetadata(session).forEach(appendFiles::set);
+        setCommonSnapshotMetadata(appendFiles, session);
         appendFiles.commit();
 
         transaction.commitTransaction();
@@ -2092,8 +2093,12 @@ public class IcebergMetadata
         catalog.renameMaterializedView(session, source, target);
     }
 
-    // Information that should be added to every generated Iceberg snapshot, in its summary.
-    // TODO - Consider moving this to the catalog module (on commit).
+    public static SnapshotUpdate<?> setCommonSnapshotMetadata(SnapshotUpdate<?> update, ConnectorSession session)
+    {
+        getExtraSummaryMetadata(session, Optional.empty()).forEach(update::set);
+        return update;
+    }
+
     public static Map<String, String> getExtraSummaryMetadata(ConnectorSession session, Optional<String> trinoVersion)
     {
         ImmutableMap.Builder<String, String> snapshotSummary = ImmutableMap.<String, String>builder()
@@ -2103,11 +2108,6 @@ public class IcebergMetadata
         trinoVersion.ifPresent(version -> snapshotSummary.put(TRINO_VERSION, version));
 
         return snapshotSummary.buildOrThrow();
-    }
-
-    public static Map<String, String> getExtraSummaryMetadata(ConnectorSession session)
-    {
-        return getExtraSummaryMetadata(session, Optional.empty());
     }
 
     public Optional<TableToken> getTableToken(ConnectorSession session, ConnectorTableHandle tableHandle)
