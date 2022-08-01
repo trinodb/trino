@@ -132,6 +132,7 @@ public abstract class BaseTrinoCatalogTest
         String namespace = "test_create_table_" + randomNameSuffix();
         String table = "tableName";
         SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
+        Map<String, String> tableProperties = Map.of("test_key", "test_value");
         try {
             catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
             String tableLocation = arbitraryTableLocation(catalog, SESSION, schemaTableName);
@@ -141,7 +142,7 @@ public abstract class BaseTrinoCatalogTest
                             new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
                             PartitionSpec.unpartitioned(),
                             tableLocation,
-                            ImmutableMap.of())
+                            tableProperties)
                     .commitTransaction();
             assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(schemaTableName);
             assertThat(catalog.listTables(SESSION, Optional.empty())).contains(schemaTableName);
@@ -152,7 +153,7 @@ public abstract class BaseTrinoCatalogTest
             assertEquals(icebergTable.schema().columns().get(0).name(), "col1");
             assertEquals(icebergTable.schema().columns().get(0).type(), Types.LongType.get());
             assertEquals(icebergTable.location(), tableLocation);
-            assertEquals(icebergTable.properties(), ImmutableMap.of());
+            assertThat(icebergTable.properties()).containsAllEntriesOf(tableProperties);
 
             catalog.dropTable(SESSION, schemaTableName);
             assertThat(catalog.listTables(SESSION, Optional.of(namespace))).doesNotContain(schemaTableName);
