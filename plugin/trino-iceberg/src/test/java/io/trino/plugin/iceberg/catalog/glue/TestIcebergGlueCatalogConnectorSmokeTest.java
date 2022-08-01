@@ -111,8 +111,8 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     public void testShowCreateTable()
     {
         assertThat((String) computeScalar("SHOW CREATE TABLE region"))
-                .isEqualTo(format("" +
-                                "CREATE TABLE iceberg.%1$s.region (\n" +
+                .matches(format("" +
+                                "\\QCREATE TABLE iceberg.%1$s.region (\n" +
                                 "   regionkey bigint,\n" +
                                 "   name varchar,\n" +
                                 "   comment varchar\n" +
@@ -120,8 +120,8 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                                 "WITH (\n" +
                                 "   format = 'ORC',\n" +
                                 "   format_version = 2,\n" +
-                                "   location = '%2$s/%1$s.db/region'\n" +
-                                ")",
+                                "   location = '%2$s/%1$s.db/region-\\E.*\\Q'\n" +
+                                ")\\E",
                         schemaName,
                         schemaPath()));
     }
