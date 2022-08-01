@@ -363,9 +363,9 @@ public class TestSelect
         QueryResult orderedResult = onTrino()
                 .executeQuery(format(
                         "SELECT s_nationkey, s_suppkey, s_acctbal " +
-                                "FROM %s.%s.%s WHERE s_nationkey = 1 LIMIT 1", CONNECTOR_NAME, KEY_SPACE, mvName));
+                                "FROM %s.%s.%s ORDER BY s_nationkey LIMIT 1", CONNECTOR_NAME, KEY_SPACE, mvName));
         assertThat(orderedResult).containsOnly(
-                row(1, 3, 4192.4));
+                row(0, 24, 9170.71));
 
         onCassandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, mvName));
     }
