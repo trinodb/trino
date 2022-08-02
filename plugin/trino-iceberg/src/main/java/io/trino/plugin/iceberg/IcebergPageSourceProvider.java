@@ -176,7 +176,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.UuidType.UUID;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -783,13 +782,6 @@ public class IcebergPageSourceProvider
 
     private static Type getOrcReadType(Type columnType, TypeManager typeManager)
     {
-        if (columnType == UUID) {
-            // ORC spec doesn't have UUID
-            // TODO read into Int128ArrayBlock for better performance when operating on read values
-            // TODO: Validate that the OrcColumn attribute ICEBERG_BINARY_TYPE is equal to "UUID"
-            return VARBINARY;
-        }
-
         if (columnType instanceof ArrayType) {
             return new ArrayType(getOrcReadType(((ArrayType) columnType).getElementType(), typeManager));
         }

@@ -22,7 +22,9 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.Type;
+import io.trino.type.UuidOperators;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -46,6 +48,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -66,6 +69,8 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.UUID;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.nio.file.Files.createTempDirectory;
@@ -330,6 +335,42 @@ public class BenchmarkColumnReaders
         return pages;
     }
 
+    @Benchmark
+    public Object readUuidNoNull(UuidNoNullBenchmarkData data)
+            throws Exception
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            return readFirstColumn(recordReader);
+        }
+    }
+
+    @Benchmark
+    public Object readUuidWithNull(UuidWithNullBenchmarkData data)
+            throws Exception
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            return readFirstColumn(recordReader);
+        }
+    }
+
+    @Benchmark
+    public Object readVarbinaryUuidNoNull(VarbinaryUuidNoNullBenchmarkData data)
+            throws Exception
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            return readFirstColumn(recordReader);
+        }
+    }
+
+    @Benchmark
+    public Object readVarbinaryUuidWithNull(VarbinaryUuidWithNullBenchmarkData data)
+            throws Exception
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            return readFirstColumn(recordReader);
+        }
+    }
+
     private Object readFirstColumn(OrcRecordReader recordReader)
             throws IOException
     {
@@ -416,6 +457,7 @@ public class BenchmarkColumnReaders
 
                 "varchar",
                 "varbinary",
+                "uuid"
         })
         private String typeName;
 
@@ -991,6 +1033,100 @@ public class BenchmarkColumnReaders
                 }
                 else {
                     values.add(null);
+                }
+            }
+            return values.iterator();
+        }
+    }
+
+    @State(Thread)
+    public static class UuidNoNullBenchmarkData
+            extends BenchmarkData
+    {
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(UUID, createValues());
+        }
+
+        private Iterator<?> createValues()
+        {
+            List<UUID> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                values.add(java.util.UUID.randomUUID());
+            }
+            return values.iterator();
+        }
+    }
+
+    @State(Thread)
+    public static class UuidWithNullBenchmarkData
+            extends BenchmarkData
+    {
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(UUID, createValues());
+        }
+
+        private Iterator<?> createValues()
+        {
+            List<UUID> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                if (random.nextBoolean()) {
+                    values.add(null);
+                }
+                else {
+                    values.add(java.util.UUID.randomUUID());
+                }
+            }
+            return values.iterator();
+        }
+    }
+
+    @State(Thread)
+    public static class VarbinaryUuidNoNullBenchmarkData
+            extends BenchmarkData
+    {
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(VARBINARY, createValues());
+        }
+
+        private Iterator<?> createValues()
+        {
+            List<SqlVarbinary> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                values.add(new SqlVarbinary(UuidOperators.uuid().getBytes()));
+            }
+            return values.iterator();
+        }
+    }
+
+    @State(Thread)
+    public static class VarbinaryUuidWithNullBenchmarkData
+            extends BenchmarkData
+    {
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(VARBINARY, createValues());
+        }
+
+        private Iterator<?> createValues()
+        {
+            List<SqlVarbinary> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                if (random.nextBoolean()) {
+                    values.add(null);
+                }
+                else {
+                    values.add(new SqlVarbinary(UuidOperators.uuid().getBytes()));
                 }
             }
             return values.iterator();
