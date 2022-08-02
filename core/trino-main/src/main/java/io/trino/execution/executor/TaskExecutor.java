@@ -21,6 +21,7 @@ import io.airlift.concurrent.SetThreadName;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
+import io.airlift.stats.DistributionStat;
 import io.airlift.stats.TimeDistribution;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
@@ -153,6 +154,12 @@ public class TaskExecutor
     private final TimeStat blockedQuantaWallTime = new TimeStat(MICROSECONDS);
     private final TimeStat unblockedQuantaWallTime = new TimeStat(MICROSECONDS);
 
+    private final DistributionStat leafSplitsSize = new DistributionStat();
+    @GuardedBy("this")
+    private long lastLeafSplitsSizeRecordTime;
+    @GuardedBy("this")
+    private long lastLeafSplitsSize;
+
     private volatile boolean closed;
 
     @Inject
@@ -210,6 +217,7 @@ public class TaskExecutor
         this.maximumNumberOfDriversPerTask = maximumNumberOfDriversPerTask;
         this.waitingSplits = requireNonNull(splitQueue, "splitQueue is null");
         this.tasks = new LinkedList<>();
+        this.lastLeafSplitsSizeRecordTime = ticker.read();
     }
 
     @PostConstruct
@@ -279,6 +287,7 @@ public class TaskExecutor
 
         // replace blocked splits that were terminated
         addNewEntrants();
+        recordLeafSplitsSize();
     }
 
     private void doRemoveTask(TaskHandle taskHandle)
@@ -293,6 +302,7 @@ public class TaskExecutor
             intermediateSplits.removeAll(splits);
             blockedSplits.keySet().removeAll(splits);
             waitingSplits.removeAll(splits);
+            recordLeafSplitsSize();
         }
 
         // call destroy outside of synchronized block as it is expensive and doesn't need a lock on the task executor
@@ -343,6 +353,7 @@ public class TaskExecutor
 
                 finishedFutures.add(prioritizedSplitRunner.getFinishedFuture());
             }
+            recordLeafSplitsSize();
         }
         for (PrioritizedSplitRunner split : splitsToDestroy) {
             split.destroy();
@@ -378,6 +389,7 @@ public class TaskExecutor
             scheduleTaskIfNecessary(taskHandle);
 
             addNewEntrants();
+            recordLeafSplitsSize();
         }
         // call destroy outside of synchronized block as it is expensive and doesn't need a lock on the task executor
         split.destroy();
@@ -400,6 +412,7 @@ public class TaskExecutor
             startSplit(split);
             splitQueuedTime.add(Duration.nanosSince(split.getCreatedNanos()));
         }
+        recordLeafSplitsSize();
     }
 
     private synchronized void addNewEntrants()
@@ -457,6 +470,17 @@ public class TaskExecutor
             }
         }
         return null;
+    }
+
+    private synchronized void recordLeafSplitsSize()
+    {
+        long now = ticker.read();
+        long timeDifference = now - this.lastLeafSplitsSizeRecordTime;
+        if (timeDifference > 0) {
+            this.leafSplitsSize.add(lastLeafSplitsSize, timeDifference);
+            this.lastLeafSplitsSizeRecordTime = now;
+            this.lastLeafSplitsSize = allSplits.size() - intermediateSplits.size();
+        }
     }
 
     private class TaskRunner
@@ -575,6 +599,13 @@ public class TaskExecutor
     public int getWaitingSplits()
     {
         return waitingSplits.size();
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getLeafSplitsSize()
+    {
+        return leafSplitsSize;
     }
 
     @Managed
