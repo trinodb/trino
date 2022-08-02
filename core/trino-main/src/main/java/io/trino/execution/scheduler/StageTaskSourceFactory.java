@@ -512,7 +512,7 @@ public class StageTaskSourceFactory
                                     int bucket = bucketNodeMap.getBucket(split);
                                     int partition = getPartitionForBucket(bucket);
 
-                                    if (!bucketNodeMap.isDynamic()) {
+                                    {
                                         HostAddress requiredAddress = bucketNodeMap.getAssignedNode(split).getHostAndPort();
                                         Set<HostAddress> existingRequirement = partitionToNodeMap.get(partition);
                                         if (existingRequirement.isEmpty()) {
