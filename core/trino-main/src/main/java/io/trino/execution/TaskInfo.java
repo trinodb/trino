@@ -111,7 +111,7 @@ public class TaskInfo
     public TaskInfo summarize()
     {
         if (taskStatus.getState().isDone()) {
-            return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarizeFinal(), estimatedMemory, needsPlan);
+            return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarizeFinal(), noMoreSplits, stats.summarizeFinal(), estimatedMemory, needsPlan);
         }
         return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarize(), estimatedMemory, needsPlan);
     }
@@ -130,7 +130,7 @@ public class TaskInfo
         return new TaskInfo(
                 initialTaskStatus(taskId, location, nodeId),
                 DateTime.now(),
-                new OutputBufferInfo("UNINITIALIZED", OPEN, true, true, 0, 0, 0, 0, bufferStates),
+                new OutputBufferInfo("UNINITIALIZED", OPEN, true, true, 0, 0, 0, 0, bufferStates, Optional.empty()),
                 ImmutableSet.of(),
                 taskStats,
                 Optional.empty(),

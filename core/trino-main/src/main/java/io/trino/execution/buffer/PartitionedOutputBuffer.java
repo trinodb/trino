@@ -22,6 +22,7 @@ import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.execution.buffer.SerializedPageReference.PagesReleasedListener;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 
 import java.util.List;
 import java.util.Optional;
@@ -127,7 +128,8 @@ public class PartitionedOutputBuffer
                 totalBufferedPages,
                 totalRowsAdded.get(),
                 totalPagesAdded.get(),
-                infos.build());
+                infos.build(),
+                Optional.of(new TDigestHistogram(memoryManager.getUtilizationHistogram())));
     }
 
     @Override

@@ -86,7 +86,8 @@ public class SpoolingExchangeOutputBuffer
                 totalPagesAdded.get(),
                 totalRowsAdded.get(),
                 totalPagesAdded.get(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                Optional.empty());
     }
 
     @Override
