@@ -16,9 +16,11 @@ package io.trino.execution.buffer;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -33,6 +35,7 @@ public final class OutputBufferInfo
     private final long totalRowsSent;
     private final long totalPagesSent;
     private final List<BufferInfo> buffers;
+    private final Optional<TDigestHistogram> utilization;
 
     @JsonCreator
     public OutputBufferInfo(
@@ -44,7 +47,8 @@ public final class OutputBufferInfo
             @JsonProperty("totalBufferedPages") long totalBufferedPages,
             @JsonProperty("totalRowsSent") long totalRowsSent,
             @JsonProperty("totalPagesSent") long totalPagesSent,
-            @JsonProperty("buffers") List<BufferInfo> buffers)
+            @JsonProperty("buffers") List<BufferInfo> buffers,
+            @JsonProperty("utilization") Optional<TDigestHistogram> utilization)
     {
         this.type = type;
         this.state = state;
@@ -55,6 +59,7 @@ public final class OutputBufferInfo
         this.totalRowsSent = totalRowsSent;
         this.totalPagesSent = totalPagesSent;
         this.buffers = ImmutableList.copyOf(buffers);
+        this.utilization = utilization;
     }
 
     @JsonProperty
@@ -111,9 +116,20 @@ public final class OutputBufferInfo
         return totalPagesSent;
     }
 
+    @JsonProperty
+    public Optional<TDigestHistogram> getUtilization()
+    {
+        return utilization;
+    }
+
     public OutputBufferInfo summarize()
     {
-        return new OutputBufferInfo(type, state, canAddBuffers, canAddPages, totalBufferedBytes, totalBufferedPages, totalRowsSent, totalPagesSent, ImmutableList.of());
+        return new OutputBufferInfo(type, state, canAddBuffers, canAddPages, totalBufferedBytes, totalBufferedPages, totalRowsSent, totalPagesSent, ImmutableList.of(), Optional.empty());
+    }
+
+    public OutputBufferInfo summarizeFinal()
+    {
+        return new OutputBufferInfo(type, state, canAddBuffers, canAddPages, totalBufferedBytes, totalBufferedPages, totalRowsSent, totalPagesSent, ImmutableList.of(), utilization);
     }
 
     @Override
@@ -134,13 +150,14 @@ public final class OutputBufferInfo
                 Objects.equals(totalRowsSent, that.totalRowsSent) &&
                 Objects.equals(totalPagesSent, that.totalPagesSent) &&
                 state == that.state &&
-                Objects.equals(buffers, that.buffers);
+                Objects.equals(buffers, that.buffers) &&
+                Objects.equals(utilization, that.utilization);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(state, canAddBuffers, canAddPages, totalBufferedBytes, totalBufferedPages, totalRowsSent, totalPagesSent, buffers);
+        return Objects.hash(state, canAddBuffers, canAddPages, totalBufferedBytes, totalBufferedPages, totalRowsSent, totalPagesSent, buffers, utilization);
     }
 
     @Override
@@ -156,6 +173,7 @@ public final class OutputBufferInfo
                 .add("totalRowsSent", totalRowsSent)
                 .add("totalPagesSent", totalPagesSent)
                 .add("buffers", buffers)
+                .add("bufferUtilization", utilization)
                 .toString();
     }
 }
