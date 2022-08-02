@@ -1505,20 +1505,6 @@ class StatementAnalyzer
             TableFunctionAnalysis functionAnalysis = function.analyze(session.toConnectorSession(catalogHandle), transactionHandle, passedArguments);
             analysis.setTableFunctionAnalysis(node, new TableFunctionInvocationAnalysis(catalogHandle, function.getName(), passedArguments, functionAnalysis.getHandle(), transactionHandle));
 
-            // TODO handle the DescriptorMapping descriptorsToTables mapping from the TableFunction.Analysis:
-            // This is a mapping of descriptor arguments to table arguments. It consists of two parts:
-            // - mapping by descriptor field: (arg name of descriptor argument, and position in the descriptor) to (arg name of table argument)
-            // - mapping by descriptor: (arg name of descriptor argument) to (arg name of table argument)
-            // 1. get the DescriptorField from the designated DescriptorArgument (or all fields for mapping by descriptor)
-            // 2. validate there is no DataType specified,
-            // 3. analyze the Identifier in the scope of the designated table (it is recorded, because args were already analyzed). Disable correlation.
-            // 4. at this point, the Identifier should be recorded as a column reference to the appropriate table
-            // 5. record the mapping NameAndPosition -> Identifier
-            // ... later translate Identifier to Symbol in Planner, and eventually translate it to channel before execution
-            if (!functionAnalysis.getDescriptorMapping().isEmpty()) {
-                throw semanticException(NOT_SUPPORTED, node, "Table arguments are not yet supported for table functions");
-            }
-
             // TODO process the copartitioning:
             // 1. validate input table references
             // 2. the copartitioned tables in each set must be partitioned, and have the same number of partitioning columns
