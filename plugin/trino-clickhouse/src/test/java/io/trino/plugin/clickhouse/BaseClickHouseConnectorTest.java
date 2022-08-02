@@ -544,6 +544,15 @@ public abstract class BaseClickHouseConnectorTest
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
             assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
         }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "not_null_no_cast", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
+            assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
+            // This is enforced by the engine and not the connector
+            assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+            assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (TRY(5/0), 4)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+            assertQueryFails(format("INSERT INTO %s (not_null_col) VALUES (TRY(6/0))", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+        }
     }
 
     @Override

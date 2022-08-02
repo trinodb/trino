@@ -123,6 +123,7 @@ import static com.google.common.collect.Streams.zip;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
@@ -451,29 +452,31 @@ public class LogicalPlanner
                 continue;
             }
             Symbol output = symbolAllocator.newSymbol(column.getName(), column.getType());
+            Expression expression;
+            Type tableType = column.getType();
             int index = insertColumns.indexOf(columns.get(column.getName()));
             if (index < 0) {
                 if (supportsMissingColumnsOnInsert) {
                     continue;
                 }
-                Expression cast = new Cast(new NullLiteral(), toSqlType(column.getType()));
-                assignments.put(output, cast);
-                insertedColumnsBuilder.add(column);
+                expression = new Cast(new NullLiteral(), toSqlType(column.getType()));
             }
             else {
                 Symbol input = visibleFieldMappings.get(index);
-                Type tableType = column.getType();
                 Type queryType = symbolAllocator.getTypes().get(input);
 
                 if (queryType.equals(tableType) || typeCoercion.isTypeOnlyCoercion(queryType, tableType)) {
-                    assignments.put(output, input.toSymbolReference());
+                    expression = input.toSymbolReference();
                 }
                 else {
-                    Expression cast = noTruncationCast(input.toSymbolReference(), queryType, tableType);
-                    assignments.put(output, cast);
+                    expression = noTruncationCast(input.toSymbolReference(), queryType, tableType);
                 }
-                insertedColumnsBuilder.add(column);
             }
+            if (!column.isNullable()) {
+                expression = new CoalesceExpression(expression, createNullNotAllowedFailExpression(column.getName(), tableType));
+            }
+            assignments.put(output, expression);
+            insertedColumnsBuilder.add(column);
         }
 
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
@@ -530,6 +533,13 @@ public class LogicalPlanner
                 insertedColumns,
                 newTableLayout,
                 statisticsMetadata);
+    }
+
+    private Expression createNullNotAllowedFailExpression(String columnName, Type type)
+    {
+        return new Cast(failFunction(metadata, session, INVALID_ARGUMENTS, format(
+                "NULL value not allowed for NOT NULL column: %s",
+                columnName)), toSqlType(type));
     }
 
     private static Function<Expression, Expression> failIfPredicateIsNotMet(Metadata metadata, Session session, ErrorCodeSupplier errorCode, String errorMessage)
