@@ -103,13 +103,12 @@ public class TestIcebergReadVersionedTable
 
     private long getLatestSnapshotId(String tableName)
     {
-        return (long) computeActual(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1", tableName))
-                .getOnlyValue();
+        return (long) computeScalar(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", tableName));
     }
 
     private long getCommittedAtInEpochMilliSeconds(String tableName, long snapshotId)
     {
-        return ((ZonedDateTime) computeActual(format("SELECT committed_at FROM \"%s$snapshots\" WHERE snapshot_id=%s LIMIT 1", tableName, snapshotId)).getOnlyValue())
+        return ((ZonedDateTime) computeScalar(format("SELECT committed_at FROM \"%s$snapshots\" WHERE snapshot_id=%s", tableName, snapshotId)))
                 .toInstant().toEpochMilli();
     }
 

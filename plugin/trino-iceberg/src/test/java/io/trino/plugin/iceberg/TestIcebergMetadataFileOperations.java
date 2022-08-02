@@ -355,8 +355,7 @@ public class TestIcebergMetadataFileOperations
 
     private long getLatestSnapshotId(String tableName)
     {
-        return (long) computeActual(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1", tableName))
-                .getOnlyValue();
+        return (long) computeScalar(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", tableName));
     }
 
     static class FileOperation
