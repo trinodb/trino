@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.Future;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -496,6 +497,30 @@ public class TestTaskExecutor
         finally {
             taskExecutor.stop();
         }
+    }
+
+    @Test
+    public void testLeafSplitsSize()
+    {
+        MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
+        TestingTicker ticker = new TestingTicker();
+        TaskExecutor taskExecutor = new TaskExecutor(4, 1, 2, 2, splitQueue, ticker);
+
+        TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId(new StageId("test", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+        TestingJob driver1 = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 500);
+        TestingJob driver2 = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 1000 / 500);
+
+        ticker.increment(1, TimeUnit.SECONDS);
+        taskExecutor.enqueueSplits(testTaskHandle, false, ImmutableList.of(driver1, driver2));
+        assertEquals(taskExecutor.getLeafSplitsSize().getAllTime().getMax(), 0.0);
+
+        ticker.increment(1, TimeUnit.SECONDS);
+        taskExecutor.enqueueSplits(testTaskHandle, false, ImmutableList.of(driver1));
+        assertEquals(taskExecutor.getLeafSplitsSize().getAllTime().getMax(), 2.0);
+
+        ticker.increment(1, TimeUnit.SECONDS);
+        taskExecutor.enqueueSplits(testTaskHandle, true, ImmutableList.of(driver1));
+        assertEquals(taskExecutor.getLeafSplitsSize().getAllTime().getMax(), 2.0);
     }
 
     private void assertSplitStates(int endIndex, TestingJob[] splits)
