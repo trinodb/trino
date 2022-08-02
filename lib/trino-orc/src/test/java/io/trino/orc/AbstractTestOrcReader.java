@@ -37,6 +37,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
@@ -60,11 +61,13 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.nCopies;
+import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 
@@ -505,6 +508,27 @@ public abstract class AbstractTestOrcReader
             throws Exception
     {
         tester.testRoundTrip(VARBINARY, nCopies(30_000, new SqlVarbinary(new byte[0])));
+    }
+
+    @Test
+    public void testUuidDirectSequence()
+            throws Exception
+    {
+        tester.testRoundTrip(
+                UUID,
+                intsBetween(0, 30_000).stream()
+                        .map(i -> randomUUID())
+                        .collect(toList()));
+    }
+
+    @Test
+    public void testUuidDictionarySequence()
+            throws Exception
+    {
+        tester.testRoundTrip(
+                UUID, ImmutableList.copyOf(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)).stream()
+                        .map(i -> new UUID(i, i))
+                        .collect(toList()));
     }
 
     private static <T> Iterable<T> skipEvery(int n, Iterable<T> iterable)
