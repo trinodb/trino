@@ -423,9 +423,9 @@ public class TestIcebergV2
 
         assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
         // Ensure only one snapshot is committed to the table
-        Long initialSnapshotId = (Long) computeActual("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1").getOnlyValue();
+        long initialSnapshotId = (long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey < 10", 25);
-        Long parentSnapshotId = (Long) computeActual("SELECT parent_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1").getOnlyValue();
+        long parentSnapshotId = (long) computeScalar("SELECT parent_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
         assertEquals(initialSnapshotId, parentSnapshotId);
         assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
         assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(0);
@@ -439,9 +439,9 @@ public class TestIcebergV2
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
         assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
         // Ensure only one snapshot is committed to the table
-        Long initialSnapshotId = (Long) computeActual("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1").getOnlyValue();
+        long initialSnapshotId = (long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey % 2 = 1", "SELECT count(*) FROM nation WHERE regionkey % 2 = 1");
-        Long parentSnapshotId = (Long) computeActual("SELECT parent_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1").getOnlyValue();
+        long parentSnapshotId = (long) computeScalar("SELECT parent_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
         assertEquals(initialSnapshotId, parentSnapshotId);
 
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey % 2 = 0", "SELECT count(*) FROM nation WHERE regionkey % 2 = 0");
