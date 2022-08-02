@@ -65,6 +65,7 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
@@ -235,6 +236,8 @@ public class Analysis
 
     private Optional<TableExecuteHandle> tableExecuteHandle = Optional.empty();
 
+    // names of tables and aliased relations. All names are resolved case-insensitive.
+    private final Map<NodeRef<Relation>, QualifiedName> relationNames = new LinkedHashMap<>();
     private final Map<NodeRef<TableFunctionInvocation>, TableFunctionInvocationAnalysis> tableFunctionAnalyses = new LinkedHashMap<>();
 
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, QueryType queryType)
@@ -1217,6 +1220,16 @@ public class Analysis
     public TableFunctionInvocationAnalysis getTableFunctionAnalysis(TableFunctionInvocation node)
     {
         return tableFunctionAnalyses.get(NodeRef.of(node));
+    }
+
+    public void setRelationName(Relation relation, QualifiedName name)
+    {
+        relationNames.put(NodeRef.of(relation), name);
+    }
+
+    public QualifiedName getRelationName(Relation relation)
+    {
+        return relationNames.get(NodeRef.of(relation));
     }
 
     private boolean isInputTable(Table table)
