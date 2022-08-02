@@ -15,12 +15,14 @@ package io.trino.plugin.pinot;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
+import org.apache.commons.lang3.StringUtils;
 
 import javax.annotation.PostConstruct;
 import javax.validation.constraints.AssertTrue;
@@ -29,6 +31,7 @@ import javax.validation.constraints.NotNull;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -47,6 +50,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 public class PinotConfig
 {
     private static final Splitter LIST_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings();
+    private static final Splitter.MapSplitter MAP_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings().withKeyValueSeparator(":");
 
     private List<URI> controllerUrls = ImmutableList.of();
 
@@ -65,6 +69,7 @@ public class PinotConfig
     private boolean countDistinctPushdownEnabled = true;
     private boolean grpcEnabled = true;
     private DataSize targetSegmentPageSize = DataSize.of(1, MEGABYTE);
+    private Map<String, String> extraHttpHeaders = ImmutableMap.of();
 
     @NotEmpty(message = "pinot.controller-urls cannot be empty")
     public List<URI> getControllerUrls()
@@ -257,12 +262,29 @@ public class PinotConfig
         return this;
     }
 
+    @NotNull
+    public Map<String, String> getExtraHttpHeaders()
+    {
+        return extraHttpHeaders;
+    }
+
+    @Config("pinot.extra-http-headers")
+    public PinotConfig setExtraHttpHeaders(String headers)
+    {
+        extraHttpHeaders = ImmutableMap.copyOf(MAP_SPLITTER.split(headers));
+        return this;
+    }
+
     @PostConstruct
     public void validate()
     {
         checkState(
                 !countDistinctPushdownEnabled || aggregationPushdownEnabled,
                 "Invalid configuration: pinot.aggregation-pushdown.enabled must be enabled if pinot.count-distinct-pushdown.enabled");
+        extraHttpHeaders.forEach((k, v) -> {
+            checkState(!StringUtils.isNotEmpty(v), "Found null value in extraHttpHeaders for key: " + k);
+            checkState(!StringUtils.isNotEmpty(k), "Found empty key in extraHttpHeaders");
+        });
     }
 
     @AssertTrue(message = "All controller URLs must have the same scheme")

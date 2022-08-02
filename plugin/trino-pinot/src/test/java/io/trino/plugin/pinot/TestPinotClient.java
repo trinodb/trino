@@ -13,32 +13,42 @@
  */
 package io.trino.plugin.pinot;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.net.HttpHeaders;
 import com.google.common.net.MediaType;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.units.Duration;
+import io.trino.plugin.pinot.auth.PinotAuthenticationProvider;
 import io.trino.plugin.pinot.auth.PinotBrokerAuthenticationProvider;
 import io.trino.plugin.pinot.auth.PinotControllerAuthenticationProvider;
 import io.trino.plugin.pinot.auth.none.PinotEmptyAuthenticationProvider;
+import io.trino.plugin.pinot.auth.password.PinotPasswordAuthenticationProvider;
 import io.trino.plugin.pinot.client.IdentityPinotHostMapper;
 import io.trino.plugin.pinot.client.PinotClient;
-import io.trino.testing.assertions.Assert;
 import org.testng.annotations.Test;
 
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPinotClient
 {
     @Test
     public void testBrokersParsed()
     {
-        HttpClient httpClient = new TestingHttpClient(request -> TestingResponse.mockResponse(HttpStatus.OK, MediaType.JSON_UTF_8, "{\n" +
+        HttpClient httpClient = new TestingHttpClient(request -> {
+            assertThat(request.getHeaders().get("k1").get(0)).isEqualTo("v1");
+            assertThat(request.getHeaders().get("k2").get(0)).isEqualTo("v2");
+            assertThat(request.getHeaders().get("k3").get(0)).isEqualTo("some random v3");
+            return TestingResponse.mockResponse(HttpStatus.OK, MediaType.JSON_UTF_8, "{\n" +
                 "  \"tableName\": \"dummy\",\n" +
                 "  \"brokers\": [\n" +
                 "    {\n" +
@@ -76,10 +86,12 @@ public class TestPinotClient
                 "      ]\n" +
                 "    }\n" +
                 "  ]\n" +
-                "}"));
+                "}");
+        });
         PinotConfig pinotConfig = new PinotConfig()
                 .setMetadataCacheExpiry(new Duration(1, TimeUnit.MILLISECONDS))
-                .setControllerUrls("localhost:7900");
+                .setControllerUrls("localhost:7900")
+                .setExtraHttpHeaders("k1:v1,k2:v2,k3:some random v3");
         PinotClient pinotClient = new PinotClient(
                 pinotConfig,
                 new IdentityPinotHostMapper(),
@@ -92,6 +104,26 @@ public class TestPinotClient
                 PinotControllerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()),
                 PinotBrokerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()));
         ImmutableSet<String> brokers = ImmutableSet.copyOf(pinotClient.getAllBrokersForTable("dummy"));
-        Assert.assertEquals(ImmutableSet.of("dummy-broker-host1-datacenter1:6513", "dummy-broker-host2-datacenter1:6513", "dummy-broker-host3-datacenter1:6513", "dummy-broker-host4-datacenter1:6513"), brokers);
+        assertThat(ImmutableSet.of("dummy-broker-host1-datacenter1:6513", "dummy-broker-host2-datacenter1:6513", "dummy-broker-host3-datacenter1:6513", "dummy-broker-host4-datacenter1:6513")).isEqualTo(brokers);
+    }
+
+    @Test
+    public void testBuildAdditionalHeaders()
+    {
+        Map<String, String> extraHttpHeaders = ImmutableMap.of("k1", "v1", "k2", "value with space");
+        PinotAuthenticationProvider authProvider = new PinotPasswordAuthenticationProvider("user", "password");
+        ImmutableMultimap<String, String> headers = PinotClient.buildAdditionalHeaders(authProvider, extraHttpHeaders).build();
+        assertThat(headers.get("k1").iterator().next()).isEqualTo("v1");
+        assertThat(headers.get("k2").iterator().next()).isEqualTo("value with space");
+        assertThat(headers.get(HttpHeaders.AUTHORIZATION).iterator().next()).isEqualTo("Basic dXNlcjpwYXNzd29yZA==");
+    }
+
+    @Test(expectedExceptions = PinotException.class)
+    @SuppressWarnings("CheckReturnValue")
+    public void testBuildAdditionalHeadersWithAuthorizationException()
+    {
+        Map<String, String> extraHttpHeaders = ImmutableMap.of("k1", "v1", HttpHeaders.AUTHORIZATION, "some random auth");
+        PinotAuthenticationProvider authProvider = new PinotPasswordAuthenticationProvider("user", "password");
+        PinotClient.buildAdditionalHeaders(authProvider, extraHttpHeaders).build();
     }
 }

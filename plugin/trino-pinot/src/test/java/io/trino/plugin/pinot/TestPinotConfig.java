@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.testing.assertions.Assert;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -47,7 +48,8 @@ public class TestPinotConfig
                         .setAggregationPushdownEnabled(true)
                         .setCountDistinctPushdownEnabled(true)
                         .setGrpcEnabled(true)
-                        .setTargetSegmentPageSize(DataSize.of(1, MEGABYTE)));
+                        .setTargetSegmentPageSize(DataSize.of(1, MEGABYTE))
+                        .setExtraHttpHeaders(""));
     }
 
     @Test
@@ -68,6 +70,7 @@ public class TestPinotConfig
                 .put("pinot.count-distinct-pushdown.enabled", "false")
                 .put("pinot.grpc.enabled", "false")
                 .put("pinot.target-segment-page-size", "2MB")
+                .put("pinot.extra-http-headers", "k1:v1,k2:v2,k3:some random v3")
                 .buildOrThrow();
 
         PinotConfig expected = new PinotConfig()
@@ -84,9 +87,19 @@ public class TestPinotConfig
                 .setAggregationPushdownEnabled(false)
                 .setCountDistinctPushdownEnabled(false)
                 .setGrpcEnabled(false)
-                .setTargetSegmentPageSize(DataSize.of(2, MEGABYTE));
+                .setTargetSegmentPageSize(DataSize.of(2, MEGABYTE))
+                .setExtraHttpHeaders("k1:v1,k2:v2,k3:some random v3");
 
         ConfigAssertions.assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testExtraHttpMetadata()
+    {
+        PinotConfig pinotConfig = new PinotConfig().setExtraHttpHeaders("k1:v1,k2:v2,k3:some random v3");
+        Assert.assertEquals("v1", pinotConfig.getExtraHttpHeaders().get("k1"));
+        Assert.assertEquals("v2", pinotConfig.getExtraHttpHeaders().get("k2"));
+        Assert.assertEquals("some random v3", pinotConfig.getExtraHttpHeaders().get("k3"));
     }
 
     @Test

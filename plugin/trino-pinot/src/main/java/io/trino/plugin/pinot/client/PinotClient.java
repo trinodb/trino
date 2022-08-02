@@ -46,6 +46,7 @@ import io.trino.plugin.pinot.PinotErrorCode;
 import io.trino.plugin.pinot.PinotException;
 import io.trino.plugin.pinot.PinotInsufficientServerResponseException;
 import io.trino.plugin.pinot.PinotSessionProperties;
+import io.trino.plugin.pinot.auth.PinotAuthenticationProvider;
 import io.trino.plugin.pinot.auth.PinotBrokerAuthenticationProvider;
 import io.trino.plugin.pinot.auth.PinotControllerAuthenticationProvider;
 import io.trino.plugin.pinot.query.PinotQueryInfo;
@@ -92,6 +93,7 @@ import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_AMBIGUOUS_TABLE_NAME;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
+import static io.trino.plugin.pinot.PinotErrorCode.PINOT_HTTP_ERROR;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_BROKER;
 import static io.trino.plugin.pinot.PinotMetadata.SCHEMA_NAME;
 import static java.lang.String.format;
@@ -122,6 +124,7 @@ public class PinotClient
     private final HttpClient httpClient;
     private final PinotHostMapper pinotHostMapper;
     private final String scheme;
+    private final Map<String, String> extraHttpHeaders;
 
     private final NonEvictableLoadingCache<String, List<String>> brokersForTableCache;
     private final NonEvictableLoadingCache<Object, Multimap<String, String>> allTablesCache;
@@ -159,6 +162,7 @@ public class PinotClient
 
         this.controllerUrls = config.getControllerUrls();
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.extraHttpHeaders = config.getExtraHttpHeaders();
         this.brokersForTableCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
                         .expireAfterWrite(config.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS),
@@ -200,7 +204,7 @@ public class PinotClient
         }
         catch (UnexpectedResponseException e) {
             throw new PinotException(
-                    PinotErrorCode.PINOT_HTTP_ERROR,
+                    PINOT_HTTP_ERROR,
                     Optional.empty(),
                     format(
                             "Unexpected response status: %d for request %s to url %s, with headers %s, full response %s",
@@ -215,8 +219,7 @@ public class PinotClient
 
     private <T> T sendHttpGetToControllerJson(String path, JsonCodec<T> codec)
     {
-        ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
-        controllerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
+        ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = buildAdditionalHeaders(controllerAuthenticationProvider, extraHttpHeaders);
         URI controllerPathUri = uriBuilderFrom(getControllerUrl()).appendPath(path).scheme(scheme).build();
         return doHttpActionWithHeadersJson(
                 Request.Builder.prepareGet().setUri(controllerPathUri),
@@ -227,8 +230,7 @@ public class PinotClient
 
     private <T> T sendHttpGetToBrokerJson(String table, String path, JsonCodec<T> codec)
     {
-        ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
-        brokerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
+        ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = buildAdditionalHeaders(brokerAuthenticationProvider, extraHttpHeaders);
         URI brokerPathUri = HttpUriBuilder.uriBuilder()
                 .hostAndPort(HostAndPort.fromString(getBrokerHost(table)))
                 .scheme(scheme)
@@ -239,6 +241,21 @@ public class PinotClient
                 Optional.empty(),
                 codec,
                 additionalHeadersBuilder.build());
+    }
+
+    public static ImmutableMultimap.Builder<String, String> buildAdditionalHeaders(PinotAuthenticationProvider authenticationProvider, Map<String, String> extraHttpHeaders)
+    {
+        Optional<String> authenticationToken = authenticationProvider.getAuthenticationToken();
+        if (authenticationToken.isPresent() && extraHttpHeaders.containsKey(AUTHORIZATION)) {
+            throw new PinotException(
+                    PINOT_HTTP_ERROR,
+                    Optional.empty(),
+                    format("Duplicated Authorization header found in extra http header config when Pinot authentication is enabled."));
+        }
+        ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
+        authenticationToken.ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
+        extraHttpHeaders.forEach((k, v) -> additionalHeadersBuilder.put(k, v));
+        return additionalHeadersBuilder;
     }
 
     private URI getControllerUrl()
@@ -544,8 +561,7 @@ public class PinotClient
             LOG.info("Query '%s' on broker host '%s'", query.getQuery(), queryPathUri);
             Request.Builder builder = Request.Builder.preparePost().setUri(queryPathUri);
 
-            ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
-            brokerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
+            ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = buildAdditionalHeaders(brokerAuthenticationProvider, extraHttpHeaders);
             BrokerResponseNative response = doHttpActionWithHeadersJson(builder, Optional.of(queryRequest), brokerResponseCodec,
                     additionalHeadersBuilder.build());
 

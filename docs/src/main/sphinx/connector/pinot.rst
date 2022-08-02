@@ -74,6 +74,11 @@ Property name                                             Required   Description
 ``pinot.aggregation-pushdown.enabled``                    No         Push down aggregation queries, default is ``true``.
 ``pinot.count-distinct-pushdown.enabled``                 No         Push down count distinct queries to Pinot, default is ``true``.
 ``pinot.target-segment-page-size``                        No         Max allowed page size for segment query, default is ``1MB``.
+``pinot.extra-http-headers``                              No         Extra headers when sending HTTP based pinot requests to Pinot controller/broker.
+                                                                     Headers are comma-separated, and each header key value pair is colon-separated,
+                                                                     e.g. ``k1:v1,k2:v2,k3:v3 with space`` with space, default is an empty map. Note
+                                                                     that if controller/broker authentications is enabled and ``Authorization`` header
+                                                                     is set, an exception will raise.
 ========================================================= ========== ==============================================================================
 
 If ``pinot.controller.authentication.type`` is set to ``PASSWORD`` then both ``pinot.controller.authentication.user`` and
