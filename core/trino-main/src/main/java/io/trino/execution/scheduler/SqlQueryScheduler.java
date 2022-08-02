@@ -1438,8 +1438,7 @@ public class SqlQueryScheduler
             List<InternalNode> stageNodeList;
             if (fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)) {
                 // no remote source
-                bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, false);
-
+                bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle);
                 stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(session, catalogHandle).allNodes());
                 Collections.shuffle(stageNodeList);
             }
@@ -1892,30 +1891,21 @@ public class SqlQueryScheduler
                 return new BucketToPartition(Optional.of(IntStream.range(0, partitionCount).toArray()), Optional.empty());
             }
             if (partitioningHandle.getCatalogHandle().isPresent()) {
-                BucketNodeMap bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, true);
+                BucketNodeMap bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle);
                 int bucketCount = bucketNodeMap.getBucketCount();
                 int[] bucketToPartition = new int[bucketCount];
-                if (bucketNodeMap.isDynamic()) {
-                    int nextPartitionId = 0;
-                    for (int bucket = 0; bucket < bucketCount; bucket++) {
-                        bucketToPartition[bucket] = nextPartitionId % partitionCount;
+                // make sure all buckets mapped to the same node map to the same partition, such that locality requirements are respected in scheduling
+                Map<InternalNode, Integer> nodeToPartition = new HashMap<>();
+                int nextPartitionId = 0;
+                for (int bucket = 0; bucket < bucketCount; bucket++) {
+                    InternalNode node = bucketNodeMap.getAssignedNode(bucket);
+                    Integer partitionId = nodeToPartition.get(node);
+                    if (partitionId == null) {
+                        partitionId = nextPartitionId;
                         nextPartitionId++;
+                        nodeToPartition.put(node, partitionId);
                     }
-                }
-                else {
-                    // make sure all buckets mapped to the same node map to the same partition, such that locality requirements are respected in scheduling
-                    Map<InternalNode, Integer> nodeToPartition = new HashMap<>();
-                    int nextPartitionId = 0;
-                    for (int bucket = 0; bucket < bucketCount; bucket++) {
-                        InternalNode node = bucketNodeMap.getAssignedNode(bucket);
-                        Integer partitionId = nodeToPartition.get(node);
-                        if (partitionId == null) {
-                            partitionId = nextPartitionId;
-                            nextPartitionId++;
-                            nodeToPartition.put(node, partitionId);
-                        }
-                        bucketToPartition[bucket] = partitionId;
-                    }
+                    bucketToPartition[bucket] = partitionId;
                 }
                 return new BucketToPartition(Optional.of(bucketToPartition), Optional.of(bucketNodeMap));
             }
