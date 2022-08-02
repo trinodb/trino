@@ -103,7 +103,8 @@ public class TestIcebergOptimize
 
     private long getCurrentSnapshotId(String catalog, String schema, String tableName)
     {
-        return (long) getOnlyElement(getOnlyElement(onTrino().executeQuery(format("SELECT snapshot_id FROM %s.%s.\"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1", catalog, schema, tableName)).rows()));
+        return (long) getOnlyElement(getOnlyElement(onTrino().executeQuery(
+                format("SELECT snapshot_id FROM %s.%s.\"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", catalog, schema, tableName)).rows()));
     }
 
     private static String sparkTableName(String tableName)

@@ -1055,8 +1055,7 @@ public abstract class BaseIcebergConnectorTest
 
     private long getLatestSnapshotId(String tableName)
     {
-        return (long) computeActual(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1", tableName))
-                .getOnlyValue();
+        return (long) computeScalar(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", tableName));
     }
 
     @Override
@@ -5239,7 +5238,7 @@ public abstract class BaseIcebergConnectorTest
 
     private long getCurrentSnapshotId(String tableName)
     {
-        return (long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1");
+        return (long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
     }
 
     private Path getIcebergTableDataPath(String tableLocation)
