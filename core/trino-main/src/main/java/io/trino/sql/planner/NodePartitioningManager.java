@@ -20,10 +20,8 @@ import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.scheduler.BucketNodeMap;
-import io.trino.execution.scheduler.FixedBucketNodeMap;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSelector;
-import io.trino.execution.scheduler.group.DynamicBucketNodeMap;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.operator.BucketPartitionFunction;
@@ -227,24 +225,18 @@ public class NodePartitioningManager
         });
     }
 
-    public BucketNodeMap getBucketNodeMap(Session session, PartitioningHandle partitioningHandle, boolean preferDynamic)
+    public BucketNodeMap getBucketNodeMap(Session session, PartitioningHandle partitioningHandle)
     {
         Optional<ConnectorBucketNodeMap> bucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
 
         ToIntFunction<Split> splitToBucket = getSplitToBucket(session, partitioningHandle);
         if (bucketNodeMap.map(ConnectorBucketNodeMap::hasFixedMapping).orElse(false)) {
-            return new FixedBucketNodeMap(splitToBucket, getFixedMapping(bucketNodeMap.get()));
-        }
-
-        if (preferDynamic) {
-            int bucketCount = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount)
-                    .orElseGet(() -> getNodeCount(session, partitioningHandle));
-            return new DynamicBucketNodeMap(splitToBucket, bucketCount);
+            return new BucketNodeMap(splitToBucket, getFixedMapping(bucketNodeMap.get()));
         }
 
         List<InternalNode> nodes = getAllNodes(session, requiredCatalogHandle(partitioningHandle));
         int bucketCount = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount).orElseGet(nodes::size);
-        return new FixedBucketNodeMap(splitToBucket, createArbitraryBucketToNode(nodes, bucketCount));
+        return new BucketNodeMap(splitToBucket, createArbitraryBucketToNode(nodes, bucketCount));
     }
 
     public int getNodeCount(Session session, PartitioningHandle partitioningHandle)
