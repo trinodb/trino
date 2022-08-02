@@ -1643,6 +1643,13 @@ public abstract class BaseJdbcConnectorTest
     }
 
     @Test
+    public void testNativeQueryDescribeStatement()
+    {
+        assertQuery(format("DESCRIBE TABLE(system.query(query => 'SELECT name FROM %s.nation'))", getSession().getSchema().orElseThrow()), "VALUES ('name', 'varchar(25)', NULL, NULL)");
+        assertQuery(format("DESCRIBE TABLE(system.query(query => 'SELECT name AS other_name FROM %s.nation'))", getSession().getSchema().orElseThrow()), "VALUES ('other_name', 'varchar(25)', NULL, NULL)");
+    }
+
+    @Test
     public void testNativeQueryInsertStatementTableDoesNotExist()
     {
         assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));

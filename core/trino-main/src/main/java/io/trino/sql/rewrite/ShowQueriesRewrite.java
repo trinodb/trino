@@ -48,6 +48,8 @@ import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
+import io.trino.sql.analyzer.Analysis;
+import io.trino.sql.analyzer.Analyzer;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
@@ -55,11 +57,13 @@ import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.ArrayConstructor;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateView;
+import io.trino.sql.tree.DescribeTableFunction;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainAnalyze;
@@ -69,6 +73,7 @@ import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.PrincipalSpecification;
 import io.trino.sql.tree.Property;
@@ -99,6 +104,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -123,6 +129,7 @@ import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.QueryUtil.aliased;
@@ -201,6 +208,9 @@ public final class ShowQueriesRewrite
             WarningCollector warningCollector)
     {
         Visitor visitor = new Visitor(
+                analyzerFactory,
+                parameters,
+                parameterLookup,
                 metadata,
                 parser,
                 session,
@@ -216,6 +226,9 @@ public final class ShowQueriesRewrite
     private static class Visitor
             extends AstVisitor<Node, Void>
     {
+        private AnalyzerFactory analyzerFactory;
+        private final List<Expression> parameters;
+        private final Map<NodeRef<Parameter>, Expression> parameterLookup;
         private final Metadata metadata;
         private final Session session;
         private final SqlParser sqlParser;
@@ -227,6 +240,9 @@ public final class ShowQueriesRewrite
         private final MaterializedViewPropertyManager materializedViewPropertyManager;
 
         public Visitor(
+                AnalyzerFactory analyzerFactory,
+                List<Expression> parameters,
+                Map<NodeRef<Parameter>, Expression> parameterLookup,
                 Metadata metadata,
                 SqlParser sqlParser,
                 Session session,
@@ -237,6 +253,9 @@ public final class ShowQueriesRewrite
                 TablePropertyManager tablePropertyManager,
                 MaterializedViewPropertyManager materializedViewPropertyManager)
         {
+            this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
+            this.parameters = parameters;
+            this.parameterLookup = parameterLookup;
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.session = requireNonNull(session, "session is null");
@@ -717,6 +736,35 @@ public final class ShowQueriesRewrite
             }
 
             throw new UnsupportedOperationException("SHOW CREATE only supported for schemas, tables and views");
+        }
+
+        @Override
+        protected Node visitDescribeTableFunction(DescribeTableFunction node, Void context)
+        {
+            Analyzer analyzer = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, WarningCollector.NOOP);
+            Statement statement = sqlParser.createStatement("SELECT * FROM " + formatSql(node.getInvocation()), createParsingOptions(session));
+            Analysis analyze = analyzer.analyze(statement);
+
+            Map<String, String> columns = ImmutableMap.<String, String>builder()
+                    .put("column_name", "Column")
+                    .put("data_type", "Type")
+                    .put("extra_info", "Extra")
+                    .put("comment", "Comment")
+                    .buildOrThrow();
+
+            Function<Expression, Expression> unboundedVarchar = value -> new Cast(value, toSqlType(VARCHAR));
+            List<Expression> rows = analyze.getOutputDescriptor()
+                    .getVisibleFields()
+                    .stream()
+                    .map(field -> row(new StringLiteral(field.getName().orElseThrow()), new StringLiteral(field.getType().getDisplayName()), new NullLiteral(), new NullLiteral()))
+                    .map(values -> row(values.getItems().stream().map(unboundedVarchar).toArray(Expression[]::new)))
+                    .collect(toImmutableList());
+
+            return simpleQuery(
+                    selectAll(columns.entrySet().stream()
+                            .map(entry -> aliasedName(entry.getKey(), entry.getValue()))
+                            .collect(toImmutableList())),
+                    aliased(new Values(rows), "columns", ImmutableList.copyOf(columns.keySet())));
         }
 
         private static List<Property> buildProperties(

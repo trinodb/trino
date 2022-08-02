@@ -15,7 +15,9 @@ package io.trino.sql.query;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.TestingTableFunctions;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.LocalQueryRunner;
@@ -40,12 +42,13 @@ public class TestShowQueries
     public void init()
     {
         LocalQueryRunner queryRunner = LocalQueryRunner.create(testSessionBuilder()
-                .setCatalog("local")
+                .setCatalog("mock")
                 .setSchema("default")
                 .build());
         queryRunner.createCatalog(
                 "mock",
                 MockConnectorFactory.builder()
+                        .withTableFunctions(ImmutableSet.of(new TestingTableFunctions.SimpleTableFunction()))
                         .withGetColumns(schemaTableName ->
                                 ImmutableList.of(
                                         ColumnMetadata.builder()
@@ -173,6 +176,16 @@ public class TestShowQueries
         assertThat(assertions.query("SHOW COLUMNS FROM system.runtime.nodes LIKE 'node_id'"))
                 .matches("VALUES (VARCHAR 'node_id', VARCHAR 'varchar' , VARCHAR '', VARCHAR '')");
         assertEquals(0, assertions.execute("SHOW COLUMNS FROM system.runtime.nodes LIKE ''").getRowCount());
+    }
+
+    @Test
+    public void testDescribeTableFunction()
+    {
+        assertThat(assertions.query("DESCRIBE TABLE(system.simple_table_function())"))
+                .matches("VALUES (VARCHAR 'col', VARCHAR 'boolean', CAST(NULL AS VARCHAR), CAST(NULL AS VARCHAR))");
+
+        assertThat(assertions.query("DESCRIBE TABLE(system.simple_table_function(column => 'other_column_name'))"))
+                .matches("VALUES (VARCHAR 'other_column_name', VARCHAR 'boolean', CAST(NULL AS VARCHAR), CAST(NULL AS VARCHAR))");
     }
 
     @Test

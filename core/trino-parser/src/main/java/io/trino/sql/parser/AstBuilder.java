@@ -62,6 +62,7 @@ import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
+import io.trino.sql.tree.DescribeTableFunction;
 import io.trino.sql.tree.Descriptor;
 import io.trino.sql.tree.DescriptorField;
 import io.trino.sql.tree.DoubleLiteral;
@@ -887,6 +888,14 @@ class AstBuilder
         return new DescribeInput(
                 getLocation(context),
                 (Identifier) visit(context.identifier()));
+    }
+
+    @Override
+    public Node visitDescribeTableFunction(SqlBaseParser.DescribeTableFunctionContext context)
+    {
+        return new DescribeTableFunction(
+                getLocation(context),
+                (TableFunctionInvocation) visit(context.tableFunctionCall()));
     }
 
     @Override

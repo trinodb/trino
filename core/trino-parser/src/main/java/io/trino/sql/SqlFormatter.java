@@ -36,6 +36,7 @@ import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
+import io.trino.sql.tree.DescribeTableFunction;
 import io.trino.sql.tree.DescriptorArgument;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
@@ -376,6 +377,15 @@ public final class SqlFormatter
         {
             append(indent, "DESCRIBE OUTPUT ");
             builder.append(node.getName());
+            return null;
+        }
+
+        @Override
+        protected Void visitDescribeTableFunction(DescribeTableFunction node, Integer indent)
+        {
+            append(indent, "DESCRIBE TABLE(");
+            appendTableFunctionInvocation(node.getInvocation(), indent);
+            builder.append(")");
             return null;
         }
 

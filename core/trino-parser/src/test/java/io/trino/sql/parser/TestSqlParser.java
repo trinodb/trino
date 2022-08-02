@@ -53,6 +53,7 @@ import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
+import io.trino.sql.tree.DescribeTableFunction;
 import io.trino.sql.tree.Descriptor;
 import io.trino.sql.tree.DescriptorField;
 import io.trino.sql.tree.DoubleLiteral;
@@ -2993,6 +2994,19 @@ public class TestSqlParser
     public void testDescribeInput()
     {
         assertStatement("DESCRIBE INPUT myquery", new DescribeInput(identifier("myquery")));
+    }
+
+    @Test
+    public void testDescribeTableFunction()
+    {
+        assertStatement("DESCRIBE TABLE(some_ptf(input => 1))", new DescribeTableFunction(new TableFunctionInvocation(
+                location(1, 21),
+                qualifiedName(location(1, 21), "some_ptf"),
+                ImmutableList.of(new TableFunctionArgument(
+                        location(1, 30),
+                        Optional.of(new Identifier(location(1, 30), "input", false)),
+                        new LongLiteral(location(1, 39), "1"))),
+                ImmutableList.of())));
     }
 
     @Test

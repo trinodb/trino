@@ -106,6 +106,8 @@ public class TestStatementBuilder
         printStatement("select sum(distinct x) filter (where x > 4) y, sum(x) filter (where x < 2) z from t");
         printStatement("select sum(x) filter (where x > 4) over (partition by y) z from t");
 
+        printStatement("describe table(some_ptf(some_argument => '1'))");
+
         printStatement("" +
                 "select depname, empno, salary\n" +
                 ", count(*) over ()\n" +
