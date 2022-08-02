@@ -18,15 +18,15 @@ import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.trino.plugin.base.ldap.LdapClientModule;
 import io.trino.plugin.base.ldap.LdapUtil;
-import io.trino.spi.security.PasswordAuthenticator;
-import io.trino.spi.security.PasswordAuthenticatorFactory;
+import io.trino.spi.security.GroupProvider;
+import io.trino.spi.security.GroupProviderFactory;
 
 import java.util.Map;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
-public class LdapAuthenticatorFactory
-        implements PasswordAuthenticatorFactory
+public class LdapGroupProviderFactory
+        implements GroupProviderFactory
 {
     @Override
     public String getName()
@@ -35,14 +35,13 @@ public class LdapAuthenticatorFactory
     }
 
     @Override
-    public PasswordAuthenticator create(Map<String, String> config)
+    public GroupProvider create(Map<String, String> config)
     {
         Bootstrap app = new Bootstrap(
                 new LdapClientModule(),
                 binder -> {
-                    configBinder(binder).bindConfig(LdapAuthenticatorConfig.class);
-                    binder.bind(LdapAuthenticatorClient.class).in(Scopes.SINGLETON);
-                    binder.bind(LdapAuthenticator.class).in(Scopes.SINGLETON);
+                    configBinder(binder).bindConfig(LdapGroupProviderConfig.class);
+                    binder.bind(LdapGroupProvider.class).in(Scopes.SINGLETON);
                     binder.bind(LdapUtil.class).in(Scopes.SINGLETON);
                 });
 
@@ -51,6 +50,6 @@ public class LdapAuthenticatorFactory
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 
-        return injector.getInstance(LdapAuthenticator.class);
+        return injector.getInstance(LdapGroupProvider.class);
     }
 }
