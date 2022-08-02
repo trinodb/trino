@@ -19,6 +19,13 @@ in the :ref:`config.properties file <config_properties>`:
   Specifies the port for the JMX RMI server. Trino exports many metrics,
   that are useful for monitoring via JMX.
 
+You also have to configure a system property in the
+:ref:`jvm.config file <jvm_config>`:
+
+.. code-block:: text
+
+    -Dcom.sun.management.jmxremote.rmi.port=9081
+
 JConsole (supplied with the JDK), `VisualVM <https://visualvm.github.io/>`_, and
 many other tools can be used to access the metrics in a client application.
 Many monitoring solutions support JMX. You can also use the
