@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -31,6 +32,7 @@ import io.trino.execution.buffer.OutputBuffers;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.operator.TaskStats;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -146,7 +148,8 @@ public class TestingRemoteTaskFactory
                             0,
                             0,
                             0,
-                            ImmutableList.of()),
+                            ImmutableList.of(),
+                            Optional.of(new TDigestHistogram(new TDigest()))),
                     ImmutableSet.copyOf(noMoreSplits),
                     new TaskStats(DateTime.now(), null),
                     Optional.empty(),

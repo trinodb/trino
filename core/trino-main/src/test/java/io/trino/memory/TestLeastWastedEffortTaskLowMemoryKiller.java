@@ -17,6 +17,7 @@ package io.trino.memory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.execution.TaskId;
@@ -26,6 +27,7 @@ import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.BufferState;
 import io.trino.execution.buffer.OutputBufferInfo;
 import io.trino.operator.TaskStats;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
@@ -247,7 +249,8 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         0,
                         0,
                         0,
-                        ImmutableList.of()),
+                        ImmutableList.of(),
+                        Optional.of(new TDigestHistogram(new TDigest()))),
                 ImmutableSet.of(),
                 new TaskStats(DateTime.now(),
                         null,

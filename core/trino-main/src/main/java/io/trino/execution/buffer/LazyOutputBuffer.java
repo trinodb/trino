@@ -137,7 +137,8 @@ public class LazyOutputBuffer
                     0,
                     0,
                     0,
-                    ImmutableList.of());
+                    ImmutableList.of(),
+                    Optional.empty());
         }
         return outputBuffer.getInfo();
     }
