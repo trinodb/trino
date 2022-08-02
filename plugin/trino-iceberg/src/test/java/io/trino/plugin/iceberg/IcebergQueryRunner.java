@@ -15,7 +15,9 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Level;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
@@ -109,6 +111,10 @@ public final class IcebergQueryRunner
         public DistributedQueryRunner build()
                 throws Exception
         {
+            Logging logging = Logging.initialize();
+            // Prevent writing long info message. "Scanning table tpch.orders snapshot xxx created at ... with filter orderkey IN ((.......))"
+            logging.setLevel("org.apache.iceberg.BaseTableScan", Level.WARN);
+
             DistributedQueryRunner queryRunner = super.build();
             try {
                 queryRunner.installPlugin(new TpchPlugin());
