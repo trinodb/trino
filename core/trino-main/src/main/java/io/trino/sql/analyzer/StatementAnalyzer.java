@@ -1770,6 +1770,7 @@ class StatementAnalyzer
                 // is this a reference to a WITH query?
                 Optional<WithQuery> withQuery = createScope(scope).getNamedQuery(table.getName().getSuffix());
                 if (withQuery.isPresent()) {
+                    analysis.setRelationName(table, table.getName());
                     return createScopeForCommonTableExpression(table, scope, withQuery.get());
                 }
                 // is this a recursive reference in expandable WITH query? If so, there's base scope recorded.
@@ -1781,11 +1782,13 @@ class StatementAnalyzer
                             .withRelationType(baseScope.getRelationId(), baseScope.getRelationType())
                             .build();
                     analysis.setScope(table, resultScope);
+                    analysis.setRelationName(table, table.getName());
                     return resultScope;
                 }
             }
 
             QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
+            analysis.setRelationName(table, QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getObjectName()));
 
             Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, name);
             if (optionalMaterializedView.isPresent()) {
@@ -2337,6 +2340,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitAliasedRelation(AliasedRelation relation, Optional<Scope> scope)
         {
+            analysis.setRelationName(relation, QualifiedName.of(ImmutableList.of(relation.getAlias())));
             Scope relationScope = process(relation.getRelation(), scope);
 
             // todo this check should be inside of TupleDescriptor.withAlias, but the exception needs the node object
