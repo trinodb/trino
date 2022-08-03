@@ -10,9 +10,6 @@ check_vars S3_BUCKET S3_BUCKET_ENDPOINT \
     AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 
 cleanup_hadoop_docker_containers
-
-# Use Hadoop version 3.1 for S3 tests as the JSON SerDe class is not available in lower versions.
-export HADOOP_BASE_IMAGE="ghcr.io/trinodb/testing/hdp3.1-hive"
 start_hadoop_docker_containers
 
 test_directory="$(date '+%Y%m%d-%H%M%S')-$(uuidgen | sha1sum | cut -b 1-6)"
@@ -67,14 +64,6 @@ exec_in_hadoop_master_container /usr/bin/hive -e "
     ROW FORMAT DELIMITED
     FIELDS TERMINATED BY ','
     STORED AS TEXTFILE
-    LOCATION '${table_path}'"
-
-table_path="s3a://${S3_BUCKET}/${test_directory}/trino_s3select_test_external_fs_json/"
-exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
-exec_in_hadoop_master_container hadoop fs -put -f /docker/files/test_table.json{,.gz,.bz2} "${table_path}"
-exec_in_hadoop_master_container /usr/bin/hive -e "
-    CREATE EXTERNAL TABLE trino_s3select_test_external_fs_json(col_1 bigint, col_2 bigint)
-    ROW FORMAT SERDE 'org.apache.hive.hcatalog.data.JsonSerDe'
     LOCATION '${table_path}'"
 
 stop_unnecessary_hadoop_services

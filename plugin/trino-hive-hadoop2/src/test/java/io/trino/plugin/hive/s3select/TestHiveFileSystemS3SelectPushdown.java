@@ -36,7 +36,6 @@ public class TestHiveFileSystemS3SelectPushdown
 {
     protected SchemaTableName tableWithPipeDelimiter;
     protected SchemaTableName tableWithCommaDelimiter;
-    protected SchemaTableName tableJson;
 
     @Parameters({
             "hive.hadoop2.metastoreHost",
@@ -53,7 +52,6 @@ public class TestHiveFileSystemS3SelectPushdown
         super.setup(host, port, databaseName, awsAccessKey, awsSecretKey, writableBucket, testDirectory, true);
         tableWithPipeDelimiter = new SchemaTableName(database, "trino_s3select_test_external_fs_with_pipe_delimiter");
         tableWithCommaDelimiter = new SchemaTableName(database, "trino_s3select_test_external_fs_with_comma_delimiter");
-        tableJson = new SchemaTableName(database, "trino_s3select_test_external_fs_json");
     }
 
     @Test
@@ -111,35 +109,6 @@ public class TestHiveFileSystemS3SelectPushdown
                         .row(7L).row(19L).row(1L) // test_table_with_comma_delimiter.csv
                         .row(27L).row(28L).row(90L) // test_table_with_comma_delimiter.csv.gzip
                         .row(11L).row(1L).row(21L).row(0L) // test_table_with_comma_delimiter.csv.bz2
-                        .build());
-    }
-
-    @Test
-    public void testGetRecordsJson()
-            throws Exception
-    {
-        assertEqualsIgnoreOrder(
-                readTable(tableJson),
-                MaterializedResult.resultBuilder(newSession(), BIGINT, BIGINT)
-                        .row(2L, 4L).row(5L, 6L) // test_table.json
-                        .row(7L, 23L).row(28L, 22L).row(13L, 10L) // test_table.json.gz
-                        .row(1L, 19L).row(6L, 3L).row(24L, 22L).row(100L, 77L) // test_table.json.bz2
-                        .build());
-    }
-
-    @Test
-    public void testFilterRecordsJson()
-            throws Exception
-    {
-        List<ColumnHandle> projectedColumns = ImmutableList.of(
-                createBaseColumn("col_1", 0, HIVE_INT, BIGINT, REGULAR, Optional.empty()));
-
-        assertEqualsIgnoreOrder(
-                filterTable(tableJson, projectedColumns),
-                MaterializedResult.resultBuilder(newSession(), BIGINT)
-                        .row(2L).row(5L) // test_table.json
-                        .row(7L).row(28L).row(13L) // test_table.json.gz
-                        .row(1L).row(6L).row(24L).row(100L) // test_table.json.bz2
                         .build());
     }
 }
