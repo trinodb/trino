@@ -48,7 +48,7 @@ jobs:
           - 17
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
       - uses: actions/setup-java@v3
@@ -78,7 +78,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
       - name: Fetch base ref to find merge-base for GIB
@@ -107,7 +107,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # checkout all commits: it's not needed here, but it's needed almost always, so let's do this for completeness
       - name: Web UI Checks
@@ -117,7 +117,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # checkout tags so version in Manifest is set properly
       - name: Fetch base ref to find merge-base for GIB
@@ -177,7 +177,7 @@ jobs:
           # TODO: config-apache-hive3
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
       - name: Fetch base ref to find merge-base for GIB
@@ -293,7 +293,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
       - name: Fetch base ref to find merge-base for GIB
@@ -366,7 +366,7 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
       - name: Fetch base ref to find merge-base for GIB
@@ -431,7 +431,7 @@ jobs:
       matrix: ${{ fromJson(needs.build-test-matrix.outputs.matrix) }}
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
       - name: Fetch base ref to find merge-base for GIB
@@ -534,7 +534,7 @@ jobs:
       have_azure_secrets: ${{ steps.check-secrets.outputs.have_azure_secrets }}
       have_databricks_secrets: ${{ steps.check-databricks-secrets.outputs.have_databricks_secrets }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
       - name: Fetch base ref to find merge-base for GIB
@@ -692,7 +692,7 @@ jobs:
     timeout-minutes: 130
     needs: build-pt
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
       - uses: actions/setup-java@v3
