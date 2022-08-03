@@ -388,7 +388,7 @@ management is denied. Each rule is composed of the following fields:
 
     Users always have permission to view or kill their own queries.
 
-    A rule that includes ``owner`` may not include the ``execute`` access mode.
+    A rule that includes ``queryOwner`` may not include the ``execute`` access mode.
     Queries are only owned by a user once their execution has begun.
 
 For example, if you want to allow the role ``admin`` full query access, allow
