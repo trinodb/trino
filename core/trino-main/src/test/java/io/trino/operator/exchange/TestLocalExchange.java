@@ -442,9 +442,9 @@ public class TestLocalExchange
         ConnectorNodePartitioningProvider connectorNodePartitioningProvider = new ConnectorNodePartitioningProvider()
         {
             @Override
-            public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+            public Optional<ConnectorBucketNodeMap> getBucketNodeMapping(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
             {
-                return createBucketNodeMap(2);
+                return Optional.of(createBucketNodeMap(2));
             }
 
             @Override

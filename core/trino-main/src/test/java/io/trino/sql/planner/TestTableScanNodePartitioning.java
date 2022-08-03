@@ -243,16 +243,16 @@ public class TestTableScanNodePartitioning
         }
 
         @Override
-        public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+        public Optional<ConnectorBucketNodeMap> getBucketNodeMapping(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
         {
             if (partitioningHandle.equals(PARTITIONING_HANDLE)) {
-                return createBucketNodeMap(BUCKET_COUNT);
+                return Optional.of(createBucketNodeMap(BUCKET_COUNT));
             }
             if (partitioningHandle.equals(SINGLE_BUCKET_HANDLE)) {
-                return createBucketNodeMap(1);
+                return Optional.of(createBucketNodeMap(1));
             }
             if (partitioningHandle.equals(FIXED_PARTITIONING_HANDLE)) {
-                return createBucketNodeMap(ImmutableList.of(nodeManager.getCurrentNode()));
+                return Optional.of(createBucketNodeMap(ImmutableList.of(nodeManager.getCurrentNode())));
             }
             throw new IllegalArgumentException();
         }

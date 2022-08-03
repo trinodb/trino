@@ -29,6 +29,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.ToIntFunction;
 
 import static com.google.common.collect.Maps.uniqueIndex;
@@ -48,7 +49,7 @@ public class RaptorNodePartitioningProvider
     }
 
     @Override
-    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorPartitioningHandle partitioning)
+    public Optional<ConnectorBucketNodeMap> getBucketNodeMapping(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioning)
     {
         RaptorPartitioningHandle handle = (RaptorPartitioningHandle) partitioning;
 
@@ -62,7 +63,7 @@ public class RaptorNodePartitioningProvider
             }
             bucketToNode.add(node);
         }
-        return createBucketNodeMap(bucketToNode.build());
+        return Optional.of(createBucketNodeMap(bucketToNode.build()));
     }
 
     @Override

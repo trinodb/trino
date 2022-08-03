@@ -13,9 +13,7 @@
  */
 package io.trino.plugin.blackhole;
 
-import io.trino.spi.NodeManager;
 import io.trino.spi.connector.BucketFunction;
-import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -28,29 +26,18 @@ import java.util.List;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static java.util.Objects.requireNonNull;
 
 public class BlackHoleNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
 {
-    private final NodeManager nodeManager;
     private final TypeOperators typeOperators;
 
-    public BlackHoleNodePartitioningProvider(NodeManager nodeManager, TypeOperators typeOperators)
+    public BlackHoleNodePartitioningProvider(TypeOperators typeOperators)
     {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.typeOperators = typeOperators;
-    }
-
-    @Override
-    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
-    {
-        // create one bucket per node
-        return createBucketNodeMap(nodeManager.getRequiredWorkerNodes().size());
     }
 
     @Override

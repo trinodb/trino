@@ -28,6 +28,7 @@ import io.trino.spi.type.TypeOperators;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.ToIntFunction;
 
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
@@ -71,11 +72,11 @@ public class HiveNodePartitioningProvider
     }
 
     @Override
-    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    public Optional<ConnectorBucketNodeMap> getBucketNodeMapping(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
         if (!handle.isUsePartitionedBucketing()) {
-            return createBucketNodeMap(handle.getBucketCount());
+            return Optional.of(createBucketNodeMap(handle.getBucketCount()));
         }
 
         // Allocate a fixed number of buckets. Trino will assign consecutive buckets
@@ -88,7 +89,7 @@ public class HiveNodePartitioningProvider
         // However, number of partitions is not known here
         // If number of workers < ( P * B), we need multiple writers per node to fully
         // parallelize the write within a worker
-        return createBucketNodeMap(nodeManager.getRequiredWorkerNodes().size() * PARTITIONED_BUCKETS_PER_NODE);
+        return Optional.of(createBucketNodeMap(nodeManager.getRequiredWorkerNodes().size() * PARTITIONED_BUCKETS_PER_NODE));
     }
 
     @Override
