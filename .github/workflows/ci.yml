@@ -219,6 +219,10 @@ jobs:
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
             source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
               plugin/trino-hive-hadoop2/bin/run_hive_s3_tests.sh
+            if [ matrix.config == 'config-hdp3' ]; then
+              # JsonSerde class needed for the S3 Select JSON tests is only available on hdp3.
+              plugin/trino-hive-hadoop2/bin/run_hive_s3_select_json_tests.sh
+            fi
           fi
       - name: Run Hive Glue Tests
         env:
