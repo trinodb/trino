@@ -2078,8 +2078,7 @@ public class IcebergMetadata
 
         String dependencies = sourceTableHandles.stream()
                 .map(handle -> (IcebergTableHandle) handle)
-                .filter(handle -> handle.getSnapshotId().isPresent())
-                .map(handle -> handle.getSchemaTableName() + "=" + handle.getSnapshotId().get())
+                .map(handle -> handle.getSchemaTableName() + "=" + handle.getSnapshotId().map(Object.class::cast).orElse(""))
                 .distinct()
                 .collect(joining(","));
 
@@ -2201,7 +2200,14 @@ public class IcebergMetadata
             if (tableHandle == null) {
                 throw new MaterializedViewNotFoundException(materializedViewName);
             }
-            if (!isTableCurrent(session, tableHandle, Optional.of(new TableToken(Long.parseLong(entry.getValue()))))) {
+            Optional<TableToken> tableToken;
+            if (entry.getValue().isEmpty()) {
+                tableToken = Optional.empty();
+            }
+            else {
+                tableToken = Optional.of(new TableToken(Long.parseLong(entry.getValue())));
+            }
+            if (!isTableCurrent(session, tableHandle, tableToken)) {
                 return new MaterializedViewFreshness(false);
             }
         }
