@@ -22,7 +22,12 @@ public interface ConnectorNodePartitioningProvider
 {
     ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle);
 
-    ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle);
+    default ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    {
+        return split -> {
+            throw new UnsupportedOperationException();
+        };
+    }
 
     BucketFunction getBucketFunction(
             ConnectorTransactionHandle transactionHandle,
