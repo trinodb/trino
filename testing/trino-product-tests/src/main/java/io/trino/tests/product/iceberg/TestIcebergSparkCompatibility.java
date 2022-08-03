@@ -1000,6 +1000,24 @@ public class TestIcebergSparkCompatibility
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testPartitioningWithMixedCaseColumnUnsupportedInTrino()
+    {
+        String baseTableName = "test_partitioning_with_mixed_case_column_in_spark";
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
+        onSpark().executeQuery(format(
+                "CREATE TABLE %s (id INTEGER, `mIxEd_COL` STRING) USING ICEBERG",
+                sparkTableName));
+        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + trinoTableName + " SET PROPERTIES partitioning = ARRAY['mIxEd_COL']"))
+                .hasMessageContaining("Unable to parse partitioning value");
+        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + trinoTableName + " SET PROPERTIES partitioning = ARRAY['\"mIxEd_COL\"']"))
+                .hasMessageContaining("Unable to parse partitioning value");
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
     public void testInsertReadingFromParquetTableWithNestedRowFieldNotPresentInDataFile()
     {
         // regression test for https://github.com/trinodb/trino/issues/9264
