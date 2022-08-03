@@ -2168,12 +2168,24 @@ public class IcebergMetadata
     @Override
     public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName materializedViewName)
     {
-        Map<String, Optional<TableToken>> refreshStateMap = getMaterializedViewToken(session, materializedViewName);
-        if (refreshStateMap.isEmpty()) {
+        Optional<ConnectorMaterializedViewDefinition> materializedViewDefinition = getMaterializedView(session, materializedViewName);
+        if (materializedViewDefinition.isEmpty()) {
+            // View not found, might have been concurrently deleted
             return new MaterializedViewFreshness(false);
         }
 
-        for (Map.Entry<String, Optional<TableToken>> entry : refreshStateMap.entrySet()) {
+        SchemaTableName storageTableName = materializedViewDefinition.get().getStorageTable()
+                .map(CatalogSchemaTableName::getSchemaTableName)
+                .orElseThrow(() -> new IllegalStateException("Storage table missing in definition of materialized view " + materializedViewName));
+
+        Table icebergTable = catalog.loadTable(session, storageTableName);
+        String dependsOnTables = icebergTable.currentSnapshot().summary().getOrDefault(DEPENDS_ON_TABLES, "");
+        if (dependsOnTables.isEmpty()) {
+            // Information missing
+            return new MaterializedViewFreshness(false);
+        }
+        Map<String, String> tableToSnapshotIdMap = Splitter.on(',').withKeyValueSeparator('=').split(dependsOnTables);
+        for (Map.Entry<String, String> entry : tableToSnapshotIdMap.entrySet()) {
             List<String> strings = Splitter.on(".").splitToList(entry.getKey());
             if (strings.size() == 3) {
                 strings = strings.subList(1, 3);
@@ -2189,7 +2201,7 @@ public class IcebergMetadata
             if (tableHandle == null) {
                 throw new MaterializedViewNotFoundException(materializedViewName);
             }
-            if (!isTableCurrent(session, tableHandle, entry.getValue())) {
+            if (!isTableCurrent(session, tableHandle, Optional.of(new TableToken(Long.parseLong(entry.getValue()))))) {
                 return new MaterializedViewFreshness(false);
             }
         }
@@ -2212,29 +2224,6 @@ public class IcebergMetadata
     public void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Optional<String> comment)
     {
         catalog.updateColumnComment(session, ((IcebergTableHandle) tableHandle).getSchemaTableName(), ((IcebergColumnHandle) column).getColumnIdentity(), comment);
-    }
-
-    private Map<String, Optional<TableToken>> getMaterializedViewToken(ConnectorSession session, SchemaTableName name)
-    {
-        Map<String, Optional<TableToken>> viewToken = new HashMap<>();
-        Optional<ConnectorMaterializedViewDefinition> materializedViewDefinition = getMaterializedView(session, name);
-        if (materializedViewDefinition.isEmpty()) {
-            return viewToken;
-        }
-
-        SchemaTableName storageTableName = materializedViewDefinition.get().getStorageTable()
-                .map(CatalogSchemaTableName::getSchemaTableName)
-                .orElseThrow(() -> new IllegalStateException("Storage table missing in definition of materialized view " + name));
-
-        Table icebergTable = catalog.loadTable(session, storageTableName);
-        String dependsOnTables = icebergTable.currentSnapshot().summary().getOrDefault(DEPENDS_ON_TABLES, "");
-        if (!dependsOnTables.isEmpty()) {
-            Map<String, String> tableToSnapshotIdMap = Splitter.on(',').withKeyValueSeparator('=').split(dependsOnTables);
-            for (Map.Entry<String, String> entry : tableToSnapshotIdMap.entrySet()) {
-                viewToken.put(entry.getKey(), Optional.of(new TableToken(Long.parseLong(entry.getValue()))));
-            }
-        }
-        return viewToken;
     }
 
     @Override
