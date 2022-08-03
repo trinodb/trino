@@ -15,12 +15,14 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.scheduler.BucketNodeMap;
 import io.trino.execution.scheduler.FixedBucketNodeMap;
 import io.trino.execution.scheduler.NodeScheduler;
+import io.trino.execution.scheduler.NodeSelector;
 import io.trino.execution.scheduler.group.DynamicBucketNodeMap;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
@@ -32,6 +34,7 @@ import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.type.Type;
 import io.trino.split.EmptySplit;
+import io.trino.sql.planner.SystemPartitioningHandle.SystemPartitioning;
 import io.trino.type.BlockTypeOperators;
 
 import javax.inject.Inject;
@@ -47,6 +50,10 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getHashPartitionCount;
+import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static io.trino.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
 
 public class NodePartitioningManager
@@ -108,10 +115,15 @@ public class NodePartitioningManager
         requireNonNull(partitioningHandle, "partitioningHandle is null");
 
         if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle) {
-            return ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getNodePartitionMap(session, nodeScheduler);
+            return systemNodePartitionMap(session, partitioningHandle);
         }
 
-        ConnectorBucketNodeMap connectorBucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
+        Optional<ConnectorBucketNodeMap> optionalMap = getConnectorBucketNodeMap(session, partitioningHandle);
+        if (optionalMap.isEmpty()) {
+            return systemNodePartitionMap(session, FIXED_HASH_DISTRIBUTION);
+        }
+        ConnectorBucketNodeMap connectorBucketNodeMap = optionalMap.get();
+
         // safety check for crazy partitioning
         checkArgument(connectorBucketNodeMap.getBucketCount() < 1_000_000, "Too many buckets in partitioning: %s", connectorBucketNodeMap.getBucketCount());
 
@@ -147,25 +159,53 @@ public class NodePartitioningManager
         return new NodePartitionMap(partitionToNode, bucketToPartition, getSplitToBucket(session, partitioningHandle));
     }
 
+    private NodePartitionMap systemNodePartitionMap(Session session, PartitioningHandle partitioningHandle)
+    {
+        SystemPartitioning partitioning = ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getPartitioning();
+
+        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, Optional.empty());
+
+        List<InternalNode> nodes = switch (partitioning) {
+            case COORDINATOR_ONLY -> ImmutableList.of(nodeSelector.selectCurrentNode());
+            case SINGLE -> nodeSelector.selectRandomNodes(1);
+            case FIXED -> nodeSelector.selectRandomNodes(getHashPartitionCount(session));
+            default -> throw new IllegalArgumentException("Unsupported plan distribution " + partitioning);
+        };
+        checkCondition(!nodes.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
+
+        return new NodePartitionMap(nodes, split -> {
+            throw new UnsupportedOperationException("System distribution does not support source splits");
+        });
+    }
+
     public BucketNodeMap getBucketNodeMap(Session session, PartitioningHandle partitioningHandle, boolean preferDynamic)
     {
-        ConnectorBucketNodeMap connectorBucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
+        Optional<ConnectorBucketNodeMap> bucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
 
         ToIntFunction<Split> splitToBucket = getSplitToBucket(session, partitioningHandle);
-        if (connectorBucketNodeMap.hasFixedMapping()) {
-            return new FixedBucketNodeMap(splitToBucket, getFixedMapping(connectorBucketNodeMap));
+        if (bucketNodeMap.map(ConnectorBucketNodeMap::hasFixedMapping).orElse(false)) {
+            return new FixedBucketNodeMap(splitToBucket, getFixedMapping(bucketNodeMap.get()));
         }
 
         if (preferDynamic) {
-            return new DynamicBucketNodeMap(splitToBucket, connectorBucketNodeMap.getBucketCount());
+            int bucketCount = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount)
+                    .orElseGet(() -> getNodeCount(session, partitioningHandle));
+            return new DynamicBucketNodeMap(splitToBucket, bucketCount);
         }
 
-        CatalogHandle catalogHandle = requiredCatalogHandle(partitioningHandle);
-        return new FixedBucketNodeMap(
-                splitToBucket,
-                createArbitraryBucketToNode(
-                        new ArrayList<>(nodeScheduler.createNodeSelector(session, Optional.of(catalogHandle)).allNodes()),
-                        connectorBucketNodeMap.getBucketCount()));
+        List<InternalNode> nodes = getAllNodes(session, requiredCatalogHandle(partitioningHandle));
+        int bucketCount = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount).orElseGet(nodes::size);
+        return new FixedBucketNodeMap(splitToBucket, createArbitraryBucketToNode(nodes, bucketCount));
+    }
+
+    public int getNodeCount(Session session, PartitioningHandle partitioningHandle)
+    {
+        return getAllNodes(session, requiredCatalogHandle(partitioningHandle)).size();
+    }
+
+    private List<InternalNode> getAllNodes(Session session, CatalogHandle catalogHandle)
+    {
+        return nodeScheduler.createNodeSelector(session, Optional.of(catalogHandle)).allNodes();
     }
 
     private static List<InternalNode> getFixedMapping(ConnectorBucketNodeMap connectorBucketNodeMap)
@@ -175,17 +215,15 @@ public class NodePartitioningManager
                 .collect(toImmutableList());
     }
 
-    public ConnectorBucketNodeMap getConnectorBucketNodeMap(Session session, PartitioningHandle partitioningHandle)
+    public Optional<ConnectorBucketNodeMap> getConnectorBucketNodeMap(Session session, PartitioningHandle partitioningHandle)
     {
         CatalogHandle catalogHandle = requiredCatalogHandle(partitioningHandle);
         ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(catalogHandle);
 
-        ConnectorBucketNodeMap connectorBucketNodeMap = partitioningProvider.getBucketNodeMap(
+        return partitioningProvider.getBucketNodeMapping(
                 partitioningHandle.getTransactionHandle().orElseThrow(),
                 session.toConnectorSession(catalogHandle),
                 partitioningHandle.getConnectorHandle());
-        checkArgument(connectorBucketNodeMap != null, "No partition map %s", partitioningHandle);
-        return connectorBucketNodeMap;
     }
 
     private ToIntFunction<Split> getSplitToBucket(Session session, PartitioningHandle partitioningHandle)

@@ -26,6 +26,7 @@ import io.trino.spi.type.Type;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.ToIntFunction;
 
 import static java.util.Objects.requireNonNull;
@@ -53,6 +54,14 @@ public final class ClassLoaderSafeNodePartitioningProvider
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getBucketFunction(transactionHandle, session, partitioningHandle, partitionChannelTypes, bucketCount);
+        }
+    }
+
+    @Override
+    public Optional<ConnectorBucketNodeMap> getBucketNodeMapping(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getBucketNodeMapping(transactionHandle, session, partitioningHandle);
         }
     }
 

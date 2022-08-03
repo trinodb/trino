@@ -13,9 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.trino.spi.NodeManager;
 import io.trino.spi.connector.BucketFunction;
-import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -31,26 +29,17 @@ import java.util.List;
 
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
-import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
 {
     private final TypeOperators typeOperators;
-    private final NodeManager nodeManager;
 
     @Inject
-    public IcebergNodePartitioningProvider(TypeManager typeManager, NodeManager nodeManager)
+    public IcebergNodePartitioningProvider(TypeManager typeManager)
     {
         this.typeOperators = requireNonNull(typeManager, "typeManager is null").getTypeOperators();
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-    }
-
-    @Override
-    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
-    {
-        return createBucketNodeMap(nodeManager.getRequiredWorkerNodes().size());
     }
 
     @Override

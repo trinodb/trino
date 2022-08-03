@@ -58,16 +58,9 @@ public class TestSpiBackwardCompatibility
             .put("123", "Method: public void io.trino.spi.predicate.BenchmarkSortedRangeSet$Data.init()")
             // example
             .put("123", "Field: public java.util.List<io.trino.spi.predicate.Range> io.trino.spi.predicate.BenchmarkSortedRangeSet$Data.ranges")
-            .put("377", "Constructor: public io.trino.spi.memory.MemoryPoolInfo(long,long,long,java.util.Map<io.trino.spi.QueryId, java.lang.Long>,java.util.Map<io.trino.spi.QueryId, java.util.List<io.trino.spi.memory.MemoryAllocation>>,java.util.Map<io.trino.spi.QueryId, java.lang.Long>)")
-            .put("383", "Method: public abstract java.lang.String io.trino.spi.function.AggregationState.value()")
-            .put("383", "Method: public default void io.trino.spi.security.SystemAccessControl.checkCanExecuteFunction(io.trino.spi.security.SystemSecurityContext,io.trino.spi.connector.CatalogSchemaRoutineName)")
-            .put("383", "Method: public default void io.trino.spi.connector.ConnectorAccessControl.checkCanExecuteFunction(io.trino.spi.connector.ConnectorSecurityContext,io.trino.spi.connector.SchemaRoutineName)")
-            .put("384", "Constructor: public io.trino.spi.eventlistener.QueryInputMetadata(java.lang.String,java.lang.String,java.lang.String,java.util.List<java.lang.String>,java.util.Optional<java.lang.Object>,java.util.OptionalLong,java.util.OptionalLong)")
-            .put("386", "Method: public default java.util.stream.Stream<io.trino.spi.connector.TableColumnsMetadata> io.trino.spi.connector.ConnectorMetadata.streamTableColumns(io.trino.spi.connector.ConnectorSession,io.trino.spi.connector.SchemaTablePrefix)")
-            .put("386", "Method: public default boolean io.trino.spi.connector.ConnectorMetadata.isSupportedVersionType(io.trino.spi.connector.ConnectorSession,io.trino.spi.connector.SchemaTableName,io.trino.spi.connector.PointerType,io.trino.spi.type.Type)")
-            .put("387", "Constructor: public io.trino.spi.eventlistener.QueryContext(java.lang.String,java.util.Optional<java.lang.String>,java.util.Set<java.lang.String>,java.util.Optional<java.lang.String>,java.util.Optional<java.lang.String>,java.util.Optional<java.lang.String>,java.util.Optional<java.lang.String>,java.util.Set<java.lang.String>,java.util.Set<java.lang.String>,java.util.Optional<java.lang.String>,java.util.Optional<java.lang.String>,java.util.Optional<java.lang.String>,java.util.Optional<io.trino.spi.resourcegroups.ResourceGroupId>,java.util.Map<java.lang.String, java.lang.String>,io.trino.spi.session.ResourceEstimates,java.lang.String,java.lang.String,java.lang.String,java.util.Optional<io.trino.spi.resourcegroups.QueryType>)")
-            .put("388", "Method: public abstract java.util.concurrent.CompletableFuture<io.trino.spi.connector.ConnectorSplitSource$ConnectorSplitBatch> io.trino.spi.connector.ConnectorSplitSource.getNextBatch(io.trino.spi.connector.ConnectorPartitionHandle,int)")
-            .put("388", "Method: public java.util.concurrent.CompletableFuture<io.trino.spi.connector.ConnectorSplitSource$ConnectorSplitBatch> io.trino.spi.connector.FixedSplitSource.getNextBatch(io.trino.spi.connector.ConnectorPartitionHandle,int)")
+            // changes
+            .put("393", "Method: public abstract io.trino.spi.connector.ConnectorBucketNodeMap io.trino.spi.connector.ConnectorNodePartitioningProvider.getBucketNodeMap(io.trino.spi.connector.ConnectorTransactionHandle,io.trino.spi.connector.ConnectorSession,io.trino.spi.connector.ConnectorPartitioningHandle)")
+            .put("393", "Method: public abstract java.util.function.ToIntFunction<io.trino.spi.connector.ConnectorSplit> io.trino.spi.connector.ConnectorNodePartitioningProvider.getSplitBucketFunction(io.trino.spi.connector.ConnectorTransactionHandle,io.trino.spi.connector.ConnectorSession,io.trino.spi.connector.ConnectorPartitioningHandle)")
             .build();
 
     @Test
