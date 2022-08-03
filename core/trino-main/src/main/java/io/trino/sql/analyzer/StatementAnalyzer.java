@@ -25,6 +25,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Streams;
 import com.google.common.math.IntMath;
 import io.airlift.slice.Slice;
+import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.connector.CatalogHandle;
@@ -65,6 +66,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
@@ -268,6 +270,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.getMaterializedViewRequiredFreshness;
 import static io.trino.SystemSessionProperties.getMaxGroupingSets;
 import static io.trino.metadata.FunctionResolver.toPath;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -358,9 +361,11 @@ import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.MoreLists.mappedCopy;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class StatementAnalyzer
 {
@@ -1791,8 +1796,8 @@ class StatementAnalyzer
 
             Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, name);
             if (optionalMaterializedView.isPresent()) {
-                if (metadata.getMaterializedViewFreshness(session, name).isMaterializedViewFresh()) {
-                    // If materialized view is current, answer the query using the storage table
+                if (isMaterializedViewSufficientlyFresh(name)) {
+                    // If materialized view is current / sufficiently fresh, answer the query using the storage table
                     Optional<QualifiedName> storageName = getMaterializedViewStorageTableName(optionalMaterializedView.get());
                     if (storageName.isEmpty()) {
                         throw semanticException(INVALID_VIEW, table, "Materialized view '%s' is fresh but does not have storage table name", name);
@@ -1885,6 +1890,25 @@ class StatementAnalyzer
             }
 
             return tableScope;
+        }
+
+        private boolean isMaterializedViewSufficientlyFresh(QualifiedObjectName name)
+        {
+            MaterializedViewFreshness freshness = metadata.getMaterializedViewFreshness(session, name);
+            if (freshness.isMaterializedViewFresh()) {
+                return true;
+            }
+            if (freshness.getLastRefreshTime().isPresent()) {
+                Duration requiredFreshness = getMaterializedViewRequiredFreshness(session);
+                if (requiredFreshness.equals(new Duration(0, MILLISECONDS))) {
+                    // When allowed staleness is 0 (default), don't allow any staleness at all, to avoid any potential issues related to clock skew, etc.
+                    return false;
+                }
+                if (!freshness.getLastRefreshTime().get().plus(requiredFreshness.toMillis(), MILLIS).isBefore(session.getStart())) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private void checkStorageTableNotRedirected(QualifiedObjectName source)

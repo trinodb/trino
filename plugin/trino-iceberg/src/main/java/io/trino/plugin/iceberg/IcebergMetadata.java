@@ -124,6 +124,7 @@ import org.apache.iceberg.types.Types.StructType;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -203,6 +204,7 @@ import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog.DEPENDS_ON_TABLES;
+import static io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog.TRINO_QUERY_START_TIME;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.EXPIRE_SNAPSHOTS;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.OPTIMIZE;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.REMOVE_ORPHAN_FILES;
@@ -2029,6 +2031,7 @@ public class IcebergMetadata
 
         // Update the 'dependsOnTables' property that tracks tables on which the materialized view depends and the corresponding snapshot ids of the tables
         appendFiles.set(DEPENDS_ON_TABLES, dependencies);
+        appendFiles.set(TRINO_QUERY_START_TIME, session.getStart().toString());
         appendFiles.commit();
 
         transaction.commitTransaction();
@@ -2110,7 +2113,7 @@ public class IcebergMetadata
         Optional<ConnectorMaterializedViewDefinition> materializedViewDefinition = getMaterializedView(session, materializedViewName);
         if (materializedViewDefinition.isEmpty()) {
             // View not found, might have been concurrently deleted
-            return new MaterializedViewFreshness(false);
+            return new MaterializedViewFreshness(false, Optional.empty());
         }
 
         SchemaTableName storageTableName = materializedViewDefinition.get().getStorageTable()
@@ -2119,9 +2122,12 @@ public class IcebergMetadata
 
         Table icebergTable = catalog.loadTable(session, storageTableName);
         String dependsOnTables = icebergTable.currentSnapshot().summary().getOrDefault(DEPENDS_ON_TABLES, "");
+        Instant refreshTime = Optional.ofNullable(icebergTable.currentSnapshot().summary().get(TRINO_QUERY_START_TIME))
+                .map(Instant::parse)
+                .orElseGet(() -> Instant.ofEpochMilli(icebergTable.currentSnapshot().timestampMillis()));
         if (dependsOnTables.isEmpty()) {
             // Information missing
-            return new MaterializedViewFreshness(false);
+            return new MaterializedViewFreshness(false, Optional.of(refreshTime));
         }
         Map<String, String> tableToSnapshotIdMap = Splitter.on(',').withKeyValueSeparator('=').split(dependsOnTables);
         for (Map.Entry<String, String> entry : tableToSnapshotIdMap.entrySet()) {
@@ -2148,10 +2154,10 @@ public class IcebergMetadata
                 tableToken = Optional.of(new TableToken(Long.parseLong(entry.getValue())));
             }
             if (!isTableCurrent(session, tableHandle, tableToken)) {
-                return new MaterializedViewFreshness(false);
+                return new MaterializedViewFreshness(false, Optional.of(refreshTime));
             }
         }
-        return new MaterializedViewFreshness(true);
+        return new MaterializedViewFreshness(true, Optional.of(refreshTime));
     }
 
     @Override

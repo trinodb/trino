@@ -13,15 +13,28 @@
  */
 package io.trino.spi.connector;
 
+import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.StringJoiner;
+
+import static java.util.Objects.requireNonNull;
 
 public final class MaterializedViewFreshness
 {
     private final boolean materializedViewFresh;
+    private final Optional<Instant> lastRefreshTime;
 
+    @Deprecated
     public MaterializedViewFreshness(boolean materializedViewFresh)
     {
+        this(materializedViewFresh, Optional.empty());
+    }
+
+    public MaterializedViewFreshness(boolean materializedViewFresh, Optional<Instant> lastRefreshTime)
+    {
         this.materializedViewFresh = materializedViewFresh;
+        this.lastRefreshTime = requireNonNull(lastRefreshTime, "lastRefreshTime is null");
     }
 
     public boolean isMaterializedViewFresh()
@@ -29,31 +42,40 @@ public final class MaterializedViewFreshness
         return materializedViewFresh;
     }
 
-    @Override
-    public boolean equals(Object obj)
+    /**
+     * Last materialized view's refresh time, if known.
+     */
+    public Optional<Instant> getLastRefreshTime()
     {
-        if (this == obj) {
+        return lastRefreshTime;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
             return true;
         }
-        if ((obj == null) || (getClass() != obj.getClass())) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        MaterializedViewFreshness that = (MaterializedViewFreshness) obj;
-        return Objects.equals(materializedViewFresh, that.materializedViewFresh);
+        MaterializedViewFreshness that = (MaterializedViewFreshness) o;
+        return materializedViewFresh == that.materializedViewFresh &&
+                Objects.equals(lastRefreshTime, that.lastRefreshTime);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(materializedViewFresh);
+        return Objects.hash(materializedViewFresh, lastRefreshTime);
     }
 
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("MaterializedViewFreshness{");
-        sb.append("materializedViewFresh=").append(materializedViewFresh);
-        sb.append('}');
-        return sb.toString();
+        return new StringJoiner(", ", MaterializedViewFreshness.class.getSimpleName() + "[", "]")
+                .add("materializedViewFresh=" + materializedViewFresh)
+                .add("lastRefreshTime=" + lastRefreshTime)
+                .toString();
     }
 }

@@ -21,6 +21,7 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.trino.sql.analyzer.RegexLibrary;
 
@@ -36,6 +37,7 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.sql.analyzer.RegexLibrary.JONI;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({
         "analyzer.experimental-syntax-enabled",
@@ -98,6 +100,7 @@ public class FeaturesConfig
     private boolean legacyCatalogRoles;
     private boolean incrementalHashArrayLoadFactorEnabled = true;
     private boolean allowSetViewAuthorization;
+    private Duration materializedViewRequiredFreshness = new Duration(0, SECONDS);
 
     private boolean hideInaccessibleColumns;
     private boolean forceSpillingJoin;
@@ -476,6 +479,20 @@ public class FeaturesConfig
     public FeaturesConfig setAllowSetViewAuthorization(boolean allowSetViewAuthorization)
     {
         this.allowSetViewAuthorization = allowSetViewAuthorization;
+        return this;
+    }
+
+    @NotNull
+    public Duration getMaterializedViewRequiredFreshness()
+    {
+        return materializedViewRequiredFreshness;
+    }
+
+    @Config("materialized-view.required-freshness")
+    @ConfigDescription("Determines time since last refresh of a materialized view after which it becomes treated as an ordinary view")
+    public FeaturesConfig setMaterializedViewRequiredFreshness(Duration materializedViewRequiredFreshness)
+    {
+        this.materializedViewRequiredFreshness = materializedViewRequiredFreshness;
         return this;
     }
 
