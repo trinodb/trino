@@ -76,6 +76,7 @@ public record KerberosConfiguration(KerberosPrincipal kerberosPrincipal, Map<Str
     {
         private KerberosPrincipal kerberosPrincipal;
         private Optional<String> keytabLocation = Optional.empty();
+        private Optional<String> credentialCacheLocation = Optional.empty();
 
         public Builder withKerberosPrincipal(String kerberosPrincipal)
         {
@@ -90,6 +91,13 @@ public record KerberosConfiguration(KerberosPrincipal kerberosPrincipal, Map<Str
             return this;
         }
 
+        public Builder withCredentialCacheLocation(String credentialCacheLocation)
+        {
+            verifyFile(credentialCacheLocation);
+            this.credentialCacheLocation = Optional.of(credentialCacheLocation);
+            return this;
+        }
+
         public KerberosConfiguration build()
         {
             ImmutableMap.Builder<String, String> optionsBuilder = ImmutableMap.<String, String>builder()
@@ -97,11 +105,19 @@ public record KerberosConfiguration(KerberosPrincipal kerberosPrincipal, Map<Str
                     .put("isInitiator", "true")
                     .put("principal", kerberosPrincipal.getName());
 
+            checkArgument(keytabLocation.isPresent() ^ credentialCacheLocation.isPresent(), "Either keytab or credential cache must be specified");
+
             keytabLocation.ifPresent(
                     keytab -> optionsBuilder
-                            .put("storeKey", "true")
                             .put("useKeyTab", "true")
+                            .put("storeKey", "true")
                             .put("keyTab", keytab));
+
+            credentialCacheLocation.ifPresent(
+                    credentialCache -> optionsBuilder
+                            .put("useTicketCache", "true")
+                            .put("renewTGT", "true")
+                            .put("ticketCache", credentialCache));
 
             return new KerberosConfiguration(kerberosPrincipal, optionsBuilder.buildOrThrow());
         }

@@ -14,16 +14,19 @@
 package io.trino.hdfs.authentication;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.ConfigurationFactory;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
+import javax.validation.constraints.AssertTrue;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
-import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHdfsKerberosConfig
 {
@@ -32,12 +35,13 @@ public class TestHdfsKerberosConfig
     {
         assertRecordedDefaults(recordDefaults(HdfsKerberosConfig.class)
                 .setHdfsTrinoPrincipal(null)
-                .setHdfsTrinoKeytab(null));
+                .setHdfsTrinoKeytab(null)
+                .setHdfsTrinoCredentialCacheLocation(null));
     }
 
     @Test
-    public void testExplicitPropertyMappings()
-            throws IOException
+    public void testExplicitPropertyMappingsForKeytab()
+            throws Exception
     {
         Path keytab = Files.createTempFile(null, null);
 
@@ -46,10 +50,64 @@ public class TestHdfsKerberosConfig
                 .put("hive.hdfs.trino.keytab", keytab.toString())
                 .buildOrThrow();
 
+        ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
+        HdfsKerberosConfig config = configurationFactory.build(HdfsKerberosConfig.class);
+
         HdfsKerberosConfig expected = new HdfsKerberosConfig()
                 .setHdfsTrinoPrincipal("trino@EXAMPLE.COM")
                 .setHdfsTrinoKeytab(keytab.toString());
 
-        assertFullMapping(properties, expected);
+        assertThat(config.getHdfsTrinoPrincipal())
+                .isEqualTo(expected.getHdfsTrinoPrincipal());
+        assertThat(config.getHdfsTrinoKeytab())
+                .isEqualTo(expected.getHdfsTrinoKeytab());
+    }
+
+    @Test
+    public void testExplicitPropertyMappingsForCredentialCache()
+            throws Exception
+    {
+        Path credentialCacheLocation = Files.createTempFile("credentialCache", null);
+
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("hive.hdfs.trino.principal", "trino@EXAMPLE.COM")
+                .put("hive.hdfs.trino.credential-cache.location", credentialCacheLocation.toString())
+                .buildOrThrow();
+
+        ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
+        HdfsKerberosConfig config = configurationFactory.build(HdfsKerberosConfig.class);
+
+        HdfsKerberosConfig expected = new HdfsKerberosConfig()
+                .setHdfsTrinoPrincipal("trino@EXAMPLE.COM")
+                .setHdfsTrinoCredentialCacheLocation(credentialCacheLocation.toString());
+
+        assertThat(config.getHdfsTrinoPrincipal())
+                .isEqualTo(expected.getHdfsTrinoPrincipal());
+        assertThat(config.getHdfsTrinoCredentialCacheLocation())
+                .isEqualTo(expected.getHdfsTrinoCredentialCacheLocation());
+    }
+
+    @Test
+    public void testValidation()
+            throws Exception
+    {
+        assertFailsValidation(
+                new HdfsKerberosConfig()
+                        .setHdfsTrinoPrincipal("trino@EXAMPLE.COM"),
+                "configValid",
+                "Exactly one of `hive.hdfs.trino.keytab` or `hive.hdfs.trino.credential-cache.location` must be specified",
+                AssertTrue.class);
+
+        Path keytab = Files.createTempFile(null, null);
+        Path credentialCacheLocation = Files.createTempFile("credentialCache", null);
+
+        assertFailsValidation(
+                new HdfsKerberosConfig()
+                        .setHdfsTrinoPrincipal("trino@EXAMPLE.COM")
+                        .setHdfsTrinoKeytab(keytab.toString())
+                        .setHdfsTrinoCredentialCacheLocation(credentialCacheLocation.toString()),
+                "configValid",
+                "Exactly one of `hive.hdfs.trino.keytab` or `hive.hdfs.trino.credential-cache.location` must be specified",
+                AssertTrue.class);
     }
 }

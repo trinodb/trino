@@ -17,13 +17,17 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.validation.FileExists;
 
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotNull;
+
+import java.util.Optional;
 
 public class MetastoreKerberosConfig
 {
     private String hiveMetastoreServicePrincipal;
     private String hiveMetastoreClientPrincipal;
     private String hiveMetastoreClientKeytab;
+    private String hiveMetastoreCredentialCachePath;
 
     @NotNull
     public String getHiveMetastoreServicePrincipal()
@@ -54,10 +58,9 @@ public class MetastoreKerberosConfig
     }
 
     @NotNull
-    @FileExists
-    public String getHiveMetastoreClientKeytab()
+    public Optional<@FileExists String> getHiveMetastoreClientKeytab()
     {
-        return hiveMetastoreClientKeytab;
+        return Optional.ofNullable(hiveMetastoreClientKeytab);
     }
 
     @Config("hive.metastore.client.keytab")
@@ -66,5 +69,25 @@ public class MetastoreKerberosConfig
     {
         this.hiveMetastoreClientKeytab = hiveMetastoreClientKeytab;
         return this;
+    }
+
+    @NotNull
+    public Optional<@FileExists String> getHiveMetastoreClientCredentialCacheLocation()
+    {
+        return Optional.ofNullable(hiveMetastoreCredentialCachePath);
+    }
+
+    @Config("hive.metastore.client.credential-cache.location")
+    @ConfigDescription("Hive Metastore client credential cache location")
+    public MetastoreKerberosConfig setHiveMetastoreClientCredentialCacheLocation(String hiveMetastoreCredentialCachePath)
+    {
+        this.hiveMetastoreCredentialCachePath = hiveMetastoreCredentialCachePath;
+        return this;
+    }
+
+    @AssertTrue(message = "Exactly one of `hive.metastore.client.keytab` or `hive.metastore.client.credential-cache.location` must be specified")
+    public boolean isConfigValid()
+    {
+        return getHiveMetastoreClientKeytab().isPresent() ^ getHiveMetastoreClientCredentialCacheLocation().isPresent();
     }
 }
