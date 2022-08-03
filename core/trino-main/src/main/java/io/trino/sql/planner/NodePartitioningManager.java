@@ -89,11 +89,11 @@ public class NodePartitioningManager
 
     public BucketFunction getBucketFunction(Session session, PartitioningHandle partitioningHandle, List<Type> partitionChannelTypes, int bucketCount)
     {
-        CatalogHandle catalogHandle = partitioningHandle.getCatalogHandle()
-                .orElseThrow(() -> new IllegalArgumentException("No catalog handle for partitioning handle: " + partitioningHandle));
+        CatalogHandle catalogHandle = requiredCatalogHandle(partitioningHandle);
         ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(catalogHandle);
+
         BucketFunction bucketFunction = partitioningProvider.getBucketFunction(
-                partitioningHandle.getTransactionHandle().orElseThrow(() -> new IllegalArgumentException("No transactionHandle for partitioning handle: " + partitioningHandle)),
+                partitioningHandle.getTransactionHandle().orElseThrow(),
                 session.toConnectorSession(),
                 partitioningHandle.getConnectorHandle(),
                 partitionChannelTypes,
@@ -120,8 +120,7 @@ public class NodePartitioningManager
             bucketToNode = getFixedMapping(connectorBucketNodeMap);
         }
         else {
-            CatalogHandle catalogHandle = partitioningHandle.getCatalogHandle()
-                    .orElseThrow(() -> new IllegalArgumentException("No catalog handle for partitioning handle: " + partitioningHandle));
+            CatalogHandle catalogHandle = requiredCatalogHandle(partitioningHandle);
             bucketToNode = createArbitraryBucketToNode(
                     nodeScheduler.createNodeSelector(session, Optional.of(catalogHandle)).allNodes(),
                     connectorBucketNodeMap.getBucketCount());
@@ -161,12 +160,11 @@ public class NodePartitioningManager
             return new DynamicBucketNodeMap(splitToBucket, connectorBucketNodeMap.getBucketCount());
         }
 
-        Optional<CatalogHandle> catalogName = partitioningHandle.getCatalogHandle();
-        checkArgument(catalogName.isPresent(), "No catalog handle for partitioning handle: %s", partitioningHandle);
+        CatalogHandle catalogHandle = requiredCatalogHandle(partitioningHandle);
         return new FixedBucketNodeMap(
                 splitToBucket,
                 createArbitraryBucketToNode(
-                        new ArrayList<>(nodeScheduler.createNodeSelector(session, catalogName).allNodes()),
+                        new ArrayList<>(nodeScheduler.createNodeSelector(session, Optional.of(catalogHandle)).allNodes()),
                         connectorBucketNodeMap.getBucketCount()));
     }
 
@@ -179,11 +177,11 @@ public class NodePartitioningManager
 
     public ConnectorBucketNodeMap getConnectorBucketNodeMap(Session session, PartitioningHandle partitioningHandle)
     {
-        CatalogHandle catalogHandle = partitioningHandle.getCatalogHandle()
-                .orElseThrow(() -> new IllegalArgumentException("No catalog handle for partitioning handle: " + partitioningHandle));
+        CatalogHandle catalogHandle = requiredCatalogHandle(partitioningHandle);
         ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(catalogHandle);
+
         ConnectorBucketNodeMap connectorBucketNodeMap = partitioningProvider.getBucketNodeMap(
-                partitioningHandle.getTransactionHandle().orElseThrow(() -> new IllegalArgumentException("No transactionHandle for partitioning handle: " + partitioningHandle)),
+                partitioningHandle.getTransactionHandle().orElseThrow(),
                 session.toConnectorSession(catalogHandle),
                 partitioningHandle.getConnectorHandle());
         checkArgument(connectorBucketNodeMap != null, "No partition map %s", partitioningHandle);
@@ -192,12 +190,11 @@ public class NodePartitioningManager
 
     private ToIntFunction<Split> getSplitToBucket(Session session, PartitioningHandle partitioningHandle)
     {
-        CatalogHandle catalogHandle = partitioningHandle.getCatalogHandle()
-                .orElseThrow(() -> new IllegalArgumentException("No catalog handle for partitioning handle: " + partitioningHandle));
+        CatalogHandle catalogHandle = requiredCatalogHandle(partitioningHandle);
         ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(catalogHandle);
 
         ToIntFunction<ConnectorSplit> splitBucketFunction = partitioningProvider.getSplitBucketFunction(
-                partitioningHandle.getTransactionHandle().orElseThrow(() -> new IllegalArgumentException("No transactionHandle for partitioning handle: " + partitioningHandle)),
+                partitioningHandle.getTransactionHandle().orElseThrow(),
                 session.toConnectorSession(catalogHandle),
                 partitioningHandle.getConnectorHandle());
         checkArgument(splitBucketFunction != null, "No partitioning %s", partitioningHandle);
@@ -217,6 +214,12 @@ public class NodePartitioningManager
     private ConnectorNodePartitioningProvider getPartitioningProvider(CatalogHandle catalogHandle)
     {
         return partitioningProvider.getService(requireNonNull(catalogHandle, "catalogHandle is null"));
+    }
+
+    private static CatalogHandle requiredCatalogHandle(PartitioningHandle partitioningHandle)
+    {
+        return partitioningHandle.getCatalogHandle().orElseThrow(() ->
+                new IllegalStateException("No catalog handle for partitioning handle: " + partitioningHandle));
     }
 
     private static List<InternalNode> createArbitraryBucketToNode(List<InternalNode> nodes, int bucketCount)
