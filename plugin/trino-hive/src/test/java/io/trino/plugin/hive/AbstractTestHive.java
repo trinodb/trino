@@ -5626,7 +5626,7 @@ public abstract class AbstractTestHive
                         false);
                 assertEquals(insertLayout.get().getPartitioning(), Optional.of(partitioningHandle));
                 assertEquals(insertLayout.get().getPartitionColumns(), ImmutableList.of("column1"));
-                ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMap(transaction.getTransactionHandle(), session, partitioningHandle);
+                ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMapping(transaction.getTransactionHandle(), session, partitioningHandle).orElseThrow();
                 assertEquals(connectorBucketNodeMap.getBucketCount(), 4);
                 assertFalse(connectorBucketNodeMap.hasFixedMapping());
             }
@@ -5676,7 +5676,7 @@ public abstract class AbstractTestHive
                         true);
                 assertEquals(insertLayout.get().getPartitioning(), Optional.of(partitioningHandle));
                 assertEquals(insertLayout.get().getPartitionColumns(), ImmutableList.of("column1", "column2"));
-                ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMap(transaction.getTransactionHandle(), session, partitioningHandle);
+                ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMapping(transaction.getTransactionHandle(), session, partitioningHandle).orElseThrow();
                 assertEquals(connectorBucketNodeMap.getBucketCount(), 32);
                 assertFalse(connectorBucketNodeMap.hasFixedMapping());
             }
@@ -5737,7 +5737,7 @@ public abstract class AbstractTestHive
                     false);
             assertEquals(newTableLayout.get().getPartitioning(), Optional.of(partitioningHandle));
             assertEquals(newTableLayout.get().getPartitionColumns(), ImmutableList.of("column1"));
-            ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMap(transaction.getTransactionHandle(), session, partitioningHandle);
+            ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMapping(transaction.getTransactionHandle(), session, partitioningHandle).orElseThrow();
             assertEquals(connectorBucketNodeMap.getBucketCount(), 10);
             assertFalse(connectorBucketNodeMap.hasFixedMapping());
         }
@@ -5770,7 +5770,7 @@ public abstract class AbstractTestHive
                     true);
             assertEquals(newTableLayout.get().getPartitioning(), Optional.of(partitioningHandle));
             assertEquals(newTableLayout.get().getPartitionColumns(), ImmutableList.of("column1", "column2"));
-            ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMap(transaction.getTransactionHandle(), session, partitioningHandle);
+            ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMapping(transaction.getTransactionHandle(), session, partitioningHandle).orElseThrow();
             assertEquals(connectorBucketNodeMap.getBucketCount(), 32);
             assertFalse(connectorBucketNodeMap.hasFixedMapping());
         }

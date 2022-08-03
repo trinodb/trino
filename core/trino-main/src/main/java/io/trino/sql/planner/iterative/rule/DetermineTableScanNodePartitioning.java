@@ -24,6 +24,8 @@ import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.TableScanNode;
 
+import java.util.Optional;
+
 import static io.trino.SystemSessionProperties.getTableScanNodePartitioningMinBucketToTaskRatio;
 import static io.trino.SystemSessionProperties.isUseTableScanNodePartitioning;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
@@ -62,8 +64,8 @@ public class DetermineTableScanNodePartitioning
         }
 
         TablePartitioning partitioning = properties.getTablePartitioning().get();
-        ConnectorBucketNodeMap bucketNodeMap = nodePartitioningManager.getConnectorBucketNodeMap(context.getSession(), partitioning.getPartitioningHandle());
-        if (bucketNodeMap.hasFixedMapping()) {
+        Optional<ConnectorBucketNodeMap> bucketNodeMap = nodePartitioningManager.getConnectorBucketNodeMap(context.getSession(), partitioning.getPartitioningHandle());
+        if (bucketNodeMap.map(ConnectorBucketNodeMap::hasFixedMapping).orElse(false)) {
             // use connector table scan node partitioning when bucket to node assignments are fixed
             return Result.ofPlanNode(node.withUseConnectorNodePartitioning(true));
         }
@@ -72,7 +74,8 @@ public class DetermineTableScanNodePartitioning
             return Result.ofPlanNode(node.withUseConnectorNodePartitioning(false));
         }
 
-        int numberOfBuckets = bucketNodeMap.getBucketCount();
+        int numberOfBuckets = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount)
+                .orElseGet(() -> nodePartitioningManager.getNodeCount(context.getSession(), partitioning.getPartitioningHandle()));
         int numberOfTasks = max(taskCountEstimator.estimateSourceDistributedTaskCount(context.getSession()), 1);
 
         return Result.ofPlanNode(node

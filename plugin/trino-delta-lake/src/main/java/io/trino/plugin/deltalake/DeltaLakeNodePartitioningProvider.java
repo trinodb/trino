@@ -13,9 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
-import io.trino.spi.NodeManager;
 import io.trino.spi.connector.BucketFunction;
-import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -28,26 +26,17 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
 {
     private final TypeOperators typeOperators;
-    private final NodeManager nodeManager;
 
     @Inject
-    public DeltaLakeNodePartitioningProvider(TypeManager typeManager, NodeManager nodeManager)
+    public DeltaLakeNodePartitioningProvider(TypeManager typeManager)
     {
         this.typeOperators = requireNonNull(typeManager, "typeManager is null").getTypeOperators();
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-    }
-
-    @Override
-    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
-    {
-        return createBucketNodeMap(nodeManager.getRequiredWorkerNodes().size());
     }
 
     @Override
