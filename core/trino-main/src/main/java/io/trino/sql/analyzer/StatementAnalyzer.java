@@ -1584,7 +1584,8 @@ class StatementAnalyzer
                             name.getSchemaFunctionName().getFunctionName()));
                     return Optional.of(new TableFunctionMetadata(catalogHandle, resolved.get()));
                 }
-            } return Optional.empty();
+            }
+            return Optional.empty();
         }
 
         private Map<String, Argument> analyzeArguments(Node node, List<ArgumentSpecification> argumentSpecifications, List<TableFunctionArgument> arguments)
