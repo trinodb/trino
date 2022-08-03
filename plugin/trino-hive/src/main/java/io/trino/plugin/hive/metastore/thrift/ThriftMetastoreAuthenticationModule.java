@@ -70,10 +70,10 @@ public class ThriftMetastoreAuthenticationModule
         public HadoopAuthentication createHadoopAuthentication(MetastoreKerberosConfig config, HdfsConfigurationInitializer updater)
         {
             String principal = config.getHiveMetastoreClientPrincipal();
-            String keytabLocation = config.getHiveMetastoreClientKeytab();
             KerberosConfiguration.Builder builder = new KerberosConfiguration.Builder()
-                    .withKerberosPrincipal(principal)
-                    .withKeytabLocation(keytabLocation);
+                    .withKerberosPrincipal(principal);
+            config.getHiveMetastoreClientKeytab().ifPresent(builder::withKeytabLocation);
+            config.getHiveMetastoreClientCredentialCacheLocation().ifPresent(builder::withCredentialCacheLocation);
             return createCachingKerberosHadoopAuthentication(builder.build(), updater);
         }
     }

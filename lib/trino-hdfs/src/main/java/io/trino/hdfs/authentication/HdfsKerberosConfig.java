@@ -18,12 +18,16 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotNull;
+
+import java.util.Optional;
 
 public class HdfsKerberosConfig
 {
     private String hdfsTrinoPrincipal;
     private String hdfsTrinoKeytab;
+    private String hdfsTrinoCredentialCacheLocation;
 
     @NotNull
     public String getHdfsTrinoPrincipal()
@@ -41,10 +45,9 @@ public class HdfsKerberosConfig
     }
 
     @NotNull
-    @FileExists
-    public String getHdfsTrinoKeytab()
+    public Optional<@FileExists String> getHdfsTrinoKeytab()
     {
-        return hdfsTrinoKeytab;
+        return Optional.ofNullable(hdfsTrinoKeytab);
     }
 
     @Config("hive.hdfs.trino.keytab")
@@ -54,5 +57,25 @@ public class HdfsKerberosConfig
     {
         this.hdfsTrinoKeytab = hdfsTrinoKeytab;
         return this;
+    }
+
+    @NotNull
+    public Optional<@FileExists String> getHdfsTrinoCredentialCacheLocation()
+    {
+        return Optional.ofNullable(hdfsTrinoCredentialCacheLocation);
+    }
+
+    @Config("hive.hdfs.trino.credential-cache.location")
+    @ConfigDescription("Trino credential-cache location used to access HDFS")
+    public HdfsKerberosConfig setHdfsTrinoCredentialCacheLocation(String hdfsTrinoCredentialCacheLocation)
+    {
+        this.hdfsTrinoCredentialCacheLocation = hdfsTrinoCredentialCacheLocation;
+        return this;
+    }
+
+    @AssertTrue(message = "Exactly one of `hive.hdfs.trino.keytab` or `hive.hdfs.trino.credential-cache.location` must be specified")
+    public boolean isConfigValid()
+    {
+        return getHdfsTrinoKeytab().isPresent() ^ getHdfsTrinoCredentialCacheLocation().isPresent();
     }
 }

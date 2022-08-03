@@ -70,10 +70,10 @@ public final class AuthenticationModules
             HadoopAuthentication createHadoopAuthentication(HdfsKerberosConfig config, HdfsConfigurationInitializer updater)
             {
                 String principal = config.getHdfsTrinoPrincipal();
-                String keytabLocation = config.getHdfsTrinoKeytab();
                 KerberosConfiguration.Builder builder = new KerberosConfiguration.Builder()
-                        .withKerberosPrincipal(principal)
-                        .withKeytabLocation(keytabLocation);
+                        .withKerberosPrincipal(principal);
+                config.getHdfsTrinoKeytab().ifPresent(builder::withKeytabLocation);
+                config.getHdfsTrinoCredentialCacheLocation().ifPresent(builder::withCredentialCacheLocation);
                 return createCachingKerberosHadoopAuthentication(builder.build(), updater);
             }
         };
@@ -103,10 +103,10 @@ public final class AuthenticationModules
             HadoopAuthentication createHadoopAuthentication(HdfsKerberosConfig config, HdfsConfigurationInitializer updater)
             {
                 String principal = config.getHdfsTrinoPrincipal();
-                String keytabLocation = config.getHdfsTrinoKeytab();
                 KerberosConfiguration.Builder builder = new KerberosConfiguration.Builder()
-                        .withKerberosPrincipal(principal)
-                        .withKeytabLocation(keytabLocation);
+                        .withKerberosPrincipal(principal);
+                config.getHdfsTrinoKeytab().ifPresent(builder::withKeytabLocation);
+                config.getHdfsTrinoCredentialCacheLocation().ifPresent(builder::withCredentialCacheLocation);
                 return createCachingKerberosHadoopAuthentication(builder.build(), updater);
             }
         };
