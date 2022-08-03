@@ -30,7 +30,7 @@
 * Prevent writing to a table with `NOT NULL` or
   [column invariants](https://github.com/delta-io/delta/blob/master/PROTOCOL.md#column-invariants)
   columns. ({issue}`13353`)
-* Fix incorrect min and max table statistic values when writing `NULL` values. ({issue}`13389`)
+* Fix incorrect min and max column statistics when writing `NULL` values. ({issue}`13389`)
 
 ## Druid connector
 
@@ -83,7 +83,7 @@
 
 ## Pinot connector
 
-* Mask the values of `pinot.grpc.tls.keystore-password` and
+* Redact the values of `pinot.grpc.tls.keystore-password` and
   `pinot.grpc.tls.truststore-password` in the server log. ({issue}`13422`)
 
 ## PostgreSQL connector
