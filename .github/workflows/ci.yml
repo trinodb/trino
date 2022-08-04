@@ -55,7 +55,6 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: ${{ matrix.java-version }}
-          cache: 'maven'
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Checks
@@ -87,7 +86,6 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 17
-          cache: 'maven'
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Package
@@ -126,7 +124,6 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 17
-          cache: 'maven'
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
@@ -164,9 +161,6 @@ jobs:
           path: |
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
-      - name: Clean local Maven repo
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: rm -rf ~/.m2/repository
 
   hive-tests:
     runs-on: ubuntu-latest
@@ -189,7 +183,6 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 17
-          cache: 'maven'
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Install Hive Module
@@ -291,9 +284,6 @@ jobs:
           path: |
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
-      - name: Clean local Maven repo
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: rm -rf ~/.m2/repository
 
   test-other-modules:
     runs-on: ubuntu-latest
@@ -308,7 +298,6 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 17
-          cache: 'maven'
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
@@ -366,9 +355,6 @@ jobs:
           path: |
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
-      - name: Clean local Maven repo
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: rm -rf ~/.m2/repository
 
   build-test-matrix:
     runs-on: ubuntu-latest
@@ -449,7 +435,6 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 17
-          cache: 'maven'
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Cleanup node
@@ -536,9 +521,6 @@ jobs:
           path: |
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
-      - name: Clean local Maven repo
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: rm -rf ~/.m2/repository
 
   build-pt:
     runs-on: ubuntu-latest
@@ -555,7 +537,6 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 17
-          cache: 'maven'
       - name: Check secrets
         run: |
           if [[ "${{ secrets.AZURE_ABFS_CONTAINER }}" != "" && \
@@ -605,9 +586,6 @@ jobs:
             testing/trino-product-tests/target/*-executable.jar
             client/trino-cli/target/*-executable.jar
           retention-days: 1
-      - name: Clean local Maven repo
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: rm -rf ~/.m2/repository
 
   pt:
     runs-on: ubuntu-latest
