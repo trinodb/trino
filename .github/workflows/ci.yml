@@ -70,7 +70,7 @@ jobs:
         run: $MAVEN clean -pl '!:trino-server,!:trino-cli'
       - uses: docker/setup-qemu-action@v1
         with:
-          platforms: arm64
+          platforms: arm64,ppc64le
       - name: Test Docker Image
         run: core/docker/build.sh
 
