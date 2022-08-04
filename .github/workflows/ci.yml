@@ -73,6 +73,8 @@ jobs:
           platforms: arm64
       - name: Test Docker Image
         run: core/docker/build.sh
+      - name: Block Merge Commits
+        uses: nineinchnick/block-commits-action@cea2eb9b1b83c500d877cd60649d98b58fc2423c
 
   error-prone-checks:
     runs-on: ubuntu-latest
