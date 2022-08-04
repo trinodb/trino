@@ -386,37 +386,21 @@ jobs:
           touch gib-impacted.log
           cat <<EOF > .github/test-matrix.yaml
           include:
-            - { modules: core/trino-main }
-            - { modules: testing/trino-tests }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive-1 }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive-2 }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
-            - { modules: plugin/trino-raptor-legacy }
-            - { modules: plugin/trino-accumulo }
-            - { modules: plugin/trino-cassandra }
-            - { modules: plugin/trino-clickhouse }
             - { modules: plugin/trino-delta-lake }
-            - { modules: plugin/trino-hive }
-            - { modules: plugin/trino-hive, profile: test-parquet }
-            - { modules: plugin/trino-elasticsearch }
-            - { modules: plugin/trino-elasticsearch, profile: test-stats }
-            - { modules: plugin/trino-mongodb }
-            - { modules: plugin/trino-kafka }
-            - { modules: plugin/trino-pinot }
-            - { modules: plugin/trino-redis }
-            - { modules: plugin/trino-mysql }
-            - { modules: plugin/trino-postgresql }
-            - { modules: plugin/trino-sqlserver }
-            - { modules: plugin/trino-singlestore }
-            - { modules: plugin/trino-mariadb }
-            - { modules: plugin/trino-oracle }
-            - { modules: plugin/trino-kudu }
-            - { modules: plugin/trino-druid }
-            - { modules: plugin/trino-iceberg }
-            - { modules: plugin/trino-phoenix5 }
-            - { modules: [ client/trino-jdbc, plugin/trino-base-jdbc, plugin/trino-thrift, plugin/trino-memory ] }
-            - { modules: plugin/trino-bigquery }
+            - { modules: plugin/trino-delta-lake }
+            - { modules: plugin/trino-delta-lake }
+            - { modules: plugin/trino-delta-lake }
+            - { modules: plugin/trino-delta-lake }
+            - { modules: plugin/trino-delta-lake }
+            - { modules: plugin/trino-delta-lake }
+            - { modules: plugin/trino-delta-lake }
+            - { modules: plugin/trino-delta-lake }
+            - { modules: plugin/trino-delta-lake }
+            - { modules: plugin/trino-delta-lake }
+            - { modules: plugin/trino-delta-lake }
+            - { modules: plugin/trino-delta-lake }
+            - { modules: plugin/trino-delta-lake }
+            - { modules: plugin/trino-delta-lake }
           EOF
           ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json
           echo "Matrix: $(jq '.' matrix.json)"
