@@ -689,7 +689,9 @@ public class ThriftHiveMetastore
         verify(!dateStatistics.isEmpty() && metastoreSupportsDateStatistics.equals(Optional.empty()));
 
         try (ThriftMetastoreClient client = createMetastoreClient()) {
-            saveColumnStatistics.call(client, statisticsExceptDate);
+            if (!statisticsExceptDate.isEmpty()) {
+                saveColumnStatistics.call(client, statisticsExceptDate);
+            }
 
             try {
                 saveColumnStatistics.call(client, dateStatistics);

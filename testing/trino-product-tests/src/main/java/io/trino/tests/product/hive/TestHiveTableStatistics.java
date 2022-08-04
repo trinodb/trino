@@ -1468,6 +1468,30 @@ public class TestHiveTableStatistics
     }
 
     @Test
+    public void testComputeStatisticsForTableWithOnlyDateColumns()
+    {
+        String tableName = "test_compute_statistics_with_only_date_columns";
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        try {
+            onTrino().executeQuery(format("CREATE TABLE %s AS SELECT date'2019-12-02' c_date", tableName));
+
+            List<Row> expectedStatistics = ImmutableList.of(
+                    isHiveVersionBefore12()
+                            ? row("c_date", null, null, null, null, null, null)
+                            : row("c_date", null, 1.0, 0.0, null, "2019-12-02", "2019-12-02"),
+                    row(null, null, null, null, 1.0, null, null));
+
+            assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableName)).containsOnly(expectedStatistics);
+
+            onTrino().executeQuery("ANALYZE " + tableName);
+            assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableName)).containsOnly(expectedStatistics);
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testMixedHiveAndPrestoStatistics()
     {
