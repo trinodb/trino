@@ -59,6 +59,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -86,7 +87,10 @@ public class DistributedQueryRunner
     private final TestingDiscoveryServer discoveryServer;
     private final TestingTrinoServer coordinator;
     private final Optional<TestingTrinoServer> backupCoordinator;
-    private List<TestingTrinoServer> servers;
+    private final Runnable registerNewWorker;
+    private final List<TestingTrinoServer> servers = new CopyOnWriteArrayList<>();
+    private final List<FunctionBundle> functionBundles = new CopyOnWriteArrayList<>(ImmutableList.of(AbstractTestQueries.CUSTOM_FUNCTIONS));
+    private final List<Plugin> plugins = new CopyOnWriteArrayList<>();
 
     private final Closer closer = Closer.create();
 
@@ -126,19 +130,10 @@ public class DistributedQueryRunner
             closer.register(() -> closeUnchecked(discoveryServer));
             log.info("Created TestingDiscoveryServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
-            ImmutableList.Builder<TestingTrinoServer> servers = ImmutableList.builder();
+            registerNewWorker = () -> createServer(false, extraProperties, environment, additionalModule, baseDataDir, ImmutableList.of(), ImmutableList.of());
 
             for (int i = backupCoordinatorProperties.isEmpty() ? 1 : 2; i < nodeCount; i++) {
-                TestingTrinoServer worker = closer.register(createTestingTrinoServer(
-                        discoveryServer.getBaseUrl(),
-                        false,
-                        extraProperties,
-                        environment,
-                        additionalModule,
-                        baseDataDir,
-                        ImmutableList.of(),
-                        ImmutableList.of()));
-                servers.add(worker);
+                registerNewWorker.run();
             }
 
             Map<String, String> extraCoordinatorProperties = new HashMap<>();
@@ -152,36 +147,23 @@ public class DistributedQueryRunner
                 extraCoordinatorProperties.put("web-ui.user", "admin");
             }
 
-            coordinator = closer.register(createTestingTrinoServer(
-                    discoveryServer.getBaseUrl(),
-                    true,
-                    extraCoordinatorProperties,
-                    environment,
-                    additionalModule,
-                    baseDataDir,
-                    systemAccessControls,
-                    eventListeners));
-            servers.add(coordinator);
+            coordinator = createServer(true, extraCoordinatorProperties, environment, additionalModule, baseDataDir, systemAccessControls, eventListeners);
             if (backupCoordinatorProperties.isPresent()) {
                 Map<String, String> extraBackupCoordinatorProperties = new HashMap<>();
                 extraBackupCoordinatorProperties.putAll(extraProperties);
                 extraBackupCoordinatorProperties.putAll(backupCoordinatorProperties.get());
-                backupCoordinator = Optional.of(closer.register(createTestingTrinoServer(
-                        discoveryServer.getBaseUrl(),
+                backupCoordinator = Optional.of(createServer(
                         true,
                         extraBackupCoordinatorProperties,
                         environment,
                         additionalModule,
                         baseDataDir,
                         systemAccessControls,
-                        eventListeners)));
-                servers.add(backupCoordinator.get());
+                        eventListeners));
             }
             else {
                 backupCoordinator = Optional.empty();
             }
-
-            this.servers = servers.build();
         }
         catch (Exception e) {
             try {
@@ -197,12 +179,30 @@ public class DistributedQueryRunner
         this.trinoClient = closer.register(new TestingTrinoClient(coordinator, defaultSession));
 
         waitForAllNodesGloballyVisible();
+    }
 
-        long start = System.nanoTime();
-        for (TestingTrinoServer server : servers) {
-            server.addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
-        }
-        log.info("Added functions in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
+    private TestingTrinoServer createServer(
+            boolean coordinator,
+            Map<String, String> extraCoordinatorProperties,
+            String environment,
+            Module additionalModule,
+            Optional<Path> baseDataDir,
+            List<SystemAccessControl> systemAccessControls,
+            List<EventListener> eventListeners)
+    {
+        TestingTrinoServer server = closer.register(createTestingTrinoServer(
+                discoveryServer.getBaseUrl(),
+                coordinator,
+                extraCoordinatorProperties,
+                environment,
+                additionalModule,
+                baseDataDir,
+                systemAccessControls,
+                eventListeners));
+        servers.add(server);
+        functionBundles.forEach(server::addFunctions);
+        plugins.forEach(server::installPlugin);
+        return server;
     }
 
     private static void setupLogging()
@@ -268,23 +268,9 @@ public class DistributedQueryRunner
     public void addServers(int nodeCount)
             throws Exception
     {
-        ImmutableList.Builder<TestingTrinoServer> serverBuilder = ImmutableList.<TestingTrinoServer>builder()
-                .addAll(servers);
         for (int i = 0; i < nodeCount; i++) {
-            TestingTrinoServer server = closer.register(createTestingTrinoServer(
-                    discoveryServer.getBaseUrl(),
-                    false,
-                    ImmutableMap.of(),
-                    ENVIRONMENT,
-                    EMPTY_MODULE,
-                    Optional.empty(),
-                    ImmutableList.of(),
-                    ImmutableList.of()));
-            serverBuilder.add(server);
-            // add functions
-            server.addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
+            registerNewWorker.run();
         }
-        servers = serverBuilder.build();
         waitForAllNodesGloballyVisible();
     }
 
@@ -423,16 +409,16 @@ public class DistributedQueryRunner
     @Override
     public void installPlugin(Plugin plugin)
     {
+        plugins.add(plugin);
         long start = System.nanoTime();
-        for (TestingTrinoServer server : servers) {
-            server.installPlugin(plugin);
-        }
+        servers.forEach(server -> server.installPlugin(plugin));
         log.info("Installed plugin %s in %s", plugin.getClass().getSimpleName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
     @Override
     public void addFunctions(FunctionBundle functionBundle)
     {
+        functionBundles.add(functionBundle);
         servers.forEach(server -> server.addFunctions(functionBundle));
     }
 
@@ -445,9 +431,7 @@ public class DistributedQueryRunner
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
         long start = System.nanoTime();
-        for (TestingTrinoServer server : servers) {
-            server.createCatalog(catalogName, connectorName, properties);
-        }
+        coordinator.createCatalog(catalogName, connectorName, properties);
         log.info("Created catalog %s in %s", catalogName, nanosSince(start));
     }
 
