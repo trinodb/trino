@@ -42,40 +42,44 @@ public class TestComplexTypesWithNull
     @Test
     public void testRowTypeWithNull()
     {
-        assertThat(assertions.query(
-                "SELECT r.a, r.b, c FROM " +
-                        "(VALUES ROW(CAST(ROW(1, NULL) AS ROW(a INTEGER, b INTEGER)))) t(r) " +
-                        "JOIN (VALUES 1) u(c) ON c = r.a"))
+        assertThat(assertions.query("""
+                SELECT r.a, r.b, c
+                FROM (VALUES ROW(CAST(ROW(1, NULL) AS ROW(a INTEGER, b INTEGER)))) t(r)
+                JOIN (VALUES 1) u(c) ON c = r.a
+                """))
                 .matches("VALUES (1, CAST(NULL AS INTEGER), 1)");
     }
 
     @Test
     public void testArrayTypeWithNull()
     {
-        assertThat(assertions.query(
-                "SELECT t.a, t.b, c FROM " +
-                        "UNNEST(ARRAY[CAST(ROW(1, NULL) as ROW(a INTEGER, b INTEGER)) ]) t " +
-                        "JOIN (VALUES 1) u(c) ON c = t.a"))
+        assertThat(assertions.query("""
+                SELECT t.a, t.b, c
+                FROM UNNEST(ARRAY[CAST(ROW(1, NULL) as ROW(a INTEGER, b INTEGER)) ]) t
+                JOIN (VALUES 1) u(c) ON c = t.a
+                """))
                 .matches("VALUES (1, CAST(NULL AS INTEGER), 1)");
     }
 
     @Test
     public void testNestedRowTypeWithNull()
     {
-        assertThat(assertions.query(
-                "SELECT r.a, r[2].b, r[2].c, c FROM " +
-                        "(VALUES ROW(CAST(ROW(1, ROW(1, NULL)) AS ROW(a INTEGER, ROW(b INTEGER, c INTEGER))))) t(r) " +
-                        "JOIN (VALUES 1) u(c) ON c = r.a"))
+        assertThat(assertions.query("""
+                SELECT r.a, r[2].b, r[2].c, c FROM
+                (VALUES ROW(CAST(ROW(1, ROW(1, NULL)) AS ROW(a INTEGER, ROW(b INTEGER, c INTEGER))))) t(r)
+                JOIN (VALUES 1) u(c) ON c = r.a
+                """))
                 .matches("VALUES (1, 1, CAST(NULL AS INTEGER), 1)");
     }
 
     @Test
     public void testNestedArrayTypeWithNull()
     {
-        assertThat(assertions.query(
-                "SELECT r.a, r.b, c FROM " +
-                        "(VALUES CAST(ROW(ROW(1, ARRAY[NULL])) AS ROW(ROW(a INTEGER, b ARRAY(INTEGER))))) t(r) " +
-                        "JOIN (VALUES 1) u(c) ON c = r.a"))
+        assertThat(assertions.query("""
+                SELECT r.a, r.b, c FROM
+                (VALUES CAST(ROW(ROW(1, ARRAY[NULL])) AS ROW(ROW(a INTEGER, b ARRAY(INTEGER))))) t(r)
+                JOIN (VALUES 1) u(c) ON c = r.a
+                """))
                 .matches("VALUES (1, ARRAY[CAST(NULL AS INTEGER)], 1)");
     }
 }
