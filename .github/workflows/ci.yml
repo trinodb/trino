@@ -55,7 +55,6 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: ${{ matrix.java-version }}
-          cache: 'maven'
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Checks
@@ -87,7 +86,6 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 17
-          cache: 'maven'
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
@@ -126,7 +124,6 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 17
-          cache: 'maven'
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
@@ -186,7 +183,6 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 17
-          cache: 'maven'
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Install Hive Module
@@ -302,7 +298,6 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 17
-          cache: 'maven'
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
@@ -440,7 +435,6 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 17
-          cache: 'maven'
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Cleanup node
@@ -543,7 +537,6 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 17
-          cache: 'maven'
       - name: Check secrets
         run: |
           if [[ "${{ secrets.AZURE_ABFS_CONTAINER }}" != "" && \
