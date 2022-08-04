@@ -581,18 +581,24 @@ public class TestColumnMask
                 new ViewExpression(USER, Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "7"));
 
         assertThat(assertions.query("SHOW STATS FOR (SELECT * FROM orders)"))
-                .containsAll("VALUES " +
-                        "(VARCHAR 'orderkey', CAST(NULL AS double), 1e0, 0e1, NULL, '7', '7')," +
-                        "(VARCHAR 'clerk', 15e3, 1e3, 0e1, NULL, CAST(NULL AS varchar), CAST(NULL AS varchar))," +
-                        "(NULL, NULL, NULL, NULL, 15e3, NULL, NULL)");
+                .containsAll("""
+                        VALUES
+                         (VARCHAR 'orderkey', CAST(NULL AS double), 1e0, 0e1, NULL, '7', '7'),
+                         (VARCHAR 'clerk', 15e3, 1e3, 0e1, NULL, CAST(NULL AS varchar), CAST(NULL AS varchar)),
+                         (NULL, NULL, NULL, NULL, 15e3, NULL, NULL)
+                        """);
         assertThat(assertions.query("SHOW STATS FOR (SELECT orderkey FROM orders)"))
-                .matches("VALUES " +
-                        "(VARCHAR 'orderkey', CAST(NULL AS double), 1e0, 0e1, NULL, VARCHAR '7', VARCHAR '7')," +
-                        "(NULL, NULL, NULL, NULL, 15e3, NULL, NULL)");
+                .matches("""
+                        VALUES
+                         (VARCHAR 'orderkey', CAST(NULL AS double), 1e0, 0e1, NULL, VARCHAR '7', VARCHAR '7'),
+                         (NULL, NULL, NULL, NULL, 15e3, NULL, NULL)
+                        """);
         assertThat(assertions.query("SHOW STATS FOR (SELECT clerk FROM orders)"))
-                .matches("VALUES " +
-                        "(VARCHAR 'clerk', 15e3, 1e3, 0e1, NULL, CAST(NULL AS varchar), CAST(NULL AS varchar))," +
-                        "(NULL, NULL, NULL, NULL, 15e3, NULL, NULL)");
+                .matches("""
+                        VALUES
+                         (VARCHAR 'clerk', 15e3, 1e3, 0e1, NULL, CAST(NULL AS varchar), CAST(NULL AS varchar)),
+                         (NULL, NULL, NULL, NULL, 15e3, NULL, NULL)
+                        """);
     }
 
     @Test

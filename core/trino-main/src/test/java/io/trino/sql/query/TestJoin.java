@@ -54,26 +54,28 @@ public class TestJoin
     @Test
     public void testCrossJoinEliminationWithOuterJoin()
     {
-        assertThat(assertions.query(
-                "WITH " +
-                        "  a AS (SELECT id FROM (VALUES (1)) AS t(id))," +
-                        "  b AS (SELECT id FROM (VALUES (1)) AS t(id))," +
-                        "  c AS (SELECT id FROM (VALUES ('1')) AS t(id))," +
-                        "  d as (SELECT id FROM (VALUES (1)) AS t(id))" +
-                        "SELECT a.id " +
-                        "FROM a " +
-                        "LEFT JOIN b ON a.id = b.id " +
-                        "JOIN c ON a.id = CAST(c.id AS bigint) " +
-                        "JOIN d ON d.id = a.id"))
+        assertThat(assertions.query("""
+                WITH
+                  a AS (SELECT id FROM (VALUES (1)) AS t(id)),
+                  b AS (SELECT id FROM (VALUES (1)) AS t(id)),
+                  c AS (SELECT id FROM (VALUES ('1')) AS t(id)),
+                  d as (SELECT id FROM (VALUES (1)) AS t(id))
+                SELECT a.id
+                FROM a
+                LEFT JOIN b ON a.id = b.id
+                JOIN c ON a.id = CAST(c.id AS bigint)
+                JOIN d ON d.id = a.id
+                """))
                 .matches("VALUES 1");
     }
 
     @Test
     public void testJoinOnNan()
     {
-        assertThat(assertions.query(
-                "WITH t(x) AS (VALUES nan()) " +
-                        "SELECT * FROM t t1 JOIN t t2 ON NOT t1.x < t2.x"))
+        assertThat(assertions.query("""
+                WITH t(x) AS (VALUES nan())
+                SELECT * FROM t t1 JOIN t t2 ON NOT t1.x < t2.x
+                """))
                 .matches("VALUES (nan(), nan())");
     }
 
@@ -87,27 +89,25 @@ public class TestJoin
         // with the terms flipped (i.e., CASE ... END = CAST(...)). Because NullabilityAnalyzer.mayReturnNullOnNonNullInput
         // could return an inconsistent result for both forms, the expression ended being dropped
         // from the join clause.
-        assertThat(assertions.query("" +
-                "WITH " +
-                "    t1 (id, v) as ( " +
-                "        VALUES " +
-                "            (1, 100), " +
-                "            (2, 200) " +
-                "    ), " +
-                "    t2 (id, x, y) AS ( " +
-                "        VALUES\n" +
-                "            (1, 10, 'a'), " +
-                "            (2, 10, 'b') " +
-                "    ), " +
-                "    t AS ( " +
-                "        SELECT " +
-                "            x " +
-                "            , IF(t1.v = 0, 'cc', y) as z " +
-                "        FROM t1 JOIN t2 ON (t1.id = t2.id) " +
-                "    ) " +
-                "SELECT * " +
-                "FROM t " +
-                "WHERE x = 10 AND z = 'b'"))
+        assertThat(assertions.query("""
+                WITH
+                    t1 (id, v) as (
+                        VALUES
+                            (1, 100),
+                            (2, 200)),
+                    t2 (id, x, y) AS (
+                        VALUES
+                            (1, 10, 'a'),
+                            (2, 10, 'b')),
+                    t AS (
+                        SELECT
+                            x
+                            , IF(t1.v = 0, 'cc', y) as z
+                        FROM t1 JOIN t2 ON (t1.id = t2.id))
+                SELECT *
+                FROM t
+                WHERE x = 10 AND z = 'b'
+                """))
                 .matches("VALUES (10, CAST('b' AS varchar(2)))");
     }
 
@@ -115,13 +115,14 @@ public class TestJoin
     public void testInPredicateInJoinCriteria()
     {
         // IN with subquery containing column references
-        assertThat(assertions.query("" +
-                "WITH " +
-                "    t(x, y) AS (VALUES (1, 10), (2, 20)), " +
-                "    u(x) AS (VALUES 1, 2), " +
-                "    w(z) AS (VALUES 10, 20) " +
-                "SELECT *\n" +
-                "FROM t LEFT JOIN u ON t.x = u.x AND t.y IN (SELECT z FROM w)"))
+        assertThat(assertions.query("""
+                WITH
+                    t(x, y) AS (VALUES (1, 10), (2, 20)),
+                    u(x) AS (VALUES 1, 2),
+                    w(z) AS (VALUES 10, 20)
+                SELECT *
+                FROM t LEFT JOIN u ON t.x = u.x AND t.y IN (SELECT z FROM w)
+                """))
                 .matches("VALUES (2, 20, 2), (1, 10, 1)");
 
         assertThat(assertions.query("SELECT * FROM (VALUES 1, 2, NULL) t(x) JOIN (VALUES 1, 3, NULL) u(x) ON t.x IN (VALUES 1)"))
@@ -263,20 +264,22 @@ public class TestJoin
     @Test
     public void testPredicateOverOuterJoin()
     {
-        assertThat(assertions.query(
-                "SELECT 5 " +
-                        "FROM (VALUES (1,'foo')) l(l1, l2) " +
-                        "LEFT JOIN (VALUES (2,'bar')) r(r1, r2) " +
-                        "ON l2 = r2 " +
-                        "WHERE l1 >= COALESCE(r1, 0)"))
+        assertThat(assertions.query("""
+                SELECT 5
+                FROM (VALUES (1,'foo')) l(l1, l2)
+                LEFT JOIN (VALUES (2,'bar')) r(r1, r2)
+                ON l2 = r2
+                WHERE l1 >= COALESCE(r1, 0)
+                """))
                 .matches("VALUES 5");
 
-        assertThat(assertions.query(
-                "SELECT 5 " +
-                        "FROM (VALUES (2,'foo')) l(l1, l2) " +
-                        "RIGHT JOIN (VALUES (1,'bar')) r(r1, r2) " +
-                        "ON l2 = r2 " +
-                        "WHERE r1 >= COALESCE(l1, 0)"))
+        assertThat(assertions.query("""
+                SELECT 5
+                FROM (VALUES (2,'foo')) l(l1, l2)
+                RIGHT JOIN (VALUES (1,'bar')) r(r1, r2)
+                ON l2 = r2
+                WHERE r1 >= COALESCE(l1, 0)
+                """))
                 .matches("VALUES 5");
     }
 }
