@@ -521,7 +521,7 @@ public class MongoSession
         }
 
         if (type == TIMESTAMP_TZ_MILLIS) {
-            return Optional.of(new Date(unpackMillisUtc((Long) trinoNativeValue)));
+            return Optional.of(new Date(unpackMillisUtc((long) trinoNativeValue)));
         }
 
         if (type instanceof ObjectIdType) {
