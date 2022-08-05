@@ -11,16 +11,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM registry.access.redhat.com/ubi8/ubi
+FROM eclipse-temurin:17.0.4_8-jdk
 
-ENV JAVA_HOME /usr/lib/jvm/zulu17
 RUN \
     set -xeu && \
-    yum -y -q install https://cdn.azul.com/zulu/bin/zulu-repo-1.0.0-1.noarch.rpm && \
-    yum -y -q install python3 zulu17-jdk less && \
-    yum -q clean all && \
-    rm -rf /var/cache/yum && \
-    alternatives --set python /usr/bin/python3 && \
+    apt-get update -q && \
+    apt-get install -y -q less python3 && \
+    rm -rf /var/lib/apt/lists/* && \
+    update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
     groupadd trino --gid 1000 && \
     useradd trino --uid 1000 --gid 1000 --create-home && \
     mkdir -p /usr/lib/trino /data/trino && \
@@ -33,7 +31,6 @@ COPY --chown=trino:trino default/etc /etc/trino
 
 EXPOSE 8080
 USER trino:trino
-ENV LANG en_US.UTF-8
 CMD ["/usr/lib/trino/bin/run-trino"]
 HEALTHCHECK --interval=10s --timeout=5s --start-period=10s \
   CMD /usr/lib/trino/bin/health-check
