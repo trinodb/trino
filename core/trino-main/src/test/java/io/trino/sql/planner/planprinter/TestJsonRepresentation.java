@@ -205,15 +205,15 @@ public class TestJsonRepresentation
     {
         PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), queryRunner.getMetadata(), queryRunner.getDefaultSession());
         ValuePrinter valuePrinter = new ValuePrinter(queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getDefaultSession());
-        PlanPrinter planPrinter = new PlanPrinter(
+        String jsonRenderedNode = new PlanPrinter(
                 sourceNodeSupplier.apply(planBuilder),
                 planBuilder.getTypes(),
                 scanNode -> TABLE_INFO,
                 ImmutableMap.of(),
                 valuePrinter,
                 StatsAndCosts.empty(),
-                Optional.empty());
-        JsonRenderedNode jsonRenderedNode = new JsonRenderer().renderJson(planPrinter.getRepresentation(), planPrinter.getRepresentation().getRoot());
-        assertThat(jsonRenderedNode).isEqualTo(expectedRepresentation);
+                Optional.empty())
+                .toJson();
+        assertThat(jsonRenderedNode).isEqualTo(JSON_RENDERED_NODE_CODEC.toJson(expectedRepresentation));
     }
 }
