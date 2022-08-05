@@ -122,6 +122,58 @@ public class TestDeltaLakeDatabricksInsertCompatibility
         }
     }
 
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoPartitionedDifferentOrderInsertCompatibility()
+    {
+        String tableName = "test_dl_trino_partitioned_different_order_insert_" + randomTableSuffix();
+
+        onTrino().executeQuery("" +
+                "CREATE TABLE delta.default." + tableName +
+                "         (a_number INT, first VARCHAR, second VARCHAR)" +
+                "         WITH (" +
+                "         partitioned_by = ARRAY['second', 'first']," +
+                "         location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "')");
+
+        try {
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 'first', 'second')");
+
+            List<Row> expectedRows = ImmutableList.of(row(1, "first", "second"));
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(expectedRows);
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(expectedRows);
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testDeltaPartitionedDifferentOrderInsertCompatibility()
+    {
+        String tableName = "test_dl_delta_partitioned_different_order_insert_" + randomTableSuffix();
+
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                "         (a_number INT, first STRING, second STRING)" +
+                "         USING delta " +
+                "         PARTITIONED BY (second, first)" +
+                "         LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
+
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 'first', 'second')");
+
+            List<Row> expectedRows = ImmutableList.of(row(1, "first", "second"));
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(expectedRows);
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(expectedRows);
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE default." + tableName);
+        }
+    }
+
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
     public void testInsertNonLowercaseColumnsCompatibility()
     {
