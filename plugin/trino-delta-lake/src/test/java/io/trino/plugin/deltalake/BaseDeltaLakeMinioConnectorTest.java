@@ -271,6 +271,29 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         assertQuery("SELECT a FROM " + tableName + " WHERE c % 5 = 1", "VALUES (1)");
     }
 
+    @Test
+    public void testPartitionColumnOrderIsDifferentFromTableDefinition()
+    {
+        String tableName = "test_partition_order_is_different_from_table_definition_" + randomTableSuffix();
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + "(data int, first varchar, second varchar) " +
+                "WITH (" +
+                "partitioned_by = ARRAY['second', 'first'], " +
+                "location = '" + format("s3://%s/%s", bucketName, tableName) + "')");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'first#1', 'second#1')", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'first#1', 'second#1')");
+
+        assertUpdate("INSERT INTO " + tableName + " (data, first) VALUES (2, 'first#2')", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'first#1', 'second#1'), (2, 'first#2', NULL)");
+
+        assertUpdate("INSERT INTO " + tableName + " (data, second) VALUES (3, 'second#3')", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'first#1', 'second#1'), (2, 'first#2', NULL), (3, NULL, 'second#3')");
+
+        assertUpdate("INSERT INTO " + tableName + " (data) VALUES (4)", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'first#1', 'second#1'), (2, 'first#2', NULL), (3, NULL, 'second#3'), (4, NULL, NULL)");
+    }
+
     @Override
     public void testShowCreateSchema()
     {
