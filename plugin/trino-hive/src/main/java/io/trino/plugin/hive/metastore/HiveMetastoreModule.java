@@ -19,6 +19,7 @@ import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.hive.HideDeltaLakeTables;
+import io.trino.plugin.hive.metastore.alluxio.AlluxioMetastoreModule;
 import io.trino.plugin.hive.metastore.file.FileMetastoreModule;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreModule;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreModule;
@@ -47,10 +48,7 @@ public class HiveMetastoreModule
             bindMetastoreModule("thrift", new ThriftMetastoreModule());
             bindMetastoreModule("file", new FileMetastoreModule());
             bindMetastoreModule("glue", new GlueMetastoreModule());
-            // Load Alluxio metastore support through reflection. This makes Alluxio effectively an optional dependency
-            // and allows deploying Trino without the Alluxio jar. Can be useful if the integration is unused and is flagged
-            // by a security scanner.
-            bindMetastoreModule("alluxio", deferredModule("io.trino.plugin.hive.metastore.alluxio.AlluxioMetastoreModule"));
+            bindMetastoreModule("alluxio", new AlluxioMetastoreModule());
         }
 
         install(new DecoratedHiveMetastoreModule());
@@ -62,26 +60,6 @@ public class HiveMetastoreModule
                 MetastoreTypeConfig.class,
                 metastore -> name.equalsIgnoreCase(metastore.getMetastoreType()),
                 module));
-    }
-
-    private static Module deferredModule(String moduleClassName)
-    {
-        return new AbstractConfigurationAwareModule()
-        {
-            @Override
-            protected void setup(Binder binder)
-            {
-                try {
-                    install(Class.forName(moduleClassName)
-                            .asSubclass(Module.class)
-                            .getConstructor()
-                            .newInstance());
-                }
-                catch (ReflectiveOperationException e) {
-                    throw new RuntimeException("Problem loading module class: " + moduleClassName, e);
-                }
-            }
-        };
     }
 
     @HideDeltaLakeTables
