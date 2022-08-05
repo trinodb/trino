@@ -66,6 +66,7 @@ public class PinotConfig
     private boolean grpcEnabled = true;
     private boolean tlsEnabled;
     private DataSize targetSegmentPageSize = DataSize.of(1, MEGABYTE);
+    private int brokerPortForHttps = 8443;
 
     @NotEmpty(message = "pinot.controller-urls cannot be empty")
     public List<URI> getControllerUrls()
@@ -262,6 +263,18 @@ public class PinotConfig
     public PinotConfig setTargetSegmentPageSize(DataSize targetSegmentPageSize)
     {
         this.targetSegmentPageSize = targetSegmentPageSize;
+        return this;
+    }
+
+    public int getBrokerPortForHttps()
+    {
+        return brokerPortForHttps;
+    }
+
+    @Config("pinot.broker-port-for-https")
+    public PinotConfig setBrokerPortForHttps(int brokerPortForHttps)
+    {
+        this.brokerPortForHttps = brokerPortForHttps;
         return this;
     }
 

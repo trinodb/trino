@@ -48,7 +48,8 @@ public class TestPinotConfig
                         .setCountDistinctPushdownEnabled(true)
                         .setGrpcEnabled(true)
                         .setTlsEnabled(false)
-                        .setTargetSegmentPageSize(DataSize.of(1, MEGABYTE)));
+                        .setTargetSegmentPageSize(DataSize.of(1, MEGABYTE))
+                        .setBrokerPortForHttps(8443));
     }
 
     @Test
@@ -70,6 +71,7 @@ public class TestPinotConfig
                 .put("pinot.grpc.enabled", "false")
                 .put("pinot.tls.enabled", "true")
                 .put("pinot.target-segment-page-size", "2MB")
+                .put("pinot.broker-port-for-https", "8444")
                 .buildOrThrow();
 
         PinotConfig expected = new PinotConfig()
@@ -87,7 +89,8 @@ public class TestPinotConfig
                 .setCountDistinctPushdownEnabled(false)
                 .setGrpcEnabled(false)
                 .setTlsEnabled(true)
-                .setTargetSegmentPageSize(DataSize.of(2, MEGABYTE));
+                .setTargetSegmentPageSize(DataSize.of(2, MEGABYTE))
+                .setBrokerPortForHttps(8444);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

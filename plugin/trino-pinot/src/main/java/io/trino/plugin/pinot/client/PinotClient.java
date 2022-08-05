@@ -134,6 +134,7 @@ public class PinotClient
     private final JsonCodec<BrokerResponseNative> brokerResponseCodec;
     private final PinotControllerAuthenticationProvider controllerAuthenticationProvider;
     private final PinotBrokerAuthenticationProvider brokerAuthenticationProvider;
+    private final int brokerPortForHttps;
 
     @Inject
     public PinotClient(
@@ -157,7 +158,7 @@ public class PinotClient
         requireNonNull(config, "config is null");
         this.pinotHostMapper = requireNonNull(pinotHostMapper, "pinotHostMapper is null");
         this.scheme = config.isTlsEnabled() ? "https" : "http";
-
+        this.brokerPortForHttps = config.getBrokerPortForHttps();
         this.controllerUrls = config.getControllerUrls();
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.brokersForTableCache = buildNonEvictableCache(
@@ -366,7 +367,14 @@ public class PinotClient
                 .map(brokerToParse -> {
                     Matcher matcher = BROKER_PATTERN.matcher(brokerToParse);
                     if (matcher.matches() && matcher.groupCount() == 2) {
-                        return pinotHostMapper.getBrokerHost(matcher.group(1), matcher.group(2));
+                        String brokerPort;
+                        if (this.scheme.equals("https")) {
+                            brokerPort = String.valueOf(brokerPortForHttps);
+                        }
+                        else {
+                            brokerPort = matcher.group(2);
+                        }
+                        return pinotHostMapper.getBrokerHost(matcher.group(1), brokerPort);
                     }
                     else {
                         throw new PinotException(
