@@ -251,6 +251,9 @@ public class TestMongoTypeMapping
                 .addRoundTrip("time", "TIME '23:59:59.9'", createTimeType(3), "TIME '23:59:59.900'")
                 .addRoundTrip("time", "TIME '23:59:59.99'", createTimeType(3), "TIME '23:59:59.990'")
                 .addRoundTrip("time", "TIME '23:59:59.999'", createTimeType(3), "TIME '23:59:59.999'")
+                .addRoundTrip("time", "TIME '23:59:59.9999'", createTimeType(4), "TIME '23:59:59.9999'")
+                .addRoundTrip("time", "TIME '23:59:59.99999'", createTimeType(5), "TIME '23:59:59.99999'")
+                .addRoundTrip("time", "TIME '23:59:59.999999'", createTimeType(6), "TIME '23:59:59.999999'")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_time"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_time"));
     }
