@@ -33,6 +33,7 @@ import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.predicate.Predicate;
 import io.trino.parquet.reader.FilteredOffsetIndex.OffsetRange;
 import io.trino.plugin.base.metrics.LongCount;
+import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlock;
@@ -67,6 +68,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -90,7 +92,8 @@ public class ParquetReader
     private final Optional<String> fileCreatedBy;
     private final List<BlockMetaData> blocks;
     private final List<Long> firstRowsOfBlocks;
-    private final List<PrimitiveField> fields;
+    private final List<Field> columnFields;
+    private final List<PrimitiveField> primitiveFields;
     private final ParquetDataSource dataSource;
     private final DateTimeZone timeZone;
     private final AggregatedMemoryContext memoryContext;
@@ -121,39 +124,42 @@ public class ParquetReader
     private final List<Optional<ColumnIndexStore>> columnIndexStore;
     private final List<RowRanges> blockRowRanges;
     private final Map<ColumnPath, ColumnDescriptor> paths = new HashMap<>();
+    private final ParquetBlockFactory blockFactory;
     private final Map<String, Metric<?>> codecMetrics;
 
     public ParquetReader(
             Optional<String> fileCreatedBy,
-            List<Optional<Field>> fields,
+            List<Field> columnFields,
             List<BlockMetaData> blocks,
             List<Long> firstRowsOfBlocks,
             ParquetDataSource dataSource,
             DateTimeZone timeZone,
             AggregatedMemoryContext memoryContext,
             ParquetReaderOptions options,
-            Optional<Predicate> parquetPredicate)
+            Function<Exception, RuntimeException> exceptionTransform)
             throws IOException
     {
-        this(fileCreatedBy, fields, blocks, firstRowsOfBlocks, dataSource, timeZone, memoryContext, options, parquetPredicate, nCopies(blocks.size(), Optional.empty()));
+        this(fileCreatedBy, columnFields, blocks, firstRowsOfBlocks, dataSource, timeZone, memoryContext, options, exceptionTransform, Optional.empty(), nCopies(blocks.size(), Optional.empty()));
     }
 
     public ParquetReader(
             Optional<String> fileCreatedBy,
-            List<Optional<Field>> fields,
+            List<Field> columnFields,
             List<BlockMetaData> blocks,
             List<Long> firstRowsOfBlocks,
             ParquetDataSource dataSource,
             DateTimeZone timeZone,
             AggregatedMemoryContext memoryContext,
             ParquetReaderOptions options,
+            Function<Exception, RuntimeException> exceptionTransform,
             Optional<Predicate> parquetPredicate,
             List<Optional<ColumnIndexStore>> columnIndexStore)
             throws IOException
     {
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
-        List<PrimitiveField> primitiveFields = getPrimitiveFields(requireNonNull(fields, "fields is null"));
-        this.fields = primitiveFields;
+        requireNonNull(columnFields, "columnFields is null");
+        this.columnFields = ImmutableList.copyOf(columnFields);
+        this.primitiveFields = getPrimitiveFields(columnFields);
         this.blocks = requireNonNull(blocks, "blocks is null");
         this.firstRowsOfBlocks = requireNonNull(firstRowsOfBlocks, "firstRowsOfBlocks is null");
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
@@ -180,6 +186,7 @@ public class ParquetReader
         else {
             this.filter = Optional.empty();
         }
+        this.blockFactory = new ParquetBlockFactory(exceptionTransform);
         ListMultimap<ChunkKey, DiskRange> ranges = ArrayListMultimap.create();
         Map<String, LongCount> codecMetrics = new HashMap<>();
         for (int rowGroup = 0; rowGroup < blocks.size(); rowGroup++) {
@@ -226,6 +233,22 @@ public class ParquetReader
         dataSource.close();
     }
 
+    public Page nextPage()
+    {
+        int batchSize = nextBatch();
+        if (batchSize <= 0) {
+            return null;
+        }
+        // create a lazy page
+        blockFactory.nextPage();
+        Block[] blocks = new Block[columnFields.size()];
+        for (int channel = 0; channel < columnFields.size(); channel++) {
+            Field field = columnFields.get(channel);
+            blocks[channel] = blockFactory.createBlock(batchSize, () -> readBlock(field));
+        }
+        return new Page(batchSize, blocks);
+    }
+
     /**
      * Get the global row index of the first row in the last batch.
      */
@@ -234,7 +257,7 @@ public class ParquetReader
         return firstRowIndexInGroup + nextRowInGroup - batchSize;
     }
 
-    public int nextBatch()
+    private int nextBatch()
     {
         if (nextRowInGroup >= currentGroupRowCount && !advanceToNextRowGroup()) {
             return -1;
@@ -282,7 +305,7 @@ public class ParquetReader
             return;
         }
 
-        for (int column = 0; column < fields.size(); column++) {
+        for (int column = 0; column < primitiveFields.size(); column++) {
             Collection<ChunkReader> readers = chunkReaders.get(new ChunkKey(column, currentRowGroup));
             if (readers != null) {
                 for (ChunkReader reader : readers) {
@@ -433,18 +456,15 @@ public class ParquetReader
 
     private void initializeColumnReaders()
     {
-        for (PrimitiveField field : fields) {
+        for (PrimitiveField field : primitiveFields) {
             columnReaders.put(field.getId(), PrimitiveColumnReader.createReader(field, timeZone));
         }
     }
 
-    public static List<PrimitiveField> getPrimitiveFields(List<Optional<Field>> fields)
+    public static List<PrimitiveField> getPrimitiveFields(List<Field> fields)
     {
         Map<Integer, PrimitiveField> primitiveFields = new HashMap<>();
-
-        fields.stream()
-                .flatMap(Optional::stream)
-                .forEach(field -> parseField(field, primitiveFields));
+        fields.forEach(field -> parseField(field, primitiveFields));
 
         return ImmutableList.copyOf(primitiveFields.values());
     }
