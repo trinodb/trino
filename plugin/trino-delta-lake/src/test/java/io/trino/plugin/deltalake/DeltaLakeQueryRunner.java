@@ -106,7 +106,7 @@ public final class DeltaLakeQueryRunner
                 if (!deltaProperties.containsKey("hive.metastore.uri")) {
                     Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve(DELTA_CATALOG);
                     deltaProperties.put("hive.metastore", "file");
-                    deltaProperties.put("hive.metastore.catalog.dir", dataDir.toString());
+                    deltaProperties.put("hive.metastore.catalog.dir", dataDir.toUri().toString());
                 }
 
                 queryRunner.createCatalog(catalogName, CONNECTOR_NAME, deltaProperties);
