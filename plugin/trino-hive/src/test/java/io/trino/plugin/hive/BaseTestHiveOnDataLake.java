@@ -16,6 +16,8 @@ package io.trino.plugin.hive;
 import com.amazonaws.services.s3.AmazonS3;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.gson.JsonObject;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -34,6 +36,7 @@ import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -41,6 +44,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -54,6 +58,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public abstract class BaseTestHiveOnDataLake
         extends AbstractTestQueryFramework
 {
+    private static final Logger log = Logger.get(BaseTestHiveOnDataLake.class);
+
+
     private static final String HIVE_TEST_SCHEMA = "hive_insert_overwrite";
     private static final DataSize HIVE_S3_STREAMING_PART_SIZE = DataSize.of(5, MEGABYTE);
 
@@ -117,6 +124,70 @@ public abstract class BaseTestHiveOnDataLake
                 HIVE_TEST_SCHEMA,
                 bucketName));
     }
+
+
+    @Test(invocationCount = 10)
+    public void testConcurrentReadsFromPlainJsonFiles() throws Exception{
+        String sourceTableName = "test_concurrent_reads_from_plain_json_file_" + randomTableSuffix();
+
+        int fieldsCount = 40;
+        StringBuilder createTableBuilder = new StringBuilder();
+        createTableBuilder.append(format("CREATE TABLE %s ( ", sourceTableName));
+        for (int i = 1;i<=fieldsCount;i++){
+            createTableBuilder.append("v"+ i + " varchar, ");
+        }
+        createTableBuilder.append("loadhour integer, partloaddate date) WITH (format='json', partitioned_by= ARRAY['partloaddate'])");
+
+        computeActual(createTableBuilder.toString());
+
+        AmazonS3 s3 = dockerizedS3DataLake.getS3Client();
+
+        int filesCount = 100;
+        int linesCount = 1_000;
+        for (int file = 1; file <= filesCount; file++) {
+            StringBuilder contentBuilder = new StringBuilder();
+            for (int line = 1; line <= linesCount; line++) {
+                JsonObject wideElement = new JsonObject();
+                for (int i = 1; i <= fieldsCount; i++) {
+                    wideElement.addProperty("v" + i, format("text-%s-%s-%s", RandomStringUtils.randomAlphabetic(100), line, i));
+                }
+                wideElement.addProperty("loadhour", (int)Math.floor(Math.random()*(24)+1));
+                contentBuilder.append(wideElement);
+                if (line != linesCount) {
+                    contentBuilder.append("\r\n");
+                }
+            }
+
+            s3.putObject(bucketName, format("tpch/%s/partloaddate=2022-01-01/file%s.json", sourceTableName, file), contentBuilder.toString());
+            log.info("Uploaded file with index " + file);
+        }
+
+        Thread.sleep(100);
+
+        computeActual(format("CALL system.sync_partition_metadata('tpch', '%s', 'FULL')", sourceTableName));
+        log.info("Partitions synced");
+
+        Session forceConcurrency = Session.builder(getSession())
+                .setSystemProperty("scale_writers", "true")
+                .setSystemProperty("task_concurrency", "2")
+                .setSystemProperty("writer_min_size", "10kB")
+                .setCatalogSessionProperty("hive", "max_initial_split_size", "10kB")
+                .setCatalogSessionProperty("hive", "max_split_size", "10kB")
+                .setCatalogSessionProperty("hive", "target_max_file_size", "10kB")
+                .build();
+
+        String sinkTableName = sourceTableName + "_sink";
+        getQueryRunner().execute("CREATE TABLE " + sinkTableName + " (v1 varchar, loadhour integer) WITH (format='orc', partitioned_by=ARRAY['loadhour']) ");
+        log.info("Sink table created");
+        getQueryRunner().execute(forceConcurrency, "INSERT INTO " + sinkTableName + " SELECT v1, loadhour FROM " + sourceTableName + " WHERE partloaddate = DATE '2022-01-01'");
+
+        assertQuery("SELECT COUNT(*) FROM "+ sinkTableName, "VALUES " + (filesCount * linesCount));
+
+        computeActual(format("DROP TABLE %s", sourceTableName));
+        computeActual(format("DROP TABLE %s", sinkTableName));
+
+    }
+
 
     @Test
     public void testInsertOverwriteInTransaction()
