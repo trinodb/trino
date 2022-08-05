@@ -35,14 +35,11 @@ import org.joda.time.format.PeriodFormatter;
 import org.joda.time.format.PeriodFormatterBuilder;
 import org.joda.time.format.PeriodParser;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -233,8 +230,6 @@ public final class DateTimeUtils
     {
         IntervalField end = endField.orElse(startField);
 
-        checkMillisPrecisionNotExceeded(value, startField, end);
-
         if (startField == IntervalField.DAY && end == IntervalField.SECOND) {
             return parsePeriodMillis(INTERVAL_DAY_SECOND_FORMATTER, value, startField, end);
         }
@@ -404,7 +399,8 @@ public final class DateTimeUtils
                 // fall through
 
             case SECOND:
-                builder.appendSecondsWithOptionalMillis();
+                builder.append(null, new OptionalSecondsParser());
+                builder.append(null, new OptionalFractionOfSecondParser());
                 parsers.add(builder.toParser());
                 break;
         }
@@ -412,29 +408,96 @@ public final class DateTimeUtils
         return new PeriodFormatter(builder.toPrinter(), new OrderedPeriodParser(parsers));
     }
 
-    private static final Pattern SECONDS_FROM_INTERVAL_PATTERN = Pattern.compile("(^-?| |:)(?<seconds>(\\d+(\\.\\d*)?)|(\\.\\d+))$");
-
-    private static void checkMillisPrecisionNotExceeded(String value, IntervalField startField, IntervalField endField)
+    private static class OptionalSecondsParser
+            implements PeriodParser
     {
-        if (endField != IntervalField.SECOND) {
-            return;
+        private OptionalSecondsParser()
+        {
         }
 
-        String secondsString;
-        Matcher matcher = SECONDS_FROM_INTERVAL_PATTERN.matcher(value);
-        if (matcher.find()) {
-            secondsString = matcher.group("seconds");
+        @Override
+        public int parseInto(ReadWritablePeriod period, String periodStr, int position, Locale locale)
+        {
+            int length = periodStr.length();
+
+            int currentPosition = position;
+            while (currentPosition < length) {
+                char currentChar = periodStr.charAt(currentPosition);
+                if (currentChar < '0' || currentChar > '9') {
+                    break;
+                }
+                currentPosition++;
+            }
+
+            if (currentPosition > position) {
+                int seconds = Integer.parseInt(periodStr.substring(position, currentPosition));
+                period.setSeconds(seconds);
+            }
+
+            return currentPosition;
         }
-        else {
-            throw new IllegalArgumentException(
-                    format("Invalid INTERVAL %s TO %s value: %s", startField, endField, value));
+    }
+
+    private static class OptionalFractionOfSecondParser
+            implements PeriodParser
+    {
+        private final int maxDigits;
+
+        private OptionalFractionOfSecondParser()
+        {
+            this.maxDigits = 3;
         }
 
-        BigDecimal seconds = new BigDecimal(secondsString);
-        int decimalPrecision = Math.max(0, seconds.stripTrailingZeros().scale());
-        if (decimalPrecision > 3) {
-            throw new IllegalArgumentException(
-                    format("Invalid interval. Milliseconds precision is exceeded in seconds literal: %s", secondsString));
+        /**
+         * @param maxDigits - maximum number of digits that may occur in fraction of second. Note however that only
+         * first three digits are parsed. The rest is ignored because joda-time doesn't provide finer precision.
+         */
+        private OptionalFractionOfSecondParser(int maxDigits)
+        {
+            this.maxDigits = maxDigits;
+        }
+
+        @Override
+        public int parseInto(ReadWritablePeriod period, String periodStr, int position, Locale locale)
+        {
+            int length = periodStr.length();
+
+            // no millis
+            if (length == position) {
+                return position;
+            }
+
+            char decimalSeparator = periodStr.charAt(position);
+            // joda-time parser allows both separators
+            if (decimalSeparator != '.' && decimalSeparator != ',') {
+                return ~position;
+            }
+
+            int firstDigitPosition = position + 1;
+            int currentPosition = firstDigitPosition;
+            while (currentPosition < length) {
+                char currentChar = periodStr.charAt(currentPosition);
+                if (currentChar < '0' || currentChar > '9') {
+                    break;
+                }
+                currentPosition++;
+            }
+
+            int numberOfDigits = currentPosition - firstDigitPosition;
+            if (numberOfDigits > maxDigits) {
+                return ~(firstDigitPosition + maxDigits);
+            }
+
+            int millis = 0;
+            for (int i = 0; i < 3; i++) {
+                millis *= 10;
+                if (numberOfDigits > i) {
+                    millis += periodStr.charAt(firstDigitPosition + i) - '0';
+                }
+            }
+            period.setMillis(millis);
+
+            return currentPosition;
         }
     }
 

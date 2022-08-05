@@ -3501,23 +3501,6 @@ public class TestAnalyzer
                 .hasErrorCode(INVALID_LITERAL);
         assertFails("SELECT INTERVAL '12' SECOND TO MINUTE")
                 .hasErrorCode(INVALID_LITERAL);
-        // interval precision
-        assertFails("SELECT INTERVAL '2 5:10:1.1234' DAY TO SECOND")
-                .hasErrorCode(INVALID_LITERAL);
-        assertFails("SELECT INTERVAL '-2 5:10:1.1234' DAY TO SECOND")
-                .hasErrorCode(INVALID_LITERAL);
-        assertFails("SELECT INTERVAL '5:10:1.1234' HOUR TO SECOND")
-                .hasErrorCode(INVALID_LITERAL);
-        assertFails("SELECT INTERVAL '-5:10:1.1234' HOUR TO SECOND")
-                .hasErrorCode(INVALID_LITERAL);
-        assertFails("SELECT INTERVAL '10:1.1234' MINUTE TO SECOND")
-                .hasErrorCode(INVALID_LITERAL);
-        assertFails("SELECT INTERVAL '-10:1.1234' MINUTE TO SECOND")
-                .hasErrorCode(INVALID_LITERAL);
-        assertFails("SELECT INTERVAL '1.1234' SECOND")
-                .hasErrorCode(INVALID_LITERAL);
-        assertFails("SELECT INTERVAL '-1.1234' SECOND")
-                .hasErrorCode(INVALID_LITERAL);
 
         // json
         assertFails("SELECT JSON ''")
