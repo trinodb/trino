@@ -220,15 +220,10 @@ public class PlanPrinter
         return new TextRenderer(verbose, level).render(representation);
     }
 
-    private String toJson()
+    @VisibleForTesting
+    String toJson()
     {
         return new JsonRenderer().render(representation);
-    }
-
-    @VisibleForTesting
-    PlanRepresentation getRepresentation()
-    {
-        return representation;
     }
 
     public static String jsonFragmentPlan(PlanNode root, Map<Symbol, Type> symbols, Metadata metadata, FunctionManager functionManager, Session session)
