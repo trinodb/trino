@@ -24,7 +24,6 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriterOptions;
-import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HivePartitionKey;
@@ -52,6 +51,7 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,7 +61,6 @@ import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeSchemaProperties.buildHiveSchema;
@@ -69,6 +68,7 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressio
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetOptimizedWriterEnabled;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.canonicalizeColumnName;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.util.CompressionConfigUtil.configureCompression;
@@ -77,7 +77,6 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.common.FileUtils.escapePathName;
 
@@ -142,25 +141,32 @@ public class DeltaLakePageSink
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
 
         // determine the input index of the partition columns and data columns
-        ImmutableList.Builder<Integer> partitionColumnInputIndex = ImmutableList.builder();
+        int[] partitionColumnInputIndex = new int[originalPartitionColumns.size()];
         ImmutableList.Builder<Integer> dataColumnsInputIndex = ImmutableList.builder();
 
-        ImmutableList.Builder<Type> partitionColumnTypes = ImmutableList.builder();
-        ImmutableList.Builder<String> originalPartitionColumnNames = ImmutableList.builder();
+        Type[] partitionColumnTypes = new Type[originalPartitionColumns.size()];
+        String[] originalPartitionColumnNames = new String[originalPartitionColumns.size()];
 
         ImmutableList.Builder<DeltaLakeColumnHandle> dataColumnHandles = ImmutableList.builder();
         ImmutableList.Builder<Type> dataColumnTypes = ImmutableList.builder();
         ImmutableList.Builder<String> dataColumnNames = ImmutableList.builder();
 
-        Map<String, String> canonicalToOriginalPartitionColumns = originalPartitionColumns.stream()
-                .collect(toImmutableMap(TransactionLogAccess::canonicalizeColumnName, identity()));
+        Map<String, String> canonicalToOriginalPartitionColumns = new HashMap<>();
+        Map<String, Integer> canonicalToOriginalPartitionPositions = new HashMap<>();
+        int partitionColumnPosition = 0;
+        for (String partitionColumnName : originalPartitionColumns) {
+            String canonicalizeColumnName = canonicalizeColumnName(partitionColumnName);
+            canonicalToOriginalPartitionColumns.put(canonicalizeColumnName, partitionColumnName);
+            canonicalToOriginalPartitionPositions.put(canonicalizeColumnName, partitionColumnPosition++);
+        }
         for (int inputIndex = 0; inputIndex < inputColumns.size(); inputIndex++) {
             DeltaLakeColumnHandle column = inputColumns.get(inputIndex);
             switch (column.getColumnType()) {
                 case PARTITION_KEY:
-                    partitionColumnInputIndex.add(inputIndex);
-                    originalPartitionColumnNames.add(canonicalToOriginalPartitionColumns.get(column.getName()));
-                    partitionColumnTypes.add(column.getType());
+                    int partitionPosition = canonicalToOriginalPartitionPositions.get(column.getName());
+                    partitionColumnInputIndex[partitionPosition] = inputIndex;
+                    originalPartitionColumnNames[partitionPosition] = canonicalToOriginalPartitionColumns.get(column.getName());
+                    partitionColumnTypes[partitionPosition] = column.getType();
                     break;
                 case REGULAR:
                     dataColumnHandles.add(column);
@@ -173,11 +179,11 @@ public class DeltaLakePageSink
                     throw new IllegalStateException("Unexpected column type: " + column.getColumnType());
             }
         }
-        this.partitionColumnsInputIndex = Ints.toArray(partitionColumnInputIndex.build());
+        this.partitionColumnsInputIndex = partitionColumnInputIndex;
         this.dataColumnInputIndex = Ints.toArray(dataColumnsInputIndex.build());
-        this.originalPartitionColumnNames = originalPartitionColumnNames.build();
+        this.originalPartitionColumnNames = ImmutableList.copyOf(originalPartitionColumnNames);
         this.dataColumnHandles = dataColumnHandles.build();
-        this.partitionColumnTypes = partitionColumnTypes.build();
+        this.partitionColumnTypes = ImmutableList.copyOf(partitionColumnTypes);
         this.dataColumnNames = dataColumnNames.build();
         this.dataColumnTypes = dataColumnTypes.build();
 
