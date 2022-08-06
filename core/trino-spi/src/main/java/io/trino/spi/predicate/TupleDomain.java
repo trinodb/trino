@@ -296,10 +296,10 @@ public final class TupleDomain<T>
     }
 
     @SuppressWarnings("unchecked")
-    private static <U, T extends U> TupleDomain<U> upcast(TupleDomain<T> domain)
+    private static <T> TupleDomain<T> upcast(TupleDomain<? extends T> domain)
     {
         // TupleDomain<T> is covariant with respect to T (because it's immutable), so it's a safe operation
-        return (TupleDomain<U>) domain;
+        return (TupleDomain<T>) domain;
     }
 
     @SafeVarargs
