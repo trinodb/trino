@@ -80,10 +80,10 @@ public class TestIcebergSparkDropTableCompatibility
         assertFileExistence(tableDirectory, true, "The table directory exists after creating the table");
         List<String> dataFilePaths = getDataFilePaths(tableName);
 
-        tableDropperEngine.queryExecutor().executeQuery("DROP TABLE " + tableName);
+        tableDropperEngine.queryExecutor().executeQuery("DROP TABLE " + tableName); // PURGE option is required to remove data since Iceberg 0.14.0, but the statement hangs in Spark
         boolean expectExists = tableDropperEngine == SPARK; // Note: Spark's behavior is Catalog dependent
         assertFileExistence(tableDirectory, expectExists, format("The table directory %s should be removed after dropping the table", tableDirectory));
-        dataFilePaths.forEach(dataFilePath -> assertFileExistence(dataFilePath, false, format("The data file %s removed after dropping the table", dataFilePath)));
+        dataFilePaths.forEach(dataFilePath -> assertFileExistence(dataFilePath, expectExists, format("The data file %s removed after dropping the table", dataFilePath)));
     }
 
     private String getTableLocation(String tableName)
