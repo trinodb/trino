@@ -471,6 +471,7 @@ public class SymbolMapper
                 map(node.getMergeRowSymbol()),
                 map(node.getDataColumnSymbols()),
                 map(node.getRedistributionColumnSymbols()),
+                map(node.getNonNullColumnSymbols()),
                 newOutputs);
     }
 

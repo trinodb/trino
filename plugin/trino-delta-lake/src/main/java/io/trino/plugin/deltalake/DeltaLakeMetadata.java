@@ -1505,9 +1505,6 @@ public class DeltaLakeMetadata
             String fileSystem = new Path(handle.getLocation()).toUri().getScheme();
             throw new TrinoException(NOT_SUPPORTED, format("Updates are not supported on the %s filesystem", fileSystem));
         }
-        if (getColumnsNullability(handle.getMetadataEntry()).values().stream().anyMatch(nullability -> !nullability)) {
-            throw new TrinoException(NOT_SUPPORTED, "Updates are not supported for tables with non-nullable columns");
-        }
         if (!getColumnInvariants(handle.getMetadataEntry()).isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Updates are not supported for tables with delta invariants");
         }

@@ -14,6 +14,7 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
 import io.trino.operator.DeleteAndInsertMergeProcessor;
 import io.trino.spi.Page;
@@ -183,7 +184,7 @@ Page[positions=8 0:Dict[VarWidth["Aaron", "Dave", "Dave", "Ed", "Aaron", "Carol"
         List<Type> types = ImmutableList.of(VARCHAR, INTEGER, VARCHAR);
 
         RowType rowIdType = RowType.anonymous(ImmutableList.of(BIGINT, BIGINT, INTEGER));
-        return new DeleteAndInsertMergeProcessor(types, rowIdType, 0, 1, ImmutableList.of(), ImmutableList.of(0, 1, 2));
+        return new DeleteAndInsertMergeProcessor(types, ImmutableList.of(), rowIdType, 0, 1, ImmutableList.of(), ImmutableList.of(0, 1, 2), ImmutableSet.of());
     }
 
     private String getString(Block block, int position)

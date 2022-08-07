@@ -15,17 +15,21 @@ package io.trino.operator;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.connector.ConnectorMergeSink.DELETE_OPERATION_NUMBER;
 import static io.trino.spi.connector.ConnectorMergeSink.INSERT_OPERATION_NUMBER;
@@ -38,22 +42,27 @@ public class DeleteAndInsertMergeProcessor
         implements MergeRowChangeProcessor
 {
     private final List<Type> dataColumnTypes;
+    private final List<String> dataColumnNames;
     private final Type rowIdType;
     private final int rowIdChannel;
     private final int mergeRowChannel;
     private final List<Integer> dataColumnChannels;
     private final int redistributionColumnCount;
     private final List<Integer> redistributionChannelNumbers;
+    private final Set<Integer> nonNullColumnChannels;
 
     public DeleteAndInsertMergeProcessor(
             List<Type> dataColumnTypes,
+            List<String> dataColumnNames,
             Type rowIdType,
             int rowIdChannel,
             int mergeRowChannel,
             List<Integer> redistributionChannelNumbers,
-            List<Integer> dataColumnChannels)
+            List<Integer> dataColumnChannels,
+            Set<Integer> nonNullColumnChannels)
     {
         this.dataColumnTypes = requireNonNull(dataColumnTypes, "dataColumnTypes is null");
+        this.dataColumnNames = requireNonNull(dataColumnNames, "dataColumnNames is null");
         this.rowIdType = requireNonNull(rowIdType, "rowIdType is null");
         this.rowIdChannel = rowIdChannel;
         this.mergeRowChannel = mergeRowChannel;
@@ -71,6 +80,7 @@ public class DeleteAndInsertMergeProcessor
             }
         }
         this.redistributionChannelNumbers = redistributionChannelNumbersBuilder.build();
+        this.nonNullColumnChannels = ImmutableSet.copyOf(requireNonNull(nonNullColumnChannels, "nonNullColumnChannels is null"));
     }
 
     @JsonProperty
@@ -140,6 +150,18 @@ public class DeleteAndInsertMergeProcessor
         }
 
         Page page = pageBuilder.build();
+        int positionCount = page.getPositionCount();
+        for (int nonNullColumnChannel : nonNullColumnChannels) {
+            Block nonNullBlock = page.getBlock(nonNullColumnChannel);
+            Block operationBlock = page.getBlock(dataColumnChannels.size());
+            if (nonNullBlock.mayHaveNull()) {
+                for (int position = 0; position < positionCount; position++) {
+                    if (TINYINT.getLong(operationBlock, position) == INSERT_OPERATION_NUMBER && nonNullBlock.isNull(position)) {
+                        throw new TrinoException(CONSTRAINT_VIOLATION, "Assigning NULL to non-null MERGE target table column " + dataColumnNames.get(nonNullColumnChannel));
+                    }
+                }
+            }
+        }
         verify(page.getPositionCount() == totalPositions, "page positions (%s) is not equal to (%s)", page.getPositionCount(), totalPositions);
         return page;
     }

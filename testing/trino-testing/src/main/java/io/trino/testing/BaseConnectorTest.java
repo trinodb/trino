@@ -4350,6 +4350,42 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP TABLE " + targetTable);
     }
 
+    @Test
+    public void testMergeNonNullableColumns()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_MERGE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
+
+        String targetTable = "merge_non_nullable_target_" + randomTableSuffix();
+
+        assertUpdate(createTableForWrites(format("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR NOT NULL)", targetTable)));
+
+        assertUpdate(format("INSERT INTO %s (nation_name, region_name) VALUES ('FRANCE', 'EUROPE'), ('ALGERIA', 'AFRICA'), ('GERMANY', 'EUROPE')", targetTable), 3);
+
+        // Show that updating using a null value fails
+        assertThatThrownBy(() -> computeActual(format("MERGE INTO %s t\n", targetTable) +
+                " USING (VALUES ('ALGERIA', 'AFRICA')) s(nation_name, region_name)\n" +
+                " ON (t.nation_name = s.nation_name)\n" +
+                " WHEN MATCHED THEN UPDATE SET region_name = NULL"))
+                .hasMessage("Assigning NULL to non-null MERGE target table column region_name");
+
+        // Show that inserting using a null value fails
+        assertThatThrownBy(() -> computeActual(format("MERGE INTO %s t\n", targetTable) +
+                " USING (VALUES ('IMAGINARIA', 'AFRICA')) s(nation_name, region_name)\n" +
+                " ON (t.nation_name = s.nation_name)\n" +
+                " WHEN NOT MATCHED THEN INSERT (nation_name, region_name) VALUES ('IMAGINARIA', NULL)"))
+                .hasMessage("Assigning NULL to non-null MERGE target table column region_name");
+
+        // Show that if the updated value is provided by a function unpredicatably computing null,
+        // the merge fails
+        assertThatThrownBy(() -> computeActual(format("MERGE INTO %s t\n", targetTable) +
+                " USING (VALUES ('ALGERIA', 'AFRICA')) s(nation_name, region_name)\n" +
+                " ON (t.nation_name = s.nation_name)\n" +
+                " WHEN MATCHED THEN UPDATE SET region_name = CAST(TRY(5/0) AS VARCHAR)"))
+                .hasMessage("Assigning NULL to non-null MERGE target table column region_name");
+
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
     private void verifyUnsupportedTypeException(Throwable exception, String trinoTypeName)
     {
         String typeNameBase = trinoTypeName.replaceFirst("\\(.*", "");
