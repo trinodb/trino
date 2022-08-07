@@ -111,14 +111,12 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.zip;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -414,7 +412,6 @@ public class LogicalPlanner
                 visibleFields(plan),
                 new CreateReference(catalogName, tableMetadata, newTableLayout),
                 columnNames,
-                tableMetadata.getColumns(),
                 newTableLayout,
                 statisticsMetadata);
     }
@@ -515,7 +512,6 @@ public class LogicalPlanner
                     plan.getFieldMappings(),
                     materializedViewRefreshWriterTarget.get(),
                     insertedTableColumnNames,
-                    insertedColumns,
                     newTableLayout,
                     statisticsMetadata);
         }
@@ -530,7 +526,6 @@ public class LogicalPlanner
                 plan.getFieldMappings(),
                 insertTarget,
                 insertedTableColumnNames,
-                insertedColumns,
                 newTableLayout,
                 statisticsMetadata);
     }
@@ -595,7 +590,6 @@ public class LogicalPlanner
             List<Symbol> symbols,
             WriterTarget target,
             List<String> columnNames,
-            List<ColumnMetadata> columnMetadataList,
             Optional<TableLayout> writeTableLayout,
             TableStatisticsMetadata statisticsMetadata)
     {
@@ -628,12 +622,6 @@ public class LogicalPlanner
         Map<String, Symbol> columnToSymbolMap = zip(columnNames.stream(), symbols.stream(), SimpleImmutableEntry::new)
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
-        Set<Symbol> notNullColumnSymbols = columnMetadataList.stream()
-                .filter(column -> !column.isNullable())
-                .map(ColumnMetadata::getName)
-                .map(columnToSymbolMap::get)
-                .collect(toImmutableSet());
-
         if (!statisticsMetadata.isEmpty()) {
             TableStatisticAggregation result = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnToSymbolMap);
 
@@ -655,7 +643,6 @@ public class LogicalPlanner
                             symbolAllocator.newSymbol("fragment", VARBINARY),
                             symbols,
                             columnNames,
-                            notNullColumnSymbols,
                             partitioningScheme,
                             preferredPartitioningScheme,
                             Optional.of(partialAggregation),
@@ -678,7 +665,6 @@ public class LogicalPlanner
                         symbolAllocator.newSymbol("fragment", VARBINARY),
                         symbols,
                         columnNames,
-                        notNullColumnSymbols,
                         partitioningScheme,
                         preferredPartitioningScheme,
                         Optional.empty(),
