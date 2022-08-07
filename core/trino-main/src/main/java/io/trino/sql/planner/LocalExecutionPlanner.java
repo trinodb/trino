@@ -3439,6 +3439,9 @@ public class LocalExecutionPlanner
             List<Integer> dataColumnChannels = node.getDataColumnSymbols().stream()
                     .map(nodeLayout::get)
                     .collect(toImmutableList());
+            Set<Integer> nonNullColumnChannels = node.getNonNullColumnSymbols().stream()
+                    .map(nodeLayout::get)
+                    .collect(toImmutableSet());
 
             OperatorFactory operatorFactory = MergeProcessorOperator.createOperatorFactory(
                     context.getNextOperatorId(),
@@ -3447,7 +3450,8 @@ public class LocalExecutionPlanner
                     rowIdChannel,
                     mergeRowChannel,
                     redistributionColumns,
-                    dataColumnChannels);
+                    dataColumnChannels,
+                    nonNullColumnChannels);
             return new PhysicalOperation(operatorFactory, nodeLayout, context, source);
         }
 
