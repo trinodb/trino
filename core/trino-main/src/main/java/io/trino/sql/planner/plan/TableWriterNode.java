@@ -19,7 +19,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.Session;
 import io.trino.metadata.InsertTableHandle;
@@ -43,7 +42,6 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -58,7 +56,6 @@ public class TableWriterNode
     private final Symbol fragmentSymbol;
     private final List<Symbol> columns;
     private final List<String> columnNames;
-    private final Set<Symbol> notNullColumnSymbols;
     private final Optional<PartitioningScheme> partitioningScheme;
     private final Optional<PartitioningScheme> preferredPartitioningScheme;
     private final Optional<StatisticAggregations> statisticsAggregation;
@@ -74,7 +71,6 @@ public class TableWriterNode
             @JsonProperty("fragmentSymbol") Symbol fragmentSymbol,
             @JsonProperty("columns") List<Symbol> columns,
             @JsonProperty("columnNames") List<String> columnNames,
-            @JsonProperty("notNullColumnSymbols") Set<Symbol> notNullColumnSymbols,
             @JsonProperty("partitioningScheme") Optional<PartitioningScheme> partitioningScheme,
             @JsonProperty("preferredPartitioningScheme") Optional<PartitioningScheme> preferredPartitioningScheme,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
@@ -92,7 +88,6 @@ public class TableWriterNode
         this.fragmentSymbol = requireNonNull(fragmentSymbol, "fragmentSymbol is null");
         this.columns = ImmutableList.copyOf(columns);
         this.columnNames = ImmutableList.copyOf(columnNames);
-        this.notNullColumnSymbols = ImmutableSet.copyOf(requireNonNull(notNullColumnSymbols, "notNullColumnSymbols is null"));
         this.partitioningScheme = requireNonNull(partitioningScheme, "partitioningScheme is null");
         this.preferredPartitioningScheme = requireNonNull(preferredPartitioningScheme, "preferredPartitioningScheme is null");
         this.statisticsAggregation = requireNonNull(statisticsAggregation, "statisticsAggregation is null");
@@ -147,12 +142,6 @@ public class TableWriterNode
     }
 
     @JsonProperty
-    public Set<Symbol> getNotNullColumnSymbols()
-    {
-        return notNullColumnSymbols;
-    }
-
-    @JsonProperty
     public Optional<PartitioningScheme> getPartitioningScheme()
     {
         return partitioningScheme;
@@ -197,7 +186,7 @@ public class TableWriterNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TableWriterNode(getId(), Iterables.getOnlyElement(newChildren), target, rowCountSymbol, fragmentSymbol, columns, columnNames, notNullColumnSymbols, partitioningScheme, preferredPartitioningScheme, statisticsAggregation, statisticsAggregationDescriptor);
+        return new TableWriterNode(getId(), Iterables.getOnlyElement(newChildren), target, rowCountSymbol, fragmentSymbol, columns, columnNames, partitioningScheme, preferredPartitioningScheme, statisticsAggregation, statisticsAggregationDescriptor);
     }
 
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")

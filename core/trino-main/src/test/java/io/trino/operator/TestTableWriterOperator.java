@@ -284,8 +284,6 @@ public class TestTableWriterOperator
             Session session,
             DriverContext driverContext)
     {
-        List<String> notNullColumnNames = new ArrayList<>(1);
-        notNullColumnNames.add(null);
         SchemaTableName schemaTableName = new SchemaTableName("testSchema", "testTable");
         TableWriterOperatorFactory factory = new TableWriterOperatorFactory(
                 0,
@@ -300,7 +298,6 @@ public class TestTableWriterOperator
                         schemaTableName,
                         false),
                 ImmutableList.of(0),
-                notNullColumnNames,
                 session,
                 statisticsAggregation,
                 outputTypes);

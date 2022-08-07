@@ -366,7 +366,6 @@ import static io.trino.util.SpatialJoinUtils.ST_INTERSECTS;
 import static io.trino.util.SpatialJoinUtils.ST_WITHIN;
 import static io.trino.util.SpatialJoinUtils.extractSupportedSpatialComparisons;
 import static io.trino.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
-import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.stream.Collectors.partitioningBy;
@@ -3239,17 +3238,12 @@ public class LocalExecutionPlanner
                     .map(source::symbolToChannel)
                     .collect(toImmutableList());
 
-            List<String> notNullChannelColumnNames = node.getColumns().stream()
-                    .map(symbol -> node.getNotNullColumnSymbols().contains(symbol) ? node.getColumnNames().get(source.symbolToChannel(symbol)) : null)
-                    .collect(Collectors.toList());
-
             OperatorFactory operatorFactory = new TableWriterOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
                     pageSinkManager,
                     node.getTarget(),
                     inputChannels,
-                    notNullChannelColumnNames,
                     session,
                     statisticsAggregation,
                     getSymbolTypes(node.getOutputSymbols(), context.getTypes()));
@@ -3412,7 +3406,6 @@ public class LocalExecutionPlanner
                     pageSinkManager,
                     node.getTarget(),
                     inputChannels,
-                    nCopies(inputChannels.size(), null), // N x null means no not-null checking will be performed. This is ok as in TableExecute flow we are not changing any table data.
                     session,
                     new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()), // statistics are not calculated
                     getSymbolTypes(node.getOutputSymbols(), context.getTypes()));
