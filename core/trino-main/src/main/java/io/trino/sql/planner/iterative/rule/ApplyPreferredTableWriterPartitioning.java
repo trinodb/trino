@@ -84,7 +84,6 @@ public class ApplyPreferredTableWriterPartitioning
                 node.getFragmentSymbol(),
                 node.getColumns(),
                 node.getColumnNames(),
-                node.getNotNullColumnSymbols(),
                 node.getPreferredPartitioningScheme(),
                 Optional.empty(),
                 node.getStatisticsAggregation(),
