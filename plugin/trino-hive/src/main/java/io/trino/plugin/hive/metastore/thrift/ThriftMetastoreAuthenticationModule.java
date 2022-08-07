@@ -24,8 +24,10 @@ import io.trino.plugin.base.authentication.KerberosConfiguration;
 import io.trino.plugin.hive.ForHiveMetastore;
 
 import static com.google.inject.Scopes.SINGLETON;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.hdfs.authentication.AuthenticationModules.createCachingKerberosHadoopAuthentication;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType.KERBEROS;
 
 public class ThriftMetastoreAuthenticationModule
         extends AbstractConfigurationAwareModule
@@ -33,25 +35,13 @@ public class ThriftMetastoreAuthenticationModule
     @Override
     protected void setup(Binder binder)
     {
-        install(getAuthenticationModule());
-    }
+        newOptionalBinder(binder, IdentityAwareMetastoreClientFactory.class)
+                .setDefault().to(UgiBasedMetastoreClientFactory.class).in(SINGLETON);
+        newOptionalBinder(binder, HiveMetastoreAuthentication.class)
+                .setDefault().to(NoHiveMetastoreAuthentication.class).in(SINGLETON);
 
-    private Module getAuthenticationModule()
-    {
-        return switch (buildConfigObject(ThriftMetastoreAuthenticationConfig.class).getAuthenticationType()) {
-            case NONE -> new NoHiveMetastoreAuthenticationModule();
-            case KERBEROS -> new KerberosHiveMetastoreAuthenticationModule();
-        };
-    }
-
-    public static class NoHiveMetastoreAuthenticationModule
-            implements Module
-    {
-        @Override
-        public void configure(Binder binder)
-        {
-            binder.bind(IdentityAwareMetastoreClientFactory.class).to(UgiBasedMetastoreClientFactory.class).in(SINGLETON);
-            binder.bind(HiveMetastoreAuthentication.class).to(NoHiveMetastoreAuthentication.class).in(SINGLETON);
+        if (buildConfigObject(ThriftMetastoreAuthenticationConfig.class).getAuthenticationType() == KERBEROS) {
+            install(new KerberosHiveMetastoreAuthenticationModule());
         }
     }
 
@@ -61,8 +51,10 @@ public class ThriftMetastoreAuthenticationModule
         @Override
         public void configure(Binder binder)
         {
-            binder.bind(IdentityAwareMetastoreClientFactory.class).to(TokenFetchingMetastoreClientFactory.class).in(SINGLETON);
-            binder.bind(HiveMetastoreAuthentication.class).to(KerberosHiveMetastoreAuthentication.class).in(SINGLETON);
+            newOptionalBinder(binder, IdentityAwareMetastoreClientFactory.class)
+                    .setBinding().to(TokenFetchingMetastoreClientFactory.class).in(SINGLETON);
+            newOptionalBinder(binder, HiveMetastoreAuthentication.class)
+                    .setBinding().to(KerberosHiveMetastoreAuthentication.class).in(SINGLETON);
             configBinder(binder).bindConfig(MetastoreKerberosConfig.class);
         }
 
