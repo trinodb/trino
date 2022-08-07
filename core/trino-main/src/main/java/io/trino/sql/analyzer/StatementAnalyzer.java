@@ -658,6 +658,7 @@ class StatementAnalyzer
                     .collect(toImmutableList());
 
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
+
             analysis.setRefreshMaterializedView(new Analysis.RefreshMaterializedViewAnalysis(
                     refreshMaterializedView.getTable(),
                     targetTableHandle.get(), query,
@@ -3002,12 +3003,19 @@ class StatementAnalyzer
                     .map(fieldIndexes::get)
                     .collect(toImmutableList());
 
+            Set<ColumnHandle> nonNullableColumnHandles = metadata.getTableMetadata(session, targetTableHandle).getColumns().stream()
+                    .filter(column -> !column.isNullable())
+                    .map(ColumnMetadata::getName)
+                    .map(allColumnHandles::get)
+                    .collect(toImmutableSet());
+
             analysis.setMergeAnalysis(new MergeAnalysis(
                     table,
                     dataColumnSchemas,
                     dataColumnHandles,
                     redistributionColumnHandles,
                     mergeCaseColumnHandles,
+                    nonNullableColumnHandles,
                     columnHandleFieldNumbers,
                     insertPartitioningArgumentIndexes,
                     insertLayout,
