@@ -498,8 +498,8 @@ The following example uses all three table properties::
 Updating data
 ^^^^^^^^^^^^^
 
-You can use the connector to :doc:`/sql/insert`, :doc:`/sql/delete` and
-:doc:`/sql/update` data in Delta Lake tables.
+You can use the connector to :doc:`/sql/insert`, :doc:`/sql/delete`,
+:doc:`/sql/update`, and :doc:`/sql/merge` data in Delta Lake tables.
 
 Write operations are supported for tables stored on the following systems:
 
