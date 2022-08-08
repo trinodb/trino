@@ -38,6 +38,16 @@ appropriate for your setup:
     connection-user=exampleuser
     connection-password=examplepassword
 
+The ``connection-url`` defines the connection information and parameters to pass
+to the ClickHouse JDBC driver. The supported parameters for the URL are
+available in the `ClickHouse JDBC driver configuration
+<https://github.com/ClickHouse/clickhouse-jdbc/tree/master/clickhouse-jdbc#Configuration>`_.
+
+The ``connection-user`` and ``connection-password`` are typically required and
+determine the user credentials for the connection, often a service user. You can
+use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
+properties files.
+
 .. note::
 
     Trino uses the new ClickHouse driver(``com.clickhouse.jdbc.ClickHouseDriver``)
