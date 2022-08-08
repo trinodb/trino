@@ -40,28 +40,40 @@ public class CachedIcebergMetadata
         extends IcebergMetadata
 {
     private IcebergMetadataCache icebergMetadataCache;
+    private Optional<Long> globalMetadataCacheTtlForListing;
 
     public CachedIcebergMetadata(IcebergMetadataFactory metadataFactory, CatalogType catalogType,
             TypeManager typeManager,
             TypeOperators typeOperators,
             JsonCodec<CommitTaskData> commitTaskCodec,
             TrinoCatalog catalog,
-            HdfsEnvironment hdfsEnvironment, long globalMetadataCacheTtl, int maxCacheSize, long globalMetadataCacheTtlForListing)
+            HdfsEnvironment hdfsEnvironment, long globalMetadataCacheTtl, int maxCacheSize, Optional<Long> globalMetadataCacheTtlForListing)
     {
         super(typeManager, typeOperators, commitTaskCodec, catalog, hdfsEnvironment);
+        this.globalMetadataCacheTtlForListing = globalMetadataCacheTtlForListing;
         icebergMetadataCache = IcebergMetadataCache.getMetadataCache(metadataFactory, typeManager, catalogType, globalMetadataCacheTtl, maxCacheSize, globalMetadataCacheTtlForListing);
     }
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return icebergMetadataCache.listSchemaNames(session);
+        if (globalMetadataCacheTtlForListing.isPresent()) {
+            return icebergMetadataCache.listSchemaNames(session);
+        }
+        else {
+            return super.listSchemaNames(session);
+        }
     }
 
     @Override
     public Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
     {
-        return icebergMetadataCache.getSchemaProperties(session, schemaName);
+        if (globalMetadataCacheTtlForListing.isPresent()) {
+            return icebergMetadataCache.getSchemaProperties(session, schemaName);
+        }
+        else {
+            return super.getSchemaProperties(session, schemaName);
+        }
     }
 
     @Override
@@ -110,7 +122,12 @@ public class CachedIcebergMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        return icebergMetadataCache.listTables(session, schemaName);
+        if (globalMetadataCacheTtlForListing.isPresent()) {
+            return icebergMetadataCache.listTables(session, schemaName);
+        }
+        else {
+            return super.listTables(session, schemaName);
+        }
     }
 
     @Override
@@ -122,7 +139,12 @@ public class CachedIcebergMetadata
     @Override
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
     {
-        return icebergMetadataCache.getViews(session, schemaName);
+        if (globalMetadataCacheTtlForListing.isPresent()) {
+            return icebergMetadataCache.getViews(session, schemaName);
+        }
+        else {
+            return super.getViews(session, schemaName);
+        }
     }
 
     @Override

@@ -109,38 +109,40 @@ public class IcebergMetadataCache
     private TypeManager typeManager;
     private final CatalogType catalogType;
     private static final String schemaCacheKey = "SCHEMA_CACHE";
-    private final LoadingCache<String, List<String>> schemaNamesCache;
-    private final LoadingCache<CatalogSchemaName, Map<String, Object>> schemaPropertiesCache;
+    private LoadingCache<String, List<String>> schemaNamesCache;
+    private LoadingCache<CatalogSchemaName, Map<String, Object>> schemaPropertiesCache;
     private final LoadingCache<CatalogSchemaName, Optional<TrinoPrincipal>> schemaOwnerCache;
     private final LoadingCache<SchemaTableName, Table> tableCache;
     private final LoadingCache<SchemaTableName, Optional<SystemTable>> systemTableCache;
     private final LoadingCache<IcebergMetadataCache.SchemaTableWrappedCacheKey<ConnectorTableHandle>, ConnectorTableProperties> tablePropertiesCache;
     private final LoadingCache<IcebergMetadataCache.SchemaTableWrappedCacheKey<ConnectorTableHandle>, ConnectorTableMetadata> tableMetadataCache;
-    private final LoadingCache<Optional<String>, List<SchemaTableName>> tableListingCache;
+    private LoadingCache<Optional<String>, List<SchemaTableName>> tableListingCache;
     private final LoadingCache<IcebergMetadataCache.SchemaTableWrappedCacheKey<ConnectorTableHandle>, TableStatistics> tableStatsCache;
-    private final LoadingCache<Optional<String>, Map<SchemaTableName, ConnectorViewDefinition>> viewListingCache;
+    private LoadingCache<Optional<String>, Map<SchemaTableName, ConnectorViewDefinition>> viewListingCache;
     private final LoadingCache<SchemaTableName, Optional<ConnectorViewDefinition>> viewCache;
 
-    public IcebergMetadataCache(IcebergMetadataFactory metadataFactory, TypeManager typeManager, CatalogType catalogType, long globalMetadataCacheTtl, int maxCacheSize, long globalMetadataCacheTtlForListing)
+    public IcebergMetadataCache(IcebergMetadataFactory metadataFactory, TypeManager typeManager, CatalogType catalogType, long globalMetadataCacheTtl, int maxCacheSize, Optional<Long> globalMetadataCacheTtlForListing)
     {
         this.metadataFactory = metadataFactory;
         this.typeManager = typeManager;
         this.catalogType = catalogType;
-        schemaNamesCache = buildCache(OptionalLong.of(globalMetadataCacheTtlForListing), maxCacheSize, CachingHiveMetastore.StatsRecording.ENABLED, this::listCachedSchemaNames);
-        schemaPropertiesCache = buildCache(OptionalLong.of(globalMetadataCacheTtlForListing), maxCacheSize, CachingHiveMetastore.StatsRecording.ENABLED, this::getCachedSchemaProperties);
+        if (globalMetadataCacheTtlForListing.isPresent()) {
+            schemaNamesCache = buildCache(OptionalLong.of(globalMetadataCacheTtlForListing.get()), maxCacheSize, CachingHiveMetastore.StatsRecording.ENABLED, this::listCachedSchemaNames);
+            schemaPropertiesCache = buildCache(OptionalLong.of(globalMetadataCacheTtlForListing.get()), maxCacheSize, CachingHiveMetastore.StatsRecording.ENABLED, this::getCachedSchemaProperties);
+            tableListingCache = buildCache(OptionalLong.of(globalMetadataCacheTtlForListing.get()), maxCacheSize, CachingHiveMetastore.StatsRecording.ENABLED, this::getCachedListTables);
+            viewListingCache = buildCache(OptionalLong.of(globalMetadataCacheTtlForListing.get()), maxCacheSize, CachingHiveMetastore.StatsRecording.ENABLED, this::getCachedListViews);
+        }
         schemaOwnerCache = buildCache(OptionalLong.of(globalMetadataCacheTtl), maxCacheSize, CachingHiveMetastore.StatsRecording.ENABLED, this::getCachedSchemaOwner);
         tableCache = buildCache(OptionalLong.of(globalMetadataCacheTtl), maxCacheSize, CachingHiveMetastore.StatsRecording.ENABLED, this::getCachedTableHandle);
         systemTableCache = buildCache(OptionalLong.of(globalMetadataCacheTtl), maxCacheSize, CachingHiveMetastore.StatsRecording.ENABLED, this::getCachedSystemTable);
         tablePropertiesCache = buildCache(OptionalLong.of(globalMetadataCacheTtl), maxCacheSize, CachingHiveMetastore.StatsRecording.ENABLED, this::getCachedTableProperties);
         tableStatsCache = buildCache(OptionalLong.of(globalMetadataCacheTtl), maxCacheSize, CachingHiveMetastore.StatsRecording.ENABLED, this::getCachedTableStats);
         tableMetadataCache = buildCache(OptionalLong.of(globalMetadataCacheTtl), maxCacheSize, CachingHiveMetastore.StatsRecording.ENABLED, this::getCachedTableMetadata);
-        tableListingCache = buildCache(OptionalLong.of(globalMetadataCacheTtlForListing), maxCacheSize, CachingHiveMetastore.StatsRecording.ENABLED, this::getCachedListTables);
-        viewListingCache = buildCache(OptionalLong.of(globalMetadataCacheTtlForListing), maxCacheSize, CachingHiveMetastore.StatsRecording.ENABLED, this::getCachedListViews);
         viewCache = buildCache(OptionalLong.of(globalMetadataCacheTtl), maxCacheSize, CachingHiveMetastore.StatsRecording.ENABLED, this::getCachedView);
     }
 
     public static IcebergMetadataCache getMetadataCache(IcebergMetadataFactory metadataFactory, TypeManager typeManager,
-            CatalogType catalogType, long globalMetadataCacheTtl, int maxCacheSize, long globalMetadataCacheTtlForListing)
+            CatalogType catalogType, long globalMetadataCacheTtl, int maxCacheSize, Optional<Long> globalMetadataCacheTtlForListing)
     {
         if (icebergMetadataCache == null) {
             synchronized (IcebergMetadataCache.class) {

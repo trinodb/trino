@@ -22,6 +22,8 @@ import io.trino.spi.type.TypeOperators;
 
 import javax.inject.Inject;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class IcebergMetadataFactory
@@ -33,7 +35,7 @@ public class IcebergMetadataFactory
     private final HdfsEnvironment hdfsEnvironment;
     private final long globalMetadataCacheTtl;
     private final int maxCacheSize;
-    private final long globalMetadataCacheTtlForListing;
+    private final Optional<Long> globalMetadataCacheTtlForListing;
     private final CatalogType catalogType;
 
     @Inject

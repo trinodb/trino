@@ -62,7 +62,7 @@ public class TestIcebergConfig
                 .setGlobalMetadataCacheEnabled(false)
                 .setGlobalMetadataCacheTtl(10000L)
                 .setMaxCacheSize(1000)
-                .setMetadataCacheSchemaTableListingTtl(10L));
+                .setMetadataCacheSchemaTableListingTtl(null));
     }
 
     @Test
@@ -115,7 +115,7 @@ public class TestIcebergConfig
                 .setGlobalMetadataCacheEnabled(true)
                 .setGlobalMetadataCacheTtl(6000L)
                 .setMaxCacheSize(500)
-                .setMetadataCacheSchemaTableListingTtl(20);
+                .setMetadataCacheSchemaTableListingTtl(Long.valueOf(20));
 
         assertFullMapping(properties, expected);
     }

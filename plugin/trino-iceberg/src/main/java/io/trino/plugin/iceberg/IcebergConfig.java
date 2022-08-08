@@ -66,7 +66,7 @@ public class IcebergConfig
     private boolean globalMetadataCacheEnabled;
     private long globalMetadataCacheTtl = 10000;
     private int maxCacheSize = 1000;
-    private long metadataCacheSchemaTableListingTtl = 10;
+    private Optional<Long> metadataCacheSchemaTableListingTtl = Optional.empty();
 
     public CatalogType getCatalogType()
     {
@@ -364,16 +364,16 @@ public class IcebergConfig
         return this;
     }
 
-    public long getMetadataCacheSchemaTableListingTtl()
+    public Optional<Long> getMetadataCacheSchemaTableListingTtl()
     {
         return metadataCacheSchemaTableListingTtl;
     }
 
     @Config("iceberg.metastore-cache-listing-ttl")
     @ConfigDescription("Ttl for metadata cache for listing operations like schema listing, table listing etc")
-    public IcebergConfig setMetadataCacheSchemaTableListingTtl(long metadataCacheSchemaTableListingTtl)
+    public IcebergConfig setMetadataCacheSchemaTableListingTtl(Long metadataCacheSchemaTableListingTtl)
     {
-        this.metadataCacheSchemaTableListingTtl = metadataCacheSchemaTableListingTtl;
+        this.metadataCacheSchemaTableListingTtl = Optional.ofNullable(metadataCacheSchemaTableListingTtl);
         return this;
     }
 }
