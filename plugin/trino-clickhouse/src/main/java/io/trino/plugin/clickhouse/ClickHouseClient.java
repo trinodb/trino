@@ -15,6 +15,7 @@ package io.trino.plugin.clickhouse;
 
 import com.clickhouse.client.ClickHouseColumn;
 import com.clickhouse.client.ClickHouseDataType;
+import com.clickhouse.client.ClickHouseVersion;
 import com.google.common.base.Enums;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -87,6 +88,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -199,6 +201,7 @@ public class ClickHouseClient
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
     private final Type uuidType;
     private final Type ipAddressType;
+    private final AtomicReference<ClickHouseVersion> clickHouseVersion = new AtomicReference<>();
 
     @Inject
     public ClickHouseClient(
@@ -669,6 +672,27 @@ public class ClickHouseClient
             return WriteMapping.sliceMapping("UUID", uuidWriteFunction());
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type);
+    }
+
+    private ClickHouseVersion getClickHouseServerVersion(ConnectorSession session)
+    {
+        return clickHouseVersion.updateAndGet(current -> {
+            if (current != null) {
+                return current;
+            }
+
+            try (Connection connection = connectionFactory.openConnection(session);
+                    PreparedStatement statement = connection.prepareStatement("SELECT version()");
+                    ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    current = ClickHouseVersion.of(resultSet.getString(1));
+                }
+                return current;
+            }
+            catch (SQLException e) {
+                throw new TrinoException(JDBC_ERROR, e);
+            }
+        });
     }
 
     /**
