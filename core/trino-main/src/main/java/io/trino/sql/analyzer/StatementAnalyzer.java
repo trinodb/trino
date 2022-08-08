@@ -1600,7 +1600,7 @@ class StatementAnalyzer
                 }
                 Set<String> uniqueArgumentNames = new HashSet<>();
                 for (TableFunctionArgument argument : arguments) {
-                    String argumentName = argument.getName().get().getCanonicalValue();
+                    String argumentName = argument.getName().orElseThrow().getCanonicalValue();
                     if (!uniqueArgumentNames.add(argumentName)) {
                         throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Duplicate argument name: " + argumentName);
                     }
