@@ -799,8 +799,8 @@ Data management
 ^^^^^^^^^^^^^^^
 
 The :ref:`sql-data-management` functionality includes support for ``INSERT``,
-``UPDATE``, and ``DELETE`` statements, with the exact support depending on the
-storage system, file format, and metastore:
+``UPDATE``, ``DELETE``, and ``MERGE`` statements, with the exact support
+depending on the storage system, file format, and metastore:
 
 When connecting to a Hive metastore version 3.x, the Hive connector supports
 reading from and writing to insert-only and ACID tables, with full support for
@@ -813,6 +813,8 @@ which the ``WHERE`` clause may match arbitrary sets of rows.
 
 :doc:`/sql/update` is only supported for transactional Hive tables with format
 ORC. ``UPDATE`` of partition or bucket columns is not supported.
+
+:doc:`/sql/merge` is only supported for ACID tables.
 
 ACID tables created with `Hive Streaming Ingest <https://cwiki.apache.org/confluence/display/Hive/Streaming+Data+Ingest>`_
 are not supported.

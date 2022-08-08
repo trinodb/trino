@@ -268,6 +268,7 @@ statements, the connector supports the following features:
 
 * :doc:`/sql/insert`, see also :ref:`kudu-insert`
 * :doc:`/sql/delete`
+* :doc:`/sql/merge`
 * :doc:`/sql/create-table`, see also :ref:`kudu-create-table`
 * :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`
