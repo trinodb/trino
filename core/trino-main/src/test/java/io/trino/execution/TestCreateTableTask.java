@@ -75,6 +75,8 @@ import static io.trino.sql.QueryUtil.identifier;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
+import static io.trino.sql.tree.SaveMode.FAIL;
+import static io.trino.sql.tree.SaveMode.IGNORE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CREATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
@@ -157,7 +159,7 @@ public class TestCreateTableTask
     {
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
                 ImmutableList.of(new ColumnDefinition(identifier("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
-                true,
+                IGNORE,
                 ImmutableList.of(),
                 Optional.empty());
 
@@ -171,7 +173,7 @@ public class TestCreateTableTask
     {
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
                 ImmutableList.of(new ColumnDefinition(identifier("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
-                false,
+                FAIL,
                 ImmutableList.of(),
                 Optional.empty());
 
@@ -188,7 +190,7 @@ public class TestCreateTableTask
     {
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
                 ImmutableList.of(new ColumnDefinition(identifier("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
-                false,
+                FAIL,
                 ImmutableList.of(new Property(new Identifier("foo"), new StringLiteral("bar"))),
                 Optional.empty());
 
@@ -208,7 +210,7 @@ public class TestCreateTableTask
                 new ColumnDefinition(identifier("a"), toSqlType(DATE), true, emptyList(), Optional.empty()),
                 new ColumnDefinition(identifier("b"), toSqlType(VARCHAR), false, emptyList(), Optional.empty()),
                 new ColumnDefinition(identifier("c"), toSqlType(VARBINARY), false, emptyList(), Optional.empty()));
-        CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, ImmutableList.of(), Optional.empty());
+        CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
 
         CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {}));
@@ -239,7 +241,7 @@ public class TestCreateTableTask
         CreateTable statement = new CreateTable(
                 QualifiedName.of("test_table"),
                 inputColumns,
-                true,
+                IGNORE,
                 ImmutableList.of(),
                 Optional.empty());
 
@@ -341,7 +343,7 @@ public class TestCreateTableTask
         return new CreateTable(
                 name,
                 List.of(new LikeClause(QualifiedName.of(PARENT_TABLE.getTable().getTableName()), includingProperties ? Optional.of(INCLUDING) : Optional.empty())),
-                true,
+                IGNORE,
                 ImmutableList.of(),
                 Optional.empty());
     }
