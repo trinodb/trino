@@ -103,14 +103,15 @@ Type mapping
 ------------
 
 Because Trino and MySQL each support types that the other does not, this
-connector modifies some types when reading or writing data.
+connector modifies some types when reading or writing data. Data types may not
+map the same way in both directions between Trino and the data source. Refer to
+the following sections for type mapping in each direction.
 
 MySQL to Trino read type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This connector supports reading the following MySQL types and performs
-conversion to Trino types with the detailed mappings as shown in the following
-table.
+The connector maps MySQL types to the corresponding Trino types following
+this table:
 
 .. list-table:: MySQL to Trino type mapping
   :widths: 30, 20, 50
@@ -191,9 +192,8 @@ No other types are supported.
 Trino to MySQL write type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This connector supports writing the following Trino types and performs
-conversion to MySQL types with the detailed mappings as shown in the
-following table.
+The connector maps Trino types to the corresponding MySQL types following
+this table:
 
 .. list-table:: Trino to MySQL type mapping
   :widths: 30, 20, 50
