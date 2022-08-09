@@ -22,11 +22,12 @@ import io.trino.parquet.RichColumnDescriptor;
 import io.trino.spi.block.Block;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.column.statistics.IntStatistics;
+import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridEncoder;
 import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.Types;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -248,7 +249,7 @@ public class TestColumnReader
                     Slices.wrappedBuffer(encodePlainValues(values)),
                     valueCount * 4,
                     OptionalLong.of(start),
-                    new IntStatistics(),
+                    Statistics.createStats(Types.optional(INT32).named("TestColumn")),
                     false);
         }
 
