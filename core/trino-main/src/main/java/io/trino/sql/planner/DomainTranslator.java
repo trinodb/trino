@@ -579,9 +579,9 @@ public final class DomainTranslator
 
         private boolean isImplicitCoercion(Map<NodeRef<Expression>, Type> expressionTypes, Cast cast)
         {
-            Type actualType = requireNonNull(expressionTypes.get(NodeRef.of(cast.getExpression())), "No type for Cast source expression");
-            Type expectedType = requireNonNull(expressionTypes.get(NodeRef.of(cast)), "No type for Cast expression");
-            return typeCoercion.canCoerce(actualType, expectedType);
+            Type castSourceType = requireNonNull(expressionTypes.get(NodeRef.of(cast.getExpression())), "No type for Cast source expression");
+            Type castTargetType = requireNonNull(expressionTypes.get(NodeRef.of(cast)), "No type for Cast expression");
+            return typeCoercion.canCoerce(castSourceType, castTargetType);
         }
 
         private Map<NodeRef<Expression>, Type> analyzeExpression(Expression expression)
