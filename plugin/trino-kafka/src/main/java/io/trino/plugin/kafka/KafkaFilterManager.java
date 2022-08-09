@@ -129,11 +129,16 @@ public class KafkaFilterManager
             if (offsetTimestampRanged.isPresent()) {
                 try (KafkaConsumer<byte[], byte[]> kafkaConsumer = consumerFactory.create(session)) {
                     Optional<Range> finalOffsetTimestampRanged = offsetTimestampRanged;
-                    partitionBeginOffsets = overridePartitionBeginOffsets(partitionBeginOffsets,
-                            partition -> findOffsetsForTimestampGreaterOrEqual(kafkaConsumer, partition, finalOffsetTimestampRanged.get().getBegin()));
+                    // filter negative value to avoid java.lang.IllegalArgumentException when using KafkaConsumer offsetsForTimes
+                    if (offsetTimestampRanged.get().getBegin() > INVALID_KAFKA_RANGE_INDEX) {
+                        partitionBeginOffsets = overridePartitionBeginOffsets(partitionBeginOffsets,
+                                partition -> findOffsetsForTimestampGreaterOrEqual(kafkaConsumer, partition, finalOffsetTimestampRanged.get().getBegin()));
+                    }
                     if (isTimestampUpperBoundPushdownEnabled(session, kafkaTableHandle.getTopicName())) {
-                        partitionEndOffsets = overridePartitionEndOffsets(partitionEndOffsets,
-                                partition -> findOffsetsForTimestampGreaterOrEqual(kafkaConsumer, partition, finalOffsetTimestampRanged.get().getEnd()));
+                        if (offsetTimestampRanged.get().getEnd() > INVALID_KAFKA_RANGE_INDEX) {
+                            partitionEndOffsets = overridePartitionEndOffsets(partitionEndOffsets,
+                                    partition -> findOffsetsForTimestampGreaterOrEqual(kafkaConsumer, partition, finalOffsetTimestampRanged.get().getEnd()));
+                        }
                     }
                 }
             }
