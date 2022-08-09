@@ -1097,7 +1097,7 @@ The following procedures are available:
   Flush Hive metadata caches entries connected with selected table.
   Procedure requires named parameters to be passed
 
-* ``system.flush_metadata_cache(schema_name => ..., table_name => ..., partition_column => ARRAY[...], partition_value => ARRAY[...])``
+* ``system.flush_metadata_cache(schema_name => ..., table_name => ..., partition_columns => ARRAY[...], partition_values => ARRAY[...])``
 
   Flush Hive metadata cache entries connected with selected partition.
   Procedure requires named parameters to be passed
