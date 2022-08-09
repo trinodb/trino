@@ -94,7 +94,7 @@ public class TestPushdownFilterIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
                     return p.filter(
-                            expression("row_number_1 < cast(5 as bigint) and a = 1"),
+                            expression("row_number_1 < cast(5 as bigint) and a = BIGINT '1'"),
                             p.rowNumber(
                                     ImmutableList.of(a),
                                     Optional.of(10),
@@ -103,7 +103,7 @@ public class TestPushdownFilterIntoRowNumber
                 })
                 .matches(
                         filter(
-                                "a = 1",
+                                "a = BIGINT '1'",
                                 rowNumber(rowNumber -> rowNumber
                                                 .maxRowCountPerPartition(Optional.of(4))
                                                 .partitionBy(ImmutableList.of("a")),

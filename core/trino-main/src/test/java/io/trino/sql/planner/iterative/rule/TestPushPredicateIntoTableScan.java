@@ -362,7 +362,7 @@ public class TestPushPredicateIntoTableScan
                 .build();
         assertThatThrownBy(() -> tester().assertThat(pushPredicateIntoTableScan)
                 .withSession(session)
-                .on(p -> p.filter(expression("col = 'G'"),
+                .on(p -> p.filter(expression("col = VARCHAR 'G'"),
                         p.tableScan(
                                 PARTITIONED_TABLE_HANDLE_TO_UNPARTITIONED,
                                 ImmutableList.of(p.symbol("col", VARCHAR)),
@@ -373,7 +373,7 @@ public class TestPushPredicateIntoTableScan
 
         tester().assertThat(pushPredicateIntoTableScan)
                 .withSession(session)
-                .on(p -> p.filter(expression("col = 'G'"),
+                .on(p -> p.filter(expression("col = VARCHAR 'G'"),
                         p.tableScan(
                                 PARTITIONED_TABLE_HANDLE,
                                 ImmutableList.of(p.symbol("col", VARCHAR)),
