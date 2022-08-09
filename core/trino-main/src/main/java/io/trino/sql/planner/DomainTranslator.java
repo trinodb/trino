@@ -485,7 +485,8 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitComparisonExpression(ComparisonExpression node, Boolean complement)
         {
-            Optional<NormalizedSimpleComparison> optionalNormalized = toNormalizedSimpleComparison(node);
+            Map<NodeRef<Expression>, Type> expressionTypes = analyzeExpression(node);
+            Optional<NormalizedSimpleComparison> optionalNormalized = toNormalizedSimpleComparison(expressionTypes, node);
             if (optionalNormalized.isEmpty()) {
                 return super.visitComparisonExpression(node, complement);
             }
@@ -501,7 +502,7 @@ public final class DomainTranslator
             }
             if (symbolExpression instanceof Cast) {
                 Cast castExpression = (Cast) symbolExpression;
-                if (!isImplicitCoercion(castExpression)) {
+                if (!isImplicitCoercion(expressionTypes, castExpression)) {
                     //
                     // we cannot use non-coercion cast to literal_type on symbol side to build tuple domain
                     //
@@ -523,7 +524,8 @@ public final class DomainTranslator
                     return super.visitComparisonExpression(node, complement);
                 }
 
-                Type castSourceType = typeAnalyzer.getType(session, types, castExpression.getExpression()); // type of expression which is then cast to type of value
+                // type of expression which is then cast to type of value
+                Type castSourceType = requireNonNull(expressionTypes.get(NodeRef.of(castExpression.getExpression())), "No type for Cast source expression");
 
                 // we use saturated floor cast value -> castSourceType to rewrite original expression to new one with one cast peeled off the symbol side
                 Optional<Expression> coercedExpression = coerceComparisonWithRounding(
@@ -541,9 +543,8 @@ public final class DomainTranslator
         /**
          * Extract a normalized simple comparison between a QualifiedNameReference and a native value if possible.
          */
-        private Optional<NormalizedSimpleComparison> toNormalizedSimpleComparison(ComparisonExpression comparison)
+        private Optional<NormalizedSimpleComparison> toNormalizedSimpleComparison(Map<NodeRef<Expression>, Type> expressionTypes, ComparisonExpression comparison)
         {
-            Map<NodeRef<Expression>, Type> expressionTypes = analyzeExpression(comparison);
             Object left = new ExpressionInterpreter(comparison.getLeft(), plannerContext, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
             Object right = new ExpressionInterpreter(comparison.getRight(), plannerContext, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
 
@@ -576,11 +577,10 @@ public final class DomainTranslator
             return Optional.of(new NormalizedSimpleComparison(symbolExpression, comparisonOperator, value));
         }
 
-        private boolean isImplicitCoercion(Cast cast)
+        private boolean isImplicitCoercion(Map<NodeRef<Expression>, Type> expressionTypes, Cast cast)
         {
-            Map<NodeRef<Expression>, Type> expressionTypes = analyzeExpression(cast);
-            Type actualType = expressionTypes.get(NodeRef.of(cast.getExpression()));
-            Type expectedType = expressionTypes.get(NodeRef.<Expression>of(cast));
+            Type actualType = requireNonNull(expressionTypes.get(NodeRef.of(cast.getExpression())), "No type for Cast source expression");
+            Type expectedType = requireNonNull(expressionTypes.get(NodeRef.of(cast)), "No type for Cast expression");
             return typeCoercion.canCoerce(actualType, expectedType);
         }
 
