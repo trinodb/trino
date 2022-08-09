@@ -86,12 +86,14 @@ import java.util.StringJoiner;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.intersection;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -2100,6 +2102,123 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(session, "DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(session, tableName));
+    }
+
+    @Test(dataProvider = "bucketFilteringDataTypesSetupProvider")
+    public void testFilterOnBucketedTable(BucketedFilterTestSetup testSetup)
+    {
+        String tableName = "test_filter_on_bucketed_table_" + randomTableSuffix();
+        assertUpdate(
+                """
+                CREATE TABLE %s (bucket_key %s, other_data double)
+                WITH (
+                    format = 'TEXTFILE',
+                    bucketed_by = ARRAY[ 'bucket_key' ],
+                    bucket_count = 5)
+                """.formatted(tableName, testSetup.getTypeName()));
+
+        String values = testSetup.getValues().stream()
+                .map(value -> "(" + value + ", rand())")
+                .collect(joining(", "));
+        assertUpdate("INSERT INTO " + tableName + " VALUES " + values, testSetup.getValues().size());
+
+        // It will only read data from a single bucket instead of all buckets,
+        // so physicalInputPositions should be less than number of rows inserted (.
+        assertQueryStats(
+                getSession(),
+                """
+                SELECT count(*)
+                FROM %s
+                WHERE bucket_key = %s
+                """.formatted(tableName, testSetup.getFilterValue()),
+                queryStats -> assertThat(queryStats.getPhysicalInputPositions()).isEqualTo(testSetup.getExpectedPhysicalInputRows()),
+                result -> assertThat(result.getOnlyValue()).isEqualTo(testSetup.getExpectedResult()));
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @DataProvider
+    public final Object[][] bucketFilteringDataTypesSetupProvider()
+    {
+        List<BucketedFilterTestSetup> testSetups = ImmutableList.of(
+                new BucketedFilterTestSetup(
+                        "BOOLEAN",
+                        Stream.concat(IntStream.range(0, 100).mapToObj(i -> "true"), IntStream.range(0, 100).mapToObj(i -> "false"))
+                                .collect(toImmutableList()),
+                        "true",
+                        100,
+                        100),
+                new BucketedFilterTestSetup(
+                        "TINYINT",
+                        IntStream.range(0, 127).mapToObj(String::valueOf).collect(toImmutableList()),
+                        "126",
+                        26,
+                        1),
+                new BucketedFilterTestSetup(
+                        "SMALLINT",
+                        IntStream.range(0, 1000).map(i -> i + 22767).mapToObj(String::valueOf).collect(toImmutableList()),
+                        "22767",
+                        200,
+                        1),
+                new BucketedFilterTestSetup(
+                        "INTEGER",
+                        IntStream.range(0, 1000).map(i -> i + 1274942432).mapToObj(String::valueOf).collect(toImmutableList()),
+                        "1274942432",
+                        200,
+                        1),
+                new BucketedFilterTestSetup(
+                        "BIGINT",
+                        IntStream.range(0, 1000).mapToLong(i -> i + 312739231274942432L).mapToObj(String::valueOf).collect(toImmutableList()),
+                        "312739231274942432",
+                        200,
+                        1),
+                new BucketedFilterTestSetup(
+                        "REAL",
+                        IntStream.range(0, 1000).mapToDouble(i -> i + 567.123).mapToObj(val -> "REAL '" + val + "'").collect(toImmutableList()),
+                        "567.123",
+                        201,
+                        1),
+                new BucketedFilterTestSetup(
+                        "DOUBLE",
+                        IntStream.range(0, 1000).mapToDouble(i -> i + 1234567890123.123).mapToObj(val -> "DOUBLE '" + val + "'").collect(toImmutableList()),
+                        "1234567890123.123",
+                        201,
+                        1),
+                new BucketedFilterTestSetup(
+                        "VARCHAR",
+                        IntStream.range(0, 1000).mapToObj(i -> "'test value " + i + "'").collect(toImmutableList()),
+                        "'test value 5'",
+                        200,
+                        1),
+                new BucketedFilterTestSetup(
+                        "VARCHAR(20)",
+                        IntStream.range(0, 1000).mapToObj(i -> "'test value " + i + "'").collect(toImmutableList()),
+                        "'test value 5'",
+                        200,
+                        1),
+                new BucketedFilterTestSetup(
+                        "DATE",
+                        IntStream.range(0, 1000).mapToObj(i -> "DATE '2020-02-12' + interval '" + i + "' day").collect(toImmutableList()),
+                        "DATE '2020-02-15'",
+                        200,
+                        1),
+                new BucketedFilterTestSetup(
+                        "ARRAY<INT>",
+                        IntStream.range(0, 1000)
+                                .mapToObj(i -> format("ARRAY[%s, %s, %s, %s]", i + 22767, i + 22768, i + 22769, i + 22770))
+                                .collect(toImmutableList()),
+                        "ARRAY[22767, 22768, 22769, 22770]",
+                        200,
+                        1),
+                new BucketedFilterTestSetup(
+                        "MAP<DOUBLE, INT>",
+                        IntStream.range(0, 1000)
+                                .mapToObj(i -> format("MAP(ARRAY[%s, %s], ARRAY[%s, %s])", i + 567.123, i + 568.456, i + 22769, i + 22770))
+                                .collect(toImmutableList()),
+                        "MAP(ARRAY[567.123, 568.456], ARRAY[22769, 22770])",
+                        149,
+                        1));
+        return testSetups.stream()
+                .collect(toDataProvider());
     }
 
     @Test(dataProvider = "bucketedUnsupportedTypes")
@@ -8394,5 +8513,53 @@ public abstract class BaseHiveConnectorTest
         return Session.builder(session)
                 .setCatalogSessionProperty(catalog, "timestamp_precision", precision.name())
                 .build();
+    }
+
+    private static final class BucketedFilterTestSetup
+    {
+        private final String typeName;
+        private final List<String> values;
+        private final String filterValue;
+        private final long expectedPhysicalInputRows;
+        private final long expectedResult;
+
+        private BucketedFilterTestSetup(
+                String typeName,
+                List<String> values,
+                String filterValue,
+                long expectedPhysicalInputRows,
+                long expectedResult)
+        {
+            this.typeName = requireNonNull(typeName, "typeName is null");
+            this.values = requireNonNull(values, "values is null");
+            this.filterValue = requireNonNull(filterValue, "filterValue is null");
+            this.expectedPhysicalInputRows = expectedPhysicalInputRows;
+            this.expectedResult = expectedResult;
+        }
+
+        private String getTypeName()
+        {
+            return typeName;
+        }
+
+        private List<String> getValues()
+        {
+            return values;
+        }
+
+        private String getFilterValue()
+        {
+            return filterValue;
+        }
+
+        private long getExpectedPhysicalInputRows()
+        {
+            return expectedPhysicalInputRows;
+        }
+
+        private long getExpectedResult()
+        {
+            return expectedResult;
+        }
     }
 }

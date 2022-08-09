@@ -1775,14 +1775,17 @@ public abstract class AbstractTestHive
 
             assertTableIsBucketed(tableHandle, transaction, session);
 
+            float testFloatValue = 87.1f;
+            double testDoubleValue = 88.2;
+
             ImmutableMap<ColumnHandle, NullableValue> bindings = ImmutableMap.<ColumnHandle, NullableValue>builder()
-                    .put(columnHandles.get(columnIndex.get("t_float")), NullableValue.of(REAL, (long) floatToRawIntBits(87.1f)))
-                    .put(columnHandles.get(columnIndex.get("t_double")), NullableValue.of(DOUBLE, 88.2))
+                    .put(columnHandles.get(columnIndex.get("t_float")), NullableValue.of(REAL, (long) floatToRawIntBits(testFloatValue)))
+                    .put(columnHandles.get(columnIndex.get("t_double")), NullableValue.of(DOUBLE, testDoubleValue))
                     .buildOrThrow();
 
-            // floats and doubles are not supported, so we should see all splits
-            MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.fromFixedValues(bindings), OptionalInt.of(32), Optional.empty());
-            assertEquals(result.getRowCount(), 100);
+            MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.fromFixedValues(bindings), OptionalInt.of(1), Optional.empty());
+            assertThat(result).anyMatch(row -> testFloatValue == (float) row.getField(columnIndex.get("t_float"))
+                    && testDoubleValue == (double) row.getField(columnIndex.get("t_double")));
         }
     }
 
