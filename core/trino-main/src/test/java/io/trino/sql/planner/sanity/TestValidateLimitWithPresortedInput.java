@@ -149,7 +149,7 @@ public class TestValidateLimitWithPresortedInput
                         true,
                         ImmutableList.of(p.symbol("a", BIGINT)),
                         p.filter(
-                                expression("a = 1"),
+                                expression("a = BIGINT '1'"),
                                 p.values(
                                         ImmutableList.of(p.symbol("a", BIGINT)),
                                         ImmutableList.of(
