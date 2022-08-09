@@ -303,6 +303,8 @@ public class TestDateTimeOperators
     @Test
     public void testDateCastFromVarchar()
     {
+        // Note: update DomainTranslator.Visitor.createVarcharCastToDateComparisonExtractionResult whenever CAST behavior changes.
+
         assertFunction("CAST('2013-02-02' AS date)", DATE, toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
         // one digit for month or day
         assertFunction("CAST('2013-2-02' AS date)", DATE, toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
