@@ -104,6 +104,13 @@ public class TestDeltaLakePlugin
                 new TestingConnectorContext()))
                 .hasMessageMatching("(?s)Unable to create injector, see the following errors:.*" +
                         "Explicit bindings are required and HiveMetastoreFactory .* is not explicitly bound.*");
+
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.of("hive.metastore", "alluxio-deprecated"),
+                new TestingConnectorContext()))
+                .hasMessageMatching("(?s)Unable to create injector, see the following errors:.*" +
+                        "Explicit bindings are required and HiveMetastoreFactory .* is not explicitly bound.*");
     }
 
     @Test

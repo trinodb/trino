@@ -80,7 +80,7 @@ the following:
 .. code-block:: text
 
     connector.name=hive
-    hive.metastore=alluxio
+    hive.metastore=alluxio-deprecated
     hive.metastore.alluxio.master.address=HOSTNAME:PORT
 
 Replace ``HOSTNAME`` with the Alluxio master hostname, and replace ``PORT``
