@@ -683,45 +683,33 @@ public final class DomainTranslator
                     if (complement) {
                         return Optional.empty();
                     }
-                    else {
-                        return Optional.of(Domain.create(ValueSet.ofRanges(Range.equal(type, value)), false));
-                    }
+                    return Optional.of(Domain.create(ValueSet.ofRanges(Range.equal(type, value)), false));
                 case GREATER_THAN:
                     if (complement) {
                         return Optional.empty();
                     }
-                    else {
-                        return Optional.of(Domain.create(ValueSet.ofRanges(Range.greaterThan(type, value)), false));
-                    }
+                    return Optional.of(Domain.create(ValueSet.ofRanges(Range.greaterThan(type, value)), false));
                 case GREATER_THAN_OR_EQUAL:
                     if (complement) {
                         return Optional.empty();
                     }
-                    else {
-                        return Optional.of(Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(type, value)), false));
-                    }
+                    return Optional.of(Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(type, value)), false));
                 case LESS_THAN:
                     if (complement) {
                         return Optional.empty();
                     }
-                    else {
-                        return Optional.of(Domain.create(ValueSet.ofRanges(Range.lessThan(type, value)), false));
-                    }
+                    return Optional.of(Domain.create(ValueSet.ofRanges(Range.lessThan(type, value)), false));
                 case LESS_THAN_OR_EQUAL:
                     if (complement) {
                         return Optional.empty();
                     }
-                    else {
-                        return Optional.of(Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(type, value)), false));
-                    }
+                    return Optional.of(Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(type, value)), false));
                 case NOT_EQUAL:
                 case IS_DISTINCT_FROM:
                     if (complement) {
                         return Optional.of(Domain.create(ValueSet.ofRanges(Range.equal(type, value)), false));
                     }
-                    else {
-                        return Optional.empty();
-                    }
+                    return Optional.empty();
             }
             throw new AssertionError("Unhandled operator: " + comparisonOperator);
         }
