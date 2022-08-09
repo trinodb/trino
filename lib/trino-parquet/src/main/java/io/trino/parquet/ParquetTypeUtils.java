@@ -21,8 +21,8 @@ import org.apache.parquet.io.GroupColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.PrimitiveColumnIO;
-import org.apache.parquet.schema.DecimalMetadata;
 import org.apache.parquet.schema.GroupType;
+import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 
 import javax.annotation.Nullable;
@@ -34,7 +34,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static org.apache.parquet.schema.OriginalType.DECIMAL;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
 
 public final class ParquetTypeUtils
@@ -80,7 +79,7 @@ public final class ParquetTypeUtils
          *  }
          */
         if (columnIO instanceof GroupColumnIO &&
-                columnIO.getType().getOriginalType() == null &&
+                columnIO.getType().getLogicalTypeAnnotation() == null &&
                 ((GroupColumnIO) columnIO).getChildrenCount() == 1 &&
                 !columnIO.getName().equals("array") &&
                 !columnIO.getName().equals(columnIO.getParent().getName() + "_tuple")) {
@@ -221,11 +220,11 @@ public final class ParquetTypeUtils
 
     public static Optional<DecimalType> createDecimalType(RichColumnDescriptor descriptor)
     {
-        if (descriptor.getPrimitiveType().getOriginalType() != DECIMAL) {
+        if (!(descriptor.getPrimitiveType().getLogicalTypeAnnotation() instanceof DecimalLogicalTypeAnnotation)) {
             return Optional.empty();
         }
-        DecimalMetadata decimalMetadata = descriptor.getPrimitiveType().getDecimalMetadata();
-        return Optional.of(DecimalType.createDecimalType(decimalMetadata.getPrecision(), decimalMetadata.getScale()));
+        DecimalLogicalTypeAnnotation decimalLogicalType = (DecimalLogicalTypeAnnotation) descriptor.getPrimitiveType().getLogicalTypeAnnotation();
+        return Optional.of(DecimalType.createDecimalType(decimalLogicalType.getPrecision(), decimalLogicalType.getScale()));
     }
 
     /**

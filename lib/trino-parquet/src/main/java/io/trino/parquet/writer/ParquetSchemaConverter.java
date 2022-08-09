@@ -28,7 +28,6 @@ import io.trino.spi.type.VarcharType;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
-import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type.Repetition;
 import org.apache.parquet.schema.Types;
@@ -143,7 +142,7 @@ public class ParquetSchemaConverter
                     .named(name);
         }
         if (DATE.equals(type)) {
-            return Types.primitive(PrimitiveType.PrimitiveTypeName.INT32, repetition).as(OriginalType.DATE).named(name);
+            return Types.primitive(PrimitiveType.PrimitiveTypeName.INT32, repetition).as(LogicalTypeAnnotation.dateType()).named(name);
         }
         if (BIGINT.equals(type)) {
             return Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, repetition).named(name);
