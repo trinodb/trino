@@ -715,12 +715,6 @@ public final class DomainTranslator
                         return Optional.of(Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(type, value)), false));
                     }
                 case NOT_EQUAL:
-                    if (complement) {
-                        return Optional.of(Domain.create(ValueSet.ofRanges(Range.equal(type, value)), false));
-                    }
-                    else {
-                        return Optional.empty();
-                    }
                 case IS_DISTINCT_FROM:
                     if (complement) {
                         return Optional.of(Domain.create(ValueSet.ofRanges(Range.equal(type, value)), false));
