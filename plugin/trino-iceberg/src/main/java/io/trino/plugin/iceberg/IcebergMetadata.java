@@ -920,7 +920,7 @@ public class IcebergMetadata
                 tableHandle.getSchemaTableName(),
                 OPTIMIZE,
                 new IcebergOptimizeHandle(
-                        tableHandle.getSnapshotId().orElseThrow(),
+                        tableHandle.getSnapshotId(),
                         SchemaParser.toJson(icebergTable.schema()),
                         PartitionSpecParser.toJson(icebergTable.spec()),
                         getColumns(icebergTable.schema(), typeManager),
@@ -1079,8 +1079,8 @@ public class IcebergMetadata
             newFiles.add(builder.build());
         }
 
-        if (scannedDataFiles.isEmpty() && fullyAppliedDeleteFiles.isEmpty() && newFiles.isEmpty()) {
-            // Table scan turned out to be empty, nothing to commit
+        if (optimizeHandle.getSnapshotId().isEmpty() || scannedDataFiles.isEmpty() && fullyAppliedDeleteFiles.isEmpty() && newFiles.isEmpty()) {
+            // Either the table is empty, or the table scan turned out to be empty, nothing to commit
             transaction = null;
             return;
         }
@@ -1097,7 +1097,7 @@ public class IcebergMetadata
         RewriteFiles rewriteFiles = transaction.newRewrite();
         rewriteFiles.rewriteFiles(scannedDataFiles, fullyAppliedDeleteFiles, newFiles, ImmutableSet.of());
         // Table.snapshot method returns null if there is no matching snapshot
-        Snapshot snapshot = requireNonNull(icebergTable.snapshot(optimizeHandle.getSnapshotId()), "snapshot is null");
+        Snapshot snapshot = requireNonNull(icebergTable.snapshot(optimizeHandle.getSnapshotId().get()), "snapshot is null");
         rewriteFiles.validateFromSnapshot(snapshot.snapshotId());
         rewriteFiles.commit();
         transaction.commitTransaction();
@@ -1193,6 +1193,11 @@ public class IcebergMetadata
                 getRemoveOrphanFilesMinRetention(session),
                 IcebergConfig.REMOVE_ORPHAN_FILES_MIN_RETENTION,
                 IcebergSessionProperties.REMOVE_ORPHAN_FILES_MIN_RETENTION);
+
+        if (table.currentSnapshot() == null) {
+            log.debug("Skipping remove_orphan_files procedure for empty table " + table);
+            return;
+        }
 
         long expireTimestampMillis = session.getStart().toEpochMilli() - retention.toMillis();
         removeOrphanFiles(table, session, executeHandle.getSchemaTableName(), expireTimestampMillis);
