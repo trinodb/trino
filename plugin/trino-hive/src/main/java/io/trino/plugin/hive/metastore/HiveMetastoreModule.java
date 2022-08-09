@@ -50,7 +50,7 @@ public class HiveMetastoreModule
             // Load Alluxio metastore support through reflection. This makes Alluxio effectively an optional dependency
             // and allows deploying Trino without the Alluxio jar. Can be useful if the integration is unused and is flagged
             // by a security scanner.
-            bindMetastoreModule("alluxio", deferredModule("io.trino.plugin.hive.metastore.alluxio.AlluxioMetastoreModule"));
+            bindMetastoreModule("alluxio-deprecated", deferredModule("io.trino.plugin.hive.metastore.alluxio.AlluxioMetastoreModule"));
         }
 
         install(new DecoratedHiveMetastoreModule());
