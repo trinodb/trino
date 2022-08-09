@@ -1667,6 +1667,28 @@ public class TestIcebergSparkCompatibility
                 .containsOnly(row(1, 2), row(2, 2), row(3, 2), row(11, 12), row(12, 12), row(13, 12));
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testAlterTableExecuteProceduresOnEmptyTable()
+    {
+        String baseTableName = "test_alter_table_execute_procedures_on_empty_table_" + randomTableSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onSpark().executeQuery(format(
+                "CREATE TABLE %s (" +
+                        "  _string STRING" +
+                        ", _bigint BIGINT" +
+                        ", _integer INTEGER" +
+                        ") USING ICEBERG",
+                sparkTableName));
+
+        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " EXECUTE optimize");
+        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " EXECUTE expire_snapshots(retention_threshold => '7d')");
+        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " EXECUTE remove_orphan_files(retention_threshold => '7d')");
+
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).hasNoRows();
+    }
+
     private static String escapeSparkString(String value)
     {
         return value.replace("\\", "\\\\").replace("'", "\\'");

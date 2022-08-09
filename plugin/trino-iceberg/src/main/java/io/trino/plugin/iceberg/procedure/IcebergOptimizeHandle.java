@@ -23,6 +23,7 @@ import io.trino.plugin.iceberg.IcebergFileFormat;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -30,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 public class IcebergOptimizeHandle
         extends IcebergProcedureHandle
 {
-    private final long snapshotId;
+    private final Optional<Long> snapshotId;
     private final String schemaAsJson;
     private final String partitionSpecAsJson;
     private final List<IcebergColumnHandle> tableColumns;
@@ -41,7 +42,7 @@ public class IcebergOptimizeHandle
 
     @JsonCreator
     public IcebergOptimizeHandle(
-            long snapshotId,
+            Optional<Long> snapshotId,
             String schemaAsJson,
             String partitionSpecAsJson,
             List<IcebergColumnHandle> tableColumns,
@@ -61,7 +62,7 @@ public class IcebergOptimizeHandle
     }
 
     @JsonProperty
-    public long getSnapshotId()
+    public Optional<Long> getSnapshotId()
     {
         return snapshotId;
     }
