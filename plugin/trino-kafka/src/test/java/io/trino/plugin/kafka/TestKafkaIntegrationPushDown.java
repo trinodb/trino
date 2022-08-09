@@ -101,12 +101,12 @@ public class TestKafkaIntegrationPushDown
     public void testOffsetPushDown()
     {
         createMessages(topicNameOffset);
-        assertProcessedInputPossitions(format("SELECT count(*) FROM default.%s WHERE _partition_offset between 2 and 10", topicNameOffset), 18);
-        assertProcessedInputPossitions(format("SELECT count(*) FROM default.%s WHERE _partition_offset > 2 and _partition_offset < 10", topicNameOffset), 14);
-        assertProcessedInputPossitions(format("SELECT count(*) FROM default.%s WHERE _partition_offset = 3", topicNameOffset), 2);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _partition_offset between 2 and 10", topicNameOffset), 18);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _partition_offset > 2 and _partition_offset < 10", topicNameOffset), 14);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _partition_offset = 3", topicNameOffset), 2);
     }
 
-    private void assertProcessedInputPossitions(String sql, long expectedProcessedInputPositions)
+    private void assertProcessedInputPositions(String sql, long expectedProcessedInputPositions)
     {
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         assertEventually(() -> {
