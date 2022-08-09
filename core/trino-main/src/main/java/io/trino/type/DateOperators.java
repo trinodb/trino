@@ -55,6 +55,8 @@ public final class DateOperators
     @SqlType(StandardTypes.DATE)
     public static long castFromVarchar(@SqlType("varchar(x)") Slice value)
     {
+        // Note: update DomainTranslator.Visitor.createVarcharCastToDateComparisonExtractionResult whenever CAST behavior changes.
+
         try {
             return parseDate(trim(value).toStringUtf8());
         }
