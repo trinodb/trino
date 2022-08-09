@@ -1790,10 +1790,12 @@ public class IcebergMetadata
         else {
             Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
-            Long snapshotId = table.getSnapshotId().orElseThrow(() -> new IllegalStateException("Snapshot id must be present"));
-            Set<Integer> partitionSpecIds = icebergTable.snapshot(snapshotId).allManifests(icebergTable.io()).stream()
-                    .map(ManifestFile::partitionSpecId)
-                    .collect(toImmutableSet());
+            Set<Integer> partitionSpecIds = table.getSnapshotId().map(
+                            snapshot -> icebergTable.snapshot(snapshot).allManifests(icebergTable.io()).stream()
+                                    .map(ManifestFile::partitionSpecId)
+                                    .collect(toImmutableSet()))
+                    // No snapshot, so no data. This case doesn't matter.
+                    .orElseGet(() -> ImmutableSet.copyOf(icebergTable.specs().keySet()));
 
             Map<IcebergColumnHandle, Domain> unsupported = new LinkedHashMap<>();
             Map<IcebergColumnHandle, Domain> newEnforced = new LinkedHashMap<>();
