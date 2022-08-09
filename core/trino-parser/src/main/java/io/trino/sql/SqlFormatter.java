@@ -166,6 +166,8 @@ import static io.trino.sql.ExpressionFormatter.formatSkipTo;
 import static io.trino.sql.ExpressionFormatter.formatStringLiteral;
 import static io.trino.sql.ExpressionFormatter.formatWindowSpecification;
 import static io.trino.sql.RowPatternFormatter.formatPattern;
+import static io.trino.sql.tree.SaveMode.IGNORE;
+import static io.trino.sql.tree.SaveMode.REPLACE;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -1523,8 +1525,12 @@ public final class SqlFormatter
         @Override
         protected Void visitCreateTableAsSelect(CreateTableAsSelect node, Integer indent)
         {
-            builder.append("CREATE TABLE ");
-            if (node.isNotExists()) {
+            builder.append("CREATE ");
+            if (node.getSaveMode() == REPLACE) {
+                builder.append("OR REPLACE ");
+            }
+            builder.append("TABLE ");
+            if (node.getSaveMode() == IGNORE) {
                 builder.append("IF NOT EXISTS ");
             }
             builder.append(formatName(node.getName()));
@@ -1553,8 +1559,12 @@ public final class SqlFormatter
         @Override
         protected Void visitCreateTable(CreateTable node, Integer indent)
         {
-            builder.append("CREATE TABLE ");
-            if (node.isNotExists()) {
+            builder.append("CREATE ");
+            if (node.getSaveMode() == REPLACE) {
+                builder.append("OR REPLACE ");
+            }
+            builder.append("TABLE ");
+            if (node.getSaveMode() == IGNORE) {
                 builder.append("IF NOT EXISTS ");
             }
             String tableName = formatName(node.getName());

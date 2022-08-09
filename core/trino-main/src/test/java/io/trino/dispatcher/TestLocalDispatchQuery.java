@@ -76,6 +76,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.sql.tree.SaveMode.FAIL;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -130,7 +131,7 @@ public class TestLocalDispatchQuery
                         new ConnectorCatalogServiceProvider<>("function provider", new NoConnectorServicesProvider(), ConnectorServices::getFunctionProvider),
                         new GlobalFunctionCatalog()),
                 new QueryMonitorConfig());
-        CreateTable createTable = new CreateTable(QualifiedName.of("table"), ImmutableList.of(), false, ImmutableList.of(), Optional.empty());
+        CreateTable createTable = new CreateTable(QualifiedName.of("table"), ImmutableList.of(), FAIL, ImmutableList.of(), Optional.empty());
         QueryPreparer.PreparedQuery preparedQuery = new QueryPreparer.PreparedQuery(createTable, ImmutableList.of(), Optional.empty());
         DataDefinitionExecution.DataDefinitionExecutionFactory dataDefinitionExecutionFactory = new DataDefinitionExecution.DataDefinitionExecutionFactory(
                 ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>of(CreateTable.class, new TestCreateTableTask()));

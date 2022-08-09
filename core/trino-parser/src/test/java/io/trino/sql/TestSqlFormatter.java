@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static io.trino.sql.SqlFormatter.formatSql;
+import static io.trino.sql.tree.SaveMode.FAIL;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSqlFormatter
@@ -70,7 +71,7 @@ public class TestSqlFormatter
                             true,
                             ImmutableList.of(),
                             Optional.empty())),
-                    false,
+                    FAIL,
                     ImmutableList.of(),
                     Optional.empty());
         };
