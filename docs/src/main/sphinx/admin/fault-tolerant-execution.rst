@@ -418,7 +418,13 @@ the property may be configured for:
      - Any S3-compatible storage
    * - ``exchange.gcs.json-key-file-path``
      - Path to the JSON file that contains your Google Cloud Platform
-       service account key.
+       service account key. Not to be set together with
+       ``exchange.gcs.json-key``
+     -
+     - GCS
+   * - ``exchange.gcs.json-key``
+     - Your Google Cloud Platform service account key in JSON format.
+       Not to be set together with ``exchange.gcs.json-key-file-path``
      -
      - GCS
    * - ``exchange.azure.connection-string``

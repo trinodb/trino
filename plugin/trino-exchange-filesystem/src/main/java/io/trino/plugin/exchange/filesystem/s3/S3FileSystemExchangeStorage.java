@@ -84,10 +84,12 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.crypto.SecretKey;
 import javax.inject.Inject;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -169,8 +171,16 @@ public class S3FileSystemExchangeStorage
                 config.getConnectionAcquisitionTimeout());
 
         if (compatibilityMode == GCP) {
-            if (config.getGcsJsonKeyFilePath().isPresent()) {
-                Credentials credentials = GoogleCredentials.fromStream(new FileInputStream(config.getGcsJsonKeyFilePath().get()));
+            Optional<String> gcsJsonKeyFilePath = config.getGcsJsonKeyFilePath();
+            Optional<String> gcsJsonKey = config.getGcsJsonKey();
+            verify(!(gcsJsonKeyFilePath.isPresent() && gcsJsonKey.isPresent()),
+                    "gcsJsonKeyFilePath and gcsJsonKey shouldn't be set at the same time");
+            if (gcsJsonKeyFilePath.isPresent()) {
+                Credentials credentials = GoogleCredentials.fromStream(new FileInputStream(gcsJsonKeyFilePath.get()));
+                this.gcsClient = Optional.of(StorageOptions.newBuilder().setCredentials(credentials).build().getService());
+            }
+            else if (gcsJsonKey.isPresent()) {
+                Credentials credentials = GoogleCredentials.fromStream(new ByteArrayInputStream(gcsJsonKey.get().getBytes(StandardCharsets.UTF_8)));
                 this.gcsClient = Optional.of(StorageOptions.newBuilder().setCredentials(credentials).build().getService());
             }
             else {
