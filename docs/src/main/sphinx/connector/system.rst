@@ -151,6 +151,14 @@ System connector procedures
     Kill the query identified by ``query_id``. The query failure message
     includes the specified ``message``.
 
+.. _system-type-mapping:
+
+Type mapping
+------------
+
+Trino supports all data types used within the System schemas so no mapping
+is required.
+
 .. _system-sql-support:
 
 SQL support
