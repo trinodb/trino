@@ -110,6 +110,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TRUNCATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static io.trino.testing.assertions.TestUtil.verifyResultOrFailure;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
@@ -503,7 +504,7 @@ public abstract class BaseConnectorTest
                 expectedPattern);
     }
 
-    // CAST(a_varchar AS date) = DATE '...' is an interesting condition which may want to be optimized by the engine or a connector
+    // CAST(a_varchar AS date) = DATE '...' has a special handling in the DomainTranslator and is worth testing this across connectors
     @Test
     public void testVarcharCastToDateInPredicate()
     {
@@ -520,6 +521,7 @@ public abstract class BaseConnectorTest
                         "'2005-09-06'", "'2005-09-6'", "'2005-9-06'", "'2005-9-6'", "' 2005-09-06'", "'2005-09-06 '", "' +2005-09-06'", "'02005-09-06'",
                         "'2005-09-09'", "'2005-09-9'", "'2005-9-09'", "'2005-9-9'", "' 2005-09-09'", "'2005-09-09 '", "' +2005-09-09'", "'02005-09-09'",
                         "'2005-09-10'", "'2005-9-10'", "' 2005-09-10'", "'2005-09-10 '", "' +2005-09-10'", "'02005-09-10'",
+                        "'2005-09-20'", "'2005-9-20'", "' 2005-09-20'", "'2005-09-20 '", "' +2005-09-20'", "'02005-09-20'",
                         "'9999-09-09'",
                         "'99999-09-09'"))) {
             for (String date : List.of("2005-09-06", "2005-09-09", "2005-09-10")) {
@@ -537,12 +539,39 @@ public abstract class BaseConnectorTest
                 List.of("'2005-06-bad-date'", "'2005-09-10'"))) {
             assertThatThrownBy(() -> query("SELECT a FROM %s WHERE CAST(a AS date) < DATE '2005-09-10'".formatted(table.getName())))
                     .hasMessage("Value cannot be cast to date: 2005-06-bad-date");
-            // This failure isn't guaranteed. TODO make test more flexible when need arises.
-            assertThatThrownBy(() -> query("SELECT a FROM %s WHERE CAST(a AS date) = DATE '2005-09-10'".formatted(table.getName())))
-                    .hasMessage("Value cannot be cast to date: 2005-06-bad-date");
-            // This failure isn't guaranteed. TODO make test more flexible when need arises.
-            assertThatThrownBy(() -> query("SELECT a FROM %s WHERE CAST(a AS date) > DATE '2022-08-10'".formatted(table.getName())))
-                    .hasMessage("Value cannot be cast to date: 2005-06-bad-date");
+            verifyResultOrFailure(
+                    () -> query("SELECT a FROM %s WHERE CAST(a AS date) = DATE '2005-09-10'".formatted(table.getName())),
+                    queryAssert -> assertThat(queryAssert)
+                            .skippingTypesCheck()
+                            .matches("VALUES '2005-09-10'"),
+                    failure -> assertThat(failure)
+                            .hasMessage("Value cannot be cast to date: 2005-06-bad-date"));
+            // This failure isn't guaranteed: a row may be filtered out on the connector side with a derived predicate on a varchar column.
+            verifyResultOrFailure(
+                    () -> query("SELECT a FROM %s WHERE CAST(a AS date) != DATE '2005-9-1'".formatted(table.getName())),
+                    queryAssert -> assertThat(queryAssert)
+                            .skippingTypesCheck()
+                            .matches("VALUES '2005-09-10'"),
+                    failure -> assertThat(failure)
+                            .hasMessage("Value cannot be cast to date: 2005-06-bad-date"));
+            // This failure isn't guaranteed: a row may be filtered out on the connector side with a derived predicate on a varchar column.
+            verifyResultOrFailure(
+                    () -> query("SELECT a FROM %s WHERE CAST(a AS date) > DATE '2022-08-10'".formatted(table.getName())),
+                    queryAssert -> assertThat(queryAssert)
+                            .skippingTypesCheck()
+                            .returnsEmptyResult(),
+                    failure -> assertThat(failure)
+                            .hasMessage("Value cannot be cast to date: 2005-06-bad-date"));
+        }
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "varchar_as_date_pred",
+                "(a varchar)",
+                List.of("'2005-09-10'"))) {
+            // 2005-09-01, when written as 2005-09-1, is a prefix of an existing data point: 2005-09-10
+            assertThat(query("SELECT a FROM %s WHERE CAST(a AS date) != DATE '2005-09-01'".formatted(table.getName())))
+                    .skippingTypesCheck()
+                    .matches("VALUES '2005-09-10'");
         }
     }
 
