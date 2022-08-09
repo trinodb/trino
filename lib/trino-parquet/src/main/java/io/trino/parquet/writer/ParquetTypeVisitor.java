@@ -15,8 +15,8 @@ package io.trino.parquet.writer;
 
 import com.google.common.collect.Lists;
 import org.apache.parquet.schema.GroupType;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
-import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type;
 
@@ -24,8 +24,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static org.apache.parquet.schema.OriginalType.LIST;
-import static org.apache.parquet.schema.OriginalType.MAP;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
 
 // Code from iceberg
@@ -44,8 +42,8 @@ public class ParquetTypeVisitor<T>
         else {
             // if not a primitive, the typeId must be a group
             GroupType group = type.asGroupType();
-            OriginalType annotation = group.getOriginalType();
-            if (annotation == LIST) {
+            LogicalTypeAnnotation annotation = group.getLogicalTypeAnnotation();
+            if (LogicalTypeAnnotation.listType().equals(annotation)) {
                 checkArgument(!group.isRepetition(REPEATED),
                         "Invalid list: top-level group is repeated: " + group);
                 checkArgument(group.getFieldCount() == 1,
@@ -70,7 +68,7 @@ public class ParquetTypeVisitor<T>
                     visitor.fieldNames.pop();
                 }
             }
-            else if (annotation == MAP) {
+            else if (LogicalTypeAnnotation.mapType().equals(annotation)) {
                 checkArgument(!group.isRepetition(REPEATED),
                         "Invalid map: top-level group is repeated: " + group);
                 checkArgument(group.getFieldCount() == 1,

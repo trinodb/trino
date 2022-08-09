@@ -24,8 +24,8 @@ import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory;
 import org.apache.parquet.schema.ConversionPatterns;
 import org.apache.parquet.schema.GroupType;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
-import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Type;
 import org.apache.parquet.schema.Type.Repetition;
@@ -71,7 +71,7 @@ public final class SingleLevelArraySchemaConverter
     {
         if (typeInfo.getCategory() == Category.PRIMITIVE) {
             if (typeInfo.equals(TypeInfoFactory.stringTypeInfo)) {
-                return Types.primitive(PrimitiveTypeName.BINARY, repetition).as(OriginalType.UTF8)
+                return Types.primitive(PrimitiveTypeName.BINARY, repetition).as(LogicalTypeAnnotation.stringType())
                         .named(name);
             }
             else if (typeInfo.equals(TypeInfoFactory.intTypeInfo) ||
@@ -103,19 +103,19 @@ public final class SingleLevelArraySchemaConverter
             else if (typeInfo.getTypeName().toLowerCase(Locale.ENGLISH).startsWith(
                     serdeConstants.CHAR_TYPE_NAME)) {
                 if (repetition == Repetition.OPTIONAL) {
-                    return Types.optional(PrimitiveTypeName.BINARY).as(OriginalType.UTF8).named(name);
+                    return Types.optional(PrimitiveTypeName.BINARY).as(LogicalTypeAnnotation.stringType()).named(name);
                 }
                 else {
-                    return Types.repeated(PrimitiveTypeName.BINARY).as(OriginalType.UTF8).named(name);
+                    return Types.repeated(PrimitiveTypeName.BINARY).as(LogicalTypeAnnotation.stringType()).named(name);
                 }
             }
             else if (typeInfo.getTypeName().toLowerCase(Locale.ENGLISH).startsWith(
                     serdeConstants.VARCHAR_TYPE_NAME)) {
                 if (repetition == Repetition.OPTIONAL) {
-                    return Types.optional(PrimitiveTypeName.BINARY).as(OriginalType.UTF8).named(name);
+                    return Types.optional(PrimitiveTypeName.BINARY).as(LogicalTypeAnnotation.stringType()).named(name);
                 }
                 else {
-                    return Types.repeated(PrimitiveTypeName.BINARY).as(OriginalType.UTF8).named(name);
+                    return Types.repeated(PrimitiveTypeName.BINARY).as(LogicalTypeAnnotation.stringType()).named(name);
                 }
             }
             else if (typeInfo instanceof DecimalTypeInfo) {
@@ -124,14 +124,14 @@ public final class SingleLevelArraySchemaConverter
                 int scale = decimalTypeInfo.scale();
                 int bytes = ParquetHiveSerDe.PRECISION_TO_BYTE_COUNT[prec - 1];
                 if (repetition == Repetition.OPTIONAL) {
-                    return Types.optional(PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY).length(bytes).as(OriginalType.DECIMAL).scale(scale).precision(prec).named(name);
+                    return Types.optional(PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY).length(bytes).as(LogicalTypeAnnotation.decimalType(scale, prec)).named(name);
                 }
                 else {
-                    return Types.repeated(PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY).length(bytes).as(OriginalType.DECIMAL).scale(scale).precision(prec).named(name);
+                    return Types.repeated(PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY).length(bytes).as(LogicalTypeAnnotation.decimalType(scale, prec)).named(name);
                 }
             }
             else if (typeInfo.equals(TypeInfoFactory.dateTypeInfo)) {
-                return Types.primitive(PrimitiveTypeName.INT32, repetition).as(OriginalType.DATE).named(name);
+                return Types.primitive(PrimitiveTypeName.INT32, repetition).as(LogicalTypeAnnotation.dateType()).named(name);
             }
             else if (typeInfo.equals(TypeInfoFactory.unknownTypeInfo)) {
                 throw new UnsupportedOperationException("Unknown type not implemented");
@@ -161,7 +161,7 @@ public final class SingleLevelArraySchemaConverter
     private static GroupType convertArrayType(String name, ListTypeInfo typeInfo, Repetition repetition)
     {
         TypeInfo subType = typeInfo.getListElementTypeInfo();
-        return listWrapper(name, OriginalType.LIST, convertType("array", subType, Repetition.REPEATED), repetition);
+        return listWrapper(name, LogicalTypeAnnotation.listType(), convertType("array", subType, Repetition.REPEATED), repetition);
     }
 
     // An optional group containing multiple elements
@@ -183,9 +183,9 @@ public final class SingleLevelArraySchemaConverter
         return ConversionPatterns.mapType(repetition, name, keyType, valueType);
     }
 
-    private static GroupType listWrapper(String name, OriginalType originalType,
+    private static GroupType listWrapper(String name, LogicalTypeAnnotation logicalType,
             Type elementType, Repetition repetition)
     {
-        return new GroupType(repetition, name, originalType, elementType);
+        return Types.buildGroup(repetition).as(logicalType).addField(elementType).named(name);
     }
 }

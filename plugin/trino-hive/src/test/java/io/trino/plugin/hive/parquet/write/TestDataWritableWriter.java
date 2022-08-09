@@ -43,7 +43,7 @@ import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.io.api.RecordConsumer;
 import org.apache.parquet.schema.GroupType;
-import org.apache.parquet.schema.OriginalType;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.Type;
 import org.joda.time.DateTimeZone;
 
@@ -140,9 +140,9 @@ public class TestDataWritableWriter
         }
         else {
             GroupType groupType = type.asGroupType();
-            OriginalType originalType = type.getOriginalType();
+            LogicalTypeAnnotation logicalType = type.getLogicalTypeAnnotation();
 
-            if (OriginalType.LIST == originalType) {
+            if (LogicalTypeAnnotation.listType().equals(logicalType)) {
                 checkInspectorCategory(inspector, ObjectInspector.Category.LIST);
                 if (singleLevelArray) {
                     writeSingleLevelArray(value, (ListObjectInspector) inspector, groupType);
@@ -151,7 +151,7 @@ public class TestDataWritableWriter
                     writeArray(value, (ListObjectInspector) inspector, groupType);
                 }
             }
-            else if (originalType != null && (originalType == OriginalType.MAP || originalType == OriginalType.MAP_KEY_VALUE)) {
+            else if (LogicalTypeAnnotation.mapType().equals(logicalType) || LogicalTypeAnnotation.MapKeyValueTypeAnnotation.getInstance().equals(logicalType)) {
                 checkInspectorCategory(inspector, ObjectInspector.Category.MAP);
                 writeMap(value, (MapObjectInspector) inspector, groupType);
             }
