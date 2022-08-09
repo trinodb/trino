@@ -117,6 +117,7 @@ public class TestIcebergSparkCompatibility
         // Validate queries on an empty table created by Spark
         assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName("\"" + baseTableName + "$snapshots\"")))).hasNoRows();
         assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName))).hasNoRows();
+        assertThat(onTrino().executeQuery(format("SELECT * FROM %s WHERE _integer > 0", trinoTableName))).hasNoRows();
 
         onSpark().executeQuery(format(
                 "INSERT INTO %s VALUES (" +
