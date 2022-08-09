@@ -744,7 +744,7 @@ public final class PlanMatchPattern
         return new SymbolAlias(alias);
     }
 
-    public static PlanMatchPattern filter(String expectedPredicate, PlanMatchPattern source)
+    public static PlanMatchPattern filter(@Language("SQL") String expectedPredicate, PlanMatchPattern source)
     {
         return filter(PlanBuilder.expression(expectedPredicate), source);
     }

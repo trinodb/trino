@@ -114,6 +114,7 @@ import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.TestingTableExecuteHandle;
 import io.trino.testing.TestingTransactionHandle;
+import org.intellij.lang.annotations.Language;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1415,12 +1416,12 @@ public class PlanBuilder
         return new RemoteSourceNode(idAllocator.getNextId(), sourceFragmentIds, outputs, orderingScheme, exchangeType, retryPolicy);
     }
 
-    public static Expression expression(String sql)
+    public static Expression expression(@Language("SQL") String sql)
     {
         return ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql, new ParsingOptions()));
     }
 
-    public static List<Expression> expressions(String... expressions)
+    public static List<Expression> expressions(@Language("SQL") String... expressions)
     {
         return Stream.of(expressions)
                 .map(PlanBuilder::expression)
