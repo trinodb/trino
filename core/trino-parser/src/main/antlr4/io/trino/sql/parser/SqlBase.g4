@@ -55,11 +55,12 @@ statement
     | DROP SCHEMA (IF EXISTS)? qualifiedName (CASCADE | RESTRICT)?     #dropSchema
     | ALTER SCHEMA qualifiedName RENAME TO identifier                  #renameSchema
     | ALTER SCHEMA qualifiedName SET AUTHORIZATION principal           #setSchemaAuthorization
-    | CREATE TABLE (IF NOT EXISTS)? qualifiedName columnAliases?
+    | CREATE (OR REPLACE)? TABLE (IF NOT EXISTS)? qualifiedName
+        columnAliases?
         (COMMENT string)?
         (WITH properties)? AS (query | '('query')')
         (WITH (NO)? DATA)?                                             #createTableAsSelect
-    | CREATE TABLE (IF NOT EXISTS)? qualifiedName
+    | CREATE (OR REPLACE)? TABLE (IF NOT EXISTS)? qualifiedName
         '(' tableElement (',' tableElement)* ')'
          (COMMENT string)?
          (WITH properties)?                                            #createTable

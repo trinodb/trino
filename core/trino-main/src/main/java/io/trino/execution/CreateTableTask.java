@@ -80,6 +80,9 @@ import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.EXCLUDING;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
+import static io.trino.sql.tree.SaveMode.FAIL;
+import static io.trino.sql.tree.SaveMode.IGNORE;
+import static io.trino.sql.tree.SaveMode.REPLACE;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -125,6 +128,10 @@ public class CreateTableTask
     ListenableFuture<Void> internalExecute(CreateTable statement, Session session, List<Expression> parameters, Consumer<Output> outputConsumer)
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
+        // TODO: Remove when engine is supporting table replacement
+        if (statement.getSaveMode() == REPLACE) {
+            throw semanticException(NOT_SUPPORTED, statement, "Replace table is not supported");
+        }
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
@@ -139,7 +146,7 @@ public class CreateTableTask
             throw e;
         }
         if (tableHandle.isPresent()) {
-            if (!statement.isNotExists()) {
+            if (statement.getSaveMode() == FAIL) {
                 throw semanticException(TABLE_ALREADY_EXISTS, statement, "Table '%s' already exists", tableName);
             }
             return immediateVoidFuture();
@@ -281,11 +288,11 @@ public class CreateTableTask
         Map<String, Object> finalProperties = combineProperties(specifiedPropertyKeys, properties, inheritedProperties);
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment());
         try {
-            plannerContext.getMetadata().createTable(session, catalogName, tableMetadata, statement.isNotExists());
+            plannerContext.getMetadata().createTable(session, catalogName, tableMetadata, statement.getSaveMode() == IGNORE);
         }
         catch (TrinoException e) {
             // connectors are not required to handle the ignoreExisting flag
-            if (!e.getErrorCode().equals(ALREADY_EXISTS.toErrorCode()) || !statement.isNotExists()) {
+            if (!e.getErrorCode().equals(ALREADY_EXISTS.toErrorCode()) || statement.getSaveMode() == FAIL) {
                 throw e;
             }
         }

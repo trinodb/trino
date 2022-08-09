@@ -204,6 +204,7 @@ import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SampledRelation;
+import io.trino.sql.tree.SaveMode;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
@@ -285,6 +286,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.parser.SqlBaseParser.TIME;
@@ -318,6 +320,9 @@ import static io.trino.sql.tree.PatternSearchMode.Mode.INITIAL;
 import static io.trino.sql.tree.PatternSearchMode.Mode.SEEK;
 import static io.trino.sql.tree.ProcessingMode.Mode.FINAL;
 import static io.trino.sql.tree.ProcessingMode.Mode.RUNNING;
+import static io.trino.sql.tree.SaveMode.FAIL;
+import static io.trino.sql.tree.SaveMode.IGNORE;
+import static io.trino.sql.tree.SaveMode.REPLACE;
 import static io.trino.sql.tree.SkipTo.skipPastLastRow;
 import static io.trino.sql.tree.SkipTo.skipToFirst;
 import static io.trino.sql.tree.SkipTo.skipToLast;
@@ -470,6 +475,23 @@ class AstBuilder
                 getPrincipalSpecification(context.principal()));
     }
 
+    private static SaveMode toSaveMode(TerminalNode replace, TerminalNode exists)
+    {
+        boolean isReplace = replace != null;
+        boolean isNotExists = exists != null;
+        checkArgument(!(isReplace && isNotExists), "'OR REPLACE' and 'IF NOT EXISTS' clauses can not be used together");
+
+        if (isReplace) {
+            return REPLACE;
+        }
+
+        if (isNotExists) {
+            return IGNORE;
+        }
+
+        return FAIL;
+    }
+
     @Override
     public Node visitCreateTableAsSelect(SqlBaseParser.CreateTableAsSelectContext context)
     {
@@ -488,11 +510,15 @@ class AstBuilder
             properties = visit(context.properties().propertyAssignments().property(), Property.class);
         }
 
+        if (context.REPLACE() != null && context.EXISTS() != null) {
+            throw parseError("'OR REPLACE' and 'IF NOT EXISTS' clauses can not be used together", context);
+        }
+
         return new CreateTableAsSelect(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 (Query) visit(context.query()),
-                context.EXISTS() != null,
+                toSaveMode(context.REPLACE(), context.EXISTS()),
                 properties,
                 context.NO() == null,
                 columnAliases,
@@ -510,11 +536,14 @@ class AstBuilder
         if (context.properties() != null) {
             properties = visit(context.properties().propertyAssignments().property(), Property.class);
         }
+        if (context.REPLACE() != null && context.EXISTS() != null) {
+            throw parseError("'OR REPLACE' and 'IF NOT EXISTS' clauses can not be used together", context);
+        }
         return new CreateTable(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 visit(context.tableElement(), TableElement.class),
-                context.EXISTS() != null,
+                toSaveMode(context.REPLACE(), context.EXISTS()),
                 properties,
                 comment);
     }
