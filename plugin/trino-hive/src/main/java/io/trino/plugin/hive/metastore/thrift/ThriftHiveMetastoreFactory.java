@@ -23,6 +23,7 @@ import org.weakref.jmx.Managed;
 import javax.inject.Inject;
 
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -44,6 +45,9 @@ public class ThriftHiveMetastoreFactory
     private final boolean assumeCanonicalPartitionKeys;
     private final ThriftMetastoreStats stats = new ThriftMetastoreStats();
     private final MetastoreSupportsDateStatistics metastoreSupportsDateStatistics = new MetastoreSupportsDateStatistics();
+    private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
+    private final AtomicInteger chosenTableParamAlternative = new AtomicInteger(Integer.MAX_VALUE);
+    private final AtomicInteger chosesGetAllViewsAlternative = new AtomicInteger(Integer.MAX_VALUE);
 
     @Inject
     public ThriftHiveMetastoreFactory(
@@ -99,6 +103,9 @@ public class ThriftHiveMetastoreFactory
                 translateHiveViews,
                 assumeCanonicalPartitionKeys,
                 stats,
-                metastoreSupportsDateStatistics);
+                metastoreSupportsDateStatistics,
+                chosenGetTableAlternative,
+                chosenTableParamAlternative,
+                chosesGetAllViewsAlternative);
     }
 }

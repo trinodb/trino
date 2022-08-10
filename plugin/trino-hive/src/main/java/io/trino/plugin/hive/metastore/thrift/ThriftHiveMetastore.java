@@ -172,9 +172,9 @@ public class ThriftHiveMetastore
     private final ThriftMetastoreStats stats;
     private final MetastoreSupportsDateStatistics metastoreSupportsDateStatistics;
 
-    private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
-    private final AtomicInteger chosenTableParamAlternative = new AtomicInteger(Integer.MAX_VALUE);
-    private final AtomicInteger chosesGetAllViewsAlternative = new AtomicInteger(Integer.MAX_VALUE);
+    private final AtomicInteger chosenGetTableAlternative;
+    private final AtomicInteger chosenTableParamAlternative;
+    private final AtomicInteger chosesGetAllViewsAlternative;
 
     public ThriftHiveMetastore(
             Optional<ConnectorIdentity> identity,
@@ -190,7 +190,10 @@ public class ThriftHiveMetastore
             boolean translateHiveViews,
             boolean assumeCanonicalPartitionKeys,
             ThriftMetastoreStats stats,
-            MetastoreSupportsDateStatistics metastoreSupportsDateStatistics)
+            MetastoreSupportsDateStatistics metastoreSupportsDateStatistics,
+            AtomicInteger chosenGetTableAlternative,
+            AtomicInteger chosenTableParamAlternative,
+            AtomicInteger chosesGetAllViewsAlternative)
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -206,6 +209,9 @@ public class ThriftHiveMetastore
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         this.stats = requireNonNull(stats, "stats is null");
         this.metastoreSupportsDateStatistics = requireNonNull(metastoreSupportsDateStatistics, "metastoreSupportsDateStatistics is null");
+        this.chosenGetTableAlternative = requireNonNull(chosenGetTableAlternative, "chosenGetTableAlternative is null");
+        this.chosenTableParamAlternative = requireNonNull(chosenTableParamAlternative, "chosenTableParamAlternative is null");
+        this.chosesGetAllViewsAlternative = requireNonNull(chosesGetAllViewsAlternative, "chosesGetAllViewsAlternative is null");
     }
 
     @VisibleForTesting
