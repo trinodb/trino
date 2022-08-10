@@ -503,6 +503,49 @@ public abstract class BaseConnectorTest
                 expectedPattern);
     }
 
+    // CAST(a_varchar AS date) = DATE '...' is an interesting condition which may want to be optimized by the engine or a connector
+    @Test
+    public void testVarcharCastToDateInPredicate()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "varchar_as_date_pred",
+                "(a varchar)",
+                List.of(
+                        "'999-09-09'",
+                        "'1005-09-09'",
+                        "'2005-06-06'", "'2005-06-6'", "'2005-6-06'", "'2005-6-6'", "' 2005-06-06'", "'2005-06-06 '", "' +2005-06-06'", "'02005-06-06'",
+                        "'2005-09-06'", "'2005-09-6'", "'2005-9-06'", "'2005-9-6'", "' 2005-09-06'", "'2005-09-06 '", "' +2005-09-06'", "'02005-09-06'",
+                        "'2005-09-09'", "'2005-09-9'", "'2005-9-09'", "'2005-9-9'", "' 2005-09-09'", "'2005-09-09 '", "' +2005-09-09'", "'02005-09-09'",
+                        "'2005-09-10'", "'2005-9-10'", "' 2005-09-10'", "'2005-09-10 '", "' +2005-09-10'", "'02005-09-10'",
+                        "'9999-09-09'",
+                        "'99999-09-09'"))) {
+            for (String date : List.of("2005-09-06", "2005-09-09", "2005-09-10")) {
+                for (String operator : List.of("=", "<=", "<", ">", ">=", "!=", "IS DISTINCT FROM", "IS NOT DISTINCT FROM")) {
+                    assertThat(query("SELECT a FROM %s WHERE CAST(a AS date) %s DATE '%s'".formatted(table.getName(), operator, date)))
+                            .hasCorrectResultsRegardlessOfPushdown();
+                }
+            }
+        }
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "varchar_as_date_pred",
+                "(a varchar)",
+                List.of("'2005-06-bad-date'", "'2005-09-10'"))) {
+            assertThatThrownBy(() -> query("SELECT a FROM %s WHERE CAST(a AS date) < DATE '2005-09-10'".formatted(table.getName())))
+                    .hasMessage("Value cannot be cast to date: 2005-06-bad-date");
+            // This failure isn't guaranteed. TODO make test more flexible when need arises.
+            assertThatThrownBy(() -> query("SELECT a FROM %s WHERE CAST(a AS date) = DATE '2005-09-10'".formatted(table.getName())))
+                    .hasMessage("Value cannot be cast to date: 2005-06-bad-date");
+            // This failure isn't guaranteed. TODO make test more flexible when need arises.
+            assertThatThrownBy(() -> query("SELECT a FROM %s WHERE CAST(a AS date) > DATE '2022-08-10'".formatted(table.getName())))
+                    .hasMessage("Value cannot be cast to date: 2005-06-bad-date");
+        }
+    }
+
     @Test
     public void testConcurrentScans()
     {

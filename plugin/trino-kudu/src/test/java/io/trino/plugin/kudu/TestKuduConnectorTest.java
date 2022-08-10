@@ -620,6 +620,15 @@ public class TestKuduConnectorTest
                 .hasStackTraceContaining("Cannot apply operator: varchar = date");
     }
 
+    @Override
+    public void testVarcharCastToDateInPredicate()
+    {
+        assertThatThrownBy(super::testVarcharCastToDateInPredicate)
+                .hasStackTraceContaining("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
+
+        throw new SkipException("TODO: implement the test for Kudu");
+    }
+
     @Test
     @Override
     public void testCharVarcharComparison()
