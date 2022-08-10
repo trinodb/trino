@@ -138,7 +138,7 @@ public final class TinyintType
     @Override
     public long getLong(Block block, int position)
     {
-        return (long) block.getByte(position, 0);
+        return block.getByte(position, 0);
     }
 
     @Override
