@@ -43,6 +43,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -99,7 +100,7 @@ public class TestDeltaLakePageSink
                 }
             }
             Page page = pageBuilder.build();
-            pageSink.appendPage(page);
+            pageSink.appendPage(page).get(10, TimeUnit.SECONDS);
 
             JsonCodec<DataFileInfo> dataFileInfoCodec = new JsonCodecFactory().jsonCodec(DataFileInfo.class);
             Collection<Slice> fragments = getFutureValue(pageSink.finish());
