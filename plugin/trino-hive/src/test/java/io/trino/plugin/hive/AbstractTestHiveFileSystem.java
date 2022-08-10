@@ -603,6 +603,43 @@ public abstract class AbstractTestHiveFileSystem
         }
     }
 
+    protected MaterializedResult filterTable(SchemaTableName tableName, List<ColumnHandle> columnHandles)
+            throws IOException
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+
+            ConnectorTableHandle table = getTableHandle(metadata, tableName);
+
+            metadata.beginQuery(session);
+            ConnectorSplitSource splitSource = getSplits(splitManager, transaction, session, table);
+
+            List<Type> allTypes = getTypes(columnHandles);
+            List<Type> dataTypes = getTypes(columnHandles.stream()
+                    .filter(columnHandle -> !((HiveColumnHandle) columnHandle).isHidden())
+                    .collect(toImmutableList()));
+            MaterializedResult.Builder result = MaterializedResult.resultBuilder(session, dataTypes);
+
+            List<ConnectorSplit> splits = getAllSplits(splitSource);
+            for (ConnectorSplit split : splits) {
+                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, table, columnHandles, DynamicFilter.EMPTY)) {
+                    MaterializedResult pageSourceResult = materializeSourceDataStream(session, pageSource, allTypes);
+                    for (MaterializedRow row : pageSourceResult.getMaterializedRows()) {
+                        Object[] dataValues = IntStream.range(0, row.getFieldCount())
+                                .filter(channel -> !((HiveColumnHandle) columnHandles.get(channel)).isHidden())
+                                .mapToObj(row::getField)
+                                .toArray();
+                        result.row(dataValues);
+                    }
+                }
+            }
+
+            metadata.cleanupQuery(session);
+            return result.build();
+        }
+    }
+
     private ConnectorTableHandle getTableHandle(ConnectorMetadata metadata, SchemaTableName tableName)
     {
         ConnectorTableHandle handle = metadata.getTableHandle(newSession(), tableName);
