@@ -13,13 +13,21 @@
  */
 package io.trino.plugin.hive.s3select;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.AbstractTestHiveFileSystemS3;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.MaterializedResult;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
+import java.util.List;
+import java.util.Optional;
+
+import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
+import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 
@@ -43,7 +51,6 @@ public class TestHiveFileSystemS3SelectPushdown
     public void setup(String host, int port, String databaseName, String awsAccessKey, String awsSecretKey, String writableBucket, String testDirectory)
     {
         super.setup(host, port, databaseName, awsAccessKey, awsSecretKey, writableBucket, testDirectory, true);
-
         tableWithPipeDelimiter = new SchemaTableName(database, "trino_s3select_test_external_fs_with_pipe_delimiter");
         tableWithCommaDelimiter = new SchemaTableName(database, "trino_s3select_test_external_fs_with_comma_delimiter");
         tableJson = new SchemaTableName(database, "trino_s3select_test_external_fs_json");
@@ -63,6 +70,22 @@ public class TestHiveFileSystemS3SelectPushdown
     }
 
     @Test
+    public void testFilterRecordsWithPipeDelimiter()
+            throws Exception
+    {
+        List<ColumnHandle> projectedColumns = ImmutableList.of(
+                createBaseColumn("t_bigint", 0, HIVE_INT, BIGINT, REGULAR, Optional.empty()));
+
+        assertEqualsIgnoreOrder(
+                filterTable(tableWithPipeDelimiter, projectedColumns),
+                MaterializedResult.resultBuilder(newSession(), BIGINT)
+                        .row(1L).row(3L).row(55L) // test_table_with_pipe_delimiter.csv
+                        .row(27L).row(8L).row(456L) // test_table_with_pipe_delimiter.csv.gzip
+                        .row(22L).row(78L).row(1L).row(36L) // test_table_with_pipe_delimiter.csv.bz2
+                        .build());
+    }
+
+    @Test
     public void testGetRecordsWithCommaDelimiter()
             throws Exception
     {
@@ -76,6 +99,22 @@ public class TestHiveFileSystemS3SelectPushdown
     }
 
     @Test
+    public void testFilterRecordsWithCommaDelimiter()
+            throws Exception
+    {
+        List<ColumnHandle> projectedColumns = ImmutableList.of(
+                createBaseColumn("t_bigint", 0, HIVE_INT, BIGINT, REGULAR, Optional.empty()));
+
+        assertEqualsIgnoreOrder(
+                filterTable(tableWithCommaDelimiter, projectedColumns),
+                MaterializedResult.resultBuilder(newSession(), BIGINT)
+                        .row(7L).row(19L).row(1L) // test_table_with_comma_delimiter.csv
+                        .row(27L).row(28L).row(90L) // test_table_with_comma_delimiter.csv.gzip
+                        .row(11L).row(1L).row(21L).row(0L) // test_table_with_comma_delimiter.csv.bz2
+                        .build());
+    }
+
+    @Test
     public void testGetRecordsJson()
             throws Exception
     {
@@ -85,6 +124,22 @@ public class TestHiveFileSystemS3SelectPushdown
                         .row(2L, 4L).row(5L, 6L) // test_table.json
                         .row(7L, 23L).row(28L, 22L).row(13L, 10L) // test_table.json.gz
                         .row(1L, 19L).row(6L, 3L).row(24L, 22L).row(100L, 77L) // test_table.json.bz2
+                        .build());
+    }
+
+    @Test
+    public void testFilterRecordsJson()
+            throws Exception
+    {
+        List<ColumnHandle> projectedColumns = ImmutableList.of(
+                createBaseColumn("col_1", 0, HIVE_INT, BIGINT, REGULAR, Optional.empty()));
+
+        assertEqualsIgnoreOrder(
+                filterTable(tableJson, projectedColumns),
+                MaterializedResult.resultBuilder(newSession(), BIGINT)
+                        .row(2L).row(5L) // test_table.json
+                        .row(7L).row(28L).row(13L) // test_table.json.gz
+                        .row(1L).row(6L).row(24L).row(100L) // test_table.json.bz2
                         .build());
     }
 }
