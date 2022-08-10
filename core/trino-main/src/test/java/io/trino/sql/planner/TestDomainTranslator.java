@@ -838,10 +838,10 @@ public class TestDomainTranslator
         // we expect TupleDomain.all here().
         // see comment in DomainTranslator.Visitor.visitComparisonExpression()
         assertUnsupportedPredicate(equal(
-                new Cast(C_TIMESTAMP.toSymbolReference(), toSqlType(DATE)),
+                cast(C_TIMESTAMP, DATE),
                 toExpression(DATE_VALUE, DATE)));
         assertUnsupportedPredicate(equal(
-                new Cast(C_DECIMAL_12_2.toSymbolReference(), toSqlType(BIGINT)),
+                cast(C_DECIMAL_12_2, BIGINT),
                 bigintLiteral(135L)));
     }
 
@@ -849,19 +849,19 @@ public class TestDomainTranslator
     public void testNoSaturatedFloorCastFromUnsupportedApproximateDomain()
     {
         assertUnsupportedPredicate(equal(
-                new Cast(C_DECIMAL_12_2.toSymbolReference(), toSqlType(DOUBLE)),
+                cast(C_DECIMAL_12_2, DOUBLE),
                 toExpression(12345.56, DOUBLE)));
 
         assertUnsupportedPredicate(equal(
-                new Cast(C_BIGINT.toSymbolReference(), toSqlType(DOUBLE)),
+                cast(C_BIGINT, DOUBLE),
                 toExpression(12345.56, DOUBLE)));
 
         assertUnsupportedPredicate(equal(
-                new Cast(C_BIGINT.toSymbolReference(), toSqlType(REAL)),
+                cast(C_BIGINT, REAL),
                 toExpression(realValue(12345.56f), REAL)));
 
         assertUnsupportedPredicate(equal(
-                new Cast(C_INTEGER.toSymbolReference(), toSqlType(REAL)),
+                cast(C_INTEGER, REAL),
                 toExpression(realValue(12345.56f), REAL)));
     }
 
