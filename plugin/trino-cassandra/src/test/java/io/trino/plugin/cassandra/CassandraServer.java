@@ -67,15 +67,15 @@ public class CassandraServer
     public CassandraServer()
             throws Exception
     {
-        this("2.2");
+        this("cassandra:2.2");
     }
 
-    public CassandraServer(String cassandraVersion)
+    public CassandraServer(String imageName)
             throws Exception
     {
         log.info("Starting cassandra...");
 
-        this.dockerContainer = new GenericContainer<>("cassandra:" + cassandraVersion)
+        this.dockerContainer = new GenericContainer<>(imageName)
                 .withExposedPorts(PORT)
                 .withCopyFileToContainer(forHostPath(prepareCassandraYaml()), "/etc/cassandra/cassandra.yaml");
         this.dockerContainer.start();
