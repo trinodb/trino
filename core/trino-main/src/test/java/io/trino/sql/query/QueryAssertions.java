@@ -357,7 +357,7 @@ public class QueryAssertions
             });
         }
 
-        public final QueryAssert matches(PlanMatchPattern expectedPlan)
+        public QueryAssert matches(PlanMatchPattern expectedPlan)
         {
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(session, session -> {
@@ -471,7 +471,7 @@ public class QueryAssertions
          * <b>Note:</b> the primary intent of this assertion is to ensure the test is updated to {@link #isFullyPushedDown()}
          * when pushdown capabilities are improved.
          */
-        public final QueryAssert isNotFullyPushedDown(PlanMatchPattern retainedSubplan)
+        public QueryAssert isNotFullyPushedDown(PlanMatchPattern retainedSubplan)
         {
             PlanMatchPattern expectedPlan = PlanMatchPattern.anyTree(retainedSubplan);
 
@@ -489,12 +489,12 @@ public class QueryAssertions
          * Verifies query has the expected plan and that results are the same as when pushdown is fully disabled.
          */
         @CanIgnoreReturnValue
-        public final QueryAssert hasPlan(PlanMatchPattern expectedPlan)
+        public QueryAssert hasPlan(PlanMatchPattern expectedPlan)
         {
             return hasPlan(expectedPlan, plan -> {});
         }
 
-        private final QueryAssert hasPlan(PlanMatchPattern expectedPlan, Consumer<Plan> additionalPlanVerification)
+        private QueryAssert hasPlan(PlanMatchPattern expectedPlan, Consumer<Plan> additionalPlanVerification)
         {
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(session, session -> {
