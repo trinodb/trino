@@ -17,7 +17,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.Experimental;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.Type;
+
+import javax.annotation.Nullable;
 
 import static java.util.Objects.requireNonNull;
 
@@ -37,25 +40,37 @@ public class ScalarArgument
     private final Type type;
 
     // native representation
+    @Nullable
     private final Object value;
 
-    @JsonCreator
-    public ScalarArgument(@JsonProperty("type") Type type, @JsonProperty("value") Object value)
+    public ScalarArgument(Type type, Object value)
     {
         this.type = requireNonNull(type, "type is null");
         this.value = value;
     }
 
-    @JsonProperty
     public Type getType()
     {
         return type;
     }
 
-    @JsonProperty
     public Object getValue()
     {
         return value;
+    }
+
+    // deserialization
+    @JsonCreator
+    public static ScalarArgument fromNullableValue(@JsonProperty("nullableValue") NullableValue nullableValue)
+    {
+        return new ScalarArgument(nullableValue.getType(), nullableValue.getValue());
+    }
+
+    // serialization
+    @JsonProperty
+    public NullableValue getNullableValue()
+    {
+        return new NullableValue(type, value);
     }
 
     public static Builder builder()
