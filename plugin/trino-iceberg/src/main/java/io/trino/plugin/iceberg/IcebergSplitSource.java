@@ -21,9 +21,12 @@ import com.google.common.collect.Iterators;
 import com.google.common.io.Closer;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.SplitWeight;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -35,6 +38,8 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TypeManager;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -68,7 +73,9 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
@@ -78,6 +85,8 @@ import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -89,6 +98,8 @@ public class IcebergSplitSource
     private static final ConnectorSplitBatch EMPTY_BATCH = new ConnectorSplitBatch(ImmutableList.of(), false);
     private static final ConnectorSplitBatch NO_MORE_SPLITS_BATCH = new ConnectorSplitBatch(ImmutableList.of(), true);
 
+    private final HdfsEnvironment hdfsEnvironment;
+    private final HdfsContext hdfsContext;
     private final IcebergTableHandle tableHandle;
     private final TableScan tableScan;
     private final Optional<Long> maxScannedFileSizeInBytes;
@@ -102,6 +113,7 @@ public class IcebergSplitSource
     private final double minimumAssignedSplitWeight;
     private final TupleDomain<IcebergColumnHandle> dataColumnPredicate;
     private final Domain pathDomain;
+    private final Domain fileModifiedTimeDomain;
 
     private CloseableIterable<FileScanTask> fileScanTaskIterable;
     private CloseableIterator<FileScanTask> fileScanTaskIterator;
@@ -111,6 +123,8 @@ public class IcebergSplitSource
     private final ImmutableSet.Builder<DataFileWithDeleteFiles> scannedFiles = ImmutableSet.builder();
 
     public IcebergSplitSource(
+            HdfsEnvironment hdfsEnvironment,
+            HdfsContext hdfsContext,
             IcebergTableHandle tableHandle,
             TableScan tableScan,
             Optional<DataSize> maxScannedFileSize,
@@ -121,6 +135,8 @@ public class IcebergSplitSource
             boolean recordScannedFiles,
             double minimumAssignedSplitWeight)
     {
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.tableScan = requireNonNull(tableScan, "tableScan is null");
         this.maxScannedFileSizeInBytes = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null").map(DataSize::toBytes);
@@ -134,6 +150,7 @@ public class IcebergSplitSource
         this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
         this.dataColumnPredicate = tableHandle.getEnforcedPredicate().filter((column, domain) -> !isMetadataColumnId(column.getId()));
         this.pathDomain = getPathDomain(tableHandle.getEnforcedPredicate());
+        this.fileModifiedTimeDomain = getFileModifiedTimePathDomain(tableHandle.getEnforcedPredicate());
     }
 
     @Override
@@ -197,7 +214,12 @@ public class IcebergSplitSource
             if (!pathDomain.includesNullableValue(utf8Slice(scanTask.file().path().toString()))) {
                 continue;
             }
-
+            if (!fileModifiedTimeDomain.isAll()) {
+                long fileModifiedTime = getModificationTime(new Path(scanTask.file().path().toString()));
+                if (!fileModifiedTimeDomain.includesNullableValue(packDateTimeWithZone(fileModifiedTime, UTC_KEY))) {
+                    continue;
+                }
+            }
             IcebergSplit icebergSplit = toIcebergSplit(scanTask);
 
             Schema fileSchema = scanTask.spec().schema();
@@ -248,6 +270,17 @@ public class IcebergSplitSource
             splits.add(icebergSplit);
         }
         return completedFuture(new ConnectorSplitBatch(splits.build(), isFinished()));
+    }
+
+    private long getModificationTime(Path path)
+    {
+        try {
+            FileStatus fileStatus = hdfsEnvironment.doAs(hdfsContext.getIdentity(), () -> hdfsEnvironment.getFileSystem(hdfsContext, path).getFileStatus(path));
+            return fileStatus.getModificationTime();
+        }
+        catch (IOException e) {
+            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to get file modification time: " + path, e);
+        }
     }
 
     private void finish()
@@ -416,6 +449,17 @@ public class IcebergSplitSource
                 .get(pathColumn);
         if (domain == null) {
             return Domain.all(pathColumn.getType());
+        }
+        return domain;
+    }
+
+    private static Domain getFileModifiedTimePathDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)
+    {
+        IcebergColumnHandle fileModifiedTimeColumn = fileModifiedTimeColumnHandle();
+        Domain domain = effectivePredicate.getDomains().orElseThrow(() -> new IllegalArgumentException("Unexpected NONE tuple domain"))
+                .get(fileModifiedTimeColumn);
+        if (domain == null) {
+            return Domain.all(fileModifiedTimeColumn.getType());
         }
         return domain;
     }

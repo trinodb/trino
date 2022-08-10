@@ -4661,6 +4661,7 @@ public abstract class BaseIcebergConnectorTest
 
     @Test
     public void testFileModifiedTimeHiddenColumn()
+            throws Exception
     {
         ZonedDateTime beforeTime = (ZonedDateTime) computeScalar("SELECT current_timestamp(3)");
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_file_modified_time_", "(col) AS VALUES (1)")) {
@@ -4674,7 +4675,67 @@ public abstract class BaseIcebergConnectorTest
             ZonedDateTime fileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + table.getName());
             ZonedDateTime afterTime = (ZonedDateTime) computeScalar("SELECT current_timestamp(3)");
             assertThat(fileModifiedTime).isBetween(beforeTime, afterTime);
+
+            Thread.sleep(1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2)", 1);
+            ZonedDateTime anotherFileModifiedTime = (ZonedDateTime) computeScalar("SELECT max(\"$file_modified_time\") FROM " + table.getName());
+            assertNotEquals(fileModifiedTime, anotherFileModifiedTime);
+            assertThat(anotherFileModifiedTime).isAfter(fileModifiedTime); // to detect potential clock backward adjustment
+
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')"))
+                    .matches("VALUES 1")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" IN (from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "'), from_iso8601_timestamp('" + anotherFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "'))"))
+                    .matches("VALUES 1, 2")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" <> from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')"))
+                    .matches("VALUES 2")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" IS NOT NULL"))
+                    .matches("VALUES 1, 2")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" IS NULL"))
+                    .returnsEmptyResult()
+                    .isFullyPushedDown();
         }
+    }
+
+    @Test
+    public void testOptimizeWithFileModifiedTimeColumn()
+            throws Exception
+    {
+        String tableName = "test_optimize_with_file_modified_time_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id integer)");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1)", 1);
+        Thread.sleep(1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2)", 1);
+        Thread.sleep(1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3)", 1);
+        Thread.sleep(1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (4)", 1);
+
+        ZonedDateTime firstFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 1");
+        ZonedDateTime secondFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 2");
+        ZonedDateTime thirdFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 3");
+        ZonedDateTime forthFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 4");
+
+        List<String> initialFiles = getActiveFiles(tableName);
+        assertThat(initialFiles).hasSize(4);
+
+        assertQuerySucceeds("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
+                "\"$file_modified_time\" = from_iso8601_timestamp('" + firstFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "') OR " +
+                "\"$file_modified_time\" = from_iso8601_timestamp('" + secondFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
+        assertQuerySucceeds("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
+                "\"$file_modified_time\" = from_iso8601_timestamp('" + thirdFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "') OR " +
+                "\"$file_modified_time\" = from_iso8601_timestamp('" + forthFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
+
+        List<String> updatedFiles = getActiveFiles(tableName);
+        assertThat(updatedFiles)
+                .hasSize(2)
+                .doesNotContainAnyElementsOf(initialFiles);
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
