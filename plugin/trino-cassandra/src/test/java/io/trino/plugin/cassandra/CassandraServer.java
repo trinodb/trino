@@ -57,7 +57,7 @@ public class CassandraServer
 {
     private static Logger log = Logger.get(CassandraServer.class);
 
-    private static final int PORT = 9142;
+    private static final int PORT = 9042;
 
     private static final Duration REFRESH_SIZE_ESTIMATES_TIMEOUT = new Duration(1, MINUTES);
 
