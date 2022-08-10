@@ -79,7 +79,7 @@ public class DynamicFilterSourceOperator
         private final PlanNodeId planNodeId;
         private final DynamicFilterSourceConsumer dynamicPredicateConsumer;
         private final List<Channel> channels;
-        private final int maxDisinctValues;
+        private final int maxDistinctValues;
         private final DataSize maxFilterSize;
         private final int minMaxCollectionLimit;
         private final BlockTypeOperators blockTypeOperators;
@@ -92,7 +92,7 @@ public class DynamicFilterSourceOperator
                 PlanNodeId planNodeId,
                 DynamicFilterSourceConsumer dynamicPredicateConsumer,
                 List<Channel> channels,
-                int maxDisinctValues,
+                int maxDistinctValues,
                 DataSize maxFilterSize,
                 int minMaxCollectionLimit,
                 BlockTypeOperators blockTypeOperators)
@@ -105,7 +105,7 @@ public class DynamicFilterSourceOperator
                     "duplicate dynamic filters are not allowed");
             verify(channels.stream().map(channel -> channel.index).collect(toSet()).size() == channels.size(),
                     "duplicate channel indices are not allowed");
-            this.maxDisinctValues = maxDisinctValues;
+            this.maxDistinctValues = maxDistinctValues;
             this.maxFilterSize = maxFilterSize;
             this.minMaxCollectionLimit = minMaxCollectionLimit;
             this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
@@ -123,7 +123,7 @@ public class DynamicFilterSourceOperator
                         dynamicPredicateConsumer,
                         channels,
                         planNodeId,
-                        maxDisinctValues,
+                        maxDistinctValues,
                         maxFilterSize,
                         minMaxCollectionLimit,
                         blockTypeOperators);
