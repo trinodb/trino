@@ -15,6 +15,8 @@ FROM eclipse-temurin:17.0.4_8-jdk
 
 RUN \
     set -xeu && \
+    echo 'Acquire::Retries "3";' > /etc/apt/apt.conf.d/80-retries && \
+    echo 'Acquire::http::Timeout "15";' > /etc/apt/apt.conf.d/80-timeouts && \
     apt-get update -q && \
     apt-get install -y -q less python3 && \
     rm -rf /var/lib/apt/lists/* && \
