@@ -84,6 +84,27 @@ of joined tables.
 
 By default, replicated table size is capped to 100MB.
 
+Syntactic join order
+--------------------
+
+If not using cost-based optimization, Trino will default to syntactic join
+ordering. While there is no formal way to optimize queries for this case, it is
+possible to take advantage of how Trino implements joins to make them more
+performant.
+
+Trino uses in-memory `hash joins <https://en.wikipedia.org/wiki/Hash_join>`_.
+When performing joins, it will load the right-most table into memory, then
+stream the next right-most table to execute the join. If a query has multiple
+joins, the result of this first join will stay in memory, and the third
+right-most table will then be streamed, and so on for additional joins.
+
+Because of this, it is optimal to syntactically order joins from largest tables
+to smallest, as this will minimize memory usage.
+
+However, it is important to note that this means of optimization is not intended
+to be a feature of Trino. It is an artifact of how joins are implemented, and it
+may change without notice.
+
 Connector implementations
 -------------------------
 
