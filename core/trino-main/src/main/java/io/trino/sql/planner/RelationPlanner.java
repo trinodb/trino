@@ -88,7 +88,9 @@ import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
+import io.trino.sql.tree.TableFunctionDescriptorArgument;
 import io.trino.sql.tree.TableFunctionInvocation;
+import io.trino.sql.tree.TableFunctionTableArgument;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
@@ -327,6 +329,16 @@ class RelationPlanner
     @Override
     protected RelationPlan visitTableFunctionInvocation(TableFunctionInvocation node, Void context)
     {
+        node.getArguments().stream()
+                .forEach(argument -> {
+                    if (argument.getValue() instanceof TableFunctionTableArgument) {
+                        throw semanticException(NOT_SUPPORTED, argument, "Table arguments are not yet supported for table functions");
+                    }
+                    if (argument.getValue() instanceof TableFunctionDescriptorArgument) {
+                        throw semanticException(NOT_SUPPORTED, argument, "Descriptor arguments are not yet supported for table functions");
+                    }
+                });
+
         TableFunctionInvocationAnalysis functionAnalysis = analysis.getTableFunctionAnalysis(node);
 
         // TODO handle input relations:
