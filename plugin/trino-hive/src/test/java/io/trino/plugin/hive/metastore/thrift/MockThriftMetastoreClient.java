@@ -119,6 +119,18 @@ public class MockThriftMetastoreClient
     }
 
     @Override
+    public List<String> getAllViews(String databaseName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Database getDatabase(String name)
             throws TException
     {
@@ -156,12 +168,6 @@ public class MockThriftMetastoreClient
                 "",
                 "",
                 TableType.MANAGED_TABLE.name());
-    }
-
-    @Override
-    public Table getTableWithCapabilities(String databaseName, String tableName)
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -228,18 +234,6 @@ public class MockThriftMetastoreClient
 
     @Override
     public void deletePartitionColumnStatistics(String databaseName, String tableName, String partitionName, String columnName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<String> getTableNamesByFilter(String databaseName, String filter)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<String> getTableNamesByType(String databaseName, String tableType)
     {
         throw new UnsupportedOperationException();
     }

@@ -43,6 +43,7 @@ import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.list;
@@ -56,6 +57,11 @@ public class DefaultThriftMetastoreClientFactory
     private final int timeoutMillis;
     private final HiveMetastoreAuthentication metastoreAuthentication;
     private final String hostname;
+
+    private final MetastoreSupportsDateStatistics metastoreSupportsDateStatistics = new MetastoreSupportsDateStatistics();
+    private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
+    private final AtomicInteger chosenTableParamAlternative = new AtomicInteger(Integer.MAX_VALUE);
+    private final AtomicInteger chosenGetAllViewsAlternative = new AtomicInteger(Integer.MAX_VALUE);
 
     public DefaultThriftMetastoreClientFactory(
             Optional<SSLContext> sslContext,
@@ -101,7 +107,11 @@ public class DefaultThriftMetastoreClientFactory
     {
         return new ThriftHiveMetastoreClient(
                 transport,
-                hostname);
+                hostname,
+                metastoreSupportsDateStatistics,
+                chosenGetTableAlternative,
+                chosenTableParamAlternative,
+                chosenGetAllViewsAlternative);
     }
 
     private TTransport createTransport(HostAndPort address, Optional<String> delegationToken)
