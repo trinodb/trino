@@ -20,6 +20,7 @@ import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
 import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -32,6 +33,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.CONTROL_CONNECTION_AGREEMENT_TIMEOUT;
@@ -73,15 +75,23 @@ public class CassandraServer
     public CassandraServer(String imageName)
             throws Exception
     {
+        this(imageName, ImmutableMap.of(), "/etc/cassandra/cassandra.yaml", "cu-cassandra.yaml");
+    }
+
+    public CassandraServer(String imageName, Map<String, String> environmentVariables, String configPath, String configFileName)
+            throws Exception
+    {
         log.info("Starting cassandra...");
 
         this.dockerContainer = new GenericContainer<>(imageName)
                 .withExposedPorts(PORT)
-                .withCopyFileToContainer(forHostPath(prepareCassandraYaml()), "/etc/cassandra/cassandra.yaml");
+                .withCopyFileToContainer(forHostPath(prepareCassandraYaml(configFileName)), configPath)
+                .withEnv(environmentVariables)
+                .withStartupTimeout(java.time.Duration.ofMinutes(10));
         this.dockerContainer.start();
 
         ProgrammaticDriverConfigLoaderBuilder driverConfigLoaderBuilder = DriverConfigLoader.programmaticBuilder();
-        driverConfigLoaderBuilder.withDuration(REQUEST_TIMEOUT, java.time.Duration.ofSeconds(12));
+        driverConfigLoaderBuilder.withDuration(REQUEST_TIMEOUT, java.time.Duration.ofSeconds(30));
         driverConfigLoaderBuilder.withString(PROTOCOL_VERSION, ProtocolVersion.V3.name());
         driverConfigLoaderBuilder.withDuration(CONTROL_CONNECTION_AGREEMENT_TIMEOUT, java.time.Duration.ofSeconds(30));
         // allow the retrieval of metadata for the system keyspaces
@@ -111,10 +121,10 @@ public class CassandraServer
         this.session = session;
     }
 
-    private static String prepareCassandraYaml()
+    private static String prepareCassandraYaml(String fileName)
             throws IOException
     {
-        String original = Resources.toString(getResource("cu-cassandra.yaml"), UTF_8);
+        String original = Resources.toString(getResource(fileName), UTF_8);
 
         Path tmpDirPath = createTempDirectory(null);
         Path dataDir = tmpDirPath.resolve("data");
@@ -122,7 +132,7 @@ public class CassandraServer
 
         String modified = original.replaceAll("\\$\\{data_directory\\}", dataDir.toAbsolutePath().toString());
 
-        File yamlFile = tmpDirPath.resolve("cu-cassandra.yaml").toFile();
+        File yamlFile = tmpDirPath.resolve(fileName).toFile();
         yamlFile.deleteOnExit();
         write(modified, yamlFile, UTF_8);
 
