@@ -2102,6 +2102,26 @@ public abstract class BaseHiveConnectorTest
         assertFalse(getQueryRunner().tableExists(session, tableName));
     }
 
+    @Test(dataProvider = "bucketedUnsupportedTypes")
+    public void testBucketedTableUnsupportedTypes(String typeName)
+    {
+        String tableName = "test_bucketed_table_for_unsupported_types_" + randomTableSuffix();
+        assertThatThrownBy(() -> assertUpdate(
+                """
+                CREATE TABLE %s (bucket_key %s, other_data double)
+                WITH (
+                    bucketed_by = ARRAY[ 'bucket_key' ],
+                    bucket_count = 5)
+                """.formatted(tableName, typeName)))
+                .hasMessage("Cannot create a table bucketed on an unsupported type");
+    }
+
+    @DataProvider
+    public final Object[][] bucketedUnsupportedTypes()
+    {
+        return new Object[][] {{"VARBINARY"}, {"TIMESTAMP"}, {"DECIMAL(10,3)"}, {"CHAR"}, {"ROW(id VARCHAR)"}};
+    }
+
     /**
      * Regression test for https://github.com/trinodb/trino/issues/5295
      */
