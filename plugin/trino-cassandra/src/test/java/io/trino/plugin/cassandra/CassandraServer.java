@@ -20,6 +20,7 @@ import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
 import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -32,6 +33,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.CONTROL_CONNECTION_AGREEMENT_TIMEOUT;
@@ -67,17 +69,25 @@ public class CassandraServer
     public CassandraServer()
             throws Exception
     {
-        this("cassandra:2.2");
+        this("cassandra:2.2", ImmutableMap.of());
     }
 
     public CassandraServer(String imageName)
+            throws Exception
+    {
+        this(imageName, ImmutableMap.of());
+    }
+
+    public CassandraServer(String imageName, Map<String, String> environmentVariables)
             throws Exception
     {
         log.info("Starting cassandra...");
 
         this.dockerContainer = new GenericContainer<>(imageName)
                 .withExposedPorts(PORT)
-                .withCopyFileToContainer(forHostPath(prepareCassandraYaml()), "/etc/cassandra/cassandra.yaml");
+                .withCopyFileToContainer(forHostPath(prepareCassandraYaml()), "/etc/cassandra/cassandra.yaml")
+                .withEnv(environmentVariables)
+                .withStartupTimeout(java.time.Duration.ofMinutes(10));
         this.dockerContainer.start();
 
         ProgrammaticDriverConfigLoaderBuilder driverConfigLoaderBuilder = DriverConfigLoader.programmaticBuilder();
