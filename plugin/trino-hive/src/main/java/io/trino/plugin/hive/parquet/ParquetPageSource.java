@@ -41,7 +41,6 @@ import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static java.lang.String.format;
-import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetPageSource
@@ -59,11 +58,6 @@ public class ParquetPageSource
     private int batchId;
     private boolean closed;
     private long completedPositions;
-
-    public ParquetPageSource(ParquetReader parquetReader, List<Type> types, List<Optional<Field>> fields)
-    {
-        this(parquetReader, types, nCopies(types.size(), false), fields);
-    }
 
     /**
      * @param types Column types
