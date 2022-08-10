@@ -43,6 +43,7 @@ public class ThriftHiveMetastoreFactory
     private final boolean translateHiveViews;
     private final boolean assumeCanonicalPartitionKeys;
     private final ThriftMetastoreStats stats = new ThriftMetastoreStats();
+    private final MetastoreSupportsDateStatistics metastoreSupportsDateStatistics = new MetastoreSupportsDateStatistics();
 
     @Inject
     public ThriftHiveMetastoreFactory(
@@ -97,6 +98,7 @@ public class ThriftHiveMetastoreFactory
                 deleteFilesOnDrop,
                 translateHiveViews,
                 assumeCanonicalPartitionKeys,
-                stats);
+                stats,
+                metastoreSupportsDateStatistics);
     }
 }

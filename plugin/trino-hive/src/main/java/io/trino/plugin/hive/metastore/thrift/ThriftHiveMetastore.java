@@ -37,7 +37,9 @@ import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
+import io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport;
 import io.trino.plugin.hive.util.RetryDriver;
+import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
@@ -97,7 +99,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -119,6 +120,9 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_LOCK_NOT_ACQUIRED;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.partitionKeyFilterToStringList;
+import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.NOT_SUPPORTED;
+import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.SUPPORTED;
+import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.UNKNOWN;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.createMetastoreColumnStatistics;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiPrincipalType;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
@@ -130,14 +134,10 @@ import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.parsePri
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPartition;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.security.PrincipalType.USER;
-import static java.lang.Boolean.FALSE;
-import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
 import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.apache.hadoop.hive.metastore.api.HiveObjectType.TABLE;
@@ -150,7 +150,6 @@ public class ThriftHiveMetastore
 {
     private static final Logger log = Logger.get(ThriftHiveMetastore.class);
 
-    private static final int MAX_SET_DATE_STATISTICS_ATTEMPTS = 100;
     private static final String DEFAULT_METASTORE_USER = "presto";
 
     private static final Pattern TABLE_PARAMETER_SAFE_KEY_PATTERN = Pattern.compile("^[a-zA-Z_]+$");
@@ -171,13 +170,11 @@ public class ThriftHiveMetastore
     private final boolean translateHiveViews;
     private final boolean assumeCanonicalPartitionKeys;
     private final ThriftMetastoreStats stats;
+    private final MetastoreSupportsDateStatistics metastoreSupportsDateStatistics;
 
     private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosenTableParamAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosesGetAllViewsAlternative = new AtomicInteger(Integer.MAX_VALUE);
-
-    private final AtomicReference<Optional<Boolean>> metastoreSupportsDateStatistics = new AtomicReference<>(Optional.empty());
-    private final CoalescingCounter metastoreSetDateStatisticsFailures = new CoalescingCounter(new Duration(1, SECONDS));
 
     public ThriftHiveMetastore(
             Optional<ConnectorIdentity> identity,
@@ -192,7 +189,8 @@ public class ThriftHiveMetastore
             boolean deleteFilesOnDrop,
             boolean translateHiveViews,
             boolean assumeCanonicalPartitionKeys,
-            ThriftMetastoreStats stats)
+            ThriftMetastoreStats stats,
+            MetastoreSupportsDateStatistics metastoreSupportsDateStatistics)
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -207,6 +205,7 @@ public class ThriftHiveMetastore
         this.translateHiveViews = translateHiveViews;
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         this.stats = requireNonNull(stats, "stats is null");
+        this.metastoreSupportsDateStatistics = requireNonNull(metastoreSupportsDateStatistics, "metastoreSupportsDateStatistics is null");
     }
 
     @VisibleForTesting
@@ -662,8 +661,8 @@ public class ThriftHiveMetastore
     {
         boolean containsDateStatistics = statistics.stream().anyMatch(stats -> stats.getStatsData().isSetDateStats());
 
-        Optional<Boolean> metastoreSupportsDateStatistics = this.metastoreSupportsDateStatistics.get();
-        if (containsDateStatistics && metastoreSupportsDateStatistics.equals(Optional.of(FALSE))) {
+        DateStatisticsSupport dateStatisticsSupported = this.metastoreSupportsDateStatistics.isSupported();
+        if (containsDateStatistics && dateStatisticsSupported == NOT_SUPPORTED) {
             log.debug("Skipping date statistics for %s because metastore does not support them", objectName);
             statistics = statistics.stream()
                     .filter(stats -> !stats.getStatsData().isSetDateStats())
@@ -671,7 +670,7 @@ public class ThriftHiveMetastore
             containsDateStatistics = false;
         }
 
-        if (!containsDateStatistics || metastoreSupportsDateStatistics.equals(Optional.of(TRUE))) {
+        if (!containsDateStatistics || dateStatisticsSupported == SUPPORTED) {
             try (ThriftMetastoreClient client = createMetastoreClient()) {
                 saveColumnStatistics.call(client, statistics);
             }
@@ -686,7 +685,7 @@ public class ThriftHiveMetastore
                 .filter(stats -> stats.getStatsData().isSetDateStats())
                 .collect(toImmutableList());
 
-        verify(!dateStatistics.isEmpty() && metastoreSupportsDateStatistics.equals(Optional.empty()));
+        verify(!dateStatistics.isEmpty() && dateStatisticsSupported == UNKNOWN);
 
         try (ThriftMetastoreClient client = createMetastoreClient()) {
             if (!statisticsExceptDate.isEmpty()) {
@@ -700,13 +699,13 @@ public class ThriftHiveMetastore
                 // When `dateStatistics.size() > 1` we expect something like "TApplicationException: Required field 'colName' is unset! Struct:ColumnStatisticsObj(colName:null, colType:null, statsData:null)"
                 // When `dateStatistics.size() == 1` we expect something like "TTransportException: java.net.SocketTimeoutException: Read timed out"
                 log.warn(e, "Failed to save date statistics for %s. Metastore might not support date statistics", objectName);
-                if (!statisticsExceptDate.isEmpty() && metastoreSetDateStatisticsFailures.incrementAndGet() >= MAX_SET_DATE_STATISTICS_ATTEMPTS) {
-                    this.metastoreSupportsDateStatistics.set(Optional.of(FALSE));
+                if (!statisticsExceptDate.isEmpty()) {
+                    this.metastoreSupportsDateStatistics.failed();
                 }
                 return;
             }
         }
-        this.metastoreSupportsDateStatistics.set(Optional.of(TRUE));
+        this.metastoreSupportsDateStatistics.succeeded();
     }
 
     @Override
@@ -1424,7 +1423,7 @@ public class ThriftHiveMetastore
                                         iterator.remove();
                                     }
                                     else if (existingPrivilege.isContainedIn(requestedPrivilege)) {
-                                        throw new TrinoException(NOT_SUPPORTED, format(
+                                        throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, format(
                                                 "Granting %s WITH GRANT OPTION is not supported while %s possesses %s",
                                                 requestedPrivilege.getHivePrivilege().name(),
                                                 grantee,
