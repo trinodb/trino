@@ -220,11 +220,11 @@ import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
-import io.trino.sql.tree.TableArgument;
 import io.trino.sql.tree.TableElement;
 import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.TableFunctionArgument;
 import io.trino.sql.tree.TableFunctionInvocation;
+import io.trino.sql.tree.TableFunctionTableArgument;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TimeLiteral;
 import io.trino.sql.tree.TimestampLiteral;
@@ -271,8 +271,6 @@ import static io.trino.sql.parser.SqlBaseParser.TIME;
 import static io.trino.sql.parser.SqlBaseParser.TIMESTAMP;
 import static io.trino.sql.tree.AnchorPattern.Type.PARTITION_END;
 import static io.trino.sql.tree.AnchorPattern.Type.PARTITION_START;
-import static io.trino.sql.tree.DescriptorArgument.descriptorArgument;
-import static io.trino.sql.tree.DescriptorArgument.nullDescriptorArgument;
 import static io.trino.sql.tree.JsonExists.ErrorBehavior.ERROR;
 import static io.trino.sql.tree.JsonExists.ErrorBehavior.FALSE;
 import static io.trino.sql.tree.JsonExists.ErrorBehavior.TRUE;
@@ -301,6 +299,8 @@ import static io.trino.sql.tree.SkipTo.skipPastLastRow;
 import static io.trino.sql.tree.SkipTo.skipToFirst;
 import static io.trino.sql.tree.SkipTo.skipToLast;
 import static io.trino.sql.tree.SkipTo.skipToNextRow;
+import static io.trino.sql.tree.TableFunctionDescriptorArgument.descriptorArgument;
+import static io.trino.sql.tree.TableFunctionDescriptorArgument.nullDescriptorArgument;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -1881,7 +1881,7 @@ class AstBuilder
 
         boolean pruneWhenEmpty = context.PRUNE() != null;
 
-        return new TableArgument(getLocation(context), table, partitionBy, orderBy, pruneWhenEmpty);
+        return new TableFunctionTableArgument(getLocation(context), table, partitionBy, orderBy, pruneWhenEmpty);
     }
 
     @Override

@@ -187,10 +187,10 @@ import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
-import io.trino.sql.tree.TableArgument;
 import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.TableFunctionArgument;
 import io.trino.sql.tree.TableFunctionInvocation;
+import io.trino.sql.tree.TableFunctionTableArgument;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TimeLiteral;
 import io.trino.sql.tree.TimestampLiteral;
@@ -256,8 +256,6 @@ import static io.trino.sql.tree.ArithmeticUnaryExpression.negative;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.positive;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.DateTimeDataType.Type.TIMESTAMP;
-import static io.trino.sql.tree.DescriptorArgument.descriptorArgument;
-import static io.trino.sql.tree.DescriptorArgument.nullDescriptorArgument;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
 import static io.trino.sql.tree.JsonPathParameter.JsonFormat.JSON;
@@ -273,6 +271,8 @@ import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
 import static io.trino.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
+import static io.trino.sql.tree.TableFunctionDescriptorArgument.descriptorArgument;
+import static io.trino.sql.tree.TableFunctionDescriptorArgument.nullDescriptorArgument;
 import static io.trino.sql.tree.Trim.Specification.BOTH;
 import static io.trino.sql.tree.Trim.Specification.LEADING;
 import static io.trino.sql.tree.Trim.Specification.TRAILING;
@@ -3921,7 +3921,7 @@ public class TestSqlParser
                                 new TableFunctionArgument(
                                         location(1, 77),
                                         Optional.of(new Identifier(location(1, 77), "arg1", false)),
-                                        new TableArgument(
+                                        new TableFunctionTableArgument(
                                                 location(1, 85),
                                                 new AliasedRelation(
                                                         location(1, 85),
@@ -3976,7 +3976,7 @@ public class TestSqlParser
                         ImmutableList.of(new TableFunctionArgument(
                                 location(1, 30),
                                 Optional.of(new Identifier(location(1, 30), "input", false)),
-                                new TableArgument(
+                                new TableFunctionTableArgument(
                                         location(1, 39),
                                         new Table(location(1, 39), qualifiedName(location(1, 45), "orders")),
                                         Optional.empty(),
@@ -3992,7 +3992,7 @@ public class TestSqlParser
                         ImmutableList.of(new TableFunctionArgument(
                                 location(1, 30),
                                 Optional.of(new Identifier(location(1, 30), "input", false)),
-                                new TableArgument(
+                                new TableFunctionTableArgument(
                                         location(1, 39),
                                         new AliasedRelation(
                                                 location(1, 39),
@@ -4012,7 +4012,7 @@ public class TestSqlParser
                         ImmutableList.of(new TableFunctionArgument(
                                 location(1, 30),
                                 Optional.of(new Identifier(location(1, 30), "input", false)),
-                                new TableArgument(
+                                new TableFunctionTableArgument(
                                         location(1, 39),
                                         new AliasedRelation(
                                                 location(1, 39),

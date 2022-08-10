@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 import static io.trino.sql.ExpressionFormatter.formatSortItems;
 import static java.util.Objects.requireNonNull;
 
-public class TableArgument
+public class TableFunctionTableArgument
         extends Node
 {
     private final Relation table;
@@ -31,7 +31,7 @@ public class TableArgument
     private final Optional<OrderBy> orderBy;
     private final boolean pruneWhenEmpty;
 
-    public TableArgument(
+    public TableFunctionTableArgument(
             NodeLocation location,
             Relation table,
             Optional<List<Expression>> partitionBy,
@@ -92,7 +92,7 @@ public class TableArgument
             return false;
         }
 
-        TableArgument other = (TableArgument) o;
+        TableFunctionTableArgument other = (TableFunctionTableArgument) o;
         return Objects.equals(table, other.table) &&
                 Objects.equals(partitionBy, other.partitionBy) &&
                 Objects.equals(orderBy, other.orderBy) &&
@@ -127,6 +127,6 @@ public class TableArgument
             return false;
         }
 
-        return pruneWhenEmpty == ((TableArgument) o).pruneWhenEmpty;
+        return pruneWhenEmpty == ((TableFunctionTableArgument) o).pruneWhenEmpty;
     }
 }

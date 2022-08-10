@@ -136,7 +136,6 @@ import io.trino.sql.tree.Deallocate;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DereferenceExpression;
-import io.trino.sql.tree.DescriptorArgument;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropSchema;
@@ -220,6 +219,7 @@ import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.TableFunctionArgument;
+import io.trino.sql.tree.TableFunctionDescriptorArgument;
 import io.trino.sql.tree.TableFunctionInvocation;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TruncateTable;
@@ -1650,7 +1650,7 @@ class StatementAnalyzer
             if (argument.getValue() instanceof Relation) {
                 actualType = "table";
             }
-            else if (argument.getValue() instanceof DescriptorArgument) {
+            else if (argument.getValue() instanceof TableFunctionDescriptorArgument) {
                 actualType = "descriptor";
             }
             else if (argument.getValue() instanceof Expression) {
@@ -1677,7 +1677,7 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, argument, "Table arguments are not yet supported for table functions");
             }
             if (argumentSpecification instanceof DescriptorArgumentSpecification) {
-                if (!(argument.getValue() instanceof DescriptorArgument)) {
+                if (!(argument.getValue() instanceof TableFunctionDescriptorArgument)) {
                     if (argument.getValue() instanceof FunctionCall && ((FunctionCall) argument.getValue()).getName().hasSuffix(QualifiedName.of("descriptor"))) { // function name is always compared case-insensitive
                         // malformed descriptor which parsed as a function call
                         throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid descriptor argument %s. Descriptors should be formatted as 'DESCRIPTOR(name [type], ...)'", argumentSpecification.getName());

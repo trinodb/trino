@@ -36,7 +36,6 @@ import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
-import io.trino.sql.tree.DescriptorArgument;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropRole;
@@ -121,10 +120,11 @@ import io.trino.sql.tree.ShowTables;
 import io.trino.sql.tree.SingleColumn;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Table;
-import io.trino.sql.tree.TableArgument;
 import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.TableFunctionArgument;
+import io.trino.sql.tree.TableFunctionDescriptorArgument;
 import io.trino.sql.tree.TableFunctionInvocation;
+import io.trino.sql.tree.TableFunctionTableArgument;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.sql.tree.TransactionMode;
@@ -282,7 +282,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitTableArgument(TableArgument node, Integer indent)
+        protected Void visitTableArgument(TableFunctionTableArgument node, Integer indent)
         {
             Relation relation = node.getTable();
             Relation unaliased = relation instanceof AliasedRelation ? ((AliasedRelation) relation).getRelation() : relation;
@@ -319,7 +319,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitDescriptorArgument(DescriptorArgument node, Integer indent)
+        protected Void visitDescriptorArgument(TableFunctionDescriptorArgument node, Integer indent)
         {
             if (node.getDescriptor().isPresent()) {
                 builder.append(node.getDescriptor().get().getFields().stream()
