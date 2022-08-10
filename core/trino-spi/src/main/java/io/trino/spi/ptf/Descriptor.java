@@ -21,6 +21,7 @@ import io.trino.spi.type.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -72,6 +73,25 @@ public class Descriptor
         return fields.stream().allMatch(field -> field.type.isPresent());
     }
 
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Descriptor that = (Descriptor) o;
+        return fields.equals(that.fields);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(fields);
+    }
+
     public static class Field
     {
         private final String name;
@@ -94,6 +114,25 @@ public class Descriptor
         public Optional<Type> getType()
         {
             return type;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            Field field = (Field) o;
+            return name.equals(field.name) && type.equals(field.type);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(name, type);
         }
     }
 }
