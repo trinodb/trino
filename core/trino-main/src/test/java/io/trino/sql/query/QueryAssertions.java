@@ -444,7 +444,7 @@ public class QueryAssertions
 
             if (!skipResultsCorrectnessCheckForPushdown) {
                 // Compare the results with pushdown disabled, so that explicit matches() call is not needed
-                verifyResultsWithPushdownDisabled();
+                hasCorrectResultsRegardlessOfPushdown();
             }
             return this;
         }
@@ -511,17 +511,19 @@ public class QueryAssertions
 
             if (!skipResultsCorrectnessCheckForPushdown) {
                 // Compare the results with pushdown disabled, so that explicit matches() call is not needed
-                verifyResultsWithPushdownDisabled();
+                hasCorrectResultsRegardlessOfPushdown();
             }
             return this;
         }
 
-        private void verifyResultsWithPushdownDisabled()
+        @CanIgnoreReturnValue
+        public QueryAssert hasCorrectResultsRegardlessOfPushdown()
         {
             Session withoutPushdown = Session.builder(session)
                     .setSystemProperty("allow_pushdown_into_connectors", "false")
                     .build();
             matches(runner.execute(withoutPushdown, query));
+            return this;
         }
     }
 
