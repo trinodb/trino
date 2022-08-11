@@ -73,6 +73,7 @@ import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.Delete;
@@ -144,6 +145,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getMaxRecursionDepth;
 import static io.trino.SystemSessionProperties.isSkipRedundantSort;
+import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static io.trino.spi.StandardErrorCode.MERGE_TARGET_ROW_MULTIPLE_MATCHES;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -543,8 +545,9 @@ class QueryPlanner
         Table table = node.getTable();
         TableHandle handle = analysis.getTableHandle(table);
 
-        TableSchema tableSchema = plannerContext.getMetadata().getTableSchema(session, handle);
-        Map<String, ColumnHandle> columnMap = plannerContext.getMetadata().getColumnHandles(session, handle);
+        Metadata metadata = plannerContext.getMetadata();
+        TableSchema tableSchema = metadata.getTableSchema(session, handle);
+        Map<String, ColumnHandle> columnMap = metadata.getColumnHandles(session, handle);
         List<ColumnSchema> columnsSchemas = tableSchema.getColumns();
 
         List<String> targetColumnNames = node.getAssignments().stream()
@@ -584,10 +587,32 @@ class QueryPlanner
         PlanAndMappings planAndMappings = coerce(builder, orderedColumnValues, analysis, idAllocator, symbolAllocator, typeCoercion);
         builder = planAndMappings.getSubPlan();
 
-        ImmutableList.Builder<Symbol> updatedColumnValuesBuilder = ImmutableList.builder();
-        orderedColumnValues.forEach(columnValue -> updatedColumnValuesBuilder.add(planAndMappings.get(columnValue)));
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
+        ImmutableMap<String, Integer> updatedColumnNameToIndex = IntStream.range(0, updatedColumnNames.size())
+                .boxed()
+                .collect(toImmutableMap(updatedColumnNames::get, i -> i));
+        ImmutableList.Builder<Symbol> updatedNonNullableColumnsValuesBuilder = ImmutableList.builder();
+        Assignments.Builder assignmentsBuilder = Assignments.builder();
+        assignmentsBuilder.putIdentities(builder.getRoot().getOutputSymbols());
+
+        for (ColumnMetadata column : tableMetadata.getColumns()) {
+            if (targetColumnNames.contains(column.getName())) {
+                Symbol output = symbolAllocator.newSymbol(column.getName(), column.getType());
+                updatedNonNullableColumnsValuesBuilder.add(output);
+                @SuppressWarnings("ConstantConditions") int columnIndex = updatedColumnNameToIndex.get(column.getName());
+                Expression expression = ((ProjectNode) builder.getRoot()).getAssignments().get(planAndMappings.get(orderedColumnValues.get(columnIndex)));
+                if (!column.isNullable()) {
+                    expression = new CoalesceExpression(expression, new Cast(failFunction(metadata, session, INVALID_ARGUMENTS, format(
+                            "NULL value not allowed for NOT NULL column: %s",
+                            column.getName())), toSqlType(column.getType())));
+                }
+                assignmentsBuilder.put(output, expression);
+            }
+        }
+        ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), builder.getRoot(), assignmentsBuilder.build());
+        builder = builder.withNewRoot(projectNode);
         Symbol rowId = builder.translate(analysis.getRowIdField(table));
-        updatedColumnValuesBuilder.add(rowId);
+        updatedNonNullableColumnsValuesBuilder.add(rowId);
 
         List<Symbol> outputs = ImmutableList.of(
                 symbolAllocator.newSymbol("partialrows", BIGINT),
@@ -602,11 +627,11 @@ class QueryPlanner
                 builder.getRoot(),
                 new UpdateTarget(
                         Optional.empty(),
-                        plannerContext.getMetadata().getTableMetadata(session, handle).getTable(),
+                        tableMetadata.getTable(),
                         updatedColumnNames,
                         updatedColumnHandles),
                 rowId,
-                updatedColumnValuesBuilder.build(),
+                updatedNonNullableColumnsValuesBuilder.build(),
                 outputs);
     }
 
