@@ -14,7 +14,7 @@ import com.google.common.collect.ImmutableList;
 import com.starburstdata.presto.license.LicenceCheckingConnectorFactory;
 import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.license.LicenseManagerProvider;
-import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.jdbc.DynamicFilteringJdbcConnectorFactory;
+import io.trino.plugin.jdbc.JdbcConnectorFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
@@ -37,11 +37,10 @@ public class SapHanaPlugin
     ConnectorFactory getConnectorFactory(LicenseManager licenseManager)
     {
         requireNonNull(licenseManager, "licenseManager is null");
-        return DynamicFilteringJdbcConnectorFactory.create(
+        return new JdbcConnectorFactory(
                 CONNECTOR_NAME,
                 combine(
                         binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
-                        new SapHanaClientModule()),
-                licenseManager);
+                        new SapHanaClientModule()));
     }
 }

@@ -11,18 +11,13 @@ package com.starburstdata.presto.plugin.saphana;
 
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
-import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
 import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
-import io.trino.plugin.jdbc.JdbcRecordSetProvider;
-import io.trino.plugin.jdbc.JdbcSplitManager;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.ptf.Query;
-import io.trino.spi.connector.ConnectorRecordSetProvider;
-import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.ptf.ConnectorTableFunction;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -37,9 +32,6 @@ public class SapHanaClientModule
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SapHanaClient.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
-
-        binder.bind(ConnectorSplitManager.class).annotatedWith(ForDynamicFiltering.class).to(JdbcSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForDynamicFiltering.class).to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
 
         install(new JdbcTableScanRedirectionModule());
         install(new SapHanaAuthenticationModule());
