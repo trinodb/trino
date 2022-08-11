@@ -624,6 +624,7 @@ public class TestKuduConnectorTest
     @Override
     public void testCharVarcharComparison()
     {
+        // TODO https://github.com/trinodb/trino/issues/3597 Fix Kudu CREATE TABLE AS SELECT with char(n) type does not preserve trailing spaces
         assertThatThrownBy(super::testCharVarcharComparison)
                 .hasMessageContaining("For query: ")
                 .hasMessageContaining("Actual rows")
