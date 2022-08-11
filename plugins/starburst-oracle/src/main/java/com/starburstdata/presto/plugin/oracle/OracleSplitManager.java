@@ -15,9 +15,9 @@ import com.google.common.collect.Multiset;
 import com.google.common.math.IntMath;
 import com.starburstdata.presto.license.LicenseManager;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -40,11 +40,11 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.starburstdata.presto.license.StarburstFeature.ORACLE_EXTENSIONS;
-import static com.starburstdata.presto.plugin.jdbc.dynamicfiltering.DynamicFilteringSplitManager.isColumnEligibleForDynamicFilter;
 import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.NO_PARALLELISM;
 import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.PARTITIONS;
 import static com.starburstdata.presto.plugin.oracle.StarburstOracleSessionProperties.getMaxSplitsPerScan;
 import static com.starburstdata.presto.plugin.oracle.StarburstOracleSessionProperties.getParallelismType;
+import static io.trino.plugin.jdbc.DynamicFilteringJdbcSplitSource.isEligibleForDynamicFilter;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.lang.String.format;
 import static java.math.RoundingMode.CEILING;
@@ -80,8 +80,9 @@ public class OracleSplitManager
                 (JdbcTableHandle) table,
                 getParallelismType(session),
                 getMaxSplitsPerScan(session),
-                dynamicFilter.getCurrentPredicate()
-                        .filter((columnHandle, domain) -> isColumnEligibleForDynamicFilter((JdbcTableHandle) table))));
+                isEligibleForDynamicFilter((JdbcTableHandle) table)
+                        ? dynamicFilter.getCurrentPredicate().transformKeys(JdbcColumnHandle.class::cast)
+                        : TupleDomain.all()));
     }
 
     private List<OracleSplit> listSplits(
@@ -89,7 +90,7 @@ public class OracleSplitManager
             JdbcTableHandle tableHandle,
             OracleParallelismType parallelismType,
             int maxSplits,
-            TupleDomain<ColumnHandle> dynamicFilter)
+            TupleDomain<JdbcColumnHandle> dynamicFilter)
     {
         if (parallelismType == NO_PARALLELISM || !tableHandle.isNamedRelation()) {
             return ImmutableList.of(new OracleSplit(Optional.empty(), Optional.empty(), dynamicFilter));

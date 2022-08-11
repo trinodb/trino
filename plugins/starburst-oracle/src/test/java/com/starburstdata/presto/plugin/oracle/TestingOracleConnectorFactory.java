@@ -24,7 +24,7 @@ public class TestingOracleConnectorFactory
             LicenseManager licenseManager = NOOP_LICENSE_MANAGER;
             return combine(
                     binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
-                    new OracleClientModule(catalogName, licenseManager));
+                    new OracleClientModule(licenseManager));
         });
     }
 }

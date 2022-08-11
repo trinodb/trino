@@ -11,8 +11,8 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.jdbc.JdbcSplitWithDynamicFilter;
-import io.trino.spi.connector.ColumnHandle;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
@@ -22,7 +22,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class OracleSplit
-        extends JdbcSplitWithDynamicFilter
+        extends JdbcSplit
 {
     private final Optional<List<String>> partitionNames;
 
@@ -30,7 +30,7 @@ public class OracleSplit
     public OracleSplit(
             @JsonProperty("partitionNames") Optional<List<String>> partitionNames,
             @JsonProperty("additionalPredicate") Optional<String> additionalPredicate,
-            @JsonProperty("dynamicFilter") TupleDomain<ColumnHandle> dynamicFilter)
+            @JsonProperty("dynamicFilter") TupleDomain<JdbcColumnHandle> dynamicFilter)
     {
         super(additionalPredicate, dynamicFilter);
         this.partitionNames = requireNonNull(partitionNames, "partitionNames is null");
