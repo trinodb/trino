@@ -25,8 +25,8 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
 import io.trino.metadata.TableMetadata;
-import io.trino.metadata.TableSchema;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SortOrder;
@@ -72,6 +72,7 @@ import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.Delete;
@@ -143,6 +144,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getMaxRecursionDepth;
 import static io.trino.SystemSessionProperties.isSkipRedundantSort;
+import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static io.trino.spi.StandardErrorCode.MERGE_TARGET_ROW_MULTIPLE_MATCHES;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -180,6 +182,7 @@ import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 class QueryPlanner
 {
@@ -542,9 +545,11 @@ class QueryPlanner
         Table table = node.getTable();
         TableHandle handle = analysis.getTableHandle(table);
 
-        TableSchema tableSchema = plannerContext.getMetadata().getTableSchema(session, handle);
-        Map<String, ColumnHandle> columnMap = plannerContext.getMetadata().getColumnHandles(session, handle);
-        List<ColumnSchema> columnsSchemas = tableSchema.getColumns();
+        Metadata metadata = plannerContext.getMetadata();
+        // TODO obtaining metadata should not happen here https://github.com/trinodb/trino/issues/13740
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
+        Map<String, ColumnHandle> columnMap = metadata.getColumnHandles(session, handle);
+        List<ColumnMetadata> columnsMetadata = tableMetadata.getColumns();
 
         List<String> targetColumnNames = node.getAssignments().stream()
                 .map(assignment -> assignment.getName().getValue())
@@ -554,8 +559,8 @@ class QueryPlanner
         ImmutableList.Builder<String> updatedColumnNamesBuilder = ImmutableList.builder();
         ImmutableList.Builder<ColumnHandle> updatedColumnHandlesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Expression> orderedColumnValuesBuilder = ImmutableList.builder();
-        for (ColumnSchema columnSchema : columnsSchemas) {
-            String name = columnSchema.getName();
+        for (ColumnMetadata columnMetadata : columnsMetadata) {
+            String name = columnMetadata.getName();
             int index = targetColumnNames.indexOf(name);
             if (index >= 0) {
                 updatedColumnNamesBuilder.add(name);
@@ -584,7 +589,30 @@ class QueryPlanner
         builder = planAndMappings.getSubPlan();
 
         ImmutableList.Builder<Symbol> updatedColumnValuesBuilder = ImmutableList.builder();
-        orderedColumnValues.forEach(columnValue -> updatedColumnValuesBuilder.add(planAndMappings.get(columnValue)));
+        Assignments.Builder assignmentsBuilder = Assignments.builder();
+        assignmentsBuilder.putIdentities(builder.getRoot().getOutputSymbols());
+        Map<String, ColumnMetadata> columnNameToMetadata = columnsMetadata.stream()
+                .collect(toImmutableMap(ColumnMetadata::getName, identity()));
+
+        for (int i = 0; i < updatedColumnNames.size(); i++) {
+            String columName = updatedColumnNames.get(i);
+            ColumnMetadata columnMetadata = columnNameToMetadata.get(columName);
+            Symbol output = symbolAllocator.newSymbol(columName, columnMetadata.getType());
+            updatedColumnValuesBuilder.add(output);
+            Expression expression = planAndMappings.get(orderedColumnValues.get(i)).toSymbolReference();
+            if (!columnMetadata.isNullable()) {
+                expression = new CoalesceExpression(expression, new Cast(
+                        failFunction(
+                                metadata,
+                                session,
+                                INVALID_ARGUMENTS,
+                                "NULL value not allowed for NOT NULL column: " + columName),
+                        toSqlType(columnMetadata.getType())));
+            }
+            assignmentsBuilder.put(output, expression);
+        }
+
+        builder = builder.withNewRoot(new ProjectNode(idAllocator.getNextId(), builder.getRoot(), assignmentsBuilder.build()));
         Symbol rowId = builder.translate(analysis.getRowIdField(table));
         updatedColumnValuesBuilder.add(rowId);
 
@@ -601,7 +629,7 @@ class QueryPlanner
                 builder.getRoot(),
                 new UpdateTarget(
                         Optional.empty(),
-                        plannerContext.getMetadata().getTableMetadata(session, handle).getTable(),
+                        tableMetadata.getTable(),
                         updatedColumnNames,
                         updatedColumnHandles),
                 rowId,
