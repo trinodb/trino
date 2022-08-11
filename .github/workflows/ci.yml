@@ -438,7 +438,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.build-test-matrix.outputs.matrix) }}
-    timeout-minutes: 60
+    # TODO lower the timeout back to 60; make sure trino-tests do not time out
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v3
         with:
