@@ -463,6 +463,11 @@ public class Driver
             }
 
             if (!blockedFutures.isEmpty()) {
+                // allow for operators to unblock drivers when they become finished
+                for (Operator operator : activeOperators) {
+                    operator.getOperatorContext().getFinishedFuture().ifPresent(blockedFutures::add);
+                }
+
                 // unblock when the first future is complete
                 ListenableFuture<Void> blocked = firstFinishedFuture(blockedFutures);
                 // driver records serial blocked time

@@ -23,6 +23,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
+import org.testng.annotations.Test;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 
@@ -57,5 +58,12 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
             throw closeAllSuppress(e, queryRunner);
         }
         return queryRunner;
+    }
+
+    @Override
+    @Test(enabled = false)
+    public void testSelectiveLimit()
+    {
+        // FTE mode does not terminate query when limit is reached
     }
 }
