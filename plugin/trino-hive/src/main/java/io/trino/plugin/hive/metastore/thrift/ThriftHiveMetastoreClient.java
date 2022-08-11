@@ -45,7 +45,6 @@ import org.apache.hadoop.hive.metastore.api.GetValidWriteIdsRequest;
 import org.apache.hadoop.hive.metastore.api.GrantRevokePrivilegeRequest;
 import org.apache.hadoop.hive.metastore.api.GrantRevokeRoleRequest;
 import org.apache.hadoop.hive.metastore.api.GrantRevokeRoleResponse;
-import org.apache.hadoop.hive.metastore.api.GrantRevokeType;
 import org.apache.hadoop.hive.metastore.api.HeartbeatTxnRangeRequest;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
@@ -388,7 +387,7 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         GrantRevokeRoleRequest request = new GrantRevokeRoleRequest();
-        request.setRequestType(GrantRevokeType.GRANT);
+        request.setRequestType(GRANT);
         request.setRoleName(role);
         request.setPrincipalName(granteeName);
         request.setPrincipalType(granteeType);
@@ -491,8 +490,8 @@ public class ThriftHiveMetastoreClient
     public void sendTransactionHeartbeat(long transactionId)
             throws TException
     {
-        HeartbeatTxnRangeRequest rqst = new HeartbeatTxnRangeRequest(transactionId, transactionId);
-        client.heartbeat_txn_range(rqst);
+        HeartbeatTxnRangeRequest request = new HeartbeatTxnRangeRequest(transactionId, transactionId);
+        client.heartbeat_txn_range(request);
     }
 
     @Override
@@ -522,7 +521,7 @@ public class ThriftHiveMetastoreClient
     {
         // Pass currentTxn as 0L to get the recent snapshot of valid transactions in Hive
         // Do not pass currentTransactionId instead as it will break Hive's listing of delta directories if major compaction
-        // deletes deleta directories for valid transactions that existed at the time transaction is opened
+        // deletes delta directories for valid transactions that existed at the time transaction is opened
         ValidTxnList validTransactions = TxnUtils.createValidReadTxnList(client.get_open_txns(), 0L);
         GetValidWriteIdsRequest request = new GetValidWriteIdsRequest(tableList, validTransactions.toString());
         return createValidTxnWriteIdList(
@@ -579,7 +578,7 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         AddDynamicPartitions request = new AddDynamicPartitions(transactionId, writeId, dbName, tableName, partitionNames);
-        request.setOperationType(operation.getMetastoreOperationType().get());
+        request.setOperationType(operation.getMetastoreOperationType().orElseThrow());
         client.add_dynamic_partitions(request);
     }
 

@@ -371,7 +371,7 @@ public class BridgingHiveMetastore
         return resultBuilder.buildOrThrow();
     }
 
-    private Partition fromMetastoreApiPartition(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
+    private static Partition fromMetastoreApiPartition(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
     {
         if (isAvroTableWithSchemaSet(table)) {
             List<FieldSchema> schema = table.getDataColumns().stream()
