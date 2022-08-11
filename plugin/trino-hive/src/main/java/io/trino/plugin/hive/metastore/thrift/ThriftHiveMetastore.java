@@ -174,7 +174,7 @@ public class ThriftHiveMetastore
 
     private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosenTableParamAlternative = new AtomicInteger(Integer.MAX_VALUE);
-    private final AtomicInteger chosesGetAllViewsAlternative = new AtomicInteger(Integer.MAX_VALUE);
+    private final AtomicInteger chosenGetAllViewsAlternative = new AtomicInteger(Integer.MAX_VALUE);
 
     private final AtomicReference<Optional<Boolean>> metastoreSupportsDateStatistics = new AtomicReference<>(Optional.empty());
     private final CoalescingCounter metastoreSetDateStatisticsFailures = new CoalescingCounter(new Duration(1, SECONDS));
@@ -897,7 +897,7 @@ public class ThriftHiveMetastore
                             return alternativeCall(
                                     this::createMetastoreClient,
                                     exception -> !isUnknownMethodExceptionalResponse(exception),
-                                    chosesGetAllViewsAlternative,
+                                    chosenGetAllViewsAlternative,
                                     client -> client.getTableNamesByType(databaseName, TableType.VIRTUAL_VIEW.name()),
                                     // fallback to enumerating Presto views only (Hive views will still be executed, but will be listed as tables)
                                     client -> doGetTablesWithParameter(databaseName, PRESTO_VIEW_FLAG, "true"));
@@ -2014,11 +2014,10 @@ public class ThriftHiveMetastore
 
     private static boolean isUnknownMethodExceptionalResponse(Exception exception)
     {
-        if (!(exception instanceof TApplicationException)) {
+        if (!(exception instanceof TApplicationException applicationException)) {
             return false;
         }
 
-        TApplicationException applicationException = (TApplicationException) exception;
         return applicationException.getType() == UNKNOWN_METHOD;
     }
 

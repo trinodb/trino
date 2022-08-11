@@ -23,7 +23,6 @@ import io.trino.plugin.hive.HdfsConfigurationInitializer;
 import io.trino.plugin.hive.authentication.HadoopAuthentication;
 import io.trino.plugin.hive.authentication.HiveMetastoreAuthentication;
 import io.trino.plugin.hive.authentication.MetastoreKerberosConfig;
-import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -40,14 +39,10 @@ public class ThriftMetastoreAuthenticationModule
 
     private Module getAuthenticationModule()
     {
-        ThriftMetastoreAuthenticationType type = buildConfigObject(ThriftMetastoreAuthenticationConfig.class).getAuthenticationType();
-        switch (type) {
-            case NONE:
-                return new NoHiveMetastoreAuthenticationModule();
-            case KERBEROS:
-                return new KerberosHiveMetastoreAuthenticationModule();
-        }
-        throw new AssertionError("Unknown authentication type: " + type);
+        return switch (buildConfigObject(ThriftMetastoreAuthenticationConfig.class).getAuthenticationType()) {
+            case NONE -> new NoHiveMetastoreAuthenticationModule();
+            case KERBEROS -> new KerberosHiveMetastoreAuthenticationModule();
+        };
     }
 
     public static class NoHiveMetastoreAuthenticationModule
