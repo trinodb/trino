@@ -131,14 +131,13 @@ public class KerberosHiveMetastoreAuthentication
         public void handle(Callback[] callbacks)
         {
             for (Callback callback : callbacks) {
-                if (callback instanceof NameCallback) {
-                    ((NameCallback) callback).setName(username);
+                if (callback instanceof NameCallback nameCallback) {
+                    nameCallback.setName(username);
                 }
-                if (callback instanceof PasswordCallback) {
-                    ((PasswordCallback) callback).setPassword(password.toCharArray());
+                if (callback instanceof PasswordCallback passwordCallback) {
+                    passwordCallback.setPassword(password.toCharArray());
                 }
-                if (callback instanceof RealmCallback) {
-                    RealmCallback realmCallback = (RealmCallback) callback;
+                if (callback instanceof RealmCallback realmCallback) {
                     realmCallback.setText(realmCallback.getDefaultText());
                 }
             }

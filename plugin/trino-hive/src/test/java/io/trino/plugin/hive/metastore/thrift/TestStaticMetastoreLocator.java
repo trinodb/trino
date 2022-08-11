@@ -220,7 +220,7 @@ public class TestStaticMetastoreLocator
         };
     }
 
-    private void assertEqualHiveClient(ThriftMetastoreClient actual, ThriftMetastoreClient expected)
+    private static void assertEqualHiveClient(ThriftMetastoreClient actual, ThriftMetastoreClient expected)
     {
         if (actual instanceof FailureAwareThriftMetastoreClient) {
             actual = ((FailureAwareThriftMetastoreClient) actual).getDelegate();
