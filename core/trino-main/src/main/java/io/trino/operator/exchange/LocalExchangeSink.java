@@ -14,9 +14,9 @@
 package io.trino.operator.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.trino.spi.Page;
 
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import static io.trino.operator.Operator.NOT_BLOCKED;
@@ -35,7 +35,7 @@ public class LocalExchangeSink
     private final LocalExchanger exchanger;
     private final Consumer<LocalExchangeSink> onFinish;
 
-    private final AtomicBoolean finished = new AtomicBoolean();
+    private final SettableFuture<Void> finished = SettableFuture.create();
 
     public LocalExchangeSink(
             LocalExchanger exchanger,
@@ -47,15 +47,15 @@ public class LocalExchangeSink
 
     public void finish()
     {
-        if (finished.compareAndSet(false, true)) {
+        if (finished.set(null)) {
             exchanger.finish();
             onFinish.accept(this);
         }
     }
 
-    public boolean isFinished()
+    public ListenableFuture<Void> isFinished()
     {
-        return finished.get();
+        return finished;
     }
 
     public void addPage(Page page)
@@ -65,7 +65,7 @@ public class LocalExchangeSink
         // ignore pages after finished
         // this can happen with limit queries when all of the source (readers) are closed, so sinks
         // can be aborted early
-        if (isFinished()) {
+        if (isFinished().isDone()) {
             return;
         }
 
@@ -76,7 +76,7 @@ public class LocalExchangeSink
 
     public ListenableFuture<Void> waitForWriting()
     {
-        if (isFinished()) {
+        if (isFinished().isDone()) {
             return NOT_BLOCKED;
         }
         return exchanger.waitForWriting();

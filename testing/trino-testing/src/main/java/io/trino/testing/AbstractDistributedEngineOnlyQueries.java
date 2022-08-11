@@ -350,4 +350,16 @@ public abstract class AbstractDistributedEngineOnlyQueries
 
         assertThatThrownBy(queryFuture::get).hasMessageContaining("Query was canceled");
     }
+
+    @Test(timeOut = 30_000)
+    public void testSelectiveLimit()
+    {
+        assertQuery("" +
+                        "SELECT * FROM (" +
+                        "   (SELECT orderkey AS a FROM tpch.sf10000.orders WHERE orderkey=-1)" +
+                        " UNION ALL SELECT * FROM (values -1) AS t(a))" +
+                        "WHERE a=-1 " +
+                        "LIMIT 1",
+                "VALUES -1");
+    }
 }

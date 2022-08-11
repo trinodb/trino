@@ -584,8 +584,14 @@ public class TestLocalExchange
             sinkFactory.noMoreSinkFactories();
             LocalExchangeSink sinkA = sinkFactory.createSink();
             assertSinkCanWrite(sinkA);
+            ListenableFuture<Void> sinkAFinished = sinkA.isFinished();
+            assertFalse(sinkAFinished.isDone());
+
             LocalExchangeSink sinkB = sinkFactory.createSink();
             assertSinkCanWrite(sinkB);
+            ListenableFuture<Void> sinkBFinished = sinkB.isFinished();
+            assertFalse(sinkBFinished.isDone());
+
             sinkFactory.close();
 
             LocalExchangeSource sourceA = exchange.getSource(0);
@@ -620,6 +626,8 @@ public class TestLocalExchange
 
             assertTrue(sinkAFuture.isDone());
             assertTrue(sinkBFuture.isDone());
+            assertTrue(sinkAFinished.isDone());
+            assertTrue(sinkBFinished.isDone());
 
             assertSinkFinished(sinkA);
             assertSinkFinished(sinkB);
@@ -692,13 +700,13 @@ public class TestLocalExchange
 
     private static void assertSinkCanWrite(LocalExchangeSink sink)
     {
-        assertFalse(sink.isFinished());
+        assertFalse(sink.isFinished().isDone());
         assertTrue(sink.waitForWriting().isDone());
     }
 
     private static ListenableFuture<Void> assertSinkWriteBlocked(LocalExchangeSink sink)
     {
-        assertFalse(sink.isFinished());
+        assertFalse(sink.isFinished().isDone());
         ListenableFuture<Void> writeFuture = sink.waitForWriting();
         assertFalse(writeFuture.isDone());
         return writeFuture;
@@ -706,12 +714,12 @@ public class TestLocalExchange
 
     private static void assertSinkFinished(LocalExchangeSink sink)
     {
-        assertTrue(sink.isFinished());
+        assertTrue(sink.isFinished().isDone());
         assertTrue(sink.waitForWriting().isDone());
 
         // this will be ignored
         sink.addPage(createPage(0));
-        assertTrue(sink.isFinished());
+        assertTrue(sink.isFinished().isDone());
         assertTrue(sink.waitForWriting().isDone());
     }
 
