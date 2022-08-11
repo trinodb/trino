@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -475,5 +476,18 @@ public class TestStargateWithHiveConnectorTest
                     .hasMessageContaining("mismatched input 'INSERT'");
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
         }
+    }
+
+    @Override
+    protected OptionalInt maxSchemaNameLength()
+    {
+        // This value depends on metastore type
+        return OptionalInt.of(255 - "..".length() - ".trinoSchema.crc".length());
+    }
+
+    @Override
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching(".*Could not (write|rename) database schema");
     }
 }

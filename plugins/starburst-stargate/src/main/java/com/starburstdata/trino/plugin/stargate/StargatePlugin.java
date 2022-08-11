@@ -14,8 +14,8 @@ import com.google.common.collect.ImmutableList;
 import com.starburstdata.presto.license.LicenceCheckingConnectorFactory;
 import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.license.LicenseManagerProvider;
-import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.jdbc.DynamicFilteringJdbcConnectorFactory;
 import io.airlift.log.Logger;
+import io.trino.plugin.jdbc.JdbcConnectorFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -48,14 +48,13 @@ public class StargatePlugin
     private ConnectorFactory getConnectorFactory(LicenseManager licenseManager, boolean enableWrites)
     {
         requireNonNull(licenseManager, "licenseManager is null");
-        return DynamicFilteringJdbcConnectorFactory.create(
+        return new JdbcConnectorFactory(
                 // "stargate" will be used also for the parallel variant, with implementation chosen by a configuration property
                 "stargate",
                 combine(
                         binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
                         binder -> binder.bind(Boolean.class).annotatedWith(EnableWrites.class).toInstance(enableWrites),
-                        new StargateModule()),
-                licenseManager);
+                        new StargateModule()));
     }
 
     @VisibleForTesting
