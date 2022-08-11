@@ -16,10 +16,10 @@ package io.trino.plugin.hive.metastore.alluxio;
 import alluxio.ClientContext;
 import alluxio.client.table.RetryHandlingTableMasterClient;
 import alluxio.client.table.TableMasterClient;
+import alluxio.conf.Configuration;
 import alluxio.conf.InstancedConfiguration;
 import alluxio.conf.PropertyKey;
 import alluxio.master.MasterClientContext;
-import alluxio.util.ConfigurationUtils;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -52,7 +52,7 @@ public class AlluxioMetastoreModule
 
     public static TableMasterClient createCatalogMasterClient(AlluxioHiveMetastoreConfig config)
     {
-        InstancedConfiguration conf = new InstancedConfiguration(ConfigurationUtils.defaults());
+        InstancedConfiguration conf = Configuration.modifiableGlobal();
         String addr = config.getMasterAddress();
         String[] parts = addr.split(":", 2);
         conf.set(PropertyKey.MASTER_HOSTNAME, parts[0]);
