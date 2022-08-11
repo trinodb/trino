@@ -120,6 +120,7 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.sql.ReservedIdentifiers.reserved;
 import static io.trino.sql.RowPatternFormatter.formatPattern;
 import static io.trino.sql.SqlFormatter.formatName;
 import static io.trino.sql.SqlFormatter.formatSql;
@@ -401,12 +402,10 @@ public final class ExpressionFormatter
         @Override
         protected String visitIdentifier(Identifier node, Void context)
         {
-            if (!node.isDelimited()) {
-                return node.getValue();
-            }
-            else {
+            if (node.isDelimited() || reserved(node.getValue())) {
                 return '"' + node.getValue().replace("\"", "\"\"") + '"';
             }
+            return node.getValue();
         }
 
         @Override
