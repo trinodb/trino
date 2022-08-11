@@ -1564,8 +1564,9 @@ public class IcebergMetadata
 
         RowDelta rowDelta = transaction.newRowDelta();
         table.getSnapshotId().map(icebergTable::snapshot).ifPresent(s -> rowDelta.validateFromSnapshot(s.snapshotId()));
-        if (!table.getEnforcedPredicate().isAll()) {
-            rowDelta.conflictDetectionFilter(toIcebergExpression(table.getEnforcedPredicate()));
+        TupleDomain<IcebergColumnHandle> dataColumnPredicate = table.getEnforcedPredicate().filter((column, domain) -> !isMetadataColumnId(column.getId()));
+        if (!dataColumnPredicate.isAll()) {
+            rowDelta.conflictDetectionFilter(toIcebergExpression(dataColumnPredicate));
         }
 
         IsolationLevel isolationLevel = IsolationLevel.fromName(icebergTable.properties().getOrDefault(DELETE_ISOLATION_LEVEL, DELETE_ISOLATION_LEVEL_DEFAULT));
