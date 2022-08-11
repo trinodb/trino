@@ -239,6 +239,8 @@ public class Analysis
     // names of tables and aliased relations. All names are resolved case-insensitive.
     private final Map<NodeRef<Relation>, QualifiedName> relationNames = new LinkedHashMap<>();
     private final Map<NodeRef<TableFunctionInvocation>, TableFunctionInvocationAnalysis> tableFunctionAnalyses = new LinkedHashMap<>();
+    private final Set<NodeRef<Relation>> aliasedRelations = new LinkedHashSet<>();
+    private final Set<NodeRef<TableFunctionInvocation>> polymorphicTableFunctions = new LinkedHashSet<>();
 
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, QueryType queryType)
     {
@@ -1230,6 +1232,26 @@ public class Analysis
     public QualifiedName getRelationName(Relation relation)
     {
         return relationNames.get(NodeRef.of(relation));
+    }
+
+    public void addAliased(Relation relation)
+    {
+        aliasedRelations.add(NodeRef.of(relation));
+    }
+
+    public boolean isAliased(Relation relation)
+    {
+        return aliasedRelations.contains(NodeRef.of(relation));
+    }
+
+    public void addPolymorphicTableFunction(TableFunctionInvocation invocation)
+    {
+        polymorphicTableFunctions.add(NodeRef.of(invocation));
+    }
+
+    public boolean isPolymorphicTableFunction(TableFunctionInvocation invocation)
+    {
+        return polymorphicTableFunctions.contains(NodeRef.of(invocation));
     }
 
     private boolean isInputTable(Table table)

@@ -24,6 +24,7 @@ import io.trino.spi.ptf.Argument;
 import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.ptf.Descriptor;
 import io.trino.spi.ptf.DescriptorArgumentSpecification;
+import io.trino.spi.ptf.ReturnTypeSpecification.DescribedTable;
 import io.trino.spi.ptf.ScalarArgument;
 import io.trino.spi.ptf.ScalarArgumentSpecification;
 import io.trino.spi.ptf.TableArgumentSpecification;
@@ -35,8 +36,10 @@ import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.ptf.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
+import static io.trino.spi.ptf.ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS_THROUGH;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class TestingTableFunctions
@@ -228,6 +231,78 @@ public class TestingTableFunctions
         public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return ANALYSIS;
+        }
+    }
+
+    public static class OnlyPassThroughFunction
+            extends AbstractConnectorTableFunction
+    {
+        public OnlyPassThroughFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "only_pass_through_function",
+                    ImmutableList.of(
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT")
+                                    .build()),
+                    ONLY_PASS_THROUGH);
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(HANDLE)
+                    .build();
+        }
+    }
+
+    public static class MonomorphicStaticReturnTypeFunction
+            extends AbstractConnectorTableFunction
+    {
+        public MonomorphicStaticReturnTypeFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "monomorphic_static_return_type_function",
+                    ImmutableList.of(),
+                    new DescribedTable(Descriptor.descriptor(
+                            ImmutableList.of("a", "b"),
+                            ImmutableList.of(BOOLEAN, INTEGER))));
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(HANDLE)
+                    .build();
+        }
+    }
+
+    public static class PolymorphicStaticReturnTypeFunction
+            extends AbstractConnectorTableFunction
+    {
+        public PolymorphicStaticReturnTypeFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "polymorphic_static_return_type_function",
+                    ImmutableList.of(TableArgumentSpecification.builder()
+                            .name("INPUT")
+                            .build()),
+                    new DescribedTable(Descriptor.descriptor(
+                            ImmutableList.of("a", "b"),
+                            ImmutableList.of(BOOLEAN, INTEGER))));
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(HANDLE)
+                    .build();
         }
     }
 }
