@@ -193,7 +193,6 @@ public class TestDriver
 
     @Test
     public void testBrokenOperatorCloseWhileProcessing()
-            throws Exception
     {
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"), false);
         Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(ImmutableList.of()));
@@ -257,7 +256,6 @@ public class TestDriver
 
     @Test
     public void testBrokenOperatorAddSource()
-            throws Exception
     {
         PlanNodeId sourceId = new PlanNodeId("source");
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
