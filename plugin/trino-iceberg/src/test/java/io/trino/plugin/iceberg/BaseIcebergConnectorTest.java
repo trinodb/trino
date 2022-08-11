@@ -4646,6 +4646,20 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testDeleteWithPathColumn()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_with_path_", "(key int)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1)", 1);
+            sleepUninterruptibly(1, MILLISECONDS);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2)", 1);
+
+            String firstFilePath = (String) computeScalar("SELECT \"$path\" FROM " + table.getName() + " WHERE key = 1");
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$path\" = '" + firstFilePath + "'", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 2");
+        }
+    }
+
+    @Test
     public void testFileModifiedTimeHiddenColumn()
     {
         ZonedDateTime beforeTime = (ZonedDateTime) computeScalar("SELECT current_timestamp(3)");

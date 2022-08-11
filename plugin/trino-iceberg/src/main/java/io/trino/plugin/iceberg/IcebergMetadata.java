@@ -1408,6 +1408,11 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
+        IcebergTableHandle table = (IcebergTableHandle) handle;
+        TupleDomain<IcebergColumnHandle> medataColumnPredicate = table.getEnforcedPredicate().filter((column, domain) -> isMetadataColumnId(column.getId()));
+        if (!medataColumnPredicate.isAll()) {
+            return Optional.empty();
+        }
         return Optional.of(handle);
     }
 
