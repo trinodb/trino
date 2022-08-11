@@ -587,6 +587,13 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-tests</artifactId>
+                <type>test-jar</type>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-thrift</artifactId>
                 <type>zip</type>
                 <version>${project.version}</version>

@@ -11,9 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution;
+package io.trino.faulttolerant;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.execution.AbstractTestCoordinatorDynamicFiltering;
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.spi.connector.ColumnHandle;
