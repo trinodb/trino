@@ -13,7 +13,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.license.LicenseManagerProvider;
-import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.jdbc.DynamicFilteringJdbcConnectorFactory;
+import io.trino.plugin.jdbc.JdbcConnectorFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
@@ -33,11 +33,10 @@ public class StarburstSqlServerPlugin
     ConnectorFactory getConnectorFactory(LicenseManager licenseManager)
     {
         requireNonNull(licenseManager, "licenseManager is null");
-        return DynamicFilteringJdbcConnectorFactory.create(
+        return new JdbcConnectorFactory(
                 "sqlserver",
                 combine(
                         binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
-                        new StarburstSqlServerClientModule()),
-                licenseManager);
+                        new StarburstSqlServerClientModule()));
     }
 }
