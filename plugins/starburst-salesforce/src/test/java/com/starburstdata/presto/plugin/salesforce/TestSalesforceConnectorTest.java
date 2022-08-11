@@ -21,6 +21,7 @@ import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.server.BasicQueryInfo;
+import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.sql.parser.ParsingException;
@@ -68,15 +69,23 @@ import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterrup
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
+import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC_FILTERING_ENABLED;
+import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC_FILTERING_WAIT_TIMEOUT;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.AGGREGATION_PUSHDOWN_ENABLED;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTION_THRESHOLD;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.JOIN_PUSHDOWN_ENABLED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
+import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABLE;
@@ -2746,6 +2755,205 @@ public class TestSalesforceConnectorTest
             assertThat(query(session, "SELECT * FROM nation__c n, region__c r, customer__c c WHERE n.regionkey__c = r.regionkey__c AND r.regionkey__c = c.custkey__c"))
                     .isFullyPushedDown();
         }
+    }
+
+    @DataProvider
+    public Object[][] fixedJoinDistributionTypes()
+    {
+        return new Object[][] {{BROADCAST}, {PARTITIONED}};
+    }
+
+    @Test(timeOut = 120_000, dataProvider = "fixedJoinDistributionTypes")
+    public void testDynamicFiltering(JoinDistributionType joinDistributionType)
+    {
+        assertDynamicFiltering(
+                "SELECT * FROM orders__c a JOIN orders__c b ON a.orderkey__c = b.orderkey__c AND b.totalprice__c  < 1000",
+                joinDistributionType);
+    }
+
+    @Test(timeOut = 120_000)
+    public void testDynamicFilteringWithAggregationGroupingColumn()
+    {
+        assertDynamicFiltering(
+                "SELECT * FROM (SELECT orderkey__c, count(*) FROM orders__c GROUP BY 1) a JOIN orders__c b " +
+                        "ON a.orderkey__c = b.orderkey__c AND b.totalprice__c < 1000",
+                PARTITIONED);
+    }
+
+    @Test(timeOut = 120_000)
+    public void testDynamicFilteringWithAggregationAggregateColumn()
+    {
+        // Salesforce connector doesn't support aggregate pushdown
+        assertNoDynamicFiltering(
+                "SELECT * FROM (SELECT orderkey__c, count(*) count FROM orders__c GROUP BY 1) a JOIN orders__c b " +
+                        "ON a.count = b.orderkey__c AND b.totalprice__c < 1000");
+    }
+
+    @Test(timeOut = 120_000)
+    public void testDynamicFilteringWithAggregationGroupingSet()
+    {
+        // DF pushdown is not supported for grouping column that is not part of every grouping set
+        assertNoDynamicFiltering(
+                "SELECT * FROM (SELECT orderkey__c, count(*) FROM orders__c GROUP BY GROUPING SETS ((orderkey__c), ())) a JOIN orders__c b " +
+                        "ON a.orderkey__c = b.orderkey__c AND b.totalprice__c < 1000");
+    }
+
+    @Test(timeOut = 120_000)
+    public void testDynamicFilteringWithLimit()
+    {
+        // DF pushdown is not supported for limit queries
+        assertNoDynamicFiltering(
+                "SELECT * FROM (SELECT orderkey__c FROM orders__c LIMIT 10000000) a JOIN orders__c b " +
+                        "ON a.orderkey__c = b.orderkey__c AND b.totalprice__c < 1000");
+    }
+
+    @Test(timeOut = 120_000)
+    public void testDynamicFilteringDomainCompactionThreshold()
+    {
+        // Rather than creating and dropping the table, we only create it if it does not exist
+        // This is to avoid hitting any custom object limits in Salesforce
+        // We can't use IF NOT EXISTS because the table name has the __c suffix and the driver does not use these suffixes,
+        // so it will try to create the table anyway
+        String tableName = "orderkeys_test_df_domain_compaction";
+        if (getQueryRunner().execute(format("SHOW TABLES LIKE '%s__c'", tableName)).getRowCount() == 0) {
+            assertUpdate("CREATE TABLE " + tableName + " (orderkey) AS VALUES 30000, 60000", 2);
+        }
+        else {
+            // Assert values in table if it already exists
+            // The values returned from Salesforce are doubles
+            MaterializedResult results = getQueryRunner().execute(format("SELECT orderkey__c FROM %s__c", tableName));
+            assertEquals(results.getOnlyColumnAsSet(), ImmutableSet.of(30000.0, 60000.0));
+        }
+
+        @Language("SQL") String query = "SELECT * FROM orders__c a JOIN " + tableName + "__c b ON a.orderkey__c = b.orderkey__c";
+
+        MaterializedResultWithQueryId dynamicFilteringResult = getDistributedQueryRunner().executeWithQueryId(
+                dynamicFiltering(PARTITIONED, true),
+                query);
+        long filteredInputPositions = getPhysicalInputPositions(dynamicFilteringResult.getQueryId());
+
+        MaterializedResultWithQueryId dynamicFilteringWithCompactionThresholdResult = getDistributedQueryRunner().executeWithQueryId(
+                dynamicFilteringWithCompactionThreshold(1),
+                query);
+        long smallCompactionInputPositions = getPhysicalInputPositions(dynamicFilteringWithCompactionThresholdResult.getQueryId());
+        assertEqualsIgnoreOrder(
+                dynamicFilteringResult.getResult(),
+                dynamicFilteringWithCompactionThresholdResult.getResult(),
+                "For query: \n " + query);
+
+        MaterializedResultWithQueryId noDynamicFilteringResult = getDistributedQueryRunner().executeWithQueryId(
+                dynamicFiltering(PARTITIONED, false),
+                query);
+        long unfilteredInputPositions = getPhysicalInputPositions(noDynamicFilteringResult.getQueryId());
+        assertEqualsIgnoreOrder(
+                dynamicFilteringWithCompactionThresholdResult.getResult(),
+                noDynamicFilteringResult.getResult(),
+                "For query: \n " + query);
+
+        assertThat(unfilteredInputPositions)
+                .as("unfiltered input positions")
+                .isGreaterThan(smallCompactionInputPositions);
+
+        assertThat(smallCompactionInputPositions)
+                .as("small compaction input positions")
+                .isGreaterThan(filteredInputPositions);
+    }
+
+    @Test(timeOut = 120_000)
+    public void testDynamicFilteringCaseInsensitiveDomainCompaction()
+    {
+        // Rather than creating and dropping the table, we only create it if it does not exist
+        // This is to avoid hitting any custom object limits in Salesforce
+        // We can't use IF NOT EXISTS because the table name has the __c suffix and the driver does not use these suffixes,
+        // so it will try to create the table anyway
+        String tableName = "test_caseinsensitive";
+        if (getQueryRunner().execute(format("SHOW TABLES LIKE '%s__c'", tableName)).getRowCount() == 0) {
+            assertUpdate("CREATE TABLE " + tableName + " (id) AS VALUES CAST('0' AS VARCHAR(1)), CAST('a' AS VARCHAR(1)), CAST('B' AS VARCHAR(1))", 3);
+        }
+        else {
+            // Assert values in table if it already exists
+            // The values returned from Salesforce are doubles
+            MaterializedResult results = getQueryRunner().execute(format("SELECT id__c FROM %s__c", tableName));
+            assertEquals(results.getOnlyColumnAsSet(), ImmutableSet.of("0", "a", "B"));
+        }
+
+        assertThat(computeActual(
+                // Force conversion to a range predicate which would exclude the row corresponding to 'B'
+                // if the range predicate were pushed into a case insensitive connector
+                dynamicFilteringWithCompactionThreshold(1),
+                "SELECT COUNT(*) FROM "
+                        + tableName + "__c a JOIN " + tableName + "__c b ON a.id__c = b.id__c")
+                .getOnlyValue())
+                .isEqualTo(3L);
+    }
+
+    private void assertDynamicFiltering(@Language("SQL") String sql, JoinDistributionType joinDistributionType)
+    {
+        assertDynamicFiltering(sql, joinDistributionType, true);
+    }
+
+    private void assertNoDynamicFiltering(@Language("SQL") String sql)
+    {
+        assertDynamicFiltering(sql, PARTITIONED, false);
+    }
+
+    private void assertDynamicFiltering(@Language("SQL") String sql, JoinDistributionType joinDistributionType, boolean expectDynamicFiltering)
+    {
+        MaterializedResultWithQueryId dynamicFilteringResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(
+                dynamicFiltering(joinDistributionType, true),
+                sql);
+
+        MaterializedResultWithQueryId noDynamicFilteringResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(
+                dynamicFiltering(joinDistributionType, false),
+                sql);
+
+        // ensure results are the same
+        assertEqualsIgnoreOrder(
+                dynamicFilteringResultWithQueryId.getResult(),
+                noDynamicFilteringResultWithQueryId.getResult(),
+                "For query: \n " + sql);
+
+        long dynamicFilteringInputPositions = getPhysicalInputPositions(dynamicFilteringResultWithQueryId.getQueryId());
+        long noDynamicFilteringInputPositions = getPhysicalInputPositions(noDynamicFilteringResultWithQueryId.getQueryId());
+
+        if (expectDynamicFiltering) {
+            // Physical input positions is smaller in dynamic filtering case than in no dynamic filtering case
+            assertThat(dynamicFilteringInputPositions)
+                    .as("filtered input positions")
+                    .isLessThan(noDynamicFilteringInputPositions);
+        }
+        else {
+            assertThat(dynamicFilteringInputPositions)
+                    .as("filtered input positions")
+                    .isEqualTo(noDynamicFilteringInputPositions);
+        }
+    }
+
+    private Session dynamicFilteringWithCompactionThreshold(int compactionThreshold)
+    {
+        return Session.builder(dynamicFiltering(PARTITIONED, true))
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), DOMAIN_COMPACTION_THRESHOLD, Integer.toString(compactionThreshold))
+                .build();
+    }
+
+    private Session dynamicFiltering(JoinDistributionType joinDistributionType, boolean enabled)
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+        return Session.builder(noJoinReordering(joinDistributionType))
+                .setCatalogSessionProperty(catalogName, DYNAMIC_FILTERING_ENABLED, Boolean.toString(enabled))
+                .setCatalogSessionProperty(catalogName, DYNAMIC_FILTERING_WAIT_TIMEOUT, "1h")
+                // test assertions assume join pushdown is not happening so we disable it here
+                .setCatalogSessionProperty(catalogName, JOIN_PUSHDOWN_ENABLED, "false")
+                .build();
+    }
+
+    private long getPhysicalInputPositions(QueryId queryId)
+    {
+        return getDistributedQueryRunner().getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(queryId)
+                .getQueryStats()
+                .getPhysicalInputPositions();
     }
 
     private void assertConditionallyPushedDown(
