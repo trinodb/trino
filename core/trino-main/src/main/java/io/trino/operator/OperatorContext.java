@@ -97,6 +97,7 @@ public class OperatorContext
     private final AtomicReference<SettableFuture<Void>> memoryFuture;
     private final AtomicReference<SettableFuture<Void>> revocableMemoryFuture;
     private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();
+    private final AtomicReference<ListenableFuture<Void>> finishedFuture = new AtomicReference<>();
     private final AtomicLong blockedWallNanos = new AtomicLong();
 
     private final OperationTiming finishTiming = new OperationTiming();
@@ -239,6 +240,16 @@ public class OperatorContext
     public void setLatestConnectorMetrics(Metrics metrics)
     {
         this.connectorMetrics.set(metrics);
+    }
+
+    Optional<ListenableFuture<Void>> getFinishedFuture()
+    {
+        return Optional.ofNullable(finishedFuture.get());
+    }
+
+    public void setFinishedFuture(ListenableFuture<Void> finishedFuture)
+    {
+        checkState(this.finishedFuture.getAndSet(requireNonNull(finishedFuture, "finishedFuture is null")) == null, "finishedFuture already set");
     }
 
     public void recordPhysicalWrittenData(long sizeInBytes)
