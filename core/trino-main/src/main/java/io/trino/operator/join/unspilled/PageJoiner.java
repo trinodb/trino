@@ -137,6 +137,62 @@ public class PageJoiner
 
     private void processProbe(LookupSource lookupSource)
     {
+        if (lookupSource.isMappingUnique() && probe.getPage().getChannelCount() == 1) { // Join on multiple columns tend to regress here
+            processUniqueMappingProbe(lookupSource);
+        }
+        else {
+            processStandardProbe(lookupSource);
+        }
+    }
+
+    private void processUniqueMappingProbe(LookupSource lookupSource)
+    {
+        if (probe.getPosition() == -1) {
+            probe.advanceNextPosition();
+        }
+        if (probe.isFinished()) {
+            return;
+        }
+
+        int matches = 0;
+        int mismatches = 0;
+
+        // Branch extracted outside of the loop.
+        // This causes the following loops to be almost identical, but JIT can optimize execution better
+        if (probeOnOuterSide) {
+            do {
+                joinPosition = probe.getCurrentJoinPosition();
+                boolean match = joinPosition >= 0 && lookupSource.isJoinPositionEligible(joinPosition, probe.getPosition(), probe.getPage());
+                matches += match ? 1 : 0;
+                mismatches += match ? 0 : 1;
+                if (match) {
+                    pageBuilder.appendRow(probe, lookupSource, probe.getCurrentJoinPosition());
+                }
+                else {
+                    pageBuilder.appendNullForBuild(probe);
+                }
+            }
+            while (probe.advanceNextPosition() && !pageBuilder.isFull() && !yieldSignal.isSet());
+        }
+        else {
+            do {
+                joinPosition = probe.getCurrentJoinPosition();
+                boolean match = joinPosition >= 0 && lookupSource.isJoinPositionEligible(joinPosition, probe.getPosition(), probe.getPage());
+                matches += match ? 1 : 0;
+                mismatches += match ? 0 : 1;
+                if (match) {
+                    pageBuilder.appendRow(probe, lookupSource, probe.getCurrentJoinPosition());
+                }
+            }
+            while (probe.advanceNextPosition() && !pageBuilder.isFull() && !yieldSignal.isSet());
+        }
+
+        statisticsCounter.recordProbe(0, mismatches);
+        statisticsCounter.recordProbe(1, matches);
+    }
+
+    private void processStandardProbe(LookupSource lookupSource)
+    {
         do {
             if (probe.getPosition() >= 0) {
                 if (!joinCurrentPosition(lookupSource, yieldSignal)) {

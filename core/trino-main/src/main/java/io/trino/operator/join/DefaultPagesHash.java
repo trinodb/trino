@@ -55,6 +55,7 @@ public final class DefaultPagesHash
     private final byte[] positionToHashes;
     private final long hashCollisions;
     private final double expectedHashCollisions;
+    private final boolean uniqueMapping;
 
     public DefaultPagesHash(
             LongArrayList addresses,
@@ -123,6 +124,7 @@ public final class DefaultPagesHash
                 keys[pos] = realPosition;
             }
         }
+        this.uniqueMapping = positionLinks.isEmpty();
 
         size = sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes() +
                 sizeOf(keys) + sizeOf(positionToHashes);
@@ -255,6 +257,12 @@ public final class DefaultPagesHash
         int blockPosition = decodePosition(pageAddress);
 
         pagesHashStrategy.appendTo(blockIndex, blockPosition, pageBuilder, outputChannelOffset);
+    }
+
+    @Override
+    public boolean isMappingUnique()
+    {
+        return uniqueMapping;
     }
 
     private boolean isPositionNull(int position)

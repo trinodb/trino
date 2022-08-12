@@ -161,6 +161,12 @@ public final class JoinHash
     }
 
     @Override
+    public boolean isMappingUnique()
+    {
+        return pagesHash.isMappingUnique();
+    }
+
+    @Override
     public void close()
     {
     }

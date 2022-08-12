@@ -50,6 +50,14 @@ public interface PagesHash
 
     void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset);
 
+    /**
+     * {@link LookupSource#isMappingUnique()}
+     */
+    default boolean isMappingUnique()
+    {
+        return false;
+    }
+
     static int getHashPosition(long rawHash, long mask)
     {
         // Avalanches the bits of a long integer by applying the finalisation step of MurmurHash3.
