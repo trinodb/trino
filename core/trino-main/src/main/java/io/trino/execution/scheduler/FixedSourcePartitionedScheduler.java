@@ -80,8 +80,6 @@ public class FixedSourcePartitionedScheduler
 
         ArrayList<SourceScheduler> sourceSchedulers = new ArrayList<>();
 
-        boolean firstPlanNode = true;
-
         partitionIdAllocator = new PartitionIdAllocator();
         scheduledTasks = new HashMap<>();
         for (PlanNodeId planNodeId : schedulingOrder) {
@@ -101,10 +99,6 @@ public class FixedSourcePartitionedScheduler
                     scheduledTasks);
 
             sourceSchedulers.add(sourceScheduler);
-
-            if (firstPlanNode) {
-                firstPlanNode = false;
-            }
         }
         this.sourceSchedulers = new ArrayDeque<>(sourceSchedulers);
     }
