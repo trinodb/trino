@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
@@ -132,6 +133,8 @@ import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 public class FileHiveMetastore
         implements HiveMetastore
 {
+    private static final Logger log = Logger.get(FileHiveMetastore.class);
+
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String ADMIN_ROLE_NAME = "admin";
     private static final String TRINO_SCHEMA_FILE_NAME_SUFFIX = ".trinoSchema";
@@ -200,6 +203,7 @@ public class FileHiveMetastore
         verifyDatabaseNotExists(database.getDatabaseName());
 
         Path databaseMetadataDirectory = getDatabaseMetadataDirectory(database.getDatabaseName());
+        log.error("createDatabase: %s", databaseMetadataDirectory);
         writeSchemaFile(DATABASE, databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(currentVersion, database), false);
         try {
             metadataFileSystem.mkdirs(databaseMetadataDirectory);
@@ -239,6 +243,7 @@ public class FileHiveMetastore
 
         Path oldDatabaseMetadataDirectory = getDatabaseMetadataDirectory(databaseName);
         Path newDatabaseMetadataDirectory = getDatabaseMetadataDirectory(newDatabaseName);
+        log.error("renameDatabase: %s", newDatabaseMetadataDirectory);
         try {
             renameSchemaFile(DATABASE, oldDatabaseMetadataDirectory, newDatabaseMetadataDirectory);
 
@@ -1314,6 +1319,7 @@ public class FileHiveMetastore
 
     private <T> void writeFile(String type, Path path, JsonCodec<T> codec, T value, boolean overwrite)
     {
+        log.error("writeFile: %s", path);
         try {
             byte[] json = codec.toJsonBytes(value);
 
