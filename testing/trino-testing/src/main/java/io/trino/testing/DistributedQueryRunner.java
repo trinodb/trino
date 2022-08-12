@@ -432,6 +432,7 @@ public class DistributedQueryRunner
     {
         long start = System.nanoTime();
         coordinator.createCatalog(catalogName, connectorName, properties);
+        backupCoordinator.ifPresent(backup -> backup.createCatalog(catalogName, connectorName, properties));
         log.info("Created catalog %s in %s", catalogName, nanosSince(start));
     }
 
