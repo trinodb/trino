@@ -18,6 +18,7 @@ import com.google.inject.Provides;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.authentication.CachingKerberosAuthentication;
 import io.trino.plugin.base.authentication.KerberosAuthentication;
+import io.trino.plugin.base.authentication.KerberosConfiguration;
 import io.trino.plugin.kudu.schema.NoSchemaEmulation;
 import io.trino.plugin.kudu.schema.SchemaEmulation;
 import io.trino.plugin.kudu.schema.SchemaEmulationByTableNameConvention;
@@ -88,7 +89,11 @@ public class KuduSecurityModule
                     builder -> {
                         kuduKerberosConfig.getKuduPrincipalPrimary().ifPresent(builder::saslProtocolName);
                         setJavaSecurityKrb5Conf(kuduKerberosConfig.getConfig().getAbsolutePath());
-                        KerberosAuthentication kerberosAuthentication = new KerberosAuthentication(kuduKerberosConfig.getClientPrincipal(), kuduKerberosConfig.getClientKeytab().getAbsolutePath());
+                        KerberosAuthentication kerberosAuthentication = new KerberosAuthentication(
+                                new KerberosConfiguration.Builder()
+                                        .withKerberosPrincipal(kuduKerberosConfig.getClientPrincipal())
+                                        .withKeytabLocation(kuduKerberosConfig.getClientKeytab().getAbsolutePath())
+                                        .build());
                         CachingKerberosAuthentication cachingKerberosAuthentication = new CachingKerberosAuthentication(kerberosAuthentication);
                         return new KerberizedKuduClient(builder, cachingKerberosAuthentication);
                     });
