@@ -41,13 +41,13 @@ public class JwtAuthenticator
     private final JwtParser jwtParser;
     private final String principalField;
     private final UserMapping userMapping;
-    private final String requiredAudience;
+    private final Optional<String> requiredAudience;
 
     @Inject
     public JwtAuthenticator(JwtAuthenticatorConfig config, @ForJwt SigningKeyResolver signingKeyResolver)
     {
         principalField = config.getPrincipalField();
-        requiredAudience = config.getRequiredAudience();
+        requiredAudience = Optional.ofNullable(config.getRequiredAudience());
 
         JwtParserBuilder jwtParser = newJwtParserBuilder()
                 .setSigningKeyResolver(signingKeyResolver);
@@ -78,22 +78,22 @@ public class JwtAuthenticator
     private void validateAudience(Claims claims)
     {
         Object tokenAudience = claims.get(AUDIENCE);
-        if (requiredAudience == null) {
+        if (requiredAudience.isEmpty()) {
             return;
         }
 
         if (tokenAudience == null) {
-            throw new InvalidClaimException(format("Expected %s claim to be: %s, but was not present in the JWT claims.", AUDIENCE, requiredAudience));
+            throw new InvalidClaimException(format("Expected %s claim to be: %s, but was not present in the JWT claims.", AUDIENCE, requiredAudience.get()));
         }
 
         if (tokenAudience instanceof String) {
-            if (!requiredAudience.equals((String) tokenAudience)) {
-                throw new InvalidClaimException(format("Invalid Audience: %s. Allowed audiences: %s", tokenAudience, requiredAudience));
+            if (!requiredAudience.get().equals((String) tokenAudience)) {
+                throw new InvalidClaimException(format("Invalid Audience: %s. Allowed audiences: %s", tokenAudience, requiredAudience.get()));
             }
         }
         else if (tokenAudience instanceof Collection) {
-            if (((Collection<?>) tokenAudience).stream().map(String.class::cast).noneMatch(requiredAudience::equals)) {
-                throw new InvalidClaimException(format("Invalid Audience: %s. Allowed audiences: %s", tokenAudience, requiredAudience));
+            if (((Collection<?>) tokenAudience).stream().map(String.class::cast).noneMatch(aud -> requiredAudience.get().equals(aud))) {
+                throw new InvalidClaimException(format("Invalid Audience: %s. Allowed audiences: %s", tokenAudience, requiredAudience.get()));
             }
         }
         else {
