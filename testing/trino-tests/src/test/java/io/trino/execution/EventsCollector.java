@@ -139,7 +139,12 @@ final class EventsCollector
 
             boolean finished = latch.await(timeout.toMillis(), MILLISECONDS);
             if (!finished) {
-                throw new TimeoutException("Query did not complete in " + timeout);
+                synchronized (this) {
+                    TimeoutException exception = new TimeoutException("Query did not complete in %s. Currently, queryCreatedEvent=%s queryCompletedEvent=%s queryCompleteLatch=%s"
+                                    .formatted(timeout, queryCreatedEvent, queryCompletedEvent, queryCompleteLatch));
+                    failures.forEach(exception::addSuppressed);
+                    throw exception;
+                }
             }
         }
 
