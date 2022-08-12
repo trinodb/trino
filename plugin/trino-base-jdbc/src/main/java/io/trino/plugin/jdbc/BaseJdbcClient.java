@@ -833,9 +833,8 @@ public abstract class BaseJdbcClient
         if (handle.getTemporaryTableName().isPresent()) {
             dropTable(session, new JdbcTableHandle(
                     new SchemaTableName(handle.getSchemaName(), handle.getTemporaryTableName().get()),
-                    handle.getCatalogName(),
-                    handle.getSchemaName(),
-                    handle.getTemporaryTableName().get()));
+                    new RemoteTableName(Optional.ofNullable(handle.getCatalogName()), Optional.ofNullable(handle.getSchemaName()), handle.getTemporaryTableName().get()),
+                    Optional.empty()));
         }
     }
 
