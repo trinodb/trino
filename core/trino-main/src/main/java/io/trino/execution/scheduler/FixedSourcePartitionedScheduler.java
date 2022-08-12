@@ -20,25 +20,25 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.TableExecuteContextManager;
-import io.trino.execution.scheduler.ScheduleResult.BlockedReason;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.server.DynamicFilterService;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.plan.PlanNodeId;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
-import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.trino.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsSourceScheduler;
 import static java.util.Objects.requireNonNull;
 
@@ -49,7 +49,7 @@ public class FixedSourcePartitionedScheduler
 
     private final StageExecution stageExecution;
     private final List<InternalNode> nodes;
-    private final List<SourceScheduler> sourceSchedulers;
+    private final Queue<SourceScheduler> sourceSchedulers;
 
     private final PartitionIdAllocator partitionIdAllocator;
     private final Map<InternalNode, RemoteTask> scheduledTasks;
@@ -106,7 +106,7 @@ public class FixedSourcePartitionedScheduler
                 firstPlanNode = false;
             }
         }
-        this.sourceSchedulers = sourceSchedulers;
+        this.sourceSchedulers = new ArrayDeque<>(sourceSchedulers);
     }
 
     @Override
@@ -126,37 +126,36 @@ public class FixedSourcePartitionedScheduler
             newTasks = newTasksBuilder.build();
         }
 
-        boolean allBlocked = true;
-        List<ListenableFuture<Void>> blocked = new ArrayList<>();
-        BlockedReason blockedReason = BlockedReason.NO_ACTIVE_DRIVER_GROUP;
-
+        ListenableFuture<Void> blocked = immediateFuture(null);
+        ScheduleResult.BlockedReason blockedReason = null;
         int splitsScheduled = 0;
-        Iterator<SourceScheduler> schedulerIterator = sourceSchedulers.iterator();
-        while (schedulerIterator.hasNext()) {
-            SourceScheduler sourceScheduler = schedulerIterator.next();
-
-            ScheduleResult schedule = sourceScheduler.schedule();
+        while (!sourceSchedulers.isEmpty()) {
+            SourceScheduler scheduler = sourceSchedulers.peek();
+            ScheduleResult schedule = scheduler.schedule();
             splitsScheduled += schedule.getSplitsScheduled();
+            blocked = schedule.getBlocked();
+
             if (schedule.getBlockedReason().isPresent()) {
-                blocked.add(schedule.getBlocked());
-                blockedReason = blockedReason.combineWith(schedule.getBlockedReason().get());
+                blockedReason = schedule.getBlockedReason().get();
             }
             else {
-                verify(schedule.getBlocked().isDone(), "blockedReason not provided when scheduler is blocked");
-                allBlocked = false;
+                blockedReason = null;
             }
 
-            if (schedule.isFinished()) {
-                stageExecution.schedulingComplete(sourceScheduler.getPlanNodeId());
-                schedulerIterator.remove();
-                sourceScheduler.close();
+            // if the source is not done scheduling, stop scheduling for now
+            if (!blocked.isDone() || !schedule.isFinished()) {
+                break;
             }
+
+            stageExecution.schedulingComplete(scheduler.getPlanNodeId());
+            sourceSchedulers.remove().close();
         }
 
-        if (allBlocked) {
-            return new ScheduleResult(sourceSchedulers.isEmpty(), newTasks, whenAnyComplete(blocked), blockedReason, splitsScheduled);
+        if (blockedReason != null) {
+            return new ScheduleResult(sourceSchedulers.isEmpty(), newTasks, blocked, blockedReason, splitsScheduled);
         }
         else {
+            checkState(blocked.isDone(), "blockedReason not provided when scheduler is blocked");
             return new ScheduleResult(sourceSchedulers.isEmpty(), newTasks, splitsScheduled);
         }
     }
