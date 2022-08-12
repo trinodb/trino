@@ -14,6 +14,8 @@
 package io.trino.plugin.hive.metastore.file;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -21,6 +23,7 @@ import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
+import io.trino.collect.cache.EvictableCacheBuilder;
 import io.trino.hdfs.DynamicHdfsConfiguration;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfiguration;
@@ -120,6 +123,7 @@ import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
@@ -159,6 +163,9 @@ public class FileHiveMetastore
     private final JsonCodec<List<String>> rolesCodec = JsonCodec.listJsonCodec(String.class);
     private final JsonCodec<List<RoleGrant>> roleGrantsCodec = JsonCodec.listJsonCodec(RoleGrant.class);
 
+    // TODO Remove this speed-up workaround once that https://github.com/trinodb/trino/issues/13115 gets implemented
+    private final LoadingCache<String, List<String>> listTablesCache;
+
     @VisibleForTesting
     public static FileHiveMetastore createTestingFileHiveMetastore(File catalogDirectory)
     {
@@ -189,6 +196,10 @@ public class FileHiveMetastore
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
+
+        listTablesCache = EvictableCacheBuilder.newBuilder()
+                .expireAfterWrite(10, SECONDS)
+                .build(CacheLoader.from(this::doListAllTables));
     }
 
     @Override
@@ -512,6 +523,12 @@ public class FileHiveMetastore
     @GuardedBy("this")
     private List<String> listAllTables(String databaseName)
     {
+        return listTablesCache.getUnchecked(databaseName);
+    }
+
+    @GuardedBy("this")
+    private List<String> doListAllTables(String databaseName)
+    {
         requireNonNull(databaseName, "databaseName is null");
 
         Optional<Database> database = getDatabase(databaseName);
@@ -520,10 +537,9 @@ public class FileHiveMetastore
         }
 
         Path databaseMetadataDirectory = getDatabaseMetadataDirectory(databaseName);
-        List<String> tables = getChildSchemaDirectories(TABLE, databaseMetadataDirectory).stream()
+        return getChildSchemaDirectories(TABLE, databaseMetadataDirectory).stream()
                 .map(Path::getName)
                 .collect(toImmutableList());
-        return tables;
     }
 
     @Override
@@ -619,6 +635,9 @@ public class FileHiveMetastore
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        finally {
+            listTablesCache.invalidateAll();
         }
     }
 
@@ -1345,6 +1364,9 @@ public class FileHiveMetastore
         catch (Exception e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Could not write " + type, e);
         }
+        finally {
+            listTablesCache.invalidateAll();
+        }
     }
 
     private void renameSchemaFile(SchemaType type, Path oldMetadataDirectory, Path newMetadataDirectory)
@@ -1357,6 +1379,9 @@ public class FileHiveMetastore
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Could not rename " + type + " schema", e);
         }
+        finally {
+            listTablesCache.invalidateAll();
+        }
     }
 
     private void deleteSchemaFile(SchemaType type, Path metadataDirectory)
@@ -1368,6 +1393,9 @@ public class FileHiveMetastore
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Could not delete " + type + " schema", e);
+        }
+        finally {
+            listTablesCache.invalidateAll();
         }
     }
 
