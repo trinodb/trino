@@ -323,7 +323,7 @@ public class SqlServerClient
     {
         return format(
                 "sp_rename %s, %s, 'COLUMN'",
-                singleQuote(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), "[" + escape(jdbcColumn.getColumnName()) + "]"),
+                singleQuote(handle.asPlainTable().getRemoteTableName().getCatalogName().orElse(null), handle.getSchemaName(), handle.getTableName(), "[" + escape(jdbcColumn.getColumnName()) + "]"),
                 "[" + newRemoteColumnName + "]");
     }
 
@@ -559,7 +559,7 @@ public class SqlServerClient
 
         try (Connection connection = connectionFactory.openConnection(session);
                 Handle handle = Jdbi.open(connection)) {
-            String catalog = table.getCatalogName();
+            String catalog = table.getRequiredNamedRelation().getRemoteTableName().getCatalogName().orElse(null);
             String schema = table.getSchemaName();
             String tableName = table.getTableName();
 

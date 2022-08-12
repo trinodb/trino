@@ -140,18 +140,6 @@ public final class JdbcTableHandle
     }
 
     /**
-     * @deprecated Use {@code asPlainTable().getRemoteTableName().getCatalogName()} instead, but see those methods for more information, as this is not a drop-in replacement.
-     */
-    @Deprecated
-    @JsonIgnore
-    @Nullable
-    // TODO (https://github.com/trinodb/trino/issues/6797) remove
-    public String getCatalogName()
-    {
-        return getRemoteTableName().getCatalogName().orElse(null);
-    }
-
-    /**
      * @deprecated Use {@code asPlainTable().getRemoteTableName().getSchemaName()} instead, but see those methods for more information, as this is not a drop-in replacement.
      */
     @Deprecated
