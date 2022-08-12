@@ -86,7 +86,7 @@ public class TestJdbcClient
         assertTrue(table.isPresent(), "table is missing");
         assertEquals(table.get().getRequiredNamedRelation().getRemoteTableName().getCatalogName().orElse(null), catalogName.toUpperCase(ENGLISH));
         assertEquals(table.get().getRequiredNamedRelation().getRemoteTableName().getSchemaName().orElse(null), "EXAMPLE");
-        assertEquals(table.get().getTableName(), "NUMBERS");
+        assertEquals(table.get().getRequiredNamedRelation().getRemoteTableName().getTableName(), "NUMBERS");
         assertEquals(table.get().getRequiredNamedRelation().getSchemaTableName(), schemaTableName);
         assertEquals(jdbcClient.getColumns(session, table.orElse(null)), ImmutableList.of(
                 new JdbcColumnHandle("TEXT", JDBC_VARCHAR, VARCHAR),

@@ -324,7 +324,7 @@ public class SqlServerClient
         RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
         return format(
                 "sp_rename %s, %s, 'COLUMN'",
-                singleQuote(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), handle.getTableName(), "[" + escape(jdbcColumn.getColumnName()) + "]"),
+                singleQuote(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName(), "[" + escape(jdbcColumn.getColumnName()) + "]"),
                 "[" + newRemoteColumnName + "]");
     }
 
@@ -563,7 +563,7 @@ public class SqlServerClient
             RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
             String catalog = remoteTableName.getCatalogName().orElse(null);
             String schema = remoteTableName.getSchemaName().orElse(null);
-            String tableName = table.getTableName();
+            String tableName = remoteTableName.getTableName();
 
             StatisticsDao statisticsDao = new StatisticsDao(handle);
             Long tableObjectId = statisticsDao.getTableObjectId(catalog, schema, tableName);
@@ -1015,6 +1015,7 @@ public class SqlServerClient
 
     private static Optional<DataCompression> getTableDataCompression(Handle handle, JdbcTableHandle table)
     {
+        RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
         return handle.createQuery("" +
                         "SELECT data_compression_desc FROM sys.partitions p " +
                         "INNER JOIN sys.tables t ON p.object_id = t.object_id " +
@@ -1024,8 +1025,8 @@ public class SqlServerClient
                         "AND p.index_id = 0 " + // Heap
                         "AND i.type = 0 " + // Heap index type
                         "AND i.data_space_id NOT IN (SELECT data_space_id FROM sys.partition_schemes)")
-                .bind("schema", table.getRequiredNamedRelation().getRemoteTableName().getSchemaName().orElse(null))
-                .bind("table_name", table.getTableName())
+                .bind("schema", remoteTableName.getSchemaName().orElse(null))
+                .bind("table_name", remoteTableName.getTableName())
                 .mapTo(String.class)
                 .findOne()
                 .flatMap(dataCompression -> Enums.getIfPresent(DataCompression.class, dataCompression).toJavaUtil());

@@ -420,7 +420,7 @@ public class DruidJdbcClient
         return metadata.getColumns(
                 remoteTableName.getCatalogName().orElse(null),
                 remoteTableName.getSchemaName().orElse(null),
-                tableHandle.getTableName(),
+                remoteTableName.getTableName(),
                 null);
     }
 
