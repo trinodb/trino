@@ -288,6 +288,14 @@ public abstract class BaseIcebergConnectorTest
                 .hasMessageFindingMatch("(?s)Expecting.*to contain:.*\\Q[(" + viewName + ")]");
     }
 
+    @Override
+    @Test(timeOut = 230_000)
+    public void testReadMetadataWithRelationsConcurrentModifications()
+            throws Exception
+    {
+        testReadMetadataWithRelationsConcurrentModifications(5, 220);
+    }
+
     @Test
     public void testDecimal()
     {
