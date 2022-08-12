@@ -27,7 +27,6 @@ import java.io.IOException;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 
-@Test(singleThreaded = true)
 public class TestConnectorEventListener
 {
     private final EventsCollector generatedEvents = new EventsCollector();
