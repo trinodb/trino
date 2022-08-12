@@ -35,9 +35,11 @@ import static io.trino.util.HashCollisionsEstimator.estimateNumberOfHashCollisio
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-// This implementation assumes:
-// -There is only one join channel and it is of type bigint
-// -arrays used in the hash are always a power of 2.
+/**
+ * This implementation assumes:
+ * -There is only one join channel and it is of type bigint
+ * -arrays used in the hash are always a power of 2.
+ */
 public final class BigintPagesHash
         implements PagesHash
 {
