@@ -1593,9 +1593,6 @@ public class SqlQueryScheduler
                                 case SPLIT_QUEUES_FULL:
                                     schedulerStats.getSplitQueuesFull().update(1);
                                     break;
-                                case MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE:
-                                case NO_ACTIVE_DRIVER_GROUP:
-                                    break;
                                 default:
                                     throw new UnsupportedOperationException("Unknown blocked reason: " + result.getBlockedReason().get());
                             }
