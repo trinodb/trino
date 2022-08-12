@@ -131,8 +131,10 @@ To access the clicks table in the web database, run the following::
 Type mapping
 ------------
 
-Both Oracle and Trino have types that are not supported by the Oracle
-connector. The following sections explain their type mapping.
+Because Trino and Oracle each support types that the other does not, this
+connector modifies some types when reading or writing data. Data types may not
+map the same way in both directions between Trino and the data source. Refer to
+the following sections for type mapping in each direction.
 
 Oracle to Trino type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -140,9 +142,8 @@ Oracle to Trino type mapping
 Trino supports selecting Oracle database types. This table shows the Oracle to
 Trino data type mapping:
 
-
 .. list-table:: Oracle to Trino type mapping
-  :widths: 20, 20, 60
+  :widths: 30, 25, 50
   :header-rows: 1
 
   * - Oracle database type
@@ -200,6 +201,8 @@ Trino data type mapping:
     - ``TIMESTAMP WITH TIME ZONE``
     - See :ref:`datetime mapping`
 
+No other types are supported.
+
 Trino to Oracle type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -209,10 +212,10 @@ The table shows the mappings from Trino to Oracle data types:
 .. note::
    For types not listed in the table below, Trino can't perform the ``CREATE
    TABLE <table> AS SELECT`` operations. When data is inserted into existing
-   tables ``Oracle to Trino`` type mapping is used.
+   tables, ``Oracle to Trino`` type mapping is used.
 
 .. list-table:: Trino to Oracle Type Mapping
-  :widths: 20, 20, 60
+  :widths: 30, 25, 50
   :header-rows: 1
 
   * - Trino type
@@ -260,6 +263,8 @@ The table shows the mappings from Trino to Oracle data types:
   * - ``TIMESTAMP WITH TIME ZONE``
     - ``TIMESTAMP(3) WITH TIME ZONE``
     - See :ref:`datetime mapping`
+
+No other types are supported.
 
 .. _number mapping:
 
