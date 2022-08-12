@@ -113,6 +113,7 @@ import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_NAMED_QUERY;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_PARAMETER_NAME;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_PROPERTY;
+import static io.trino.spi.StandardErrorCode.DUPLICATE_RANGE_VARIABLE;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_WINDOW_NAME;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_AGGREGATE;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
@@ -6567,6 +6568,50 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
                 .hasMessage("line 2:6: Cannot apply row pattern matching to polymorphic table function invocation");
+    }
+
+    @Test
+    public void testTableFunctionAliasing()
+    {
+        // case-insensitive name matching
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(TABLE(t1))) T1(x)")
+                .hasErrorCode(DUPLICATE_RANGE_VARIABLE)
+                .hasMessage("line 1:64: Relation alias: T1 is a duplicate of input table name: tpch.s1.t1");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(TABLE(SELECT 1) T1(a))) t1(x)")
+                .hasErrorCode(DUPLICATE_RANGE_VARIABLE)
+                .hasMessage("line 1:76: Relation alias: t1 is a duplicate of input table name: t1");
+
+        analyze("SELECT * FROM TABLE(system.table_argument_function(TABLE(t1) t2)) T1(x)");
+
+        // the original returned relation type is ("column" : BOOLEAN)
+        analyze("SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias");
+
+        analyze("SELECT column_alias FROM TABLE(system.two_arguments_function('a', 1)) table_alias(column_alias)");
+
+        analyze("SELECT table_alias.column_alias FROM TABLE(system.two_arguments_function('a', 1)) table_alias(column_alias)");
+
+        assertFails("SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias(column_alias)")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:8: Column 'column' cannot be resolved");
+
+        assertFails("SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias(col1, col2, col3)")
+                .hasErrorCode(MISMATCHED_COLUMN_ALIASES)
+                .hasMessage("line 1:20: Column alias list has 3 entries but table function has 1 proper columns");
+
+        // the original returned relation type is ("a" : BOOLEAN, "b" : INTEGER)
+        analyze("SELECT column_alias_1, column_alias_2 FROM TABLE(system.monomorphic_static_return_type_function()) table_alias(column_alias_1, column_alias_2)");
+
+        assertFails("SELECT * FROM TABLE(system.monomorphic_static_return_type_function()) table_alias(col, col)")
+                .hasErrorCode(DUPLICATE_COLUMN_NAME)
+                .hasMessage("line 1:21: Duplicate name of table function proper column: col");
+
+        // case-insensitive name matching
+        assertFails("SELECT * FROM TABLE(system.monomorphic_static_return_type_function()) table_alias(col, COL)")
+                .hasErrorCode(DUPLICATE_COLUMN_NAME)
+                .hasMessage("line 1:21: Duplicate name of table function proper column: col");
+
+        // TODO test pass-through columns wen we support them: they mustn't be aliased, and must be referenced by the original range variables of their corresponding table arguments
     }
 
     @BeforeClass
