@@ -137,17 +137,6 @@ public final class JdbcTableHandle
         return relationHandle;
     }
 
-    /**
-     * @deprecated Use {@code asPlainTable().getRemoteTableName().getTableName()} instead, but see those methods for more information, as this is not a drop-in replacement.
-     */
-    @Deprecated
-    @JsonIgnore
-    // TODO (https://github.com/trinodb/trino/issues/6797) remove
-    public String getTableName()
-    {
-        return getRemoteTableName().getTableName();
-    }
-
     @JsonProperty
     public TupleDomain<ColumnHandle> getConstraint()
     {

@@ -332,7 +332,7 @@ public class SingleStoreClient
 
         // SingleStore doesn't support specifying the catalog name in a rename. By setting the
         // catalogName parameter to null, it will be omitted in the ALTER TABLE statement.
-        renameTable(session, null, catalogName, handle.getTableName(), newTableName);
+        renameTable(session, null, catalogName, remoteTableName.getTableName(), newTableName);
     }
 
     @Override
@@ -342,7 +342,7 @@ public class SingleStoreClient
         RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
         return format(
                 "ALTER TABLE %s CHANGE %s %s",
-                quoted(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), handle.getTableName()),
+                quoted(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
                 quoted(jdbcColumn.getColumnName()),
                 quoted(newRemoteColumnName));
     }

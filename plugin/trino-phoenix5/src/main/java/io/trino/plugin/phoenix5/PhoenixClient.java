@@ -32,6 +32,7 @@ import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.PredicatePushdownController;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
@@ -382,7 +383,8 @@ public class PhoenixClient
         catch (org.apache.phoenix.schema.TableNotFoundException e) {
             // Most JDBC driver return an empty result when DatabaseMetaData.getColumns can't find objects, but Phoenix driver throws an exception
             // Rethrow as Trino TableNotFoundException to suppress the exception during listing information_schema
-            throw new io.trino.spi.connector.TableNotFoundException(new SchemaTableName(handle.getRequiredNamedRelation().getRemoteTableName().getSchemaName().orElse(null), handle.getTableName()));
+            RemoteTableName remoteTableName = handle.getRequiredNamedRelation().getRemoteTableName();
+            throw new io.trino.spi.connector.TableNotFoundException(new SchemaTableName(remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()));
         }
     }
 
@@ -671,11 +673,12 @@ public class PhoenixClient
     public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle handle)
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+        RemoteTableName remoteTableName = handle.getRequiredNamedRelation().getRemoteTableName();
 
         try (Connection connection = connectionFactory.openConnection(session);
                 Admin admin = connection.unwrap(PhoenixConnection.class).getQueryServices().getAdmin()) {
-            String schemaName = toPhoenixSchemaName(handle.getRequiredNamedRelation().getRemoteTableName().getSchemaName().orElse(null));
-            PTable table = getTable(connection, SchemaUtil.getTableName(schemaName, handle.getTableName()));
+            String schemaName = toPhoenixSchemaName(remoteTableName.getSchemaName().orElse(null));
+            PTable table = getTable(connection, SchemaUtil.getTableName(schemaName, remoteTableName.getTableName()));
 
             boolean salted = table.getBucketNum() != null;
             StringJoiner joiner = new StringJoiner(",");
@@ -730,7 +733,7 @@ public class PhoenixClient
         }
         catch (org.apache.phoenix.schema.TableNotFoundException e) {
             // Rethrow as Trino TableNotFoundException to suppress the exception during listing information_schema
-            throw new io.trino.spi.connector.TableNotFoundException(new SchemaTableName(handle.getRequiredNamedRelation().getRemoteTableName().getSchemaName().orElse(null), handle.getTableName()));
+            throw new io.trino.spi.connector.TableNotFoundException(new SchemaTableName(remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()));
         }
         catch (IOException | SQLException e) {
             throw new TrinoException(PHOENIX_METADATA_ERROR, "Couldn't get Phoenix table properties", e);
