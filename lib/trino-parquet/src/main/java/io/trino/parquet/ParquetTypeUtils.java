@@ -13,7 +13,12 @@
  */
 package io.trino.parquet;
 
+import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.io.ColumnIO;
@@ -31,10 +36,14 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.parquet.io.ColumnIOUtil.columnDefinitionLevel;
+import static org.apache.parquet.io.ColumnIOUtil.columnRepetitionLevel;
+import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
 
 public final class ParquetTypeUtils
@@ -258,5 +267,51 @@ public final class ParquetTypeUtils
         }
 
         return value;
+    }
+
+    public static Optional<Field> constructField(Type type, ColumnIO columnIO)
+    {
+        if (columnIO == null) {
+            return Optional.empty();
+        }
+        boolean required = columnIO.getType().getRepetition() != OPTIONAL;
+        int repetitionLevel = columnRepetitionLevel(columnIO);
+        int definitionLevel = columnDefinitionLevel(columnIO);
+        if (type instanceof RowType rowType) {
+            GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
+            ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
+            List<RowType.Field> fields = rowType.getFields();
+            boolean structHasParameters = false;
+            for (RowType.Field rowField : fields) {
+                String name = rowField.getName().orElseThrow().toLowerCase(Locale.ENGLISH);
+                Optional<Field> field = constructField(rowField.getType(), lookupColumnByName(groupColumnIO, name));
+                structHasParameters |= field.isPresent();
+                fieldsBuilder.add(field);
+            }
+            if (structHasParameters) {
+                return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, fieldsBuilder.build()));
+            }
+            return Optional.empty();
+        }
+        if (type instanceof MapType mapType) {
+            GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
+            GroupColumnIO keyValueColumnIO = getMapKeyValueColumn(groupColumnIO);
+            if (keyValueColumnIO.getChildrenCount() != 2) {
+                return Optional.empty();
+            }
+            Optional<Field> keyField = constructField(mapType.getKeyType(), keyValueColumnIO.getChild(0));
+            Optional<Field> valueField = constructField(mapType.getValueType(), keyValueColumnIO.getChild(1));
+            return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(keyField, valueField)));
+        }
+        if (type instanceof ArrayType arrayType) {
+            GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
+            if (groupColumnIO.getChildrenCount() != 1) {
+                return Optional.empty();
+            }
+            Optional<Field> field = constructField(arrayType.getElementType(), getArrayElementColumn(groupColumnIO.getChild(0)));
+            return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
+        }
+        PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
+        return Optional.of(new PrimitiveField(type, required, primitiveColumnIO.getColumnDescriptor(), primitiveColumnIO.getId()));
     }
 }
