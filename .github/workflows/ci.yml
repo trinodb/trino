@@ -176,7 +176,6 @@ jobs:
         config:
           - config-empty
           - config-hdp3
-          # TODO: config-cdh5
           # TODO: config-apache-hive3
     timeout-minutes: 60
     steps:
