@@ -151,16 +151,6 @@ function start_hadoop_docker_containers() {
     retry check_hadoop
 }
 
-function get_hive_major_version() {
-    local version
-    version=$(exec_in_hadoop_master_container hive --version 2>/dev/null | sed -n 's/^Hive.*[ ]\([0-9]\)\..*/\1/p')
-    if [[ "${version}" == "" ]]; then
-        echo "Could not obtain Hive major version" >&2
-        return 1
-    fi
-    echo "${version}"
-}
-
 # $1 = base URI for table names
 function create_test_tables() {
     local table_name table_path
