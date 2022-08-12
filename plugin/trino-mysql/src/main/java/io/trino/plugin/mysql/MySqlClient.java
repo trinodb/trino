@@ -586,7 +586,7 @@ public class MySqlClient
             String newRemoteColumnName = getIdentifierMapping().toRemoteColumnName(connection, newColumnName);
             String sql = format(
                     "ALTER TABLE %s RENAME COLUMN %s TO %s",
-                    quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
+                    quoted(handle.asPlainTable().getRemoteTableName().getCatalogName().orElse(null), handle.getSchemaName(), handle.getTableName()),
                     quoted(jdbcColumn.getColumnName()),
                     quoted(newRemoteColumnName));
             execute(connection, sql);
@@ -594,7 +594,7 @@ public class MySqlClient
         catch (SQLException e) {
             // MySQL versions earlier than 8 do not support the above RENAME COLUMN syntax
             if (SQL_STATE_SYNTAX_ERROR.equals(e.getSQLState())) {
-                throw new TrinoException(NOT_SUPPORTED, format("Rename column not supported in catalog: '%s'", handle.getCatalogName()), e);
+                throw new TrinoException(NOT_SUPPORTED, format("Rename column not supported in catalog: '%s'", handle.asPlainTable().getRemoteTableName().getCatalogName().orElse(null)), e);
             }
             throw new TrinoException(JDBC_ERROR, e);
         }
@@ -626,7 +626,7 @@ public class MySqlClient
         // MySQL doesn't support specifying the catalog name in a rename. By setting the
         // catalogName parameter to null, it will be omitted in the ALTER TABLE statement.
         verify(handle.getSchemaName() == null);
-        renameTable(session, null, handle.getCatalogName(), handle.getTableName(), newTableName);
+        renameTable(session, null, handle.asPlainTable().getRemoteTableName().getCatalogName().orElse(null), handle.getTableName(), newTableName);
     }
 
     @Override
@@ -882,7 +882,7 @@ public class MySqlClient
                             "SELECT TABLE_ROWS FROM INFORMATION_SCHEMA.TABLES " +
                             "WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name " +
                             "AND TABLE_TYPE = 'BASE TABLE' ")
-                    .bind("schema", table.getCatalogName())
+                    .bind("schema", table.getRequiredNamedRelation().getRemoteTableName().getCatalogName().orElse(null))
                     .bind("table_name", table.getTableName())
                     .mapTo(Long.class)
                     .findOne()
@@ -902,7 +902,7 @@ public class MySqlClient
                             "AND SUB_PART IS NULL " + // ignore cases where only a column prefix is indexed
                             "AND CARDINALITY IS NOT NULL " + // CARDINALITY might be null (https://stackoverflow.com/a/42242729/65458)
                             "GROUP BY COLUMN_NAME") // there might be multiple indexes on a column
-                    .bind("schema", table.getCatalogName())
+                    .bind("schema", table.getRequiredNamedRelation().getRemoteTableName().getCatalogName().orElse(null))
                     .bind("table_name", table.getTableName())
                     .map((rs, ctx) -> {
                         String columnName = rs.getString("COLUMN_NAME");
@@ -934,7 +934,7 @@ public class MySqlClient
             return handle.createQuery("" +
                             "SELECT COLUMN_NAME, HISTOGRAM FROM INFORMATION_SCHEMA.COLUMN_STATISTICS " +
                             "WHERE SCHEMA_NAME = :schema AND TABLE_NAME = :table_name")
-                    .bind("schema", table.getCatalogName())
+                    .bind("schema", table.getRequiredNamedRelation().getRemoteTableName().getCatalogName().orElse(null))
                     .bind("table_name", table.getTableName())
                     .map((rs, ctx) -> new SimpleEntry<>(rs.getString("COLUMN_NAME"), rs.getString("HISTOGRAM")))
                     .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));

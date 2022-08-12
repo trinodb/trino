@@ -86,7 +86,7 @@ public class PhoenixMetadata
         return phoenixClient.getTableHandle(session, schemaTableName)
                 .map(tableHandle -> new JdbcTableHandle(
                         schemaTableName,
-                        new RemoteTableName(Optional.ofNullable(tableHandle.getCatalogName()), Optional.ofNullable(toTrinoSchemaName(tableHandle.getSchemaName())), tableHandle.getTableName()),
+                        new RemoteTableName(tableHandle.asPlainTable().getRemoteTableName().getCatalogName(), Optional.ofNullable(toTrinoSchemaName(tableHandle.getSchemaName())), tableHandle.getTableName()),
                         Optional.empty()))
                 .orElse(null);
     }
