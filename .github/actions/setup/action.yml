@@ -1,0 +1,34 @@
+name: setup
+description: "Setup Java"
+inputs:
+  java-version:
+    description: "Java version to setup"
+    default: 17
+  cache:
+    description: "Cache Maven repo"
+    default: true
+
+runs:
+  using: composite
+  steps:
+      - name: Fetch base ref to find merge-base for GIB
+        shell: bash
+        run: .github/bin/git-fetch-base-ref.sh
+      - uses: actions/setup-java@v3
+        if: ${{ inputs.java-version != '' }}
+        with:
+          distribution: 'zulu'
+          java-version: ${{ inputs.java-version }}
+      - name: Cache local Maven repo
+        id: cache
+        if: ${{ inputs.cache }}
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+      - name: Configure Problem Matchers
+        if: ${{ inputs.java-version != '' }}
+        shell: bash
+        run: echo "::add-matcher::.github/problem-matcher.json"
