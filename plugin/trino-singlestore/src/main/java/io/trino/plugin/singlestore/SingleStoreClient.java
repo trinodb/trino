@@ -323,14 +323,14 @@ public class SingleStoreClient
     public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
         verify(handle.getSchemaName() == null);
-        String catalogName = handle.getCatalogName();
+        String catalogName = handle.asPlainTable().getRemoteTableName().getCatalogName().orElse(null);
         if (catalogName != null && !catalogName.equalsIgnoreCase(newTableName.getSchemaName())) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
 
         // SingleStore doesn't support specifying the catalog name in a rename. By setting the
         // catalogName parameter to null, it will be omitted in the ALTER TABLE statement.
-        renameTable(session, null, handle.getCatalogName(), handle.getTableName(), newTableName);
+        renameTable(session, null, catalogName, handle.getTableName(), newTableName);
     }
 
     @Override
@@ -339,7 +339,7 @@ public class SingleStoreClient
         // SingleStore versions earlier than 5.7 do not support the CHANGE syntax
         return format(
                 "ALTER TABLE %s CHANGE %s %s",
-                quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
+                quoted(handle.asPlainTable().getRemoteTableName().getCatalogName().orElse(null), handle.getSchemaName(), handle.getTableName()),
                 quoted(jdbcColumn.getColumnName()),
                 quoted(newRemoteColumnName));
     }

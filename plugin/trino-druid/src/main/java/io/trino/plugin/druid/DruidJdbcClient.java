@@ -415,7 +415,7 @@ public class DruidJdbcClient
             throws SQLException
     {
         return metadata.getColumns(
-                tableHandle.getCatalogName(),
+                tableHandle.getRequiredNamedRelation().getRemoteTableName().getCatalogName().orElse(null),
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
                 null);
