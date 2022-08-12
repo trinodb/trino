@@ -33,8 +33,10 @@ public class JoinOperatorInfo
     private final long[] logHistogramProbes;
     private final long[] logHistogramOutput;
     private final Optional<Long> lookupSourcePositions;
+    private final long rleProbes;
+    private final long totalProbes;
 
-    public static JoinOperatorInfo createJoinOperatorInfo(JoinType joinType, long[] logHistogramCounters, Optional<Long> lookupSourcePositions)
+    public static JoinOperatorInfo createJoinOperatorInfo(JoinType joinType, long[] logHistogramCounters, Optional<Long> lookupSourcePositions, long rleProbes, long totalProbes)
     {
         long[] logHistogramProbes = new long[HISTOGRAM_BUCKETS];
         long[] logHistogramOutput = new long[HISTOGRAM_BUCKETS];
@@ -42,7 +44,7 @@ public class JoinOperatorInfo
             logHistogramProbes[i] = logHistogramCounters[2 * i];
             logHistogramOutput[i] = logHistogramCounters[2 * i + 1];
         }
-        return new JoinOperatorInfo(joinType, logHistogramProbes, logHistogramOutput, lookupSourcePositions);
+        return new JoinOperatorInfo(joinType, logHistogramProbes, logHistogramOutput, lookupSourcePositions, rleProbes, totalProbes);
     }
 
     @JsonCreator
@@ -50,7 +52,9 @@ public class JoinOperatorInfo
             @JsonProperty("joinType") JoinType joinType,
             @JsonProperty("logHistogramProbes") long[] logHistogramProbes,
             @JsonProperty("logHistogramOutput") long[] logHistogramOutput,
-            @JsonProperty("lookupSourcePositions") Optional<Long> lookupSourcePositions)
+            @JsonProperty("lookupSourcePositions") Optional<Long> lookupSourcePositions,
+            @JsonProperty("rleProbes") long rleProbes,
+            @JsonProperty("totalProbes") long totalProbes)
     {
         checkArgument(logHistogramProbes.length == HISTOGRAM_BUCKETS);
         checkArgument(logHistogramOutput.length == HISTOGRAM_BUCKETS);
@@ -58,6 +62,8 @@ public class JoinOperatorInfo
         this.logHistogramProbes = logHistogramProbes;
         this.logHistogramOutput = logHistogramOutput;
         this.lookupSourcePositions = lookupSourcePositions;
+        this.rleProbes = rleProbes;
+        this.totalProbes = totalProbes;
     }
 
     @JsonProperty
@@ -87,6 +93,18 @@ public class JoinOperatorInfo
         return lookupSourcePositions;
     }
 
+    @JsonProperty
+    public long getRleProbes()
+    {
+        return rleProbes;
+    }
+
+    @JsonProperty
+    public long getTotalProbes()
+    {
+        return totalProbes;
+    }
+
     @Override
     public String toString()
     {
@@ -95,6 +113,8 @@ public class JoinOperatorInfo
                 .add("logHistogramProbes", logHistogramProbes)
                 .add("logHistogramOutput", logHistogramOutput)
                 .add("lookupSourcePositions", lookupSourcePositions)
+                .add("rleProbes", rleProbes)
+                .add("totalProbes", totalProbes)
                 .toString();
     }
 
@@ -114,7 +134,7 @@ public class JoinOperatorInfo
             mergedSourcePositions = Optional.of(this.lookupSourcePositions.orElse(0L) + other.lookupSourcePositions.orElse(0L));
         }
 
-        return new JoinOperatorInfo(this.joinType, logHistogramProbes, logHistogramOutput, mergedSourcePositions);
+        return new JoinOperatorInfo(this.joinType, logHistogramProbes, logHistogramOutput, mergedSourcePositions, this.rleProbes + other.rleProbes, this.totalProbes + other.totalProbes);
     }
 
     @Override
