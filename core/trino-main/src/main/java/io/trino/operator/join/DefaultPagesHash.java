@@ -46,7 +46,7 @@ public final class DefaultPagesHash
     private final PagesHashStrategy pagesHashStrategy;
 
     private final int mask;
-    private final int[] key;
+    private final int[] keys;
     private final long size;
 
     // Native array of hashes for faster collisions resolution compared
@@ -69,8 +69,8 @@ public final class DefaultPagesHash
         int hashSize = hashArraySizeSupplier.getHashArraySize(addresses.size());
 
         mask = hashSize - 1;
-        key = new int[hashSize];
-        Arrays.fill(key, -1);
+        keys = new int[hashSize];
+        Arrays.fill(keys, -1);
 
         positionToHashes = new byte[addresses.size()];
 
@@ -87,11 +87,11 @@ public final class DefaultPagesHash
             // First extract all hashes from blocks to native array.
             // Somehow having this as a separate loop is much faster compared
             // to extracting hashes on the fly in the loop below.
-            for (int position = 0; position < stepSize; position++) {
-                int realPosition = position + stepBeginPosition;
-                long hash = readHashPosition(realPosition);
-                positionToFullHashes[position] = hash;
-                positionToHashes[realPosition] = (byte) hash;
+            for (int batchIndex = 0; batchIndex < stepSize; batchIndex++) {
+                int addressIndex = batchIndex + stepBeginPosition;
+                long hash = readHashPosition(addressIndex);
+                positionToFullHashes[batchIndex] = hash;
+                positionToHashes[addressIndex] = (byte) hash;
             }
 
             // index pages
@@ -105,8 +105,8 @@ public final class DefaultPagesHash
                 int pos = getHashPosition(hash, mask);
 
                 // look for an empty slot or a slot containing this key
-                while (key[pos] != -1) {
-                    int currentKey = key[pos];
+                while (keys[pos] != -1) {
+                    int currentKey = keys[pos];
                     if (((byte) hash) == positionToHashes[currentKey] && positionEqualsPositionIgnoreNulls(currentKey, realPosition)) {
                         // found a slot for this key
                         // link the new key position to the current key position
@@ -120,12 +120,12 @@ public final class DefaultPagesHash
                     hashCollisionsLocal++;
                 }
 
-                key[pos] = realPosition;
+                keys[pos] = realPosition;
             }
         }
 
         size = sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes() +
-                sizeOf(key) + sizeOf(positionToHashes);
+                sizeOf(keys) + sizeOf(positionToHashes);
         hashCollisions = hashCollisionsLocal;
         expectedHashCollisions = estimateNumberOfHashCollisions(addresses.size(), hashSize);
     }
@@ -165,9 +165,9 @@ public final class DefaultPagesHash
     {
         int pos = getHashPosition(rawHash, mask);
 
-        while (key[pos] != -1) {
-            if (positionEqualsCurrentRowIgnoreNulls(key[pos], (byte) rawHash, rightPosition, hashChannelsPage)) {
-                return key[pos];
+        while (keys[pos] != -1) {
+            if (positionEqualsCurrentRowIgnoreNulls(keys[pos], (byte) rawHash, rightPosition, hashChannelsPage)) {
+                return keys[pos];
             }
             // increment position and mask to handler wrap around
             pos = (pos + 1) & mask;

@@ -49,7 +49,7 @@ public final class BigintPagesHash
     private final PagesHashStrategy pagesHashStrategy;
 
     private final int mask;
-    private final int[] key;
+    private final int[] keys;
     private final long[] values;
     private final long size;
 
@@ -77,9 +77,9 @@ public final class BigintPagesHash
         int hashSize = hashArraySizeSupplier.getHashArraySize(addresses.size());
 
         mask = hashSize - 1;
-        key = new int[hashSize];
+        keys = new int[hashSize];
         values = new long[addresses.size()];
-        Arrays.fill(key, -1);
+        Arrays.fill(keys, -1);
 
         // We will process addresses in batches, to improve spatial and temporal memory locality
         int positionsInStep = Math.min(addresses.size() + 1, (int) CACHE_SIZE.toBytes() / Integer.SIZE);
@@ -91,13 +91,13 @@ public final class BigintPagesHash
             int stepSize = stepEndPosition - stepBeginPosition;
 
             // index pages
-            for (int position = 0; position < stepSize; position++) {
-                int realPosition = position + stepBeginPosition;
-                if (isPositionNull(realPosition)) {
+            for (int batchIndex = 0; batchIndex < stepSize; batchIndex++) {
+                int addressIndex = batchIndex + stepBeginPosition;
+                if (isPositionNull(addressIndex)) {
                     continue;
                 }
 
-                long address = addresses.getLong(realPosition);
+                long address = addresses.getLong(addressIndex);
                 int blockIndex = decodeSliceIndex(address);
                 int blockPosition = decodePosition(address);
                 long value = joinChannelBlocks.get(blockIndex).getLong(blockPosition, 0);
@@ -105,12 +105,12 @@ public final class BigintPagesHash
                 int pos = getHashPosition(value, mask);
 
                 // look for an empty slot or a slot containing this key
-                while (key[pos] != -1) {
-                    int currentKey = key[pos];
+                while (keys[pos] != -1) {
+                    int currentKey = keys[pos];
                     if (value == values[currentKey]) {
                         // found a slot for this key
                         // link the new key position to the current key position
-                        realPosition = positionLinks.link(realPosition, currentKey);
+                        addressIndex = positionLinks.link(addressIndex, currentKey);
 
                         // key[pos] updated outside of this loop
                         break;
@@ -120,13 +120,13 @@ public final class BigintPagesHash
                     hashCollisionsLocal++;
                 }
 
-                key[pos] = realPosition;
-                values[realPosition] = value;
+                keys[pos] = addressIndex;
+                values[addressIndex] = value;
             }
         }
 
         size = sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes() +
-                sizeOf(key) + sizeOf(values);
+                sizeOf(keys) + sizeOf(values);
         hashCollisions = hashCollisionsLocal;
         expectedHashCollisions = estimateNumberOfHashCollisions(addresses.size(), hashSize);
     }
@@ -167,9 +167,9 @@ public final class BigintPagesHash
         long value = hashChannelsPage.getBlock(0).getLong(position, 0);
         int pos = getHashPosition(value, mask);
 
-        while (key[pos] != -1) {
-            if (value == values[key[pos]]) {
-                return key[pos];
+        while (keys[pos] != -1) {
+            if (value == values[keys[pos]]) {
+                return keys[pos];
             }
             // increment position and mask to handler wrap around
             pos = (pos + 1) & mask;
