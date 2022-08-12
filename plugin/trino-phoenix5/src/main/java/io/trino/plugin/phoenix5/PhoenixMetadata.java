@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -85,9 +86,8 @@ public class PhoenixMetadata
         return phoenixClient.getTableHandle(session, schemaTableName)
                 .map(tableHandle -> new JdbcTableHandle(
                         schemaTableName,
-                        tableHandle.getCatalogName(),
-                        toTrinoSchemaName(tableHandle.getSchemaName()),
-                        tableHandle.getTableName()))
+                        new RemoteTableName(Optional.ofNullable(tableHandle.getCatalogName()), Optional.ofNullable(toTrinoSchemaName(tableHandle.getSchemaName())), tableHandle.getTableName()),
+                        Optional.empty()))
                 .orElse(null);
     }
 

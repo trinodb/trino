@@ -61,12 +61,6 @@ public final class JdbcTableHandle
 
     private final int nextSyntheticColumnId;
 
-    @Deprecated
-    public JdbcTableHandle(SchemaTableName schemaTableName, @Nullable String catalogName, @Nullable String schemaName, String tableName)
-    {
-        this(schemaTableName, new RemoteTableName(Optional.ofNullable(catalogName), Optional.ofNullable(schemaName), tableName), Optional.empty());
-    }
-
     public JdbcTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName, Optional<String> comment)
     {
         this(

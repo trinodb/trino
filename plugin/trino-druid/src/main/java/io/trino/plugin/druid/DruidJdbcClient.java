@@ -174,9 +174,8 @@ public class DruidJdbcClient
                 if (Objects.equals(schemaName, jdbcSchemaName) && Objects.equals(tableName, jdbcTableName)) {
                     tableHandles.add(new JdbcTableHandle(
                             schemaTableName,
-                            DRUID_CATALOG,
-                            schemaName,
-                            tableName));
+                            new RemoteTableName(Optional.of(DRUID_CATALOG), Optional.ofNullable(schemaName), tableName),
+                            Optional.empty()));
                 }
             }
             if (tableHandles.isEmpty()) {
