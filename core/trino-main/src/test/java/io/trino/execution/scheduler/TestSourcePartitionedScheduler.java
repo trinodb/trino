@@ -166,6 +166,29 @@ public class TestSourcePartitionedScheduler
     }
 
     @Test
+    public void testDoesNotScheduleEmptySplit()
+    {
+        PlanFragment plan = createFragment();
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        StageExecution stage = createStageExecution(plan, nodeTaskMap);
+
+        ConnectorSplitSource splitSource = createFixedSplitSource(2, TestingSplit::createRemoteSplit);
+        StageScheduler scheduler = getSourcePartitionedScheduler(splitSource, stage, nodeManager, nodeTaskMap, 1, STAGE);
+
+        assertEquals(scheduler.schedule().getNewTasks().size(), 1);
+
+        // ensure that next batch size fetched by scheduler will be empty and last
+        splitSource.getNextBatch(1);
+
+        ScheduleResult scheduleResult = scheduler.schedule();
+        assertEquals(scheduleResult.getNewTasks().size(), 0);
+
+        assertEffectivelyFinished(scheduleResult, scheduler);
+
+        stage.abort();
+    }
+
+    @Test
     public void testScheduleSplitsOneAtATime()
     {
         PlanFragment plan = createFragment();
