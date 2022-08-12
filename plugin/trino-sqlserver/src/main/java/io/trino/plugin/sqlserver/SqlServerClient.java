@@ -321,9 +321,10 @@ public class SqlServerClient
     @Override
     protected String renameColumnSql(JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newRemoteColumnName)
     {
+        RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
         return format(
                 "sp_rename %s, %s, 'COLUMN'",
-                singleQuote(handle.asPlainTable().getRemoteTableName().getCatalogName().orElse(null), handle.getSchemaName(), handle.getTableName(), "[" + escape(jdbcColumn.getColumnName()) + "]"),
+                singleQuote(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), handle.getTableName(), "[" + escape(jdbcColumn.getColumnName()) + "]"),
                 "[" + newRemoteColumnName + "]");
     }
 
@@ -559,8 +560,9 @@ public class SqlServerClient
 
         try (Connection connection = connectionFactory.openConnection(session);
                 Handle handle = Jdbi.open(connection)) {
-            String catalog = table.getRequiredNamedRelation().getRemoteTableName().getCatalogName().orElse(null);
-            String schema = table.getSchemaName();
+            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
+            String catalog = remoteTableName.getCatalogName().orElse(null);
+            String schema = remoteTableName.getSchemaName().orElse(null);
             String tableName = table.getTableName();
 
             StatisticsDao statisticsDao = new StatisticsDao(handle);
@@ -1022,7 +1024,7 @@ public class SqlServerClient
                         "AND p.index_id = 0 " + // Heap
                         "AND i.type = 0 " + // Heap index type
                         "AND i.data_space_id NOT IN (SELECT data_space_id FROM sys.partition_schemes)")
-                .bind("schema", table.getSchemaName())
+                .bind("schema", table.getRequiredNamedRelation().getRemoteTableName().getSchemaName().orElse(null))
                 .bind("table_name", table.getTableName())
                 .mapTo(String.class)
                 .findOne()

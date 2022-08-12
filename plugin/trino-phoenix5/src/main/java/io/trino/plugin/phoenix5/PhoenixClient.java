@@ -379,7 +379,7 @@ public class PhoenixClient
         catch (org.apache.phoenix.schema.TableNotFoundException e) {
             // Most JDBC driver return an empty result when DatabaseMetaData.getColumns can't find objects, but Phoenix driver throws an exception
             // Rethrow as Trino TableNotFoundException to suppress the exception during listing information_schema
-            throw new io.trino.spi.connector.TableNotFoundException(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+            throw new io.trino.spi.connector.TableNotFoundException(new SchemaTableName(handle.getRequiredNamedRelation().getRemoteTableName().getSchemaName().orElse(null), handle.getTableName()));
         }
     }
 
@@ -671,7 +671,7 @@ public class PhoenixClient
 
         try (Connection connection = connectionFactory.openConnection(session);
                 Admin admin = connection.unwrap(PhoenixConnection.class).getQueryServices().getAdmin()) {
-            String schemaName = toPhoenixSchemaName(handle.getSchemaName());
+            String schemaName = toPhoenixSchemaName(handle.getRequiredNamedRelation().getRemoteTableName().getSchemaName().orElse(null));
             PTable table = getTable(connection, SchemaUtil.getTableName(schemaName, handle.getTableName()));
 
             boolean salted = table.getBucketNum() != null;
@@ -727,7 +727,7 @@ public class PhoenixClient
         }
         catch (org.apache.phoenix.schema.TableNotFoundException e) {
             // Rethrow as Trino TableNotFoundException to suppress the exception during listing information_schema
-            throw new io.trino.spi.connector.TableNotFoundException(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+            throw new io.trino.spi.connector.TableNotFoundException(new SchemaTableName(handle.getRequiredNamedRelation().getRemoteTableName().getSchemaName().orElse(null), handle.getTableName()));
         }
         catch (IOException | SQLException e) {
             throw new TrinoException(PHOENIX_METADATA_ERROR, "Couldn't get Phoenix table properties", e);

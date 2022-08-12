@@ -43,6 +43,7 @@ import io.trino.plugin.jdbc.PredicatePushdownController;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.ReadFunction;
+import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceReadFunction;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
@@ -473,7 +474,7 @@ public class PostgreSqlClient
                 "AND tbl.relname = ? " +
                 "AND attyp.typcategory = 'A' ";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, tableHandle.getSchemaName());
+            statement.setString(1, tableHandle.getRequiredNamedRelation().getRemoteTableName().getSchemaName().orElse(null));
             statement.setString(2, tableHandle.getTableName());
 
             Map<String, Integer> arrayColumnDimensions = new HashMap<>();
@@ -902,7 +903,7 @@ public class PostgreSqlClient
                 return tableStatistics.build();
             }
 
-            Map<String, ColumnStatisticsResult> columnStatistics = statisticsDao.getColumnStatistics(table.getSchemaName(), table.getTableName()).stream()
+            Map<String, ColumnStatisticsResult> columnStatistics = statisticsDao.getColumnStatistics(table.getRequiredNamedRelation().getRemoteTableName().getSchemaName().orElse(null), table.getTableName()).stream()
                     .collect(toImmutableMap(ColumnStatisticsResult::getColumnName, identity()));
 
             for (JdbcColumnHandle column : this.getColumns(session, table)) {
@@ -940,25 +941,27 @@ public class PostgreSqlClient
 
     private static Optional<Long> readRowCountTableStat(StatisticsDao statisticsDao, JdbcTableHandle table)
     {
-        Optional<Long> rowCount = statisticsDao.getRowCountFromPgClass(table.getSchemaName(), table.getTableName());
+        RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
+        String schemaName = remoteTableName.getSchemaName().orElse(null);
+        Optional<Long> rowCount = statisticsDao.getRowCountFromPgClass(schemaName, table.getTableName());
         if (rowCount.isEmpty()) {
             // Table not found
             return Optional.empty();
         }
 
-        if (statisticsDao.isPartitionedTable(table.getSchemaName(), table.getTableName())) {
-            Optional<Long> partitionedTableRowCount = statisticsDao.getRowCountPartitionedTableFromPgClass(table.getSchemaName(), table.getTableName());
+        if (statisticsDao.isPartitionedTable(schemaName, table.getTableName())) {
+            Optional<Long> partitionedTableRowCount = statisticsDao.getRowCountPartitionedTableFromPgClass(schemaName, table.getTableName());
             if (partitionedTableRowCount.isPresent()) {
                 return partitionedTableRowCount;
             }
 
-            return statisticsDao.getRowCountPartitionedTableFromPgStats(table.getSchemaName(), table.getTableName());
+            return statisticsDao.getRowCountPartitionedTableFromPgStats(schemaName, table.getTableName());
         }
 
         if (rowCount.get() == 0) {
             // `pg_class.reltuples = 0` may mean an empty table or a recently populated table (CTAS, LOAD or INSERT)
             // `pg_stat_all_tables.n_live_tup` can be way off, so we use it only as a fallback
-            rowCount = statisticsDao.getRowCountFromPgStat(table.getSchemaName(), table.getTableName());
+            rowCount = statisticsDao.getRowCountFromPgStat(schemaName, table.getTableName());
         }
 
         return rowCount;
