@@ -20,6 +20,7 @@ import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.authentication.HadoopAuthentication;
+import io.trino.plugin.base.authentication.KerberosConfiguration;
 import io.trino.plugin.hive.ForHiveMetastore;
 
 import static com.google.inject.Scopes.SINGLETON;
@@ -70,7 +71,10 @@ public class ThriftMetastoreAuthenticationModule
         {
             String principal = config.getHiveMetastoreClientPrincipal();
             String keytabLocation = config.getHiveMetastoreClientKeytab();
-            return createCachingKerberosHadoopAuthentication(principal, keytabLocation, updater);
+            KerberosConfiguration.Builder builder = new KerberosConfiguration.Builder()
+                    .withKerberosPrincipal(principal)
+                    .withKeytabLocation(keytabLocation);
+            return createCachingKerberosHadoopAuthentication(builder.build(), updater);
         }
     }
 }
