@@ -86,7 +86,7 @@ public class PhoenixMetadata
         return phoenixClient.getTableHandle(session, schemaTableName)
                 .map(tableHandle -> new JdbcTableHandle(
                         schemaTableName,
-                        new RemoteTableName(tableHandle.asPlainTable().getRemoteTableName().getCatalogName(), Optional.ofNullable(toTrinoSchemaName(tableHandle.getSchemaName())), tableHandle.getTableName()),
+                        new RemoteTableName(tableHandle.asPlainTable().getRemoteTableName().getCatalogName(), Optional.ofNullable(toTrinoSchemaName(tableHandle.asPlainTable().getRemoteTableName().getSchemaName().orElse(null))), tableHandle.getTableName()),
                         Optional.empty()))
                 .orElse(null);
     }
@@ -209,7 +209,7 @@ public class PhoenixMetadata
                 .collect(toImmutableList());
 
         return new PhoenixOutputTableHandle(
-                handle.getSchemaName(),
+                handle.asPlainTable().getRemoteTableName().getSchemaName().orElse(null),
                 handle.getTableName(),
                 columnHandles.stream().map(JdbcColumnHandle::getColumnName).collect(toImmutableList()),
                 columnHandles.stream().map(JdbcColumnHandle::getColumnType).collect(toImmutableList()),
@@ -233,7 +233,7 @@ public class PhoenixMetadata
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         phoenixClient.execute(session, format(
                 "ALTER TABLE %s ADD %s %s",
-                getEscapedTableName(handle.getSchemaName(), handle.getTableName()),
+                getEscapedTableName(handle.asPlainTable().getRemoteTableName().getSchemaName().orElse(null), handle.getTableName()),
                 phoenixClient.quoted(column.getName()),
                 phoenixClient.toWriteMapping(session, column.getType()).getDataType()));
     }
@@ -245,7 +245,7 @@ public class PhoenixMetadata
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
         phoenixClient.execute(session, format(
                 "ALTER TABLE %s DROP COLUMN %s",
-                getEscapedTableName(handle.getSchemaName(), handle.getTableName()),
+                getEscapedTableName(handle.asPlainTable().getRemoteTableName().getSchemaName().orElse(null), handle.getTableName()),
                 phoenixClient.quoted(columnHandle.getColumnName())));
     }
 
@@ -259,7 +259,7 @@ public class PhoenixMetadata
                 .anyMatch(ROWKEY::equals);
         if (hasRowkey) {
             JdbcTableHandle jdbcHandle = (JdbcTableHandle) tableHandle;
-            phoenixClient.execute(session, format("DROP SEQUENCE %s", getEscapedTableName(jdbcHandle.getSchemaName(), jdbcHandle.getTableName() + "_sequence")));
+            phoenixClient.execute(session, format("DROP SEQUENCE %s", getEscapedTableName(jdbcHandle.asPlainTable().getRemoteTableName().getSchemaName().orElse(null), jdbcHandle.getTableName() + "_sequence")));
         }
         phoenixClient.dropTable(session, (JdbcTableHandle) tableHandle);
     }

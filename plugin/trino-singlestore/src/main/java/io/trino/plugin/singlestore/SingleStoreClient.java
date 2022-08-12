@@ -27,6 +27,7 @@ import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
@@ -322,8 +323,9 @@ public class SingleStoreClient
     @Override
     public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
-        verify(handle.getSchemaName() == null);
-        String catalogName = handle.asPlainTable().getRemoteTableName().getCatalogName().orElse(null);
+        RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
+        verify(remoteTableName.getSchemaName().isEmpty());
+        String catalogName = remoteTableName.getCatalogName().orElse(null);
         if (catalogName != null && !catalogName.equalsIgnoreCase(newTableName.getSchemaName())) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
@@ -337,9 +339,10 @@ public class SingleStoreClient
     protected String renameColumnSql(JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newRemoteColumnName)
     {
         // SingleStore versions earlier than 5.7 do not support the CHANGE syntax
+        RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
         return format(
                 "ALTER TABLE %s CHANGE %s %s",
-                quoted(handle.asPlainTable().getRemoteTableName().getCatalogName().orElse(null), handle.getSchemaName(), handle.getTableName()),
+                quoted(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), handle.getTableName()),
                 quoted(jdbcColumn.getColumnName()),
                 quoted(newRemoteColumnName));
     }

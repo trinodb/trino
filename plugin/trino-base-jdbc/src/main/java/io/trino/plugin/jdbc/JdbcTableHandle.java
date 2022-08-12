@@ -23,8 +23,6 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
-import javax.annotation.Nullable;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -137,18 +135,6 @@ public final class JdbcTableHandle
     public JdbcRelationHandle getRelationHandle()
     {
         return relationHandle;
-    }
-
-    /**
-     * @deprecated Use {@code asPlainTable().getRemoteTableName().getSchemaName()} instead, but see those methods for more information, as this is not a drop-in replacement.
-     */
-    @Deprecated
-    @JsonIgnore
-    @Nullable
-    // TODO (https://github.com/trinodb/trino/issues/6797) remove
-    public String getSchemaName()
-    {
-        return getRemoteTableName().getSchemaName().orElse(null);
     }
 
     /**
