@@ -9,4 +9,3 @@ then
 fi
 
 export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-$DEFAULT_DOCKER_VERSION}
-export HADOOP_BASE_IMAGE="${HADOOP_BASE_IMAGE:-ghcr.io/trinodb/testing/hdp2.6-hive}"
