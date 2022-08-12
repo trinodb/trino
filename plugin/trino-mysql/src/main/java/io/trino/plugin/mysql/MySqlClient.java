@@ -587,7 +587,7 @@ public class MySqlClient
             RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
             String sql = format(
                     "ALTER TABLE %s RENAME COLUMN %s TO %s",
-                    quoted(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), handle.getTableName()),
+                    quoted(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
                     quoted(jdbcColumn.getColumnName()),
                     quoted(newRemoteColumnName));
             execute(connection, sql);
@@ -628,7 +628,7 @@ public class MySqlClient
         // catalogName parameter to null, it will be omitted in the ALTER TABLE statement.
         RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
         verify(remoteTableName.getSchemaName().isEmpty());
-        renameTable(session, null, remoteTableName.getCatalogName().orElse(null), handle.getTableName(), newTableName);
+        renameTable(session, null, remoteTableName.getCatalogName().orElse(null), remoteTableName.getTableName(), newTableName);
     }
 
     @Override
@@ -880,12 +880,13 @@ public class MySqlClient
 
         Long getRowCount(JdbcTableHandle table)
         {
+            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
             return handle.createQuery("" +
                             "SELECT TABLE_ROWS FROM INFORMATION_SCHEMA.TABLES " +
                             "WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name " +
                             "AND TABLE_TYPE = 'BASE TABLE' ")
-                    .bind("schema", table.getRequiredNamedRelation().getRemoteTableName().getCatalogName().orElse(null))
-                    .bind("table_name", table.getTableName())
+                    .bind("schema", remoteTableName.getCatalogName().orElse(null))
+                    .bind("table_name", remoteTableName.getTableName())
                     .mapTo(Long.class)
                     .findOne()
                     .orElse(null);
@@ -893,6 +894,7 @@ public class MySqlClient
 
         Map<String, ColumnIndexStatistics> getColumnIndexStatistics(JdbcTableHandle table)
         {
+            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
             return handle.createQuery("" +
                             "SELECT " +
                             "  COLUMN_NAME, " +
@@ -904,8 +906,8 @@ public class MySqlClient
                             "AND SUB_PART IS NULL " + // ignore cases where only a column prefix is indexed
                             "AND CARDINALITY IS NOT NULL " + // CARDINALITY might be null (https://stackoverflow.com/a/42242729/65458)
                             "GROUP BY COLUMN_NAME") // there might be multiple indexes on a column
-                    .bind("schema", table.getRequiredNamedRelation().getRemoteTableName().getCatalogName().orElse(null))
-                    .bind("table_name", table.getTableName())
+                    .bind("schema", remoteTableName.getCatalogName().orElse(null))
+                    .bind("table_name", remoteTableName.getTableName())
                     .map((rs, ctx) -> {
                         String columnName = rs.getString("COLUMN_NAME");
 
@@ -933,11 +935,12 @@ public class MySqlClient
                 }
             }
 
+            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
             return handle.createQuery("" +
                             "SELECT COLUMN_NAME, HISTOGRAM FROM INFORMATION_SCHEMA.COLUMN_STATISTICS " +
                             "WHERE SCHEMA_NAME = :schema AND TABLE_NAME = :table_name")
-                    .bind("schema", table.getRequiredNamedRelation().getRemoteTableName().getCatalogName().orElse(null))
-                    .bind("table_name", table.getTableName())
+                    .bind("schema", remoteTableName.getCatalogName().orElse(null))
+                    .bind("table_name", remoteTableName.getTableName())
                     .map((rs, ctx) -> new SimpleEntry<>(rs.getString("COLUMN_NAME"), rs.getString("HISTOGRAM")))
                     .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         }

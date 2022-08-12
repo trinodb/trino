@@ -455,7 +455,7 @@ public class MariaDbClient
             // ALTER TABLE ... CHANGE statement exists in th old versions, but it requires providing all attributes of the column
             String sql = format(
                     "ALTER TABLE %s RENAME COLUMN %s TO %s",
-                    quoted(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), handle.getTableName()),
+                    quoted(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
                     quoted(jdbcColumn.getColumnName()),
                     quoted(newRemoteColumnName));
             execute(connection, sql);
@@ -498,7 +498,7 @@ public class MariaDbClient
         // catalogName parameter to null, it will be omitted in the ALTER TABLE statement.
         RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
         verify(remoteTableName.getSchemaName().isEmpty());
-        renameTable(session, null, remoteTableName.getCatalogName().orElse(null), handle.getTableName(), newTableName);
+        renameTable(session, null, remoteTableName.getCatalogName().orElse(null), remoteTableName.getTableName(), newTableName);
     }
 
     @Override

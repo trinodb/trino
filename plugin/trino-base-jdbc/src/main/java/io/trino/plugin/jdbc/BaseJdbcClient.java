@@ -690,7 +690,7 @@ public abstract class BaseJdbcClient
     public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
         RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
-        renameTable(session, remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), handle.getTableName(), newTableName);
+        renameTable(session, remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName(), newTableName);
     }
 
     protected void renameTable(ConnectorSession session, String catalogName, String remoteSchemaName, String remoteTableName, SchemaTableName newTable)
