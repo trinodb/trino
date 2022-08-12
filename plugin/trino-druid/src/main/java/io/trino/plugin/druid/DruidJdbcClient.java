@@ -376,7 +376,7 @@ public class DruidJdbcClient
     private JdbcTableHandle prepareTableHandleForQuery(JdbcTableHandle table)
     {
         if (table.isNamedRelation()) {
-            String schemaName = table.getSchemaName();
+            String schemaName = table.getRequiredNamedRelation().getRemoteTableName().getSchemaName().orElse(null);
             checkArgument("druid".equals(schemaName), "Only \"druid\" schema is supported");
 
             table = new JdbcTableHandle(
@@ -414,9 +414,10 @@ public class DruidJdbcClient
     protected ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
             throws SQLException
     {
+        RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
         return metadata.getColumns(
-                tableHandle.getRequiredNamedRelation().getRemoteTableName().getCatalogName().orElse(null),
-                tableHandle.getSchemaName(),
+                remoteTableName.getCatalogName().orElse(null),
+                remoteTableName.getSchemaName().orElse(null),
                 tableHandle.getTableName(),
                 null);
     }

@@ -584,9 +584,10 @@ public class MySqlClient
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
             String newRemoteColumnName = getIdentifierMapping().toRemoteColumnName(connection, newColumnName);
+            RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
             String sql = format(
                     "ALTER TABLE %s RENAME COLUMN %s TO %s",
-                    quoted(handle.asPlainTable().getRemoteTableName().getCatalogName().orElse(null), handle.getSchemaName(), handle.getTableName()),
+                    quoted(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), handle.getTableName()),
                     quoted(jdbcColumn.getColumnName()),
                     quoted(newRemoteColumnName));
             execute(connection, sql);
@@ -625,8 +626,9 @@ public class MySqlClient
     {
         // MySQL doesn't support specifying the catalog name in a rename. By setting the
         // catalogName parameter to null, it will be omitted in the ALTER TABLE statement.
-        verify(handle.getSchemaName() == null);
-        renameTable(session, null, handle.asPlainTable().getRemoteTableName().getCatalogName().orElse(null), handle.getTableName(), newTableName);
+        RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
+        verify(remoteTableName.getSchemaName().isEmpty());
+        renameTable(session, null, remoteTableName.getCatalogName().orElse(null), handle.getTableName(), newTableName);
     }
 
     @Override
