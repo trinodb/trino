@@ -458,6 +458,9 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -am -pl "${{ matrix.modules }}"
+      - name: Prefetch Ryuk
+        run: |
+          $RETRY docker pull "$(cat testing/trino-testing-containers/src/main/resources/io/trino/testing/containers/testcontainers-ryuk-image.txt)"
       - name: Maven Tests
         if: matrix.modules != 'plugin/trino-singlestore'
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
