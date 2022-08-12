@@ -70,12 +70,6 @@ public class HiveProductTest
         return hiveVersionProvider.getHiveVersion().getPatchVersion();
     }
 
-    protected boolean isHiveVersionBefore12()
-    {
-        return getHiveVersionMajor() == 0
-                || (getHiveVersionMajor() == 1 && getHiveVersionMinor() < 2);
-    }
-
     protected boolean isHiveWithBrokenAvroTimestamps()
     {
         // In 3.1.0 timestamp semantics in hive changed in backward incompatible way,
