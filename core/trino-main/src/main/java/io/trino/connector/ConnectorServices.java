@@ -38,6 +38,7 @@ import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.ptf.ArgumentSpecification;
 import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.ptf.ReturnTypeSpecification.DescribedTable;
 import io.trino.spi.ptf.TableArgumentSpecification;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.split.RecordPageSourceProvider;
@@ -359,5 +360,9 @@ public class ConnectorServices
         // The 'keep when empty' or 'prune when empty' property must not be explicitly specified for a table argument with row semantics.
         // Such a table argument is implicitly 'prune when empty'. The TableArgumentSpecification.Builder enforces the 'prune when empty' property
         // for a table argument with row semantics.
+
+        if (tableFunction.getReturnTypeSpecification() instanceof DescribedTable describedTable) {
+            checkArgument(describedTable.getDescriptor().isTyped(), "field types missing in returned type specification");
+        }
     }
 }
