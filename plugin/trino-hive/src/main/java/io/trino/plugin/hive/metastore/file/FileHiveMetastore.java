@@ -141,6 +141,9 @@ public class FileHiveMetastore
     // todo there should be a way to manage the admins list
     private static final Set<String> ADMIN_USERS = ImmutableSet.of("admin", "hive", "hdfs");
 
+    // 128 is equals to the max database name length of Thrift Hive metastore
+    private static final int MAX_DATABASE_NAME_LENGTH = 128;
+
     private final String currentVersion;
     private final VersionCompatibility versionCompatibility;
     private final HdfsEnvironment hdfsEnvironment;
@@ -197,6 +200,7 @@ public class FileHiveMetastore
             throw new TrinoException(HIVE_METASTORE_ERROR, "Database cannot be created with a location set");
         }
 
+        verifyDatabaseNameLength(database.getDatabaseName());
         verifyDatabaseNotExists(database.getDatabaseName());
 
         Path databaseMetadataDirectory = getDatabaseMetadataDirectory(database.getDatabaseName());
@@ -234,6 +238,7 @@ public class FileHiveMetastore
         requireNonNull(databaseName, "databaseName is null");
         requireNonNull(newDatabaseName, "newDatabaseName is null");
 
+        verifyDatabaseNameLength(newDatabaseName);
         getRequiredDatabase(databaseName);
         verifyDatabaseNotExists(newDatabaseName);
 
@@ -281,6 +286,13 @@ public class FileHiveMetastore
     {
         return getDatabase(databaseName)
                 .orElseThrow(() -> new SchemaNotFoundException(databaseName));
+    }
+
+    private void verifyDatabaseNameLength(String databaseName)
+    {
+        if (databaseName.length() > MAX_DATABASE_NAME_LENGTH) {
+            throw new TrinoException(NOT_SUPPORTED, format("Schema name must be shorter than or equal to '%s' characters but got '%s'", MAX_DATABASE_NAME_LENGTH, databaseName.length()));
+        }
     }
 
     private void verifyDatabaseNotExists(String databaseName)

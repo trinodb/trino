@@ -5604,13 +5604,13 @@ public abstract class BaseIcebergConnectorTest
     protected OptionalInt maxSchemaNameLength()
     {
         // This value depends on metastore type
-        return OptionalInt.of(255 - "..".length() - ".trinoSchema.crc".length());
+        return OptionalInt.of(128);
     }
 
     @Override
     protected void verifySchemaNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageMatching("Could not (write|rename) database schema");
+        assertThat(e).hasMessageMatching("Schema name must be shorter than or equal to '128' characters but got '129'");
     }
 
     @Override
