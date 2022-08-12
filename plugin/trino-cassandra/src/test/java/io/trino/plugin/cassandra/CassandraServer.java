@@ -69,23 +69,23 @@ public class CassandraServer
     public CassandraServer()
             throws Exception
     {
-        this("cassandra:2.2", ImmutableMap.of());
+        this("cassandra:2.2");
     }
 
     public CassandraServer(String imageName)
             throws Exception
     {
-        this(imageName, ImmutableMap.of());
+        this(imageName, ImmutableMap.of(), "/etc/cassandra/cassandra.yaml");
     }
 
-    public CassandraServer(String imageName, Map<String, String> environmentVariables)
+    public CassandraServer(String imageName, Map<String, String> environmentVariables, String configPath)
             throws Exception
     {
         log.info("Starting cassandra...");
 
         this.dockerContainer = new GenericContainer<>(imageName)
                 .withExposedPorts(PORT)
-                .withCopyFileToContainer(forHostPath(prepareCassandraYaml()), "/etc/cassandra/cassandra.yaml")
+                .withCopyFileToContainer(forHostPath(prepareCassandraYaml()), configPath)
                 .withEnv(environmentVariables)
                 .withStartupTimeout(java.time.Duration.ofMinutes(10));
         this.dockerContainer.start();

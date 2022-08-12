@@ -33,7 +33,8 @@ public class TestDatastaxConnectorSmokeTest
                 "datastax/dse-server:6.8.25",
                 Map.of(
                         "DS_LICENSE", "accept",
-                        "DC", "datacenter1")));
+                        "DC", "datacenter1"),
+                "/config/cassandra.yaml"));
         CassandraSession session = server.getSession();
         createTestTables(session, KEYSPACE, Timestamp.from(TIMESTAMP_VALUE.toInstant()));
         return createCassandraQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
