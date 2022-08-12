@@ -2214,6 +2214,7 @@ public class Analysis
         private final Map<String, Argument> arguments;
         private final List<TableArgumentAnalysis> tableArgumentAnalyses;
         private final List<List<String>> copartitioningLists;
+        private final int properColumnsCount;
         private final ConnectorTableFunctionHandle connectorTableFunctionHandle;
         private final ConnectorTransactionHandle transactionHandle;
 
@@ -2223,6 +2224,7 @@ public class Analysis
                 Map<String, Argument> arguments,
                 List<TableArgumentAnalysis> tableArgumentAnalyses,
                 List<List<String>> copartitioningLists,
+                int properColumnsCount,
                 ConnectorTableFunctionHandle connectorTableFunctionHandle,
                 ConnectorTransactionHandle transactionHandle)
         {
@@ -2231,6 +2233,7 @@ public class Analysis
             this.arguments = ImmutableMap.copyOf(arguments);
             this.tableArgumentAnalyses = ImmutableList.copyOf(tableArgumentAnalyses);
             this.copartitioningLists = ImmutableList.copyOf(copartitioningLists);
+            this.properColumnsCount = properColumnsCount;
             this.connectorTableFunctionHandle = requireNonNull(connectorTableFunctionHandle, "connectorTableFunctionHandle is null");
             this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         }
@@ -2258,6 +2261,16 @@ public class Analysis
         public List<List<String>> getCopartitioningLists()
         {
             return copartitioningLists;
+        }
+
+        /**
+         * Proper columns are the columns produced by the table function, as opposed to pass-through columns from input tables.
+         * Proper columns should be considered the actual result of the table function.
+         * @return the number of table function's proper columns
+         */
+        public int getProperColumnsCount()
+        {
+            return properColumnsCount;
         }
 
         public ConnectorTableFunctionHandle getConnectorTableFunctionHandle()
