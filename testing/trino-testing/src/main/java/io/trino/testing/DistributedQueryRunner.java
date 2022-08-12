@@ -431,7 +431,9 @@ public class DistributedQueryRunner
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
         long start = System.nanoTime();
-        coordinator.createCatalog(catalogName, connectorName, properties);
+        servers.stream()
+                .filter(TestingTrinoServer::isCoordinator)
+                .forEach(server -> server.createCatalog(catalogName, connectorName, properties));
         log.info("Created catalog %s in %s", catalogName, nanosSince(start));
     }
 
