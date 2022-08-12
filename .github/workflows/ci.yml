@@ -617,7 +617,6 @@ jobs:
         config:
           - default
           - hdp3
-          - cdh5
           # TODO: config-apache-hive3
         suite:
           - suite-1
@@ -628,13 +627,6 @@ jobs:
           - suite-azure
           - suite-delta-lake-databricks
         exclude:
-          - config: cdh5
-            ignore exclusion if: >-
-              ${{ github.event_name != 'pull_request'
-               || contains(github.event.pull_request.labels.*.name, 'tests:all')
-               || contains(github.event.pull_request.labels.*.name, 'tests:hive')
-               }}
-
           - config: default
             ignore exclusion if: >-
               ${{ github.event_name != 'pull_request'
@@ -646,13 +638,9 @@ jobs:
           - suite: suite-azure
             config: default
           - suite: suite-azure
-            config: cdh5
-          - suite: suite-azure
             ignore exclusion if: >-
               ${{ needs.build-pt.outputs.have_azure_secrets == 'true' }}
 
-          - suite: suite-delta-lake-databricks
-            config: cdh5
           - suite: suite-delta-lake-databricks
             config: hdp3
           - suite: suite-delta-lake-databricks
