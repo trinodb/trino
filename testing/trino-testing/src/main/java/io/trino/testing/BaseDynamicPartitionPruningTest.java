@@ -442,8 +442,9 @@ public abstract class BaseDynamicPartitionPruningTest
         testJoinDynamicFilteringMultiJoin(joinDistributionType, "t0_part", "t1_part", "t2_part");
     }
 
-    @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
-    public void testJoinDynamicFilteringMultiJoinOnBucketedTables(JoinDistributionType joinDistributionType)
+    // TODO: use joinDistributionTypeProvider when https://github.com/trinodb/trino/issues/4713 is done as currently waiting for BROADCAST DFs doesn't work for bucketed tables
+    @Test(timeOut = 30_000)
+    public void testJoinDynamicFilteringMultiJoinOnBucketedTables()
     {
         assertUpdate("DROP TABLE IF EXISTS t0_bucketed");
         assertUpdate("DROP TABLE IF EXISTS t1_bucketed");
@@ -454,7 +455,7 @@ public abstract class BaseDynamicPartitionPruningTest
         assertUpdate("INSERT INTO t0_bucketed VALUES (1.0, 1), (1.0, 2)", 2);
         assertUpdate("INSERT INTO t1_bucketed VALUES (2.0, 10), (2.0, 20)", 2);
         assertUpdate("INSERT INTO t2_bucketed VALUES (3.0, 1, 1), (3.0, 2, 2)", 2);
-        testJoinDynamicFilteringMultiJoin(joinDistributionType, "t0_bucketed", "t1_bucketed", "t2_bucketed");
+        testJoinDynamicFilteringMultiJoin(PARTITIONED, "t0_bucketed", "t1_bucketed", "t2_bucketed");
     }
 
     private void testJoinDynamicFilteringMultiJoin(JoinDistributionType joinDistributionType, String t0, String t1, String t2)
