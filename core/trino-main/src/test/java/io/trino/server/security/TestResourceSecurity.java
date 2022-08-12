@@ -816,6 +816,48 @@ public class TestResourceSecurity
         }
     }
 
+    @Test
+    public void testJwtWithRefreshTokensForOAuth2Enabled()
+            throws Exception
+    {
+        TestingHttpServer jwkServer = createTestingJwkServer();
+        jwkServer.start();
+        try (TokenServer tokenServer = new TokenServer(Optional.empty());
+                TestingTrinoServer server = TestingTrinoServer.builder()
+                        .setProperties(
+                                ImmutableMap.<String, String>builder()
+                                        .putAll(SECURE_PROPERTIES)
+                                        .put("http-server.authentication.type", "oauth2,jwt")
+                                        .put("http-server.authentication.jwt.key-file", jwkServer.getBaseUrl().toString())
+                                        .putAll(ImmutableMap.<String, String>builder()
+                                                .putAll(getOAuth2Properties(tokenServer))
+                                                .put("http-server.authentication.oauth2.refresh-tokens", "true")
+                                                .buildOrThrow())
+                                        .put("web-ui.enabled", "true")
+                                        .buildOrThrow())
+                        .setAdditionalModule(oauth2Module(tokenServer))
+                        .build()) {
+            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION);
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+
+            assertAuthenticationDisabled(httpServerInfo.getHttpUri());
+
+            String token = newJwtBuilder()
+                    .signWith(JWK_PRIVATE_KEY)
+                    .setHeaderParam(JwsHeader.KEY_ID, JWK_KEY_ID)
+                    .setSubject("test-user")
+                    .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                    .compact();
+
+            OkHttpClient clientWithJwt = client.newBuilder()
+                    .authenticator((route, response) -> response.request().newBuilder()
+                            .header(AUTHORIZATION, "Bearer " + token)
+                            .build())
+                    .build();
+            assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithJwt);
+        }
+    }
+
     private static Module oauth2Module(TokenServer tokenServer)
     {
         return binder -> {
