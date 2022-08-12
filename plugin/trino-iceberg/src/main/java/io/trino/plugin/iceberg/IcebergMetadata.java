@@ -227,6 +227,7 @@ import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
+import static org.apache.iceberg.util.SnapshotUtil.schemaFor;
 
 public class IcebergMetadata
         implements ConnectorMetadata
@@ -325,7 +326,7 @@ public class IcebergMetadata
             long snapshotId = endVersion.map(connectorTableVersion -> getSnapshotIdFromVersion(table, connectorTableVersion))
                     .orElseGet(() -> resolveSnapshotId(table, name.getSnapshotId().get(), isAllowLegacySnapshotSyntax(session)));
             tableSnapshotId = Optional.of(snapshotId);
-            tableSchema = table.schemas().get(table.snapshot(snapshotId).schemaId());
+            tableSchema = schemaFor(table, snapshotId);
             partitionSpec = Optional.empty();
         }
         else {
