@@ -3965,6 +3965,69 @@ public class TestSqlParser
                                 qualifiedName(location(1, 739), "nation"))))));
     }
 
+    @Test
+    public void testTableFunctionTableArgumentAliasing()
+    {
+        // no alias
+        assertThat(statement("SELECT * FROM TABLE(some_ptf(input => TABLE(orders)))"))
+                .isEqualTo(selectAllFrom(new TableFunctionInvocation(
+                        location(1, 21),
+                        qualifiedName(location(1, 21), "some_ptf"),
+                        ImmutableList.of(new TableFunctionArgument(
+                                location(1, 30),
+                                Optional.of(new Identifier(location(1, 30), "input", false)),
+                                new TableArgument(
+                                        location(1, 39),
+                                        new Table(location(1, 39), qualifiedName(location(1, 45), "orders")),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        false))),
+                        ImmutableList.of())));
+
+        // table alias; no column aliases
+        assertThat(statement("SELECT * FROM TABLE(some_ptf(input => TABLE(orders) AS ord))"))
+                .isEqualTo(selectAllFrom(new TableFunctionInvocation(
+                        location(1, 21),
+                        qualifiedName(location(1, 21), "some_ptf"),
+                        ImmutableList.of(new TableFunctionArgument(
+                                location(1, 30),
+                                Optional.of(new Identifier(location(1, 30), "input", false)),
+                                new TableArgument(
+                                        location(1, 39),
+                                        new AliasedRelation(
+                                                location(1, 39),
+                                                new Table(location(1, 39), qualifiedName(location(1, 45), "orders")),
+                                                new Identifier(location(1, 56), "ord", false),
+                                                null),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        false))),
+                        ImmutableList.of())));
+
+        // table alias and column aliases
+        assertThat(statement("SELECT * FROM TABLE(some_ptf(input => TABLE(orders) AS ord(a, b, c)))"))
+                .isEqualTo(selectAllFrom(new TableFunctionInvocation(
+                        location(1, 21),
+                        qualifiedName(location(1, 21), "some_ptf"),
+                        ImmutableList.of(new TableFunctionArgument(
+                                location(1, 30),
+                                Optional.of(new Identifier(location(1, 30), "input", false)),
+                                new TableArgument(
+                                        location(1, 39),
+                                        new AliasedRelation(
+                                                location(1, 39),
+                                                new Table(location(1, 39), qualifiedName(location(1, 45), "orders")),
+                                                new Identifier(location(1, 56), "ord", false),
+                                                ImmutableList.of(
+                                                        new Identifier(location(1, 60), "a", false),
+                                                        new Identifier(location(1, 63), "b", false),
+                                                        new Identifier(location(1, 66), "c", false))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        false))),
+                        ImmutableList.of())));
+    }
+
     private static Query selectAllFrom(Relation relation)
     {
         return new Query(
