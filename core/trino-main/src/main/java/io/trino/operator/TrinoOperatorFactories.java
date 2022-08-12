@@ -60,7 +60,7 @@ public class TrinoOperatorFactories
                 probeOutputChannelTypes,
                 lookupSourceFactory.getBuildOutputTypes(),
                 joinType,
-                new JoinProbe.JoinProbeFactory(probeOutputChannels, probeJoinChannel, probeHashChannel),
+                new JoinProbe.JoinProbeFactory(probeOutputChannels, probeJoinChannel, probeHashChannel, hasFilter),
                 blockTypeOperators,
                 probeJoinChannel,
                 probeHashChannel);
