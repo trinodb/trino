@@ -377,9 +377,6 @@ public class SqlTaskExecution
         }
     }
 
-    // scheduleDriversForTaskLifeCycle and scheduleDriversForDriverGroupLifeCycle are similar.
-    // They are invoked under different circumstances, and schedules a disjoint set of drivers, as suggested by their names.
-    // They also have a few differences, making it more convenient to keep the two methods separate.
     private void scheduleDriversForTaskLifeCycle()
     {
         // This method is called at the beginning of the task.
