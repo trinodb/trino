@@ -13,51 +13,33 @@
  */
 package io.trino.plugin.base.authentication;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 
 import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosPrincipal;
-import javax.security.auth.login.AppConfigurationEntry;
 import javax.security.auth.login.Configuration;
 import javax.security.auth.login.LoginContext;
 import javax.security.auth.login.LoginException;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.net.InetAddress;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Map;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
-import static java.nio.file.Files.exists;
-import static java.nio.file.Files.isReadable;
 import static java.util.Collections.emptySet;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class KerberosAuthentication
 {
     private static final Logger log = Logger.get(KerberosAuthentication.class);
-    private static final String KERBEROS_LOGIN_MODULE = "com.sun.security.auth.module.Krb5LoginModule";
-
-    private static final String HOSTNAME_PATTERN = "_HOST";
 
     private final KerberosPrincipal principal;
     private final Configuration configuration;
 
-    public KerberosAuthentication(String principal, String keytabLocation)
+    public KerberosAuthentication(KerberosConfiguration kerberosConfiguration)
     {
-        requireNonNull(principal, "principal is null");
-        requireNonNull(keytabLocation, "keytabLocation is null");
-        Path keytabPath = Paths.get(keytabLocation);
-        checkArgument(exists(keytabPath), "keytab does not exist: %s", keytabLocation);
-        checkArgument(isReadable(keytabPath), "keytab is not readable: %s", keytabLocation);
-        this.principal = createKerberosPrincipal(principal);
-        this.configuration = createConfiguration(this.principal.getName(), keytabLocation);
+        requireNonNull(kerberosConfiguration, "kerberosConfiguration is null");
+        this.principal = kerberosConfiguration.kerberosPrincipal();
+        if (log.isDebugEnabled()) {
+            kerberosConfiguration = kerberosConfiguration.withDebug();
+        }
+        this.configuration = kerberosConfiguration.getConfiguration();
     }
 
     public Subject getSubject()
@@ -82,54 +64,5 @@ public class KerberosAuthentication
         catch (LoginException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private static KerberosPrincipal createKerberosPrincipal(String principal)
-    {
-        try {
-            return new KerberosPrincipal(getServerPrincipal(principal, InetAddress.getLocalHost().getCanonicalHostName()));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    private static Configuration createConfiguration(String principal, String keytabLocation)
-    {
-        ImmutableMap.Builder<String, String> optionsBuilder = ImmutableMap.<String, String>builder()
-                .put("useKeyTab", "true")
-                .put("storeKey", "true")
-                .put("doNotPrompt", "true")
-                .put("isInitiator", "true")
-                .put("principal", principal)
-                .put("keyTab", keytabLocation);
-
-        if (log.isDebugEnabled()) {
-            optionsBuilder.put("debug", "true");
-        }
-
-        Map<String, String> options = optionsBuilder.buildOrThrow();
-
-        return new Configuration()
-        {
-            @Override
-            public AppConfigurationEntry[] getAppConfigurationEntry(String name)
-            {
-                return new AppConfigurationEntry[] {
-                        new AppConfigurationEntry(
-                                KERBEROS_LOGIN_MODULE,
-                                AppConfigurationEntry.LoginModuleControlFlag.REQUIRED,
-                                options)};
-            }
-        };
-    }
-
-    private static String getServerPrincipal(String principal, String hostname)
-    {
-        String[] components = principal.split("[/@]");
-        if (components.length != 3 || !components[1].equals(HOSTNAME_PATTERN)) {
-            return principal;
-        }
-        return format("%s/%s@%s", components[0], hostname.toLowerCase(ENGLISH), components[2]);
     }
 }
