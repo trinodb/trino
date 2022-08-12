@@ -185,10 +185,15 @@ public abstract class BaseHiveConnectorTest
     protected static QueryRunner createHiveQueryRunner(Map<String, String> extraProperties, Consumer<QueryRunner> additionalSetup)
             throws Exception
     {
+        // Use faster compression codec in tests. TODO remove explicit config when default changes
+        verify(new HiveConfig().getHiveCompressionCodec() == HiveCompressionOption.GZIP);
+        String hiveCompressionCodec = HiveCompressionCodec.ZSTD.name();
+
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
                 .setExtraProperties(extraProperties)
                 .setAdditionalSetup(additionalSetup)
                 .setHiveProperties(ImmutableMap.of(
+                        "hive.compression-codec", hiveCompressionCodec,
                         "hive.allow-register-partition-procedure", "true",
                         // Reduce writer sort buffer size to ensure SortingFileWriter gets used
                         "hive.writer-sort-buffer-size", "1MB",
