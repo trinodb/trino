@@ -449,8 +449,8 @@ public class PostgreSqlClient
                 if (columns.isEmpty()) {
                     // A table may have no supported columns. In rare cases a table might have no columns at all.
                     throw new TableNotFoundException(
-                            tableHandle.getSchemaTableName(),
-                            format("Table '%s' has no supported columns (all %s columns are not supported)", tableHandle.getSchemaTableName(), allColumns));
+                            schemaTableName,
+                            format("Table '%s' has no supported columns (all %s columns are not supported)", schemaTableName, allColumns));
                 }
                 return ImmutableList.copyOf(columns);
             }

@@ -110,17 +110,6 @@ public final class JdbcTableHandle
     }
 
     /**
-     * @deprecated Use {@code asPlainTable().getSchemaTableName()} instead, but see those methods for more information, as this is not a drop-in replacement.
-     */
-    @Deprecated
-    @JsonIgnore
-    // TODO (https://github.com/trinodb/trino/issues/6797) remove
-    public SchemaTableName getSchemaTableName()
-    {
-        return getRequiredNamedRelation().getSchemaTableName();
-    }
-
-    /**
      * @deprecated Use {@code asPlainTable().getRemoteTableName()} instead, but see those methods for more information, as this is not a drop-in replacement.
      */
     @Deprecated
