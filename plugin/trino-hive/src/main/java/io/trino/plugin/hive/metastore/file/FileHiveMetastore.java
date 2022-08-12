@@ -14,6 +14,8 @@
 package io.trino.plugin.hive.metastore.file;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -21,6 +23,7 @@ import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
+import io.trino.collect.cache.EvictableCacheBuilder;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
@@ -120,6 +123,7 @@ import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
@@ -156,6 +160,8 @@ public class FileHiveMetastore
     private final JsonCodec<List<String>> rolesCodec = JsonCodec.listJsonCodec(String.class);
     private final JsonCodec<List<RoleGrant>> roleGrantsCodec = JsonCodec.listJsonCodec(RoleGrant.class);
 
+    private final LoadingCache<String,List<String>> listTablesCache;
+
     @VisibleForTesting
     public static FileHiveMetastore createTestingFileHiveMetastore(File catalogDirectory)
     {
@@ -186,6 +192,10 @@ public class FileHiveMetastore
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
+
+        listTablesCache = EvictableCacheBuilder.newBuilder()
+                .expireAfterWrite(10, SECONDS)
+                .build(CacheLoader.from(this::doListAllTables));
     }
 
     @Override
@@ -499,6 +509,12 @@ public class FileHiveMetastore
 
     @GuardedBy("this")
     private List<String> listAllTables(String databaseName)
+    {
+        return listTablesCache.getUnchecked(databaseName);
+    }
+
+    @GuardedBy("this")
+    private List<String> doListAllTables(String databaseName)
     {
         requireNonNull(databaseName, "databaseName is null");
 
@@ -1333,6 +1349,8 @@ public class FileHiveMetastore
         catch (Exception e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Could not write " + type, e);
         }
+
+        listTablesCache.invalidateAll();
     }
 
     private void renameSchemaFile(SchemaType type, Path oldMetadataDirectory, Path newMetadataDirectory)
@@ -1345,6 +1363,8 @@ public class FileHiveMetastore
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Could not rename " + type + " schema", e);
         }
+
+        listTablesCache.invalidateAll();
     }
 
     private void deleteSchemaFile(SchemaType type, Path metadataDirectory)
@@ -1357,6 +1377,8 @@ public class FileHiveMetastore
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Could not delete " + type + " schema", e);
         }
+
+        listTablesCache.invalidateAll();
     }
 
     private Path getDatabaseMetadataDirectory(String databaseName)
