@@ -387,12 +387,58 @@ public class TestAccessControl
     @Test
     public void testMergeAccessControl()
     {
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String schemaName = getSession().getSchema().orElseThrow();
+
+        String targetTable = "merge_nation_target_" + randomTableSuffix();
+        String targetName = format("%s.%s.%s", catalogName, schemaName, targetTable);
+        String sourceTable = "merge_nation_source_" + randomTableSuffix();
+        String sourceName = format("%s.%s.%s", catalogName, schemaName, sourceTable);
+
+        assertUpdate(format("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR)", targetTable));
+
+        assertUpdate(format("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR)", sourceTable));
+
+        String baseMergeSql = format("MERGE INTO %s t USING %s s", targetTable, sourceTable) +
+                "    ON (t.nation_name = s.nation_name)";
+        String deleteCase = "" +
+                "    WHEN MATCHED AND t.nation_name > (SELECT name FROM tpch.tiny.region WHERE name = t.region_name AND name LIKE ('A%'))" +
+                "        THEN DELETE";
+        String updateCase = "" +
+                "    WHEN MATCHED AND t.nation_name = 'GERMANY'" +
+                "        THEN UPDATE SET nation_name = concat(s.nation_name, '_foo')";
+        String insertCase = "" +
+                "    WHEN NOT MATCHED AND s.region_name = 'EUROPE'" +
+                "        THEN INSERT VALUES(s.nation_name, (SELECT 'EUROPE'))";
+
+        // Show that without SELECT on the source table, the MERGE fails regardless of which case is included
+        for (String mergeCase : ImmutableList.of(deleteCase, updateCase, insertCase)) {
+            assertAccessDenied(baseMergeSql + mergeCase, "Cannot select from columns .* in table or view " + sourceName, privilege(sourceTable, SELECT_COLUMN));
+        }
+
+        // Show that without SELECT on the target table, the MERGE fails regardless of which case is included
+        for (String mergeCase : ImmutableList.of(deleteCase, updateCase, insertCase)) {
+            assertAccessDenied(baseMergeSql + mergeCase, "Cannot select from columns .* in table or view " + targetName, privilege(targetTable, SELECT_COLUMN));
+        }
+
+        // Show that without INSERT on the target table, the MERGE fails
+        assertAccessDenied(baseMergeSql + insertCase, "Cannot insert into table " + targetName, privilege(targetTable, INSERT_TABLE));
+
+        // Show that without DELETE on the target table, the MERGE fails
+        assertAccessDenied(baseMergeSql + deleteCase, "Cannot delete from table " + targetName, privilege(targetTable, DELETE_TABLE));
+
+        // Show that without UPDATE on the target table, the MERGE fails
+        assertAccessDenied(baseMergeSql + updateCase, "Cannot update columns \\[nation_name] in table " + targetName, privilege(targetTable, UPDATE_TABLE));
+
         assertAccessAllowed("""
                 MERGE INTO orders o USING region r ON (o.orderkey = r.regionkey)
                 WHEN MATCHED AND o.orderkey % 2 = 0 THEN DELETE
                 WHEN MATCHED AND o.orderkey % 2 = 1 THEN UPDATE SET orderkey = null
                 WHEN NOT MATCHED THEN INSERT VALUES (null, null, null, null, null, null, null, null, null)
                 """);
+
+        assertUpdate("DROP TABLE " + sourceTable);
+        assertUpdate("DROP TABLE " + targetTable);
     }
 
     @Test
