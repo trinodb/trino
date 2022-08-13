@@ -15,6 +15,8 @@ package io.trino.plugin.blackhole;
 
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeSink;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -45,5 +47,11 @@ public class BlackHolePageSinkProvider
     {
         BlackHoleInsertTableHandle handle = (BlackHoleInsertTableHandle) insertTableHandle;
         return new BlackHolePageSink(executorService, handle.getPageProcessingDelay());
+    }
+
+    @Override
+    public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle)
+    {
+        return new BlackHoleMergeSink();
     }
 }

@@ -365,7 +365,7 @@ public class TestAccessControl
     @Test
     public void testDeleteAccessControl()
     {
-        assertAccessDenied("DELETE FROM orders WHERE orderkey < 12", "Cannot select from columns \\[orderkey] in table or view .*." + "orders" + ".*", privilege("orders" + ".orderkey", SELECT_COLUMN));
+        assertAccessDenied("DELETE FROM orders WHERE orderkey < 12", "Cannot select from columns \\[orderkey] in table or view .*.orders.*", privilege("orders.orderkey", SELECT_COLUMN));
         assertAccessAllowed("DELETE FROM orders WHERE orderkey < 12", privilege("orders" + ".orderdate", SELECT_COLUMN));
         assertAccessAllowed("DELETE FROM orders", privilege("orders", SELECT_COLUMN));
     }
@@ -380,8 +380,19 @@ public class TestAccessControl
     public void testUpdateAccessControl()
     {
         assertAccessDenied("UPDATE orders SET orderkey=123", "Cannot update columns \\[orderkey] in table .*", privilege("orders", UPDATE_TABLE));
-        assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "UPDATE orders SET orderkey=123"))
-                .hasMessageContaining("This connector does not support updates");
+        assertAccessDenied("UPDATE orders SET orderkey=123 WHERE custkey < 12", "Cannot select from columns \\[custkey] in table or view .*.default.orders", privilege("orders.custkey", SELECT_COLUMN));
+        assertAccessAllowed("UPDATE orders SET orderkey=123", privilege("orders", SELECT_COLUMN));
+    }
+
+    @Test
+    public void testMergeAccessControl()
+    {
+        assertAccessAllowed("""
+                MERGE INTO orders o USING region r ON (o.orderkey = r.regionkey)
+                WHEN MATCHED AND o.orderkey % 2 = 0 THEN DELETE
+                WHEN MATCHED AND o.orderkey % 2 = 1 THEN UPDATE SET orderkey = null
+                WHEN NOT MATCHED THEN INSERT VALUES (null, null, null, null, null, null, null, null, null)
+                """);
     }
 
     @Test
