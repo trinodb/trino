@@ -410,7 +410,7 @@ the property may be configured for:
    * - ``exchange.s3.max-error-retries``
      - Maximum number of times the exchange manager's S3 client should retry
        a request.
-     - ``3``
+     - ``10``
      - Any S3-compatible storage
    * - ``exchange.s3.upload.part-size``
      - Part size for S3 multi-part upload.
@@ -434,6 +434,11 @@ the property may be configured for:
    * - ``exchange.azure.block-size``
      - Block size for Azure block blob parallel upload.
      - ``4MB``
+     - Azure Blob Storage
+   * - ``exchange.azure.max-error-retries``
+     - Maximum number of times the exchange manager's Azure client should
+       retry a request.
+     - ``10``
      - Azure Blob Storage
 
 It is recommended to set the ``exchange.compression-enabled`` property to

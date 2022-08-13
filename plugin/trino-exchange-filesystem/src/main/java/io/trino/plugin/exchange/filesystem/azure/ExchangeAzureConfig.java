@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.util.Optional;
@@ -30,6 +31,7 @@ public class ExchangeAzureConfig
 {
     private Optional<String> azureStorageConnectionString = Optional.empty();
     private DataSize azureStorageBlockSize = DataSize.of(4, MEGABYTE);
+    private int maxErrorRetries = 10;
 
     public Optional<String> getAzureStorageConnectionString()
     {
@@ -57,6 +59,19 @@ public class ExchangeAzureConfig
     public ExchangeAzureConfig setAzureStorageBlockSize(DataSize azureStorageBlockSize)
     {
         this.azureStorageBlockSize = azureStorageBlockSize;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaxErrorRetries()
+    {
+        return maxErrorRetries;
+    }
+
+    @Config("exchange.azure.max-error-retries")
+    public ExchangeAzureConfig setMaxErrorRetries(int maxErrorRetries)
+    {
+        this.maxErrorRetries = maxErrorRetries;
         return this;
     }
 }
