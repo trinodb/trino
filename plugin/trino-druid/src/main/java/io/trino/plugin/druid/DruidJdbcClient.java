@@ -376,17 +376,19 @@ public class DruidJdbcClient
     private JdbcTableHandle prepareTableHandleForQuery(JdbcTableHandle table)
     {
         if (table.isNamedRelation()) {
-            String schemaName = table.getRequiredNamedRelation().getRemoteTableName().getSchemaName().orElse(null);
+            JdbcNamedRelationHandle relation = table.getRequiredNamedRelation();
+            RemoteTableName remoteTableName = relation.getRemoteTableName();
+            String schemaName = remoteTableName.getSchemaName().orElse(null);
             checkArgument("druid".equals(schemaName), "Only \"druid\" schema is supported");
 
             table = new JdbcTableHandle(
                     new JdbcNamedRelationHandle(
-                            table.getRequiredNamedRelation().getSchemaTableName(),
+                            relation.getSchemaTableName(),
                             // Druid doesn't like table names to be qualified with catalog names in the SQL query, hence we null out the catalog.
                             new RemoteTableName(
                                     Optional.empty(),
-                                    table.getRequiredNamedRelation().getRemoteTableName().getSchemaName(),
-                                    table.getRequiredNamedRelation().getRemoteTableName().getTableName()),
+                                    remoteTableName.getSchemaName(),
+                                    remoteTableName.getTableName()),
                             Optional.empty()),
                     table.getConstraint(),
                     table.getConstraintExpressions(),
