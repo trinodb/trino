@@ -114,10 +114,10 @@ public class ThriftHiveMetastoreClient
     protected final ThriftHiveMetastore.Iface client;
     private final String hostname;
 
-    private final MetastoreSupportsDateStatistics metastoreSupportsDateStatistics = new MetastoreSupportsDateStatistics();
-    private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
-    private final AtomicInteger chosenTableParamAlternative = new AtomicInteger(Integer.MAX_VALUE);
-    private final AtomicInteger chosenGetAllViewsAlternative = new AtomicInteger(Integer.MAX_VALUE);
+    private final MetastoreSupportsDateStatistics metastoreSupportsDateStatistics;
+    private final AtomicInteger chosenGetTableAlternative;
+    private final AtomicInteger chosenTableParamAlternative;
+    private final AtomicInteger chosenGetAllViewsAlternative;
 
     public ThriftHiveMetastoreClient(
             TTransport transport,
@@ -136,6 +136,10 @@ public class ThriftHiveMetastoreClient
             this.client = client;
         }
         this.hostname = requireNonNull(hostname, "hostname is null");
+        this.metastoreSupportsDateStatistics = requireNonNull(metastoreSupportsDateStatistics, "metastoreSupportsDateStatistics is null");
+        this.chosenGetTableAlternative = requireNonNull(chosenGetTableAlternative, "chosenGetTableAlternative is null");
+        this.chosenTableParamAlternative = requireNonNull(chosenTableParamAlternative, "chosenTableParamAlternative is null");
+        this.chosenGetAllViewsAlternative = requireNonNull(chosenGetAllViewsAlternative, "chosenGetAllViewsAlternative is null");
     }
 
     @Override
