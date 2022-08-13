@@ -428,7 +428,7 @@ public class ClickHouseClient
     protected String renameColumnSql(JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newRemoteColumnName)
     {
         return format("ALTER TABLE %s RENAME COLUMN %s TO %s ",
-                quoted(handle.getRemoteTableName()),
+                quoted(handle.asPlainTable().getRemoteTableName()),
                 quoted(jdbcColumn.getColumnName()),
                 quoted(newRemoteColumnName));
     }
@@ -463,7 +463,7 @@ public class ClickHouseClient
     @Override
     public void dropTable(ConnectorSession session, JdbcTableHandle handle)
     {
-        String sql = "DROP TABLE " + quoted(handle.getRemoteTableName());
+        String sql = "DROP TABLE " + quoted(handle.asPlainTable().getRemoteTableName());
         execute(session, sql);
     }
 
