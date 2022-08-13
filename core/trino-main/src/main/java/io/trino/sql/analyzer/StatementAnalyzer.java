@@ -2828,15 +2828,48 @@ class StatementAnalyzer
                     .withSpecializedAccessControl(new AllowAllAccessControl())
                     .createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
 
-            Scope targetTableScope = analyzer.analyzeForUpdate(relation, scope, UpdateKind.MERGE);
-            Scope sourceTableScope = process(merge.getSource(), scope);
-            Scope joinScope = createAndAssignScope(merge, scope, targetTableScope.getRelationType().joinWith(sourceTableScope.getRelationType()));
-
             TableSchema tableSchema = metadata.getTableSchema(session, targetTableHandle);
 
             List<ColumnSchema> dataColumnSchemas = tableSchema.getColumns().stream()
                     .filter(column -> !column.isHidden())
                     .collect(toImmutableList());
+
+            merge.getMergeCases().stream()
+                    .filter(mergeCase -> mergeCase instanceof MergeInsert)
+                    .findFirst()
+                    .ifPresent(mergeCase -> accessControl.checkCanInsertIntoTable(session.toSecurityContext(), tableName));
+
+            merge.getMergeCases().stream()
+                    .filter(mergeCase -> mergeCase instanceof MergeDelete)
+                    .findFirst()
+                    .ifPresent(mergeCase -> accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName));
+
+            ImmutableSet.Builder<String> allUpdateColumnNamesBuilder = ImmutableSet.builder();
+            for (int caseCounter = 0; caseCounter < merge.getMergeCases().size(); caseCounter++) {
+                MergeCase operation = merge.getMergeCases().get(caseCounter);
+                List<String> caseColumnNames = lowercaseIdentifierList(operation.getSetColumns());
+                if (operation instanceof MergeUpdate) {
+                    allUpdateColumnNamesBuilder.addAll(caseColumnNames);
+                }
+            }
+            Set<String> allUpdateColumnNames = allUpdateColumnNamesBuilder.build();
+            if (!allUpdateColumnNames.isEmpty()) {
+                accessControl.checkCanUpdateTableColumns(session.toSecurityContext(), tableName, allUpdateColumnNames);
+            }
+
+            if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, merge, "Merge table with row filter");
+            }
+
+            Scope targetTableScope = analyzer.analyzeForUpdate(relation, scope, UpdateKind.MERGE);
+            Scope sourceTableScope = process(merge.getSource(), scope);
+            Scope joinScope = createAndAssignScope(merge, scope, targetTableScope.getRelationType().joinWith(sourceTableScope.getRelationType()));
+
+            for (ColumnSchema column : dataColumnSchemas) {
+                if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, column.getName(), column.getType()).isEmpty()) {
+                    throw semanticException(NOT_SUPPORTED, merge, "Merge table with column mask");
+                }
+            }
 
             Optional<TableLayout> insertLayout = metadata.getInsertLayout(session, targetTableHandle);
 
@@ -2872,8 +2905,6 @@ class StatementAnalyzer
                 analysis.addCoercion(mergePredicate, BOOLEAN, typeCoercion.isTypeOnlyCoercion(mergePredicateType, BOOLEAN));
             }
             analysis.recordSubqueries(merge, predicateAnalysis);
-
-            ImmutableSet.Builder<String> allUpdateColumnNamesBuilder = ImmutableSet.builder();
 
             for (int caseCounter = 0; caseCounter < merge.getMergeCases().size(); caseCounter++) {
                 MergeCase operation = merge.getMergeCases().get(caseCounter);
@@ -2939,31 +2970,6 @@ class StatementAnalyzer
                     if (!targetType.equals(expressionType)) {
                         analysis.addCoercion(expression, targetType, typeCoercion.isTypeOnlyCoercion(expressionType, targetType));
                     }
-                }
-            }
-
-            merge.getMergeCases().stream()
-                    .filter(mergeCase -> mergeCase instanceof MergeInsert)
-                    .findFirst()
-                    .ifPresent(mergeCase -> accessControl.checkCanInsertIntoTable(session.toSecurityContext(), tableName));
-
-            merge.getMergeCases().stream()
-                    .filter(mergeCase -> mergeCase instanceof MergeDelete)
-                    .findFirst()
-                    .ifPresent(mergeCase -> accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName));
-
-            Set<String> allUpdateColumnNames = allUpdateColumnNamesBuilder.build();
-            if (!allUpdateColumnNames.isEmpty()) {
-                accessControl.checkCanUpdateTableColumns(session.toSecurityContext(), tableName, allUpdateColumnNames);
-            }
-
-            if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
-                throw semanticException(NOT_SUPPORTED, merge, "Merge table with row filter");
-            }
-
-            for (ColumnSchema column : dataColumnSchemas) {
-                if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, column.getName(), column.getType()).isEmpty()) {
-                    throw semanticException(NOT_SUPPORTED, merge, "Merge table with column mask");
                 }
             }
 
