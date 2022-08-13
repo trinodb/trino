@@ -2844,15 +2844,14 @@ class StatementAnalyzer
                     .findFirst()
                     .ifPresent(mergeCase -> accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName));
 
-            ImmutableSet.Builder<String> allUpdateColumnNamesBuilder = ImmutableSet.builder();
+            Set<String> allUpdateColumnNames = new HashSet<>();
             for (int caseCounter = 0; caseCounter < merge.getMergeCases().size(); caseCounter++) {
                 MergeCase operation = merge.getMergeCases().get(caseCounter);
                 List<String> caseColumnNames = lowercaseIdentifierList(operation.getSetColumns());
                 if (operation instanceof MergeUpdate) {
-                    allUpdateColumnNamesBuilder.addAll(caseColumnNames);
+                    allUpdateColumnNames.addAll(caseColumnNames);
                 }
             }
-            Set<String> allUpdateColumnNames = allUpdateColumnNamesBuilder.build();
             if (!allUpdateColumnNames.isEmpty()) {
                 accessControl.checkCanUpdateTableColumns(session.toSecurityContext(), tableName, allUpdateColumnNames);
             }
@@ -2910,7 +2909,7 @@ class StatementAnalyzer
                 MergeCase operation = merge.getMergeCases().get(caseCounter);
                 List<String> caseColumnNames = lowercaseIdentifierList(operation.getSetColumns());
                 if (operation instanceof MergeUpdate) {
-                    allUpdateColumnNamesBuilder.addAll(caseColumnNames);
+                    allUpdateColumnNames.addAll(caseColumnNames);
                 }
                 else if (operation instanceof MergeInsert && caseColumnNames.isEmpty()) {
                     caseColumnNames = dataColumnSchemas.stream().map(ColumnSchema::getName).collect(toImmutableList());
