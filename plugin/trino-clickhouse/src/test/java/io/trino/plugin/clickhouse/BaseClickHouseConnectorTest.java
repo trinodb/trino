@@ -608,7 +608,12 @@ public abstract class BaseClickHouseConnectorTest
         assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
         assertQueryFails(
                 "SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'",
-                "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: -1996-09-14");
+                errorMessageForDateYearOfEraPredicate("-1996-09-14"));
+    }
+
+    protected String errorMessageForDateYearOfEraPredicate(String date)
+    {
+        return "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: " + date;
     }
 
     @Override
