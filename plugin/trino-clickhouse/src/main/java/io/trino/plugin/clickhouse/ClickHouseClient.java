@@ -177,9 +177,6 @@ public class ClickHouseClient
 
     private static final DecimalType UINT64_TYPE = createDecimalType(20, 0);
 
-    private static final long MIN_SUPPORTED_DATE_EPOCH = LocalDate.parse("1970-01-01").toEpochDay();
-    private static final long MAX_SUPPORTED_DATE_EPOCH = LocalDate.parse("2106-02-07").toEpochDay(); // The max date is '2148-12-31' in new ClickHouse version
-
     private static final LocalDateTime MIN_SUPPORTED_TIMESTAMP = LocalDateTime.parse("1970-01-01T00:00:00");
     private static final LocalDateTime MAX_SUPPORTED_TIMESTAMP = LocalDateTime.parse("2105-12-31T23:59:59");
     private static final long MIN_SUPPORTED_TIMESTAMP_EPOCH = MIN_SUPPORTED_TIMESTAMP.toEpochSecond(UTC);
@@ -591,7 +588,7 @@ public class ClickHouseClient
                         DISABLE_PUSHDOWN));
 
             case Types.DATE:
-                return Optional.of(dateColumnMappingUsingLocalDate());
+                return Optional.of(dateColumnMappingUsingLocalDate(getClickHouseServerVersion(session)));
 
             case Types.TIMESTAMP:
                 if (columnDataType == ClickHouseDataType.DateTime) {
@@ -654,7 +651,7 @@ public class ClickHouseClient
             return WriteMapping.sliceMapping("String", varbinaryWriteFunction());
         }
         if (type == DATE) {
-            return WriteMapping.longMapping("Date", dateWriteFunctionUsingLocalDate());
+            return WriteMapping.longMapping("Date", dateWriteFunctionUsingLocalDate(getClickHouseServerVersion(session)));
         }
         if (type == TIMESTAMP_SECONDS) {
             return WriteMapping.longMapping("DateTime", timestampSecondsWriteFunction());
@@ -745,28 +742,22 @@ public class ClickHouseClient
                 });
     }
 
-    private static ColumnMapping dateColumnMappingUsingLocalDate()
+    private static ColumnMapping dateColumnMappingUsingLocalDate(ClickHouseVersion version)
     {
         return ColumnMapping.longMapping(
                 DATE,
                 dateReadFunctionUsingLocalDate(),
-                dateWriteFunctionUsingLocalDate());
+                dateWriteFunctionUsingLocalDate(version));
     }
 
-    private static LongWriteFunction dateWriteFunctionUsingLocalDate()
+    private static LongWriteFunction dateWriteFunctionUsingLocalDate(ClickHouseVersion version)
     {
         return (statement, index, value) -> {
-            verifySupportedDate(value);
-            statement.setObject(index, LocalDate.ofEpochDay(value));
+            LocalDate date = LocalDate.ofEpochDay(value);
+            // Deny unsupported dates eagerly to prevent unexpected results. ClickHouse stores '1970-01-01' when the date is out of supported range.
+            TrinoToClickHouseWriteChecker.DATE.validate(version, date);
+            statement.setObject(index, date);
         };
-    }
-
-    private static void verifySupportedDate(long value)
-    {
-        // Deny unsupported dates eagerly to prevent unexpected results. ClickHouse stores '1970-01-01' when the date is out of supported range.
-        if (value < MIN_SUPPORTED_DATE_EPOCH || value > MAX_SUPPORTED_DATE_EPOCH) {
-            throw new TrinoException(INVALID_ARGUMENTS, format("Date must be between %s and %s in ClickHouse: %s", LocalDate.ofEpochDay(MIN_SUPPORTED_DATE_EPOCH), LocalDate.ofEpochDay(MAX_SUPPORTED_DATE_EPOCH), LocalDate.ofEpochDay(value)));
-        }
     }
 
     private static LongWriteFunction timestampSecondsWriteFunction()
