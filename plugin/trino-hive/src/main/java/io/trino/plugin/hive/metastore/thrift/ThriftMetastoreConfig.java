@@ -51,6 +51,9 @@ public class ThriftMetastoreConfig
     private String trustStorePassword;
     private boolean assumeCanonicalPartitionKeys;
 
+    private boolean updatePartitionStatisticsBatchEnabled = true;
+    private int updatePartitionStatisticsBatchSize = 30;
+
     @NotNull
     public Duration getMetastoreTimeout()
     {
@@ -295,6 +298,30 @@ public class ThriftMetastoreConfig
     public ThriftMetastoreConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
     {
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        return this;
+    }
+
+    public boolean isUpdatePartitionStatisticsBatchEnabled()
+    {
+        return updatePartitionStatisticsBatchEnabled;
+    }
+
+    @Config("hive.metastore.thrift.update-partition-statistics.batch.enabled")
+    public ThriftMetastoreConfig setUpdatePartitionStatisticsBatchEnabled(boolean updatePartitionStatisticsBatchEnabled)
+    {
+        this.updatePartitionStatisticsBatchEnabled = updatePartitionStatisticsBatchEnabled;
+        return this;
+    }
+
+    public int getUpdatePartitionStatisticsBatchSize()
+    {
+        return updatePartitionStatisticsBatchSize;
+    }
+
+    @Config("hive.metastore.thrift.update-partition-statistics.batch-size")
+    public ThriftMetastoreConfig setUpdatePartitionStatisticsBatchSize(int updatePartitionStatisticsBatchSize)
+    {
+        this.updatePartitionStatisticsBatchSize = updatePartitionStatisticsBatchSize;
         return this;
     }
 }

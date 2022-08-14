@@ -42,6 +42,8 @@ public class ThriftHiveMetastoreFactory
     private final boolean deleteFilesOnDrop;
     private final boolean translateHiveViews;
     private final boolean assumeCanonicalPartitionKeys;
+    private final boolean updatePartitionStatisticsBatchEnabled;
+    private final int updatePartitionStatisticsBatchSize;
     private final ThriftMetastoreStats stats = new ThriftMetastoreStats();
 
     @Inject
@@ -66,6 +68,8 @@ public class ThriftHiveMetastoreFactory
         this.maxWaitForLock = thriftConfig.getMaxWaitForTransactionLock();
 
         this.assumeCanonicalPartitionKeys = thriftConfig.isAssumeCanonicalPartitionKeys();
+        this.updatePartitionStatisticsBatchEnabled = thriftConfig.isUpdatePartitionStatisticsBatchEnabled();
+        this.updatePartitionStatisticsBatchSize = thriftConfig.getUpdatePartitionStatisticsBatchSize();
     }
 
     @Managed
@@ -97,6 +101,8 @@ public class ThriftHiveMetastoreFactory
                 deleteFilesOnDrop,
                 translateHiveViews,
                 assumeCanonicalPartitionKeys,
+                updatePartitionStatisticsBatchEnabled,
+                updatePartitionStatisticsBatchSize,
                 stats);
     }
 }

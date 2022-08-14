@@ -196,6 +196,13 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
+    public void setPartitionColumnStatisticsBatch(String databaseName, String tableName, Map<String, List<ColumnStatisticsObj>> partitionStatistics)
+            throws TException
+    {
+        runWithHandle(() -> delegate.setPartitionColumnStatisticsBatch(databaseName, tableName, partitionStatistics));
+    }
+
+    @Override
     public void deletePartitionColumnStatistics(String databaseName, String tableName, String partitionName, String columnName)
             throws TException
     {
@@ -424,6 +431,13 @@ public class FailureAwareThriftMetastoreClient
             throws TException
     {
         runWithHandle(() -> delegate.alterPartitions(dbName, tableName, partitions, writeId));
+    }
+
+    @Override
+    public void alterPartitions(String dbName, String tableName, List<Partition> partitions)
+            throws TException
+    {
+        runWithHandle(() -> delegate.alterPartitions(dbName, tableName, partitions));
     }
 
     @Override

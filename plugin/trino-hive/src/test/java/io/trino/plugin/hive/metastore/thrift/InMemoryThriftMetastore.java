@@ -494,6 +494,12 @@ public class InMemoryThriftMetastore
     }
 
     @Override
+    public synchronized void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    {
+        updates.forEach((partitionName, update) -> updatePartitionStatistics(table, partitionName, update));
+    }
+
+    @Override
     public void createRole(String role, String grantor)
     {
         throw new UnsupportedOperationException();

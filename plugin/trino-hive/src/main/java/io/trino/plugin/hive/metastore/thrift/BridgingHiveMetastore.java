@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
@@ -68,6 +69,8 @@ import static java.util.function.UnaryOperator.identity;
 public class BridgingHiveMetastore
         implements HiveMetastore
 {
+    private static final Logger log = Logger.get(BridgingHiveMetastore.class);
+
     private final ThriftMetastore delegate;
 
     public BridgingHiveMetastore(ThriftMetastore delegate)
@@ -132,8 +135,11 @@ public class BridgingHiveMetastore
     @Override
     public void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
+        long startTime = System.currentTimeMillis();
         org.apache.hadoop.hive.metastore.api.Table metastoreTable = toMetastoreApiTable(table);
-        updates.forEach((partitionName, update) -> delegate.updatePartitionStatistics(metastoreTable, partitionName, update));
+        delegate.updatePartitionStatistics(metastoreTable, updates);
+        long endTime = System.currentTimeMillis();
+        log.debug("Total duration of updating partition statistics for table %s.%s is %s ms", table.getDatabaseName(), table.getTableName(), endTime - startTime);
     }
 
     @Override

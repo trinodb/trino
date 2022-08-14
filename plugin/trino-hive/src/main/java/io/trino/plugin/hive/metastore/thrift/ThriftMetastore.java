@@ -94,6 +94,8 @@ public interface ThriftMetastore
 
     void updatePartitionStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
 
+    void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates);
+
     void createRole(String role, String grantor);
 
     void dropRole(String role);

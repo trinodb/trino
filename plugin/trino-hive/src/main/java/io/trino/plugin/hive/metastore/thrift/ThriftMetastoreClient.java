@@ -96,6 +96,9 @@ public interface ThriftMetastoreClient
     void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, List<ColumnStatisticsObj> statistics)
             throws TException;
 
+    void setPartitionColumnStatisticsBatch(String databaseName, String tableName, Map<String, List<ColumnStatisticsObj>> partitionStatistics)
+            throws TException;
+
     void deletePartitionColumnStatistics(String databaseName, String tableName, String partitionName, String columnName)
             throws TException;
 
@@ -199,6 +202,9 @@ public interface ThriftMetastoreClient
             throws TException;
 
     void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+            throws TException;
+
+    void alterPartitions(String dbName, String tableName, List<Partition> partitions)
             throws TException;
 
     void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)

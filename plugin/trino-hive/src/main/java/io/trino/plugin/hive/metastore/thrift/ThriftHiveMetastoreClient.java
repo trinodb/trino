@@ -61,6 +61,7 @@ import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
+import org.apache.hadoop.hive.metastore.api.SetPartitionsStatsRequest;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.TableStatsRequest;
 import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
@@ -86,6 +87,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.reflect.Reflection.newProxy;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.adjustRowCount;
@@ -336,6 +338,29 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
+    public void setPartitionColumnStatisticsBatch(String databaseName, String tableName, Map<String, List<ColumnStatisticsObj>> partitionStatistics)
+            throws TException
+    {
+        setColumnStatisticsBatch(
+                format("partitions of table %s.%s", databaseName, tableName),
+                partitionStatistics,
+                partitionStats -> {
+                    List<ColumnStatistics> columnStatisticsList = new ArrayList<>(partitionStats.size());
+                    partitionStats.forEach((partitionName, statistics) -> {
+                        ColumnStatisticsDesc statisticsDescription = new ColumnStatisticsDesc(false, databaseName, tableName);
+                        statisticsDescription.setPartName(partitionName);
+                        ColumnStatistics columnStatistics = new ColumnStatistics(statisticsDescription, statistics);
+                        columnStatisticsList.add(columnStatistics);
+                    });
+
+                    SetPartitionsStatsRequest request = new SetPartitionsStatsRequest(columnStatisticsList);
+                    request.setNeedMerge(false);
+
+                    client.set_aggr_stats_for(request);
+                });
+    }
+
+    @Override
     public void deletePartitionColumnStatistics(String databaseName, String tableName, String partitionName, String columnName)
             throws TException
     {
@@ -383,6 +408,71 @@ public class ThriftHiveMetastoreClient
             // When `dateStatistics.size() == 1` we expect something like "TTransportException: java.net.SocketTimeoutException: Read timed out"
             log.warn(e, "Failed to save date statistics for %s. Metastore might not support date statistics", objectName);
             if (!statisticsExceptDate.isEmpty()) {
+                this.metastoreSupportsDateStatistics.failed();
+            }
+            return;
+        }
+        this.metastoreSupportsDateStatistics.succeeded();
+    }
+
+    private void setColumnStatisticsBatch(String objectName, Map<String, List<ColumnStatisticsObj>> partitionStatistics, UnaryCall<Map<String, List<ColumnStatisticsObj>>> saveColumnStatisticsBatch)
+            throws TException
+    {
+        boolean containsDateStatistics = partitionStatistics.entrySet().stream().anyMatch(
+                partitionStatsPair -> partitionStatsPair.getValue().stream().anyMatch(
+                        stats -> stats.getStatsData().isSetDateStats()));
+
+        DateStatisticsSupport dateStatisticsSupported = this.metastoreSupportsDateStatistics.isSupported();
+        if (containsDateStatistics && dateStatisticsSupported == NOT_SUPPORTED) {
+            log.debug("Skipping date statistics for %s because metastore does not support them", objectName);
+            partitionStatistics = partitionStatistics.entrySet().stream()
+                    .map(partitionStatsPair -> Map.entry(
+                            partitionStatsPair.getKey(),
+                            partitionStatsPair.getValue().stream()
+                                    .filter(stats -> !stats.getStatsData().isSetDateStats())
+                                    .collect(toImmutableList())))
+                    .filter(partitionStatsPair -> !partitionStatsPair.getValue().isEmpty())
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+            containsDateStatistics = false;
+        }
+
+        if (!containsDateStatistics || dateStatisticsSupported == SUPPORTED) {
+            saveColumnStatisticsBatch.call(partitionStatistics);
+            return;
+        }
+
+        Map<String, List<ColumnStatisticsObj>> partitionStatisticsExceptDate = partitionStatistics.entrySet().stream()
+                .map(partitionStatsPair -> Map.entry(
+                        partitionStatsPair.getKey(),
+                        partitionStatsPair.getValue().stream()
+                                .filter(stats -> !stats.getStatsData().isSetDateStats())
+                                .collect(toImmutableList())))
+                .filter(partitionStatsPair -> !partitionStatsPair.getValue().isEmpty())
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        Map<String, List<ColumnStatisticsObj>> partitionDateStatistics = partitionStatistics.entrySet().stream()
+                .map(partitionStatsPair -> Map.entry(
+                        partitionStatsPair.getKey(),
+                        partitionStatsPair.getValue().stream()
+                                .filter(stats -> stats.getStatsData().isSetDateStats())
+                                .collect(toImmutableList())))
+                .filter(partitionStatsPair -> !partitionStatsPair.getValue().isEmpty())
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        verify(!partitionDateStatistics.isEmpty() && dateStatisticsSupported == UNKNOWN);
+
+        if (!partitionStatisticsExceptDate.isEmpty()) {
+            saveColumnStatisticsBatch.call(partitionStatisticsExceptDate);
+        }
+
+        try {
+            saveColumnStatisticsBatch.call(partitionDateStatistics);
+        }
+        catch (TException e) {
+            // When `dateStatistics.size() > 1` we expect something like "TApplicationException: Required field 'colName' is unset! Struct:ColumnStatisticsObj(colName:null, colType:null, statsData:null)"
+            // When `dateStatistics.size() == 1` we expect something like "TTransportException: java.net.SocketTimeoutException: Read timed out"
+            log.warn(e, "Failed to save date statistics for %s. Metastore might not support date statistics", objectName);
+            if (!partitionStatisticsExceptDate.isEmpty()) {
                 this.metastoreSupportsDateStatistics.failed();
             }
             return;
@@ -698,6 +788,13 @@ public class ThriftHiveMetastoreClient
         AlterPartitionsRequest request = new AlterPartitionsRequest(dbName, tableName, partitions);
         request.setWriteId(writeId);
         client.alter_partitions_req(request);
+    }
+
+    @Override
+    public void alterPartitions(String dbName, String tableName, List<Partition> partitions)
+            throws TException
+    {
+        client.alter_partitions(dbName, tableName, partitions);
     }
 
     @Override
