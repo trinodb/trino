@@ -14,8 +14,8 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.hdfs.authentication.HadoopAuthentication;
 import io.trino.plugin.hive.ForHiveMetastore;
-import io.trino.plugin.hive.authentication.HadoopAuthentication;
 import org.apache.hadoop.hive.metastore.security.DelegationTokenIdentifier;
 import org.apache.hadoop.hive.thrift.client.TUGIAssumingTransport;
 import org.apache.hadoop.security.SaslRpcServer;

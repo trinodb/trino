@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.deltalake;
 
-import io.trino.plugin.hive.HdfsContext;
-import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.testing.AbstractTestQueryFramework;

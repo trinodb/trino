@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.spi.security.ConnectorIdentity;
 import org.weakref.jmx.Flatten;

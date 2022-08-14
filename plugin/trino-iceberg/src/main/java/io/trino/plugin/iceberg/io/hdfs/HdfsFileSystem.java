@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.iceberg.io.hdfs;
 
-import io.trino.plugin.hive.HdfsContext;
-import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.iceberg.io.FileIterator;
 import io.trino.plugin.iceberg.io.TrinoFileSystem;
 import io.trino.plugin.iceberg.io.TrinoInputFile;

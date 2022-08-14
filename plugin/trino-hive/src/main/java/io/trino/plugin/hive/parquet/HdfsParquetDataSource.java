@@ -14,11 +14,11 @@
 package io.trino.plugin.hive.parquet;
 
 import io.airlift.slice.Slice;
+import io.trino.hdfs.FSDataInputStreamTail;
 import io.trino.parquet.AbstractParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.util.FSDataInputStreamTail;
 import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.FSDataInputStream;
 

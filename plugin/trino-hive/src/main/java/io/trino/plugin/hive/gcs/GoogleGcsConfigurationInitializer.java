@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.gcs;
 
 import com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem;
-import io.trino.plugin.hive.ConfigurationInitializer;
+import io.trino.hdfs.ConfigurationInitializer;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;

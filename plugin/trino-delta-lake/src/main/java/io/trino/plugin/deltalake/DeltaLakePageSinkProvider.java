@@ -14,9 +14,9 @@
 package io.trino.plugin.deltalake;
 
 import io.airlift.json.JsonCodec;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.deltalake.procedure.DeltaLakeTableExecuteHandle;
 import io.trino.plugin.deltalake.procedure.DeltaTableOptimizeHandle;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.connector.ConnectorInsertTableHandle;

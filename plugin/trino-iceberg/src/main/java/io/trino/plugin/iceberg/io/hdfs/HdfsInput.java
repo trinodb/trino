@@ -14,7 +14,7 @@
 package io.trino.plugin.iceberg.io.hdfs;
 
 import io.airlift.slice.Slice;
-import io.trino.plugin.hive.util.FSDataInputStreamTail;
+import io.trino.hdfs.FSDataInputStreamTail;
 import io.trino.plugin.iceberg.io.TrinoInput;
 import io.trino.plugin.iceberg.io.TrinoInputFile;
 import org.apache.hadoop.fs.FSDataInputStream;
