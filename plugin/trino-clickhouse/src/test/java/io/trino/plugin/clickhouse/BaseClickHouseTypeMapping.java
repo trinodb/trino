@@ -706,8 +706,7 @@ public abstract class BaseClickHouseTypeMapping
 
     private SqlDataTypeTest timestampTest(String inputType)
     {
-        return SqlDataTypeTest.create()
-                .addRoundTrip(inputType, "'1969-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '1970-01-01 23:59:59'") // unsupported timestamp become 1970-01-01 23:59:59
+        return unsupportedTimestampBecomeUnexpectedValueTest(inputType)
                 .addRoundTrip(inputType, "'1970-01-01 00:00:00'", createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:00'") // min value in ClickHouse
                 .addRoundTrip(inputType, "'1986-01-01 00:13:07'", createTimestampType(0), "TIMESTAMP '1986-01-01 00:13:07'") // time gap in Kathmandu
                 .addRoundTrip(inputType, "'2018-03-25 03:17:17'", createTimestampType(0), "TIMESTAMP '2018-03-25 03:17:17'") // time gap in Vilnius
@@ -715,6 +714,12 @@ public abstract class BaseClickHouseTypeMapping
                 .addRoundTrip(inputType, "'2018-10-28 03:33:33'", createTimestampType(0), "TIMESTAMP '2018-10-28 03:33:33'") // time double in Vilnius
                 .addRoundTrip(inputType, "'2105-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '2105-12-31 23:59:59'") // max value in ClickHouse
                 .addRoundTrip(format("Nullable(%s)", inputType), "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))");
+    }
+
+    protected SqlDataTypeTest unsupportedTimestampBecomeUnexpectedValueTest(String inputType)
+    {
+        return SqlDataTypeTest.create()
+                .addRoundTrip(inputType, "'1969-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '1970-01-01 23:59:59'"); // unsupported timestamp become 1970-01-01 23:59:59
     }
 
     @Test
