@@ -658,13 +658,13 @@ public abstract class BaseClickHouseTypeMapping
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
 
-        addTimestampRoundTrips("timestamp")
+        timestampTest("timestamp")
                 .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_timestamp"));
-        addTimestampRoundTrips("datetime")
+        timestampTest("datetime")
                 .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_datetime"));
     }
 
-    private SqlDataTypeTest addTimestampRoundTrips(String inputType)
+    private SqlDataTypeTest timestampTest(String inputType)
     {
         return SqlDataTypeTest.create()
                 .addRoundTrip(inputType, "'1969-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '1970-01-01 23:59:59'") // unsupported timestamp become 1970-01-01 23:59:59
