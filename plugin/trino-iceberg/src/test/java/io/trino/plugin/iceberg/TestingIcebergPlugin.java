@@ -15,8 +15,8 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.iceberg.io.TrinoFileSystemFactory;
 import io.trino.spi.connector.ConnectorFactory;
 
 import java.util.List;

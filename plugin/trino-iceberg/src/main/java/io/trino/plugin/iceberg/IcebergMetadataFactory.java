@@ -14,8 +14,8 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.json.JsonCodec;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
-import io.trino.plugin.iceberg.io.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;

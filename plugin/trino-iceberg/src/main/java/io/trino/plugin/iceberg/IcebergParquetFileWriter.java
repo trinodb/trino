@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
-import io.trino.plugin.iceberg.io.TrinoFileSystem;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;

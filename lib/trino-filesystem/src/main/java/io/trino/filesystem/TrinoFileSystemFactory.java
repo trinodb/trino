@@ -11,16 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package io.trino.filesystem;
 
-package io.trino.plugin.iceberg.io;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.security.ConnectorIdentity;
 
-import java.io.IOException;
-import java.io.OutputStream;
-
-public interface TrinoOutputFile
+public interface TrinoFileSystemFactory
 {
-    OutputStream create()
-            throws IOException;
+    TrinoFileSystem create(ConnectorIdentity identity);
 
-    String location();
+    default TrinoFileSystem create(ConnectorSession session)
+    {
+        return create(session.getIdentity());
+    }
 }

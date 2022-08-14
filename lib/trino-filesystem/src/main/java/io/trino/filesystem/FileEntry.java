@@ -11,17 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.io;
+package io.trino.filesystem;
 
-import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.security.ConnectorIdentity;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
-public interface TrinoFileSystemFactory
+public record FileEntry(String path, long length, long lastModified)
 {
-    TrinoFileSystem create(ConnectorIdentity identity);
-
-    default TrinoFileSystem create(ConnectorSession session)
+    public FileEntry
     {
-        return create(session.getIdentity());
+        checkArgument(length >= 0, "length is negative");
+        requireNonNull(path, "path is null");
     }
 }
