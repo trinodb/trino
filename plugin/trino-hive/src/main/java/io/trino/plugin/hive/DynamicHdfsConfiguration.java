@@ -26,7 +26,7 @@ import static io.trino.plugin.hive.util.ConfigurationUtils.copy;
 import static io.trino.plugin.hive.util.ConfigurationUtils.getInitialConfiguration;
 import static java.util.Objects.requireNonNull;
 
-public class HiveHdfsConfiguration
+public class DynamicHdfsConfiguration
         implements HdfsConfiguration
 {
     private static final Configuration INITIAL_CONFIGURATION = getInitialConfiguration();
@@ -48,7 +48,7 @@ public class HiveHdfsConfiguration
     private final Set<DynamicConfigurationProvider> dynamicProviders;
 
     @Inject
-    public HiveHdfsConfiguration(HdfsConfigurationInitializer initializer, Set<DynamicConfigurationProvider> dynamicProviders)
+    public DynamicHdfsConfiguration(HdfsConfigurationInitializer initializer, Set<DynamicConfigurationProvider> dynamicProviders)
     {
         this.initializer = requireNonNull(initializer, "initializer is null");
         this.dynamicProviders = ImmutableSet.copyOf(requireNonNull(dynamicProviders, "dynamicProviders is null"));

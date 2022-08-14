@@ -64,7 +64,7 @@ public class TestHiveFileSystemWasb
         ConfigurationInitializer wasbConfig = new TrinoAzureConfigurationInitializer(new HiveAzureConfig()
                 .setWasbAccessKey(accessKey)
                 .setWasbStorageAccount(account));
-        return new HiveHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(wasbConfig)), ImmutableSet.of());
+        return new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(wasbConfig)), ImmutableSet.of());
     }
 
     @Override

@@ -77,7 +77,7 @@ public class TestHiveFileSystemAdl
                 .setAdlClientId(clientId)
                 .setAdlCredential(credential)
                 .setAdlRefreshUrl(refreshUrl));
-        return new HiveHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(azureConfig)), ImmutableSet.of());
+        return new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(azureConfig)), ImmutableSet.of());
     }
 
     @Override
