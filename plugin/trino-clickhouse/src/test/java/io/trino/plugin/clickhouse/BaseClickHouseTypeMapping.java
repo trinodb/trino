@@ -600,14 +600,12 @@ public abstract class BaseClickHouseTypeMapping
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
         SqlDataTypeTest.create()
-                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'") // min value in ClickHouse
                 .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
                 .addRoundTrip("date", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'") // summer on northern hemisphere (possible DST)
                 .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
                 .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
                 .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'")
                 .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'")
-                .addRoundTrip("date", "DATE '2106-02-07'", DATE, "DATE '2106-02-07'") // max value in ClickHouse
                 .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
@@ -626,17 +624,59 @@ public abstract class BaseClickHouseTypeMapping
                 .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"));
     }
 
-    @Test
-    public void testUnsupportedDate()
+    @Test(dataProvider = "clickHouseDateMinMaxValuesDataProvider")
+    public void testClickHouseDateMinMaxValues(String date)
     {
+        SqlDataTypeTest dateTests = SqlDataTypeTest.create()
+                .addRoundTrip("date", format("DATE '%s'", date), DATE, format("DATE '%s'", date));
+
+        for (Object[] timeZoneIds : sessionZonesDataProvider()) {
+            Session session = Session.builder(getSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(((ZoneId) timeZoneIds[0]).getId()))
+                    .build();
+            dateTests
+                    .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"))
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
+                    .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
+                    .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
+        }
+    }
+
+    @DataProvider
+    public Object[][] clickHouseDateMinMaxValuesDataProvider()
+    {
+        return new Object[][] {
+                {"1970-01-01"}, // min value in ClickHouse
+                {"2106-02-07"}, // max value in ClickHouse
+        };
+    }
+
+    @Test(dataProvider = "unsupportedClickHouseDateValuesDataProvider")
+    public void testUnsupportedDate(String unsupportedDate)
+    {
+        String minSupportedDate = (String) clickHouseDateMinMaxValuesDataProvider()[0][0];
+        String maxSupportedDate = (String) clickHouseDateMinMaxValuesDataProvider()[1][0];
+
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_date", "(dt date)")) {
             assertQueryFails(
-                    format("INSERT INTO %s VALUES (DATE '1969-12-31')", table.getName()),
-                    "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: 1969-12-31");
-            assertQueryFails(
-                    format("INSERT INTO %s VALUES (DATE '2106-02-08')", table.getName()),
-                    "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: 2106-02-08");
+                    format("INSERT INTO %s VALUES (DATE '%s')", table.getName(), unsupportedDate),
+                    format("Date must be between %s and %s in ClickHouse: %s", minSupportedDate, maxSupportedDate, unsupportedDate));
         }
+
+        try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.test_unsupported_date", "(dt date) ENGINE=Log")) {
+            onRemoteDatabase().execute(format("INSERT INTO %s VALUES ('%s')", table.getName(), unsupportedDate));
+            assertQuery(format("SELECT dt <> DATE '%s' FROM %s", unsupportedDate, table.getName()), "SELECT true"); // Inserting an unsupported date in ClickHouse will turn it into another date
+        }
+    }
+
+    @DataProvider
+    public Object[][] unsupportedClickHouseDateValuesDataProvider()
+    {
+        return new Object[][] {
+                {"1969-12-31"}, // min - 1 day
+                {"2106-02-08"}, // max + 1 day
+        };
     }
 
     @Test(dataProvider = "sessionZonesDataProvider")
