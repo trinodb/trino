@@ -11,15 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.io.hdfs;
+package io.trino.filesystem.hdfs;
 
-import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.Path;
 
 import java.net.URI;
 import java.net.URLEncoder;
 
-import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class HadoopPaths
@@ -32,7 +30,7 @@ public final class HadoopPaths
         Path hadoopPath = new Path(path);
         if ("s3".equals(hadoopPath.toUri().getScheme()) && !path.equals(hadoopPath.toString())) {
             if (hadoopPath.toUri().getFragment() != null) {
-                throw new TrinoException(ICEBERG_INVALID_METADATA, "Unexpected URI fragment in path: " + path);
+                throw new IllegalArgumentException("Unexpected URI fragment in path: " + path);
             }
             URI uri = URI.create(path);
             return new Path(uri + "#" + URLEncoder.encode(uri.getPath(), UTF_8));

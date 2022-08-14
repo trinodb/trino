@@ -11,11 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.io.fileio;
+package io.trino.filesystem.fileio;
 
 import com.google.common.io.CountingOutputStream;
-import io.trino.plugin.iceberg.io.TrinoFileSystem;
-import io.trino.plugin.iceberg.io.TrinoOutputFile;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoOutputFile;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.OutputFile;
 import org.apache.iceberg.io.PositionOutputStream;

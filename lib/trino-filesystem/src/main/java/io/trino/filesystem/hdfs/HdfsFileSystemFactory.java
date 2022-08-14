@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.io.hdfs;
+package io.trino.filesystem.hdfs;
 
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.plugin.iceberg.io.TrinoFileSystem;
-import io.trino.plugin.iceberg.io.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 
 import javax.inject.Inject;

@@ -14,8 +14,8 @@
 package io.trino.plugin.iceberg;
 
 import com.google.inject.Module;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.iceberg.io.TrinoFileSystemFactory;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;

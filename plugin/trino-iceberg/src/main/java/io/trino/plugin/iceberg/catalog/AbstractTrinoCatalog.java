@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HiveMetadata;
 import io.trino.plugin.hive.HiveViewNotSupportedException;
@@ -21,7 +22,6 @@ import io.trino.plugin.hive.ViewReaderUtil;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
 import io.trino.plugin.iceberg.IcebergUtil;
-import io.trino.plugin.iceberg.io.TrinoFileSystem;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;

@@ -11,18 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.io.hdfs;
+package io.trino.filesystem.hdfs;
 
+import io.trino.filesystem.TrinoOutputFile;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.plugin.iceberg.io.TrinoOutputFile;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.io.OutputStream;
 
-import static io.trino.plugin.iceberg.io.hdfs.HadoopPaths.hadoopPath;
+import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
 import static java.util.Objects.requireNonNull;
 
 class HdfsOutputFile

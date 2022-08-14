@@ -14,12 +14,12 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.slice.Slice;
+import io.trino.filesystem.TrinoInput;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.AbstractParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.iceberg.io.TrinoInput;
-import io.trino.plugin.iceberg.io.TrinoInputFile;
 
 import java.io.IOException;
 

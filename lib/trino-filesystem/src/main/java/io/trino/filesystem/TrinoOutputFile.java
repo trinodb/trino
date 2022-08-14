@@ -11,22 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.io;
+
+package io.trino.filesystem;
 
 import java.io.IOException;
+import java.io.OutputStream;
 
-public interface TrinoInputFile
+public interface TrinoOutputFile
 {
-    TrinoInput newInput()
-            throws IOException;
-
-    long length()
-            throws IOException;
-
-    long modificationTime()
-            throws IOException;
-
-    boolean exists()
+    OutputStream create()
             throws IOException;
 
     String location();
