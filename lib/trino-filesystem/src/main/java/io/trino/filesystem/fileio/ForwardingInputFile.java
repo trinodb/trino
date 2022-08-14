@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.io.fileio;
+package io.trino.filesystem.fileio;
 
-import io.trino.plugin.iceberg.io.TrinoInputFile;
+import io.trino.filesystem.TrinoInputFile;
 import org.apache.iceberg.exceptions.NotFoundException;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.SeekableInputStream;

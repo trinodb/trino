@@ -11,16 +11,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.io;
+package io.trino.filesystem;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
+import org.apache.iceberg.io.FileIO;
 
-public record FileEntry(String path, long length, long lastModified)
+import java.io.IOException;
+
+public interface TrinoFileSystem
 {
-    public FileEntry
-    {
-        checkArgument(length >= 0, "length is negative");
-        requireNonNull(path, "path is null");
-    }
+    TrinoInputFile newInputFile(String path);
+
+    TrinoInputFile newInputFile(String path, long length);
+
+    TrinoOutputFile newOutputFile(String path);
+
+    void deleteFile(String path)
+            throws IOException;
+
+    void deleteDirectory(String path)
+            throws IOException;
+
+    FileIterator listFiles(String path)
+            throws IOException;
+
+    FileIO toFileIo();
 }

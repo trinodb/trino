@@ -14,11 +14,11 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.iceberg.io.FileIterator;
-import io.trino.plugin.iceberg.io.TrinoFileSystem;
-import io.trino.plugin.iceberg.io.TrinoFileSystemFactory;
-import io.trino.plugin.iceberg.io.TrinoInputFile;
-import io.trino.plugin.iceberg.io.TrinoOutputFile;
+import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.TrinoOutputFile;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.InputFile;

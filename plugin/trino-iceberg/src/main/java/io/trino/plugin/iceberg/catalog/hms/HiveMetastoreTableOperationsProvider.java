@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.iceberg.catalog.hms;
 
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreFactory;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
-import io.trino.plugin.iceberg.io.TrinoFileSystemFactory;
 import io.trino.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;

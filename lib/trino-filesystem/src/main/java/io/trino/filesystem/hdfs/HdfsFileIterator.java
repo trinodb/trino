@@ -11,10 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.io.hdfs;
+package io.trino.filesystem.hdfs;
 
-import io.trino.plugin.iceberg.io.FileEntry;
-import io.trino.plugin.iceberg.io.FileIterator;
+import io.trino.filesystem.FileEntry;
+import io.trino.filesystem.FileIterator;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;

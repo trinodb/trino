@@ -11,12 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.io.hdfs;
+package io.trino.filesystem.hdfs;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.iceberg.io.FileIterator;
-import io.trino.plugin.iceberg.io.TrinoFileSystem;
-import io.trino.plugin.iceberg.io.TrinoFileSystemFactory;
+import com.google.common.collect.ImmutableSet;
+import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.spi.security.ConnectorIdentity;
 import org.testng.annotations.Test;
 
@@ -26,7 +32,6 @@ import java.util.List;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static java.nio.file.Files.createDirectory;
 import static java.nio.file.Files.createFile;
 import static java.nio.file.Files.createTempDirectory;
@@ -38,7 +43,11 @@ public class TestHdfsFileSystem
     public void testListing()
             throws IOException
     {
-        TrinoFileSystemFactory factory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
+        HdfsConfig hdfsConfig = new HdfsConfig();
+        DynamicHdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
+        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
+
+        TrinoFileSystemFactory factory = new HdfsFileSystemFactory(hdfsEnvironment);
         TrinoFileSystem fileSystem = factory.create(ConnectorIdentity.ofUser("test"));
 
         Path tempDir = createTempDirectory("testListing");

@@ -11,28 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.io;
-
-import org.apache.iceberg.io.FileIO;
+package io.trino.filesystem;
 
 import java.io.IOException;
 
-public interface TrinoFileSystem
+public interface TrinoInputFile
 {
-    TrinoInputFile newInputFile(String path);
-
-    TrinoInputFile newInputFile(String path, long length);
-
-    TrinoOutputFile newOutputFile(String path);
-
-    void deleteFile(String path)
+    TrinoInput newInput()
             throws IOException;
 
-    void deleteDirectory(String path)
+    long length()
             throws IOException;
 
-    FileIterator listFiles(String path)
+    long modificationTime()
             throws IOException;
 
-    FileIO toFileIo();
+    boolean exists()
+            throws IOException;
+
+    String location();
 }

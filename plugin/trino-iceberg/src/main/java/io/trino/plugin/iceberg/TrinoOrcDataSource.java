@@ -14,12 +14,12 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.slice.Slice;
+import io.trino.filesystem.TrinoInput;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.orc.AbstractOrcDataSource;
 import io.trino.orc.OrcDataSourceId;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.iceberg.io.TrinoInput;
-import io.trino.plugin.iceberg.io.TrinoInputFile;
 
 import java.io.IOException;
 

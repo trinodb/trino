@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.io.hdfs;
+package io.trino.filesystem.hdfs;
 
 import io.airlift.slice.Slice;
+import io.trino.filesystem.TrinoInput;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.hdfs.FSDataInputStreamTail;
-import io.trino.plugin.iceberg.io.TrinoInput;
-import io.trino.plugin.iceberg.io.TrinoInputFile;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.iceberg.io.SeekableInputStream;
 
