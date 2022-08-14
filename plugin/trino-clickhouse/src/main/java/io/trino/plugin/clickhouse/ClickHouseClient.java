@@ -81,7 +81,6 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -103,6 +102,7 @@ import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ORDER_BY_PROP
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PARTITION_BY_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PRIMARY_KEY_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PROPERTY;
+import static io.trino.plugin.clickhouse.TrinoToClickHouseWriteChecker.DATETIME;
 import static io.trino.plugin.clickhouse.TrinoToClickHouseWriteChecker.UINT16;
 import static io.trino.plugin.clickhouse.TrinoToClickHouseWriteChecker.UINT32;
 import static io.trino.plugin.clickhouse.TrinoToClickHouseWriteChecker.UINT64;
@@ -139,7 +139,6 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -176,11 +175,6 @@ public class ClickHouseClient
     private static final Splitter TABLE_PROPERTY_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
 
     private static final DecimalType UINT64_TYPE = createDecimalType(20, 0);
-
-    private static final LocalDateTime MIN_SUPPORTED_TIMESTAMP = LocalDateTime.parse("1970-01-01T00:00:00");
-    private static final LocalDateTime MAX_SUPPORTED_TIMESTAMP = LocalDateTime.parse("2105-12-31T23:59:59");
-    private static final long MIN_SUPPORTED_TIMESTAMP_EPOCH = MIN_SUPPORTED_TIMESTAMP.toEpochSecond(UTC);
-    private static final long MAX_SUPPORTED_TIMESTAMP_EPOCH = MAX_SUPPORTED_TIMESTAMP.toEpochSecond(UTC);
 
     // An empty character means that the table doesn't have a comment in ClickHouse
     private static final String NO_COMMENT = "";
@@ -598,7 +592,7 @@ public class ClickHouseClient
                     return Optional.of(ColumnMapping.longMapping(
                             TIMESTAMP_SECONDS,
                             timestampReadFunction(TIMESTAMP_SECONDS),
-                            timestampSecondsWriteFunction()));
+                            timestampSecondsWriteFunction(getClickHouseServerVersion(session))));
                 }
                 // TODO (https://github.com/trinodb/trino/issues/10537) Add support for Datetime64 type
                 return Optional.of(timestampColumnMappingUsingSqlTimestampWithRounding(TIMESTAMP_MILLIS));
@@ -656,7 +650,7 @@ public class ClickHouseClient
             return WriteMapping.longMapping("Date", dateWriteFunctionUsingLocalDate(getClickHouseServerVersion(session)));
         }
         if (type == TIMESTAMP_SECONDS) {
-            return WriteMapping.longMapping("DateTime", timestampSecondsWriteFunction());
+            return WriteMapping.longMapping("DateTime", timestampSecondsWriteFunction(getClickHouseServerVersion(session)));
         }
         if (type.equals(uuidType)) {
             return WriteMapping.sliceMapping("UUID", uuidWriteFunction());
@@ -762,23 +756,17 @@ public class ClickHouseClient
         };
     }
 
-    private static LongWriteFunction timestampSecondsWriteFunction()
+    private static LongWriteFunction timestampSecondsWriteFunction(ClickHouseVersion version)
     {
         return (statement, index, value) -> {
             long epochSecond = floorDiv(value, MICROSECONDS_PER_SECOND);
             int nanoFraction = floorMod(value, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
             verify(nanoFraction == 0, "Nanos of second must be zero: '%s'", value);
-            verifySupportedTimestamp(epochSecond);
-            statement.setObject(index, LocalDateTime.ofEpochSecond(epochSecond, 0, UTC));
+            LocalDateTime timestamp = LocalDateTime.ofEpochSecond(epochSecond, 0, UTC);
+            // ClickHouse stores incorrect results when the values are out of supported range.
+            DATETIME.validate(version, timestamp);
+            statement.setObject(index, timestamp);
         };
-    }
-
-    private static void verifySupportedTimestamp(long epochSecond)
-    {
-        if (epochSecond < MIN_SUPPORTED_TIMESTAMP_EPOCH || epochSecond > MAX_SUPPORTED_TIMESTAMP_EPOCH) {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss");
-            throw new TrinoException(INVALID_ARGUMENTS, format("Timestamp must be between %s and %s in ClickHouse: %s", MIN_SUPPORTED_TIMESTAMP.format(formatter), MAX_SUPPORTED_TIMESTAMP.format(formatter), LocalDateTime.ofEpochSecond(epochSecond, 0, UTC).format(formatter)));
-        }
     }
 
     private ColumnMapping ipAddressColumnMapping(String writeBindExpression)

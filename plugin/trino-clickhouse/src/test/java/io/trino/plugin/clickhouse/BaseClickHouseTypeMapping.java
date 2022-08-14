@@ -747,7 +747,7 @@ public abstract class BaseClickHouseTypeMapping
     {
         return new Object[][] {
                 {"1970-01-01 00:00:00"}, // min value in ClickHouse
-                {"2105-12-31 23:59:59"}, // max value in ClickHouse
+                {"2106-02-06 06:28:15"}, // max value in ClickHouse
         };
     }
 
@@ -762,16 +762,19 @@ public abstract class BaseClickHouseTypeMapping
                     format("INSERT INTO %s VALUES (TIMESTAMP '%s')", table.getName(), unsupportedTimestamp),
                     format("Timestamp must be between %s and %s in ClickHouse: %s", minSupportedTimestamp, maxSupportedTimestamp, unsupportedTimestamp));
         }
+
+        try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.test_unsupported_timestamp", "(dt datetime) ENGINE=Log")) {
+            onRemoteDatabase().execute(format("INSERT INTO %s VALUES ('%s')", table.getName(), unsupportedTimestamp));
+            assertQuery(format("SELECT dt <> TIMESTAMP '%s' FROM %s", unsupportedTimestamp, table.getName()), "SELECT true"); // Inserting an unsupported datetime in ClickHouse will turn it into another datetime
+        }
     }
 
     @DataProvider
     public Object[][] unsupportedTimestampDataProvider()
     {
         return new Object[][] {
-                {"-9999-12-31 23:59:59"},
                 {"1969-12-31 23:59:59"}, // min - 1 second
-                {"2106-01-01 00:00:00"}, // max + 1 second
-                {"9999-12-31 23:59:59"},
+                {"2106-02-06 06:28:16"}, // max + 1 second
         };
     }
 
