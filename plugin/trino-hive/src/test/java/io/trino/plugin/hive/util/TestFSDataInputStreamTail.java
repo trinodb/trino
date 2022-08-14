@@ -16,7 +16,6 @@ package io.trino.plugin.hive.util;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
@@ -34,7 +33,6 @@ import java.util.Arrays;
 
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
-import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
@@ -163,10 +161,6 @@ public class TestFSDataInputStreamTail
         try (FSDataInputStream is = fs.open(tempFile)) {
             FSDataInputStreamTail.readTail(tempFile.toString(), 128, is, 16);
             fail("Expected failure to find end of stream");
-        }
-        catch (TrinoException e) {
-            assertEquals(e.getErrorCode(), HIVE_FILESYSTEM_ERROR.toErrorCode());
-            throw e;
         }
     }
 
