@@ -103,6 +103,7 @@ import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ORDER_BY_PROP
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PARTITION_BY_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PRIMARY_KEY_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PROPERTY;
+import static io.trino.plugin.clickhouse.TrinoToClickHouseWriteChecker.UINT16;
 import static io.trino.plugin.clickhouse.TrinoToClickHouseWriteChecker.UINT8;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
@@ -171,9 +172,6 @@ public class ClickHouseClient
         extends BaseJdbcClient
 {
     private static final Splitter TABLE_PROPERTY_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
-
-    private static final long UINT16_MIN_VALUE = 0L;
-    private static final long UINT16_MAX_VALUE = 65535L;
 
     private static final long UINT32_MIN_VALUE = 0L;
     private static final long UINT32_MAX_VALUE = 4294967295L;
@@ -516,7 +514,7 @@ public class ClickHouseClient
             case UInt8:
                 return Optional.of(ColumnMapping.longMapping(SMALLINT, ResultSet::getShort, uInt8WriteFunction(getClickHouseServerVersion(session))));
             case UInt16:
-                return Optional.of(ColumnMapping.longMapping(INTEGER, ResultSet::getInt, uInt16WriteFunction()));
+                return Optional.of(ColumnMapping.longMapping(INTEGER, ResultSet::getInt, uInt16WriteFunction(getClickHouseServerVersion(session))));
             case UInt32:
                 return Optional.of(ColumnMapping.longMapping(BIGINT, ResultSet::getLong, uInt32WriteFunction()));
             case UInt64:
@@ -721,13 +719,11 @@ public class ClickHouseClient
         };
     }
 
-    private static LongWriteFunction uInt16WriteFunction()
+    private static LongWriteFunction uInt16WriteFunction(ClickHouseVersion version)
     {
         return (statement, index, value) -> {
             // ClickHouse stores incorrect results when the values are out of supported range.
-            if (value < UINT16_MIN_VALUE || value > UINT16_MAX_VALUE) {
-                throw new TrinoException(INVALID_ARGUMENTS, format("Value must be between %s and %s in ClickHouse: %s", UINT16_MIN_VALUE, UINT16_MAX_VALUE, value));
-            }
+            UINT16.validate(version, value);
             statement.setInt(index, toIntExact(value));
         };
     }
