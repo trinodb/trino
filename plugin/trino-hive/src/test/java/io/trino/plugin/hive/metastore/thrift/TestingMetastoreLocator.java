@@ -15,7 +15,6 @@ package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.authentication.HiveMetastoreAuthentication;
 import org.apache.thrift.TException;
 
 import java.util.Optional;

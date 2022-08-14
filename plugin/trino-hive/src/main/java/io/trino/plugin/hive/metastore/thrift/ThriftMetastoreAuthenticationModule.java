@@ -21,8 +21,6 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.hive.ForHiveMetastore;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
 import io.trino.plugin.hive.authentication.HadoopAuthentication;
-import io.trino.plugin.hive.authentication.HiveMetastoreAuthentication;
-import io.trino.plugin.hive.authentication.MetastoreKerberosConfig;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.configuration.ConfigBinder.configBinder;
