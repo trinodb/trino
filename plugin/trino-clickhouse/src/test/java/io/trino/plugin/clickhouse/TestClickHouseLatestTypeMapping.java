@@ -70,4 +70,26 @@ public class TestClickHouseLatestTypeMapping
         return SqlDataTypeTest.create()
                 .addRoundTrip(inputType, "'1969-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:00'");
     }
+
+    @DataProvider
+    @Override
+    public Object[][] clickHouseDateTimeMinMaxValuesDataProvider()
+    {
+        // Override because the DateTime range was expanded in version 21.4 and later
+        return new Object[][] {
+                {"1970-01-01 00:00:00"}, // min value in ClickHouse
+                {"2106-02-07 06:28:15"}, // max value in ClickHouse
+        };
+    }
+
+    @DataProvider
+    @Override
+    public Object[][] unsupportedTimestampDataProvider()
+    {
+        // Override because the DateTime range was expanded in version 21.4 and later
+        return new Object[][] {
+                {"1969-12-31 23:59:59"}, // min - 1 second
+                {"2106-02-07 06:28:16"}, // max + 1 second
+        };
+    }
 }
