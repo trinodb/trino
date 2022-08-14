@@ -27,7 +27,6 @@ import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.AbstractTestHive.HiveTransaction;
 import io.trino.plugin.hive.AbstractTestHive.Transaction;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.fs.FileSystemDirectoryLister;

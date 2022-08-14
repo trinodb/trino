@@ -19,6 +19,7 @@ import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.hive.HdfsContext;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -87,7 +88,7 @@ public class CheckpointWriterManager
 
             CheckpointBuilder checkpointBuilder = new CheckpointBuilder();
 
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsEnvironment.HdfsContext(session), snapshot.getTableLocation());
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsContext(session), snapshot.getTableLocation());
             Optional<DeltaLakeTransactionLogEntry> checkpointMetadataLogEntry = snapshot.getCheckpointTransactionLogEntries(
                     session,
                     ImmutableSet.of(METADATA),

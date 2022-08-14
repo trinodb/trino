@@ -20,6 +20,7 @@ import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
+import io.trino.plugin.hive.HdfsContext;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
@@ -83,7 +84,7 @@ public class TestDeltaLakeTableWithCustomLocationUsingGlueMetastore
                 new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),
                 Optional.empty(),
                 table -> true);
-        hdfsContext = new HdfsEnvironment.HdfsContext(queryRunner.getDefaultSession().toConnectorSession());
+        hdfsContext = new HdfsContext(queryRunner.getDefaultSession().toConnectorSession());
 
         queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = '" + metastoreDir.getPath() + "')");
         return queryRunner;

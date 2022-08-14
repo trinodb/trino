@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake.transactionlog.writer;
 
+import io.trino.plugin.hive.HdfsContext;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.FileSystem;
@@ -46,7 +47,7 @@ public class AzureTransactionLogSynchronizer
 
         FileSystem fs = null;
         try {
-            fs = hdfsEnvironment.getFileSystem(new HdfsEnvironment.HdfsContext(session), newLogEntryPath);
+            fs = hdfsEnvironment.getFileSystem(new HdfsContext(session), newLogEntryPath);
             try (OutputStream outputStream = fs.create(tmpFilePath, false)) {
                 outputStream.write(entryContents);
             }

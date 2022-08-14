@@ -26,6 +26,7 @@ import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
+import io.trino.plugin.hive.HdfsContext;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -176,7 +177,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
         if (!externalTable) {
             try {
                 Path path = new Path(tableLocation);
-                FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsEnvironment.HdfsContext(session), path);
+                FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsContext(session), path);
                 fileSystem.delete(path, true);
             }
             catch (IOException e) {

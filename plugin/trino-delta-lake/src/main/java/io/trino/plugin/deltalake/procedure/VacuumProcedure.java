@@ -27,6 +27,7 @@ import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
+import io.trino.plugin.hive.HdfsContext;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -171,7 +172,7 @@ public class VacuumProcedure
         TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(tableName, new Path(handle.getLocation()), session);
         Path tableLocation = tableSnapshot.getTableLocation();
         Path transactionLogDir = getTransactionLogDir(tableLocation);
-        FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsEnvironment.HdfsContext(session), tableLocation);
+        FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsContext(session), tableLocation);
         String commonPathPrefix = tableLocation + "/";
         String queryId = session.getQueryId();
 

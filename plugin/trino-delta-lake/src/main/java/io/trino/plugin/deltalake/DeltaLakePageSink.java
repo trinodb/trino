@@ -25,6 +25,7 @@ import io.airlift.slice.Slice;
 import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.FileWriter;
+import io.trino.plugin.hive.HdfsContext;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.RecordFileWriter;
@@ -193,7 +194,7 @@ public class DeltaLakePageSink
         this.session = requireNonNull(session, "session is null");
         this.stats = stats;
 
-        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsEnvironment.HdfsContext(session), new Path(outputPath));
+        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(outputPath));
         configureCompression(conf, getCompressionCodec(session));
         this.conf = toJobConf(conf);
         this.typeManager = requireNonNull(typeManager, "typeManager is null");

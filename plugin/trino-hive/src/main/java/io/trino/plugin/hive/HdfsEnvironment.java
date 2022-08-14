@@ -17,7 +17,6 @@ import io.trino.hadoop.HadoopNative;
 import io.trino.plugin.hive.authentication.GenericExceptionAction;
 import io.trino.plugin.hive.authentication.HdfsAuthentication;
 import io.trino.plugin.hive.fs.TrinoFileSystemCache;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -30,7 +29,6 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class HdfsEnvironment
@@ -100,35 +98,5 @@ public class HdfsEnvironment
     public void doAs(ConnectorIdentity identity, Runnable action)
     {
         hdfsAuthentication.doAs(identity, action);
-    }
-
-    public static class HdfsContext
-    {
-        private final ConnectorIdentity identity;
-
-        public HdfsContext(ConnectorIdentity identity)
-        {
-            this.identity = requireNonNull(identity, "identity is null");
-        }
-
-        public HdfsContext(ConnectorSession session)
-        {
-            requireNonNull(session, "session is null");
-            this.identity = requireNonNull(session.getIdentity(), "session.getIdentity() is null");
-        }
-
-        public ConnectorIdentity getIdentity()
-        {
-            return identity;
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .omitNullValues()
-                    .add("user", identity)
-                    .toString();
-        }
     }
 }

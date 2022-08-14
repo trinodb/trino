@@ -16,7 +16,7 @@ package io.trino.plugin.hive.s3;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.DynamicConfigurationProvider;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.plugin.hive.HdfsContext;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveSessionProperties;
 import io.trino.spi.connector.ConnectorSession;

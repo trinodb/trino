@@ -29,6 +29,7 @@ import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterat
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.hive.HdfsContext;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.TrinoException;
@@ -458,7 +459,7 @@ public class TransactionLogAccess
     protected FileSystem getFileSystem(Path tableLocation, SchemaTableName table, ConnectorSession session)
     {
         try {
-            return hdfsEnvironment.getFileSystem(new HdfsEnvironment.HdfsContext(session), tableLocation);
+            return hdfsEnvironment.getFileSystem(new HdfsContext(session), tableLocation);
         }
         catch (IOException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Failed accessing transaction log for table: " + table, e);

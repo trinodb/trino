@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.LocationHandle.WriteMode;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
