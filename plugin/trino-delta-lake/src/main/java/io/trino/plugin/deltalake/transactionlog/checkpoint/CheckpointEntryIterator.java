@@ -28,6 +28,7 @@ import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.hive.HdfsContext;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.ReaderPageSource;
@@ -184,7 +185,7 @@ public class CheckpointEntryIterator
                 tupleDomain,
                 true,
                 hdfsEnvironment,
-                hdfsEnvironment.getConfiguration(new HdfsEnvironment.HdfsContext(session), checkpoint),
+                hdfsEnvironment.getConfiguration(new HdfsContext(session), checkpoint),
                 session.getIdentity(),
                 DateTimeZone.UTC,
                 stats,

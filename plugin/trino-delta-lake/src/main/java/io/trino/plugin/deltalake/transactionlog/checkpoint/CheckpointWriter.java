@@ -21,6 +21,7 @@ import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
+import io.trino.plugin.hive.HdfsContext;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.RecordFileWriter;
 import io.trino.spi.PageBuilder;
@@ -106,7 +107,7 @@ public class CheckpointWriter
 
         Properties schema = buildHiveSchema(columnNames, columnTypes);
 
-        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsEnvironment.HdfsContext(session), targetPath);
+        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsContext(session), targetPath);
         configureCompression(conf, SNAPPY);
         JobConf jobConf = toJobConf(conf);
 

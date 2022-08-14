@@ -19,6 +19,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.hive.HdfsContext;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.ReaderPageSource;
@@ -100,7 +101,7 @@ public class DeltaLakeUpdatablePageSource
     private final ConnectorSession session;
     private final ExecutorService executorService;
     private final HdfsEnvironment hdfsEnvironment;
-    private final HdfsEnvironment.HdfsContext hdfsContext;
+    private final HdfsContext hdfsContext;
     private final DateTimeZone parquetDateTimeZone;
     private final ParquetReaderOptions parquetReaderOptions;
     private final TypeManager typeManager;
@@ -130,7 +131,7 @@ public class DeltaLakeUpdatablePageSource
             ConnectorSession session,
             ExecutorService executorService,
             HdfsEnvironment hdfsEnvironment,
-            HdfsEnvironment.HdfsContext hdfsContext,
+            HdfsContext hdfsContext,
             DateTimeZone parquetDateTimeZone,
             ParquetReaderOptions parquetReaderOptions,
             TupleDomain<HiveColumnHandle> parquetPredicate,
@@ -583,7 +584,7 @@ public class DeltaLakeUpdatablePageSource
     private DeltaLakeWriter createWriter(Path targetFile, List<DeltaLakeColumnMetadata> allColumns, List<DeltaLakeColumnHandle> dataColumns)
             throws IOException
     {
-        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsEnvironment.HdfsContext(session), targetFile);
+        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsContext(session), targetFile);
         configureCompression(conf, SNAPPY);
 
         Properties schema = buildHiveSchema(

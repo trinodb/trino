@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import org.apache.hadoop.conf.Configuration;
 
 import java.net.URI;

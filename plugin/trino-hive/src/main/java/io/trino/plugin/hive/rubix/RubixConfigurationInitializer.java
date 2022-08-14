@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.rubix;
 
 import io.trino.plugin.hive.DynamicConfigurationProvider;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.plugin.hive.HdfsContext;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;
