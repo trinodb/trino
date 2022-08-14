@@ -59,8 +59,6 @@ import io.trino.plugin.iceberg.delete.RowPredicate;
 import io.trino.plugin.iceberg.io.TrinoFileSystem;
 import io.trino.plugin.iceberg.io.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.io.TrinoInputFile;
-import io.trino.plugin.iceberg.io.TrinoOrcDataSource;
-import io.trino.plugin.iceberg.io.TrinoParquetDataSource;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;

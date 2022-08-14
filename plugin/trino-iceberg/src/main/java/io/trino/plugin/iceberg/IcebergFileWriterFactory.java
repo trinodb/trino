@@ -29,7 +29,6 @@ import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.iceberg.io.TrinoFileSystem;
 import io.trino.plugin.iceberg.io.TrinoInputFile;
-import io.trino.plugin.iceberg.io.TrinoOrcDataSource;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
