@@ -19,7 +19,6 @@ import com.google.inject.Scopes;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class HiveHdfsModule
         implements Module
@@ -35,8 +34,5 @@ public class HiveHdfsModule
         binder.bind(HdfsConfigurationInitializer.class).in(Scopes.SINGLETON);
         newSetBinder(binder, ConfigurationInitializer.class);
         newSetBinder(binder, DynamicConfigurationProvider.class);
-
-        binder.bind(NamenodeStats.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(NamenodeStats.class).withGeneratedName();
     }
 }
