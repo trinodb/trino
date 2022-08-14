@@ -34,7 +34,6 @@ public class TestDeltaLakeJmx
                 row("io.trino.plugin.hive.metastore.glue:name=delta,type=gluehivemetastore"),
                 row("io.trino.plugin.hive.s3:name=delta,type=trinos3filesystem"),
                 row("io.trino.plugin.hive:catalog=delta,name=delta,type=fileformatdatasourcestats"),
-                row("io.trino.plugin.hive:name=delta,type=namenodestats"),
                 row("trino.plugin.deltalake.transactionlog:catalog=delta,name=delta,type=transactionlogaccess"));
     }
 
@@ -46,7 +45,6 @@ public class TestDeltaLakeJmx
                 row("io.trino.plugin.hive.metastore.thrift:name=delta,type=thrifthivemetastore"),
                 row("io.trino.plugin.hive.s3:name=delta,type=trinos3filesystem"),
                 row("io.trino.plugin.hive:catalog=delta,name=delta,type=fileformatdatasourcestats"),
-                row("io.trino.plugin.hive:name=delta,type=namenodestats"),
                 row("trino.plugin.deltalake.transactionlog:catalog=delta,name=delta,type=transactionlogaccess"));
     }
 }
