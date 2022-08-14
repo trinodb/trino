@@ -19,10 +19,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.plugin.hive.DynamicHdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
 import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -100,7 +100,7 @@ public class TestSharedGlueMetastore
 
         HdfsConfig hdfsConfig = new HdfsConfig();
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(
-                new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of()),
+                new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of()),
                 hdfsConfig,
                 new NoHdfsAuthentication());
         this.glueMetastore = new GlueHiveMetastore(

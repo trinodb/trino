@@ -99,7 +99,7 @@ public abstract class AbstractTestHiveFileSystemAbfs
     private HdfsConfiguration createHdfsConfiguration()
     {
         ConfigurationInitializer initializer = new TrinoAzureConfigurationInitializer(getConfig());
-        return new HiveHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(initializer)), ImmutableSet.of());
+        return new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(initializer)), ImmutableSet.of());
     }
 
     @Override

@@ -1326,7 +1326,7 @@ public class TestBackgroundHiveSplitLoader
         public TestingHdfsEnvironment(List<LocatedFileStatus> files)
         {
             super(
-                    new HiveHdfsConfiguration(
+                    new DynamicHdfsConfiguration(
                             new HdfsConfigurationInitializer(new HdfsConfig()),
                             ImmutableSet.of()),
                     new HdfsConfig(),

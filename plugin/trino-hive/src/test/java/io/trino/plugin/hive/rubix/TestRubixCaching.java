@@ -28,12 +28,12 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.metadata.InternalNode;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.DynamicHdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
 import io.trino.plugin.hive.HdfsContext;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.authentication.HdfsAuthenticationConfig;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -141,7 +141,7 @@ public class TestRubixCaching
             throws IOException
     {
         HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(config);
-        HiveHdfsConfiguration configuration = new HiveHdfsConfiguration(configurationInitializer, ImmutableSet.of());
+        DynamicHdfsConfiguration configuration = new DynamicHdfsConfiguration(configurationInitializer, ImmutableSet.of());
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
         return environment.getFileSystem(context, cacheStoragePath);
     }
@@ -215,7 +215,7 @@ public class TestRubixCaching
             throws IOException
     {
         HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(config, ImmutableSet.of());
-        HiveHdfsConfiguration configuration = new HiveHdfsConfiguration(
+        DynamicHdfsConfiguration configuration = new DynamicHdfsConfiguration(
                 configurationInitializer,
                 ImmutableSet.of(
                         rubixConfigInitializer,

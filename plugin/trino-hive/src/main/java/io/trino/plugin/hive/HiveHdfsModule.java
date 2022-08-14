@@ -29,7 +29,7 @@ public class HiveHdfsModule
     {
         configBinder(binder).bindConfig(HdfsConfig.class);
 
-        binder.bind(HdfsConfiguration.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
+        binder.bind(HdfsConfiguration.class).to(DynamicHdfsConfiguration.class).in(Scopes.SINGLETON);
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
 
         binder.bind(HdfsConfigurationInitializer.class).in(Scopes.SINGLETON);

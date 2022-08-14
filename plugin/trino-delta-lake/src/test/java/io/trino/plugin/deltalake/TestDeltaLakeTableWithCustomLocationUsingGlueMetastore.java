@@ -18,11 +18,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.plugin.hive.DynamicHdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
 import io.trino.plugin.hive.HdfsContext;
 import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.glue.DefaultGlueColumnStatisticsProviderFactory;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
@@ -71,7 +71,7 @@ public class TestDeltaLakeTableWithCustomLocationUsingGlueMetastore
 
         HdfsConfig hdfsConfig = new HdfsConfig();
         hdfsEnvironment = new HdfsEnvironment(
-                new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of()),
+                new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of()),
                 hdfsConfig,
                 new NoHdfsAuthentication());
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
