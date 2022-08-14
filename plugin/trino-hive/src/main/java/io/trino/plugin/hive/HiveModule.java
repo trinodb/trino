@@ -77,6 +77,9 @@ public class HiveModule
         binder.bind(CachingDirectoryLister.class).in(Scopes.SINGLETON);
         newExporter(binder).export(CachingDirectoryLister.class).withGeneratedName();
 
+        binder.bind(NamenodeStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(NamenodeStats.class).withGeneratedName();
+
         binder.bind(HiveWriterStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(HiveWriterStats.class).withGeneratedName();
 
