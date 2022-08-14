@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.util;
 
-import io.trino.plugin.hive.HdfsContext;
+import io.trino.hdfs.HdfsContext;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 

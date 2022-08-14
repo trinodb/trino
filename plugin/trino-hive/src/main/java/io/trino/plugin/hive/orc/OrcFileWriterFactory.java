@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hive.orc.OrcConf;
 import io.trino.orc.OrcDataSink;
 import io.trino.orc.OrcDataSource;
@@ -25,7 +26,6 @@ import io.trino.orc.OutputStreamOrcDataSink;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.FileWriter;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveFileWriterFactory;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.NodeVersion;

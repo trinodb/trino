@@ -18,13 +18,13 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.authentication.HadoopAuthentication;
 import io.trino.plugin.hive.ForHiveMetastore;
-import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.authentication.HadoopAuthentication;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.hive.authentication.AuthenticationModules.createCachingKerberosHadoopAuthentication;
+import static io.trino.hdfs.authentication.AuthenticationModules.createCachingKerberosHadoopAuthentication;
 
 public class ThriftMetastoreAuthenticationModule
         extends AbstractConfigurationAwareModule

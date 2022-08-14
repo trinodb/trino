@@ -15,8 +15,8 @@ package io.trino.plugin.deltalake.statistics;
 
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
-import io.trino.plugin.hive.HdfsContext;
-import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.FileSystem;
