@@ -105,6 +105,7 @@ import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PRIMARY_KEY_P
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PROPERTY;
 import static io.trino.plugin.clickhouse.TrinoToClickHouseWriteChecker.UINT16;
 import static io.trino.plugin.clickhouse.TrinoToClickHouseWriteChecker.UINT32;
+import static io.trino.plugin.clickhouse.TrinoToClickHouseWriteChecker.UINT64;
 import static io.trino.plugin.clickhouse.TrinoToClickHouseWriteChecker.UINT8;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
@@ -175,8 +176,6 @@ public class ClickHouseClient
     private static final Splitter TABLE_PROPERTY_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
 
     private static final DecimalType UINT64_TYPE = createDecimalType(20, 0);
-    private static final BigDecimal UINT64_MIN_VALUE = BigDecimal.ZERO;
-    private static final BigDecimal UINT64_MAX_VALUE = new BigDecimal("18446744073709551615");
 
     private static final long MIN_SUPPORTED_DATE_EPOCH = LocalDate.parse("1970-01-01").toEpochDay();
     private static final long MAX_SUPPORTED_DATE_EPOCH = LocalDate.parse("2106-02-07").toEpochDay(); // The max date is '2148-12-31' in new ClickHouse version
@@ -519,7 +518,7 @@ public class ClickHouseClient
                 return Optional.of(ColumnMapping.objectMapping(
                         UINT64_TYPE,
                         longDecimalReadFunction(UINT64_TYPE, UNNECESSARY),
-                        uInt64WriteFunction()));
+                        uInt64WriteFunction(getClickHouseServerVersion(session))));
             case IPv4:
                 return Optional.of(ipAddressColumnMapping("IPv4StringToNum(?)"));
             case IPv6:
@@ -735,7 +734,7 @@ public class ClickHouseClient
         };
     }
 
-    private static ObjectWriteFunction uInt64WriteFunction()
+    private static ObjectWriteFunction uInt64WriteFunction(ClickHouseVersion version)
     {
         return ObjectWriteFunction.of(
                 Int128.class,
@@ -743,9 +742,7 @@ public class ClickHouseClient
                     BigInteger unscaledValue = value.toBigInteger();
                     BigDecimal bigDecimal = new BigDecimal(unscaledValue, UINT64_TYPE.getScale(), new MathContext(UINT64_TYPE.getPrecision()));
                     // ClickHouse stores incorrect results when the values are out of supported range.
-                    if (bigDecimal.compareTo(UINT64_MIN_VALUE) < 0 || bigDecimal.compareTo(UINT64_MAX_VALUE) > 0) {
-                        throw new TrinoException(INVALID_ARGUMENTS, format("Value must be between %s and %s in ClickHouse: %s", UINT64_MIN_VALUE, UINT64_MAX_VALUE, bigDecimal));
-                    }
+                    UINT64.validate(version, bigDecimal);
                     statement.setBigDecimal(index, bigDecimal);
                 });
     }
