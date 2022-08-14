@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.s3select;
 
-import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveRecordCursorProvider;
 import io.trino.plugin.hive.ReaderColumns;

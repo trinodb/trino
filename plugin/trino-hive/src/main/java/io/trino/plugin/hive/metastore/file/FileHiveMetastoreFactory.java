@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.metastore.file;
 
-import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.HiveMetastore;

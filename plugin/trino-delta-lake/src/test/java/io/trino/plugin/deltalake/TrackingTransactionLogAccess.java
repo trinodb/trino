@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.deltalake;
 
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;

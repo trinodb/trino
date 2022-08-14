@@ -36,6 +36,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.hdfs.ConfigurationUtils.toJobConf;
 import static io.trino.orc.OrcWriter.OrcOperation.DELETE;
 import static io.trino.orc.OrcWriter.OrcOperation.INSERT;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
@@ -45,7 +46,6 @@ import static io.trino.plugin.hive.HiveUpdatablePageSource.ROW_ID_CHANNEL;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_NAMES;
 import static io.trino.plugin.hive.acid.AcidSchema.createAcidSchema;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
-import static io.trino.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;

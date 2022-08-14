@@ -15,13 +15,13 @@ package io.trino.plugin.deltalake.transactionlog;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;

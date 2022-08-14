@@ -15,7 +15,7 @@ package io.trino.plugin.hive.s3;
 
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.ConfigurationInitializer;
+import io.trino.hdfs.ConfigurationInitializer;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;

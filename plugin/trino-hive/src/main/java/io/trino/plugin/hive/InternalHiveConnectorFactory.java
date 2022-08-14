@@ -23,6 +23,8 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
+import io.trino.hdfs.HdfsModule;
+import io.trino.hdfs.authentication.HdfsAuthenticationModule;
 import io.trino.plugin.base.CatalogNameModule;
 import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorAccessControl;
@@ -34,7 +36,6 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
-import io.trino.plugin.hive.authentication.HdfsAuthenticationModule;
 import io.trino.plugin.hive.aws.athena.PartitionProjectionModule;
 import io.trino.plugin.hive.azure.HiveAzureModule;
 import io.trino.plugin.hive.fs.CachingDirectoryListerModule;
@@ -106,7 +107,7 @@ public final class InternalHiveConnectorFactory
                     new HiveModule(),
                     new PartitionProjectionModule(),
                     new CachingDirectoryListerModule(directoryLister),
-                    new HiveHdfsModule(),
+                    new HdfsModule(),
                     new HiveS3Module(),
                     new HiveGcsModule(),
                     new HiveAzureModule(),

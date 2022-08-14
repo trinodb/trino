@@ -15,7 +15,11 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.azure.HiveAzureConfig;
 import io.trino.plugin.hive.azure.TrinoAzureConfigurationInitializer;
 import io.trino.plugin.hive.gcs.GoogleGcsConfigurationInitializer;

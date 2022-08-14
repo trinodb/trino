@@ -16,6 +16,7 @@ package io.trino.plugin.hive;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.fs.DirectoryLister;

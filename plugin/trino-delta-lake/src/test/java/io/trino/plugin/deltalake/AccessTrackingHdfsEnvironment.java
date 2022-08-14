@@ -14,10 +14,10 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.HdfsConfig;
-import io.trino.plugin.hive.HdfsConfiguration;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.authentication.HdfsAuthentication;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfiguration;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.HdfsAuthentication;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;

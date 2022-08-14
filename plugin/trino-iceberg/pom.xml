@@ -30,6 +30,11 @@
     <dependencies>
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-hdfs</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-hive</artifactId>
             <exclusions>
                 <exclusion>

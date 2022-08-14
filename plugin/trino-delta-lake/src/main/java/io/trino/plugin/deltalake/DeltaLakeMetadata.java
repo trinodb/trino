@@ -26,6 +26,8 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
 import io.airlift.units.DataSize;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.NotADeltaLakeTableException;
 import io.trino.plugin.deltalake.procedure.DeltaLakeTableExecuteHandle;
@@ -47,8 +49,6 @@ import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatisti
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionConflictException;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriter;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
-import io.trino.plugin.hive.HdfsContext;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;

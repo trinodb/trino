@@ -22,6 +22,8 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.log.Logger;
 import io.trino.collect.cache.EvictableCacheBuilder;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
@@ -29,8 +31,6 @@ import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterat
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HdfsContext;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;

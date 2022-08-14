@@ -18,6 +18,8 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.OrcType;

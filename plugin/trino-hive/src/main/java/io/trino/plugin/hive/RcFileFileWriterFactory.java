@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.rcfile.HdfsRcFileDataSource;
