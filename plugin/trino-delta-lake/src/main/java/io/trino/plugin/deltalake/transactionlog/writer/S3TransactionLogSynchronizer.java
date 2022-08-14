@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.trino.plugin.hive.HdfsContext;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -159,7 +160,7 @@ public class S3TransactionLogSynchronizer
     private FileSystem getFileSystem(ConnectorSession session, Path newLogEntryPath)
     {
         try {
-            return hdfsEnvironment.getFileSystem(new HdfsEnvironment.HdfsContext(session), newLogEntryPath);
+            return hdfsEnvironment.getFileSystem(new HdfsContext(session), newLogEntryPath);
         }
         catch (Exception e) {
             throw new RuntimeException(e);

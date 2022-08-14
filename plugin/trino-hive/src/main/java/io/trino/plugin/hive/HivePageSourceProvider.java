@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.OrcType;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.HivePageSource.BucketValidator;
 import io.trino.plugin.hive.HiveRecordCursorProvider.ReaderRecordCursorWithProjections;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;

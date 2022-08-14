@@ -15,12 +15,12 @@ package io.trino.plugin.hive.gcs;
 
 import com.google.cloud.hadoop.gcsio.GoogleCloudStorageFileSystem;
 import io.trino.plugin.hive.DynamicConfigurationProvider;
+import io.trino.plugin.hive.HdfsContext;
 import org.apache.hadoop.conf.Configuration;
 
 import java.net.URI;
 
 import static io.trino.plugin.hive.DynamicConfigurationProvider.setCacheKey;
-import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import static io.trino.plugin.hive.gcs.GcsAccessTokenProvider.GCS_ACCESS_TOKEN_CONF;
 
 public class GcsConfigurationProvider

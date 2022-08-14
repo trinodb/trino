@@ -19,7 +19,7 @@ import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import io.airlift.log.Logger;
 import io.trino.plugin.hive.DynamicConfigurationProvider;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.plugin.hive.HdfsContext;
 import io.trino.spi.security.AccessDeniedException;
 import org.apache.hadoop.conf.Configuration;
 

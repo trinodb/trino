@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake.transactionlog.writer;
 
+import io.trino.plugin.hive.HdfsContext;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.FileSystem;
@@ -42,7 +43,7 @@ public class NoIsolationSynchronizer
             throws UncheckedIOException
     {
         try {
-            FileSystem fs = hdfsEnvironment.getFileSystem(new HdfsEnvironment.HdfsContext(session), newLogEntryPath);
+            FileSystem fs = hdfsEnvironment.getFileSystem(new HdfsContext(session), newLogEntryPath);
             try (OutputStream outputStream = fs.create(newLogEntryPath, false)) {
                 outputStream.write(entryContents);
             }
