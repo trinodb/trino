@@ -687,12 +687,10 @@ public abstract class BaseClickHouseTypeMapping
                 .build();
 
         SqlDataTypeTest.create()
-                .addRoundTrip("timestamp(0)", "timestamp '1970-01-01 00:00:00'", createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:00'") // min value in ClickHouse
                 .addRoundTrip("timestamp(0)", "timestamp '1986-01-01 00:13:07'", createTimestampType(0), "TIMESTAMP '1986-01-01 00:13:07'") // time gap in Kathmandu
                 .addRoundTrip("timestamp(0)", "timestamp '2018-03-25 03:17:17'", createTimestampType(0), "TIMESTAMP '2018-03-25 03:17:17'") // time gap in Vilnius
                 .addRoundTrip("timestamp(0)", "timestamp '2018-10-28 01:33:17'", createTimestampType(0), "TIMESTAMP '2018-10-28 01:33:17'") // time doubled in JVM zone
                 .addRoundTrip("timestamp(0)", "timestamp '2018-10-28 03:33:33'", createTimestampType(0), "TIMESTAMP '2018-10-28 03:33:33'") // time double in Vilnius
-                .addRoundTrip("timestamp(0)", "timestamp '2105-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '2105-12-31 23:59:59'") // max value in ClickHouse
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"))
@@ -707,12 +705,10 @@ public abstract class BaseClickHouseTypeMapping
     private SqlDataTypeTest timestampTest(String inputType)
     {
         return unsupportedTimestampBecomeUnexpectedValueTest(inputType)
-                .addRoundTrip(inputType, "'1970-01-01 00:00:00'", createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:00'") // min value in ClickHouse
                 .addRoundTrip(inputType, "'1986-01-01 00:13:07'", createTimestampType(0), "TIMESTAMP '1986-01-01 00:13:07'") // time gap in Kathmandu
                 .addRoundTrip(inputType, "'2018-03-25 03:17:17'", createTimestampType(0), "TIMESTAMP '2018-03-25 03:17:17'") // time gap in Vilnius
                 .addRoundTrip(inputType, "'2018-10-28 01:33:17'", createTimestampType(0), "TIMESTAMP '2018-10-28 01:33:17'") // time doubled in JVM zone
                 .addRoundTrip(inputType, "'2018-10-28 03:33:33'", createTimestampType(0), "TIMESTAMP '2018-10-28 03:33:33'") // time double in Vilnius
-                .addRoundTrip(inputType, "'2105-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '2105-12-31 23:59:59'") // max value in ClickHouse
                 .addRoundTrip(format("Nullable(%s)", inputType), "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))");
     }
 
@@ -722,23 +718,61 @@ public abstract class BaseClickHouseTypeMapping
                 .addRoundTrip(inputType, "'1969-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '1970-01-01 23:59:59'"); // unsupported timestamp become 1970-01-01 23:59:59
     }
 
-    @Test
-    public void testUnsupportedTimestamp()
+    @Test(dataProvider = "clickHouseDateTimeMinMaxValuesDataProvider")
+    public void testClickHouseDateTimeMinMaxValues(String timestamp)
     {
+        SqlDataTypeTest dateTests1 = SqlDataTypeTest.create()
+                .addRoundTrip("timestamp(0)", format("timestamp '%s'", timestamp), createTimestampType(0), format("TIMESTAMP '%s'", timestamp));
+        SqlDataTypeTest dateTests2 = SqlDataTypeTest.create()
+                .addRoundTrip("timestamp", format("'%s'", timestamp), createTimestampType(0), format("TIMESTAMP '%s'", timestamp));
+        SqlDataTypeTest dateTests3 = SqlDataTypeTest.create()
+                .addRoundTrip("datetime", format("'%s'", timestamp), createTimestampType(0), format("TIMESTAMP '%s'", timestamp));
+
+        for (Object[] timeZoneIds : sessionZonesDataProvider()) {
+            Session session = Session.builder(getSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(((ZoneId) timeZoneIds[0]).getId()))
+                    .build();
+            dateTests1
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
+                    .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"))
+                    .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
+            dateTests2.execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_timestamp"));
+            dateTests3.execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_datetime"));
+        }
+    }
+
+    @DataProvider
+    public Object[][] clickHouseDateTimeMinMaxValuesDataProvider()
+    {
+        return new Object[][] {
+                {"1970-01-01 00:00:00"}, // min value in ClickHouse
+                {"2105-12-31 23:59:59"}, // max value in ClickHouse
+        };
+    }
+
+    @Test(dataProvider = "unsupportedTimestampDataProvider")
+    public void testUnsupportedTimestamp(String unsupportedTimestamp)
+    {
+        String minSupportedTimestamp = (String) clickHouseDateTimeMinMaxValuesDataProvider()[0][0];
+        String maxSupportedTimestamp = (String) clickHouseDateTimeMinMaxValuesDataProvider()[1][0];
+
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_timestamp", "(dt timestamp(0))")) {
             assertQueryFails(
-                    format("INSERT INTO %s VALUES (TIMESTAMP '-9999-12-31 23:59:59')", table.getName()),
-                    "Timestamp must be between 1970-01-01 00:00:00 and 2105-12-31 23:59:59 in ClickHouse: -9999-12-31 23:59:59");
-            assertQueryFails(
-                    format("INSERT INTO %s VALUES (TIMESTAMP '1969-12-31 23:59:59')", table.getName()),
-                    "Timestamp must be between 1970-01-01 00:00:00 and 2105-12-31 23:59:59 in ClickHouse: 1969-12-31 23:59:59");
-            assertQueryFails(
-                    format("INSERT INTO %s VALUES (TIMESTAMP '2106-01-01 00:00:00')", table.getName()),
-                    "Timestamp must be between 1970-01-01 00:00:00 and 2105-12-31 23:59:59 in ClickHouse: 2106-01-01 00:00:00");
-            assertQueryFails(
-                    format("INSERT INTO %s VALUES (TIMESTAMP '9999-12-31 23:59:59')", table.getName()),
-                    "Timestamp must be between 1970-01-01 00:00:00 and 2105-12-31 23:59:59 in ClickHouse: 9999-12-31 23:59:59");
+                    format("INSERT INTO %s VALUES (TIMESTAMP '%s')", table.getName(), unsupportedTimestamp),
+                    format("Timestamp must be between %s and %s in ClickHouse: %s", minSupportedTimestamp, maxSupportedTimestamp, unsupportedTimestamp));
         }
+    }
+
+    @DataProvider
+    public Object[][] unsupportedTimestampDataProvider()
+    {
+        return new Object[][] {
+                {"-9999-12-31 23:59:59"},
+                {"1969-12-31 23:59:59"}, // min - 1 second
+                {"2106-01-01 00:00:00"}, // max + 1 second
+                {"9999-12-31 23:59:59"},
+        };
     }
 
     @DataProvider
