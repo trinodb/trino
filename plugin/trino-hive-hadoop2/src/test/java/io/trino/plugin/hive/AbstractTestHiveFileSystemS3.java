@@ -65,7 +65,7 @@ public abstract class AbstractTestHiveFileSystemS3
                 .setS3AwsAccessKey(awsAccessKey)
                 .setS3AwsSecretKey(awsSecretKey));
         HdfsConfigurationInitializer initializer = new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(s3Config));
-        return new HiveHdfsConfiguration(initializer, ImmutableSet.of());
+        return new DynamicHdfsConfiguration(initializer, ImmutableSet.of());
     }
 
     @Override

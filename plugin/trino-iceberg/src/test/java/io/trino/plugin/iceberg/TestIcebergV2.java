@@ -16,12 +16,12 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.DynamicHdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
 import io.trino.plugin.hive.HdfsContext;
 import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
@@ -93,7 +93,7 @@ public class TestIcebergV2
             throws Exception
     {
         HdfsConfig config = new HdfsConfig();
-        HdfsConfiguration configuration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
+        HdfsConfiguration configuration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
         hdfsEnvironment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
 
         tempDir = Files.createTempDirectory("test_iceberg_v2");

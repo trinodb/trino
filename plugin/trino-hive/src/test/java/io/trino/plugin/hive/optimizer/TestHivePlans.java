@@ -15,11 +15,11 @@ package io.trino.plugin.hive.optimizer;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.plugin.hive.DynamicHdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
 import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TestingHiveConnectorFactory;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
@@ -89,7 +89,7 @@ public class TestHivePlans
             throw new UncheckedIOException(e);
         }
         HdfsConfig config = new HdfsConfig();
-        HdfsConfiguration configuration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
+        HdfsConfiguration configuration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
 
         HiveMetastore metastore = new FileHiveMetastore(

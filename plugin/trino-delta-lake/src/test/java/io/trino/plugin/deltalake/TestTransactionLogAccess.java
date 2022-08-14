@@ -25,11 +25,11 @@ import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
+import io.trino.plugin.hive.DynamicHdfsConfiguration;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.connector.ColumnMetadata;
@@ -124,7 +124,7 @@ public class TestTransactionLogAccess
         TypeManager typeManager = context.getTypeManager();
 
         HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
+        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         hdfsEnvironment = new AccessTrackingHdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         FileFormatDataSourceStats fileFormatDataSourceStats = new FileFormatDataSourceStats();
 

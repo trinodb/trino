@@ -35,7 +35,7 @@ public class TestFileSystemCache
             throws IOException
     {
         HdfsEnvironment environment = new HdfsEnvironment(
-                new HiveHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig()), ImmutableSet.of()),
+                new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig()), ImmutableSet.of()),
                 new HdfsConfig(),
                 new ImpersonatingHdfsAuthentication(new SimpleHadoopAuthentication(), new SimpleUserNameProvider()));
         ConnectorIdentity userId = ConnectorIdentity.ofUser("user");

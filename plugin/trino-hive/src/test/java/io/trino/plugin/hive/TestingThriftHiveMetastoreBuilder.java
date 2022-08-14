@@ -40,7 +40,7 @@ import static java.util.Objects.requireNonNull;
 public final class TestingThriftHiveMetastoreBuilder
 {
     private static final HdfsEnvironment HDFS_ENVIRONMENT = new HdfsEnvironment(
-            new HiveHdfsConfiguration(
+            new DynamicHdfsConfiguration(
                     new HdfsConfigurationInitializer(
                             new HdfsConfig()
                                     .setSocksProxy(HiveTestUtils.SOCKS_PROXY.orElse(null)),

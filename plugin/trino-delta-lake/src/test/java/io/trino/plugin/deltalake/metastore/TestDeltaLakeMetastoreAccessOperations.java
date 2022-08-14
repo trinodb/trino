@@ -22,11 +22,11 @@ import com.google.inject.Binder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.Session;
 import io.trino.plugin.deltalake.TestingDeltaLakePlugin;
+import io.trino.plugin.hive.DynamicHdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
 import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
@@ -73,7 +73,7 @@ public class TestDeltaLakeMetastoreAccessOperations
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake").toFile();
         HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
+        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         HiveMetastore hiveMetastore = new FileHiveMetastore(
                 new NodeVersion("testversion"),

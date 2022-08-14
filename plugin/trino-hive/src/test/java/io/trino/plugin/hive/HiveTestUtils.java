@@ -77,7 +77,7 @@ public final class HiveTestUtils
     public static final Optional<HostAndPort> SOCKS_PROXY = Optional.ofNullable(System.getProperty("hive.metastore.thrift.client.socks-proxy"))
             .map(HostAndPort::fromString);
 
-    public static final HiveHdfsConfiguration HDFS_CONFIGURATION = new HiveHdfsConfiguration(
+    public static final DynamicHdfsConfiguration HDFS_CONFIGURATION = new DynamicHdfsConfiguration(
             new HdfsConfigurationInitializer(
                     new HdfsConfig()
                             .setSocksProxy(SOCKS_PROXY.orElse(null)),

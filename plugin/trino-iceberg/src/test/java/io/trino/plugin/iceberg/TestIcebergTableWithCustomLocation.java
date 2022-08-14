@@ -14,12 +14,12 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.hive.DynamicHdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
 import io.trino.plugin.hive.HdfsContext;
 import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.Table;
@@ -66,7 +66,7 @@ public class TestIcebergTableWithCustomLocation
     {
         metastoreDir = Files.createTempDirectory("test_iceberg").toFile();
         HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
+        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         FileHiveMetastoreConfig config = new FileHiveMetastoreConfig()
                 .setCatalogDirectory(metastoreDir.toURI().toString())
