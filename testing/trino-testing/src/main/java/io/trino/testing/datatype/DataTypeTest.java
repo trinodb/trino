@@ -39,7 +39,7 @@ public class DataTypeTest
 
     private final List<Input<?>> inputs = new ArrayList<>();
 
-    private boolean runSelectWithWhere;
+    private final boolean runSelectWithWhere;
 
     private DataTypeTest(boolean runSelectWithWhere)
     {
