@@ -23,7 +23,6 @@ import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.InternalHiveSplit;
 import io.trino.plugin.hive.InternalHiveSplit.InternalHiveBlock;
 import io.trino.plugin.hive.TableToPartitionMapping;
-import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.s3select.S3SelectPushdown;
 import io.trino.spi.HostAddress;
 import io.trino.spi.predicate.Domain;
@@ -88,7 +87,6 @@ public class InternalHiveSplitFactory
             DataSize minimumTargetSplitSize,
             boolean forceLocalScheduling,
             boolean s3SelectPushdownEnabled,
-            AcidTransaction transaction,
             Optional<Long> maxSplitFileSize)
     {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
