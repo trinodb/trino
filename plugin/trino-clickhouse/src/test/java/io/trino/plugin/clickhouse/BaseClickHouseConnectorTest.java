@@ -165,6 +165,25 @@ public abstract class BaseClickHouseConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
+    @Override
+    public void testAddNotNullColumnToNonEmptyTable()
+    {
+        // Override because the default storage type doesn't support adding columns
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_notnull_col", "(a_varchar varchar NOT NULL)  WITH (engine = 'MergeTree', order_by = ARRAY['a_varchar'])")) {
+            String tableName = table.getName();
+
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL");
+            assertFalse(columnIsNullable(tableName, "b_varchar"));
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 'b')", 1);
+
+            // ClickHouse set an empty character as the default value
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c_varchar varchar NOT NULL");
+            assertFalse(columnIsNullable(tableName, "c_varchar"));
+            assertQuery("SELECT c_varchar FROM " + tableName, "VALUES ''");
+        }
+    }
+
     @Test
     @Override
     public void testAddColumnWithComment()

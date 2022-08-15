@@ -258,6 +258,12 @@ public class TestJdbcConnectorTest
     }
 
     @Override
+    protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("NULL not allowed for column");
+    }
+
+    @Override
     public void testAddColumnConcurrently()
     {
         // TODO: Difficult to determine whether the exception is concurrent issue or not from the error message

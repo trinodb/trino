@@ -165,6 +165,12 @@ public class TestPostgreSqlConnectorTest
                 "(one bigint, two decimal(50,0), three varchar(10))");
     }
 
+    @Override
+    protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("ERROR: column \".*\" contains null values");
+    }
+
     @Test
     public void testViews()
     {
