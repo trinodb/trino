@@ -47,7 +47,7 @@ public class DataTypeTest
     }
 
     /**
-     * @deprecated Use {@link SqlDataTypeTest#create()} imstead. You can find
+     * @deprecated Use {@link SqlDataTypeTest#create()} instead. You can find
      * {@link DataTypeTestToSqlDataTypeTestConverter#create()} helpful for converting the code.
      */
     @Deprecated
@@ -57,7 +57,7 @@ public class DataTypeTest
     }
 
     /**
-     * @deprecated Use {@link SqlDataTypeTest#create()} imstead. You can find
+     * @deprecated Use {@link SqlDataTypeTest#create()} instead. You can find
      * {@link DataTypeTestToSqlDataTypeTestConverter#create()} helpful for converting the code.
      */
     @Deprecated
