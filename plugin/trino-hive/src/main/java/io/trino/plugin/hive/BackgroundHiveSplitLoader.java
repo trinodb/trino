@@ -28,7 +28,6 @@ import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
-import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.fs.HiveFileIterator;
 import io.trino.plugin.hive.metastore.Column;
@@ -148,7 +147,6 @@ public class BackgroundHiveSplitLoader
     private static final ListenableFuture<Void> COMPLETED_FUTURE = immediateVoidFuture();
 
     private final Table table;
-    private final AcidTransaction transaction;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
     private final DynamicFilter dynamicFilter;
     private final long dynamicFilteringWaitTimeoutMillis;
@@ -192,7 +190,6 @@ public class BackgroundHiveSplitLoader
 
     public BackgroundHiveSplitLoader(
             Table table,
-            AcidTransaction transaction,
             Iterable<HivePartitionMetadata> partitions,
             TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
             DynamicFilter dynamicFilter,
@@ -212,7 +209,6 @@ public class BackgroundHiveSplitLoader
             Optional<Long> maxSplitFileSize)
     {
         this.table = table;
-        this.transaction = requireNonNull(transaction, "transaction is null");
         this.compactEffectivePredicate = compactEffectivePredicate;
         this.dynamicFilter = dynamicFilter;
         this.dynamicFilteringWaitTimeoutMillis = dynamicFilteringWaitTimeout.toMillis();
@@ -473,7 +469,6 @@ public class BackgroundHiveSplitLoader
                 getMaxInitialSplitSize(session),
                 isForceLocalScheduling(session),
                 s3SelectPushdownEnabled,
-                transaction,
                 maxSplitFileSize);
 
         // To support custom input formats, we want to call getSplits()
@@ -662,7 +657,6 @@ public class BackgroundHiveSplitLoader
                     getMaxInitialSplitSize(session),
                     isForceLocalScheduling(session),
                     s3SelectPushdownEnabled,
-                    transaction,
                     maxSplitFileSize);
             lastResult = addSplitsToSource(targetSplits, splitFactory);
             if (stopped) {
@@ -719,7 +713,6 @@ public class BackgroundHiveSplitLoader
                 getMaxInitialSplitSize(session),
                 isForceLocalScheduling(session),
                 s3SelectPushdownEnabled,
-                transaction,
                 maxSplitFileSize);
         return Optional.of(locatedFileStatuses.stream()
                 .map(locatedFileStatus -> splitFactory.createInternalHiveSplit(locatedFileStatus, OptionalInt.empty(), OptionalInt.empty(), splittable, Optional.empty()))
