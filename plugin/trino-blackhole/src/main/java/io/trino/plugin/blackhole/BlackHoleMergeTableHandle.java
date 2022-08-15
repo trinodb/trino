@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.blackhole;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
 
 import static java.util.Objects.requireNonNull;
@@ -22,11 +24,13 @@ public class BlackHoleMergeTableHandle
 {
     private final BlackHoleTableHandle tableHandle;
 
-    public BlackHoleMergeTableHandle(BlackHoleTableHandle tableHandle)
+    @JsonCreator
+    public BlackHoleMergeTableHandle(@JsonProperty("tableHandle") BlackHoleTableHandle tableHandle)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
     }
 
+    @JsonProperty
     @Override
     public BlackHoleTableHandle getTableHandle()
     {
