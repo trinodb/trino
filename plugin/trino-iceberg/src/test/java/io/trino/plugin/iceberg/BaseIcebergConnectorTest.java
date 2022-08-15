@@ -1104,6 +1104,19 @@ public abstract class BaseIcebergConnectorTest
         return "NULL value not allowed for NOT NULL column: " + columnName;
     }
 
+    @Override
+    public void testAddNotNullColumnToNonEmptyTable()
+    {
+        // Override because the connector supports both ADD COLUMN and NOT NULL constraint, but it doesn't support adding NOT NULL columns
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_notnull_col", "(a_varchar varchar)")) {
+            String tableName = table.getName();
+
+            assertQueryFails(
+                    "ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL",
+                    "This connector does not support adding not null columns");
+        }
+    }
+
     @Test
     public void testSchemaEvolution()
     {

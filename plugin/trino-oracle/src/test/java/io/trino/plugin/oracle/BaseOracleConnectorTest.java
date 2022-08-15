@@ -470,6 +470,12 @@ public abstract class BaseOracleConnectorTest
     }
 
     @Override
+    protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessage("ORA-01758: table must be empty to add mandatory (NOT NULL) column\n");
+    }
+
+    @Override
     protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
     {
         assertThat(e)

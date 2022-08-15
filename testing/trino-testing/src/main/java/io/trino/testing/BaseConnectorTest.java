@@ -127,6 +127,7 @@ import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -1873,6 +1874,50 @@ public abstract class BaseConnectorTest
             assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN empty_comment varchar COMMENT ''");
             assertEquals(getColumnComment(tableName, "empty_comment"), "");
         }
+    }
+
+    @Test
+    public void testAddNotNullColumnToNonEmptyTable()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN));
+
+        if (!hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT)) {
+            assertQueryFails(
+                    "ALTER TABLE nation ADD COLUMN test_add_not_null_col bigint NOT NULL",
+                    ".* Catalog '.*' does not support NOT NULL for column '.*'");
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_notnull_col", "(a_varchar varchar)")) {
+            String tableName = table.getName();
+
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL");
+            assertFalse(columnIsNullable(tableName, "b_varchar"));
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 'b')", 1);
+            try {
+                assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c_varchar varchar NOT NULL");
+                assertFalse(columnIsNullable(tableName, "c_varchar"));
+                // Remote database might set implicit default values
+                assertNotNull(computeScalar("SELECT c_varchar FROM " + tableName));
+            }
+            catch (Throwable e) {
+                verifyAddNotNullColumnToNonEmptyTableFailurePermissible(e);
+            }
+        }
+    }
+
+    protected boolean columnIsNullable(String tableName, String columnName)
+    {
+        String isNullable = (String) computeScalar(
+                "SELECT is_nullable FROM information_schema.columns WHERE " +
+                "table_schema = '" + getSession().getSchema().orElseThrow() + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'");
+        return "YES".equals(isNullable);
+    }
+
+    protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
+    {
+        throw new AssertionError("Unexpected adding not null columns failure", e);
     }
 
     @Test

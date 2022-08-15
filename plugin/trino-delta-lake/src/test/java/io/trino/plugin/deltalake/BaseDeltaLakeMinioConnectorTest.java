@@ -826,6 +826,14 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     }
 
     @Override
+    public void testAddNotNullColumnToNonEmptyTable()
+    {
+        // TODO https://github.com/trinodb/trino/issues/13587 Disallow adding a new column when the table isn't empty
+        assertThatThrownBy(super::testAddNotNullColumnToNonEmptyTable)
+                .hasMessageContaining("expected [false] but found [true]");
+    }
+
+    @Override
     protected String createSchemaSql(String schemaName)
     {
         return "CREATE SCHEMA " + schemaName + " WITH (location = 's3://" + bucketName + "/" + schemaName + "')";
