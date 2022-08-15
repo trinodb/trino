@@ -566,7 +566,7 @@ public class BackgroundHiveSplitLoader
             }
         }
         else {
-            // TODO https://github.com/trinodb/trino/issues/7603 - we should not referece acidInfoBuilder at allwhen we are not reading from non-ACID table
+            // TODO https://github.com/trinodb/trino/issues/7603 - we should not reference acidInfoBuilder at all when we are not reading from non-ACID table
             acidInfoBuilder.setOrcAcidVersionValidated(true); // no ACID; no further validation needed
             readPaths = ImmutableList.of(path);
         }
