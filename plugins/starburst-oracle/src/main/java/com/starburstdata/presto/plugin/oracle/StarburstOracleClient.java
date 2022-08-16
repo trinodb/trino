@@ -299,7 +299,7 @@ public class StarburstOracleClient
                 }
                 if (columns.isEmpty()) {
                     // Table has no supported columns, but such table is not supported in Presto
-                    throw new TableNotFoundException(tableHandle.getSchemaTableName());
+                    throw new TableNotFoundException(tableHandle.getRequiredNamedRelation().getSchemaTableName());
                 }
                 return ImmutableList.copyOf(columns);
             }
