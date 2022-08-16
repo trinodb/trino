@@ -241,9 +241,11 @@ public class SqlQueryManager
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Query %s already registered", queryExecution.getQueryId()));
         }
 
-        queryExecution.addFinalQueryInfoListener(finalQueryInfo -> {
-            // execution MUST be added to the expiration queue or there will be a leak
-            queryTracker.expireQuery(queryExecution.getQueryId());
+        queryExecution.addStateChangeListener(newState -> {
+            if (newState.isDone()) {
+                // execution MUST be added to the expiration queue or there will be a leak
+                queryTracker.expireQuery(queryExecution.getQueryId());
+            }
         });
 
         queryExecution.start();
