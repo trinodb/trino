@@ -19,6 +19,8 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.base.util.JsonUtils;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
@@ -29,13 +31,12 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -55,7 +56,6 @@ import java.util.function.Function;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.isFileNotFoundException;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -217,7 +217,7 @@ public final class TransactionLogParser
                 format("Unable to parse value [%s] from column %s with type %s", valueString, column.getName(), column.getType()));
     }
 
-    static Optional<LastCheckpoint> readLastCheckpoint(FileSystem fileSystem, Path tableLocation)
+    static Optional<LastCheckpoint> readLastCheckpoint(TrinoFileSystem fileSystem, Path tableLocation)
     {
         return Failsafe.with(new RetryPolicy<>()
                         .withMaxRetries(5)
@@ -230,11 +230,12 @@ public final class TransactionLogParser
                 .get(() -> tryReadLastCheckpoint(fileSystem, tableLocation));
     }
 
-    private static Optional<LastCheckpoint> tryReadLastCheckpoint(FileSystem fileSystem, Path tableLocation)
+    private static Optional<LastCheckpoint> tryReadLastCheckpoint(TrinoFileSystem fileSystem, Path tableLocation)
             throws JsonParseException, JsonMappingException
     {
-        Path transactionLogDirectory = getTransactionLogDir(tableLocation);
-        try (FSDataInputStream lastCheckpointInput = fileSystem.open(new Path(transactionLogDirectory, LAST_CHECKPOINT_FILENAME))) {
+        Path checkpointPath = new Path(getTransactionLogDir(tableLocation), LAST_CHECKPOINT_FILENAME);
+        TrinoInputFile inputFile = fileSystem.newInputFile(checkpointPath.toString());
+        try (InputStream lastCheckpointInput = inputFile.newInput().inputStream()) {
             // Note: there apparently is 8K buffering applied and _last_checkpoint should be much smaller.
             return Optional.of(JsonUtils.parseJson(OBJECT_MAPPER, lastCheckpointInput, LastCheckpoint.class));
         }
@@ -250,28 +251,18 @@ public final class TransactionLogParser
         }
     }
 
-    public static long getMandatoryCurrentVersion(FileSystem fileSystem, Path tableLocation)
+    public static long getMandatoryCurrentVersion(TrinoFileSystem fileSystem, Path tableLocation)
             throws IOException
     {
         long version = readLastCheckpoint(fileSystem, tableLocation).map(LastCheckpoint::getVersion).orElse(0L);
 
         Path transactionLogDir = getTransactionLogDir(tableLocation);
-        boolean endOfTail = false;
-        while (!endOfTail) {
-            try {
-                fileSystem.getFileStatus(getTransactionLogJsonEntryPath(transactionLogDir, version + 1));
-                version++;
+        while (true) {
+            Path entryPath = getTransactionLogJsonEntryPath(transactionLogDir, version + 1);
+            if (!fileSystem.newInputFile(entryPath.toString()).exists()) {
+                return version;
             }
-            catch (IOException e) {
-                if (isFileNotFoundException(e)) {
-                    endOfTail = true;
-                }
-                else {
-                    throw e;
-                }
-            }
+            version++;
         }
-
-        return version;
     }
 }

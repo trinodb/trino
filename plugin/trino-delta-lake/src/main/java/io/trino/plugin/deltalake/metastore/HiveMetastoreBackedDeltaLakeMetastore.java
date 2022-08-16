@@ -13,8 +13,7 @@
  */
 package io.trino.plugin.deltalake.metastore;
 
-import io.trino.hdfs.HdfsContext;
-import io.trino.hdfs.HdfsEnvironment;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
@@ -42,7 +41,6 @@ import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
@@ -83,20 +81,20 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     private final TransactionLogAccess transactionLogAccess;
     private final TypeManager typeManager;
     private final CachingExtendedStatisticsAccess statisticsAccess;
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystemFactory fileSystemFactory;
 
     public HiveMetastoreBackedDeltaLakeMetastore(
             HiveMetastore delegate,
             TransactionLogAccess transactionLogAccess,
             TypeManager typeManager,
             CachingExtendedStatisticsAccess statisticsAccess,
-            HdfsEnvironment hdfsEnvironment)
+            TrinoFileSystemFactory fileSystemFactory)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogSupport is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
     }
 
     @Override
@@ -176,9 +174,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
         transactionLogAccess.invalidateCaches(tableLocation);
         if (!externalTable) {
             try {
-                Path path = new Path(tableLocation);
-                FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsContext(session), path);
-                fileSystem.delete(path, true);
+                fileSystemFactory.create(session).deleteDirectory(tableLocation);
             }
             catch (IOException e) {
                 throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failed to delete directory %s of the table %s", tableLocation, tableName), e);

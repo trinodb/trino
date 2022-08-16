@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import io.airlift.json.JsonCodec;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.deltalake.procedure.DeltaLakeTableExecuteHandle;
 import io.trino.plugin.deltalake.procedure.DeltaTableOptimizeHandle;
@@ -39,6 +40,7 @@ public class DeltaLakePageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final PageIndexerFactory pageIndexerFactory;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final JsonCodec<DataFileInfo> dataFileInfoCodec;
     private final JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec;
@@ -51,6 +53,7 @@ public class DeltaLakePageSinkProvider
     @Inject
     public DeltaLakePageSinkProvider(
             PageIndexerFactory pageIndexerFactory,
+            TrinoFileSystemFactory fileSystemFactory,
             HdfsEnvironment hdfsEnvironment,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec,
@@ -60,6 +63,7 @@ public class DeltaLakePageSinkProvider
             NodeVersion nodeVersion)
     {
         this.pageIndexerFactory = pageIndexerFactory;
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.hdfsEnvironment = hdfsEnvironment;
         this.dataFileInfoCodec = dataFileInfoCodec;
         this.mergeResultJsonCodec = requireNonNull(mergeResultJsonCodec, "mergeResultJsonCodec is null");
@@ -138,6 +142,7 @@ public class DeltaLakePageSinkProvider
         ConnectorPageSink pageSink = createPageSink(transactionHandle, session, tableHandle);
 
         return new DeltaLakeMergeSink(
+                fileSystemFactory,
                 hdfsEnvironment,
                 session,
                 parquetDateTimeZone,

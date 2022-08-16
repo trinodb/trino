@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import io.airlift.json.JsonCodec;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
@@ -36,6 +37,7 @@ import static java.util.Objects.requireNonNull;
 public class DeltaLakeMetadataFactory
 {
     private final HiveMetastoreFactory hiveMetastoreFactory;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final TransactionLogAccess transactionLogAccess;
     private final TypeManager typeManager;
@@ -59,6 +61,7 @@ public class DeltaLakeMetadataFactory
     @Inject
     public DeltaLakeMetadataFactory(
             HiveMetastoreFactory hiveMetastoreFactory,
+            TrinoFileSystemFactory fileSystemFactory,
             HdfsEnvironment hdfsEnvironment,
             TransactionLogAccess transactionLogAccess,
             TypeManager typeManager,
@@ -74,6 +77,7 @@ public class DeltaLakeMetadataFactory
             CachingExtendedStatisticsAccess statisticsAccess)
     {
         this.hiveMetastoreFactory = requireNonNull(hiveMetastoreFactory, "hiveMetastore is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -107,9 +111,10 @@ public class DeltaLakeMetadataFactory
                 transactionLogAccess,
                 typeManager,
                 statisticsAccess,
-                hdfsEnvironment);
+                fileSystemFactory);
         return new DeltaLakeMetadata(
                 deltaLakeMetastore,
+                fileSystemFactory,
                 hdfsEnvironment,
                 typeManager,
                 accessControlMetadataFactory.create(cachingHiveMetastore),
