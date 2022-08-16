@@ -23,6 +23,7 @@ import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
@@ -65,6 +66,7 @@ import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
+import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
@@ -92,6 +94,8 @@ import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
 import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public class FileBasedAccessControl
         implements ConnectorAccessControl
@@ -102,6 +106,7 @@ public class FileBasedAccessControl
     private final List<SchemaAccessControlRule> schemaRules;
     private final List<TableAccessControlRule> tableRules;
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
+    private final List<FunctionAccessControlRule> functionRules;
     private final Set<AnySchemaPermissionsRule> anySchemaPermissionsRules;
 
     public FileBasedAccessControl(CatalogName catalogName, File configFile)
@@ -114,6 +119,7 @@ public class FileBasedAccessControl
         this.schemaRules = rules.getSchemaRules();
         this.tableRules = rules.getTableRules();
         this.sessionPropertyRules = rules.getSessionPropertyRules();
+        this.functionRules = rules.getFunctionRules();
         ImmutableSet.Builder<AnySchemaPermissionsRule> anySchemaPermissionsRules = ImmutableSet.builder();
         schemaRules.stream()
                 .map(SchemaAccessControlRule::toAnySchemaPermissionsRule)
@@ -122,6 +128,11 @@ public class FileBasedAccessControl
                 .forEach(anySchemaPermissionsRules::add);
         tableRules.stream()
                 .map(TableAccessControlRule::toAnySchemaPermissionsRule)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(anySchemaPermissionsRules::add);
+        functionRules.stream()
+                .map(FunctionAccessControlRule::toAnySchemaPermissionsRule)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .forEach(anySchemaPermissionsRules::add);
@@ -471,13 +482,10 @@ public class FileBasedAccessControl
     @Override
     public void checkCanGrantExecuteFunctionPrivilege(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
     {
-        switch (functionKind) {
-            case SCALAR, AGGREGATE, WINDOW:
-                return;
-            case TABLE:
-                denyExecuteFunction(functionName.toString());
+        if (!checkFunctionPermission(context, functionKind, functionName, FunctionAccessControlRule::canGrantExecuteFunction)) {
+            String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(ENGLISH), grantee.getName());
+            denyGrantExecuteFunctionPrivilege(functionName.toString(), Identity.ofUser(context.getIdentity().getUser()), granteeAsString);
         }
-        throw new UnsupportedOperationException("Unsupported function kind: " + functionKind);
     }
 
     @Override
@@ -616,13 +624,9 @@ public class FileBasedAccessControl
     @Override
     public void checkCanExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
     {
-        switch (functionKind) {
-            case SCALAR, AGGREGATE, WINDOW:
-                return;
-            case TABLE:
-                denyExecuteFunction(function.toString());
+        if (!checkFunctionPermission(context, functionKind, function, FunctionAccessControlRule::canExecuteFunction)) {
+            denyExecuteFunction(function.toString());
         }
-        throw new UnsupportedOperationException("Unsupported function kind: " + functionKind);
     }
 
     @Override
@@ -714,5 +718,15 @@ public class FileBasedAccessControl
             }
         }
         return false;
+    }
+
+    private boolean checkFunctionPermission(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName functionName, Predicate<FunctionAccessControlRule> executePredicate)
+    {
+        ConnectorIdentity identity = context.getIdentity();
+        return functionRules.stream()
+                .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledSystemRoles(), identity.getGroups(), functionKind, functionName))
+                .findFirst()
+                .filter(executePredicate)
+                .isPresent();
     }
 }
