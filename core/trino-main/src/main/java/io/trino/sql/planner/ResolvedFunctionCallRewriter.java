@@ -53,7 +53,7 @@ public final class ResolvedFunctionCallRewriter
             FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
             return new FunctionCall(
                     rewritten.getLocation(),
-                    resolvedFunction.toQualifiedName(),
+                    TranslationMap.convertQualifiedName(resolvedFunction.toQualifiedName()),
                     rewritten.getWindow(),
                     rewritten.getFilter(),
                     rewritten.getOrderBy(),

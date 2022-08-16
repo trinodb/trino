@@ -25,6 +25,13 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.WindowFrame;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
@@ -63,15 +70,6 @@ import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FrameBound;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.SortItem;
-import io.trino.sql.tree.WindowFrame;
 import org.intellij.lang.annotations.Language;
 
 import java.util.ArrayList;
@@ -356,10 +354,10 @@ public final class PlanMatchPattern
     }
 
     public static ExpectedValueProvider<WindowNode.Frame> windowFrame(
-            WindowFrame.Type type,
-            FrameBound.Type startType,
+            io.trino.sql.tree.WindowFrame.Type type,
+            io.trino.sql.tree.FrameBound.Type startType,
             Optional<String> startValue,
-            FrameBound.Type endType,
+            io.trino.sql.tree.FrameBound.Type endType,
             Optional<String> endValue,
             Optional<String> sortKey)
     {
@@ -367,11 +365,11 @@ public final class PlanMatchPattern
     }
 
     public static ExpectedValueProvider<WindowNode.Frame> windowFrame(
-            WindowFrame.Type type,
-            FrameBound.Type startType,
+            io.trino.sql.tree.WindowFrame.Type type,
+            io.trino.sql.tree.FrameBound.Type startType,
             Optional<String> startValue,
             Optional<String> sortKeyForStartComparison,
-            FrameBound.Type endType,
+            io.trino.sql.tree.FrameBound.Type endType,
             Optional<String> endValue,
             Optional<String> sortKeyForEndComparison)
     {
@@ -1112,7 +1110,7 @@ public final class PlanMatchPattern
     {
         return aliases
                 .stream()
-                .map(arg -> arg.toSymbol(symbolAliases).toSymbolReference())
+                .map(arg -> arg.toSymbol(symbolAliases).toIrSymbolReference())
                 .collect(toImmutableList());
     }
 
@@ -1144,7 +1142,7 @@ public final class PlanMatchPattern
                         .collect(toImmutableMap(entry -> new SymbolAlias(entry.getKey()), Map.Entry::getValue)));
     }
 
-    public static Ordering sort(String field, SortItem.Ordering ordering, SortItem.NullOrdering nullOrdering)
+    public static Ordering sort(String field, io.trino.sql.tree.SortItem.Ordering ordering, io.trino.sql.tree.SortItem.NullOrdering nullOrdering)
     {
         return new Ordering(field, ordering, nullOrdering);
     }
@@ -1222,11 +1220,11 @@ public final class PlanMatchPattern
     public static class DynamicFilterPattern
     {
         private final Expression probe;
-        private final ComparisonExpression.Operator operator;
+        private final io.trino.sql.tree.ComparisonExpression.Operator operator;
         private final SymbolAlias build;
         private final boolean nullAllowed;
 
-        public DynamicFilterPattern(String probeExpression, ComparisonExpression.Operator operator, String buildAlias, boolean nullAllowed)
+        public DynamicFilterPattern(String probeExpression, io.trino.sql.tree.ComparisonExpression.Operator operator, String buildAlias, boolean nullAllowed)
         {
             this(
                     PlanBuilder.expression(probeExpression),
@@ -1235,7 +1233,7 @@ public final class PlanMatchPattern
                     nullAllowed);
         }
 
-        public DynamicFilterPattern(Expression probe, ComparisonExpression.Operator operator, String buildAlias, boolean nullAllowed)
+        public DynamicFilterPattern(Expression probe, io.trino.sql.tree.ComparisonExpression.Operator operator, String buildAlias, boolean nullAllowed)
         {
             this.probe = requireNonNull(probe, "probe is null");
             this.operator = requireNonNull(operator, "operator is null");
@@ -1243,7 +1241,7 @@ public final class PlanMatchPattern
             this.nullAllowed = nullAllowed;
         }
 
-        public DynamicFilterPattern(String probeAlias, ComparisonExpression.Operator operator, String buildAlias)
+        public DynamicFilterPattern(String probeAlias, io.trino.sql.tree.ComparisonExpression.Operator operator, String buildAlias)
         {
             this(probeAlias, operator, buildAlias, false);
         }
@@ -1256,12 +1254,12 @@ public final class PlanMatchPattern
                         new ComparisonExpression(
                                 IS_DISTINCT_FROM,
                                 probeMapped,
-                                build.toSymbol(aliases).toSymbolReference()));
+                                build.toSymbol(aliases).toIrSymbolReference()));
             }
             return new ComparisonExpression(
                     operator,
                     probeMapped,
-                    build.toSymbol(aliases).toSymbolReference());
+                    build.toSymbol(aliases).toIrSymbolReference());
         }
 
         private static SymbolMapper symbolMapper(SymbolAliases symbolAliases)
@@ -1349,10 +1347,10 @@ public final class PlanMatchPattern
     public static class Ordering
     {
         private final String field;
-        private final SortItem.Ordering ordering;
-        private final SortItem.NullOrdering nullOrdering;
+        private final io.trino.sql.tree.SortItem.Ordering ordering;
+        private final io.trino.sql.tree.SortItem.NullOrdering nullOrdering;
 
-        private Ordering(String field, SortItem.Ordering ordering, SortItem.NullOrdering nullOrdering)
+        private Ordering(String field, io.trino.sql.tree.SortItem.Ordering ordering, io.trino.sql.tree.SortItem.NullOrdering nullOrdering)
         {
             this.field = field;
             this.ordering = ordering;
@@ -1364,12 +1362,12 @@ public final class PlanMatchPattern
             return field;
         }
 
-        public SortItem.Ordering getOrdering()
+        public io.trino.sql.tree.SortItem.Ordering getOrdering()
         {
             return ordering;
         }
 
-        public SortItem.NullOrdering getNullOrdering()
+        public io.trino.sql.tree.SortItem.NullOrdering getNullOrdering()
         {
             return nullOrdering;
         }

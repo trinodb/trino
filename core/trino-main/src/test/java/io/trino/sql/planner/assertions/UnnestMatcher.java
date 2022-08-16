@@ -16,12 +16,12 @@ package io.trino.sql.planner.assertions;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.UnnestNode.Mapping;
-import io.trino.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Optional;
@@ -86,7 +86,7 @@ final class UnnestMatcher
         if (!IntStream.range(0, unnestMappings.size()).boxed().allMatch(index -> {
             Mapping nodeMapping = unnestNode.getMappings().get(index);
             PlanMatchPattern.UnnestMapping patternMapping = unnestMappings.get(index);
-            return nodeMapping.getInput().toSymbolReference().equals(symbolAliases.get(patternMapping.getInput())) &&
+            return nodeMapping.getInput().toIrSymbolReference().equals(symbolAliases.get(patternMapping.getInput())) &&
                     patternMapping.getOutputs().size() == nodeMapping.getOutputs().size();
         })) {
             return NO_MATCH;

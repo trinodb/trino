@@ -26,11 +26,11 @@ import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.statistics.TableStatisticType;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.StatisticAggregations;
 import io.trino.sql.planner.plan.StatisticAggregationsDescriptor;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
@@ -112,22 +112,22 @@ public class StatisticsAggregationPlanner
     {
         switch (statisticType) {
             case MIN_VALUE:
-                return createAggregation(QualifiedName.of("min"), input.toSymbolReference(), inputType, inputType);
+                return createAggregation(QualifiedName.of("min"), input.toIrSymbolReference(), inputType, inputType);
             case MAX_VALUE:
-                return createAggregation(QualifiedName.of("max"), input.toSymbolReference(), inputType, inputType);
+                return createAggregation(QualifiedName.of("max"), input.toIrSymbolReference(), inputType, inputType);
             case NUMBER_OF_DISTINCT_VALUES:
-                return createAggregation(QualifiedName.of("approx_distinct"), input.toSymbolReference(), inputType, BIGINT);
+                return createAggregation(QualifiedName.of("approx_distinct"), input.toIrSymbolReference(), inputType, BIGINT);
             case NUMBER_OF_DISTINCT_VALUES_SUMMARY:
                 // we use $approx_set here and not approx_set because latter is not defined for all types supported by Trino
-                return createAggregation(QualifiedName.of("$approx_set"), input.toSymbolReference(), inputType, HYPER_LOG_LOG);
+                return createAggregation(QualifiedName.of("$approx_set"), input.toIrSymbolReference(), inputType, HYPER_LOG_LOG);
             case NUMBER_OF_NON_NULL_VALUES:
-                return createAggregation(QualifiedName.of("count"), input.toSymbolReference(), inputType, BIGINT);
+                return createAggregation(QualifiedName.of("count"), input.toIrSymbolReference(), inputType, BIGINT);
             case NUMBER_OF_TRUE_VALUES:
-                return createAggregation(QualifiedName.of("count_if"), input.toSymbolReference(), BOOLEAN, BIGINT);
+                return createAggregation(QualifiedName.of("count_if"), input.toIrSymbolReference(), BOOLEAN, BIGINT);
             case TOTAL_SIZE_IN_BYTES:
-                return createAggregation(QualifiedName.of(SumDataSizeForStats.NAME), input.toSymbolReference(), inputType, BIGINT);
+                return createAggregation(QualifiedName.of(SumDataSizeForStats.NAME), input.toIrSymbolReference(), inputType, BIGINT);
             case MAX_VALUE_SIZE_IN_BYTES:
-                return createAggregation(QualifiedName.of(MaxDataSizeForStats.NAME), input.toSymbolReference(), inputType, BIGINT);
+                return createAggregation(QualifiedName.of(MaxDataSizeForStats.NAME), input.toIrSymbolReference(), inputType, BIGINT);
         }
         throw new IllegalArgumentException("Unsupported statistic type: " + statisticType);
     }

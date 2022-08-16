@@ -40,6 +40,23 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.ir.BetweenPredicate;
+import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.DoubleLiteral;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.InListExpression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
@@ -56,23 +73,6 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.BetweenPredicate;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.InListExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.Row;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingSession;
 import io.trino.testing.TestingTransactionHandle;
@@ -98,17 +98,17 @@ import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.sql.ExpressionUtils.and;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
-import static io.trino.sql.ExpressionUtils.or;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.IrExpressionUtils.and;
+import static io.trino.sql.IrExpressionUtils.combineConjuncts;
+import static io.trino.sql.IrExpressionUtils.or;
+import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
-import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.transaction.TransactionBuilder.transaction;
@@ -126,13 +126,13 @@ public class TestEffectivePredicateExtractor
     private static final Symbol F = new Symbol("f");
     private static final Symbol G = new Symbol("g");
     private static final Symbol R = new Symbol("r");
-    private static final Expression AE = A.toSymbolReference();
-    private static final Expression BE = B.toSymbolReference();
-    private static final Expression CE = C.toSymbolReference();
-    private static final Expression DE = D.toSymbolReference();
-    private static final Expression EE = E.toSymbolReference();
-    private static final Expression FE = F.toSymbolReference();
-    private static final Expression GE = G.toSymbolReference();
+    private static final Expression AE = A.toIrSymbolReference();
+    private static final Expression BE = B.toIrSymbolReference();
+    private static final Expression CE = C.toIrSymbolReference();
+    private static final Expression DE = D.toIrSymbolReference();
+    private static final Expression EE = E.toIrSymbolReference();
+    private static final Expression FE = F.toIrSymbolReference();
+    private static final Expression GE = G.toIrSymbolReference();
     private static final Session SESSION = TestingSession.testSessionBuilder().build();
 
     private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
@@ -1170,17 +1170,17 @@ public class TestEffectivePredicateExtractor
 
     private static ComparisonExpression lessThan(Expression expression1, Expression expression2)
     {
-        return new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, expression1, expression2);
+        return new ComparisonExpression(io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN, expression1, expression2);
     }
 
     private static ComparisonExpression lessThanOrEqual(Expression expression1, Expression expression2)
     {
-        return new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL, expression1, expression2);
+        return new ComparisonExpression(io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL, expression1, expression2);
     }
 
     private static ComparisonExpression greaterThan(Expression expression1, Expression expression2)
     {
-        return new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN, expression1, expression2);
+        return new ComparisonExpression(io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN, expression1, expression2);
     }
 
     private static IsNullPredicate isNull(Expression expression)

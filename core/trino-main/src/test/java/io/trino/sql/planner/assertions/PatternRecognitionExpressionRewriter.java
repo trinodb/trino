@@ -15,23 +15,24 @@ package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.DereferenceExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.GenericDataType;
+import io.trino.sql.ir.Identifier;
+import io.trino.sql.ir.LabelDereference;
+import io.trino.sql.ir.LambdaExpression;
+import io.trino.sql.ir.RowDataType;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.planner.rowpattern.LogicalIndexExtractor;
 import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
-import io.trino.sql.tree.DereferenceExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.GenericDataType;
-import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.LabelDereference;
-import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.RowDataType;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.Map;
 import java.util.Set;
@@ -41,7 +42,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
+import static io.trino.sql.iranalyzer.ExpressionTreeUtils.extractExpressions;
 
 public class PatternRecognitionExpressionRewriter
 {
@@ -49,7 +50,7 @@ public class PatternRecognitionExpressionRewriter
 
     public static ExpressionAndValuePointers rewrite(String definition, Map<IrLabel, Set<IrLabel>> subsets)
     {
-        return rewrite(new SqlParser().createExpression(definition, new ParsingOptions()), subsets);
+        return rewrite(TranslationMap.copyAstExpressionToIrExpression(new SqlParser().createExpression(definition, new ParsingOptions())), subsets);
     }
 
     public static ExpressionAndValuePointers rewrite(Expression definition, Map<IrLabel, Set<IrLabel>> subsets)

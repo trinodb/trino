@@ -21,8 +21,8 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.connector.SortingProperty;
-import io.trino.sql.tree.OrderBy;
-import io.trino.sql.tree.SortItem;
+import io.trino.sql.ir.OrderBy;
+import io.trino.sql.ir.SortItem;
 import io.trino.sql.tree.SortItem.NullOrdering;
 import io.trino.sql.tree.SortItem.Ordering;
 
@@ -129,6 +129,21 @@ public class OrderingScheme
     }
 
     public static SortOrder sortItemToSortOrder(SortItem sortItem)
+    {
+        if (sortItem.getOrdering() == Ordering.ASCENDING) {
+            if (sortItem.getNullOrdering() == NullOrdering.FIRST) {
+                return SortOrder.ASC_NULLS_FIRST;
+            }
+            return SortOrder.ASC_NULLS_LAST;
+        }
+
+        if (sortItem.getNullOrdering() == NullOrdering.FIRST) {
+            return SortOrder.DESC_NULLS_FIRST;
+        }
+        return SortOrder.DESC_NULLS_LAST;
+    }
+
+    public static SortOrder sortItemToSortOrder(io.trino.sql.tree.SortItem sortItem)
     {
         if (sortItem.getOrdering() == Ordering.ASCENDING) {
             if (sortItem.getNullOrdering() == NullOrdering.FIRST) {

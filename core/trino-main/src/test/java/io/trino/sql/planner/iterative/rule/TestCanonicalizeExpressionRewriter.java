@@ -17,12 +17,12 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.Test;
 
@@ -34,7 +34,7 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ExpressionTestUtils.assertExpressionEquals;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
-import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.rewrite;
+import static io.trino.sql.planner.iterative.rule.CanonicalizeIrExpressionRewriter.rewrite;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.transaction.TransactionBuilder.transaction;
 

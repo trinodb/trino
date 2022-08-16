@@ -22,6 +22,10 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.spi.type.RowType;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.TryExpression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -30,11 +34,7 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.TryExpression;
-import io.trino.sql.util.AstUtils;
+import io.trino.sql.util.IrUtils;
 
 import java.util.Map;
 import java.util.Optional;
@@ -43,7 +43,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
+import static io.trino.sql.IrExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
@@ -159,7 +159,7 @@ public class InlineProjections
                 return result;
             }
 
-            return symbol.toSymbolReference();
+            return symbol.toIrSymbolReference();
         };
 
         return inlineSymbols(mapping, expression);
@@ -220,7 +220,7 @@ public class InlineProjections
 
     private static Set<Symbol> extractTryArguments(Expression expression)
     {
-        return AstUtils.preOrder(expression)
+        return IrUtils.preOrder(expression)
                 .filter(TryExpression.class::isInstance)
                 .map(TryExpression.class::cast)
                 .flatMap(tryExpression -> SymbolsExtractor.extractAll(tryExpression).stream())

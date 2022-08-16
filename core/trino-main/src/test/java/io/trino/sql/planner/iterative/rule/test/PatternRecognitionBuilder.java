@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -27,9 +28,7 @@ import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
-import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
-import io.trino.sql.tree.SkipTo;
 
 import java.util.AbstractMap;
 import java.util.HashMap;
@@ -53,7 +52,7 @@ public class PatternRecognitionBuilder
     private Optional<WindowNode.Frame> commonBaseFrame = Optional.empty();
     private RowsPerMatch rowsPerMatch = ONE;
     private Optional<IrLabel> skipToLabel = Optional.empty();
-    private SkipTo.Position skipToPosition = PAST_LAST;
+    private io.trino.sql.tree.SkipTo.Position skipToPosition = PAST_LAST;
     private boolean initial = true;
     private IrRowPattern pattern;
     private final Map<IrLabel, Set<IrLabel>> subsets = new HashMap<>();
@@ -102,14 +101,14 @@ public class PatternRecognitionBuilder
         return this;
     }
 
-    public PatternRecognitionBuilder skipTo(SkipTo.Position position, IrLabel label)
+    public PatternRecognitionBuilder skipTo(io.trino.sql.tree.SkipTo.Position position, IrLabel label)
     {
         this.skipToPosition = position;
         this.skipToLabel = Optional.of(label);
         return this;
     }
 
-    public PatternRecognitionBuilder skipTo(SkipTo.Position position)
+    public PatternRecognitionBuilder skipTo(io.trino.sql.tree.SkipTo.Position position)
     {
         this.skipToPosition = position;
         return this;

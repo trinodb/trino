@@ -32,6 +32,12 @@ public class Symbol
         return new Symbol(((SymbolReference) expression).getName());
     }
 
+    public static Symbol from(io.trino.sql.ir.Expression expression)
+    {
+        checkArgument(expression instanceof io.trino.sql.ir.SymbolReference, "Unexpected expression: %s", expression);
+        return new Symbol(((io.trino.sql.ir.SymbolReference) expression).getName());
+    }
+
     @JsonCreator
     public Symbol(String name)
     {
@@ -48,6 +54,11 @@ public class Symbol
     public SymbolReference toSymbolReference()
     {
         return new SymbolReference(name);
+    }
+
+    public io.trino.sql.ir.SymbolReference toIrSymbolReference()
+    {
+        return new io.trino.sql.ir.SymbolReference(name);
     }
 
     @Override

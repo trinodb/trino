@@ -23,6 +23,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.InterpretedFunctionInvoker;
+import io.trino.sql.ir.QualifiedName;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.ConstantExpression;
 import io.trino.sql.relational.InputReferenceExpression;
@@ -31,7 +32,6 @@ import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.RowExpressionVisitor;
 import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.relational.VariableReferenceExpression;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.List;
 import java.util.stream.Collectors;

@@ -146,13 +146,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
-import static io.trino.sql.ExpressionFormatter.formatExpression;
-import static io.trino.sql.ExpressionFormatter.formatGroupBy;
-import static io.trino.sql.ExpressionFormatter.formatOrderBy;
-import static io.trino.sql.ExpressionFormatter.formatSkipTo;
-import static io.trino.sql.ExpressionFormatter.formatStringLiteral;
-import static io.trino.sql.ExpressionFormatter.formatWindowSpecification;
-import static io.trino.sql.RowPatternFormatter.formatPattern;
+import static io.trino.sql.AstExpressionFormatter.formatExpression;
+import static io.trino.sql.AstExpressionFormatter.formatGroupBy;
+import static io.trino.sql.AstExpressionFormatter.formatOrderBy;
+import static io.trino.sql.AstExpressionFormatter.formatSkipTo;
+import static io.trino.sql.AstExpressionFormatter.formatStringLiteral;
+import static io.trino.sql.AstExpressionFormatter.formatWindowSpecification;
+import static io.trino.sql.AstRowPatternFormatter.formatPattern;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
@@ -172,7 +172,7 @@ public final class SqlFormatter
     static String formatName(QualifiedName name)
     {
         return name.getOriginalParts().stream()
-                .map(ExpressionFormatter::formatExpression)
+                .map(AstExpressionFormatter::formatExpression)
                 .collect(joining("."));
     }
 
@@ -213,7 +213,7 @@ public final class SqlFormatter
         {
             builder.append("UNNEST(")
                     .append(node.getExpressions().stream()
-                            .map(ExpressionFormatter::formatExpression)
+                            .map(AstExpressionFormatter::formatExpression)
                             .collect(joining(", ")))
                     .append(")");
             if (node.isWithOrdinality()) {
@@ -299,7 +299,7 @@ public final class SqlFormatter
                 builder.append("\n");
                 append(indent, "PARTITION BY ")
                         .append(node.getPartitionBy().get().stream()
-                                .map(ExpressionFormatter::formatExpression)
+                                .map(AstExpressionFormatter::formatExpression)
                                 .collect(joining(", ")));
             }
             if (node.isPruneWhenEmpty()) {
@@ -539,7 +539,7 @@ public final class SqlFormatter
             if (!node.getAliases().isEmpty()) {
                 builder.append(" AS (")
                         .append(Joiner.on(", ").join(node.getAliases().stream()
-                                .map(ExpressionFormatter::formatExpression)
+                                .map(AstExpressionFormatter::formatExpression)
                                 .collect(toImmutableList())))
                         .append(")");
             }
@@ -632,7 +632,7 @@ public final class SqlFormatter
             if (!node.getPartitionBy().isEmpty()) {
                 append(indent + 1, "PARTITION BY ")
                         .append(node.getPartitionBy().stream()
-                                .map(ExpressionFormatter::formatExpression)
+                                .map(AstExpressionFormatter::formatExpression)
                                 .collect(joining(", ")))
                         .append("\n");
             }
@@ -685,7 +685,7 @@ public final class SqlFormatter
                 append(indent + 1, "SUBSET");
                 formatDefinitionList(node.getSubsets().stream()
                         .map(subset -> formatExpression(subset.getName()) + " = " + subset.getIdentifiers().stream()
-                                .map(ExpressionFormatter::formatExpression).collect(joining(", ", "(", ")")))
+                                .map(AstExpressionFormatter::formatExpression).collect(joining(", ", "(", ")")))
                         .collect(toImmutableList()), indent + 2);
             }
             append(indent + 1, "DEFINE");
@@ -849,7 +849,7 @@ public final class SqlFormatter
             }
 
             builder.append("VALUES (");
-            Joiner.on(", ").appendTo(builder, transform(node.getValues(), ExpressionFormatter::formatExpression));
+            Joiner.on(", ").appendTo(builder, transform(node.getValues(), AstExpressionFormatter::formatExpression));
             builder.append(")");
 
             return null;
@@ -1263,7 +1263,7 @@ public final class SqlFormatter
 
             node.getColumnAliases().ifPresent(columnAliases -> {
                 String columnList = columnAliases.stream()
-                        .map(ExpressionFormatter::formatExpression)
+                        .map(AstExpressionFormatter::formatExpression)
                         .collect(joining(", "));
                 builder.append(format("( %s )", columnList));
             });
@@ -1453,7 +1453,7 @@ public final class SqlFormatter
         protected Void visitComment(Comment node, Integer context)
         {
             String comment = node.getComment()
-                    .map(ExpressionFormatter::formatStringLiteral)
+                    .map(AstExpressionFormatter::formatStringLiteral)
                     .orElse("NULL");
 
             switch (node.getType()) {
@@ -1954,7 +1954,7 @@ public final class SqlFormatter
         public Void visitSetTimeZone(SetTimeZone node, Integer indent)
         {
             builder.append("SET TIME ZONE ");
-            builder.append(node.getTimeZone().map(ExpressionFormatter::formatExpression).orElse("LOCAL"));
+            builder.append(node.getTimeZone().map(AstExpressionFormatter::formatExpression).orElse("LOCAL"));
             return null;
         }
 
@@ -2005,7 +2005,7 @@ public final class SqlFormatter
     {
         if ((columns != null) && (!columns.isEmpty())) {
             String formattedColumns = columns.stream()
-                    .map(ExpressionFormatter::formatExpression)
+                    .map(AstExpressionFormatter::formatExpression)
                     .collect(Collectors.joining(", "));
 
             builder.append(" (")

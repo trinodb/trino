@@ -20,8 +20,8 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.predicate.NullableValue;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.SymbolReference;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -55,7 +55,7 @@ public final class Partitioning
     public static Partitioning create(PartitioningHandle handle, List<Symbol> columns)
     {
         return new Partitioning(handle, columns.stream()
-                .map(Symbol::toSymbolReference)
+                .map(Symbol::toIrSymbolReference)
                 .map(ArgumentBinding::expressionBinding)
                 .collect(toImmutableList()));
     }
@@ -351,7 +351,7 @@ public final class Partitioning
             if (isConstant()) {
                 return this;
             }
-            return expressionBinding(translator.apply(Symbol.from(expression)).toSymbolReference());
+            return expressionBinding(translator.apply(Symbol.from(expression)).toIrSymbolReference());
         }
 
         public Optional<ArgumentBinding> translate(Translator translator)
@@ -362,12 +362,12 @@ public final class Partitioning
 
             if (!isVariable()) {
                 return translator.expressionTranslator.apply(expression)
-                        .map(Symbol::toSymbolReference)
+                        .map(Symbol::toIrSymbolReference)
                         .map(ArgumentBinding::expressionBinding);
             }
 
             Optional<ArgumentBinding> newColumn = translator.columnTranslator.apply(Symbol.from(expression))
-                    .map(Symbol::toSymbolReference)
+                    .map(Symbol::toIrSymbolReference)
                     .map(ArgumentBinding::expressionBinding);
             if (newColumn.isPresent()) {
                 return newColumn;

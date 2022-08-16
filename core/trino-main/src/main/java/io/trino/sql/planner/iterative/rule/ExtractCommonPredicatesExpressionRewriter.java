@@ -17,18 +17,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.trino.metadata.Metadata;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.LogicalExpression;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.ExpressionUtils.combinePredicates;
-import static io.trino.sql.ExpressionUtils.extractPredicates;
+import static io.trino.sql.IrExpressionUtils.combinePredicates;
+import static io.trino.sql.IrExpressionUtils.extractPredicates;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.tree.LogicalExpression.Operator.OR;
 import static java.util.Collections.emptySet;
@@ -102,7 +102,7 @@ public final class ExtractCommonPredicatesExpressionRewriter
                     .map(predicateList -> removeAll(predicateList, commonPredicates))
                     .collect(toImmutableList());
 
-            LogicalExpression.Operator flippedOperator = node.getOperator().flip();
+            io.trino.sql.tree.LogicalExpression.Operator flippedOperator = node.getOperator().flip();
 
             List<Expression> uncorrelatedPredicates = uncorrelatedSubPredicates.stream()
                     .map(predicate -> combinePredicates(metadata, flippedOperator, predicate))

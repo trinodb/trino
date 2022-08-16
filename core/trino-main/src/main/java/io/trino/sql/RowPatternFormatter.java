@@ -13,21 +13,21 @@
  */
 package io.trino.sql;
 
-import io.trino.sql.tree.AnchorPattern;
-import io.trino.sql.tree.AstVisitor;
-import io.trino.sql.tree.EmptyPattern;
-import io.trino.sql.tree.ExcludedPattern;
-import io.trino.sql.tree.Node;
-import io.trino.sql.tree.OneOrMoreQuantifier;
-import io.trino.sql.tree.PatternAlternation;
-import io.trino.sql.tree.PatternConcatenation;
-import io.trino.sql.tree.PatternPermutation;
-import io.trino.sql.tree.PatternVariable;
-import io.trino.sql.tree.QuantifiedPattern;
-import io.trino.sql.tree.RangeQuantifier;
-import io.trino.sql.tree.RowPattern;
-import io.trino.sql.tree.ZeroOrMoreQuantifier;
-import io.trino.sql.tree.ZeroOrOneQuantifier;
+import io.trino.sql.ir.AnchorPattern;
+import io.trino.sql.ir.EmptyPattern;
+import io.trino.sql.ir.ExcludedPattern;
+import io.trino.sql.ir.IrVisitor;
+import io.trino.sql.ir.Node;
+import io.trino.sql.ir.OneOrMoreQuantifier;
+import io.trino.sql.ir.PatternAlternation;
+import io.trino.sql.ir.PatternConcatenation;
+import io.trino.sql.ir.PatternPermutation;
+import io.trino.sql.ir.PatternVariable;
+import io.trino.sql.ir.QuantifiedPattern;
+import io.trino.sql.ir.RangeQuantifier;
+import io.trino.sql.ir.RowPattern;
+import io.trino.sql.ir.ZeroOrMoreQuantifier;
+import io.trino.sql.ir.ZeroOrOneQuantifier;
 
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
@@ -42,7 +42,7 @@ public final class RowPatternFormatter
     }
 
     public static class Formatter
-            extends AstVisitor<String, Void>
+            extends IrVisitor<String, Void>
     {
         @Override
         protected String visitNode(Node node, Void context)

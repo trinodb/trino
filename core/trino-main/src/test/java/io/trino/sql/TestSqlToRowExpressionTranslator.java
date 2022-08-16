@@ -16,16 +16,16 @@ package io.trino.sql;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
-import io.trino.sql.planner.ExpressionInterpreter;
-import io.trino.sql.planner.LiteralEncoder;
-import io.trino.sql.planner.NoOpSymbolResolver;
+import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrLiteralEncoder;
+import io.trino.sql.planner.IrNoOpSymbolResolver;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
-import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.NodeRef;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -41,7 +41,7 @@ import static io.trino.testing.assertions.Assert.assertEquals;
 
 public class TestSqlToRowExpressionTranslator
 {
-    private final LiteralEncoder literalEncoder = new LiteralEncoder(PLANNER_CONTEXT);
+    private final IrLiteralEncoder literalEncoder = new IrLiteralEncoder(PLANNER_CONTEXT);
 
     @Test(timeOut = 10_000)
     public void testPossibleExponentialOptimizationTime()
@@ -100,13 +100,13 @@ public class TestSqlToRowExpressionTranslator
         // Testing simplified expressions is important, since simplification may create CASTs or function calls that cannot be simplified by the ExpressionOptimizer
 
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(expression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
-        Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
+        Object value = interpreter.optimize(IrNoOpSymbolResolver.INSTANCE);
         return literalEncoder.toExpression(TEST_SESSION, value, expressionTypes.get(NodeRef.of(expression)));
     }
 
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)
     {
-        return ExpressionUtils.getExpressionTypes(PLANNER_CONTEXT, TEST_SESSION, expression, TypeProvider.empty());
+        return IrExpressionUtils.getExpressionTypes(PLANNER_CONTEXT, TEST_SESSION, expression, TypeProvider.empty());
     }
 }

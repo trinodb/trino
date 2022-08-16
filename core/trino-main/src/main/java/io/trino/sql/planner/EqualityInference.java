@@ -20,9 +20,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import io.trino.metadata.Metadata;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.util.DisjointSet;
 
 import java.util.ArrayList;
@@ -40,7 +40,7 @@ import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
+import static io.trino.sql.IrExpressionUtils.extractConjuncts;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.trino.sql.planner.NullabilityAnalyzer.mayReturnNullOnNonNullInput;
@@ -142,14 +142,14 @@ public class EqualityInference
             if (scopeExpressions.size() >= 2) {
                 scopeExpressions.stream()
                         .filter(expression -> !expression.equals(matchingCanonical))
-                        .map(expression -> new ComparisonExpression(ComparisonExpression.Operator.EQUAL, matchingCanonical, expression))
+                        .map(expression -> new ComparisonExpression(io.trino.sql.tree.ComparisonExpression.Operator.EQUAL, matchingCanonical, expression))
                         .forEach(scopeEqualities::add);
             }
             Expression complementCanonical = getCanonical(scopeComplementExpressions.stream());
             if (scopeComplementExpressions.size() >= 2) {
                 scopeComplementExpressions.stream()
                         .filter(expression -> !expression.equals(complementCanonical))
-                        .map(expression -> new ComparisonExpression(ComparisonExpression.Operator.EQUAL, complementCanonical, expression))
+                        .map(expression -> new ComparisonExpression(io.trino.sql.tree.ComparisonExpression.Operator.EQUAL, complementCanonical, expression))
                         .forEach(scopeComplementEqualities::add);
             }
 
@@ -165,7 +165,7 @@ public class EqualityInference
             if (connectingCanonical != null) {
                 connectingExpressions.stream()
                         .filter(expression -> !expression.equals(connectingCanonical))
-                        .map(expression -> new ComparisonExpression(ComparisonExpression.Operator.EQUAL, connectingCanonical, expression))
+                        .map(expression -> new ComparisonExpression(io.trino.sql.tree.ComparisonExpression.Operator.EQUAL, connectingCanonical, expression))
                         .forEach(scopeStraddlingEqualities::add);
             }
         }
@@ -182,7 +182,7 @@ public class EqualityInference
                 isDeterministic(expression, metadata) &&
                 !mayReturnNullOnNonNullInput(expression)) {
             ComparisonExpression comparison = (ComparisonExpression) expression;
-            if (comparison.getOperator() == ComparisonExpression.Operator.EQUAL) {
+            if (comparison.getOperator() == io.trino.sql.tree.ComparisonExpression.Operator.EQUAL) {
                 // We should only consider equalities that have distinct left and right components
                 return !comparison.getLeft().equals(comparison.getRight());
             }

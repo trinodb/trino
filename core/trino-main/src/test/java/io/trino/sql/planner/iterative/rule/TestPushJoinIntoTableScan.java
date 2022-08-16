@@ -33,13 +33,13 @@ import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.GenericLiteral;
 import org.assertj.core.api.Assertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -127,7 +127,7 @@ public class TestPushJoinIntoTableScan
             .collect(toImmutableList());
 
     @Test(dataProvider = "testPushJoinIntoTableScanParams")
-    public void testPushJoinIntoTableScan(JoinNode.Type joinType, Optional<ComparisonExpression.Operator> filterComparisonOperator)
+    public void testPushJoinIntoTableScan(JoinNode.Type joinType, Optional<io.trino.sql.tree.ComparisonExpression.Operator> filterComparisonOperator)
     {
         MockConnectorFactory connectorFactory = createMockConnectorFactory((session, applyJoinType, left, right, joinConditions, leftAssignments, rightAssignments) -> {
             assertThat(((MockConnectorTableHandle) left).getTableName()).isEqualTo(TABLE_A_SCHEMA_TABLE_NAME);
@@ -170,7 +170,7 @@ public class TestPushJoinIntoTableScan
                                 joinType,
                                 left,
                                 right,
-                                new ComparisonExpression(filterComparisonOperator.get(), columnA1Symbol.toSymbolReference(), columnB1Symbol.toSymbolReference()));
+                                new ComparisonExpression(filterComparisonOperator.get(), columnA1Symbol.toIrSymbolReference(), columnB1Symbol.toIrSymbolReference()));
                     })
                     .withSession(MOCK_SESSION)
                     .matches(
@@ -184,40 +184,40 @@ public class TestPushJoinIntoTableScan
     {
         return new Object[][] {
                 {INNER, Optional.empty()},
-                {INNER, Optional.of(ComparisonExpression.Operator.EQUAL)},
-                {INNER, Optional.of(ComparisonExpression.Operator.LESS_THAN)},
-                {INNER, Optional.of(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)},
-                {INNER, Optional.of(ComparisonExpression.Operator.GREATER_THAN)},
-                {INNER, Optional.of(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)},
-                {INNER, Optional.of(ComparisonExpression.Operator.NOT_EQUAL)},
-                {INNER, Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM)},
+                {INNER, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.EQUAL)},
+                {INNER, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN)},
+                {INNER, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)},
+                {INNER, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN)},
+                {INNER, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)},
+                {INNER, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.NOT_EQUAL)},
+                {INNER, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM)},
 
                 {JoinNode.Type.LEFT, Optional.empty()},
-                {JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.EQUAL)},
-                {JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.LESS_THAN)},
-                {JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)},
-                {JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.GREATER_THAN)},
-                {JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)},
-                {JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.NOT_EQUAL)},
-                {JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM)},
+                {JoinNode.Type.LEFT, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.EQUAL)},
+                {JoinNode.Type.LEFT, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN)},
+                {JoinNode.Type.LEFT, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)},
+                {JoinNode.Type.LEFT, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN)},
+                {JoinNode.Type.LEFT, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)},
+                {JoinNode.Type.LEFT, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.NOT_EQUAL)},
+                {JoinNode.Type.LEFT, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM)},
 
                 {JoinNode.Type.RIGHT, Optional.empty()},
-                {JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.EQUAL)},
-                {JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.LESS_THAN)},
-                {JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)},
-                {JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.GREATER_THAN)},
-                {JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)},
-                {JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.NOT_EQUAL)},
-                {JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM)},
+                {JoinNode.Type.RIGHT, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.EQUAL)},
+                {JoinNode.Type.RIGHT, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN)},
+                {JoinNode.Type.RIGHT, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)},
+                {JoinNode.Type.RIGHT, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN)},
+                {JoinNode.Type.RIGHT, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)},
+                {JoinNode.Type.RIGHT, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.NOT_EQUAL)},
+                {JoinNode.Type.RIGHT, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM)},
 
                 {JoinNode.Type.FULL, Optional.empty()},
-                {JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.EQUAL)},
-                {JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.LESS_THAN)},
-                {JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)},
-                {JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.GREATER_THAN)},
-                {JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)},
-                {JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.NOT_EQUAL)},
-                {JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM)},
+                {JoinNode.Type.FULL, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.EQUAL)},
+                {JoinNode.Type.FULL, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN)},
+                {JoinNode.Type.FULL, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)},
+                {JoinNode.Type.FULL, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN)},
+                {JoinNode.Type.FULL, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)},
+                {JoinNode.Type.FULL, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.NOT_EQUAL)},
+                {JoinNode.Type.FULL, Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM)},
         };
     }
 
@@ -250,9 +250,9 @@ public class TestPushJoinIntoTableScan
                                 left,
                                 right,
                                 new ComparisonExpression(
-                                        ComparisonExpression.Operator.GREATER_THAN,
-                                        new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, new GenericLiteral("BIGINT", "44"), columnA1Symbol.toSymbolReference()),
-                                        columnB1Symbol.toSymbolReference()));
+                                        io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN,
+                                        new ArithmeticBinaryExpression(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY, new GenericLiteral("BIGINT", "44"), columnA1Symbol.toIrSymbolReference()),
+                                        columnB1Symbol.toIrSymbolReference()));
                     })
                     .withSession(MOCK_SESSION)
                     .doesNotFire();
@@ -611,7 +611,7 @@ public class TestPushJoinIntoTableScan
         throw new IllegalArgumentException("Unknown join type: " + joinType);
     }
 
-    private JoinCondition.Operator getConditionOperator(ComparisonExpression.Operator operator)
+    private JoinCondition.Operator getConditionOperator(io.trino.sql.tree.ComparisonExpression.Operator operator)
     {
         switch (operator) {
             case EQUAL:

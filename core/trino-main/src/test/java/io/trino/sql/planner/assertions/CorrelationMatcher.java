@@ -60,7 +60,7 @@ public class CorrelationMatcher
 
         int i = 0;
         for (String alias : this.correlation) {
-            if (!symbolAliases.get(alias).equals(actualCorrelation.get(i++).toSymbolReference())) {
+            if (!symbolAliases.get(alias).equals(actualCorrelation.get(i++).toIrSymbolReference())) {
                 return NO_MATCH;
             }
         }

@@ -35,7 +35,7 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.ir.QualifiedName;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;

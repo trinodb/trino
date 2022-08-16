@@ -16,10 +16,10 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.sql.ir.DoubleLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
-import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.GenericLiteral;
 import org.testng.annotations.Test;
 
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;

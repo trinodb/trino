@@ -30,17 +30,16 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DynamicFilterId;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Objects;
@@ -52,9 +51,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static io.trino.spi.type.StandardTypes.BOOLEAN;
 import static io.trino.spi.type.StandardTypes.VARCHAR;
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
-import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.IrExpressionUtils.extractConjuncts;
+import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static java.util.Objects.requireNonNull;
 
@@ -68,7 +67,7 @@ public final class DynamicFilters
             DynamicFilterId id,
             Type inputType,
             SymbolReference input,
-            ComparisonExpression.Operator operator,
+            io.trino.sql.tree.ComparisonExpression.Operator operator,
             boolean nullAllowed)
     {
         return createDynamicFilterExpression(session, metadata, id, inputType, (Expression) input, operator, nullAllowed);
@@ -81,7 +80,7 @@ public final class DynamicFilters
             DynamicFilterId id,
             Type inputType,
             Expression input,
-            ComparisonExpression.Operator operator)
+            io.trino.sql.tree.ComparisonExpression.Operator operator)
     {
         return createDynamicFilterExpression(session, metadata, id, inputType, input, operator, false);
     }
@@ -93,7 +92,7 @@ public final class DynamicFilters
             DynamicFilterId id,
             Type inputType,
             Expression input,
-            ComparisonExpression.Operator operator,
+            io.trino.sql.tree.ComparisonExpression.Operator operator,
             boolean nullAllowed)
     {
         return FunctionCallBuilder.resolve(session, metadata)
@@ -138,7 +137,7 @@ public final class DynamicFilters
                         DynamicFilters.Descriptor::getId,
                         descriptor -> new DynamicFilters.Descriptor(
                                 descriptor.getId(),
-                                extractSourceSymbol(descriptor).toSymbolReference(),
+                                extractSourceSymbol(descriptor).toIrSymbolReference(),
                                 descriptor.getOperator(),
                                 descriptor.isNullAllowed())));
     }
@@ -157,7 +156,6 @@ public final class DynamicFilters
     public static Expression replaceDynamicFilterId(FunctionCall dynamicFilterFunctionCall, DynamicFilterId newId)
     {
         return new FunctionCall(
-                dynamicFilterFunctionCall.getLocation(),
                 dynamicFilterFunctionCall.getName(),
                 dynamicFilterFunctionCall.getWindow(),
                 dynamicFilterFunctionCall.getFilter(),
@@ -196,7 +194,7 @@ public final class DynamicFilters
         Expression operatorExpression = arguments.get(1);
         checkArgument(operatorExpression instanceof StringLiteral, "operatorExpression is expected to be an instance of StringLiteral: %s", operatorExpression.getClass().getSimpleName());
         String operatorExpressionString = ((StringLiteral) operatorExpression).getValue();
-        ComparisonExpression.Operator operator = ComparisonExpression.Operator.valueOf(operatorExpressionString);
+        io.trino.sql.tree.ComparisonExpression.Operator operator = io.trino.sql.tree.ComparisonExpression.Operator.valueOf(operatorExpressionString);
 
         Expression idExpression = arguments.get(2);
         checkArgument(idExpression instanceof StringLiteral, "id is expected to be an instance of StringLiteral: %s", idExpression.getClass().getSimpleName());
@@ -240,10 +238,10 @@ public final class DynamicFilters
     {
         private final DynamicFilterId id;
         private final Expression input;
-        private final ComparisonExpression.Operator operator;
+        private final io.trino.sql.tree.ComparisonExpression.Operator operator;
         private final boolean nullAllowed;
 
-        public Descriptor(DynamicFilterId id, Expression input, ComparisonExpression.Operator operator, boolean nullAllowed)
+        public Descriptor(DynamicFilterId id, Expression input, io.trino.sql.tree.ComparisonExpression.Operator operator, boolean nullAllowed)
         {
             this.id = requireNonNull(id, "id is null");
             this.input = requireNonNull(input, "input is null");
@@ -252,7 +250,7 @@ public final class DynamicFilters
             this.nullAllowed = nullAllowed;
         }
 
-        public Descriptor(DynamicFilterId id, Expression input, ComparisonExpression.Operator operator)
+        public Descriptor(DynamicFilterId id, Expression input, io.trino.sql.tree.ComparisonExpression.Operator operator)
         {
             this(id, input, operator, false);
         }
@@ -272,7 +270,7 @@ public final class DynamicFilters
             return input;
         }
 
-        public ComparisonExpression.Operator getOperator()
+        public io.trino.sql.tree.ComparisonExpression.Operator getOperator()
         {
             return operator;
         }

@@ -22,19 +22,20 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.LikePredicate;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolResolver;
+import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.SymbolAliases;
-import io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.LikePredicate;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.planner.iterative.rule.CanonicalizeIrExpressionRewriter;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionBuilder;
 import org.intellij.lang.annotations.Language;
@@ -65,11 +66,10 @@ import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.ExpressionFormatter.formatExpression;
 import static io.trino.sql.ExpressionTestUtils.assertExpressionEquals;
 import static io.trino.sql.ExpressionTestUtils.getTypes;
 import static io.trino.sql.ExpressionTestUtils.resolveFunctionCalls;
-import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.trino.sql.IrExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
@@ -83,7 +83,7 @@ import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TestExpressionInterpreter
+public class TestIrExpressionInterpreter
 {
     private static final int TEST_CHAR_TYPE_LENGTH = 17;
     private static final int TEST_VARCHAR_TYPE_LENGTH = 17;
@@ -146,7 +146,7 @@ public class TestExpressionInterpreter
                 return Int128.valueOf("12345678901234567890123");
         }
 
-        return symbol.toSymbolReference();
+        return symbol.toIrSymbolReference();
     };
 
     private static final SqlParser SQL_PARSER = new SqlParser();
@@ -1912,7 +1912,8 @@ public class TestExpressionInterpreter
                         .map(Symbol::getName)
                         .collect(toImmutableMap(identity(), SymbolReference::new)));
 
-        Expression rewrittenExpected = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, new ParsingOptions()));
+        Expression rewrittenExpected = rewriteIdentifiersToSymbolReferences(
+                TranslationMap.copyAstExpressionToIrExpression(SQL_PARSER.createExpression(expected, new ParsingOptions())));
         assertExpressionEquals(actualOptimized, rewrittenExpected, aliases.build());
     }
 
@@ -1926,7 +1927,7 @@ public class TestExpressionInterpreter
     static Object optimize(Expression parsedExpression)
     {
         Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, PLANNER_CONTEXT, SYMBOL_TYPES, parsedExpression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(parsedExpression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
+        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(parsedExpression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
         return interpreter.optimize(INPUTS);
     }
 
@@ -1936,10 +1937,10 @@ public class TestExpressionInterpreter
         return TransactionBuilder.transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(TEST_SESSION, transactionSession -> {
-                    Expression parsedExpression = SQL_PARSER.createExpression(expression, createParsingOptions(transactionSession));
+                    Expression parsedExpression = TranslationMap.copyAstExpressionToIrExpression(SQL_PARSER.createExpression(expression, createParsingOptions(transactionSession)));
                     parsedExpression = rewriteIdentifiersToSymbolReferences(parsedExpression);
                     parsedExpression = resolveFunctionCalls(PLANNER_CONTEXT, transactionSession, SYMBOL_TYPES, parsedExpression);
-                    parsedExpression = CanonicalizeExpressionRewriter.rewrite(
+                    parsedExpression = CanonicalizeIrExpressionRewriter.rewrite(
                             parsedExpression,
                             transactionSession,
                             PLANNER_CONTEXT,
@@ -1966,15 +1967,15 @@ public class TestExpressionInterpreter
     private static void assertRoundTrip(String expression)
     {
         ParsingOptions parsingOptions = createParsingOptions(TEST_SESSION);
-        Expression parsed = SQL_PARSER.createExpression(expression, parsingOptions);
-        String formatted = formatExpression(parsed);
+        io.trino.sql.tree.Expression parsed = (SQL_PARSER.createExpression(expression, parsingOptions));
+        String formatted = io.trino.sql.AstExpressionFormatter.formatExpression(parsed);
         assertEquals(parsed, SQL_PARSER.createExpression(formatted, parsingOptions));
     }
 
     private static Object evaluate(Expression expression)
     {
         Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, PLANNER_CONTEXT, SYMBOL_TYPES, expression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
+        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
 
         return interpreter.evaluate(INPUTS);
     }

@@ -16,7 +16,7 @@ package io.trino.sql.relational;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.ir.QualifiedName;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.function.OperatorType.LESS_THAN;

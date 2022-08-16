@@ -16,12 +16,12 @@ package io.trino.sql.planner.assertions;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.plan.WindowNode.Function;
-import io.trino.sql.tree.FunctionCall;
 
 import java.util.Map;
 import java.util.Objects;

@@ -16,7 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.TypeAnalyzer;
 
-import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.rewrite;
+import static io.trino.sql.planner.iterative.rule.CanonicalizeIrExpressionRewriter.rewrite;
 
 public class CanonicalizeExpressions
         extends ExpressionRewriteRuleSet

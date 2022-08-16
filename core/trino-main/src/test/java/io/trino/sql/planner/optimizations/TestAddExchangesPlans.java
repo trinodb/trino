@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -29,8 +31,6 @@ import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode.DistributionType;
 import io.trino.sql.planner.plan.MarkDistinctNode;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.LongLiteral;
 import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.Test;
 

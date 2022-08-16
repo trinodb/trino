@@ -29,6 +29,10 @@ import io.trino.metadata.ResolvedIndex;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -48,11 +52,6 @@ import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.plan.WindowNode.Function;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.WindowFrame;
 
 import java.util.List;
 import java.util.Map;
@@ -65,8 +64,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.IrExpressionUtils.combineConjuncts;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -392,7 +391,7 @@ public class IndexJoinOptimizer
             // Only RANGE frame type currently supported for aggregation functions because it guarantees the
             // same value for each peer group.
             // ROWS frame type requires the ordering to be fully deterministic (e.g. deterministically sorted on all columns)
-            if (node.getFrames().stream().map(WindowNode.Frame::getType).anyMatch(type -> type != WindowFrame.Type.RANGE)) { // TODO: extract frames of type RANGE and allow optimization on them
+            if (node.getFrames().stream().map(WindowNode.Frame::getType).anyMatch(type -> type != io.trino.sql.tree.WindowFrame.Type.RANGE)) { // TODO: extract frames of type RANGE and allow optimization on them
                 return node;
             }
 

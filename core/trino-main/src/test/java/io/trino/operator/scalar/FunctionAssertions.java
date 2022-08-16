@@ -68,15 +68,15 @@ import io.trino.split.PageSourceProvider;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
-import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.ir.DefaultTraversalVisitor;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.relational.RowExpression;
-import io.trino.sql.tree.DefaultTraversalVisitor;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.type.BlockTypeOperators;
@@ -777,7 +777,7 @@ public final class FunctionAssertions
     private Object interpret(Expression expression, Type expectedType, Session session)
     {
         Map<NodeRef<Expression>, Type> expressionTypes = getTypes(session, getPlannerContext(), INPUT_TYPES, expression);
-        ExpressionInterpreter evaluator = new ExpressionInterpreter(expression, runner.getPlannerContext(), session, expressionTypes);
+        IrExpressionInterpreter evaluator = new IrExpressionInterpreter(expression, runner.getPlannerContext(), session, expressionTypes);
 
         Object result = evaluator.evaluate(symbol -> {
             int position = 0;

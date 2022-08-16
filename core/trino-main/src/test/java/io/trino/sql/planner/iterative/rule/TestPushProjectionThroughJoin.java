@@ -16,6 +16,8 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -25,8 +27,6 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArithmeticUnaryExpression;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -70,15 +70,15 @@ public class TestPushProjectionThroughJoin
 
         ProjectNode planNode = p.project(
                 Assignments.of(
-                        a3, new ArithmeticUnaryExpression(MINUS, a2.toSymbolReference()),
-                        b2, new ArithmeticUnaryExpression(PLUS, b1.toSymbolReference())),
+                        a3, new ArithmeticUnaryExpression(MINUS, a2.toIrSymbolReference()),
+                        b2, new ArithmeticUnaryExpression(PLUS, b1.toIrSymbolReference())),
                 p.join(
                         INNER,
                         // intermediate non-identity projections should be fully inlined
                         p.project(
                                 Assignments.of(
-                                        a2, new ArithmeticUnaryExpression(PLUS, a0.toSymbolReference()),
-                                        a1, a1.toSymbolReference()),
+                                        a2, new ArithmeticUnaryExpression(PLUS, a0.toIrSymbolReference()),
+                                        a1, a1.toIrSymbolReference()),
                                 p.project(
                                         Assignments.builder()
                                                 .putIdentity(a0)
@@ -125,7 +125,7 @@ public class TestPushProjectionThroughJoin
 
         ProjectNode planNode = p.project(
                 Assignments.of(
-                        c, new ArithmeticBinaryExpression(ADD, a.toSymbolReference(), b.toSymbolReference())),
+                        c, new ArithmeticBinaryExpression(ADD, a.toIrSymbolReference(), b.toIrSymbolReference())),
                 p.join(
                         INNER,
                         p.values(a),
@@ -145,7 +145,7 @@ public class TestPushProjectionThroughJoin
 
         ProjectNode planNode = p.project(
                 Assignments.of(
-                        c, new ArithmeticUnaryExpression(MINUS, a.toSymbolReference())),
+                        c, new ArithmeticUnaryExpression(MINUS, a.toIrSymbolReference())),
                 p.join(
                         LEFT,
                         p.values(a),

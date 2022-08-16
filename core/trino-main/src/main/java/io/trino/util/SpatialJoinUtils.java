@@ -13,15 +13,15 @@
  */
 package io.trino.util;
 
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
 
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
+import static io.trino.sql.IrExpressionUtils.extractConjuncts;
 
 public final class SpatialJoinUtils
 {

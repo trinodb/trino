@@ -32,7 +32,11 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.sql.ExpressionUtils;
+import io.trino.sql.IrExpressionUtils;
+import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Rule;
@@ -42,10 +46,6 @@ import io.trino.sql.planner.plan.Patterns;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
@@ -58,8 +58,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Domain.onlyNull;
-import static io.trino.sql.ExpressionUtils.and;
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
+import static io.trino.sql.IrExpressionUtils.and;
+import static io.trino.sql.IrExpressionUtils.extractConjuncts;
 import static io.trino.sql.planner.iterative.rule.Rules.deriveTableStatisticsForPushdown;
 import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
 import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
@@ -267,7 +267,7 @@ public class PushJoinIntoTableScan
                     .ifPresentOrElse(comparisonConditions::add, () -> remainingConjuncts.add(conjunct));
         }
 
-        return new FilterSplitResult(comparisonConditions.build(), ExpressionUtils.and(remainingConjuncts.build()));
+        return new FilterSplitResult(comparisonConditions.build(), IrExpressionUtils.and(remainingConjuncts.build()));
     }
 
     private Optional<JoinCondition> getPushableJoinCondition(Expression conjunct, Set<Symbol> leftSymbols, Set<Symbol> rightSymbols, Context context)
@@ -282,7 +282,7 @@ public class PushJoinIntoTableScan
         }
         Symbol left = Symbol.from(comparison.getLeft());
         Symbol right = Symbol.from(comparison.getRight());
-        ComparisonExpression.Operator operator = comparison.getOperator();
+        io.trino.sql.tree.ComparisonExpression.Operator operator = comparison.getOperator();
 
         if (!leftSymbols.contains(left)) {
             // lets try with flipped expression
@@ -323,7 +323,7 @@ public class PushJoinIntoTableScan
         }
     }
 
-    private JoinCondition.Operator joinConditionOperator(ComparisonExpression.Operator operator)
+    private JoinCondition.Operator joinConditionOperator(io.trino.sql.tree.ComparisonExpression.Operator operator)
     {
         switch (operator) {
             case EQUAL:

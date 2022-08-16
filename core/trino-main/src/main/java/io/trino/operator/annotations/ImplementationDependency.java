@@ -27,7 +27,7 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
-import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.ir.QualifiedName;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;

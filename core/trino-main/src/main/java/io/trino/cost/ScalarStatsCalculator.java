@@ -24,26 +24,26 @@ import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.ExpressionAnalyzer;
-import io.trino.sql.analyzer.Scope;
-import io.trino.sql.planner.ExpressionInterpreter;
-import io.trino.sql.planner.LiteralInterpreter;
-import io.trino.sql.planner.NoOpSymbolResolver;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.IrVisitor;
+import io.trino.sql.ir.Literal;
+import io.trino.sql.ir.Node;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.iranalyzer.ExpressionAnalyzer;
+import io.trino.sql.iranalyzer.Scope;
+import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrLiteralInterpreter;
+import io.trino.sql.planner.IrNoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.AstVisitor;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.Literal;
-import io.trino.sql.tree.Node;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.SymbolReference;
 
 import javax.inject.Inject;
 
@@ -51,9 +51,9 @@ import java.util.Map;
 import java.util.OptionalDouble;
 
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
-import static io.trino.sql.ExpressionUtils.getExpressionTypes;
-import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
-import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
+import static io.trino.sql.IrExpressionUtils.getExpressionTypes;
+import static io.trino.sql.IrExpressionUtils.isEffectivelyLiteral;
+import static io.trino.sql.iranalyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static io.trino.util.MoreMath.max;
 import static io.trino.util.MoreMath.min;
 import static java.lang.Double.NaN;
@@ -80,18 +80,18 @@ public class ScalarStatsCalculator
     }
 
     private class Visitor
-            extends AstVisitor<SymbolStatsEstimate, Void>
+            extends IrVisitor<SymbolStatsEstimate, Void>
     {
         private final PlanNodeStatsEstimate input;
         private final Session session;
-        private final LiteralInterpreter literalInterpreter;
+        private final IrLiteralInterpreter literalInterpreter;
         private final TypeProvider types;
 
         Visitor(PlanNodeStatsEstimate input, Session session, TypeProvider types)
         {
             this.input = input;
             this.session = session;
-            this.literalInterpreter = new LiteralInterpreter(plannerContext, session);
+            this.literalInterpreter = new IrLiteralInterpreter(plannerContext, session);
             this.types = types;
         }
 
@@ -136,8 +136,8 @@ public class ScalarStatsCalculator
         protected SymbolStatsEstimate visitFunctionCall(FunctionCall node, Void context)
         {
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(plannerContext, session, node, types);
-            ExpressionInterpreter interpreter = new ExpressionInterpreter(node, plannerContext, session, expressionTypes);
-            Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+            IrExpressionInterpreter interpreter = new IrExpressionInterpreter(node, plannerContext, session, expressionTypes);
+            Object value = interpreter.optimize(IrNoOpSymbolResolver.INSTANCE);
 
             if (value == null || value instanceof NullLiteral) {
                 return nullStatsEstimate();
@@ -238,11 +238,11 @@ public class ScalarStatsCalculator
                 result.setLowValue(NaN)
                         .setHighValue(NaN);
             }
-            else if (node.getOperator() == ArithmeticBinaryExpression.Operator.DIVIDE && rightLow < 0 && rightHigh > 0) {
+            else if (node.getOperator() == io.trino.sql.tree.ArithmeticBinaryExpression.Operator.DIVIDE && rightLow < 0 && rightHigh > 0) {
                 result.setLowValue(Double.NEGATIVE_INFINITY)
                         .setHighValue(Double.POSITIVE_INFINITY);
             }
-            else if (node.getOperator() == ArithmeticBinaryExpression.Operator.MODULUS) {
+            else if (node.getOperator() == io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MODULUS) {
                 double maxDivisor = max(abs(rightLow), abs(rightHigh));
                 if (leftHigh <= 0) {
                     result.setLowValue(max(-maxDivisor, leftLow))
@@ -272,7 +272,7 @@ public class ScalarStatsCalculator
             return result.build();
         }
 
-        private double operate(ArithmeticBinaryExpression.Operator operator, double left, double right)
+        private double operate(io.trino.sql.tree.ArithmeticBinaryExpression.Operator operator, double left, double right)
         {
             switch (operator) {
                 case ADD:
@@ -286,7 +286,7 @@ public class ScalarStatsCalculator
                 case MODULUS:
                     return left % right;
             }
-            throw new IllegalStateException("Unsupported ArithmeticBinaryExpression.Operator: " + operator);
+            throw new IllegalStateException("Unsupported io.trino.sql.tree.ArithmeticBinaryExpression.Operator: " + operator);
         }
 
         @Override

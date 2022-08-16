@@ -16,96 +16,96 @@ package io.trino.sql;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.tree.AllColumns;
-import io.trino.sql.tree.AllRows;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.ArrayConstructor;
-import io.trino.sql.tree.AstVisitor;
-import io.trino.sql.tree.AtTimeZone;
-import io.trino.sql.tree.BetweenPredicate;
-import io.trino.sql.tree.BinaryLiteral;
-import io.trino.sql.tree.BindExpression;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CharLiteral;
-import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Cube;
-import io.trino.sql.tree.CurrentCatalog;
-import io.trino.sql.tree.CurrentPath;
-import io.trino.sql.tree.CurrentSchema;
-import io.trino.sql.tree.CurrentTime;
-import io.trino.sql.tree.CurrentUser;
-import io.trino.sql.tree.DateTimeDataType;
-import io.trino.sql.tree.DecimalLiteral;
-import io.trino.sql.tree.DereferenceExpression;
-import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.ExistsPredicate;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Extract;
-import io.trino.sql.tree.FieldReference;
-import io.trino.sql.tree.Format;
-import io.trino.sql.tree.FrameBound;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericDataType;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.GroupingElement;
-import io.trino.sql.tree.GroupingOperation;
-import io.trino.sql.tree.GroupingSets;
-import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.IfExpression;
-import io.trino.sql.tree.InListExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IntervalDayTimeDataType;
-import io.trino.sql.tree.IntervalLiteral;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.JsonArray;
-import io.trino.sql.tree.JsonExists;
-import io.trino.sql.tree.JsonObject;
-import io.trino.sql.tree.JsonPathInvocation;
-import io.trino.sql.tree.JsonPathParameter;
-import io.trino.sql.tree.JsonQuery;
-import io.trino.sql.tree.JsonValue;
-import io.trino.sql.tree.LabelDereference;
-import io.trino.sql.tree.LambdaArgumentDeclaration;
-import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.LikePredicate;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.Node;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullIfExpression;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.NumericParameter;
-import io.trino.sql.tree.OrderBy;
-import io.trino.sql.tree.Parameter;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.QuantifiedComparisonExpression;
-import io.trino.sql.tree.Rollup;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.RowDataType;
-import io.trino.sql.tree.SearchedCaseExpression;
-import io.trino.sql.tree.SimpleCaseExpression;
-import io.trino.sql.tree.SimpleGroupBy;
-import io.trino.sql.tree.SkipTo;
-import io.trino.sql.tree.SortItem;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SubqueryExpression;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.TimeLiteral;
-import io.trino.sql.tree.TimestampLiteral;
-import io.trino.sql.tree.Trim;
-import io.trino.sql.tree.TryExpression;
-import io.trino.sql.tree.TypeParameter;
-import io.trino.sql.tree.WhenClause;
-import io.trino.sql.tree.Window;
-import io.trino.sql.tree.WindowFrame;
-import io.trino.sql.tree.WindowOperation;
-import io.trino.sql.tree.WindowReference;
-import io.trino.sql.tree.WindowSpecification;
+import io.trino.sql.ir.AllColumns;
+import io.trino.sql.ir.AllRows;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ArrayConstructor;
+import io.trino.sql.ir.AtTimeZone;
+import io.trino.sql.ir.BetweenPredicate;
+import io.trino.sql.ir.BinaryLiteral;
+import io.trino.sql.ir.BindExpression;
+import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.CharLiteral;
+import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Cube;
+import io.trino.sql.ir.CurrentCatalog;
+import io.trino.sql.ir.CurrentPath;
+import io.trino.sql.ir.CurrentSchema;
+import io.trino.sql.ir.CurrentTime;
+import io.trino.sql.ir.CurrentUser;
+import io.trino.sql.ir.DateTimeDataType;
+import io.trino.sql.ir.DecimalLiteral;
+import io.trino.sql.ir.DereferenceExpression;
+import io.trino.sql.ir.DoubleLiteral;
+import io.trino.sql.ir.ExistsPredicate;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Extract;
+import io.trino.sql.ir.FieldReference;
+import io.trino.sql.ir.Format;
+import io.trino.sql.ir.FrameBound;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericDataType;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.GroupingElement;
+import io.trino.sql.ir.GroupingOperation;
+import io.trino.sql.ir.GroupingSets;
+import io.trino.sql.ir.Identifier;
+import io.trino.sql.ir.IfExpression;
+import io.trino.sql.ir.InListExpression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.IntervalDayTimeDataType;
+import io.trino.sql.ir.IntervalLiteral;
+import io.trino.sql.ir.IrVisitor;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.JsonArray;
+import io.trino.sql.ir.JsonExists;
+import io.trino.sql.ir.JsonObject;
+import io.trino.sql.ir.JsonPathInvocation;
+import io.trino.sql.ir.JsonPathParameter;
+import io.trino.sql.ir.JsonQuery;
+import io.trino.sql.ir.JsonValue;
+import io.trino.sql.ir.LabelDereference;
+import io.trino.sql.ir.LambdaArgumentDeclaration;
+import io.trino.sql.ir.LambdaExpression;
+import io.trino.sql.ir.LikePredicate;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.Node;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.NullIfExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.NumericParameter;
+import io.trino.sql.ir.OrderBy;
+import io.trino.sql.ir.Parameter;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.QuantifiedComparisonExpression;
+import io.trino.sql.ir.Rollup;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.RowDataType;
+import io.trino.sql.ir.SearchedCaseExpression;
+import io.trino.sql.ir.SimpleCaseExpression;
+import io.trino.sql.ir.SimpleGroupBy;
+import io.trino.sql.ir.SkipTo;
+import io.trino.sql.ir.SortItem;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SubqueryExpression;
+import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.TimeLiteral;
+import io.trino.sql.ir.TimestampLiteral;
+import io.trino.sql.ir.Trim;
+import io.trino.sql.ir.TryExpression;
+import io.trino.sql.ir.TypeParameter;
+import io.trino.sql.ir.WhenClause;
+import io.trino.sql.ir.Window;
+import io.trino.sql.ir.WindowFrame;
+import io.trino.sql.ir.WindowOperation;
+import io.trino.sql.ir.WindowReference;
+import io.trino.sql.ir.WindowSpecification;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -119,9 +119,9 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.sql.NodeFormatter.formatName;
+import static io.trino.sql.NodeFormatter.formatNode;
 import static io.trino.sql.RowPatternFormatter.formatPattern;
-import static io.trino.sql.SqlFormatter.formatName;
-import static io.trino.sql.SqlFormatter.formatSql;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -144,7 +144,7 @@ public final class ExpressionFormatter
     }
 
     public static class Formatter
-            extends AstVisitor<String, Void>
+            extends IrVisitor<String, Void>
     {
         @Override
         protected String visitNode(Node node, Void context)
@@ -278,7 +278,7 @@ public final class ExpressionFormatter
         {
             ImmutableList.Builder<String> valueStrings = ImmutableList.builder();
             for (Expression value : node.getValues()) {
-                valueStrings.add(formatSql(value));
+                valueStrings.add(formatNode(value));
             }
             return "ARRAY[" + Joiner.on(",").join(valueStrings.build()) + "]";
         }
@@ -286,7 +286,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitSubscriptExpression(SubscriptExpression node, Void context)
         {
-            return formatSql(node.getBase()) + "[" + formatSql(node.getIndex()) + "]";
+            return formatNode(node.getBase()) + "[" + formatNode(node.getIndex()) + "]";
         }
 
         @Override
@@ -335,7 +335,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitIntervalLiteral(IntervalLiteral node, Void context)
         {
-            String sign = (node.getSign() == IntervalLiteral.Sign.NEGATIVE) ? "- " : "";
+            String sign = (node.getSign() == io.trino.sql.tree.IntervalLiteral.Sign.NEGATIVE) ? "- " : "";
             StringBuilder builder = new StringBuilder()
                     .append("INTERVAL ")
                     .append(sign)
@@ -351,13 +351,13 @@ public final class ExpressionFormatter
         @Override
         protected String visitSubqueryExpression(SubqueryExpression node, Void context)
         {
-            return "(" + formatSql(node.getQuery()) + ")";
+            return "(" + SqlFormatter.formatSql(node.getQuery()) + ")";
         }
 
         @Override
         protected String visitExists(ExistsPredicate node, Void context)
         {
-            return "(EXISTS " + formatSql(node.getSubquery()) + ")";
+            return "(EXISTS " + formatNode(node.getSubquery()) + ")";
         }
 
         @Override
@@ -1274,7 +1274,7 @@ public final class ExpressionFormatter
         return builder.toString();
     }
 
-    private static String formatJsonExpression(Expression expression, Optional<JsonPathParameter.JsonFormat> format)
+    private static String formatJsonExpression(Expression expression, Optional<io.trino.sql.tree.JsonPathParameter.JsonFormat> format)
     {
         return formatExpression(expression) + format.map(jsonFormat -> " FORMAT " + jsonFormat).orElse("");
     }

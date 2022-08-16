@@ -18,11 +18,11 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.Identifier;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.List;

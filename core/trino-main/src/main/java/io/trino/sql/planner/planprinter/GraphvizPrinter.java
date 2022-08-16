@@ -16,6 +16,9 @@ package io.trino.sql.planner.planprinter;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.SubPlan;
@@ -58,9 +61,6 @@ import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -338,7 +338,7 @@ public final class GraphvizPrinter
         public Void visitExchange(ExchangeNode node, Void context)
         {
             List<ArgumentBinding> symbols = node.getOutputSymbols().stream()
-                    .map(Symbol::toSymbolReference)
+                    .map(Symbol::toIrSymbolReference)
                     .map(ArgumentBinding::expressionBinding)
                     .collect(toImmutableList());
             if (node.getType() == REPARTITION) {
@@ -574,9 +574,9 @@ public final class GraphvizPrinter
         {
             List<Expression> joinExpressions = new ArrayList<>();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(new ComparisonExpression(ComparisonExpression.Operator.EQUAL,
-                        clause.getProbe().toSymbolReference(),
-                        clause.getIndex().toSymbolReference()));
+                joinExpressions.add(new ComparisonExpression(io.trino.sql.tree.ComparisonExpression.Operator.EQUAL,
+                        clause.getProbe().toIrSymbolReference(),
+                        clause.getIndex().toIrSymbolReference()));
             }
 
             String criteria = Joiner.on(" AND ").join(joinExpressions);

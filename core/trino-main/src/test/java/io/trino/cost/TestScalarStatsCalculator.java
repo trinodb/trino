@@ -18,20 +18,21 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.DecimalLiteral;
+import io.trino.sql.ir.DoubleLiteral;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.LiteralEncoder;
+import io.trino.sql.planner.IrLiteralEncoder;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.DecimalLiteral;
-import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.transaction.TestingTransactionManager;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -40,8 +41,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.IrExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.TransactionBuilder.transaction;
@@ -144,7 +145,7 @@ public class TestScalarStatsCalculator
     @Test
     public void testVarbinaryConstant()
     {
-        LiteralEncoder literalEncoder = new LiteralEncoder(functionResolution.getPlannerContext());
+        IrLiteralEncoder literalEncoder = new IrLiteralEncoder(functionResolution.getPlannerContext());
         Expression expression = literalEncoder.toExpression(session, Slices.utf8Slice("ala ma kota"), VARBINARY);
 
         assertCalculate(expression)
@@ -502,6 +503,7 @@ public class TestScalarStatsCalculator
 
     private Expression expression(String sqlExpression)
     {
-        return rewriteIdentifiersToSymbolReferences(sqlParser.createExpression(sqlExpression, new ParsingOptions()));
+        return rewriteIdentifiersToSymbolReferences(
+                TranslationMap.copyAstExpressionToIrExpression(sqlParser.createExpression(sqlExpression, new ParsingOptions())));
     }
 }

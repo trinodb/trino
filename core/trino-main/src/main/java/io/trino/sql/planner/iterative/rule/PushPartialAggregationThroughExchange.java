@@ -22,6 +22,8 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.Symbol;
@@ -32,8 +34,6 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.LambdaExpression;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -167,7 +167,7 @@ public class PushPartialAggregationThroughExchange
 
             for (Symbol output : aggregation.getOutputSymbols()) {
                 Symbol input = symbolMapper.map(output);
-                assignments.put(output, input.toSymbolReference());
+                assignments.put(output, input.toIrSymbolReference());
             }
             partials.add(new ProjectNode(context.getIdAllocator().getNextId(), mappedPartial, assignments.build()));
         }
@@ -227,7 +227,7 @@ public class PushPartialAggregationThroughExchange
                     new AggregationNode.Aggregation(
                             resolvedFunction,
                             ImmutableList.<Expression>builder()
-                                    .add(intermediateSymbol.toSymbolReference())
+                                    .add(intermediateSymbol.toIrSymbolReference())
                                     .addAll(originalAggregation.getArguments().stream()
                                             .filter(LambdaExpression.class::isInstance)
                                             .collect(toImmutableList()))

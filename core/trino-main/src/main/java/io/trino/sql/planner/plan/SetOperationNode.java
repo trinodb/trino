@@ -24,8 +24,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.tree.SymbolReference;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -110,7 +110,7 @@ public abstract class SetOperationNode
     {
         ImmutableMap.Builder<Symbol, SymbolReference> builder = ImmutableMap.builder();
         for (Map.Entry<Symbol, Collection<Symbol>> entry : outputToInputs.asMap().entrySet()) {
-            builder.put(entry.getKey(), Iterables.get(entry.getValue(), sourceIndex).toSymbolReference());
+            builder.put(entry.getKey(), Iterables.get(entry.getValue(), sourceIndex).toIrSymbolReference());
         }
 
         return builder.buildOrThrow();
@@ -125,7 +125,7 @@ public abstract class SetOperationNode
         return Multimaps.transformValues(FluentIterable.from(getOutputSymbols())
                 .toMap(outputToSourceSymbolFunction(sourceIndex))
                 .asMultimap()
-                .inverse(), Symbol::toSymbolReference);
+                .inverse(), Symbol::toIrSymbolReference);
     }
 
     private Function<Symbol, Symbol> outputToSourceSymbolFunction(int sourceIndex)

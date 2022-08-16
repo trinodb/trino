@@ -13,15 +13,15 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.DataType;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.GenericDataType;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.RowDataType;
-import io.trino.sql.tree.SubscriptExpression;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.DataType;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.GenericDataType;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.RowDataType;
+import io.trino.sql.ir.SubscriptExpression;
 import io.trino.type.UnknownType;
 
 import java.util.ArrayDeque;
@@ -46,7 +46,7 @@ public class UnwrapRowSubscript
     }
 
     private static class Rewriter
-            extends io.trino.sql.tree.ExpressionRewriter<Void>
+            extends io.trino.sql.ir.ExpressionRewriter<Void>
     {
         @Override
         public Expression rewriteSubscriptExpression(SubscriptExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)

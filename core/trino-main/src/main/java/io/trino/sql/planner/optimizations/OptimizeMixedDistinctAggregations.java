@@ -22,6 +22,14 @@ import io.trino.cost.TableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IfExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.QualifiedName;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -34,14 +42,6 @@ import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.IfExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -55,7 +55,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.isOptimizeDistinctAggregationEnabled;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static java.util.Objects.requireNonNull;
@@ -162,7 +162,7 @@ public class OptimizeMixedDistinctAggregations
                 if (aggregation.getMask().isPresent()) {
                     aggregations.put(entry.getKey(), new Aggregation(
                             aggregation.getResolvedFunction(),
-                            ImmutableList.of(aggregateInfo.getNewDistinctAggregateSymbol().toSymbolReference()),
+                            ImmutableList.of(aggregateInfo.getNewDistinctAggregateSymbol().toIrSymbolReference()),
                             false,
                             Optional.empty(),
                             Optional.empty(),
@@ -174,7 +174,7 @@ public class OptimizeMixedDistinctAggregations
                     QualifiedName functionName = QualifiedName.of("arbitrary");
                     Aggregation newAggregation = new Aggregation(
                             metadata.resolveFunction(session, functionName, fromTypes(symbolAllocator.getTypes().get(argument))),
-                            ImmutableList.of(argument.toSymbolReference()),
+                            ImmutableList.of(argument.toIrSymbolReference()),
                             false,
                             Optional.empty(),
                             Optional.empty(),
@@ -209,7 +209,7 @@ public class OptimizeMixedDistinctAggregations
             Assignments.Builder outputSymbols = Assignments.builder();
             for (Symbol symbol : aggregationNode.getOutputSymbols()) {
                 if (coalesceSymbols.containsKey(symbol)) {
-                    Expression expression = new CoalesceExpression(symbol.toSymbolReference(), new Cast(new LongLiteral("0"), toSqlType(BIGINT)));
+                    Expression expression = new CoalesceExpression(symbol.toIrSymbolReference(), new Cast(new LongLiteral("0"), toSqlType(BIGINT)));
                     outputSymbols.put(coalesceSymbols.get(symbol), expression);
                 }
                 else {
@@ -331,10 +331,10 @@ public class OptimizeMixedDistinctAggregations
                     aggregateInfo.setNewDistinctAggregateSymbol(newSymbol);
 
                     Expression expression = createIfExpression(
-                            groupSymbol.toSymbolReference(),
+                            groupSymbol.toIrSymbolReference(),
                             new Cast(new LongLiteral("1"), toSqlType(BIGINT)), // TODO: this should use GROUPING() when that's available instead of relying on specific group numbering
-                            ComparisonExpression.Operator.EQUAL,
-                            symbol.toSymbolReference(),
+                            io.trino.sql.tree.ComparisonExpression.Operator.EQUAL,
+                            symbol.toIrSymbolReference(),
                             symbolAllocator.getTypes().get(symbol));
                     outputSymbols.put(newSymbol, expression);
                 }
@@ -343,17 +343,17 @@ public class OptimizeMixedDistinctAggregations
                     // key of outputNonDistinctAggregateSymbols is key of an aggregation in AggrNode above, it will now aggregate on this Map's value
                     outputNonDistinctAggregateSymbols.put(aggregationOutputSymbolsMap.get(symbol), newSymbol);
                     Expression expression = createIfExpression(
-                            groupSymbol.toSymbolReference(),
+                            groupSymbol.toIrSymbolReference(),
                             new Cast(new LongLiteral("0"), toSqlType(BIGINT)), // TODO: this should use GROUPING() when that's available instead of relying on specific group numbering
-                            ComparisonExpression.Operator.EQUAL,
-                            symbol.toSymbolReference(),
+                            io.trino.sql.tree.ComparisonExpression.Operator.EQUAL,
+                            symbol.toIrSymbolReference(),
                             symbolAllocator.getTypes().get(symbol));
                     outputSymbols.put(newSymbol, expression);
                 }
 
                 // A symbol can appear both in groupBy and distinct/non-distinct aggregation
                 if (groupBySymbols.contains(symbol)) {
-                    Expression expression = symbol.toSymbolReference();
+                    Expression expression = symbol.toIrSymbolReference();
                     outputSymbols.put(symbol, expression);
                 }
             }
@@ -426,16 +426,16 @@ public class OptimizeMixedDistinctAggregations
             for (Map.Entry<Symbol, Aggregation> entry : aggregateInfo.getAggregations().entrySet()) {
                 Aggregation aggregation = entry.getValue();
                 if (aggregation.getMask().isEmpty()) {
-                    Symbol newSymbol = symbolAllocator.newSymbol(entry.getKey().toSymbolReference(), symbolAllocator.getTypes().get(entry.getKey()));
+                    Symbol newSymbol = symbolAllocator.newSymbol(entry.getKey().toIrSymbolReference(), symbolAllocator.getTypes().get(entry.getKey()));
                     aggregationOutputSymbolsMapBuilder.put(newSymbol, entry.getKey());
                     if (!duplicatedDistinctSymbol.equals(distinctSymbol)) {
                         // Handling for cases when mask symbol appears in non distinct aggregations too
                         // Now the aggregation should happen over the duplicate symbol added before
-                        if (aggregation.getArguments().contains(distinctSymbol.toSymbolReference())) {
+                        if (aggregation.getArguments().contains(distinctSymbol.toIrSymbolReference())) {
                             ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
                             for (Expression argument : aggregation.getArguments()) {
-                                if (distinctSymbol.toSymbolReference().equals(argument)) {
-                                    arguments.add(duplicatedDistinctSymbol.toSymbolReference());
+                                if (distinctSymbol.toIrSymbolReference().equals(argument)) {
+                                    arguments.add(duplicatedDistinctSymbol.toIrSymbolReference());
                                 }
                                 else {
                                     arguments.add(argument);
@@ -465,7 +465,7 @@ public class OptimizeMixedDistinctAggregations
         }
 
         // creates if clause specific to use case here, default value always null
-        private static IfExpression createIfExpression(Expression left, Expression right, ComparisonExpression.Operator operator, Expression result, Type trueValueType)
+        private static IfExpression createIfExpression(Expression left, Expression right, io.trino.sql.tree.ComparisonExpression.Operator operator, Expression result, Type trueValueType)
         {
             return new IfExpression(
                     new ComparisonExpression(operator, left, right),

@@ -14,13 +14,13 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.DataType;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.GenericDataType;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.RowDataType;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.DataType;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.GenericDataType;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.RowDataType;
 import io.trino.type.UnknownType;
 
 /**
@@ -58,7 +58,7 @@ public class PushCastIntoRow
     }
 
     private static class Rewriter
-            extends io.trino.sql.tree.ExpressionRewriter<Boolean>
+            extends io.trino.sql.ir.ExpressionRewriter<Boolean>
     {
         @Override
         public Expression rewriteCast(Cast node, Boolean inRowCast, ExpressionTreeRewriter<Boolean> treeRewriter)

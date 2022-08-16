@@ -30,9 +30,13 @@ import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.DomainTranslator;
-import io.trino.sql.planner.ExpressionInterpreter;
-import io.trino.sql.planner.NoOpSymbolResolver;
+import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrNoOpSymbolResolver;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -81,10 +85,6 @@ import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -760,13 +760,13 @@ public final class PropertyDerivations
 
                 Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, expression);
                 Type type = requireNonNull(expressionTypes.get(NodeRef.of(expression)));
-                ExpressionInterpreter optimizer = new ExpressionInterpreter(expression, plannerContext, session, expressionTypes);
+                IrExpressionInterpreter optimizer = new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes);
                 // TODO:
                 // We want to use a symbol resolver that looks up in the constants from the input subplan
                 // to take advantage of constant-folding for complex expressions
                 // However, that currently causes errors when those expressions operate on arrays or row types
                 // ("ROW comparison not supported for fields with null elements", etc)
-                Object value = optimizer.optimize(NoOpSymbolResolver.INSTANCE);
+                Object value = optimizer.optimize(IrNoOpSymbolResolver.INSTANCE);
 
                 if (value instanceof SymbolReference) {
                     Symbol symbol = Symbol.from((SymbolReference) value);

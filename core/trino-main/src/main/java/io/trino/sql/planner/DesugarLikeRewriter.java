@@ -17,14 +17,14 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.LikePredicate;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.LikePredicate;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.SymbolReference;
 
 import java.util.Map;
 

@@ -21,20 +21,20 @@ import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
-import io.trino.sql.tree.AtTimeZone;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.ir.AtTimeZone;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.SymbolReference;
 
 import java.util.Map;
 
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
 import static java.util.Objects.requireNonNull;
 
 public final class DesugarAtTimeZoneRewriter

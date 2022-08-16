@@ -52,15 +52,15 @@ import io.trino.spi.type.Type;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.split.SplitSource;
 import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.QualifiedName;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.HashGenerationOptimizer;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.relational.RowExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.transaction.TransactionId;
 

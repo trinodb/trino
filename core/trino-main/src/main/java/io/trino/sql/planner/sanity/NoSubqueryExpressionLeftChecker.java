@@ -16,13 +16,13 @@ package io.trino.sql.planner.sanity;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.DefaultTraversalVisitor;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.SubqueryExpression;
 import io.trino.sql.planner.ExpressionExtractor;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.tree.DefaultTraversalVisitor;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SubqueryExpression;
 
 import static java.lang.String.format;
 

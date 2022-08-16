@@ -24,9 +24,10 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.planner.TranslationMap;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.transaction.TransactionManager;
 
@@ -121,6 +122,11 @@ public class TestingFunctionResolution
         return new TestingFunctionCallBuilder(name);
     }
 
+    public TestingAstFunctionCallBuilder astFunctionCallBuilder(io.trino.sql.tree.QualifiedName name)
+    {
+        return new TestingAstFunctionCallBuilder(name);
+    }
+
     //
     // Resolving or fetching a function in a transaction and then using that in another transaction, is not
     // legal, but works for tests
@@ -198,8 +204,59 @@ public class TestingFunctionResolution
         public FunctionCall build()
         {
             return new FunctionCall(
-                    Optional.empty(),
                     resolveFunction(name, TypeSignatureProvider.fromTypeSignatures(argumentTypes)).toQualifiedName(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    false,
+                    Optional.empty(),
+                    Optional.empty(),
+                    argumentValues);
+        }
+    }
+
+    public class TestingAstFunctionCallBuilder
+    {
+        private final io.trino.sql.tree.QualifiedName name;
+        private List<TypeSignature> argumentTypes = new ArrayList<>();
+        private List<io.trino.sql.tree.Expression> argumentValues = new ArrayList<>();
+
+        public TestingAstFunctionCallBuilder(io.trino.sql.tree.QualifiedName name)
+        {
+            this.name = name;
+        }
+
+        public TestingAstFunctionCallBuilder addArgument(Type type, io.trino.sql.tree.Expression value)
+        {
+            requireNonNull(type, "type is null");
+            return addArgument(type.getTypeSignature(), value);
+        }
+
+        public TestingAstFunctionCallBuilder addArgument(TypeSignature typeSignature, io.trino.sql.tree.Expression value)
+        {
+            requireNonNull(typeSignature, "typeSignature is null");
+            requireNonNull(value, "value is null");
+            argumentTypes.add(typeSignature);
+            argumentValues.add(value);
+            return this;
+        }
+
+        public TestingAstFunctionCallBuilder setArguments(List<Type> types, List<io.trino.sql.tree.Expression> values)
+        {
+            requireNonNull(types, "types is null");
+            requireNonNull(values, "values is null");
+            argumentTypes = types.stream()
+                    .map(Type::getTypeSignature)
+                    .collect(Collectors.toList());
+            argumentValues = new ArrayList<>(values);
+            return this;
+        }
+
+        public io.trino.sql.tree.FunctionCall build()
+        {
+            return new io.trino.sql.tree.FunctionCall(
+                    Optional.empty(),
+                    TranslationMap.convertQualifiedName(resolveFunction(TranslationMap.convertQualifiedName(name), TypeSignatureProvider.fromTypeSignatures(argumentTypes)).toQualifiedName()),
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),

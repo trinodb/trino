@@ -18,7 +18,7 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.GroupByIdBlock;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.ir.QualifiedName;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;

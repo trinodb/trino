@@ -44,8 +44,6 @@ import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Scope;
-import io.trino.sql.planner.iterative.rule.DesugarCurrentPath;
-import io.trino.sql.planner.iterative.rule.DesugarCurrentUser;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.ArrayConstructor;
@@ -134,7 +132,6 @@ import static io.trino.spi.type.Chars.trimTrailingSpaces;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
@@ -142,11 +139,9 @@ import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
-import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.trino.sql.planner.AstDeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ResolvedFunctionCallRewriter.rewriteResolvedFunctions;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
-import static io.trino.sql.planner.iterative.rule.DesugarCurrentCatalog.desugarCurrentCatalog;
-import static io.trino.sql.planner.iterative.rule.DesugarCurrentSchema.desugarCurrentSchema;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.tree.DereferenceExpression.isQualifiedAllFieldsReference;
 import static io.trino.type.LikeFunctions.isLikePattern;
@@ -233,7 +228,7 @@ public class ExpressionInterpreter
         analyzer.analyze(rewrite, Scope.create());
 
         // remove syntax sugar
-        rewrite = DesugarAtTimeZoneRewriter.rewrite(rewrite, analyzer.getExpressionTypes(), plannerContext.getMetadata(), session);
+        rewrite = DesugarAstAtTimeZoneRewriter.rewrite(rewrite, analyzer.getExpressionTypes(), plannerContext.getMetadata(), session);
 
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary
@@ -1035,6 +1030,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitFunctionCall(FunctionCall node, Object context)
         {
+            //CJSONGTODO
             List<Type> argumentTypes = new ArrayList<>();
             List<Object> argumentValues = new ArrayList<>();
             for (Expression expression : node.getArguments()) {
@@ -1044,7 +1040,7 @@ public class ExpressionInterpreter
                 argumentTypes.add(type);
             }
 
-            ResolvedFunction resolvedFunction = metadata.decodeFunction(node.getName());
+            ResolvedFunction resolvedFunction = metadata.decodeFunction(TranslationMap.convertQualifiedName(node.getName()));
             FunctionNullability functionNullability = resolvedFunction.getFunctionNullability();
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object value = argumentValues.get(i);
@@ -1056,12 +1052,11 @@ public class ExpressionInterpreter
             // do not optimize non-deterministic functions
             if (optimize && (!metadata.getFunctionMetadata(session, resolvedFunction).isDeterministic() ||
                     hasUnresolvedValue(argumentValues) ||
-                    isDynamicFilter(node) ||
                     resolvedFunction.getSignature().getName().equals("fail"))) {
                 verify(!node.isDistinct(), "distinct not supported");
                 verify(node.getOrderBy().isEmpty(), "order by not supported");
                 verify(node.getFilter().isEmpty(), "filter not supported");
-                return FunctionCallBuilder.resolve(session, metadata)
+                return AstFunctionCallBuilder.resolve(session, metadata)
                         .setName(node.getName())
                         .setWindow(node.getWindow())
                         .setArguments(argumentTypes, toExpressions(argumentValues, argumentTypes))
@@ -1283,7 +1278,7 @@ public class ExpressionInterpreter
                 if (value instanceof Expression) {
                     checkCondition(node.getValues().size() <= 254, NOT_SUPPORTED, "Too many arguments for array constructor");
                     return visitFunctionCall(
-                            FunctionCallBuilder.resolve(session, metadata)
+                            AstFunctionCallBuilder.resolve(session, metadata)
                                     .setName(QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR))
                                     .setArguments(types(node.getValues()), node.getValues())
                                     .build(),
@@ -1301,22 +1296,50 @@ public class ExpressionInterpreter
             return visitFunctionCall(desugarCurrentCatalog(session, node, metadata), context);
         }
 
+        private FunctionCall desugarCurrentCatalog(Session session, CurrentCatalog node, Metadata metadata)
+        {
+            return AstFunctionCallBuilder.resolve(session, metadata)
+                    .setName(QualifiedName.of("$current_catalog"))
+                    .build();
+        }
+
         @Override
         protected Object visitCurrentSchema(CurrentSchema node, Object context)
         {
             return visitFunctionCall(desugarCurrentSchema(session, node, metadata), context);
         }
 
+        private FunctionCall desugarCurrentSchema(Session session, CurrentSchema node, Metadata metadata)
+        {
+            return AstFunctionCallBuilder.resolve(session, metadata)
+                    .setName(QualifiedName.of("$current_schema"))
+                    .build();
+        }
+
         @Override
         protected Object visitCurrentUser(CurrentUser node, Object context)
         {
-            return visitFunctionCall(DesugarCurrentUser.getCall(node, metadata, session), context);
+            return visitFunctionCall(getCall(node, metadata, session), context);
+        }
+
+        private FunctionCall getCall(CurrentUser node, Metadata metadata, Session session)
+        {
+            return AstFunctionCallBuilder.resolve(session, metadata)
+                    .setName(QualifiedName.of("$current_user"))
+                    .build();
         }
 
         @Override
         protected Object visitCurrentPath(CurrentPath node, Object context)
         {
-            return visitFunctionCall(DesugarCurrentPath.getCall(node, metadata, session), context);
+            return visitFunctionCall(getCall(node, metadata, session), context);
+        }
+
+        private FunctionCall getCall(CurrentPath node, Metadata metadata, Session session)
+        {
+            return AstFunctionCallBuilder.resolve(session, metadata)
+                    .setName(QualifiedName.of("$current_path"))
+                    .build();
         }
 
         @Override

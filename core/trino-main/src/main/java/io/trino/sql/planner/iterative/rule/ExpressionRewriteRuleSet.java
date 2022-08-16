@@ -18,6 +18,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.OrderBy;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SortItem;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
@@ -36,14 +43,7 @@ import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValueP
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.OrderBy;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SortItem.NullOrdering;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
@@ -178,7 +178,6 @@ public class ExpressionRewriteRuleSet
                 Aggregation aggregation = entry.getValue();
                 FunctionCall call = (FunctionCall) rewriter.rewrite(
                         new FunctionCall(
-                                Optional.empty(),
                                 QualifiedName.of(aggregation.getResolvedFunction().getSignature().getName()),
                                 Optional.empty(),
                                 aggregation.getFilter().map(symbol -> new SymbolReference(symbol.getName())),

@@ -72,8 +72,8 @@ final class SemiJoinMatcher
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
         SemiJoinNode semiJoinNode = (SemiJoinNode) node;
-        if (!(symbolAliases.get(sourceSymbolAlias).equals(semiJoinNode.getSourceJoinSymbol().toSymbolReference()) &&
-                symbolAliases.get(filteringSymbolAlias).equals(semiJoinNode.getFilteringSourceJoinSymbol().toSymbolReference()))) {
+        if (!(symbolAliases.get(sourceSymbolAlias).equals(semiJoinNode.getSourceJoinSymbol().toIrSymbolReference()) &&
+                symbolAliases.get(filteringSymbolAlias).equals(semiJoinNode.getFilteringSourceJoinSymbol().toIrSymbolReference()))) {
             return NO_MATCH;
         }
 
@@ -98,9 +98,9 @@ final class SemiJoinMatcher
                         .collect(toImmutableList());
                 boolean sourceSymbolsMatch = matchingDescriptors.stream()
                         .map(descriptor -> Symbol.from(descriptor.getInput()))
-                        .allMatch(sourceSymbol -> symbolAliases.get(sourceSymbolAlias).equals(sourceSymbol.toSymbolReference()));
+                        .allMatch(sourceSymbol -> symbolAliases.get(sourceSymbolAlias).equals(sourceSymbol.toIrSymbolReference()));
                 if (!matchingDescriptors.isEmpty() && sourceSymbolsMatch) {
-                    return match(outputAlias, semiJoinNode.getSemiJoinOutput().toSymbolReference());
+                    return match(outputAlias, semiJoinNode.getSemiJoinOutput().toIrSymbolReference());
                 }
                 return NO_MATCH;
             }
@@ -109,7 +109,7 @@ final class SemiJoinMatcher
             }
         }
 
-        return match(outputAlias, semiJoinNode.getSemiJoinOutput().toSymbolReference());
+        return match(outputAlias, semiJoinNode.getSemiJoinOutput().toIrSymbolReference());
     }
 
     @Override

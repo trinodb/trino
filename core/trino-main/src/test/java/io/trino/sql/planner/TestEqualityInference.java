@@ -21,26 +21,26 @@ import com.google.common.collect.Iterables;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.scalar.TryFunction;
-import io.trino.sql.ExpressionUtils;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArrayConstructor;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.IfExpression;
-import io.trino.sql.tree.InListExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.NullIfExpression;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SearchedCaseExpression;
-import io.trino.sql.tree.SimpleCaseExpression;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.WhenClause;
+import io.trino.sql.IrExpressionUtils;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ArrayConstructor;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IfExpression;
+import io.trino.sql.ir.InListExpression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.LambdaExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NullIfExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.SearchedCaseExpression;
+import io.trino.sql.ir.SimpleCaseExpression;
+import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.WhenClause;
 import io.trino.type.FunctionType;
 import org.testng.annotations.Test;
 
@@ -55,7 +55,7 @@ import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.EqualityInference.isInferenceCandidate;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
@@ -146,7 +146,7 @@ public class TestEqualityInference
     {
         EqualityInference inference = EqualityInference.newInstance(
                 metadata,
-                ExpressionUtils.and(equals("a1", "b1"), equals("b1", "c1"), someExpression("c1", "d1")));
+                IrExpressionUtils.and(equals("a1", "b1"), equals("b1", "c1"), someExpression("c1", "d1")));
 
         // Able to rewrite to c1 due to equalities
         assertEquals(nameReference("c1"), inference.rewrite(nameReference("a1"), symbols("c1")));
@@ -368,7 +368,7 @@ public class TestEqualityInference
 
     private static Expression add(Expression expression1, Expression expression2)
     {
-        return new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.ADD, expression1, expression2);
+        return new ArithmeticBinaryExpression(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD, expression1, expression2);
     }
 
     private static Expression multiply(String symbol1, String symbol2)
@@ -378,7 +378,7 @@ public class TestEqualityInference
 
     private static Expression multiply(Expression expression1, Expression expression2)
     {
-        return new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, expression1, expression2);
+        return new ArithmeticBinaryExpression(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY, expression1, expression2);
     }
 
     private static Expression equals(String symbol1, String symbol2)

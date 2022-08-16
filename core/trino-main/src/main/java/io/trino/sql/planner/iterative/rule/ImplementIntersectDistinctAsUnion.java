@@ -16,17 +16,17 @@ package io.trino.sql.planner.iterative.rule;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.GenericLiteral;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.ExpressionUtils.and;
+import static io.trino.sql.IrExpressionUtils.and;
 import static io.trino.sql.planner.plan.Patterns.Intersect.distinct;
 import static io.trino.sql.planner.plan.Patterns.intersect;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -88,7 +88,7 @@ public class ImplementIntersectDistinctAsUnion
 
         // intersect predicate: the row must be present in every source
         Expression predicate = and(result.getCountSymbols().stream()
-                .map(symbol -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, symbol.toSymbolReference(), new GenericLiteral("BIGINT", "1")))
+                .map(symbol -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, symbol.toIrSymbolReference(), new GenericLiteral("BIGINT", "1")))
                 .collect(toImmutableList()));
 
         return Result.ofPlanNode(

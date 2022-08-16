@@ -34,18 +34,18 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.ExpressionInterpreter;
-import io.trino.sql.planner.LiteralEncoder;
-import io.trino.sql.planner.NoOpSymbolResolver;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrLiteralEncoder;
+import io.trino.sql.planner.IrNoOpSymbolResolver;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.NullLiteral;
 import io.trino.type.TypeCoercion;
 
 import java.lang.invoke.MethodHandle;
@@ -71,10 +71,10 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
-import static io.trino.sql.ExpressionUtils.and;
-import static io.trino.sql.ExpressionUtils.or;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.IrExpressionUtils.and;
+import static io.trino.sql.IrExpressionUtils.or;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -145,14 +145,14 @@ public class UnwrapCastInComparison
     }
 
     private static class Visitor
-            extends io.trino.sql.tree.ExpressionRewriter<Void>
+            extends io.trino.sql.ir.ExpressionRewriter<Void>
     {
         private final PlannerContext plannerContext;
         private final TypeAnalyzer typeAnalyzer;
         private final Session session;
         private final TypeProvider types;
         private final InterpretedFunctionInvoker functionInvoker;
-        private final LiteralEncoder literalEncoder;
+        private final IrLiteralEncoder literalEncoder;
 
         public Visitor(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, Session session, TypeProvider types)
         {
@@ -161,7 +161,7 @@ public class UnwrapCastInComparison
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
-            this.literalEncoder = new LiteralEncoder(plannerContext);
+            this.literalEncoder = new IrLiteralEncoder(plannerContext);
         }
 
         @Override
@@ -178,11 +178,11 @@ public class UnwrapCastInComparison
                 return expression;
             }
 
-            Object right = new ExpressionInterpreter(expression.getRight(), plannerContext, session, typeAnalyzer.getTypes(session, types, expression.getRight()))
-                    .optimize(NoOpSymbolResolver.INSTANCE);
+            Object right = new IrExpressionInterpreter(expression.getRight(), plannerContext, session, typeAnalyzer.getTypes(session, types, expression.getRight()))
+                    .optimize(IrNoOpSymbolResolver.INSTANCE);
 
             Cast cast = (Cast) expression.getLeft();
-            ComparisonExpression.Operator operator = expression.getOperator();
+            io.trino.sql.tree.ComparisonExpression.Operator operator = expression.getOperator();
 
             if (right == null || right instanceof NullLiteral) {
                 switch (operator) {
@@ -409,7 +409,7 @@ public class UnwrapCastInComparison
             return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
         }
 
-        private Optional<Expression> unwrapTimestampToDateCast(Session session, TimestampType sourceType, ComparisonExpression.Operator operator, Expression timestampExpression, long date)
+        private Optional<Expression> unwrapTimestampToDateCast(Session session, TimestampType sourceType, io.trino.sql.tree.ComparisonExpression.Operator operator, Expression timestampExpression, long date)
         {
             ResolvedFunction targetToSource;
             try {

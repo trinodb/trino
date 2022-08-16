@@ -20,11 +20,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FrameBound;
-import io.trino.sql.tree.WindowFrame;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -237,11 +235,11 @@ public class WindowNode
                 Optional.empty(),
                 Optional.empty());
 
-        private final WindowFrame.Type type;
-        private final FrameBound.Type startType;
+        private final io.trino.sql.tree.WindowFrame.Type type;
+        private final io.trino.sql.tree.FrameBound.Type startType;
         private final Optional<Symbol> startValue;
         private final Optional<Symbol> sortKeyCoercedForFrameStartComparison;
-        private final FrameBound.Type endType;
+        private final io.trino.sql.tree.FrameBound.Type endType;
         private final Optional<Symbol> endValue;
         private final Optional<Symbol> sortKeyCoercedForFrameEndComparison;
 
@@ -251,11 +249,11 @@ public class WindowNode
 
         @JsonCreator
         public Frame(
-                @JsonProperty("type") WindowFrame.Type type,
-                @JsonProperty("startType") FrameBound.Type startType,
+                @JsonProperty("type") io.trino.sql.tree.WindowFrame.Type type,
+                @JsonProperty("startType") io.trino.sql.tree.FrameBound.Type startType,
                 @JsonProperty("startValue") Optional<Symbol> startValue,
                 @JsonProperty("sortKeyCoercedForFrameStartComparison") Optional<Symbol> sortKeyCoercedForFrameStartComparison,
-                @JsonProperty("endType") FrameBound.Type endType,
+                @JsonProperty("endType") io.trino.sql.tree.FrameBound.Type endType,
                 @JsonProperty("endValue") Optional<Symbol> endValue,
                 @JsonProperty("sortKeyCoercedForFrameEndComparison") Optional<Symbol> sortKeyCoercedForFrameEndComparison,
                 @JsonProperty("originalStartValue") Optional<Expression> originalStartValue,
@@ -287,13 +285,13 @@ public class WindowNode
         }
 
         @JsonProperty
-        public WindowFrame.Type getType()
+        public io.trino.sql.tree.WindowFrame.Type getType()
         {
             return type;
         }
 
         @JsonProperty
-        public FrameBound.Type getStartType()
+        public io.trino.sql.tree.FrameBound.Type getStartType()
         {
             return startType;
         }
@@ -311,7 +309,7 @@ public class WindowNode
         }
 
         @JsonProperty
-        public FrameBound.Type getEndType()
+        public io.trino.sql.tree.FrameBound.Type getEndType()
         {
             return endType;
         }

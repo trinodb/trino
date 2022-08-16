@@ -24,10 +24,10 @@ import io.trino.sql.planner.plan.ValuesNode;
 
 import java.util.List;
 
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.filter;
 import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 /**
  * This optimizer can rewrite correlated single row subquery to projection in a way described here:

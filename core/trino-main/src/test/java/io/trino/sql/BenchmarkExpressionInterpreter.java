@@ -14,7 +14,7 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.tree.Expression;
+import io.trino.sql.ir.Expression;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -35,7 +35,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.jmh.Benchmarks.benchmark;
-import static io.trino.sql.TestExpressionInterpreter.planExpression;
+import static io.trino.sql.TestIrExpressionInterpreter.planExpression;
 import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertEquals;
 
@@ -81,7 +81,7 @@ public class BenchmarkExpressionInterpreter
     public List<Object> optimize(BenchmarkData benchmarkData)
     {
         return benchmarkData.expressions.stream()
-                .map(TestExpressionInterpreter::optimize)
+                .map(TestIrExpressionInterpreter::optimize)
                 .collect(toImmutableList());
     }
 

@@ -30,6 +30,13 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.PartitioningScheme;
@@ -59,13 +66,6 @@ import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -641,7 +641,7 @@ public class HashGenerationOptimizer
                     hashExpression = hashComputation.getHashExpression(session, metadata, types);
                 }
                 else {
-                    hashExpression = hashSymbol.toSymbolReference();
+                    hashExpression = hashSymbol.toIrSymbolReference();
                 }
                 newAssignments.put(hashSymbol, hashExpression);
                 for (HashComputation sourceHashComputation : sourceContext.lookup(hashComputation)) {
@@ -744,7 +744,7 @@ public class HashGenerationOptimizer
             for (Symbol symbol : planWithProperties.getNode().getOutputSymbols()) {
                 HashComputation partitionSymbols = resultHashSymbols.get(symbol);
                 if (partitionSymbols == null || requiredHashes.getHashes().contains(partitionSymbols)) {
-                    assignments.put(symbol, symbol.toSymbolReference());
+                    assignments.put(symbol, symbol.toIrSymbolReference());
 
                     if (partitionSymbols != null) {
                         outputHashSymbols.put(partitionSymbols, symbol);
@@ -933,7 +933,7 @@ public class HashGenerationOptimizer
         {
             FunctionCall functionCall = FunctionCallBuilder.resolve(session, metadata)
                     .setName(QualifiedName.of(HASH_CODE))
-                    .addArgument(types.get(symbol), symbol.toSymbolReference())
+                    .addArgument(types.get(symbol), symbol.toIrSymbolReference())
                     .build();
 
             return FunctionCallBuilder.resolve(session, metadata)

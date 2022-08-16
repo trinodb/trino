@@ -19,21 +19,22 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.ExpressionAnalyzer;
-import io.trino.sql.analyzer.Scope;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.iranalyzer.ExpressionAnalyzer;
+import io.trino.sql.iranalyzer.Scope;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.DesugarArrayConstructorRewriter;
 import io.trino.sql.planner.DesugarLikeRewriter;
+import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.ExpressionVerifier;
 import io.trino.sql.planner.assertions.SymbolAliases;
-import io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.NodeRef;
+import io.trino.sql.planner.iterative.rule.CanonicalizeIrExpressionRewriter;
 import io.trino.transaction.TestingTransactionManager;
 
 import java.util.Map;
@@ -41,10 +42,10 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
-import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.trino.sql.IrExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
-import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.iranalyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static org.testng.internal.EclipseInterface.ASSERT_LEFT;
@@ -81,7 +82,7 @@ public final class ExpressionTestUtils
 
     public static Expression createExpression(Session session, String expression, PlannerContext plannerContext, TypeProvider symbolTypes)
     {
-        Expression parsedExpression = SQL_PARSER.createExpression(expression, createParsingOptions(session));
+        Expression parsedExpression = TranslationMap.copyAstExpressionToIrExpression(SQL_PARSER.createExpression(expression, createParsingOptions(session)));
         return planExpression(plannerContext, session, symbolTypes, parsedExpression);
     }
 
@@ -107,7 +108,7 @@ public final class ExpressionTestUtils
         Expression rewritten = rewriteIdentifiersToSymbolReferences(expression);
         rewritten = DesugarLikeRewriter.rewrite(rewritten, transactionSession, plannerContext.getMetadata(), createTestingTypeAnalyzer(plannerContext), typeProvider);
         rewritten = DesugarArrayConstructorRewriter.rewrite(rewritten, transactionSession, plannerContext.getMetadata(), createTestingTypeAnalyzer(plannerContext), typeProvider);
-        rewritten = CanonicalizeExpressionRewriter.rewrite(rewritten, transactionSession, plannerContext, createTestingTypeAnalyzer(plannerContext), typeProvider);
+        rewritten = CanonicalizeIrExpressionRewriter.rewrite(rewritten, transactionSession, plannerContext, createTestingTypeAnalyzer(plannerContext), typeProvider);
         return resolveFunctionCalls(plannerContext, transactionSession, typeProvider, rewritten);
     }
 
@@ -139,7 +140,6 @@ public final class ExpressionTestUtils
 
                 FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
                 FunctionCall newFunctionCall = new FunctionCall(
-                        rewritten.getLocation(),
                         resolvedFunction.toQualifiedName(),
                         rewritten.getWindow(),
                         rewritten.getFilter(),

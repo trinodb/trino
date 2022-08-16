@@ -30,7 +30,7 @@ import io.trino.spi.function.FunctionKind;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.ir.QualifiedName;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeSignatureDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;

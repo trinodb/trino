@@ -34,12 +34,14 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NodeRef;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.DomainTranslator;
-import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrLiteralEncoder;
+import io.trino.sql.planner.IrNoOpSymbolResolver;
 import io.trino.sql.planner.LayoutConstraintEvaluator;
-import io.trino.sql.planner.LiteralEncoder;
-import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -49,8 +51,6 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NodeRef;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -66,14 +66,14 @@ import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.expression.Constant.TRUE;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
+import static io.trino.sql.IrExpressionUtils.combineConjuncts;
+import static io.trino.sql.IrExpressionUtils.extractConjuncts;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.iterative.rule.Rules.deriveTableStatisticsForPushdown;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -282,15 +282,15 @@ public class PushPredicateIntoTableScan
         else {
             Map<String, Symbol> variableMappings = assignments.values().stream()
                     .collect(toImmutableMap(Symbol::getName, Function.identity()));
-            LiteralEncoder literalEncoder = new LiteralEncoder(plannerContext);
+            IrLiteralEncoder literalEncoder = new IrLiteralEncoder(plannerContext);
             Expression translatedExpression = ConnectorExpressionTranslator.translate(session, remainingConnectorExpression.get(), plannerContext, variableMappings, literalEncoder);
             // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
             // by ensuring expression is optimized.
             Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), translatedExpression);
             translatedExpression = literalEncoder.toExpression(
                     session,
-                    new ExpressionInterpreter(translatedExpression, plannerContext, session, translatedExpressionTypes)
-                            .optimize(NoOpSymbolResolver.INSTANCE),
+                    new IrExpressionInterpreter(translatedExpression, plannerContext, session, translatedExpressionTypes)
+                            .optimize(IrNoOpSymbolResolver.INSTANCE),
                     translatedExpressionTypes.get(NodeRef.of(translatedExpression)));
             remainingDecomposedPredicate = combineConjuncts(plannerContext.getMetadata(), translatedExpression, expressionTranslation.getRemainingExpression());
         }

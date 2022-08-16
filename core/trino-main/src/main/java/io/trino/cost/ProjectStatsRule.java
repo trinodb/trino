@@ -15,11 +15,11 @@ package io.trino.cost;
 
 import io.trino.Session;
 import io.trino.matching.Pattern;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.Expression;
 
 import java.util.Map;
 import java.util.Optional;

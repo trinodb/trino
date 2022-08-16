@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.scheduler.SplitSchedulerStats;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;
@@ -24,8 +26,6 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.StringLiteral;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 

@@ -29,6 +29,11 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.DistinctLimitNode;
@@ -49,11 +54,6 @@ import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -71,11 +71,11 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
-import static io.trino.sql.ExpressionUtils.expressionOrNullSymbols;
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
-import static io.trino.sql.ExpressionUtils.filterDeterministicConjuncts;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.IrExpressionUtils.combineConjuncts;
+import static io.trino.sql.IrExpressionUtils.expressionOrNullSymbols;
+import static io.trino.sql.IrExpressionUtils.extractConjuncts;
+import static io.trino.sql.IrExpressionUtils.filterDeterministicConjuncts;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static java.util.Objects.requireNonNull;
 
@@ -87,11 +87,11 @@ import static java.util.Objects.requireNonNull;
 public class EffectivePredicateExtractor
 {
     private static final Predicate<Map.Entry<Symbol, ? extends Expression>> SYMBOL_MATCHES_EXPRESSION =
-            entry -> entry.getValue().equals(entry.getKey().toSymbolReference());
+            entry -> entry.getValue().equals(entry.getKey().toIrSymbolReference());
 
     private static final Function<Map.Entry<Symbol, ? extends Expression>, Expression> ENTRY_TO_EQUALITY =
             entry -> {
-                SymbolReference reference = entry.getKey().toSymbolReference();
+                SymbolReference reference = entry.getKey().toIrSymbolReference();
                 Expression expression = entry.getValue();
                 // TODO: this is not correct with respect to NULLs ('reference IS NULL' would be correct, rather than 'reference = NULL')
                 // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
@@ -180,7 +180,7 @@ public class EffectivePredicateExtractor
                 for (int i = 0; i < node.getInputs().get(source).size(); i++) {
                     mappings.put(
                             node.getOutputSymbols().get(i),
-                            node.getInputs().get(source).get(i).toSymbolReference());
+                            node.getInputs().get(source).get(i).toIrSymbolReference());
                 }
                 return mappings.entrySet();
             });
@@ -386,8 +386,8 @@ public class EffectivePredicateExtractor
                             nonDeterministic[i] = true;
                         }
                         else {
-                            ExpressionInterpreter interpreter = new ExpressionInterpreter(value, plannerContext, session, expressionTypes);
-                            Object item = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+                            IrExpressionInterpreter interpreter = new IrExpressionInterpreter(value, plannerContext, session, expressionTypes);
+                            Object item = interpreter.optimize(IrNoOpSymbolResolver.INSTANCE);
                             if (item instanceof Expression) {
                                 return TRUE_LITERAL;
                             }
@@ -413,8 +413,8 @@ public class EffectivePredicateExtractor
                     if (!DeterminismEvaluator.isDeterministic(row, metadata)) {
                         return TRUE_LITERAL;
                     }
-                    ExpressionInterpreter interpreter = new ExpressionInterpreter(row, plannerContext, session, expressionTypes);
-                    Object evaluated = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+                    IrExpressionInterpreter interpreter = new IrExpressionInterpreter(row, plannerContext, session, expressionTypes);
+                    Object evaluated = interpreter.optimize(IrNoOpSymbolResolver.INSTANCE);
                     if (evaluated instanceof Expression) {
                         return TRUE_LITERAL;
                     }

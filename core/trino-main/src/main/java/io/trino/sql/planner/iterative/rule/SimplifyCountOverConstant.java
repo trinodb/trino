@@ -24,14 +24,14 @@ import io.trino.metadata.BoundSignature;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -40,8 +40,8 @@ import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
-import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
+import static io.trino.sql.IrExpressionUtils.isEffectivelyLiteral;
+import static io.trino.sql.planner.IrExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;

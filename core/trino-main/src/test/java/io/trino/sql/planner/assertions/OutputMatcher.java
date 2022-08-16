@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.tree.Expression;
 
 import java.util.List;
 
@@ -53,7 +53,7 @@ public class OutputMatcher
             boolean found = false;
             while (i < node.getOutputSymbols().size()) {
                 Symbol outputSymbol = node.getOutputSymbols().get(i++);
-                if (expression.equals(outputSymbol.toSymbolReference())) {
+                if (expression.equals(outputSymbol.toIrSymbolReference())) {
                     found = true;
                     break;
                 }

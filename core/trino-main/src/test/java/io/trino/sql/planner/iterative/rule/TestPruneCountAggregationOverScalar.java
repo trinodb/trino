@@ -21,12 +21,12 @@ import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.plugin.tpch.TpchTransactionHandle;
 import io.trino.spi.type.BigintType;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
@@ -157,7 +157,7 @@ public class TestPruneCountAggregationOverScalar
                             .globalGrouping()
                             .source(
                                     p.project(
-                                            Assignments.of(totalPrice, totalPrice.toSymbolReference()),
+                                            Assignments.of(totalPrice, totalPrice.toIrSymbolReference()),
                                             p.tableScan(
                                                     new TableHandle(
                                                             TEST_CATALOG_HANDLE,

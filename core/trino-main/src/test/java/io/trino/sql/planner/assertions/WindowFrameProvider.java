@@ -13,10 +13,8 @@
  */
 package io.trino.sql.planner.assertions;
 
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FrameBound;
-import io.trino.sql.tree.WindowFrame;
 
 import java.util.Optional;
 
@@ -26,20 +24,20 @@ import static java.util.Objects.requireNonNull;
 public class WindowFrameProvider
         implements ExpectedValueProvider<WindowNode.Frame>
 {
-    private final WindowFrame.Type type;
-    private final FrameBound.Type startType;
+    private final io.trino.sql.tree.WindowFrame.Type type;
+    private final io.trino.sql.tree.FrameBound.Type startType;
     private final Optional<SymbolAlias> startValue;
     private final Optional<SymbolAlias> sortKeyForStartComparison;
-    private final FrameBound.Type endType;
+    private final io.trino.sql.tree.FrameBound.Type endType;
     private final Optional<SymbolAlias> endValue;
     private final Optional<SymbolAlias> sortKeyForEndComparison;
 
     WindowFrameProvider(
-            WindowFrame.Type type,
-            FrameBound.Type startType,
+            io.trino.sql.tree.WindowFrame.Type type,
+            io.trino.sql.tree.FrameBound.Type startType,
             Optional<SymbolAlias> startValue,
             Optional<SymbolAlias> sortKeyForStartComparison,
-            FrameBound.Type endType,
+            io.trino.sql.tree.FrameBound.Type endType,
             Optional<SymbolAlias> endValue,
             Optional<SymbolAlias> sortKeyForEndComparison)
     {
@@ -57,8 +55,8 @@ public class WindowFrameProvider
     {
         // synthetize original start/end value to keep the constructor of the frame happy. These are irrelevant for the purpose
         // of testing the plan structure.
-        Optional<Expression> originalStartValue = startValue.map(alias -> alias.toSymbol(aliases).toSymbolReference());
-        Optional<Expression> originalEndValue = endValue.map(alias -> alias.toSymbol(aliases).toSymbolReference());
+        Optional<Expression> originalStartValue = startValue.map(alias -> alias.toSymbol(aliases).toIrSymbolReference());
+        Optional<Expression> originalEndValue = endValue.map(alias -> alias.toSymbol(aliases).toIrSymbolReference());
 
         return new WindowNode.Frame(
                 type,

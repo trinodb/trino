@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.StandardErrorCode;
 import io.trino.sql.planner.ScopeAware;
+import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.ArrayConstructor;
@@ -363,7 +364,7 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitFunctionCall(FunctionCall node, Void context)
         {
-            if (metadata.isAggregationFunction(session, node.getName())) {
+            if (metadata.isAggregationFunction(session, TranslationMap.convertQualifiedName(node.getName()))) {
                 if (node.getWindow().isEmpty()) {
                     List<FunctionCall> aggregateFunctions = extractAggregateFunctions(node.getArguments(), session, metadata);
                     List<Expression> windowExpressions = extractWindowExpressions(node.getArguments());

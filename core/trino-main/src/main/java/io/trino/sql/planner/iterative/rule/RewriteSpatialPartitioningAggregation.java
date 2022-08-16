@@ -21,6 +21,10 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.QualifiedName;
 import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -28,10 +32,6 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.Map;
 import java.util.Optional;
@@ -114,7 +114,7 @@ public class RewriteSpatialPartitioningAggregation
                 aggregations.put(entry.getKey(),
                         new Aggregation(
                                 spatialPartitioningFunction,
-                                ImmutableList.of(envelopeSymbol.toSymbolReference(), partitionCountSymbol.toSymbolReference()),
+                                ImmutableList.of(envelopeSymbol.toIrSymbolReference(), partitionCountSymbol.toIrSymbolReference()),
                                 false,
                                 Optional.empty(),
                                 Optional.empty(),

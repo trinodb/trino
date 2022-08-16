@@ -18,17 +18,17 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.QualifiedName;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ExceptNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.QualifiedName;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -99,17 +99,17 @@ public class ImplementExceptAll
         checkState(result.getCountSymbols().size() > 0, "ExceptNode translation result has no count symbols");
         ResolvedFunction greatest = metadata.resolveFunction(context.getSession(), QualifiedName.of("greatest"), fromTypes(BIGINT, BIGINT));
 
-        Expression count = result.getCountSymbols().get(0).toSymbolReference();
+        Expression count = result.getCountSymbols().get(0).toIrSymbolReference();
         for (int i = 1; i < result.getCountSymbols().size(); i++) {
             count = new FunctionCall(
                     greatest.toQualifiedName(),
                     ImmutableList.of(
-                            new ArithmeticBinaryExpression(SUBTRACT, count, result.getCountSymbols().get(i).toSymbolReference()),
+                            new ArithmeticBinaryExpression(SUBTRACT, count, result.getCountSymbols().get(i).toIrSymbolReference()),
                             new GenericLiteral("BIGINT", "0")));
         }
 
         // filter rows so that expected number of rows remains
-        Expression removeExtraRows = new ComparisonExpression(LESS_THAN_OR_EQUAL, result.getRowNumberSymbol().toSymbolReference(), count);
+        Expression removeExtraRows = new ComparisonExpression(LESS_THAN_OR_EQUAL, result.getRowNumberSymbol().toIrSymbolReference(), count);
         FilterNode filter = new FilterNode(
                 context.getIdAllocator().getNextId(),
                 result.getPlanNode(),

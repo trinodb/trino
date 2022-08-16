@@ -28,14 +28,12 @@ import io.trino.server.SliceSerialization.SliceSerializer;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.QualifiedName;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FrameBound;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.WindowFrame;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeSignatureDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
@@ -103,11 +101,11 @@ public class TestWindowNode
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", BIGINT);
         ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(BIGINT));
         WindowNode.Frame frame = new WindowNode.Frame(
-                WindowFrame.Type.RANGE,
-                FrameBound.Type.UNBOUNDED_PRECEDING,
+                io.trino.sql.tree.WindowFrame.Type.RANGE,
+                io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING,
                 Optional.empty(),
                 Optional.empty(),
-                FrameBound.Type.UNBOUNDED_FOLLOWING,
+                io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -119,7 +117,7 @@ public class TestWindowNode
                 Optional.of(new OrderingScheme(
                         ImmutableList.of(columnB),
                         ImmutableMap.of(columnB, SortOrder.ASC_NULLS_FIRST))));
-        Map<Symbol, WindowNode.Function> functions = ImmutableMap.of(windowSymbol, new WindowNode.Function(resolvedFunction, ImmutableList.of(columnC.toSymbolReference()), frame, false));
+        Map<Symbol, WindowNode.Function> functions = ImmutableMap.of(windowSymbol, new WindowNode.Function(resolvedFunction, ImmutableList.of(columnC.toIrSymbolReference()), frame, false));
         Optional<Symbol> hashSymbol = Optional.of(columnB);
         Set<Symbol> prePartitionedInputs = ImmutableSet.of(columnA);
         WindowNode windowNode = new WindowNode(

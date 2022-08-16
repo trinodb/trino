@@ -13,13 +13,13 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import io.trino.sql.ir.ExistsPredicate;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.SemiJoinNode;
-import io.trino.sql.tree.ExistsPredicate;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;

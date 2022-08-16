@@ -14,7 +14,7 @@
 package io.trino.operator.aggregation;
 
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.ir.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.Collections;

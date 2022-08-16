@@ -18,15 +18,15 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.QualifiedName;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.QualifiedName;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -96,13 +96,13 @@ public class ImplementIntersectAll
         checkState(result.getCountSymbols().size() > 0, "IntersectNode translation result has no count symbols");
         ResolvedFunction least = metadata.resolveFunction(context.getSession(), QualifiedName.of("least"), fromTypes(BIGINT, BIGINT));
 
-        Expression minCount = result.getCountSymbols().get(0).toSymbolReference();
+        Expression minCount = result.getCountSymbols().get(0).toIrSymbolReference();
         for (int i = 1; i < result.getCountSymbols().size(); i++) {
-            minCount = new FunctionCall(least.toQualifiedName(), ImmutableList.of(minCount, result.getCountSymbols().get(i).toSymbolReference()));
+            minCount = new FunctionCall(least.toQualifiedName(), ImmutableList.of(minCount, result.getCountSymbols().get(i).toIrSymbolReference()));
         }
 
         // filter rows so that expected number of rows remains
-        Expression removeExtraRows = new ComparisonExpression(LESS_THAN_OR_EQUAL, result.getRowNumberSymbol().toSymbolReference(), minCount);
+        Expression removeExtraRows = new ComparisonExpression(LESS_THAN_OR_EQUAL, result.getRowNumberSymbol().toIrSymbolReference(), minCount);
         FilterNode filter = new FilterNode(
                 context.getIdAllocator().getNextId(),
                 result.getPlanNode(),

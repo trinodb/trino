@@ -15,17 +15,18 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.GenericLiteral;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.sql.ir.LogicalExpression.and;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -37,7 +38,6 @@ import static io.trino.sql.tree.ComparisonExpression.Operator;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.tree.LogicalExpression.and;
 
 public class TestPushInequalityFilterExpressionBelowJoinRuleSet
         extends BaseRuleTest
@@ -61,7 +61,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                             INNER,
                             p.values(a),
                             p.values(b),
-                            comparison(LESS_THAN, add(a, 1), b.toSymbolReference()));
+                            comparison(LESS_THAN, add(a, 1), b.toIrSymbolReference()));
                 })
                 .doesNotFire();
     }
@@ -77,7 +77,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                             INNER,
                             p.values(a),
                             p.values(b),
-                            comparison(LESS_THAN, add(b, 1), a.toSymbolReference()));
+                            comparison(LESS_THAN, add(b, 1), a.toIrSymbolReference()));
                 })
                 .matches(
                         join(
@@ -102,8 +102,8 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                             p.values(a),
                             p.values(b),
                             and(
-                                    comparison(LESS_THAN, add(b, 1), a.toSymbolReference()),
-                                    comparison(GREATER_THAN, add(b, 10), a.toSymbolReference())));
+                                    comparison(LESS_THAN, add(b, 1), a.toIrSymbolReference()),
+                                    comparison(GREATER_THAN, add(b, 10), a.toIrSymbolReference())));
                 })
                 .matches(
                         join(
@@ -150,7 +150,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     return p.filter(
-                            comparison(LESS_THAN, add(a, 1), b.toSymbolReference()),
+                            comparison(LESS_THAN, add(a, 1), b.toIrSymbolReference()),
                             p.join(
                                     INNER,
                                     p.values(a),
@@ -167,7 +167,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     return p.filter(
-                            comparison(LESS_THAN, add(b, 1), a.toSymbolReference()),
+                            comparison(LESS_THAN, add(b, 1), a.toIrSymbolReference()),
                             p.join(
                                     INNER,
                                     p.values(a),
@@ -194,8 +194,8 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                     Symbol b = p.symbol("b");
                     return p.filter(
                             and(
-                                    comparison(LESS_THAN, add(b, 1), a.toSymbolReference()),
-                                    comparison(GREATER_THAN, add(b, 10), a.toSymbolReference())),
+                                    comparison(LESS_THAN, add(b, 1), a.toIrSymbolReference()),
+                                    comparison(GREATER_THAN, add(b, 10), a.toIrSymbolReference())),
                             p.join(
                                     INNER,
                                     p.values(a),
@@ -223,12 +223,12 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     return p.filter(
-                            comparison(LESS_THAN, add(b, 1), a.toSymbolReference()),
+                            comparison(LESS_THAN, add(b, 1), a.toIrSymbolReference()),
                             p.join(
                                     INNER,
                                     p.values(a),
                                     p.values(b),
-                                    comparison(LESS_THAN, add(b, 2), a.toSymbolReference())));
+                                    comparison(LESS_THAN, add(b, 2), a.toIrSymbolReference())));
                 })
                 .matches(
                         project(
@@ -257,7 +257,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                             INNER,
                             p.values(a),
                             p.values(b),
-                            comparison(LESS_THAN, a.toSymbolReference(), b.toSymbolReference()));
+                            comparison(LESS_THAN, a.toIrSymbolReference(), b.toIrSymbolReference()));
                 }).doesNotFire();
     }
 
@@ -272,7 +272,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                             INNER,
                             p.values(a),
                             p.values(b),
-                            comparison(IS_DISTINCT_FROM, a.toSymbolReference(), b.toSymbolReference()));
+                            comparison(IS_DISTINCT_FROM, a.toIrSymbolReference(), b.toIrSymbolReference()));
                 }).doesNotFire();
     }
 
@@ -285,7 +285,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
     {
         return new ArithmeticBinaryExpression(
                 ADD,
-                symbol.toSymbolReference(),
+                symbol.toIrSymbolReference(),
                 new GenericLiteral("BIGINT", String.valueOf(value)));
     }
 }

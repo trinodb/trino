@@ -16,15 +16,16 @@ package io.trino.sql.planner.assertions;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
@@ -32,7 +33,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.trino.sql.IrExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionMatcher
@@ -56,7 +57,7 @@ public class ExpressionMatcher
     private Expression expression(String sql)
     {
         SqlParser parser = new SqlParser();
-        return rewriteIdentifiersToSymbolReferences(parser.createExpression(sql, new ParsingOptions()));
+        return rewriteIdentifiersToSymbolReferences(TranslationMap.copyAstExpressionToIrExpression(parser.createExpression(sql, new ParsingOptions())));
     }
 
     public static ExpressionMatcher inPredicate(SymbolReference value, SymbolReference valueList)

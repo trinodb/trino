@@ -26,6 +26,7 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -37,21 +38,20 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.Expression;
 
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
+import static io.trino.sql.IrExpressionUtils.combineConjuncts;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.DomainTranslator.getExtractionResult;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -201,7 +201,7 @@ public class PushFilterThroughCountAggregation
         FilterNode source = new FilterNode(
                 context.getIdAllocator().getNextId(),
                 aggregationNode.getSource(),
-                aggregation.getMask().get().toSymbolReference());
+                aggregation.getMask().get().toIrSymbolReference());
 
         // Remove mask from the aggregation.
         Aggregation newAggregation = new Aggregation(

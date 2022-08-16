@@ -22,13 +22,13 @@ import io.trino.operator.scalar.ArrayDistinctFunction;
 import io.trino.operator.scalar.ArraySortFunction;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.iterative.Rule;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Set;
@@ -64,7 +64,7 @@ public class ArraySortAfterArrayDistinct
     }
 
     private static class Visitor
-            extends io.trino.sql.tree.ExpressionRewriter<Void>
+            extends io.trino.sql.ir.ExpressionRewriter<Void>
     {
         private final Metadata metadata;
         private final Session session;

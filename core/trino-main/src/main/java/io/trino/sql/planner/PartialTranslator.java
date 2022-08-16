@@ -18,10 +18,10 @@ import io.trino.Session;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.tree.AstVisitor;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.NodeRef;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrVisitor;
+import io.trino.sql.ir.LambdaExpression;
+import io.trino.sql.ir.NodeRef;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -55,7 +55,7 @@ public final class PartialTranslator
     }
 
     private static class Visitor
-            extends AstVisitor<Void, Void>
+            extends IrVisitor<Void, Void>
     {
         private final Map<NodeRef<Expression>, ConnectorExpression> translatedSubExpressions;
         private final ConnectorExpressionTranslator.SqlToConnectorExpressionTranslator translator;

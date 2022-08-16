@@ -24,12 +24,13 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Scope;
-import io.trino.sql.planner.DeterminismEvaluator;
+import io.trino.sql.planner.AstDeterminismEvaluator;
+import io.trino.sql.planner.AstSymbolsExtractor;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
@@ -44,7 +45,6 @@ import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LogicalExpression.Operator;
 import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SymbolReference;
 
@@ -230,12 +230,12 @@ public final class ExpressionUtils
 
     public static Expression filterDeterministicConjuncts(Metadata metadata, Expression expression)
     {
-        return filterConjuncts(metadata, expression, expression1 -> DeterminismEvaluator.isDeterministic(expression1, metadata));
+        return filterConjuncts(metadata, expression, expression1 -> AstDeterminismEvaluator.isDeterministic(expression1, metadata));
     }
 
     public static Expression filterNonDeterministicConjuncts(Metadata metadata, Expression expression)
     {
-        return filterConjuncts(metadata, expression, not(testExpression -> DeterminismEvaluator.isDeterministic(testExpression, metadata)));
+        return filterConjuncts(metadata, expression, not(testExpression -> AstDeterminismEvaluator.isDeterministic(testExpression, metadata)));
     }
 
     public static Expression filterConjuncts(Metadata metadata, Expression expression, Predicate<Expression> predicate)
@@ -255,7 +255,7 @@ public final class ExpressionUtils
             resultDisjunct.add(expression);
 
             for (Predicate<Symbol> nullSymbolScope : nullSymbolScopes) {
-                List<Symbol> symbols = SymbolsExtractor.extractUnique(expression).stream()
+                List<Symbol> symbols = AstSymbolsExtractor.extractUnique(expression).stream()
                         .filter(nullSymbolScope)
                         .collect(toImmutableList());
 
@@ -291,7 +291,7 @@ public final class ExpressionUtils
                     && constantExpressionEvaluatesSuccessfully(plannerContext, session, expression);
         }
         if (expression instanceof FunctionCall) {
-            QualifiedName functionName = ((FunctionCall) expression).getName();
+            io.trino.sql.ir.QualifiedName functionName = TranslationMap.convertQualifiedName(((FunctionCall) expression).getName());
             if (isResolved(functionName)) {
                 ResolvedFunction resolvedFunction = plannerContext.getMetadata().decodeFunction(functionName);
                 return LITERAL_FUNCTION_NAME.equals(resolvedFunction.getSignature().getName());
@@ -310,7 +310,7 @@ public final class ExpressionUtils
     }
 
     /**
-     * @deprecated Use {@link io.trino.sql.planner.TypeAnalyzer#getTypes(Session, TypeProvider, Expression)}.
+     * @deprecated Use {@link io.trino.sql.planner.AstTypeAnalyzer#getTypes(Session, TypeProvider, Expression)}.
      */
     @Deprecated
     public static Map<NodeRef<Expression>, Type> getExpressionTypes(PlannerContext plannerContext, Session session, Expression expression, TypeProvider types)
@@ -338,7 +338,7 @@ public final class ExpressionUtils
 
         ImmutableList.Builder<Expression> result = ImmutableList.builder();
         for (Expression expression : expressions) {
-            if (!DeterminismEvaluator.isDeterministic(expression, metadata)) {
+            if (!AstDeterminismEvaluator.isDeterministic(expression, metadata)) {
                 result.add(expression);
             }
             else if (!seen.contains(expression)) {

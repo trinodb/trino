@@ -17,6 +17,9 @@ import com.google.common.collect.Iterables;
 import io.trino.Session;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Lookup;
@@ -24,9 +27,6 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Optional;
@@ -35,8 +35,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static io.trino.cost.SemiJoinStatsCalculator.computeAntiJoin;
 import static io.trino.cost.SemiJoinStatsCalculator.computeSemiJoin;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
+import static io.trino.sql.IrExpressionUtils.combineConjuncts;
+import static io.trino.sql.IrExpressionUtils.extractConjuncts;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static java.util.Objects.requireNonNull;
 
@@ -145,7 +145,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
 
     private static boolean isSemiJoinOutputReference(Expression conjunct, Symbol semiJoinOutput)
     {
-        SymbolReference semiJoinOutputSymbolReference = semiJoinOutput.toSymbolReference();
+        SymbolReference semiJoinOutputSymbolReference = semiJoinOutput.toIrSymbolReference();
         return conjunct.equals(semiJoinOutputSymbolReference) ||
                 (conjunct instanceof NotExpression && ((NotExpression) conjunct).getValue().equals(semiJoinOutputSymbolReference));
     }

@@ -22,6 +22,7 @@ import io.trino.Session;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.DesugarArrayConstructorRewriter;
 import io.trino.sql.planner.DesugarLikeRewriter;
 import io.trino.sql.planner.Symbol;
@@ -36,7 +37,6 @@ import io.trino.sql.relational.RowExpressionVisitor;
 import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.relational.SpecialForm.Form;
 import io.trino.sql.relational.VariableReferenceExpression;
-import io.trino.sql.tree.Expression;
 
 import java.util.Comparator;
 import java.util.HashMap;

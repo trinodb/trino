@@ -56,7 +56,7 @@ public class AliasMatcher
     {
         Optional<Symbol> symbol = matcher.getAssignedSymbol(node, session, metadata, symbolAliases);
         if (symbol.isPresent() && alias.isPresent()) {
-            return match(alias.get(), symbol.get().toSymbolReference());
+            return match(alias.get(), symbol.get().toIrSymbolReference());
         }
         return new MatchResult(symbol.isPresent());
     }

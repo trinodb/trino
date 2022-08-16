@@ -20,15 +20,16 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import io.trino.sql.ExpressionFormatter;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.tree.Expression;
+import io.trino.sql.planner.TranslationMap;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
 
-import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.trino.sql.IrExpressionUtils.rewriteIdentifiersToSymbolReferences;
 
 public final class ExpressionSerialization
 {
@@ -60,7 +61,8 @@ public final class ExpressionSerialization
         public Expression deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
                 throws IOException
         {
-            return rewriteIdentifiersToSymbolReferences(sqlParser.createExpression(jsonParser.readValueAs(String.class), new ParsingOptions()));
+            return rewriteIdentifiersToSymbolReferences(
+                    TranslationMap.copyAstExpressionToIrExpression(sqlParser.createExpression(jsonParser.readValueAs(String.class), new ParsingOptions())));
         }
     }
 }

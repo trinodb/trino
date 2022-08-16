@@ -20,6 +20,7 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.PlanNodeDecorrelator;
@@ -32,7 +33,6 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.Patterns;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.Expression;
 
 import java.util.Map;
 import java.util.Optional;
@@ -43,7 +43,8 @@ import static io.trino.matching.Pattern.empty;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.ExpressionUtils.and;
+import static io.trino.sql.IrExpressionUtils.and;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.isDistinctOperator;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.restoreDistinctAggregation;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.rewriteWithMasks;
@@ -57,7 +58,6 @@ import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.subquery;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
 import static io.trino.sql.planner.plan.Patterns.source;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -229,7 +229,7 @@ public class TransformCorrelatedGlobalAggregationWithoutProjection
             Aggregation aggregation = entry.getValue();
             if (aggregation.getMask().isPresent()) {
                 Symbol newMask = context.getSymbolAllocator().newSymbol("mask", BOOLEAN);
-                Expression expression = and(aggregation.getMask().get().toSymbolReference(), nonNull.toSymbolReference());
+                Expression expression = and(aggregation.getMask().get().toIrSymbolReference(), nonNull.toIrSymbolReference());
                 assignmentsBuilder.put(newMask, expression);
                 masks.put(entry.getKey(), newMask);
             }

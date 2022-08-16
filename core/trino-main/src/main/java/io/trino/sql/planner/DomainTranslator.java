@@ -47,25 +47,25 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.StatementAnalyzerFactory;
+import io.trino.sql.ir.BetweenPredicate;
+import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.InListExpression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.IrVisitor;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.LikePredicate;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.tree.AstVisitor;
-import io.trino.sql.tree.BetweenPredicate;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.InListExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LikePredicate;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.transaction.NoOpTransactionManager;
 import io.trino.type.LikeFunctions;
 import io.trino.type.TypeCoercion;
@@ -95,12 +95,12 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
-import static io.trino.sql.ExpressionUtils.and;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
-import static io.trino.sql.ExpressionUtils.combineDisjunctsWithDefault;
-import static io.trino.sql.ExpressionUtils.or;
-import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.IrExpressionUtils.and;
+import static io.trino.sql.IrExpressionUtils.combineConjuncts;
+import static io.trino.sql.IrExpressionUtils.combineDisjunctsWithDefault;
+import static io.trino.sql.IrExpressionUtils.or;
+import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -114,12 +114,12 @@ import static java.util.stream.Collectors.toList;
 public final class DomainTranslator
 {
     private final PlannerContext plannerContext;
-    private final LiteralEncoder literalEncoder;
+    private final IrLiteralEncoder literalEncoder;
 
     public DomainTranslator(PlannerContext plannerContext)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.literalEncoder = new LiteralEncoder(plannerContext);
+        this.literalEncoder = new IrLiteralEncoder(plannerContext);
     }
 
     public Expression toPredicate(Session session, TupleDomain<Symbol> tupleDomain)
@@ -130,7 +130,7 @@ public final class DomainTranslator
 
         Map<Symbol, Domain> domains = tupleDomain.getDomains().get();
         return domains.entrySet().stream()
-                .map(entry -> toPredicate(session, entry.getValue(), entry.getKey().toSymbolReference()))
+                .map(entry -> toPredicate(session, entry.getValue(), entry.getKey().toIrSymbolReference()))
                 .collect(collectingAndThen(toImmutableList(), expressions -> combineConjuncts(plannerContext.getMetadata(), expressions)));
     }
 
@@ -325,10 +325,10 @@ public final class DomainTranslator
     }
 
     private static class Visitor
-            extends AstVisitor<ExtractionResult, Boolean>
+            extends IrVisitor<ExtractionResult, Boolean>
     {
         private final PlannerContext plannerContext;
-        private final LiteralEncoder literalEncoder;
+        private final IrLiteralEncoder literalEncoder;
         private final Session session;
         private final TypeProvider types;
         private final InterpretedFunctionInvoker functionInvoker;
@@ -338,7 +338,7 @@ public final class DomainTranslator
         private Visitor(PlannerContext plannerContext, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-            this.literalEncoder = new LiteralEncoder(plannerContext);
+            this.literalEncoder = new IrLiteralEncoder(plannerContext);
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
@@ -390,7 +390,7 @@ public final class DomainTranslator
                     .map(ExtractionResult::getRemainingExpression)
                     .collect(toImmutableList());
 
-            LogicalExpression.Operator operator = complement ? node.getOperator().flip() : node.getOperator();
+            io.trino.sql.tree.LogicalExpression.Operator operator = complement ? node.getOperator().flip() : node.getOperator();
             switch (operator) {
                 case AND:
                     return new ExtractionResult(
@@ -545,8 +545,8 @@ public final class DomainTranslator
          */
         private Optional<NormalizedSimpleComparison> toNormalizedSimpleComparison(Map<NodeRef<Expression>, Type> expressionTypes, ComparisonExpression comparison)
         {
-            Object left = new ExpressionInterpreter(comparison.getLeft(), plannerContext, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
-            Object right = new ExpressionInterpreter(comparison.getRight(), plannerContext, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
+            Object left = new IrExpressionInterpreter(comparison.getLeft(), plannerContext, session, expressionTypes).optimize(IrNoOpSymbolResolver.INSTANCE);
+            Object right = new IrExpressionInterpreter(comparison.getRight(), plannerContext, session, expressionTypes).optimize(IrNoOpSymbolResolver.INSTANCE);
 
             Type leftType = expressionTypes.get(NodeRef.of(comparison.getLeft()));
             Type rightType = expressionTypes.get(NodeRef.of(comparison.getRight()));
@@ -560,7 +560,7 @@ public final class DomainTranslator
             }
 
             Expression symbolExpression;
-            ComparisonExpression.Operator comparisonOperator;
+            io.trino.sql.tree.ComparisonExpression.Operator comparisonOperator;
             NullableValue value;
 
             if (left instanceof Expression) {
@@ -589,7 +589,7 @@ public final class DomainTranslator
             return typeAnalyzer.getTypes(session, types, expression);
         }
 
-        private static Optional<ExtractionResult> createComparisonExtractionResult(ComparisonExpression.Operator comparisonOperator, Symbol column, Type type, @Nullable Object value, boolean complement)
+        private static Optional<ExtractionResult> createComparisonExtractionResult(io.trino.sql.tree.ComparisonExpression.Operator comparisonOperator, Symbol column, Type type, @Nullable Object value, boolean complement)
         {
             if (value == null) {
                 switch (comparisonOperator) {
@@ -622,7 +622,7 @@ public final class DomainTranslator
             throw new AssertionError("Type cannot be used in a comparison expression (should have been caught in analysis): " + type);
         }
 
-        private static Optional<Domain> extractOrderableDomain(ComparisonExpression.Operator comparisonOperator, Type type, Object value, boolean complement)
+        private static Optional<Domain> extractOrderableDomain(io.trino.sql.tree.ComparisonExpression.Operator comparisonOperator, Type type, Object value, boolean complement)
         {
             checkArgument(value != null);
 
@@ -714,7 +714,7 @@ public final class DomainTranslator
             throw new AssertionError("Unhandled operator: " + comparisonOperator);
         }
 
-        private static Domain extractEquatableDomain(ComparisonExpression.Operator comparisonOperator, Type type, Object value, boolean complement)
+        private static Domain extractEquatableDomain(io.trino.sql.tree.ComparisonExpression.Operator comparisonOperator, Type type, Object value, boolean complement)
         {
             checkArgument(value != null);
             switch (comparisonOperator) {
@@ -741,7 +741,7 @@ public final class DomainTranslator
                 Type symbolExpressionType,
                 Expression symbolExpression,
                 NullableValue nullableValue,
-                ComparisonExpression.Operator comparisonOperator)
+                io.trino.sql.tree.ComparisonExpression.Operator comparisonOperator)
         {
             requireNonNull(nullableValue, "nullableValue is null");
             if (nullableValue.isNull()) {
@@ -759,7 +759,7 @@ public final class DomainTranslator
                 Type valueType,
                 Object originalValue,
                 Object coercedValue,
-                ComparisonExpression.Operator comparisonOperator)
+                io.trino.sql.tree.ComparisonExpression.Operator comparisonOperator)
         {
             int originalComparedToCoerced = compareOriginalValueToCoerced(valueType, originalValue, symbolExpressionType, coercedValue);
             boolean coercedValueIsEqualToOriginal = originalComparedToCoerced == 0;
@@ -895,8 +895,8 @@ public final class DomainTranslator
             List<Expression> excludedExpressions = new ArrayList<>();
 
             for (Expression expression : valueList.getValues()) {
-                Object value = new ExpressionInterpreter(expression, plannerContext, session, expressionTypes)
-                        .optimize(NoOpSymbolResolver.INSTANCE);
+                Object value = new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes)
+                        .optimize(IrNoOpSymbolResolver.INSTANCE);
                 if (value == null || value instanceof NullLiteral) {
                     if (!complement) {
                         // in case of IN, NULL on the right results with NULL comparison result (effectively false in predicate context), so can be ignored, as the
@@ -1142,10 +1142,10 @@ public final class DomainTranslator
     private static class NormalizedSimpleComparison
     {
         private final Expression symbolExpression;
-        private final ComparisonExpression.Operator comparisonOperator;
+        private final io.trino.sql.tree.ComparisonExpression.Operator comparisonOperator;
         private final NullableValue value;
 
-        public NormalizedSimpleComparison(Expression symbolExpression, ComparisonExpression.Operator comparisonOperator, NullableValue value)
+        public NormalizedSimpleComparison(Expression symbolExpression, io.trino.sql.tree.ComparisonExpression.Operator comparisonOperator, NullableValue value)
         {
             this.symbolExpression = requireNonNull(symbolExpression, "symbolExpression is null");
             this.comparisonOperator = requireNonNull(comparisonOperator, "comparisonOperator is null");
@@ -1157,7 +1157,7 @@ public final class DomainTranslator
             return symbolExpression;
         }
 
-        public ComparisonExpression.Operator getComparisonOperator()
+        public io.trino.sql.tree.ComparisonExpression.Operator getComparisonOperator()
         {
             return comparisonOperator;
         }

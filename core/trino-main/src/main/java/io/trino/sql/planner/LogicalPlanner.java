@@ -52,6 +52,12 @@ import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
+import io.trino.sql.ir.AstToIrExpressionTreeRewriter;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.Assignments;
@@ -76,25 +82,16 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.planprinter.PlanPrinter;
 import io.trino.sql.planner.sanity.PlanSanityChecker;
 import io.trino.sql.tree.Analyze;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.RefreshMaterializedView;
-import io.trino.sql.tree.Row;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableExecute;
@@ -133,7 +130,8 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
@@ -145,7 +143,6 @@ import static io.trino.sql.planner.plan.TableWriterNode.CreateReference;
 import static io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import static io.trino.sql.planner.sanity.PlanSanityChecker.DISTRIBUTED_PLAN_SANITY_CHECKER;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -282,7 +279,7 @@ public class LogicalPlanner
         if ((statement instanceof CreateTableAsSelect && analysis.getCreate().orElseThrow().isCreateTableAsSelectNoOp()) ||
                 statement instanceof RefreshMaterializedView && analysis.isSkipMaterializedViewRefresh()) {
             Symbol symbol = symbolAllocator.newSymbol("rows", BIGINT);
-            PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(symbol), ImmutableList.of(new Row(ImmutableList.of(new GenericLiteral("BIGINT", "0")))));
+            PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(symbol), ImmutableList.of(new Row(ImmutableList.of(new io.trino.sql.ir.GenericLiteral("BIGINT", "0")))));
             return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(symbol));
         }
         return createOutputPlan(planStatementWithoutOutput(analysis, statement), analysis);
@@ -449,28 +446,28 @@ public class LogicalPlanner
                 continue;
             }
             Symbol output = symbolAllocator.newSymbol(column.getName(), column.getType());
-            Expression expression;
+            io.trino.sql.ir.Expression expression;
             Type tableType = column.getType();
             int index = insertColumns.indexOf(columns.get(column.getName()));
             if (index < 0) {
                 if (supportsMissingColumnsOnInsert) {
                     continue;
                 }
-                expression = new Cast(new NullLiteral(), toSqlType(column.getType()));
+                expression = new io.trino.sql.ir.Cast(new NullLiteral(), toSqlType(column.getType()));
             }
             else {
                 Symbol input = visibleFieldMappings.get(index);
                 Type queryType = symbolAllocator.getTypes().get(input);
 
                 if (queryType.equals(tableType) || typeCoercion.isTypeOnlyCoercion(queryType, tableType)) {
-                    expression = input.toSymbolReference();
+                    expression = input.toIrSymbolReference();
                 }
                 else {
-                    expression = noTruncationCast(input.toSymbolReference(), queryType, tableType);
+                    expression = noTruncationCast(input.toIrSymbolReference(), queryType, tableType);
                 }
             }
             if (!column.isNullable()) {
-                expression = new CoalesceExpression(expression, createNullNotAllowedFailExpression(column.getName(), tableType));
+                expression = new io.trino.sql.ir.CoalesceExpression(expression, createNullNotAllowedFailExpression(column.getName(), tableType));
             }
             assignments.put(output, expression);
             insertedColumnsBuilder.add(column);
@@ -530,23 +527,23 @@ public class LogicalPlanner
                 statisticsMetadata);
     }
 
-    private Expression createNullNotAllowedFailExpression(String columnName, Type type)
+    private io.trino.sql.ir.Expression createNullNotAllowedFailExpression(String columnName, Type type)
     {
-        return new Cast(failFunction(metadata, session, CONSTRAINT_VIOLATION, format(
+        return new io.trino.sql.ir.Cast(failFunction(metadata, session, CONSTRAINT_VIOLATION, format(
                 "NULL value not allowed for NOT NULL column: %s",
                 columnName)), toSqlType(type));
     }
 
-    private static Function<Expression, Expression> failIfPredicateIsNotMet(Metadata metadata, Session session, ErrorCodeSupplier errorCode, String errorMessage)
+    private static Function<io.trino.sql.ir.Expression, io.trino.sql.ir.Expression> failIfPredicateIsNotMet(Metadata metadata, Session session, ErrorCodeSupplier errorCode, String errorMessage)
     {
         FunctionCall fail = failFunction(metadata, session, errorCode, errorMessage);
-        return predicate -> new IfExpression(predicate, TRUE_LITERAL, new Cast(fail, toSqlType(BOOLEAN)));
+        return predicate -> new io.trino.sql.ir.IfExpression(predicate, TRUE_LITERAL, new io.trino.sql.ir.Cast(fail, toSqlType(BOOLEAN)));
     }
 
     public static FunctionCall failFunction(Metadata metadata, Session session, ErrorCodeSupplier errorCode, String errorMessage)
     {
         return FunctionCallBuilder.resolve(session, metadata)
-                .setName(QualifiedName.of("fail"))
+                .setName(io.trino.sql.ir.QualifiedName.of("fail"))
                 .addArgument(INTEGER, new GenericLiteral("INTEGER", Integer.toString(errorCode.toErrorCode().getCode())))
                 .addArgument(VARCHAR, new GenericLiteral("VARCHAR", errorMessage))
                 .build();
@@ -687,15 +684,15 @@ public class LogicalPlanner
     TODO Once BINARY and parametric VARBINARY types are supported, they should be handled here.
     TODO This workaround is insufficient to handle structural types
      */
-    private Expression noTruncationCast(Expression expression, Type fromType, Type toType)
+    private io.trino.sql.ir.Expression noTruncationCast(io.trino.sql.ir.Expression expression, Type fromType, Type toType)
     {
         if (fromType instanceof UnknownType || (!(toType instanceof VarcharType) && !(toType instanceof CharType))) {
-            return new Cast(expression, toSqlType(toType));
+            return new io.trino.sql.ir.Cast(expression, toSqlType(toType));
         }
         int targetLength;
         if (toType instanceof VarcharType) {
             if (((VarcharType) toType).isUnbounded()) {
-                return new Cast(expression, toSqlType(toType));
+                return new io.trino.sql.ir.Cast(expression, toSqlType(toType));
             }
             targetLength = ((VarcharType) toType).getBoundedLength();
         }
@@ -706,18 +703,18 @@ public class LogicalPlanner
         checkState(fromType instanceof VarcharType || fromType instanceof CharType, "inserting non-character value to column of character type");
         ResolvedFunction spaceTrimmedLength = metadata.resolveFunction(session, QualifiedName.of("$space_trimmed_length"), fromTypes(VARCHAR));
 
-        return new IfExpression(
+        return new io.trino.sql.ir.IfExpression(
                 // check if the trimmed value fits in the target type
-                new ComparisonExpression(
+                new io.trino.sql.ir.ComparisonExpression(
                         GREATER_THAN_OR_EQUAL,
-                        new GenericLiteral("BIGINT", Integer.toString(targetLength)),
-                        new CoalesceExpression(
-                                new FunctionCall(
+                        new io.trino.sql.ir.GenericLiteral("BIGINT", Integer.toString(targetLength)),
+                        new io.trino.sql.ir.CoalesceExpression(
+                                new io.trino.sql.ir.FunctionCall(
                                         spaceTrimmedLength.toQualifiedName(),
-                                        ImmutableList.of(new Cast(expression, toSqlType(VARCHAR)))),
+                                        ImmutableList.of(new io.trino.sql.ir.Cast(expression, toSqlType(VARCHAR)))),
                                 new GenericLiteral("BIGINT", "0"))),
-                new Cast(expression, toSqlType(toType)),
-                new Cast(
+                new io.trino.sql.ir.Cast(expression, toSqlType(toType)),
+                new io.trino.sql.ir.Cast(
                         failFunction(metadata, session, INVALID_CAST_ARGUMENT, format(
                                 "Cannot truncate non-space characters when casting from %s to %s on INSERT",
                                 fromType.getDisplayName(),
@@ -814,7 +811,7 @@ public class LogicalPlanner
         Map<Key, Symbol> allocations = new HashMap<>();
         Map<NodeRef<LambdaArgumentDeclaration>, Symbol> result = new LinkedHashMap<>();
 
-        for (Entry<NodeRef<Expression>, Type> entry : analysis.getTypes().entrySet()) {
+        for (Entry<NodeRef<io.trino.sql.tree.Expression>, Type> entry : analysis.getTypes().entrySet()) {
             if (!(entry.getKey().getNode() instanceof LambdaArgumentDeclaration)) {
                 continue;
             }
@@ -827,7 +824,7 @@ public class LogicalPlanner
             // get rewritten via TranslationMap
             Symbol symbol = allocations.get(key);
             if (symbol == null) {
-                symbol = symbolAllocator.newSymbol(argument, entry.getValue());
+                symbol = symbolAllocator.newSymbol(AstToIrExpressionTreeRewriter.copyAstNodeToIrNode(argument), entry.getValue());
                 allocations.put(key, symbol);
             }
 

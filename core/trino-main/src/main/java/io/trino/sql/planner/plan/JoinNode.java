@@ -19,10 +19,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Join;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -205,7 +204,7 @@ public class JoinNode
             return joinLabel;
         }
 
-        public static Type typeConvert(Join.Type joinType)
+        public static Type typeConvert(io.trino.sql.tree.Join.Type joinType)
         {
             switch (joinType) {
                 case CROSS:
@@ -391,7 +390,7 @@ public class JoinNode
 
         public ComparisonExpression toExpression()
         {
-            return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, left.toSymbolReference(), right.toSymbolReference());
+            return new ComparisonExpression(io.trino.sql.tree.ComparisonExpression.Operator.EQUAL, left.toIrSymbolReference(), right.toIrSymbolReference());
         }
 
         public EquiJoinClause flip()

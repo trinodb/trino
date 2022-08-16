@@ -20,6 +20,20 @@ import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
+import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.SearchedCaseExpression;
+import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -35,21 +49,7 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SearchedCaseExpression;
-import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.WhenClause;
-import io.trino.sql.util.AstUtils;
+import io.trino.sql.util.IrUtils;
 
 import javax.annotation.Nullable;
 
@@ -61,9 +61,9 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.ExpressionUtils.and;
-import static io.trino.sql.ExpressionUtils.or;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.IrExpressionUtils.and;
+import static io.trino.sql.IrExpressionUtils.or;
+import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.Apply.correlation;
@@ -188,9 +188,9 @@ public class TransformCorrelatedInPredicateToJoin
 
         Expression joinExpression = and(
                 or(
-                        new IsNullPredicate(probeSideSymbol.toSymbolReference()),
-                        new ComparisonExpression(ComparisonExpression.Operator.EQUAL, probeSideSymbol.toSymbolReference(), buildSideSymbol.toSymbolReference()),
-                        new IsNullPredicate(buildSideSymbol.toSymbolReference())),
+                        new IsNullPredicate(probeSideSymbol.toIrSymbolReference()),
+                        new ComparisonExpression(io.trino.sql.tree.ComparisonExpression.Operator.EQUAL, probeSideSymbol.toIrSymbolReference(), buildSideSymbol.toIrSymbolReference()),
+                        new IsNullPredicate(buildSideSymbol.toIrSymbolReference())),
                 correlationCondition);
 
         JoinNode leftOuterJoin = leftOuterJoin(idAllocator, probeSide, buildSide, joinExpression);
@@ -275,8 +275,8 @@ public class TransformCorrelatedInPredicateToJoin
     private static Expression isGreaterThan(Symbol symbol, long value)
     {
         return new ComparisonExpression(
-                ComparisonExpression.Operator.GREATER_THAN,
-                symbol.toSymbolReference(),
+                io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN,
+                symbol.toIrSymbolReference(),
                 bigint(value));
     }
 
@@ -287,7 +287,7 @@ public class TransformCorrelatedInPredicateToJoin
 
     private static Expression isNotNull(Symbol symbol)
     {
-        return new IsNotNullPredicate(symbol.toSymbolReference());
+        return new IsNotNullPredicate(symbol.toIrSymbolReference());
     }
 
     private static Expression bigint(long value)
@@ -335,7 +335,7 @@ public class TransformCorrelatedInPredicateToJoin
 
                 // Pull up all symbols used by a filter (except correlation)
                 decorrelated.getCorrelatedPredicates().stream()
-                        .flatMap(AstUtils::preOrder)
+                        .flatMap(IrUtils::preOrder)
                         .filter(SymbolReference.class::isInstance)
                         .map(SymbolReference.class::cast)
                         .filter(symbolReference -> !correlation.contains(Symbol.from(symbolReference)))

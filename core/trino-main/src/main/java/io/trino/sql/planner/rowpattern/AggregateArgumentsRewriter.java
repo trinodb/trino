@@ -13,18 +13,18 @@
  */
 package io.trino.sql.planner.rowpattern;
 
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.LabelDereference;
+import io.trino.sql.ir.QualifiedName;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.LabelDereference;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.analyzer.ExpressionAnalyzer.isPatternRecognitionFunction;
+import static io.trino.sql.iranalyzer.ExpressionAnalyzer.isPatternRecognitionFunction;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -97,9 +97,9 @@ public class AggregateArgumentsRewriter
                 String functionName = name.getSuffix().toUpperCase(ENGLISH);
                 switch (functionName) {
                     case "CLASSIFIER":
-                        return classifierSymbol.toSymbolReference();
+                        return classifierSymbol.toIrSymbolReference();
                     case "MATCH_NUMBER":
-                        return matchNumberSymbol.toSymbolReference();
+                        return matchNumberSymbol.toIrSymbolReference();
                 }
                 throw new UnsupportedOperationException("unexpected pattern recognition function: " + node.getName());
             }

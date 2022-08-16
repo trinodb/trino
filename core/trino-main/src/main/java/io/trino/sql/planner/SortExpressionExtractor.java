@@ -16,13 +16,13 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.Metadata;
 import io.trino.operator.join.SortedPositionLinks;
-import io.trino.sql.ExpressionUtils;
-import io.trino.sql.tree.AstVisitor;
-import io.trino.sql.tree.BetweenPredicate;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Node;
-import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.IrExpressionUtils;
+import io.trino.sql.ir.BetweenPredicate;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrVisitor;
+import io.trino.sql.ir.Node;
+import io.trino.sql.ir.SymbolReference;
 
 import java.util.List;
 import java.util.Optional;
@@ -64,7 +64,7 @@ public final class SortExpressionExtractor
 
     public static Optional<SortExpressionContext> extractSortExpression(Metadata metadata, Set<Symbol> buildSymbols, Expression filter)
     {
-        List<Expression> filterConjuncts = ExpressionUtils.extractConjuncts(filter);
+        List<Expression> filterConjuncts = IrExpressionUtils.extractConjuncts(filter);
         SortExpressionVisitor visitor = new SortExpressionVisitor(buildSymbols);
 
         List<SortExpressionContext> sortExpressionCandidates = filterConjuncts.stream()
@@ -94,7 +94,7 @@ public final class SortExpressionExtractor
     }
 
     private static class SortExpressionVisitor
-            extends AstVisitor<Optional<SortExpressionContext>, Void>
+            extends IrVisitor<Optional<SortExpressionContext>, Void>
     {
         private final Set<Symbol> buildSymbols;
 
@@ -161,7 +161,7 @@ public final class SortExpressionExtractor
     }
 
     private static class BuildSymbolReferenceFinder
-            extends AstVisitor<Boolean, Void>
+            extends IrVisitor<Boolean, Void>
     {
         private final Set<String> buildSymbols;
 

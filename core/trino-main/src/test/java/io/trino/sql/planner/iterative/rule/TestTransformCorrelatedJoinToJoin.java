@@ -14,21 +14,21 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.JoinNode;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.LongLiteral;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 
@@ -48,8 +48,8 @@ public class TestTransformCorrelatedJoinToJoin
                             p.filter(
                                     new ComparisonExpression(
                                             GREATER_THAN,
-                                            b.toSymbolReference(),
-                                            a.toSymbolReference()),
+                                            b.toIrSymbolReference(),
+                                            a.toIrSymbolReference()),
                                     p.values(b)));
                 })
                 .matches(
@@ -72,13 +72,13 @@ public class TestTransformCorrelatedJoinToJoin
                             INNER,
                             new ComparisonExpression(
                                     LESS_THAN,
-                                    b.toSymbolReference(),
+                                    b.toIrSymbolReference(),
                                     new LongLiteral("3")),
                             p.filter(
                                     new ComparisonExpression(
                                             GREATER_THAN,
-                                            b.toSymbolReference(),
-                                            a.toSymbolReference()),
+                                            b.toIrSymbolReference(),
+                                            a.toIrSymbolReference()),
                                     p.values(b)));
                 })
                 .matches(
@@ -107,8 +107,8 @@ public class TestTransformCorrelatedJoinToJoin
                             p.filter(
                                     new ComparisonExpression(
                                             GREATER_THAN,
-                                            b.toSymbolReference(),
-                                            a.toSymbolReference()),
+                                            b.toIrSymbolReference(),
+                                            a.toIrSymbolReference()),
                                     p.values(b)));
                 })
                 .matches(
@@ -131,13 +131,13 @@ public class TestTransformCorrelatedJoinToJoin
                             LEFT,
                             new ComparisonExpression(
                                     LESS_THAN,
-                                    b.toSymbolReference(),
+                                    b.toIrSymbolReference(),
                                     new LongLiteral("3")),
                             p.filter(
                                     new ComparisonExpression(
                                             GREATER_THAN,
-                                            b.toSymbolReference(),
-                                            a.toSymbolReference()),
+                                            b.toIrSymbolReference(),
+                                            a.toIrSymbolReference()),
                                     p.values(b)));
                 })
                 .matches(

@@ -19,6 +19,12 @@ import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.DataType;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.GenericDataType;
+import io.trino.sql.ir.Identifier;
+import io.trino.sql.ir.NumericParameter;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -28,12 +34,6 @@ import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.DataType;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.GenericDataType;
-import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.NumericParameter;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -42,6 +42,7 @@ import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.DynamicFilterPattern;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -59,7 +60,6 @@ import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -274,14 +274,13 @@ public class TestDynamicFilter
     private DataType varchar(int size)
     {
         return new GenericDataType(
-                Optional.empty(),
                 new Identifier("varchar"),
-                ImmutableList.of(new NumericParameter(Optional.empty(), String.valueOf(size))));
+                ImmutableList.of(new NumericParameter(String.valueOf(size))));
     }
 
     private Expression typeOnlyCast(String symbol, DataType asDataType)
     {
-        return new Cast(new Symbol(symbol).toSymbolReference(), asDataType, false, true);
+        return new Cast(new Symbol(symbol).toIrSymbolReference(), asDataType, false, true);
     }
 
     @Test

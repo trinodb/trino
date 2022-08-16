@@ -24,7 +24,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.StandardTypes;
 import io.trino.sql.analyzer.TypeSignatureProvider;
-import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.ir.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;

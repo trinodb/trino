@@ -20,6 +20,9 @@ import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.SymbolStatsEstimate;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.QualifiedName;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.Symbol;
@@ -29,9 +32,6 @@ import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -351,7 +351,7 @@ public class TestReorderJoins
                                 ImmutableList.of(p.symbol("B1")),
                                 Optional.of(new ComparisonExpression(
                                         LESS_THAN,
-                                        p.symbol("A1").toSymbolReference(),
+                                        p.symbol("A1").toIrSymbolReference(),
                                         new TestingFunctionResolution().functionCallBuilder(QualifiedName.of("random")).build()))))
                 .doesNotFire();
     }
@@ -376,7 +376,7 @@ public class TestReorderJoins
                                         new EquiJoinClause(p.symbol("B2"), p.symbol("C1"))),
                                 ImmutableList.of(p.symbol("A1")),
                                 ImmutableList.of(),
-                                Optional.of(new ComparisonExpression(EQUAL, p.symbol("A1").toSymbolReference(), p.symbol("B1").toSymbolReference()))))
+                                Optional.of(new ComparisonExpression(EQUAL, p.symbol("A1").toIrSymbolReference(), p.symbol("B1").toIrSymbolReference()))))
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 100, 10)))
@@ -412,8 +412,8 @@ public class TestReorderJoins
                                 INNER,
                                 p.project(
                                         Assignments.of(
-                                                p.symbol("P1"), new ArithmeticUnaryExpression(MINUS, p.symbol("B1").toSymbolReference()),
-                                                p.symbol("P2"), p.symbol("A1").toSymbolReference()),
+                                                p.symbol("P1"), new ArithmeticUnaryExpression(MINUS, p.symbol("B1").toIrSymbolReference()),
+                                                p.symbol("P2"), p.symbol("A1").toIrSymbolReference()),
                                         p.join(
                                                 INNER,
                                                 p.values(new PlanNodeId("valuesA"), 2, p.symbol("A1")),
@@ -426,7 +426,7 @@ public class TestReorderJoins
                                 ImmutableList.of(new EquiJoinClause(p.symbol("P1"), p.symbol("C1"))),
                                 ImmutableList.of(p.symbol("P1")),
                                 ImmutableList.of(),
-                                Optional.of(new ComparisonExpression(EQUAL, p.symbol("P2").toSymbolReference(), p.symbol("C1").toSymbolReference()))))
+                                Optional.of(new ComparisonExpression(EQUAL, p.symbol("P2").toIrSymbolReference(), p.symbol("C1").toIrSymbolReference()))))
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 100, 10)))
@@ -465,7 +465,7 @@ public class TestReorderJoins
                                 INNER,
                                 p.project(
                                         Assignments.of(
-                                                p.symbol("P1"), new ArithmeticUnaryExpression(MINUS, p.symbol("B1").toSymbolReference())),
+                                                p.symbol("P1"), new ArithmeticUnaryExpression(MINUS, p.symbol("B1").toIrSymbolReference())),
                                         p.join(
                                                 INNER,
                                                 p.values(new PlanNodeId("valuesA"), 2, p.symbol("A1")),
@@ -526,7 +526,7 @@ public class TestReorderJoins
                                         new EquiJoinClause(p.symbol("B2"), p.symbol("C1"))),
                                 ImmutableList.of(p.symbol("A1")),
                                 ImmutableList.of(),
-                                Optional.of(new ComparisonExpression(EQUAL, p.symbol("A1").toSymbolReference(), p.symbol("B1").toSymbolReference()))))
+                                Optional.of(new ComparisonExpression(EQUAL, p.symbol("A1").toIrSymbolReference(), p.symbol("B1").toIrSymbolReference()))))
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(40)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 100, 10)))

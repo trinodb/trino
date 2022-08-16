@@ -19,8 +19,8 @@ import io.trino.operator.scalar.TryFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NullLiteral;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NullLiteral;
 
 import java.util.Map;
 import java.util.Set;
@@ -32,13 +32,13 @@ import static java.util.Objects.requireNonNull;
 public class LayoutConstraintEvaluator
 {
     private final Map<Symbol, ColumnHandle> assignments;
-    private final ExpressionInterpreter evaluator;
+    private final IrExpressionInterpreter evaluator;
     private final Set<ColumnHandle> arguments;
 
     public LayoutConstraintEvaluator(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, Session session, TypeProvider types, Map<Symbol, ColumnHandle> assignments, Expression expression)
     {
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
-        evaluator = new ExpressionInterpreter(expression, plannerContext, session, typeAnalyzer.getTypes(session, types, expression));
+        evaluator = new IrExpressionInterpreter(expression, plannerContext, session, typeAnalyzer.getTypes(session, types, expression));
         arguments = SymbolsExtractor.extractUnique(expression).stream()
                 .map(assignments::get)
                 .collect(toImmutableSet());

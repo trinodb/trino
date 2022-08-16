@@ -17,6 +17,11 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.QuantifiedComparisonExpression;
+import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
@@ -24,11 +29,6 @@ import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.Assignments.Assignment;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.QuantifiedComparisonExpression;
-import io.trino.sql.tree.SubscriptExpression;
 
 import java.util.Map;
 import java.util.Optional;
@@ -108,7 +108,7 @@ public class UnwrapSingleColumnRowInApply
                         context,
                         predicate.getValue(),
                         predicate.getValueList(),
-                        (value, list) -> new InPredicate(value.toSymbolReference(), list.toSymbolReference()));
+                        (value, list) -> new InPredicate(value.toIrSymbolReference(), list.toIrSymbolReference()));
             }
             else if (expression instanceof QuantifiedComparisonExpression) {
                 QuantifiedComparisonExpression comparison = (QuantifiedComparisonExpression) expression;
@@ -117,7 +117,7 @@ public class UnwrapSingleColumnRowInApply
                         context,
                         comparison.getValue(),
                         comparison.getSubquery(),
-                        (value, list) -> new QuantifiedComparisonExpression(comparison.getOperator(), comparison.getQuantifier(), value.toSymbolReference(), list.toSymbolReference()));
+                        (value, list) -> new QuantifiedComparisonExpression(comparison.getOperator(), comparison.getQuantifier(), value.toIrSymbolReference(), list.toIrSymbolReference()));
             }
 
             if (unwrapped.isPresent()) {

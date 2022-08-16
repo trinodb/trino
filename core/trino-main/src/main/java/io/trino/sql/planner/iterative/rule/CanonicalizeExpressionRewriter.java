@@ -24,8 +24,9 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.FunctionCallBuilder;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.AstFunctionCallBuilder;
+import io.trino.sql.planner.AstTypeAnalyzer;
+import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.Cast;
@@ -72,7 +73,7 @@ public final class CanonicalizeExpressionRewriter
 
     private CanonicalizeExpressionRewriter() {}
 
-    public static Expression rewrite(Expression expression, Session session, PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, TypeProvider types)
+    public static Expression rewrite(Expression expression, Session session, PlannerContext plannerContext, AstTypeAnalyzer typeAnalyzer, TypeProvider types)
     {
         requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
@@ -151,26 +152,26 @@ public final class CanonicalizeExpressionRewriter
             switch (node.getFunction()) {
                 case DATE:
                     checkArgument(node.getPrecision() == null);
-                    return FunctionCallBuilder.resolve(session, metadata)
+                    return AstFunctionCallBuilder.resolve(session, metadata)
                             .setName(QualifiedName.of("current_date"))
                             .build();
                 case TIME:
-                    return FunctionCallBuilder.resolve(session, metadata)
+                    return AstFunctionCallBuilder.resolve(session, metadata)
                             .setName(QualifiedName.of("$current_time"))
                             .setArguments(ImmutableList.of(expressionTypes.get(NodeRef.of(node))), ImmutableList.of(new NullLiteral()))
                             .build();
                 case LOCALTIME:
-                    return FunctionCallBuilder.resolve(session, metadata)
+                    return AstFunctionCallBuilder.resolve(session, metadata)
                             .setName(QualifiedName.of("$localtime"))
                             .setArguments(ImmutableList.of(expressionTypes.get(NodeRef.of(node))), ImmutableList.of(new NullLiteral()))
                             .build();
                 case TIMESTAMP:
-                    return FunctionCallBuilder.resolve(session, metadata)
+                    return AstFunctionCallBuilder.resolve(session, metadata)
                             .setName(QualifiedName.of("$current_timestamp"))
                             .setArguments(ImmutableList.of(expressionTypes.get(NodeRef.of(node))), ImmutableList.of(new NullLiteral()))
                             .build();
                 case LOCALTIMESTAMP:
-                    return FunctionCallBuilder.resolve(session, metadata)
+                    return AstFunctionCallBuilder.resolve(session, metadata)
                             .setName(QualifiedName.of("$localtimestamp"))
                             .setArguments(ImmutableList.of(expressionTypes.get(NodeRef.of(node))), ImmutableList.of(new NullLiteral()))
                             .build();
@@ -186,71 +187,71 @@ public final class CanonicalizeExpressionRewriter
 
             switch (node.getField()) {
                 case YEAR:
-                    return FunctionCallBuilder.resolve(session, metadata)
+                    return AstFunctionCallBuilder.resolve(session, metadata)
                             .setName(QualifiedName.of("year"))
                             .addArgument(type, value)
                             .build();
                 case QUARTER:
-                    return FunctionCallBuilder.resolve(session, metadata)
+                    return AstFunctionCallBuilder.resolve(session, metadata)
                             .setName(QualifiedName.of("quarter"))
                             .addArgument(type, value)
                             .build();
                 case MONTH:
-                    return FunctionCallBuilder.resolve(session, metadata)
+                    return AstFunctionCallBuilder.resolve(session, metadata)
                             .setName(QualifiedName.of("month"))
                             .addArgument(type, value)
                             .build();
                 case WEEK:
-                    return FunctionCallBuilder.resolve(session, metadata)
+                    return AstFunctionCallBuilder.resolve(session, metadata)
                             .setName(QualifiedName.of("week"))
                             .addArgument(type, value)
                             .build();
                 case DAY:
                 case DAY_OF_MONTH:
-                    return FunctionCallBuilder.resolve(session, metadata)
+                    return AstFunctionCallBuilder.resolve(session, metadata)
                             .setName(QualifiedName.of("day"))
                             .addArgument(type, value)
                             .build();
                 case DAY_OF_WEEK:
                 case DOW:
-                    return FunctionCallBuilder.resolve(session, metadata)
+                    return AstFunctionCallBuilder.resolve(session, metadata)
                             .setName(QualifiedName.of("day_of_week"))
                             .addArgument(type, value)
                             .build();
                 case DAY_OF_YEAR:
                 case DOY:
-                    return FunctionCallBuilder.resolve(session, metadata)
+                    return AstFunctionCallBuilder.resolve(session, metadata)
                             .setName(QualifiedName.of("day_of_year"))
                             .addArgument(type, value)
                             .build();
                 case YEAR_OF_WEEK:
                 case YOW:
-                    return FunctionCallBuilder.resolve(session, metadata)
+                    return AstFunctionCallBuilder.resolve(session, metadata)
                             .setName(QualifiedName.of("year_of_week"))
                             .addArgument(type, value)
                             .build();
                 case HOUR:
-                    return FunctionCallBuilder.resolve(session, metadata)
+                    return AstFunctionCallBuilder.resolve(session, metadata)
                             .setName(QualifiedName.of("hour"))
                             .addArgument(type, value)
                             .build();
                 case MINUTE:
-                    return FunctionCallBuilder.resolve(session, metadata)
+                    return AstFunctionCallBuilder.resolve(session, metadata)
                             .setName(QualifiedName.of("minute"))
                             .addArgument(type, value)
                             .build();
                 case SECOND:
-                    return FunctionCallBuilder.resolve(session, metadata)
+                    return AstFunctionCallBuilder.resolve(session, metadata)
                             .setName(QualifiedName.of("second"))
                             .addArgument(type, value)
                             .build();
                 case TIMEZONE_MINUTE:
-                    return FunctionCallBuilder.resolve(session, metadata)
+                    return AstFunctionCallBuilder.resolve(session, metadata)
                             .setName(QualifiedName.of("timezone_minute"))
                             .addArgument(type, value)
                             .build();
                 case TIMEZONE_HOUR:
-                    return FunctionCallBuilder.resolve(session, metadata)
+                    return AstFunctionCallBuilder.resolve(session, metadata)
                             .setName(QualifiedName.of("timezone_hour"))
                             .addArgument(type, value)
                             .build();
@@ -262,7 +263,7 @@ public final class CanonicalizeExpressionRewriter
         @Override
         public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            String functionName = extractFunctionName(node.getName());
+            String functionName = extractFunctionName(TranslationMap.convertQualifiedName(node.getName()));
             if (functionName.equals("date") && node.getArguments().size() == 1) {
                 Expression argument = node.getArguments().get(0);
                 Type argumentType = expressionTypes.get(NodeRef.of(argument));
@@ -288,7 +289,7 @@ public final class CanonicalizeExpressionRewriter
                     .map(expressionTypes::get)
                     .collect(toImmutableList());
 
-            return FunctionCallBuilder.resolve(session, metadata)
+            return AstFunctionCallBuilder.resolve(session, metadata)
                     .setName(QualifiedName.of(FormatFunction.NAME))
                     .addArgument(VARCHAR, arguments.get(0))
                     .addArgument(RowType.anonymous(argumentTypes.subList(1, arguments.size())), new Row(arguments.subList(1, arguments.size())))

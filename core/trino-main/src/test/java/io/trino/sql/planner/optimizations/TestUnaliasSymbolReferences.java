@@ -25,7 +25,8 @@ import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.BigintType;
-import io.trino.sql.ExpressionUtils;
+import io.trino.sql.IrExpressionUtils;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -37,7 +38,6 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.tree.Expression;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingTransactionHandle;
 import org.testng.annotations.Test;
@@ -48,12 +48,12 @@ import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 
 public class TestUnaliasSymbolReferences
@@ -81,7 +81,7 @@ public class TestUnaliasSymbolReferences
                             p.filter(
                                     TRUE_LITERAL, // additional filter to test recursive call
                                     p.filter(
-                                            ExpressionUtils.and(
+                                            IrExpressionUtils.and(
                                                     dynamicFilterExpression(metadata, session, probeColumn1, dynamicFilterId1),
                                                     dynamicFilterExpression(metadata, session, probeColumn2, dynamicFilterId2)),
                                             p.tableScan(
@@ -91,7 +91,7 @@ public class TestUnaliasSymbolReferences
                                                             probeColumn1, new TpchColumnHandle("nationkey", BIGINT),
                                                             probeColumn2, new TpchColumnHandle("suppkey", BIGINT))))),
                             p.project(
-                                    Assignments.of(buildAlias1, buildColumnSymbol.toSymbolReference(), buildAlias2, buildColumnSymbol.toSymbolReference()),
+                                    Assignments.of(buildAlias1, buildColumnSymbol.toIrSymbolReference(), buildAlias2, buildColumnSymbol.toIrSymbolReference()),
                                     p.tableScan(tableHandle(buildTable), ImmutableList.of(buildColumnSymbol), ImmutableMap.of(buildColumnSymbol, column))),
                             ImmutableList.of(),
                             ImmutableList.of(),
@@ -143,7 +143,7 @@ public class TestUnaliasSymbolReferences
 
     private Expression dynamicFilterExpression(Metadata metadata, Session session, Symbol symbol, DynamicFilterId id)
     {
-        return createDynamicFilterExpression(session, metadata, id, BigintType.BIGINT, symbol.toSymbolReference());
+        return createDynamicFilterExpression(session, metadata, id, BigintType.BIGINT, symbol.toIrSymbolReference());
     }
 
     private static TableHandle tableHandle(String tableName)

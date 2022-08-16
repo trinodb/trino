@@ -22,30 +22,30 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
-import io.trino.sql.ExpressionUtils;
+import io.trino.sql.IrExpressionUtils;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.ExpressionAnalyzer;
-import io.trino.sql.analyzer.Scope;
-import io.trino.sql.planner.ExpressionInterpreter;
-import io.trino.sql.planner.LiteralEncoder;
-import io.trino.sql.planner.NoOpSymbolResolver;
+import io.trino.sql.ir.BetweenPredicate;
+import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.InListExpression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.IrVisitor;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.Node;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.iranalyzer.ExpressionAnalyzer;
+import io.trino.sql.iranalyzer.Scope;
+import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrLiteralEncoder;
+import io.trino.sql.planner.IrNoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.tree.AstVisitor;
-import io.trino.sql.tree.BetweenPredicate;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.InListExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.Node;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.util.DisjointSet;
 
 import javax.annotation.Nullable;
@@ -73,9 +73,9 @@ import static io.trino.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
-import static io.trino.sql.ExpressionUtils.and;
-import static io.trino.sql.ExpressionUtils.getExpressionTypes;
-import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
+import static io.trino.sql.IrExpressionUtils.and;
+import static io.trino.sql.IrExpressionUtils.getExpressionTypes;
+import static io.trino.sql.planner.IrExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -119,18 +119,18 @@ public class FilterStatsCalculator
         // TODO reuse io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite
 
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(plannerContext, session, predicate, types);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(predicate, plannerContext, session, expressionTypes);
-        Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(predicate, plannerContext, session, expressionTypes);
+        Object value = interpreter.optimize(IrNoOpSymbolResolver.INSTANCE);
 
         if (value == null) {
             // Expression evaluates to SQL null, which in Filter is equivalent to false. This assumes the expression is a top-level expression (eg. not in NOT).
             value = false;
         }
-        return new LiteralEncoder(plannerContext).toExpression(session, value, BOOLEAN);
+        return new IrLiteralEncoder(plannerContext).toExpression(session, value, BOOLEAN);
     }
 
     private class FilterExpressionStatsCalculatingVisitor
-            extends AstVisitor<PlanNodeStatsEstimate, Void>
+            extends IrVisitor<PlanNodeStatsEstimate, Void>
     {
         private final PlanNodeStatsEstimate input;
         private final Session session;
@@ -387,7 +387,7 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitComparisonExpression(ComparisonExpression node, Void context)
         {
-            ComparisonExpression.Operator operator = node.getOperator();
+            io.trino.sql.tree.ComparisonExpression.Operator operator = node.getOperator();
             Expression left = node.getLeft();
             Expression right = node.getRight();
 
@@ -465,7 +465,7 @@ public class FilterStatsCalculator
 
         private boolean isEffectivelyLiteral(Expression expression)
         {
-            return ExpressionUtils.isEffectivelyLiteral(plannerContext, session, expression);
+            return IrExpressionUtils.isEffectivelyLiteral(plannerContext, session, expression);
         }
 
         private OptionalDouble doubleValueFromLiteral(Type type, Expression literal)

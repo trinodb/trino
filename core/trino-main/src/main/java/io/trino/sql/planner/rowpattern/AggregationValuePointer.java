@@ -16,9 +16,9 @@ package io.trino.sql.planner.rowpattern;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
-import io.trino.sql.tree.Expression;
 
 import java.util.Collection;
 import java.util.List;

@@ -22,8 +22,8 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.QualifiedName;
 import io.trino.sql.planner.plan.AggregationNode.Step;
-import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.Map;

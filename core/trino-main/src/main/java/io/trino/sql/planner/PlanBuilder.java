@@ -82,12 +82,17 @@ class PlanBuilder
 
     public Symbol translate(Expression expression)
     {
-        return Symbol.from(translations.rewrite(expression));
+        return Symbol.from(translations.rewriteAstExpressionToIrExpression(expression));
     }
 
-    public Expression rewrite(Expression expression)
+    public io.trino.sql.ir.Expression rewrite(Expression expression)
     {
-        return translations.rewrite(expression);
+        return translations.rewriteAstExpressionToIrExpression(expression);
+    }
+
+    public io.trino.sql.ir.Expression copy(Expression expression)
+    {
+        return translations.rewriteAstExpressionToIrExpression(expression);
     }
 
     public TranslationMap getTranslations()
@@ -102,14 +107,14 @@ class PlanBuilder
 
     public PlanBuilder appendProjections(Iterable<Expression> expressions, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return appendProjections(expressions, symbolAllocator, idAllocator, TranslationMap::rewrite, TranslationMap::canTranslate);
+        return appendProjections(expressions, symbolAllocator, idAllocator, TranslationMap::rewriteAstExpressionToIrExpression, TranslationMap::canTranslate);
     }
 
     public <T extends Expression> PlanBuilder appendProjections(
             Iterable<T> expressions,
             SymbolAllocator symbolAllocator,
             PlanNodeIdAllocator idAllocator,
-            BiFunction<TranslationMap, T, Expression> rewriter,
+            BiFunction<TranslationMap, T, io.trino.sql.ir.Expression> rewriter,
             BiPredicate<TranslationMap, T> alreadyHasTranslation)
     {
         Assignments.Builder projections = Assignments.builder();
@@ -121,7 +126,7 @@ class PlanBuilder
         for (T expression : expressions) {
             // Skip any expressions that have already been translated and recorded in the translation map, or that are duplicated in the list of exp
             if (!mappings.containsKey(scopeAwareKey(expression, translations.getAnalysis(), translations.getScope())) && !alreadyHasTranslation.test(translations, expression)) {
-                Symbol symbol = symbolAllocator.newSymbol(expression, translations.getAnalysis().getType(expression));
+                Symbol symbol = symbolAllocator.newSymbol(TranslationMap.copyAstExpressionToIrExpression(expression), translations.getAnalysis().getType(expression));
                 projections.put(symbol, rewriter.apply(translations, expression));
                 mappings.put(scopeAwareKey(expression, translations.getAnalysis(), translations.getScope()), symbol);
             }

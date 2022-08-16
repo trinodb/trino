@@ -141,17 +141,17 @@ public final class LiteralEncoder
         if (type.equals(DOUBLE)) {
             Double value = (Double) object;
             if (value.isNaN()) {
-                return FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                        .setName(QualifiedName.of("nan"))
+                return AstFunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                        .setName((QualifiedName.of("nan")))
                         .build();
             }
             if (value.equals(Double.NEGATIVE_INFINITY)) {
-                return ArithmeticUnaryExpression.negative(FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                return ArithmeticUnaryExpression.negative(AstFunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                         .setName(QualifiedName.of("infinity"))
                         .build());
             }
             if (value.equals(Double.POSITIVE_INFINITY)) {
-                return FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                return AstFunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                         .setName(QualifiedName.of("infinity"))
                         .build();
             }
@@ -162,21 +162,21 @@ public final class LiteralEncoder
             Float value = intBitsToFloat(((Long) object).intValue());
             if (value.isNaN()) {
                 return new Cast(
-                        FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                        AstFunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                                 .setName(QualifiedName.of("nan"))
                                 .build(),
                         toSqlType(REAL));
             }
             if (value.equals(Float.NEGATIVE_INFINITY)) {
                 return ArithmeticUnaryExpression.negative(new Cast(
-                        FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                        AstFunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                                 .setName(QualifiedName.of("infinity"))
                                 .build(),
                         toSqlType(REAL)));
             }
             if (value.equals(Float.POSITIVE_INFINITY)) {
                 return new Cast(
-                        FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                        AstFunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                                 .setName(QualifiedName.of("infinity"))
                                 .build(),
                         toSqlType(REAL));
@@ -280,7 +280,7 @@ public final class LiteralEncoder
             // able to encode it in the plan that gets sent to workers.
             // We do this by transforming the in-memory varbinary into a call to from_base64(<base64-encoded value>)
             Slice encoded = VarbinaryFunctions.toBase64((Slice) object);
-            argument = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+            argument = AstFunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                     .setName(QualifiedName.of("from_base64"))
                     .addArgument(VARCHAR, new StringLiteral(encoded.toStringUtf8()))
                     .build();
@@ -289,9 +289,9 @@ public final class LiteralEncoder
             argument = toExpression(session, object, argumentType);
         }
 
-        ResolvedFunction resolvedFunction = plannerContext.getMetadata().getCoercion(session, QualifiedName.of(LITERAL_FUNCTION_NAME), argumentType, type);
-        return FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                .setName(resolvedFunction.toQualifiedName())
+        ResolvedFunction resolvedFunction = plannerContext.getMetadata().getCoercion(session, io.trino.sql.ir.QualifiedName.of(LITERAL_FUNCTION_NAME), argumentType, type);
+        return AstFunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                .setName(TranslationMap.convertQualifiedName(resolvedFunction.toQualifiedName()))
                 .addArgument(argumentType, argument)
                 .build();
     }

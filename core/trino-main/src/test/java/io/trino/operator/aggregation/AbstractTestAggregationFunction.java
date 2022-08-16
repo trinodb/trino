@@ -26,7 +26,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.Type;
-import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.ir.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Constructor;

@@ -81,7 +81,7 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
             Symbol c = pb.symbol("c", BIGINT);
             Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
             return pb.filter(
-                    semiJoinOutput.toSymbolReference(),
+                    semiJoinOutput.toIrSymbolReference(),
                     pb.semiJoin(
                             pb.values(LEFT_SOURCE_ID, a, b),
                             pb.values(RIGHT_SOURCE_ID, c),

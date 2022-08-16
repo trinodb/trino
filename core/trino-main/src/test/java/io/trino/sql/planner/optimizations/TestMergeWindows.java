@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.SortOrder;
+import io.trino.sql.ir.FrameBound;
+import io.trino.sql.ir.WindowFrame;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
@@ -27,8 +29,6 @@ import io.trino.sql.planner.iterative.rule.GatherAndMergeWindows;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.FrameBound;
-import io.trino.sql.tree.WindowFrame;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -83,9 +83,9 @@ public class TestMergeWindows
                     EXTENDEDPRICE_ALIAS, "extendedprice"));
 
     private static final Optional<WindowFrame> COMMON_FRAME = Optional.of(new WindowFrame(
-            WindowFrame.Type.ROWS,
-            new FrameBound(FrameBound.Type.UNBOUNDED_PRECEDING),
-            Optional.of(new FrameBound(FrameBound.Type.CURRENT_ROW)),
+            io.trino.sql.tree.WindowFrame.Type.ROWS,
+            new FrameBound(io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING),
+            Optional.of(new FrameBound(io.trino.sql.tree.FrameBound.Type.CURRENT_ROW)),
             ImmutableList.of(),
             Optional.empty(),
             Optional.empty(),
@@ -338,9 +338,9 @@ public class TestMergeWindows
     public void testMergeDifferentFrames()
     {
         Optional<WindowFrame> frameC = Optional.of(new WindowFrame(
-                WindowFrame.Type.ROWS,
-                new FrameBound(FrameBound.Type.UNBOUNDED_PRECEDING),
-                Optional.of(new FrameBound(FrameBound.Type.CURRENT_ROW)),
+                io.trino.sql.tree.WindowFrame.Type.ROWS,
+                new FrameBound(io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING),
+                Optional.of(new FrameBound(io.trino.sql.tree.FrameBound.Type.CURRENT_ROW)),
                 ImmutableList.of(),
                 Optional.empty(),
                 Optional.empty(),
@@ -354,9 +354,9 @@ public class TestMergeWindows
                 ImmutableMap.of(ORDERKEY_ALIAS, SortOrder.ASC_NULLS_LAST));
 
         Optional<WindowFrame> frameD = Optional.of(new WindowFrame(
-                WindowFrame.Type.ROWS,
-                new FrameBound(FrameBound.Type.CURRENT_ROW),
-                Optional.of(new FrameBound(FrameBound.Type.UNBOUNDED_FOLLOWING)),
+                io.trino.sql.tree.WindowFrame.Type.ROWS,
+                new FrameBound(io.trino.sql.tree.FrameBound.Type.CURRENT_ROW),
+                Optional.of(new FrameBound(io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING)),
                 ImmutableList.of(),
                 Optional.empty(),
                 Optional.empty(),
@@ -384,9 +384,9 @@ public class TestMergeWindows
     public void testMergeDifferentFramesWithDefault()
     {
         Optional<WindowFrame> frameD = Optional.of(new WindowFrame(
-                WindowFrame.Type.ROWS,
-                new FrameBound(FrameBound.Type.CURRENT_ROW),
-                Optional.of(new FrameBound(FrameBound.Type.UNBOUNDED_FOLLOWING)),
+                io.trino.sql.tree.WindowFrame.Type.ROWS,
+                new FrameBound(io.trino.sql.tree.FrameBound.Type.CURRENT_ROW),
+                Optional.of(new FrameBound(io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING)),
                 ImmutableList.of(),
                 Optional.empty(),
                 Optional.empty(),

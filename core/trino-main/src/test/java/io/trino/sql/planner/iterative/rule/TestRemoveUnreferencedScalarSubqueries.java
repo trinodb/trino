@@ -15,17 +15,17 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.BigintType;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.LongLiteral;
 import org.testng.annotations.Test;
 
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.FULL;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static java.util.Collections.emptyList;
 
@@ -96,7 +96,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                             p.filter(
                                     new ComparisonExpression(
                                             LESS_THAN,
-                                            b.toSymbolReference(),
+                                            b.toIrSymbolReference(),
                                             new LongLiteral("3")),
                                     p.values(2, b)));
                 })
@@ -113,7 +113,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                             p.filter(
                                     new ComparisonExpression(
                                             LESS_THAN,
-                                            b.toSymbolReference(),
+                                            b.toIrSymbolReference(),
                                             new LongLiteral("3")),
                                     p.values(2, b)));
                 })

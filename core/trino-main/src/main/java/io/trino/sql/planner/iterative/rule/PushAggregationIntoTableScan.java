@@ -32,10 +32,13 @@ import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
-import io.trino.sql.planner.ExpressionInterpreter;
-import io.trino.sql.planner.LiteralEncoder;
-import io.trino.sql.planner.NoOpSymbolResolver;
+import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrLiteralEncoder;
+import io.trino.sql.planner.IrNoOpSymbolResolver;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -45,9 +48,6 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.HashMap;
 import java.util.List;
@@ -135,7 +135,7 @@ public class PushAggregationIntoTableScan
             Map<Symbol, AggregationNode.Aggregation> aggregations,
             List<Symbol> groupingKeys)
     {
-        LiteralEncoder literalEncoder = new LiteralEncoder(plannerContext);
+        IrLiteralEncoder literalEncoder = new IrLiteralEncoder(plannerContext);
         Session session = context.getSession();
 
         if (groupingKeys.isEmpty() && aggregations.isEmpty()) {
@@ -202,8 +202,8 @@ public class PushAggregationIntoTableScan
                     Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(session, context.getSymbolAllocator().getTypes(), translated);
                     translated = literalEncoder.toExpression(
                             session,
-                            new ExpressionInterpreter(translated, plannerContext, session, translatedExpressionTypes)
-                                    .optimize(NoOpSymbolResolver.INSTANCE),
+                            new IrExpressionInterpreter(translated, plannerContext, session, translatedExpressionTypes)
+                                    .optimize(IrNoOpSymbolResolver.INSTANCE),
                             translatedExpressionTypes.get(NodeRef.of(translated)));
                     return translated;
                 })
@@ -224,7 +224,7 @@ public class PushAggregationIntoTableScan
                     // new columnHandle's symbol reference, otherwise it will continue pointing at oldColumnHandle.
                     ColumnHandle originalColumnHandle = assignments.get(groupBySymbol.getName());
                     ColumnHandle groupByColumnHandle = result.getGroupingColumnMapping().getOrDefault(originalColumnHandle, originalColumnHandle);
-                    assignmentBuilder.put(groupBySymbol, columnHandleToSymbol.get(groupByColumnHandle).toSymbolReference());
+                    assignmentBuilder.put(groupBySymbol, columnHandleToSymbol.get(groupByColumnHandle).toIrSymbolReference());
                 });
 
         return Optional.of(

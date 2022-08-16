@@ -13,8 +13,8 @@
  */
 package io.trino.sql.planner.assertions;
 
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.tree.SymbolReference;
 
 class AnySymbol
         extends Symbol
@@ -32,7 +32,7 @@ class AnySymbol
     }
 
     @Override
-    public SymbolReference toSymbolReference()
+    public SymbolReference toIrSymbolReference()
     {
         return new AnySymbolReference();
     }

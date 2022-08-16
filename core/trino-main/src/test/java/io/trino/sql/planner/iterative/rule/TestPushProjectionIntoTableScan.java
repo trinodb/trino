@@ -42,17 +42,17 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingTransactionHandle;
 import io.trino.transaction.TransactionId;
 import org.testng.annotations.Test;
@@ -109,7 +109,7 @@ public class TestPushProjectionIntoTableScan
                     .on(p -> {
                         Symbol symbol = p.symbol(columnName, columnType);
                         return p.project(
-                                Assignments.of(p.symbol("symbol_dereference", BIGINT), new SubscriptExpression(symbol.toSymbolReference(), new LongLiteral("1"))),
+                                Assignments.of(p.symbol("symbol_dereference", BIGINT), new SubscriptExpression(symbol.toIrSymbolReference(), new LongLiteral("1"))),
                                 p.tableScan(TEST_TABLE_HANDLE, ImmutableList.of(symbol), ImmutableMap.of(symbol, inputColumnHandle)));
                     })
                     .withSession(MOCK_SESSION)
@@ -145,8 +145,8 @@ public class TestPushProjectionIntoTableScan
 
             // Prepare project node assignments
             ImmutableMap<Symbol, Expression> inputProjections = ImmutableMap.of(
-                    identity, baseColumn.toSymbolReference(),
-                    dereference, new SubscriptExpression(baseColumn.toSymbolReference(), new LongLiteral("1")),
+                    identity, baseColumn.toIrSymbolReference(),
+                    dereference, new SubscriptExpression(baseColumn.toIrSymbolReference(), new LongLiteral("1")),
                     constant, new LongLiteral("5"),
                     call, new FunctionCall(QualifiedName.of("STARTS_WITH"), ImmutableList.of(new StringLiteral("abc"), new StringLiteral("ab"))));
 

@@ -27,7 +27,14 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.SearchedCaseExpression;
+import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.WhenClause;
+import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -37,13 +44,6 @@ import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SearchedCaseExpression;
-import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.WhenClause;
 
 import java.util.HashSet;
 import java.util.List;
@@ -63,7 +63,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
@@ -193,7 +193,7 @@ public class PreAggregateCaseAggregations
                                 entry -> entry.getKey().getAggregationSymbol(),
                                 entry -> new Aggregation(
                                         entry.getKey().getCumulativeFunction(),
-                                        ImmutableList.of(entry.getValue().toSymbolReference()),
+                                        ImmutableList.of(entry.getValue().toIrSymbolReference()),
                                         false,
                                         Optional.empty(),
                                         Optional.empty(),
@@ -220,7 +220,7 @@ public class PreAggregateCaseAggregations
                 new SearchedCaseExpression(ImmutableList.of(
                         new WhenClause(
                                 aggregation.getOperand(),
-                                preAggregations.get(new PreAggregationKey(aggregation)).getAggregationSymbol().toSymbolReference())),
+                                preAggregations.get(new PreAggregationKey(aggregation)).getAggregationSymbol().toIrSymbolReference())),
                         aggregation.getCumulativeAggregationDefaultValue())));
         return new ProjectNode(projectNode.getId(), source, assignments.build());
     }
@@ -248,7 +248,7 @@ public class PreAggregateCaseAggregations
                                 entry -> entry.getValue().getAggregationSymbol(),
                                 entry -> new Aggregation(
                                         entry.getKey().getFunction(),
-                                        ImmutableList.of(entry.getValue().getProjectionSymbol().toSymbolReference()),
+                                        ImmutableList.of(entry.getValue().getProjectionSymbol().toIrSymbolReference()),
                                         false,
                                         Optional.empty(),
                                         Optional.empty(),
@@ -421,8 +421,8 @@ public class PreAggregateCaseAggregations
     private Object optimizeExpression(Expression expression, Context context)
     {
         Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(context.getSession(), context.getSymbolAllocator().getTypes(), expression);
-        ExpressionInterpreter expressionInterpreter = new ExpressionInterpreter(expression, plannerContext, context.getSession(), expressionTypes);
-        return expressionInterpreter.optimize(Symbol::toSymbolReference);
+        IrExpressionInterpreter expressionInterpreter = new IrExpressionInterpreter(expression, plannerContext, context.getSession(), expressionTypes);
+        return expressionInterpreter.optimize(Symbol::toIrSymbolReference);
     }
 
     private static class CaseAggregation

@@ -18,11 +18,11 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.Field;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GroupingOperation;
-import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GroupingOperation;
+import io.trino.sql.ir.Identifier;
+import io.trino.sql.ir.SymbolReference;
 
 import javax.annotation.Nullable;
 

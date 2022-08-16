@@ -15,13 +15,13 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.apply;
@@ -41,7 +41,7 @@ public class TestPruneApplySourceColumns
                     Symbol subquerySymbol2 = p.symbol("subquery_symbol_2");
                     Symbol inResult = p.symbol("in_result");
                     return p.apply(
-                            Assignments.of(inResult, new InPredicate(a.toSymbolReference(), subquerySymbol1.toSymbolReference())),
+                            Assignments.of(inResult, new InPredicate(a.toIrSymbolReference(), subquerySymbol1.toIrSymbolReference())),
                             ImmutableList.of(),
                             p.values(a),
                             p.values(subquerySymbol1, subquerySymbol2));
@@ -68,8 +68,8 @@ public class TestPruneApplySourceColumns
                     Symbol inResult2 = p.symbol("in_result_2");
                     return p.apply(
                             Assignments.of(
-                                    inResult1, new InPredicate(a.toSymbolReference(), subquerySymbol1.toSymbolReference()),
-                                    inResult2, new InPredicate(a.toSymbolReference(), subquerySymbol2.toSymbolReference())),
+                                    inResult1, new InPredicate(a.toIrSymbolReference(), subquerySymbol1.toIrSymbolReference()),
+                                    inResult2, new InPredicate(a.toIrSymbolReference(), subquerySymbol2.toIrSymbolReference())),
                             ImmutableList.of(),
                             p.values(a),
                             p.values(subquerySymbol1, subquerySymbol2));
@@ -86,7 +86,7 @@ public class TestPruneApplySourceColumns
                     Symbol subquerySymbol = p.symbol("subquery_symbol");
                     Symbol inResult = p.symbol("in_result");
                     return p.apply(
-                            Assignments.of(inResult, new InPredicate(a.toSymbolReference(), a.toSymbolReference())),
+                            Assignments.of(inResult, new InPredicate(a.toIrSymbolReference(), a.toIrSymbolReference())),
                             ImmutableList.of(),
                             p.values(a),
                             p.values(subquerySymbol));

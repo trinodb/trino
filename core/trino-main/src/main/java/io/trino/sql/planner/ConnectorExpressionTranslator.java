@@ -37,36 +37,36 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeSignatureProvider;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.AstVisitor;
-import io.trino.sql.tree.BetweenPredicate;
-import io.trino.sql.tree.BinaryLiteral;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CharLiteral;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.DecimalLiteral;
-import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.InListExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LikePredicate;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.Node;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullIfExpression;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.BetweenPredicate;
+import io.trino.sql.ir.BinaryLiteral;
+import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.CharLiteral;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.DecimalLiteral;
+import io.trino.sql.ir.DoubleLiteral;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.InListExpression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.IrVisitor;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.LikePredicate;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.Node;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.NullIfExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.type.JoniRegexp;
 import io.trino.type.Re2JRegexp;
 import io.trino.type.Re2JRegexpType;
@@ -105,10 +105,10 @@ import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.SUBTRACT_FUNCTION_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
-import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
+import static io.trino.sql.IrExpressionUtils.isEffectivelyLiteral;
+import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.planner.IrExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -118,7 +118,7 @@ public final class ConnectorExpressionTranslator
 {
     private ConnectorExpressionTranslator() {}
 
-    public static Expression translate(Session session, ConnectorExpression expression, PlannerContext plannerContext, Map<String, Symbol> variableMappings, LiteralEncoder literalEncoder)
+    public static Expression translate(Session session, ConnectorExpression expression, PlannerContext plannerContext, Map<String, Symbol> variableMappings, IrLiteralEncoder literalEncoder)
     {
         return new ConnectorToSqlExpressionTranslator(session, plannerContext, literalEncoder, variableMappings)
                 .translate(expression)
@@ -132,7 +132,7 @@ public final class ConnectorExpressionTranslator
     }
 
     @VisibleForTesting
-    static FunctionName functionNameForComparisonOperator(ComparisonExpression.Operator operator)
+    static FunctionName functionNameForComparisonOperator(io.trino.sql.tree.ComparisonExpression.Operator operator)
     {
         switch (operator) {
             case EQUAL:
@@ -154,7 +154,7 @@ public final class ConnectorExpressionTranslator
     }
 
     @VisibleForTesting
-    static FunctionName functionNameForArithmeticBinaryOperator(ArithmeticBinaryExpression.Operator operator)
+    static FunctionName functionNameForArithmeticBinaryOperator(io.trino.sql.tree.ArithmeticBinaryExpression.Operator operator)
     {
         switch (operator) {
             case ADD:
@@ -175,10 +175,10 @@ public final class ConnectorExpressionTranslator
     {
         private final Session session;
         private final PlannerContext plannerContext;
-        private final LiteralEncoder literalEncoder;
+        private final IrLiteralEncoder literalEncoder;
         private final Map<String, Symbol> variableMappings;
 
-        public ConnectorToSqlExpressionTranslator(Session session, PlannerContext plannerContext, LiteralEncoder literalEncoder, Map<String, Symbol> variableMappings)
+        public ConnectorToSqlExpressionTranslator(Session session, PlannerContext plannerContext, IrLiteralEncoder literalEncoder, Map<String, Symbol> variableMappings)
         {
             this.session = requireNonNull(session, "session is null");
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
@@ -190,7 +190,7 @@ public final class ConnectorExpressionTranslator
         {
             if (expression instanceof Variable) {
                 String name = ((Variable) expression).getName();
-                return Optional.of(variableMappings.get(name).toSymbolReference());
+                return Optional.of(variableMappings.get(name).toIrSymbolReference());
             }
 
             if (expression instanceof Constant) {
@@ -217,10 +217,10 @@ public final class ConnectorExpressionTranslator
             }
 
             if (AND_FUNCTION_NAME.equals(call.getFunctionName())) {
-                return translateLogicalExpression(LogicalExpression.Operator.AND, call.getArguments());
+                return translateLogicalExpression(io.trino.sql.tree.LogicalExpression.Operator.AND, call.getArguments());
             }
             if (OR_FUNCTION_NAME.equals(call.getFunctionName())) {
-                return translateLogicalExpression(LogicalExpression.Operator.OR, call.getArguments());
+                return translateLogicalExpression(io.trino.sql.tree.LogicalExpression.Operator.OR, call.getArguments());
             }
             if (NOT_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
                 ConnectorExpression expression = getOnlyElement(call.getArguments());
@@ -247,7 +247,7 @@ public final class ConnectorExpressionTranslator
 
             // comparisons
             if (call.getArguments().size() == 2) {
-                Optional<ComparisonExpression.Operator> operator = comparisonOperatorForFunctionName(call.getFunctionName());
+                Optional<io.trino.sql.tree.ComparisonExpression.Operator> operator = comparisonOperatorForFunctionName(call.getFunctionName());
                 if (operator.isPresent()) {
                     return translateComparison(operator.get(), call.getArguments().get(0), call.getArguments().get(1));
                 }
@@ -255,7 +255,7 @@ public final class ConnectorExpressionTranslator
 
             // arithmetic binary
             if (call.getArguments().size() == 2) {
-                Optional<ArithmeticBinaryExpression.Operator> operator = arithmeticBinaryOperatorForFunctionName(call.getFunctionName());
+                Optional<io.trino.sql.tree.ArithmeticBinaryExpression.Operator> operator = arithmeticBinaryOperatorForFunctionName(call.getFunctionName());
                 if (operator.isPresent()) {
                     return translateArithmeticBinary(operator.get(), call.getArguments().get(0), call.getArguments().get(1));
                 }
@@ -263,7 +263,7 @@ public final class ConnectorExpressionTranslator
 
             // arithmetic unary
             if (NEGATE_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
-                return translate(getOnlyElement(call.getArguments())).map(argument -> new ArithmeticUnaryExpression(ArithmeticUnaryExpression.Sign.MINUS, argument));
+                return translate(getOnlyElement(call.getArguments())).map(argument -> new ArithmeticUnaryExpression(io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS, argument));
             }
 
             if (LIKE_PATTERN_FUNCTION_NAME.equals(call.getFunctionName())) {
@@ -351,13 +351,13 @@ public final class ConnectorExpressionTranslator
             return Optional.empty();
         }
 
-        private Optional<Expression> translateLogicalExpression(LogicalExpression.Operator operator, List<ConnectorExpression> arguments)
+        private Optional<Expression> translateLogicalExpression(io.trino.sql.tree.LogicalExpression.Operator operator, List<ConnectorExpression> arguments)
         {
             Optional<List<Expression>> translatedArguments = translateExpressions(arguments);
             return translatedArguments.map(expressions -> new LogicalExpression(operator, expressions));
         }
 
-        private Optional<Expression> translateComparison(ComparisonExpression.Operator operator, ConnectorExpression left, ConnectorExpression right)
+        private Optional<Expression> translateComparison(io.trino.sql.tree.ComparisonExpression.Operator operator, ConnectorExpression left, ConnectorExpression right)
         {
             return translate(left).flatMap(leftTranslated ->
                     translate(right).map(rightTranslated ->
@@ -375,55 +375,55 @@ public final class ConnectorExpressionTranslator
             return Optional.empty();
         }
 
-        private Optional<ComparisonExpression.Operator> comparisonOperatorForFunctionName(FunctionName functionName)
+        private Optional<io.trino.sql.tree.ComparisonExpression.Operator> comparisonOperatorForFunctionName(FunctionName functionName)
         {
             if (EQUAL_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ComparisonExpression.Operator.EQUAL);
+                return Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.EQUAL);
             }
             if (NOT_EQUAL_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ComparisonExpression.Operator.NOT_EQUAL);
+                return Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.NOT_EQUAL);
             }
             if (LESS_THAN_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ComparisonExpression.Operator.LESS_THAN);
+                return Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN);
             }
             if (LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL);
+                return Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL);
             }
             if (GREATER_THAN_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ComparisonExpression.Operator.GREATER_THAN);
+                return Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN);
             }
             if (GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL);
+                return Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL);
             }
             if (IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM);
+                return Optional.of(io.trino.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM);
             }
             return Optional.empty();
         }
 
-        private Optional<Expression> translateArithmeticBinary(ArithmeticBinaryExpression.Operator operator, ConnectorExpression left, ConnectorExpression right)
+        private Optional<Expression> translateArithmeticBinary(io.trino.sql.tree.ArithmeticBinaryExpression.Operator operator, ConnectorExpression left, ConnectorExpression right)
         {
             return translate(left).flatMap(leftTranslated ->
                     translate(right).map(rightTranslated ->
                             new ArithmeticBinaryExpression(operator, leftTranslated, rightTranslated)));
         }
 
-        private Optional<ArithmeticBinaryExpression.Operator> arithmeticBinaryOperatorForFunctionName(FunctionName functionName)
+        private Optional<io.trino.sql.tree.ArithmeticBinaryExpression.Operator> arithmeticBinaryOperatorForFunctionName(FunctionName functionName)
         {
             if (ADD_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ArithmeticBinaryExpression.Operator.ADD);
+                return Optional.of(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD);
             }
             if (SUBTRACT_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ArithmeticBinaryExpression.Operator.SUBTRACT);
+                return Optional.of(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.SUBTRACT);
             }
             if (MULTIPLY_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ArithmeticBinaryExpression.Operator.MULTIPLY);
+                return Optional.of(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY);
             }
             if (DIVIDE_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ArithmeticBinaryExpression.Operator.DIVIDE);
+                return Optional.of(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.DIVIDE);
             }
             if (MODULUS_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ArithmeticBinaryExpression.Operator.MODULUS);
+                return Optional.of(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MODULUS);
             }
             return Optional.empty();
         }
@@ -491,7 +491,7 @@ public final class ConnectorExpressionTranslator
     }
 
     public static class SqlToConnectorExpressionTranslator
-            extends AstVisitor<Optional<ConnectorExpression>, Void>
+            extends IrVisitor<Optional<ConnectorExpression>, Void>
     {
         private final Session session;
         private final Map<NodeRef<Expression>, Type> types;

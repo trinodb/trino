@@ -18,6 +18,8 @@ import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.WindowNode;
@@ -25,10 +27,7 @@ import io.trino.sql.planner.rowpattern.ExpressionAndValuePointersEquivalence;
 import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
-import io.trino.sql.tree.SkipTo;
 
 import java.util.AbstractMap;
 import java.util.HashMap;
@@ -56,7 +55,7 @@ public class PatternRecognitionMatcher
     private final Optional<ExpectedValueProvider<WindowNode.Frame>> frame;
     private final RowsPerMatch rowsPerMatch;
     private final Optional<IrLabel> skipToLabel;
-    private final SkipTo.Position skipToPosition;
+    private final io.trino.sql.tree.SkipTo.Position skipToPosition;
     private final boolean initial;
     private final IrRowPattern pattern;
     private final Map<IrLabel, Set<IrLabel>> subsets;
@@ -67,7 +66,7 @@ public class PatternRecognitionMatcher
             Optional<ExpectedValueProvider<WindowNode.Frame>> frame,
             RowsPerMatch rowsPerMatch,
             Optional<IrLabel> skipToLabel,
-            SkipTo.Position skipToPosition,
+            io.trino.sql.tree.SkipTo.Position skipToPosition,
             boolean initial,
             IrRowPattern pattern,
             Map<IrLabel, Set<IrLabel>> subsets,
@@ -150,7 +149,7 @@ public class PatternRecognitionMatcher
             if (!ExpressionAndValuePointersEquivalence.equivalent(
                     actual,
                     expected,
-                    (actualSymbol, expectedSymbol) -> verifier.process(actualSymbol.toSymbolReference(), expectedSymbol.toSymbolReference()))) {
+                    (actualSymbol, expectedSymbol) -> verifier.process(actualSymbol.toIrSymbolReference(), expectedSymbol.toIrSymbolReference()))) {
                 return NO_MATCH;
             }
         }
@@ -184,7 +183,7 @@ public class PatternRecognitionMatcher
         private Optional<ExpectedValueProvider<WindowNode.Frame>> frame = Optional.empty();
         private RowsPerMatch rowsPerMatch = ONE;
         private Optional<IrLabel> skipToLabel = Optional.empty();
-        private SkipTo.Position skipToPosition = PAST_LAST;
+        private io.trino.sql.tree.SkipTo.Position skipToPosition = PAST_LAST;
         private boolean initial = true;
         private IrRowPattern pattern;
         private final Map<IrLabel, Set<IrLabel>> subsets = new HashMap<>();
@@ -226,14 +225,14 @@ public class PatternRecognitionMatcher
             return this;
         }
 
-        public Builder skipTo(SkipTo.Position position, IrLabel label)
+        public Builder skipTo(io.trino.sql.tree.SkipTo.Position position, IrLabel label)
         {
             this.skipToLabel = Optional.of(label);
             this.skipToPosition = position;
             return this;
         }
 
-        public Builder skipTo(SkipTo.Position position)
+        public Builder skipTo(io.trino.sql.tree.SkipTo.Position position)
         {
             this.skipToPosition = position;
             return this;

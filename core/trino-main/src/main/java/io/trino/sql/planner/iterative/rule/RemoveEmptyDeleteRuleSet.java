@@ -17,11 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.Row;
 
 import java.util.Set;
 

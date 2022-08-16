@@ -15,11 +15,11 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.QualifiedName;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.AggregationNode;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -171,14 +171,13 @@ public class TestImplementFilteredAggregations
     private FunctionCall functionWithFilter(String name, Symbol argument, Optional<Symbol> filter)
     {
         return new FunctionCall(
-                Optional.empty(),
                 QualifiedName.of(name),
                 Optional.empty(),
-                filter.map(Symbol::toSymbolReference),
+                filter.map(Symbol::toIrSymbolReference),
                 Optional.empty(),
                 false,
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(argument.toSymbolReference()));
+                ImmutableList.of(argument.toIrSymbolReference()));
     }
 }

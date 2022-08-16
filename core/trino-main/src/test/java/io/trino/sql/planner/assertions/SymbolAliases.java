@@ -14,10 +14,10 @@
 package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -87,9 +87,9 @@ public final class SymbolAliases
             for (Map.Entry<String, SymbolReference> existingAlias : map.entrySet()) {
                 if (assignment.getValue().equals(existingAlias.getValue())) {
                     // Simple symbol rename
-                    mapUpdate.put(existingAlias.getKey(), assignment.getKey().toSymbolReference());
+                    mapUpdate.put(existingAlias.getKey(), assignment.getKey().toIrSymbolReference());
                 }
-                else if (assignment.getKey().toSymbolReference().equals(existingAlias.getValue())) {
+                else if (assignment.getKey().toIrSymbolReference().equals(existingAlias.getValue())) {
                     /*
                      * Special case for nodes that can alias symbols in the node's assignment map.
                      * In this case, we've already added the alias in the map, but we won't include it

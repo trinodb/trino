@@ -86,7 +86,7 @@ public class RemoveEmptyUnionBranches
             Assignments.Builder assignments = Assignments.builder();
 
             outputsToInputs.entries().stream()
-                    .forEach(entry -> assignments.put(entry.getKey(), entry.getValue().toSymbolReference()));
+                    .forEach(entry -> assignments.put(entry.getKey(), entry.getValue().toIrSymbolReference()));
 
             return Result.ofPlanNode(
                     new ProjectNode(

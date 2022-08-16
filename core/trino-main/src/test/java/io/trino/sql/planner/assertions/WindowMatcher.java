@@ -18,9 +18,9 @@ import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.connector.SortOrder;
+import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.FunctionCall;
 
 import java.util.LinkedList;
 import java.util.List;

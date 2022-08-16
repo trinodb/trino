@@ -27,7 +27,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.ir.QualifiedName;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.UnknownType;
 import org.testng.annotations.Test;

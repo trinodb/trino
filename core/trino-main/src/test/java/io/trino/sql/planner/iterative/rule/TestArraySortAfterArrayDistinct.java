@@ -14,12 +14,12 @@
 package io.trino.sql.planner.iterative.rule;
 
 import io.trino.sql.ExpressionTestUtils;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.Expression;
 import org.testng.annotations.Test;
 
 import java.util.Map;

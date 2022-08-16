@@ -64,7 +64,7 @@ final class PlanMatchingVisitor
         for (List<Symbol> inputs : allInputs) {
             Assignments.Builder assignments = Assignments.builder();
             for (int i = 0; i < inputs.size(); ++i) {
-                assignments.put(outputs.get(i), inputs.get(i).toSymbolReference());
+                assignments.put(outputs.get(i), inputs.get(i).toIrSymbolReference());
             }
             newAliases = newAliases.updateAssignments(assignments.build());
         }

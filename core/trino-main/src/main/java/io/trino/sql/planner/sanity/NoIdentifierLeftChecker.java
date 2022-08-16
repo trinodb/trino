@@ -16,12 +16,12 @@ package io.trino.sql.planner.sanity;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.ExpressionTreeUtils;
+import io.trino.sql.ir.Identifier;
+import io.trino.sql.iranalyzer.ExpressionTreeUtils;
 import io.trino.sql.planner.ExpressionExtractor;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.tree.Identifier;
 
 import java.util.List;
 

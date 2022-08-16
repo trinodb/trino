@@ -15,14 +15,14 @@ package io.trino.sql.planner.assertions;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.OrderBy;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.SortItem;
+import io.trino.sql.ir.WindowFrame;
+import io.trino.sql.ir.WindowSpecification;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.OrderBy;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SortItem;
-import io.trino.sql.tree.WindowFrame;
-import io.trino.sql.tree.WindowSpecification;
 
 import java.util.List;
 import java.util.Objects;
@@ -107,13 +107,13 @@ class FunctionCallProvider
         if (!orderBy.isEmpty()) {
             orderByClause = Optional.of(new OrderBy(orderBy.stream()
                     .map(item -> new SortItem(
-                            Symbol.from(aliases.get(item.getField())).toSymbolReference(),
+                            Symbol.from(aliases.get(item.getField())).toIrSymbolReference(),
                             item.getOrdering(),
                             item.getNullOrdering()))
                     .collect(Collectors.toList())));
         }
 
-        return new FunctionCall(Optional.empty(), name, Optional.empty(), filter.map(symbol -> symbol.toSymbol(aliases).toSymbolReference()), orderByClause, distinct, Optional.empty(), Optional.empty(), symbolReferences);
+        return new FunctionCall(name, Optional.empty(), filter.map(symbol -> symbol.toSymbol(aliases).toIrSymbolReference()), orderByClause, distinct, Optional.empty(), Optional.empty(), symbolReferences);
     }
 
     private class ExpectedWindowFunctionCall

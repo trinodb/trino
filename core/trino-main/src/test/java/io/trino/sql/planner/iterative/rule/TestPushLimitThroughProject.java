@@ -16,19 +16,20 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.RowType;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -36,7 +37,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 
@@ -135,7 +135,7 @@ public class TestPushLimitThroughProject
                     Symbol a = p.symbol("a");
                     return p.limit(1,
                             p.project(
-                                    Assignments.of(a, a.toSymbolReference()),
+                                    Assignments.of(a, a.toIrSymbolReference()),
                                     p.values(a)));
                 }).doesNotFire();
     }
@@ -151,8 +151,8 @@ public class TestPushLimitThroughProject
                     return p.limit(1,
                             p.project(
                                     Assignments.of(
-                                            p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("1")),
-                                            p.symbol("c"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("2"))),
+                                            p.symbol("b"), new SubscriptExpression(a.toIrSymbolReference(), new LongLiteral("1")),
+                                            p.symbol("c"), new SubscriptExpression(a.toIrSymbolReference(), new LongLiteral("2"))),
                                     p.values(a)));
                 })
                 .doesNotFire();
@@ -214,8 +214,8 @@ public class TestPushLimitThroughProject
                     return p.limit(1,
                             p.project(
                                     Assignments.of(
-                                            p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("1")),
-                                            p.symbol("c", rowType), a.toSymbolReference()),
+                                            p.symbol("b"), new SubscriptExpression(a.toIrSymbolReference(), new LongLiteral("1")),
+                                            p.symbol("c", rowType), a.toIrSymbolReference()),
                                     p.values(a)));
                 })
                 .matches(

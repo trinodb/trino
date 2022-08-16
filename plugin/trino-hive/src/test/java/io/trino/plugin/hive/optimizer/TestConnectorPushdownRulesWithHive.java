@@ -41,6 +41,12 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
@@ -48,12 +54,6 @@ import io.trino.sql.planner.iterative.rule.PushProjectionIntoTableScan;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -174,7 +174,7 @@ public class TestConnectorPushdownRulesWithHive
         tester().assertThat(pushProjectionIntoTableScan)
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("struct_of_int", baseType), p.symbol("struct_of_int", baseType).toSymbolReference()),
+                                Assignments.of(p.symbol("struct_of_int", baseType), p.symbol("struct_of_int", baseType).toIrSymbolReference()),
                                 p.tableScan(
                                         table,
                                         ImmutableList.of(p.symbol("struct_of_int", baseType)),
@@ -191,7 +191,7 @@ public class TestConnectorPushdownRulesWithHive
         tester().assertThat(pushProjectionIntoTableScan)
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("struct_of_int", baseType), p.symbol("struct_of_int", baseType).toSymbolReference()),
+                                Assignments.of(p.symbol("struct_of_int", baseType), p.symbol("struct_of_int", baseType).toIrSymbolReference()),
                                 p.tableScan(
                                         new TableHandle(
                                                 TEST_CATALOG_HANDLE,
@@ -206,7 +206,7 @@ public class TestConnectorPushdownRulesWithHive
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_deref", BIGINT), new SubscriptExpression(p.symbol("struct_of_int", baseType).toSymbolReference(), new LongLiteral("1"))),
+                                        p.symbol("expr_deref", BIGINT), new SubscriptExpression(p.symbol("struct_of_int", baseType).toIrSymbolReference(), new LongLiteral("1"))),
                                 p.tableScan(
                                         table,
                                         ImmutableList.of(p.symbol("struct_of_int", baseType)),
@@ -272,7 +272,7 @@ public class TestConnectorPushdownRulesWithHive
                     Symbol symbolA = p.symbol("a", INTEGER);
                     Symbol symbolB = p.symbol("b", INTEGER);
                     return p.project(
-                            Assignments.of(p.symbol("x"), symbolA.toSymbolReference()),
+                            Assignments.of(p.symbol("x"), symbolA.toIrSymbolReference()),
                             p.tableScan(
                                     table,
                                     ImmutableList.of(symbolA, symbolB),
@@ -324,7 +324,7 @@ public class TestConnectorPushdownRulesWithHive
         // Test projection pushdown with duplicate column references
         tester().assertThat(pushProjectionIntoTableScan)
                 .on(p -> {
-                    SymbolReference column = p.symbol("just_bigint", BIGINT).toSymbolReference();
+                    SymbolReference column = p.symbol("just_bigint", BIGINT).toIrSymbolReference();
                     Expression negation = new ArithmeticUnaryExpression(MINUS, column);
                     return p.project(
                             Assignments.of(
@@ -348,7 +348,7 @@ public class TestConnectorPushdownRulesWithHive
         // Test Dereference pushdown
         tester().assertThat(pushProjectionIntoTableScan)
                 .on(p -> {
-                    SubscriptExpression subscript = new SubscriptExpression(p.symbol("struct_of_bigint", ROW_TYPE).toSymbolReference(), new LongLiteral("1"));
+                    SubscriptExpression subscript = new SubscriptExpression(p.symbol("struct_of_bigint", ROW_TYPE).toIrSymbolReference(), new LongLiteral("1"));
                     Expression sum = new ArithmeticBinaryExpression(ADD, subscript, new LongLiteral("2"));
                     return p.project(
                             Assignments.of(

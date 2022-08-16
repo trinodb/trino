@@ -18,9 +18,9 @@ import com.google.common.collect.Maps;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Map;
@@ -74,7 +74,7 @@ public class ValuesMatcher
         }
 
         return match(SymbolAliases.builder()
-                .putAll(Maps.transformValues(outputSymbolAliases, index -> valuesNode.getOutputSymbols().get(index).toSymbolReference()))
+                .putAll(Maps.transformValues(outputSymbolAliases, index -> valuesNode.getOutputSymbols().get(index).toIrSymbolReference()))
                 .build());
     }
 

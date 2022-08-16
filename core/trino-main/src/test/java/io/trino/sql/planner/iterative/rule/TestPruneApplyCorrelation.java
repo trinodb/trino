@@ -15,13 +15,13 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.apply;
@@ -41,7 +41,7 @@ public class TestPruneApplyCorrelation
                     Symbol subquerySymbol = p.symbol("subquery_symbol");
                     Symbol inResult = p.symbol("in_result");
                     return p.apply(
-                            Assignments.of(inResult, new InPredicate(a.toSymbolReference(), subquerySymbol.toSymbolReference())),
+                            Assignments.of(inResult, new InPredicate(a.toIrSymbolReference(), subquerySymbol.toIrSymbolReference())),
                             ImmutableList.of(inputSymbol),
                             p.values(a, inputSymbol),
                             p.values(subquerySymbol));
@@ -64,11 +64,11 @@ public class TestPruneApplyCorrelation
                     Symbol subquerySymbol = p.symbol("subquery_symbol");
                     Symbol inResult = p.symbol("in_result");
                     return p.apply(
-                            Assignments.of(inResult, new InPredicate(a.toSymbolReference(), subquerySymbol.toSymbolReference())),
+                            Assignments.of(inResult, new InPredicate(a.toIrSymbolReference(), subquerySymbol.toIrSymbolReference())),
                             ImmutableList.of(inputSymbol),
                             p.values(a, inputSymbol),
                             p.filter(
-                                    new ComparisonExpression(GREATER_THAN, subquerySymbol.toSymbolReference(), inputSymbol.toSymbolReference()),
+                                    new ComparisonExpression(GREATER_THAN, subquerySymbol.toIrSymbolReference(), inputSymbol.toIrSymbolReference()),
                                     p.values(subquerySymbol)));
                 })
                 .doesNotFire();

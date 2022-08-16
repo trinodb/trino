@@ -20,7 +20,7 @@ import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.SqlVarbinary;
-import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.ir.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.List;

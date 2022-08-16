@@ -17,12 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.RowType;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.LongLiteral;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -59,7 +59,7 @@ public class TestPushProjectionThroughUnion
                     Symbol unioned = p.symbol("unioned");
                     Symbol renamed = p.symbol("renamed");
                     return p.project(
-                            Assignments.of(renamed, unioned.toSymbolReference()),
+                            Assignments.of(renamed, unioned.toIrSymbolReference()),
                             p.union(
                                     ImmutableListMultimap.<Symbol, Symbol>builder()
                                             .put(unioned, left)
@@ -87,7 +87,7 @@ public class TestPushProjectionThroughUnion
                     Symbol w = p.symbol("w", ROW_TYPE);
                     return p.project(
                             Assignments.of(
-                                    cTimes3, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, c.toSymbolReference(), new LongLiteral("3")),
+                                    cTimes3, new ArithmeticBinaryExpression(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY, c.toIrSymbolReference(), new LongLiteral("3")),
                                     dX, PlanBuilder.expression("d.x")),
                             p.union(
                                     ImmutableListMultimap.<Symbol, Symbol>builder()

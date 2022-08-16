@@ -43,6 +43,14 @@ import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.TableStatisticType;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
@@ -116,16 +124,8 @@ import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SkipTo.Position;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -149,14 +149,14 @@ import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
-import static io.trino.sql.ExpressionUtils.combineConjunctsWithDuplicates;
+import static io.trino.sql.IrExpressionUtils.combineConjunctsWithDuplicates;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.planprinter.PlanNodeStatsSummarizer.aggregateStageStats;
 import static io.trino.sql.planner.planprinter.TextRenderer.formatDouble;
 import static io.trino.sql.planner.planprinter.TextRenderer.formatPositions;
 import static io.trino.sql.planner.planprinter.TextRenderer.indentString;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
 import static java.lang.Math.abs;
 import static java.lang.String.format;
@@ -575,9 +575,9 @@ public class PlanPrinter
         {
             List<Expression> joinExpressions = new ArrayList<>();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(new ComparisonExpression(ComparisonExpression.Operator.EQUAL,
-                        clause.getProbe().toSymbolReference(),
-                        clause.getIndex().toSymbolReference()));
+                joinExpressions.add(new ComparisonExpression(io.trino.sql.tree.ComparisonExpression.Operator.EQUAL,
+                        clause.getProbe().toIrSymbolReference(),
+                        clause.getIndex().toIrSymbolReference()));
             }
 
             addNode(node,
@@ -1814,7 +1814,6 @@ public class PlanPrinter
                 FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
 
                 return new FunctionCall(
-                        rewritten.getLocation(),
                         QualifiedName.of(extractFunctionName(node.getName())),
                         rewritten.getWindow(),
                         rewritten.getFilter(),

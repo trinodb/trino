@@ -15,12 +15,12 @@ package io.trino.sql.planner.assertions;
 
 import io.trino.Session;
 import io.trino.metadata.Metadata;
+import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.tree.FunctionCall;
 
 import java.util.Map;
 import java.util.Objects;
@@ -68,7 +68,7 @@ public class AggregationFunctionMatcher
             return false;
         }
         return Objects.equals(extractFunctionName(expectedCall.getName()), aggregation.getResolvedFunction().getSignature().getName()) &&
-                Objects.equals(expectedCall.getFilter(), aggregation.getFilter().map(Symbol::toSymbolReference)) &&
+                Objects.equals(expectedCall.getFilter(), aggregation.getFilter().map(Symbol::toIrSymbolReference)) &&
                 Objects.equals(expectedCall.getOrderBy().map(OrderingScheme::fromOrderBy), aggregation.getOrderingScheme()) &&
                 Objects.equals(expectedCall.isDistinct(), aggregation.isDistinct()) &&
                 Objects.equals(expectedCall.getArguments(), aggregation.getArguments());

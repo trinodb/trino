@@ -21,20 +21,20 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.ExpressionAnalyzer;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.Identifier;
+import io.trino.sql.ir.LabelDereference;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.ProcessingMode;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.iranalyzer.ExpressionAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.LabelDereference;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.ProcessingMode;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
@@ -48,9 +48,9 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.ExpressionAnalyzer.isPatternRecognitionFunction;
-import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.iranalyzer.ExpressionAnalyzer.isPatternRecognitionFunction;
+import static io.trino.sql.iranalyzer.ExpressionTreeUtils.extractExpressions;
 import static io.trino.sql.tree.ProcessingMode.Mode.FINAL;
 import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
@@ -138,7 +138,7 @@ public class LogicalIndexExtractor
                 labels = ImmutableSet.of(irLabel(node.getLabel()));
             }
             valuePointers.add(new ScalarValuePointer(context.withLabels(labels).toLogicalIndexPointer(), referenced));
-            return reallocated.toSymbolReference();
+            return reallocated.toIrSymbolReference();
         }
 
         @Override
@@ -149,7 +149,7 @@ public class LogicalIndexExtractor
             Symbol reallocated = symbolAllocator.newSymbol(Symbol.from(node));
             layout.add(reallocated);
             valuePointers.add(new ScalarValuePointer(context.withLabels(ImmutableSet.of()).toLogicalIndexPointer(), Symbol.from(node)));
-            return reallocated.toSymbolReference();
+            return reallocated.toIrSymbolReference();
         }
 
         @Override
@@ -194,7 +194,7 @@ public class LogicalIndexExtractor
 
                 valuePointers.add(descriptor);
 
-                return aggregationSymbol.toSymbolReference();
+                return aggregationSymbol.toIrSymbolReference();
             }
 
             return super.rewriteFunctionCall(node, context, treeRewriter);
@@ -284,7 +284,7 @@ public class LogicalIndexExtractor
             // pass the new symbol as input symbol. It will be used to identify classifier function.
             valuePointers.add(new ScalarValuePointer(context.withLabels(labels).toLogicalIndexPointer(), classifierSymbol));
             classifierSymbols.add(classifierSymbol);
-            return classifierSymbol.toSymbolReference();
+            return classifierSymbol.toIrSymbolReference();
         }
 
         private Expression rewriteMatchNumberFunction()
@@ -295,7 +295,7 @@ public class LogicalIndexExtractor
             // pass the new symbol as input symbol. It will be used to identify match number function.
             valuePointers.add(new ScalarValuePointer(LogicalIndexContext.DEFAULT.toLogicalIndexPointer(), matchNumberSymbol));
             matchNumberSymbols.add(matchNumberSymbol);
-            return matchNumberSymbol.toSymbolReference();
+            return matchNumberSymbol.toIrSymbolReference();
         }
 
         private IrLabel irLabel(String label)

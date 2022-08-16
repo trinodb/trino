@@ -16,9 +16,8 @@ package io.trino.sql.planner.plan;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Join;
 import io.trino.sql.tree.Node;
 
 import javax.annotation.concurrent.Immutable;
@@ -58,7 +57,7 @@ public class CorrelatedJoinNode
             return joinNodeType;
         }
 
-        public static Type typeConvert(Join.Type joinType)
+        public static Type typeConvert(io.trino.sql.tree.Join.Type joinType)
         {
             switch (joinType) {
                 case CROSS:

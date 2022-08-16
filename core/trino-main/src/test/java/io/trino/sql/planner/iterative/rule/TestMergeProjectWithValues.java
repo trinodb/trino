@@ -15,27 +15,27 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.RowType;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.CharLiteral;
+import io.trino.sql.ir.DoubleLiteral;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CharLiteral;
-import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
@@ -275,8 +275,8 @@ public class TestMergeProjectWithValues
                     Symbol f = p.symbol("f");
                     Assignments.Builder assignments = Assignments.builder();
                     assignments.putIdentity(a); // identity assignment
-                    assignments.put(d, b.toSymbolReference()); // renaming assignment
-                    assignments.put(e, new IsNullPredicate(a.toSymbolReference())); // expression involving input symbol
+                    assignments.put(d, b.toIrSymbolReference()); // renaming assignment
+                    assignments.put(e, new IsNullPredicate(a.toIrSymbolReference())); // expression involving input symbol
                     assignments.put(f, new LongLiteral("1")); // constant expression
                     return p.project(
                             assignments.build(),
@@ -305,8 +305,8 @@ public class TestMergeProjectWithValues
                     Symbol f = p.symbol("f");
                     Assignments.Builder assignments = Assignments.builder();
                     assignments.putIdentity(a); // identity assignment
-                    assignments.put(d, b.toSymbolReference()); // renaming assignment
-                    assignments.put(e, new IsNullPredicate(a.toSymbolReference())); // expression involving input symbol
+                    assignments.put(d, b.toIrSymbolReference()); // renaming assignment
+                    assignments.put(e, new IsNullPredicate(a.toIrSymbolReference())); // expression involving input symbol
                     assignments.put(f, new LongLiteral("1")); // constant expression
                     return p.project(
                             assignments.build(),

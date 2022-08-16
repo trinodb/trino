@@ -16,15 +16,15 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.RowType;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingMetadata;
 import org.testng.annotations.Test;
 
@@ -102,7 +102,7 @@ public class TestPushTopNThroughProject
                     return p.topN(1,
                             ImmutableList.of(a),
                             p.project(
-                                    Assignments.of(a, a.toSymbolReference()),
+                                    Assignments.of(a, a.toIrSymbolReference()),
                                     p.values(a)));
                 }).doesNotFire();
     }
@@ -153,8 +153,8 @@ public class TestPushTopNThroughProject
                             ImmutableList.of(p.symbol("c")),
                             p.project(
                                     Assignments.builder()
-                                            .put(p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("1")))
-                                            .put(p.symbol("c"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("2")))
+                                            .put(p.symbol("b"), new SubscriptExpression(a.toIrSymbolReference(), new LongLiteral("1")))
+                                            .put(p.symbol("c"), new SubscriptExpression(a.toIrSymbolReference(), new LongLiteral("2")))
                                             .build(),
                                     p.values(a)));
                 }).doesNotFire();
@@ -172,9 +172,9 @@ public class TestPushTopNThroughProject
                             ImmutableList.of(d),
                             p.project(
                                     Assignments.builder()
-                                            .put(p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("1")))
-                                            .put(p.symbol("c", rowType), a.toSymbolReference())
-                                            .put(d, d.toSymbolReference())
+                                            .put(p.symbol("b"), new SubscriptExpression(a.toIrSymbolReference(), new LongLiteral("1")))
+                                            .put(p.symbol("c", rowType), a.toIrSymbolReference())
+                                            .put(d, d.toIrSymbolReference())
                                             .build(),
                                     p.values(a, d)));
                 })

@@ -21,6 +21,7 @@ import com.google.common.collect.Sets;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.connector.SortOrder;
+import io.trino.sql.ir.QualifiedName;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
@@ -30,8 +31,6 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.WindowFrame;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -62,7 +61,7 @@ public class TestPruneWindowColumns
     private static final Set<String> inputSymbolNameSet = ImmutableSet.copyOf(inputSymbolNameList);
 
     private static final ExpectedValueProvider<WindowNode.Frame> frameProvider1 = windowFrame(
-            WindowFrame.Type.RANGE,
+            io.trino.sql.tree.WindowFrame.Type.RANGE,
             UNBOUNDED_PRECEDING,
             Optional.of("startValue1"),
             CURRENT_ROW,
@@ -70,7 +69,7 @@ public class TestPruneWindowColumns
             Optional.of("orderKey"));
 
     private static final ExpectedValueProvider<WindowNode.Frame> frameProvider2 = windowFrame(
-            WindowFrame.Type.RANGE,
+            io.trino.sql.tree.WindowFrame.Type.RANGE,
             UNBOUNDED_PRECEDING,
             Optional.of("startValue2"),
             CURRENT_ROW,
@@ -216,32 +215,32 @@ public class TestPruneWindowColumns
                                 output1,
                                 new WindowNode.Function(
                                         MIN_FUNCTION,
-                                        ImmutableList.of(input1.toSymbolReference()),
+                                        ImmutableList.of(input1.toIrSymbolReference()),
                                         new WindowNode.Frame(
-                                                WindowFrame.Type.RANGE,
+                                                io.trino.sql.tree.WindowFrame.Type.RANGE,
                                                 UNBOUNDED_PRECEDING,
                                                 Optional.of(startValue1),
                                                 Optional.of(orderKey),
                                                 CURRENT_ROW,
                                                 Optional.of(endValue1),
                                                 Optional.of(orderKey),
-                                                Optional.of(startValue1.toSymbolReference()),
-                                                Optional.of(endValue2.toSymbolReference())),
+                                                Optional.of(startValue1.toIrSymbolReference()),
+                                                Optional.of(endValue2.toIrSymbolReference())),
                                         false),
                                 output2,
                                 new WindowNode.Function(
                                         MIN_FUNCTION,
-                                        ImmutableList.of(input2.toSymbolReference()),
+                                        ImmutableList.of(input2.toIrSymbolReference()),
                                         new WindowNode.Frame(
-                                                WindowFrame.Type.RANGE,
+                                                io.trino.sql.tree.WindowFrame.Type.RANGE,
                                                 UNBOUNDED_PRECEDING,
                                                 Optional.of(startValue2),
                                                 Optional.of(orderKey),
                                                 CURRENT_ROW,
                                                 Optional.of(endValue2),
                                                 Optional.of(orderKey),
-                                                Optional.of(startValue2.toSymbolReference()),
-                                                Optional.of(endValue2.toSymbolReference())),
+                                                Optional.of(startValue2.toIrSymbolReference()),
+                                                Optional.of(endValue2.toIrSymbolReference())),
                                         false)),
                         hash,
                         p.values(

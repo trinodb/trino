@@ -17,12 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.BindExpression;
+import io.trino.sql.ir.Identifier;
+import io.trino.sql.ir.LambdaArgumentDeclaration;
+import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.tree.BindExpression;
-import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.LambdaArgumentDeclaration;
-import io.trino.sql.tree.LambdaExpression;
 import org.testng.annotations.Test;
 
 import java.util.Map;

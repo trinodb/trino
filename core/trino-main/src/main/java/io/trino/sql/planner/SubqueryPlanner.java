@@ -24,7 +24,7 @@ import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
-import io.trino.sql.analyzer.TypeSignatureTranslator;
+import io.trino.sql.ir.AstToIrExpressionTreeRewriter;
 import io.trino.sql.planner.QueryPlanner.PlanAndMappings;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.Assignments;
@@ -32,7 +32,6 @@ import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
@@ -40,11 +39,9 @@ import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.QuantifiedComparisonExpression.Quantifier;
 import io.trino.sql.tree.Query;
-import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.type.TypeCoercion;
 
@@ -61,10 +58,10 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -186,7 +183,7 @@ class SubqueryPlanner
 
         Expression value = predicate.getValue();
         SubqueryExpression subquery = (SubqueryExpression) predicate.getValueList();
-        Symbol output = symbolAllocator.newSymbol(predicate, BOOLEAN);
+        Symbol output = symbolAllocator.newSymbol(AstToIrExpressionTreeRewriter.copyAstNodeToIrNode(predicate), BOOLEAN);
 
         subPlan = handleSubqueries(subPlan, value, subqueries);
         subPlan = planInPredicate(subPlan, value, subquery, output, predicate, analysis.getPredicateCoercions(predicate));
@@ -219,9 +216,9 @@ class SubqueryPlanner
                         idAllocator.getNextId(),
                         valuePlan.getSubPlan().getRoot(),
                         subqueryPlan.getSubPlan().getRoot(),
-                        Assignments.of(output, new InPredicate(
-                                valuePlan.get(value).toSymbolReference(),
-                                subqueryPlan.get(subquery).toSymbolReference())),
+                        Assignments.of(output, new io.trino.sql.ir.InPredicate(
+                                valuePlan.get(value).toIrSymbolReference(),
+                                subqueryPlan.get(subquery).toIrSymbolReference())),
                         valuePlan.getSubPlan().getRoot().getOutputSymbols(),
                         originalExpression));
     }
@@ -248,15 +245,15 @@ class SubqueryPlanner
         if (descriptor.getVisibleFieldCount() > 1) {
             column = symbolAllocator.newSymbol("row", type);
 
-            ImmutableList.Builder<Expression> fields = ImmutableList.builder();
+            ImmutableList.Builder<io.trino.sql.ir.Expression> fields = ImmutableList.builder();
             for (int i = 0; i < descriptor.getAllFieldCount(); i++) {
                 Field field = descriptor.getFieldByIndex(i);
                 if (!field.isHidden()) {
-                    fields.add(fieldMappings.get(i).toSymbolReference());
+                    fields.add(fieldMappings.get(i).toIrSymbolReference());
                 }
             }
 
-            Expression expression = new Cast(new Row(fields.build()), TypeSignatureTranslator.toSqlType(type));
+            io.trino.sql.ir.Expression expression = new io.trino.sql.ir.Cast(new io.trino.sql.ir.Row(fields.build()), toSqlType(type));
 
             root = new ProjectNode(idAllocator.getNextId(), root, Assignments.of(column, expression));
         }
@@ -273,7 +270,7 @@ class SubqueryPlanner
                 mapAll(cluster, subPlan.getScope(), column));
     }
 
-    public PlanBuilder appendCorrelatedJoin(PlanBuilder subPlan, PlanNode subquery, Query query, CorrelatedJoinNode.Type type, Expression filterCondition, Map<ScopeAware<Expression>, Symbol> mappings)
+    public PlanBuilder appendCorrelatedJoin(PlanBuilder subPlan, PlanNode subquery, Query query, CorrelatedJoinNode.Type type, io.trino.sql.ir.Expression filterCondition, Map<ScopeAware<Expression>, Symbol> mappings)
     {
         return new PlanBuilder(
                 subPlan.getTranslations()
@@ -303,7 +300,7 @@ class SubqueryPlanner
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
                         planSubquery(subquery, subPlan.getTranslations()).getRoot(),
-                        Assignments.of(exists, new ExistsPredicate(TRUE_LITERAL)),
+                        Assignments.of(exists, new io.trino.sql.ir.ExistsPredicate(TRUE_LITERAL)),
                         subPlan.getRoot().getOutputSymbols(),
                         subquery));
     }
@@ -326,7 +323,7 @@ class SubqueryPlanner
 
         subPlan = handleSubqueries(subPlan, value, subqueries);
 
-        Symbol output = symbolAllocator.newSymbol(quantifiedComparison, BOOLEAN);
+        Symbol output = symbolAllocator.newSymbol(TranslationMap.copyAstExpressionToIrExpression(quantifiedComparison), BOOLEAN);
 
         Analysis.PredicateCoercions predicateCoercions = analysis.getPredicateCoercions(quantifiedComparison);
 
@@ -401,7 +398,7 @@ class SubqueryPlanner
                         subPlan.getRoot(),
                         Assignments.builder()
                                 .putIdentities(subPlan.getRoot().getOutputSymbols())
-                                .put(output, new NotExpression(input.toSymbolReference()))
+                                .put(output, new io.trino.sql.ir.NotExpression(input.toIrSymbolReference()))
                                 .build()));
     }
 
@@ -423,11 +420,11 @@ class SubqueryPlanner
                         idAllocator.getNextId(),
                         valuePlan.getSubPlan().getRoot(),
                         subqueryPlan.getSubPlan().getRoot(),
-                        Assignments.of(assignment, new QuantifiedComparisonExpression(
+                        Assignments.of(assignment, new io.trino.sql.ir.QuantifiedComparisonExpression(
                                 operator,
                                 quantifier,
-                                valuePlan.get(value).toSymbolReference(),
-                                subqueryPlan.get(subquery).toSymbolReference())),
+                                valuePlan.get(value).toIrSymbolReference(),
+                                subqueryPlan.get(subquery).toIrSymbolReference())),
                         valuePlan.getSubPlan().getRoot().getOutputSymbols(),
                         subquery));
     }
@@ -444,7 +441,7 @@ class SubqueryPlanner
 
             Assignments assignments = Assignments.builder()
                     .putIdentities(subPlan.getRoot().getOutputSymbols())
-                    .put(wrapped, new Row(ImmutableList.of(column.toSymbolReference())))
+                    .put(wrapped, new io.trino.sql.ir.Row(ImmutableList.of(column.toIrSymbolReference())))
                     .build();
 
             subPlan = subPlan.withNewRoot(new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments));
@@ -471,11 +468,11 @@ class SubqueryPlanner
                 plannerContext);
 
         RelationType descriptor = relationPlan.getDescriptor();
-        ImmutableList.Builder<Expression> fields = ImmutableList.builder();
+        ImmutableList.Builder<io.trino.sql.ir.Expression> fields = ImmutableList.builder();
         for (int i = 0; i < descriptor.getAllFieldCount(); i++) {
             Field field = descriptor.getFieldByIndex(i);
             if (!field.isHidden()) {
-                fields.add(relationPlan.getFieldMappings().get(i).toSymbolReference());
+                fields.add(relationPlan.getFieldMappings().get(i).toIrSymbolReference());
             }
         }
 
@@ -483,7 +480,7 @@ class SubqueryPlanner
                 new ProjectNode(
                         idAllocator.getNextId(),
                         relationPlan.getRoot(),
-                        Assignments.of(column, new Cast(new Row(fields.build()), toSqlType(type)))));
+                        Assignments.of(column, new io.trino.sql.ir.Cast(new io.trino.sql.ir.Row(fields.build()), toSqlType(type)))));
 
         return coerceIfNecessary(subqueryPlan, column, subquery, analysis.getType(subquery), coercion);
     }
@@ -493,12 +490,12 @@ class SubqueryPlanner
         Symbol coerced = symbol;
 
         if (coercion.isPresent()) {
-            coerced = symbolAllocator.newSymbol(value, coercion.get());
+            coerced = symbolAllocator.newSymbol(TranslationMap.copyAstExpressionToIrExpression(value), coercion.get());
 
             Assignments assignments = Assignments.builder()
                     .putIdentities(subPlan.getRoot().getOutputSymbols())
-                    .put(coerced, new Cast(
-                            symbol.toSymbolReference(),
+                    .put(coerced, new io.trino.sql.ir.Cast(
+                            symbol.toIrSymbolReference(),
                             toSqlType(coercion.get()),
                             false,
                             typeCoercion.isTypeOnlyCoercion(type, coercion.get())))

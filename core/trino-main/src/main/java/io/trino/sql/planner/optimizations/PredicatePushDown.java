@@ -26,12 +26,21 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.BetweenPredicate;
+import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.TryExpression;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.EffectivePredicateExtractor;
 import io.trino.sql.planner.EqualityInference;
-import io.trino.sql.planner.ExpressionInterpreter;
-import io.trino.sql.planner.LiteralEncoder;
-import io.trino.sql.planner.NoOpSymbolResolver;
+import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrLiteralEncoder;
+import io.trino.sql.planner.IrNoOpSymbolResolver;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -58,16 +67,7 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.BetweenPredicate;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.TryExpression;
-import io.trino.sql.util.AstUtils;
+import io.trino.sql.util.IrUtils;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -94,20 +94,20 @@ import static io.trino.SystemSessionProperties.isPredicatePushdownUseTableProper
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
-import static io.trino.sql.ExpressionUtils.filterDeterministicConjuncts;
-import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
+import static io.trino.sql.IrExpressionUtils.combineConjuncts;
+import static io.trino.sql.IrExpressionUtils.extractConjuncts;
+import static io.trino.sql.IrExpressionUtils.filterDeterministicConjuncts;
+import static io.trino.sql.IrExpressionUtils.isEffectivelyLiteral;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
-import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
+import static io.trino.sql.planner.iterative.rule.CanonicalizeIrExpressionRewriter.canonicalizeExpression;
 import static io.trino.sql.planner.iterative.rule.UnwrapCastInComparison.unwrapCasts;
 import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -119,7 +119,7 @@ import static java.util.Objects.requireNonNull;
 public class PredicatePushDown
         implements PlanOptimizer
 {
-    private static final Set<ComparisonExpression.Operator> DYNAMIC_FILTERING_SUPPORTED_COMPARISONS = ImmutableSet.of(
+    private static final Set<io.trino.sql.tree.ComparisonExpression.Operator> DYNAMIC_FILTERING_SUPPORTED_COMPARISONS = ImmutableSet.of(
             EQUAL,
             GREATER_THAN,
             GREATER_THAN_OR_EQUAL,
@@ -169,7 +169,7 @@ public class PredicatePushDown
         private final TypeProvider types;
         private final ExpressionEquivalence expressionEquivalence;
         private final boolean dynamicFiltering;
-        private final LiteralEncoder literalEncoder;
+        private final IrLiteralEncoder literalEncoder;
         private final EffectivePredicateExtractor effectivePredicateExtractor;
 
         private Rewriter(
@@ -196,7 +196,7 @@ public class PredicatePushDown
                     new DomainTranslator(plannerContext),
                     plannerContext,
                     useTableProperties && isPredicatePushdownUseTableProperties(session));
-            this.literalEncoder = new LiteralEncoder(plannerContext);
+            this.literalEncoder = new IrLiteralEncoder(plannerContext);
         }
 
         @Override
@@ -220,7 +220,7 @@ public class PredicatePushDown
                 for (int index = 0; index < node.getInputs().get(i).size(); index++) {
                     outputsToInputs.put(
                             node.getOutputSymbols().get(index),
-                            node.getInputs().get(i).get(index).toSymbolReference());
+                            node.getInputs().get(i).get(index).toIrSymbolReference());
                 }
 
                 Expression sourcePredicate = inlineSymbols(outputsToInputs, context.get());
@@ -319,7 +319,7 @@ public class PredicatePushDown
             // TryExpressions should not be pushed down. However they are now being handled as lambda
             // passed to a FunctionCall now and should not affect predicate push down. So we want to make
             // sure the conjuncts are not TryExpressions.
-            verify(AstUtils.preOrder(expression).noneMatch(TryExpression.class::isInstance));
+            verify(IrUtils.preOrder(expression).noneMatch(TryExpression.class::isInstance));
 
             // candidate symbols for inlining are
             //   1. references to simple constants or symbol references
@@ -341,7 +341,7 @@ public class PredicatePushDown
         {
             Map<Symbol, SymbolReference> commonGroupingSymbolMapping = node.getGroupingColumns().entrySet().stream()
                     .filter(entry -> node.getCommonGroupingColumns().contains(entry.getKey()))
-                    .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));
+                    .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toIrSymbolReference()));
 
             Predicate<Expression> pushdownEligiblePredicate = conjunct -> commonGroupingSymbolMapping.keySet().containsAll(extractUnique(conjunct));
 
@@ -492,12 +492,12 @@ public class PredicatePushDown
             Assignments.Builder leftProjections = Assignments.builder();
             leftProjections.putAll(node.getLeft()
                     .getOutputSymbols().stream()
-                    .collect(toImmutableMap(key -> key, Symbol::toSymbolReference)));
+                    .collect(toImmutableMap(key -> key, Symbol::toIrSymbolReference)));
 
             Assignments.Builder rightProjections = Assignments.builder();
             rightProjections.putAll(node.getRight()
                     .getOutputSymbols().stream()
-                    .collect(toImmutableMap(key -> key, Symbol::toSymbolReference)));
+                    .collect(toImmutableMap(key -> key, Symbol::toIrSymbolReference)));
 
             // Create new projections for the new join clauses
             List<JoinNode.EquiJoinClause> equiJoinClauses = new ArrayList<>();
@@ -616,7 +616,7 @@ public class PredicatePushDown
                             equiJoinClauses
                                     .stream()
                                     .map(clause -> new DynamicFilterExpression(
-                                            new ComparisonExpression(EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toSymbolReference()))),
+                                            new ComparisonExpression(EQUAL, clause.getLeft().toIrSymbolReference(), clause.getRight().toIrSymbolReference()))),
                             joinFilterClauses.stream()
                                     .flatMap(Rewriter::tryConvertBetweenIntoComparisons)
                                     .filter(clause -> joinDynamicFilteringExpression(clause, node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols()))
@@ -803,12 +803,12 @@ public class PredicatePushDown
                 Assignments.Builder leftProjections = Assignments.builder();
                 leftProjections.putAll(node.getLeft()
                         .getOutputSymbols().stream()
-                        .collect(toImmutableMap(key -> key, Symbol::toSymbolReference)));
+                        .collect(toImmutableMap(key -> key, Symbol::toIrSymbolReference)));
 
                 Assignments.Builder rightProjections = Assignments.builder();
                 rightProjections.putAll(node.getRight()
                         .getOutputSymbols().stream()
-                        .collect(toImmutableMap(key -> key, Symbol::toSymbolReference)));
+                        .collect(toImmutableMap(key -> key, Symbol::toIrSymbolReference)));
 
                 leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
                 rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
@@ -1222,8 +1222,8 @@ public class PredicatePushDown
         private Expression simplifyExpression(Expression expression)
         {
             Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
-            ExpressionInterpreter optimizer = new ExpressionInterpreter(expression, plannerContext, session, expressionTypes);
-            return literalEncoder.toExpression(session, optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
+            IrExpressionInterpreter optimizer = new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes);
+            return literalEncoder.toExpression(session, optimizer.optimize(IrNoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
         }
 
         private boolean areExpressionsEquivalent(Expression leftExpression, Expression rightExpression)
@@ -1237,8 +1237,8 @@ public class PredicatePushDown
         private Object nullInputEvaluator(Collection<Symbol> nullSymbols, Expression expression)
         {
             Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
-            return new ExpressionInterpreter(expression, plannerContext, session, expressionTypes)
-                    .optimize(symbol -> nullSymbols.contains(symbol) ? null : symbol.toSymbolReference());
+            return new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes)
+                    .optimize(symbol -> nullSymbols.contains(symbol) ? null : symbol.toIrSymbolReference());
         }
 
         private boolean joinEqualityExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols)
@@ -1276,7 +1276,7 @@ public class PredicatePushDown
                     || (comparison.getLeft() instanceof SymbolReference && rightSymbols.contains(Symbol.from(comparison.getLeft())));
         }
 
-        private boolean joinComparisonExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols, Set<ComparisonExpression.Operator> operators)
+        private boolean joinComparisonExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols, Set<io.trino.sql.tree.ComparisonExpression.Operator> operators)
         {
             // At this point in time, our join predicates need to be deterministic
             if (expression instanceof ComparisonExpression && isDeterministic(expression, metadata)) {
@@ -1298,7 +1298,7 @@ public class PredicatePushDown
         public PlanNode visitSemiJoin(SemiJoinNode node, RewriteContext<Expression> context)
         {
             Expression inheritedPredicate = context.get();
-            if (!extractConjuncts(inheritedPredicate).contains(node.getSemiJoinOutput().toSymbolReference())) {
+            if (!extractConjuncts(inheritedPredicate).contains(node.getSemiJoinOutput().toIrSymbolReference())) {
                 return visitNonFilteringSemiJoin(node, context);
             }
             return visitFilteringSemiJoin(node, context);
@@ -1364,8 +1364,8 @@ public class PredicatePushDown
             Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(metadata, effectivePredicateExtractor.extract(session, node.getFilteringSource(), types, typeAnalyzer));
             Expression joinExpression = new ComparisonExpression(
                     EQUAL,
-                    node.getSourceJoinSymbol().toSymbolReference(),
-                    node.getFilteringSourceJoinSymbol().toSymbolReference());
+                    node.getSourceJoinSymbol().toIrSymbolReference(),
+                    node.getFilteringSourceJoinSymbol().toIrSymbolReference());
 
             List<Symbol> sourceSymbols = node.getSource().getOutputSymbols();
             List<Symbol> filteringSourceSymbols = node.getFilteringSource().getOutputSymbols();
@@ -1430,7 +1430,7 @@ public class PredicatePushDown
                         metadata,
                         dynamicFilterId.get(),
                         symbolAllocator.getTypes().get(sourceSymbol),
-                        sourceSymbol.toSymbolReference(),
+                        sourceSymbol.toIrSymbolReference(),
                         EQUAL));
             }
 

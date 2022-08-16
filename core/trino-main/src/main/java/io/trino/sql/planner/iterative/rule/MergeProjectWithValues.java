@@ -21,14 +21,14 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.HashSet;
 import java.util.List;
@@ -177,7 +177,7 @@ public class MergeProjectWithValues
     {
         ImmutableMap.Builder<SymbolReference, Expression> mappingBuilder = ImmutableMap.builder();
         for (int i = 0; i < row.getItems().size(); i++) {
-            mappingBuilder.put(symbols.get(i).toSymbolReference(), row.getItems().get(i));
+            mappingBuilder.put(symbols.get(i).toIrSymbolReference(), row.getItems().get(i));
         }
         return mappingBuilder.buildOrThrow();
     }

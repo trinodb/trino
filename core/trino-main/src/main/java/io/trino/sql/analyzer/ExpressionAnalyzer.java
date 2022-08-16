@@ -60,6 +60,7 @@ import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
 import io.trino.sql.analyzer.PatternRecognitionAnalyzer.PatternRecognitionAnalysis;
 import io.trino.sql.planner.LiteralInterpreter;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
@@ -1207,7 +1208,7 @@ public class ExpressionAnalyzer
         protected Type visitFunctionCall(FunctionCall node, StackableAstVisitorContext<Context> context)
         {
             boolean isRowPatternCount = context.getContext().isPatternRecognition() &&
-                    plannerContext.getMetadata().isAggregationFunction(session, node.getName()) &&
+                    plannerContext.getMetadata().isAggregationFunction(session, TranslationMap.convertQualifiedName(node.getName())) &&
                     node.getName().getSuffix().equalsIgnoreCase("count");
             // argument of the form `label.*` is only allowed for row pattern count function
             node.getArguments().stream()
@@ -1221,7 +1222,8 @@ public class ExpressionAnalyzer
             if (context.getContext().isPatternRecognition() && isPatternRecognitionFunction(node)) {
                 return analyzePatternRecognitionFunction(node, context);
             }
-            if (context.getContext().isPatternRecognition() && plannerContext.getMetadata().isAggregationFunction(session, node.getName())) {
+            if (context.getContext().isPatternRecognition() && plannerContext.getMetadata().isAggregationFunction(session,
+                    TranslationMap.convertQualifiedName(node.getName()))) {
                 analyzePatternAggregation(node);
                 patternAggregations.add(NodeRef.of(node));
             }
@@ -1230,7 +1232,7 @@ public class ExpressionAnalyzer
                 if (!context.getContext().isPatternRecognition()) {
                     throw semanticException(INVALID_PROCESSING_MODE, processingMode, "%s semantics is not supported out of pattern recognition context", processingMode.getMode());
                 }
-                if (!plannerContext.getMetadata().isAggregationFunction(session, node.getName())) {
+                if (!plannerContext.getMetadata().isAggregationFunction(session, TranslationMap.convertQualifiedName(node.getName()))) {
                     throw semanticException(INVALID_PROCESSING_MODE, processingMode, "%s semantics is supported only for FIRST(), LAST() and aggregation functions. Actual: %s", processingMode.getMode(), node.getName());
                 }
             }
@@ -1243,7 +1245,7 @@ public class ExpressionAnalyzer
                 windowFunctions.add(NodeRef.of(node));
             }
             else {
-                if (node.isDistinct() && !plannerContext.getMetadata().isAggregationFunction(session, node.getName())) {
+                if (node.isDistinct() && !plannerContext.getMetadata().isAggregationFunction(session, TranslationMap.convertQualifiedName(node.getName()))) {
                     throw semanticException(FUNCTION_NOT_AGGREGATE, node, "DISTINCT is not supported for non-aggregation functions");
                 }
             }
@@ -1268,13 +1270,13 @@ public class ExpressionAnalyzer
             }
 
             // must run after arguments are processed and labels are recorded
-            if (context.getContext().isPatternRecognition() && plannerContext.getMetadata().isAggregationFunction(session, node.getName())) {
+            if (context.getContext().isPatternRecognition() && plannerContext.getMetadata().isAggregationFunction(session, TranslationMap.convertQualifiedName(node.getName()))) {
                 validateAggregationLabelConsistency(node);
             }
 
             ResolvedFunction function;
             try {
-                function = plannerContext.getMetadata().resolveFunction(session, node.getName(), argumentTypes);
+                function = plannerContext.getMetadata().resolveFunction(session, TranslationMap.convertQualifiedName(node.getName()), argumentTypes);
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
@@ -1956,7 +1958,7 @@ public class ExpressionAnalyzer
         private void checkNoNestedAggregations(FunctionCall node)
         {
             extractExpressions(node.getArguments(), FunctionCall.class).stream()
-                    .filter(function -> plannerContext.getMetadata().isAggregationFunction(session, function.getName()))
+                    .filter(function -> plannerContext.getMetadata().isAggregationFunction(session, TranslationMap.convertQualifiedName(function.getName())))
                     .findFirst()
                     .ifPresent(aggregation -> {
                         throw semanticException(
@@ -2036,7 +2038,7 @@ public class ExpressionAnalyzer
             List<Type> actualTypes = argumentTypes.build();
 
             String functionName = node.getSpecification().getFunctionName();
-            ResolvedFunction function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(functionName), fromTypes(actualTypes));
+            ResolvedFunction function = plannerContext.getMetadata().resolveFunction(session, io.trino.sql.ir.QualifiedName.of(functionName), fromTypes(actualTypes));
 
             List<Type> expectedTypes = function.getSignature().getArgumentTypes();
             checkState(expectedTypes.size() == actualTypes.size(), "wrong argument number in the resolved signature");
@@ -2071,7 +2073,7 @@ public class ExpressionAnalyzer
 
             for (int i = 1; i < arguments.size(); i++) {
                 try {
-                    plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(FormatFunction.NAME), fromTypes(arguments.get(0), RowType.anonymous(arguments.subList(1, arguments.size()))));
+                    plannerContext.getMetadata().resolveFunction(session, io.trino.sql.ir.QualifiedName.of(FormatFunction.NAME), fromTypes(arguments.get(0), RowType.anonymous(arguments.subList(1, arguments.size()))));
                 }
                 catch (TrinoException e) {
                     ErrorCode errorCode = e.getErrorCode();
@@ -2565,7 +2567,7 @@ public class ExpressionAnalyzer
             // resolve function
             ResolvedFunction function;
             try {
-                function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(JSON_EXISTS_FUNCTION_NAME), fromTypes(argumentTypes));
+                function = plannerContext.getMetadata().resolveFunction(session, io.trino.sql.ir.QualifiedName.of(JSON_EXISTS_FUNCTION_NAME), fromTypes(argumentTypes));
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
@@ -2649,7 +2651,7 @@ public class ExpressionAnalyzer
             // resolve function
             ResolvedFunction function;
             try {
-                function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(JSON_VALUE_FUNCTION_NAME), fromTypes(argumentTypes));
+                function = plannerContext.getMetadata().resolveFunction(session, io.trino.sql.ir.QualifiedName.of(JSON_VALUE_FUNCTION_NAME), fromTypes(argumentTypes));
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
@@ -2687,7 +2689,7 @@ public class ExpressionAnalyzer
             // resolve function
             ResolvedFunction function;
             try {
-                function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(JSON_QUERY_FUNCTION_NAME), fromTypes(argumentTypes));
+                function = plannerContext.getMetadata().resolveFunction(session, io.trino.sql.ir.QualifiedName.of(JSON_QUERY_FUNCTION_NAME), fromTypes(argumentTypes));
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
@@ -2866,7 +2868,7 @@ public class ExpressionAnalyzer
                     throw new UnsupportedOperationException("Unexpected format: " + format);
             }
             try {
-                return plannerContext.getMetadata().resolveFunction(session, name, fromTypes(type, BOOLEAN));
+                return plannerContext.getMetadata().resolveFunction(session, TranslationMap.convertQualifiedName(name), fromTypes(type, BOOLEAN));
             }
             catch (TrinoException e) {
                 throw new TrinoException(TYPE_MISMATCH, extractLocation(node), format("Cannot read input of type %s as JSON using formatting %s", type, format), e);
@@ -2910,7 +2912,7 @@ public class ExpressionAnalyzer
                     throw new UnsupportedOperationException("Unexpected format: " + format);
             }
             try {
-                return plannerContext.getMetadata().resolveFunction(session, name, fromTypes(JSON_2016, TINYINT, BOOLEAN));
+                return plannerContext.getMetadata().resolveFunction(session, TranslationMap.convertQualifiedName(name), fromTypes(JSON_2016, TINYINT, BOOLEAN));
             }
             catch (TrinoException e) {
                 throw new TrinoException(TYPE_MISMATCH, extractLocation(node), format("Cannot output JSON value as %s using formatting %s", type, format), e);
@@ -3003,7 +3005,7 @@ public class ExpressionAnalyzer
             List<Type> argumentTypes = ImmutableList.of(keysRowType, valuesRowType, BOOLEAN, BOOLEAN);
             ResolvedFunction function;
             try {
-                function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(JSON_OBJECT_FUNCTION_NAME), fromTypes(argumentTypes));
+                function = plannerContext.getMetadata().resolveFunction(session, io.trino.sql.ir.QualifiedName.of(JSON_OBJECT_FUNCTION_NAME), fromTypes(argumentTypes));
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
@@ -3114,7 +3116,7 @@ public class ExpressionAnalyzer
             List<Type> argumentTypes = ImmutableList.of(elementsRowType, BOOLEAN);
             ResolvedFunction function;
             try {
-                function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(JSON_ARRAY_FUNCTION_NAME), fromTypes(argumentTypes));
+                function = plannerContext.getMetadata().resolveFunction(session, io.trino.sql.ir.QualifiedName.of(JSON_ARRAY_FUNCTION_NAME), fromTypes(argumentTypes));
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {

@@ -14,16 +14,17 @@
 package io.trino.sql.planner.iterative.rule;
 
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolsExtractor;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.planner.TranslationMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -38,9 +39,9 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.sql.ExpressionUtils.extractPredicates;
-import static io.trino.sql.ExpressionUtils.logicalExpression;
-import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.trino.sql.IrExpressionUtils.extractPredicates;
+import static io.trino.sql.IrExpressionUtils.logicalExpression;
+import static io.trino.sql.IrExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
@@ -257,7 +258,8 @@ public class TestSimplifyExpressions
 
     private static void assertSimplifies(@Language("SQL") String expression, @Language("SQL") String expected)
     {
-        Expression expectedExpression = normalize(rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, new ParsingOptions())));
+        Expression expectedExpression = normalize(rewriteIdentifiersToSymbolReferences(
+                TranslationMap.copyAstExpressionToIrExpression(SQL_PARSER.createExpression(expected, new ParsingOptions()))));
         assertEquals(
                 simplify(expression),
                 expectedExpression);
@@ -265,7 +267,8 @@ public class TestSimplifyExpressions
 
     private static Expression simplify(@Language("SQL") String expression)
     {
-        Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression, new ParsingOptions()));
+        Expression actualExpression = rewriteIdentifiersToSymbolReferences(
+                TranslationMap.copyAstExpressionToIrExpression(SQL_PARSER.createExpression(expression, new ParsingOptions())));
         return normalize(rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(booleanSymbolTypeMapFor(actualExpression)), PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)));
     }
 
@@ -340,8 +343,10 @@ public class TestSimplifyExpressions
     private static void assertSimplifiesNumericTypes(String expression, String expected)
     {
         ParsingOptions parsingOptions = new ParsingOptions();
-        Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression, parsingOptions));
-        Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, parsingOptions));
+        Expression actualExpression = rewriteIdentifiersToSymbolReferences(
+                TranslationMap.copyAstExpressionToIrExpression(SQL_PARSER.createExpression(expression, parsingOptions)));
+        Expression expectedExpression = rewriteIdentifiersToSymbolReferences(
+                TranslationMap.copyAstExpressionToIrExpression(SQL_PARSER.createExpression(expected, parsingOptions)));
         Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(numericAndBooleanSymbolTypeMapFor(actualExpression)), PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT));
         assertEquals(
                 normalize(rewritten),

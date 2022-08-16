@@ -17,16 +17,16 @@ import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.tree.Expression;
 
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
+import static io.trino.sql.IrExpressionUtils.combineConjuncts;
 import static java.util.Objects.requireNonNull;
 
 final class FilterMatcher

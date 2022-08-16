@@ -16,13 +16,13 @@ package io.trino.sql.planner.iterative.rule;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.DoubleLiteral;
+import io.trino.sql.ir.QualifiedName;
 import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.SampleNode;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.QualifiedName;
 
 import static io.trino.sql.planner.plan.Patterns.Sample.sampleType;
 import static io.trino.sql.planner.plan.Patterns.sample;
@@ -66,7 +66,7 @@ public class ImplementBernoulliSampleAsFilter
                 sample.getId(),
                 sample.getSource(),
                 new ComparisonExpression(
-                        ComparisonExpression.Operator.LESS_THAN,
+                        io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN,
                         FunctionCallBuilder.resolve(context.getSession(), metadata)
                                 .setName(QualifiedName.of("rand"))
                                 .build(),

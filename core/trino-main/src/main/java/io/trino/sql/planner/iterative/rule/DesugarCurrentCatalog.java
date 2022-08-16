@@ -15,11 +15,11 @@ package io.trino.sql.planner.iterative.rule;
 
 import io.trino.Session;
 import io.trino.metadata.Metadata;
-import io.trino.sql.tree.CurrentCatalog;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.ir.CurrentCatalog;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.QualifiedName;
 
 import static io.trino.sql.planner.FunctionCallBuilder.resolve;
 
@@ -38,7 +38,7 @@ public class DesugarCurrentCatalog
 
     private static Expression rewriteCurrentCatalog(Session session, Metadata metadata, Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new io.trino.sql.tree.ExpressionRewriter<>()
+        return ExpressionTreeRewriter.rewriteWith(new io.trino.sql.ir.ExpressionRewriter<>()
         {
             @Override
             public Expression rewriteCurrentCatalog(CurrentCatalog node, Void context, ExpressionTreeRewriter<Void> treeRewriter)

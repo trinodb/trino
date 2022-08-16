@@ -20,12 +20,12 @@ import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.QualifiedName;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.ConstantExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.relational.optimizer.ExpressionOptimizer;
-import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;

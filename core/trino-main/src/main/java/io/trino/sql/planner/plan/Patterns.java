@@ -15,10 +15,10 @@ package io.trino.sql.planner.plan;
 
 import io.trino.matching.Pattern;
 import io.trino.matching.Property;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.CorrelatedJoinNode.Type;
-import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
 
 import java.util.List;

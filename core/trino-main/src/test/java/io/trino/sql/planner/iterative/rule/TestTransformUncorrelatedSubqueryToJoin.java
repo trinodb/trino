@@ -15,15 +15,16 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.JoinNode;
-import io.trino.sql.tree.ComparisonExpression;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -31,7 +32,6 @@ import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.FULL;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static java.util.Collections.emptyList;
 
@@ -51,8 +51,8 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             INNER,
                             new ComparisonExpression(
                                     GREATER_THAN,
-                                    b.toSymbolReference(),
-                                    a.toSymbolReference()),
+                                    b.toIrSymbolReference(),
+                                    a.toIrSymbolReference()),
                             p.values(b));
                 })
                 .matches(
@@ -77,8 +77,8 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             LEFT,
                             new ComparisonExpression(
                                     GREATER_THAN,
-                                    b.toSymbolReference(),
-                                    a.toSymbolReference()),
+                                    b.toIrSymbolReference(),
+                                    a.toIrSymbolReference()),
                             p.values(b));
                 })
                 .matches(
@@ -122,8 +122,8 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             RIGHT,
                             new ComparisonExpression(
                                     GREATER_THAN,
-                                    b.toSymbolReference(),
-                                    a.toSymbolReference()),
+                                    b.toIrSymbolReference(),
+                                    a.toIrSymbolReference()),
                             p.values(b));
                 })
                 .matches(
@@ -171,8 +171,8 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             FULL,
                             new ComparisonExpression(
                                     GREATER_THAN,
-                                    b.toSymbolReference(),
-                                    a.toSymbolReference()),
+                                    b.toIrSymbolReference(),
+                                    a.toIrSymbolReference()),
                             p.values(b));
                 })
                 .doesNotFire();

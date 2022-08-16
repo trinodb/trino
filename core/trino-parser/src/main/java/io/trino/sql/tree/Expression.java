@@ -13,7 +13,7 @@
  */
 package io.trino.sql.tree;
 
-import io.trino.sql.ExpressionFormatter;
+import io.trino.sql.AstExpressionFormatter;
 
 import java.util.Optional;
 
@@ -37,6 +37,6 @@ public abstract class Expression
     @Override
     public final String toString()
     {
-        return ExpressionFormatter.formatExpression(this);
+        return AstExpressionFormatter.formatExpression(this);
     }
 }

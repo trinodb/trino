@@ -70,7 +70,7 @@ public class GroupIdMatcher
             return NO_MATCH;
         }
 
-        return match(groupIdSymbol, groupIdNode.getGroupIdSymbol().toSymbolReference());
+        return match(groupIdSymbol, groupIdNode.getGroupIdSymbol().toIrSymbolReference());
     }
 
     @Override

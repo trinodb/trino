@@ -21,8 +21,9 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import io.trino.sql.ExpressionUtils;
+import io.trino.sql.IrExpressionUtils;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import io.trino.sql.planner.Symbol;
@@ -31,7 +32,6 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.Expression;
 
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -138,7 +138,7 @@ public class PushPredicateThroughProjectIntoRowNumber
         }
         // Remove the row number domain because it is absorbed into the node
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rowNumberSymbol));
-        Expression newPredicate = ExpressionUtils.combineConjuncts(
+        Expression newPredicate = IrExpressionUtils.combineConjuncts(
                 plannerContext.getMetadata(),
                 extractionResult.getRemainingExpression(),
                 new DomainTranslator(plannerContext).toPredicate(context.getSession(), newTupleDomain));

@@ -13,8 +13,8 @@
  */
 package io.trino.sql.planner;
 
-import io.trino.sql.tree.Expression;
-import io.trino.sql.util.AstUtils;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.util.IrUtils;
 
 import java.util.stream.Stream;
 
@@ -27,7 +27,7 @@ public final class SubExpressionExtractor
 
     public static Stream<Expression> extract(Expression expression)
     {
-        return AstUtils.preOrder(expression)
+        return IrUtils.preOrder(expression)
                 .filter(Expression.class::isInstance)
                 .map(Expression.class::cast);
     }

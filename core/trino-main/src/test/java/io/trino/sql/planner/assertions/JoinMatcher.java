@@ -18,15 +18,15 @@ import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NotExpression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.JoinNode.DistributionType;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NotExpression;
 
 import java.util.HashSet;
 import java.util.List;
@@ -161,10 +161,10 @@ final class JoinMatcher
             }
             Expression expression;
             if (descriptor.isNullAllowed()) {
-                expression = new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, probe, build.toSymbolReference()));
+                expression = new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, probe, build.toIrSymbolReference()));
             }
             else {
-                expression = new ComparisonExpression(descriptor.getOperator(), probe, build.toSymbolReference());
+                expression = new ComparisonExpression(descriptor.getOperator(), probe, build.toIrSymbolReference());
             }
             actual.add(expression);
         }

@@ -21,6 +21,11 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -32,11 +37,6 @@ import io.trino.sql.planner.plan.SetOperationNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.plan.WindowNode.Specification;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
@@ -48,10 +48,10 @@ import static com.google.common.collect.Iterables.concat;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static io.trino.sql.tree.WindowFrame.Type.ROWS;
@@ -174,7 +174,7 @@ public class SetOperationNodeTranslator
             Symbol output = aggregationOutputs.get(i);
             aggregations.put(output, new AggregationNode.Aggregation(
                     countFunction,
-                    ImmutableList.of(markers.get(i).toSymbolReference()),
+                    ImmutableList.of(markers.get(i).toIrSymbolReference()),
                     false,
                     Optional.empty(),
                     Optional.empty(),
@@ -196,7 +196,7 @@ public class SetOperationNodeTranslator
             Symbol output = countOutputs.get(i);
             functions.put(output, new WindowNode.Function(
                     countFunction,
-                    ImmutableList.of(markers.get(i).toSymbolReference()),
+                    ImmutableList.of(markers.get(i).toIrSymbolReference()),
                     defaultFrame,
                     false));
         }

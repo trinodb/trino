@@ -15,12 +15,12 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.RowType;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.QuantifiedComparisonExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.QuantifiedComparisonExpression;
-import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
 import java.util.List;

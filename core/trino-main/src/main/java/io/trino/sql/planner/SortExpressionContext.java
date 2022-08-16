@@ -14,7 +14,7 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.tree.Expression;
+import io.trino.sql.ir.Expression;
 
 import java.util.List;
 import java.util.Objects;

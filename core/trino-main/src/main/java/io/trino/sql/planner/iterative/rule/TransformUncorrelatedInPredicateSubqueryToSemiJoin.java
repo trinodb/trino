@@ -15,12 +15,12 @@ package io.trino.sql.planner.iterative.rule;
 
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.InPredicate;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.InPredicate;
 
 import java.util.Optional;
 

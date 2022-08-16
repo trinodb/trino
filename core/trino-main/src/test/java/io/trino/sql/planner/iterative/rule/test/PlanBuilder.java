@@ -47,6 +47,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TestingConnectorIndexHandle;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
 import io.trino.sql.planner.TestingWriterTarget;
+import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
@@ -105,16 +106,12 @@ import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.plan.WindowNode.Specification;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.Row;
 import io.trino.testing.TestingHandle;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.TestingTableExecuteHandle;
 import io.trino.testing.TestingTransactionHandle;
-import org.intellij.lang.annotations.Language;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -134,10 +131,10 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.util.MoreLists.nElements;
 import static java.lang.String.format;
@@ -235,20 +232,20 @@ public class PlanBuilder
         return values(
                 id,
                 ImmutableList.copyOf(columns),
-                nElements(rows, row -> nElements(columns.length, cell -> new NullLiteral())));
+                nElements(rows, row -> nElements(columns.length, cell -> new io.trino.sql.ir.NullLiteral())));
     }
 
-    public ValuesNode values(List<Symbol> columns, List<List<Expression>> rows)
+    public ValuesNode values(List<Symbol> columns, List<List<io.trino.sql.ir.Expression>> rows)
     {
         return values(idAllocator.getNextId(), columns, rows);
     }
 
-    public ValuesNode values(PlanNodeId id, List<Symbol> columns, List<List<Expression>> rows)
+    public ValuesNode values(PlanNodeId id, List<Symbol> columns, List<List<io.trino.sql.ir.Expression>> rows)
     {
-        return new ValuesNode(id, columns, rows.stream().map(Row::new).collect(toImmutableList()));
+        return new ValuesNode(id, columns, rows.stream().map(io.trino.sql.ir.Row::new).collect(toImmutableList()));
     }
 
-    public ValuesNode valuesOfExpressions(List<Symbol> columns, List<Expression> rows)
+    public ValuesNode valuesOfExpressions(List<Symbol> columns, List<io.trino.sql.ir.Expression> rows)
     {
         return new ValuesNode(idAllocator.getNextId(), columns, rows);
     }
@@ -349,12 +346,12 @@ public class PlanBuilder
         return new MarkDistinctNode(idAllocator.getNextId(), source, markerSymbol, distinctSymbols, Optional.of(hashSymbol));
     }
 
-    public FilterNode filter(Expression predicate, PlanNode source)
+    public FilterNode filter(io.trino.sql.ir.Expression predicate, PlanNode source)
     {
         return filter(idAllocator.getNextId(), predicate, source);
     }
 
-    public FilterNode filter(PlanNodeId planNodeId, Expression predicate, PlanNode source)
+    public FilterNode filter(PlanNodeId planNodeId, io.trino.sql.ir.Expression predicate, PlanNode source)
     {
         return new FilterNode(planNodeId, source, predicate);
     }
@@ -415,20 +412,20 @@ public class PlanBuilder
             return this;
         }
 
-        public AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes)
+        public AggregationBuilder addAggregation(Symbol output, io.trino.sql.ir.Expression expression, List<Type> inputTypes)
         {
             return addAggregation(output, expression, inputTypes, Optional.empty());
         }
 
-        public AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes, Symbol mask)
+        public AggregationBuilder addAggregation(Symbol output, io.trino.sql.ir.Expression expression, List<Type> inputTypes, Symbol mask)
         {
             return addAggregation(output, expression, inputTypes, Optional.of(mask));
         }
 
-        private AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes, Optional<Symbol> mask)
+        private AggregationBuilder addAggregation(Symbol output, io.trino.sql.ir.Expression expression, List<Type> inputTypes, Optional<Symbol> mask)
         {
-            checkArgument(expression instanceof FunctionCall);
-            FunctionCall aggregation = (FunctionCall) expression;
+            checkArgument(expression instanceof io.trino.sql.ir.FunctionCall);
+            io.trino.sql.ir.FunctionCall aggregation = (io.trino.sql.ir.FunctionCall) expression;
             ResolvedFunction resolvedFunction = metadata.resolveFunction(session, aggregation.getName(), TypeSignatureProvider.fromTypes(inputTypes));
             return addAggregation(output, new Aggregation(
                     resolvedFunction,
@@ -526,7 +523,7 @@ public class PlanBuilder
         return correlatedJoin(correlation, input, CorrelatedJoinNode.Type.INNER, TRUE_LITERAL, subquery);
     }
 
-    public CorrelatedJoinNode correlatedJoin(List<Symbol> correlation, PlanNode input, CorrelatedJoinNode.Type type, Expression filter, PlanNode subquery)
+    public CorrelatedJoinNode correlatedJoin(List<Symbol> correlation, PlanNode input, CorrelatedJoinNode.Type type, io.trino.sql.ir.Expression filter, PlanNode subquery)
     {
         NullLiteral originSubquery = new NullLiteral(); // does not matter for tests
         return new CorrelatedJoinNode(idAllocator.getNextId(), input, subquery, correlation, type, filter, originSubquery);
@@ -1027,12 +1024,12 @@ public class PlanBuilder
         return join(joinType, left, right, Optional.empty(), criteria);
     }
 
-    public JoinNode join(JoinNode.Type joinType, PlanNode left, PlanNode right, Expression filter, JoinNode.EquiJoinClause... criteria)
+    public JoinNode join(JoinNode.Type joinType, PlanNode left, PlanNode right, io.trino.sql.ir.Expression filter, JoinNode.EquiJoinClause... criteria)
     {
         return join(joinType, left, right, Optional.of(filter), criteria);
     }
 
-    private JoinNode join(JoinNode.Type joinType, PlanNode left, PlanNode right, Optional<Expression> filter, JoinNode.EquiJoinClause... criteria)
+    private JoinNode join(JoinNode.Type joinType, PlanNode left, PlanNode right, Optional<io.trino.sql.ir.Expression> filter, JoinNode.EquiJoinClause... criteria)
     {
         return join(
                 joinType,
@@ -1047,7 +1044,7 @@ public class PlanBuilder
                 ImmutableMap.of());
     }
 
-    public JoinNode join(JoinNode.Type type, PlanNode left, PlanNode right, List<JoinNode.EquiJoinClause> criteria, List<Symbol> leftOutputSymbols, List<Symbol> rightOutputSymbols, Optional<Expression> filter)
+    public JoinNode join(JoinNode.Type type, PlanNode left, PlanNode right, List<JoinNode.EquiJoinClause> criteria, List<Symbol> leftOutputSymbols, List<Symbol> rightOutputSymbols, Optional<io.trino.sql.ir.Expression> filter)
     {
         return join(type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, Optional.empty(), Optional.empty());
     }
@@ -1059,7 +1056,7 @@ public class PlanBuilder
             List<JoinNode.EquiJoinClause> criteria,
             List<Symbol> leftOutputSymbols,
             List<Symbol> rightOutputSymbols,
-            Optional<Expression> filter,
+            Optional<io.trino.sql.ir.Expression> filter,
             Optional<Symbol> leftHashSymbol,
             Optional<Symbol> rightHashSymbol)
     {
@@ -1073,7 +1070,7 @@ public class PlanBuilder
             List<JoinNode.EquiJoinClause> criteria,
             List<Symbol> leftOutputSymbols,
             List<Symbol> rightOutputSymbols,
-            Optional<Expression> filter,
+            Optional<io.trino.sql.ir.Expression> filter,
             Optional<Symbol> leftHashSymbol,
             Optional<Symbol> rightHashSymbol,
             Map<DynamicFilterId, Symbol> dynamicFilters)
@@ -1088,7 +1085,7 @@ public class PlanBuilder
             List<JoinNode.EquiJoinClause> criteria,
             List<Symbol> leftOutputSymbols,
             List<Symbol> rightOutputSymbols,
-            Optional<Expression> filter,
+            Optional<io.trino.sql.ir.Expression> filter,
             Optional<Symbol> leftHashSymbol,
             Optional<Symbol> rightHashSymbol,
             Optional<JoinNode.DistributionType> distributionType,
@@ -1140,7 +1137,7 @@ public class PlanBuilder
             PlanNode left,
             PlanNode right,
             List<Symbol> outputSymbols,
-            Expression filter)
+            io.trino.sql.ir.Expression filter)
     {
         return spatialJoin(type, left, right, outputSymbols, filter, Optional.empty(), Optional.empty(), Optional.empty());
     }
@@ -1150,7 +1147,7 @@ public class PlanBuilder
             PlanNode left,
             PlanNode right,
             List<Symbol> outputSymbols,
-            Expression filter,
+            io.trino.sql.ir.Expression filter,
             Optional<Symbol> leftPartitionSymbol,
             Optional<Symbol> rightPartitionSymbol,
             Optional<String> kdbTree)
@@ -1291,10 +1288,10 @@ public class PlanBuilder
         return new StatisticAggregations(aggregations, groupingSymbols);
     }
 
-    public Aggregation aggregation(Expression expression, List<Type> inputTypes)
+    public Aggregation aggregation(io.trino.sql.ir.Expression expression, List<Type> inputTypes)
     {
-        checkArgument(expression instanceof FunctionCall);
-        FunctionCall aggregation = (FunctionCall) expression;
+        checkArgument(expression instanceof io.trino.sql.ir.FunctionCall);
+        io.trino.sql.ir.FunctionCall aggregation = (io.trino.sql.ir.FunctionCall) expression;
         ResolvedFunction resolvedFunction = metadata.resolveFunction(session, aggregation.getName(), TypeSignatureProvider.fromTypes(inputTypes));
         return new Aggregation(
                 resolvedFunction,
@@ -1331,7 +1328,7 @@ public class PlanBuilder
         return unnest(replicateSymbols, mappings, Optional.empty(), INNER, Optional.empty(), source);
     }
 
-    public UnnestNode unnest(List<Symbol> replicateSymbols, List<UnnestNode.Mapping> mappings, Optional<Symbol> ordinalitySymbol, JoinNode.Type type, Optional<Expression> filter, PlanNode source)
+    public UnnestNode unnest(List<Symbol> replicateSymbols, List<UnnestNode.Mapping> mappings, Optional<Symbol> ordinalitySymbol, JoinNode.Type type, Optional<io.trino.sql.ir.Expression> filter, PlanNode source)
     {
         return new UnnestNode(
                 idAllocator.getNextId(),
@@ -1414,12 +1411,12 @@ public class PlanBuilder
         return new RemoteSourceNode(idAllocator.getNextId(), sourceFragmentIds, outputs, orderingScheme, exchangeType, retryPolicy);
     }
 
-    public static Expression expression(@Language("SQL") String sql)
+    public static io.trino.sql.ir.Expression expression(String sql)
     {
-        return ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql, new ParsingOptions()));
+        return TranslationMap.copyAstExpressionToIrExpression(ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql, new ParsingOptions())));
     }
 
-    public static List<Expression> expressions(@Language("SQL") String... expressions)
+    public static List<io.trino.sql.ir.Expression> expressions(String... expressions)
     {
         return Stream.of(expressions)
                 .map(PlanBuilder::expression)

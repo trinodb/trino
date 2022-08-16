@@ -20,7 +20,7 @@ import io.trino.geospatial.serde.GeometrySerde;
 import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.plugin.geospatial.GeoPlugin;
 import io.trino.spi.Page;
-import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.ir.QualifiedName;
 import org.testng.annotations.BeforeClass;
 
 import java.util.Arrays;

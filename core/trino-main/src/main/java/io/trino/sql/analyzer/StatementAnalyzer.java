@@ -110,11 +110,11 @@ import io.trino.sql.analyzer.PatternRecognitionAnalyzer.PatternRecognitionAnalys
 import io.trino.sql.analyzer.Scope.AsteriskedIdentifierChainBasis;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.DeterminismEvaluator;
+import io.trino.sql.planner.AstDeterminismEvaluator;
+import io.trino.sql.planner.AstSymbolsExtractor;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.ScopeAware;
-import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AliasedRelation;
@@ -362,7 +362,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-class StatementAnalyzer
+public class StatementAnalyzer
 {
     private static final Set<String> WINDOW_VALUE_FUNCTIONS = ImmutableSet.of("lead", "lag", "first_value", "last_value", "nth_value");
 
@@ -2393,7 +2393,7 @@ class StatementAnalyzer
         protected Scope visitSampledRelation(SampledRelation relation, Optional<Scope> scope)
         {
             Expression samplePercentage = relation.getSamplePercentage();
-            if (!SymbolsExtractor.extractNames(samplePercentage, analysis.getColumnReferences()).isEmpty()) {
+            if (!AstSymbolsExtractor.extractNames(samplePercentage, analysis.getColumnReferences()).isEmpty()) {
                 throw semanticException(EXPRESSION_NOT_CONSTANT, samplePercentage, "Sample percentage cannot contain column references");
             }
 
@@ -3420,7 +3420,7 @@ class StatementAnalyzer
 
                 List<Type> argumentTypes = mappedCopy(windowFunction.getArguments(), analysis::getType);
 
-                ResolvedFunction resolvedFunction = metadata.resolveFunction(session, windowFunction.getName(), fromTypes(argumentTypes));
+                ResolvedFunction resolvedFunction = metadata.resolveFunction(session, io.trino.sql.planner.TranslationMap.convertQualifiedName(windowFunction.getName()), fromTypes(argumentTypes));
                 FunctionKind kind = metadata.getFunctionMetadata(session, resolvedFunction).getKind();
                 if (kind != AGGREGATE && kind != WINDOW) {
                     throw semanticException(FUNCTION_NOT_WINDOW, node, "Not a window function: %s", windowFunction.getName());
@@ -4569,7 +4569,7 @@ class StatementAnalyzer
             }
 
             for (Expression expression : orderByExpressions) {
-                if (!DeterminismEvaluator.isDeterministic(expression, this::getResolvedFunction)) {
+                if (!AstDeterminismEvaluator.isDeterministic(expression, this::getResolvedFunction)) {
                     throw semanticException(EXPRESSION_NOT_IN_DISTINCT, expression, "Non deterministic ORDER BY expression is not supported with SELECT DISTINCT");
                 }
             }

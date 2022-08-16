@@ -31,24 +31,24 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.InListExpression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.LikePredicate;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.NullIfExpression;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
-import io.trino.sql.planner.LiteralEncoder;
+import io.trino.sql.planner.IrLiteralEncoder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.InListExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LikePredicate;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullIfExpression;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingConnectorSession;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -114,7 +114,7 @@ public class TestPostgreSqlClient
             TESTING_TYPE_MANAGER,
             new DefaultIdentifierMapping());
 
-    private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(PLANNER_CONTEXT);
+    private static final IrLiteralEncoder LITERAL_ENCODER = new IrLiteralEncoder(PLANNER_CONTEXT);
 
     private static final ConnectorSession SESSION = TestingConnectorSession
             .builder()
@@ -220,14 +220,14 @@ public class TestPostgreSqlClient
                 SESSION,
                 translateToConnectorExpression(
                         new LogicalExpression(
-                                LogicalExpression.Operator.OR,
+                                io.trino.sql.tree.LogicalExpression.Operator.OR,
                                 List.of(
                                         new ComparisonExpression(
-                                                ComparisonExpression.Operator.EQUAL,
+                                                io.trino.sql.tree.ComparisonExpression.Operator.EQUAL,
                                                 new SymbolReference("c_bigint_symbol"),
                                                 LITERAL_ENCODER.toExpression(TEST_SESSION, 42L, BIGINT)),
                                         new ComparisonExpression(
-                                                ComparisonExpression.Operator.EQUAL,
+                                                io.trino.sql.tree.ComparisonExpression.Operator.EQUAL,
                                                 new SymbolReference("c_bigint_symbol_2"),
                                                 LITERAL_ENCODER.toExpression(TEST_SESSION, 415L, BIGINT)))),
                         Map.of(
@@ -246,21 +246,21 @@ public class TestPostgreSqlClient
                 SESSION,
                 translateToConnectorExpression(
                         new LogicalExpression(
-                                LogicalExpression.Operator.OR,
+                                io.trino.sql.tree.LogicalExpression.Operator.OR,
                                 List.of(
                                         new ComparisonExpression(
-                                                ComparisonExpression.Operator.EQUAL,
+                                                io.trino.sql.tree.ComparisonExpression.Operator.EQUAL,
                                                 new SymbolReference("c_bigint_symbol"),
                                                 LITERAL_ENCODER.toExpression(TEST_SESSION, 42L, BIGINT)),
                                         new LogicalExpression(
-                                                LogicalExpression.Operator.AND,
+                                                io.trino.sql.tree.LogicalExpression.Operator.AND,
                                                 List.of(
                                                         new ComparisonExpression(
-                                                                ComparisonExpression.Operator.EQUAL,
+                                                                io.trino.sql.tree.ComparisonExpression.Operator.EQUAL,
                                                                 new SymbolReference("c_bigint_symbol"),
                                                                 LITERAL_ENCODER.toExpression(TEST_SESSION, 43L, BIGINT)),
                                                         new ComparisonExpression(
-                                                                ComparisonExpression.Operator.EQUAL,
+                                                                io.trino.sql.tree.ComparisonExpression.Operator.EQUAL,
                                                                 new SymbolReference("c_bigint_symbol_2"),
                                                                 LITERAL_ENCODER.toExpression(TEST_SESSION, 44L, BIGINT)))))),
                         Map.of(
@@ -273,7 +273,7 @@ public class TestPostgreSqlClient
     }
 
     @Test(dataProvider = "testConvertComparisonDataProvider")
-    public void testConvertComparison(ComparisonExpression.Operator operator)
+    public void testConvertComparison(io.trino.sql.tree.ComparisonExpression.Operator operator)
     {
         Optional<String> converted = JDBC_CLIENT.convertPredicate(
                 SESSION,
@@ -305,12 +305,12 @@ public class TestPostgreSqlClient
     @DataProvider
     public static Object[][] testConvertComparisonDataProvider()
     {
-        return Stream.of(ComparisonExpression.Operator.values())
+        return Stream.of(io.trino.sql.tree.ComparisonExpression.Operator.values())
                 .collect(toDataProvider());
     }
 
     @Test(dataProvider = "testConvertArithmeticBinaryDataProvider")
-    public void testConvertArithmeticBinary(ArithmeticBinaryExpression.Operator operator)
+    public void testConvertArithmeticBinary(io.trino.sql.tree.ArithmeticBinaryExpression.Operator operator)
     {
         Optional<String> converted = JDBC_CLIENT.convertPredicate(
                 SESSION,
@@ -328,7 +328,7 @@ public class TestPostgreSqlClient
     @DataProvider
     public static Object[][] testConvertArithmeticBinaryDataProvider()
     {
-        return Stream.of(ArithmeticBinaryExpression.Operator.values())
+        return Stream.of(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.values())
                 .collect(toDataProvider());
     }
 
@@ -339,7 +339,7 @@ public class TestPostgreSqlClient
                 SESSION,
                 translateToConnectorExpression(
                         new ArithmeticUnaryExpression(
-                                ArithmeticUnaryExpression.Sign.MINUS,
+                                io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS,
                                 new SymbolReference("c_bigint_symbol")),
                         Map.of("c_bigint_symbol", BIGINT)),
                 Map.of("c_bigint_symbol", BIGINT_COLUMN));

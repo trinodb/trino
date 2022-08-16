@@ -20,6 +20,9 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
@@ -28,9 +31,6 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
@@ -39,8 +39,9 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
+import static io.trino.sql.IrExpressionUtils.combineConjuncts;
+import static io.trino.sql.IrExpressionUtils.extractConjuncts;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.iterative.Rule.Context;
@@ -49,7 +50,6 @@ import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.join;
 import static io.trino.sql.planner.plan.Patterns.source;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
@@ -80,7 +80,7 @@ import static java.util.stream.Collectors.partitioningBy;
  */
 public class PushInequalityFilterExpressionBelowJoinRuleSet
 {
-    private static final Set<ComparisonExpression.Operator> SUPPORTED_COMPARISONS = ImmutableSet.of(
+    private static final Set<io.trino.sql.tree.ComparisonExpression.Operator> SUPPORTED_COMPARISONS = ImmutableSet.of(
             GREATER_THAN,
             GREATER_THAN_OR_EQUAL,
             LESS_THAN,
@@ -234,8 +234,8 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
         Symbol rightSymbol = symbolForExpression(context, rightExpression);
         newConjuncts.add(new ComparisonExpression(
                 comparison.getOperator(),
-                alignedComparison ? leftExpression : rightSymbol.toSymbolReference(),
-                alignedComparison ? rightSymbol.toSymbolReference() : leftExpression));
+                alignedComparison ? leftExpression : rightSymbol.toIrSymbolReference(),
+                alignedComparison ? rightSymbol.toIrSymbolReference() : leftExpression));
         newProjections.put(rightSymbol, rightExpression);
     }
 

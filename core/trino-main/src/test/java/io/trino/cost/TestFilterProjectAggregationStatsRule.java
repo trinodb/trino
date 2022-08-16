@@ -131,7 +131,7 @@ public class TestFilterProjectAggregationStatsRule
                             return pb.filter(
                                     expression("count_on_x > 0"),
                                     // Non-narrowing projection
-                                    pb.project(Assignments.of(pb.symbol("x_1"), PlanBuilder.expression("x + 1"), aggregatedOutput, aggregatedOutput.toSymbolReference()),
+                                    pb.project(Assignments.of(pb.symbol("x_1"), PlanBuilder.expression("x + 1"), aggregatedOutput, aggregatedOutput.toIrSymbolReference()),
                                             pb.aggregation(ab -> ab
                                                     .addAggregation(aggregatedOutput, expression("count(x)"), ImmutableList.of(BIGINT))
                                                     .singleGroupingSet(pb.symbol("y", BIGINT))

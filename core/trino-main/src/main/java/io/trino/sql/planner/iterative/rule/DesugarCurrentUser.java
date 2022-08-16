@@ -15,12 +15,12 @@ package io.trino.sql.planner.iterative.rule;
 
 import io.trino.Session;
 import io.trino.metadata.Metadata;
+import io.trino.sql.ir.CurrentUser;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.QualifiedName;
 import io.trino.sql.planner.FunctionCallBuilder;
-import io.trino.sql.tree.CurrentUser;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.QualifiedName;
 
 public class DesugarCurrentUser
         extends ExpressionRewriteRuleSet
@@ -32,7 +32,7 @@ public class DesugarCurrentUser
 
     private static ExpressionRewriter createRewrite(Metadata metadata)
     {
-        return (expression, context) -> ExpressionTreeRewriter.rewriteWith(new io.trino.sql.tree.ExpressionRewriter<>()
+        return (expression, context) -> ExpressionTreeRewriter.rewriteWith(new io.trino.sql.ir.ExpressionRewriter<>()
         {
             @Override
             public Expression rewriteCurrentUser(CurrentUser node, Void ignored, ExpressionTreeRewriter<Void> treeRewriter)

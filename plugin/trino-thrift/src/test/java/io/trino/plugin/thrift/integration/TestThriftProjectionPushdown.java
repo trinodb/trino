@@ -29,12 +29,12 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.trino.sql.planner.iterative.rule.PushProjectionIntoTableScan;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -147,7 +147,7 @@ public class TestThriftProjectionPushdown
                     return p.project(
                             Assignments.of(
                                     p.symbol("expr_2", VARCHAR),
-                                    orderStatusSymbol.toSymbolReference()),
+                                    orderStatusSymbol.toIrSymbolReference()),
                             p.tableScan(
                                     new TableHandle(
                                             TEST_CATALOG_HANDLE,
@@ -184,7 +184,7 @@ public class TestThriftProjectionPushdown
                     return p.project(
                             Assignments.of(
                                     p.symbol("expr_2", VARCHAR),
-                                    orderStatusSymbol.toSymbolReference()),
+                                    orderStatusSymbol.toIrSymbolReference()),
                             p.tableScan(
                                     inputTableHandle,
                                     ImmutableList.of(orderStatusSymbol),
@@ -214,7 +214,7 @@ public class TestThriftProjectionPushdown
                     return p.project(
                             Assignments.of(
                                     p.symbol("expr", VARCHAR),
-                                    nationKey.toSymbolReference()),
+                                    nationKey.toIrSymbolReference()),
                             p.tableScan(
                                     NATION_TABLE,
                                     ImmutableList.of(nationKey, name),

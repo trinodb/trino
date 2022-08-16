@@ -19,12 +19,11 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.analyzer.TypeSignatureProvider;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.NodeLocation;
-import io.trino.sql.tree.OrderBy;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.Window;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.OrderBy;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.Window;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,7 +39,6 @@ public class FunctionCallBuilder
     private QualifiedName name;
     private List<TypeSignature> argumentTypes = new ArrayList<>();
     private List<Expression> argumentValues = new ArrayList<>();
-    private Optional<NodeLocation> location = Optional.empty();
     private Optional<Window> window = Optional.empty();
     private Optional<Expression> filter = Optional.empty();
     private Optional<OrderBy> orderBy = Optional.empty();
@@ -86,12 +84,6 @@ public class FunctionCallBuilder
                 .map(Type::getTypeSignature)
                 .collect(Collectors.toList());
         argumentValues = new ArrayList<>(values);
-        return this;
-    }
-
-    public FunctionCallBuilder setLocation(NodeLocation location)
-    {
-        this.location = Optional.of(requireNonNull(location, "location is null"));
         return this;
     }
 
@@ -141,7 +133,6 @@ public class FunctionCallBuilder
     {
         ResolvedFunction resolvedFunction = metadata.resolveFunction(session, name, TypeSignatureProvider.fromTypeSignatures(argumentTypes));
         return new FunctionCall(
-                location,
                 resolvedFunction.toQualifiedName(),
                 window,
                 filter,

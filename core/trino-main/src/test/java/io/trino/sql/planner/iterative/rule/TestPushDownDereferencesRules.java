@@ -23,6 +23,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.QualifiedName;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -30,10 +31,6 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.FrameBound;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SortItem;
-import io.trino.sql.tree.WindowFrame;
 import io.trino.testing.TestingTransactionHandle;
 import org.testng.annotations.Test;
 
@@ -459,7 +456,7 @@ public class TestPushDownDereferencesRules
                                         .put("msg_x", PlanMatchPattern.expression("x"))
                                         .put("z", PlanMatchPattern.expression("z"))
                                         .buildOrThrow(),
-                                sort(ImmutableList.of(sort("z", ASCENDING, SortItem.NullOrdering.FIRST)),
+                                sort(ImmutableList.of(sort("z", ASCENDING, io.trino.sql.tree.SortItem.NullOrdering.FIRST)),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                                         .put("x", PlanMatchPattern.expression("msg[1]"))
@@ -595,13 +592,13 @@ public class TestPushDownDereferencesRules
                                                 // min function on MSG_TYPE
                                                 new WindowNode.Function(
                                                         createTestMetadataManager().resolveFunction(TEST_SESSION, QualifiedName.of("min"), fromTypes(ROW_TYPE)),
-                                                        ImmutableList.of(p.symbol("msg3", ROW_TYPE).toSymbolReference()),
+                                                        ImmutableList.of(p.symbol("msg3", ROW_TYPE).toIrSymbolReference()),
                                                         new WindowNode.Frame(
-                                                                WindowFrame.Type.RANGE,
-                                                                FrameBound.Type.UNBOUNDED_PRECEDING,
+                                                                io.trino.sql.tree.WindowFrame.Type.RANGE,
+                                                                io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING,
                                                                 Optional.empty(),
                                                                 Optional.empty(),
-                                                                FrameBound.Type.UNBOUNDED_FOLLOWING,
+                                                                io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING,
                                                                 Optional.empty(),
                                                                 Optional.empty(),
                                                                 Optional.empty(),

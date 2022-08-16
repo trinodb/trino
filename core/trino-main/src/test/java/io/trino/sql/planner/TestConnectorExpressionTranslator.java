@@ -27,28 +27,28 @@ import io.trino.spi.expression.Variable;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.BetweenPredicate;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.InListExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LikePredicate;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullIfExpression;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.BetweenPredicate;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.DoubleLiteral;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.InListExpression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.LikePredicate;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.NullIfExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.TestingTransactionManager;
 import org.testng.annotations.DataProvider;
@@ -83,7 +83,7 @@ import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
@@ -99,9 +99,9 @@ public class TestConnectorExpressionTranslator
     private static final TypeAnalyzer TYPE_ANALYZER = createTestingTypeAnalyzer(PLANNER_CONTEXT);
     private static final Type ROW_TYPE = rowType(field("int_symbol_1", INTEGER), field("varchar_symbol_1", createVarcharType(5)));
     private static final VarcharType VARCHAR_TYPE = createVarcharType(25);
-    private static final ArrayType VARCHAR_ARRAY_TYPE = new ArrayType(VARCHAR_TYPE);
 
-    private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(PLANNER_CONTEXT);
+    private static final ArrayType VARCHAR_ARRAY_TYPE = new ArrayType(VARCHAR_TYPE);
+    private static final IrLiteralEncoder LITERAL_ENCODER = new IrLiteralEncoder(PLANNER_CONTEXT);
 
     private static final Map<Symbol, Type> symbols = ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("double_symbol_1"), DOUBLE)
@@ -160,17 +160,17 @@ public class TestConnectorExpressionTranslator
     }
 
     @Test(dataProvider = "testTranslateLogicalExpressionDataProvider")
-    public void testTranslateLogicalExpression(LogicalExpression.Operator operator)
+    public void testTranslateLogicalExpression(io.trino.sql.tree.LogicalExpression.Operator operator)
     {
         assertTranslationRoundTrips(
                 new LogicalExpression(
                         operator,
                         List.of(
-                                new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")),
-                                new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")))),
+                                new ComparisonExpression(io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")),
+                                new ComparisonExpression(io.trino.sql.tree.ComparisonExpression.Operator.EQUAL, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")))),
                 new Call(
                         BOOLEAN,
-                        operator == LogicalExpression.Operator.AND ? StandardFunctions.AND_FUNCTION_NAME : StandardFunctions.OR_FUNCTION_NAME,
+                        operator == io.trino.sql.tree.LogicalExpression.Operator.AND ? StandardFunctions.AND_FUNCTION_NAME : StandardFunctions.OR_FUNCTION_NAME,
                         List.of(
                                 new Call(
                                         BOOLEAN,
@@ -185,12 +185,12 @@ public class TestConnectorExpressionTranslator
     @DataProvider
     public Object[][] testTranslateLogicalExpressionDataProvider()
     {
-        return Stream.of(LogicalExpression.Operator.values())
+        return Stream.of(io.trino.sql.tree.LogicalExpression.Operator.values())
                 .collect(toDataProvider());
     }
 
     @Test(dataProvider = "testTranslateComparisonExpressionDataProvider")
-    public void testTranslateComparisonExpression(ComparisonExpression.Operator operator)
+    public void testTranslateComparisonExpression(io.trino.sql.tree.ComparisonExpression.Operator operator)
     {
         assertTranslationRoundTrips(
                 new ComparisonExpression(operator, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")),
@@ -203,12 +203,12 @@ public class TestConnectorExpressionTranslator
     @DataProvider
     public static Object[][] testTranslateComparisonExpressionDataProvider()
     {
-        return Stream.of(ComparisonExpression.Operator.values())
+        return Stream.of(io.trino.sql.tree.ComparisonExpression.Operator.values())
                 .collect(toDataProvider());
     }
 
     @Test(dataProvider = "testTranslateArithmeticBinaryDataProvider")
-    public void testTranslateArithmeticBinary(ArithmeticBinaryExpression.Operator operator)
+    public void testTranslateArithmeticBinary(io.trino.sql.tree.ArithmeticBinaryExpression.Operator operator)
     {
         assertTranslationRoundTrips(
                 new ArithmeticBinaryExpression(operator, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")),
@@ -221,7 +221,7 @@ public class TestConnectorExpressionTranslator
     @DataProvider
     public static Object[][] testTranslateArithmeticBinaryDataProvider()
     {
-        return Stream.of(ArithmeticBinaryExpression.Operator.values())
+        return Stream.of(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.values())
                 .collect(toDataProvider());
     }
 
@@ -229,7 +229,7 @@ public class TestConnectorExpressionTranslator
     public void testTranslateArithmeticUnaryMinus()
     {
         assertTranslationRoundTrips(
-                new ArithmeticUnaryExpression(ArithmeticUnaryExpression.Sign.MINUS, new SymbolReference("double_symbol_1")),
+                new ArithmeticUnaryExpression(io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS, new SymbolReference("double_symbol_1")),
                 new Call(DOUBLE, NEGATE_FUNCTION_NAME, List.of(new Variable("double_symbol_1", DOUBLE))));
     }
 
@@ -238,7 +238,7 @@ public class TestConnectorExpressionTranslator
     {
         assertTranslationToConnectorExpression(
                 TEST_SESSION,
-                new ArithmeticUnaryExpression(ArithmeticUnaryExpression.Sign.PLUS, new SymbolReference("double_symbol_1")),
+                new ArithmeticUnaryExpression(io.trino.sql.tree.ArithmeticUnaryExpression.Sign.PLUS, new SymbolReference("double_symbol_1")),
                 new Variable("double_symbol_1", DOUBLE));
     }
 

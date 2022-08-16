@@ -16,6 +16,8 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -23,8 +25,6 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.Row;
 
 import java.util.Optional;
 

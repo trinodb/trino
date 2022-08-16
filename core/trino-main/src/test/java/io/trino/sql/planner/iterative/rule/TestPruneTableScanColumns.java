@@ -71,7 +71,7 @@ public class TestPruneTableScanColumns
                     Symbol orderdate = p.symbol("orderdate", DATE);
                     Symbol totalprice = p.symbol("totalprice", DOUBLE);
                     return p.project(
-                            Assignments.of(p.symbol("x"), totalprice.toSymbolReference()),
+                            Assignments.of(p.symbol("x"), totalprice.toIrSymbolReference()),
                             p.tableScan(
                                     new TableHandle(
                                             TEST_CATALOG_HANDLE,
@@ -98,7 +98,7 @@ public class TestPruneTableScanColumns
                     TpchColumnHandle orderdateHandle = new TpchColumnHandle(orderdate.getName(), DATE);
                     TpchColumnHandle totalpriceHandle = new TpchColumnHandle(totalprice.getName(), DOUBLE);
                     return p.project(
-                            Assignments.of(p.symbol("x"), totalprice.toSymbolReference()),
+                            Assignments.of(p.symbol("x"), totalprice.toIrSymbolReference()),
                             p.tableScan(
                                     new TableHandle(
                                             TEST_CATALOG_HANDLE,
@@ -162,7 +162,7 @@ public class TestPruneTableScanColumns
                         Symbol symbolA = p.symbol("cola", DATE);
                         Symbol symbolB = p.symbol("colb", DOUBLE);
                         return p.project(
-                                Assignments.of(p.symbol("x"), symbolB.toSymbolReference()),
+                                Assignments.of(p.symbol("x"), symbolB.toIrSymbolReference()),
                                 p.tableScan(
                                         new TableHandle(
                                                 TEST_CATALOG_HANDLE,

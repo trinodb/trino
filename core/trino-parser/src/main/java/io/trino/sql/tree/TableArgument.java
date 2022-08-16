@@ -20,7 +20,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static io.trino.sql.ExpressionFormatter.formatSortItems;
+import static io.trino.sql.AstExpressionFormatter.formatSortItems;
 import static java.util.Objects.requireNonNull;
 
 public class TableArgument

@@ -32,18 +32,18 @@ import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NodeRef;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
-import io.trino.sql.planner.ExpressionInterpreter;
-import io.trino.sql.planner.LiteralEncoder;
-import io.trino.sql.planner.NoOpSymbolResolver;
+import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrLiteralEncoder;
+import io.trino.sql.planner.IrNoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NodeRef;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -75,14 +75,14 @@ public class PushProjectionIntoTableScan
 
     private final PlannerContext plannerContext;
     private final TypeAnalyzer typeAnalyzer;
-    private final LiteralEncoder literalEncoder;
+    private final IrLiteralEncoder literalEncoder;
     private final ScalarStatsCalculator scalarStatsCalculator;
 
     public PushProjectionIntoTableScan(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, ScalarStatsCalculator scalarStatsCalculator)
     {
         this.plannerContext = plannerContext;
         this.typeAnalyzer = typeAnalyzer;
-        this.literalEncoder = new LiteralEncoder(plannerContext);
+        this.literalEncoder = new IrLiteralEncoder(plannerContext);
         this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
     }
 
@@ -158,8 +158,8 @@ public class PushProjectionIntoTableScan
                     Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(session, context.getSymbolAllocator().getTypes(), translated);
                     translated = literalEncoder.toExpression(
                             session,
-                            new ExpressionInterpreter(translated, plannerContext, session, translatedExpressionTypes)
-                                    .optimize(NoOpSymbolResolver.INSTANCE),
+                            new IrExpressionInterpreter(translated, plannerContext, session, translatedExpressionTypes)
+                                    .optimize(IrNoOpSymbolResolver.INSTANCE),
                             translatedExpressionTypes.get(NodeRef.of(translated)));
                     return translated;
                 })

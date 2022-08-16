@@ -19,27 +19,27 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IfExpression;
+import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.IfExpression;
-import io.trino.sql.tree.NullLiteral;
 
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.matching.Pattern.empty;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.FULL;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.correlation;
 import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public class TransformUncorrelatedSubqueryToJoin
         implements Rule<CorrelatedJoinNode>
@@ -91,7 +91,7 @@ public class TransformUncorrelatedSubqueryToJoin
             for (Symbol inputSymbol : Sets.intersection(
                     ImmutableSet.copyOf(correlatedJoinNode.getInput().getOutputSymbols()),
                     ImmutableSet.copyOf(correlatedJoinNode.getOutputSymbols()))) {
-                assignments.put(inputSymbol, new IfExpression(correlatedJoinNode.getFilter(), inputSymbol.toSymbolReference(), new NullLiteral()));
+                assignments.put(inputSymbol, new IfExpression(correlatedJoinNode.getFilter(), inputSymbol.toIrSymbolReference(), new NullLiteral()));
             }
             ProjectNode projectNode = new ProjectNode(
                     context.getIdAllocator().getNextId(),

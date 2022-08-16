@@ -79,7 +79,7 @@ public class MeasureMatcher
         return ExpressionAndValuePointersEquivalence.equivalent(
                 actual.getExpressionAndValuePointers(),
                 expected.getExpressionAndValuePointers(),
-                (actualSymbol, expectedSymbol) -> verifier.process(actualSymbol.toSymbolReference(), expectedSymbol.toSymbolReference()));
+                (actualSymbol, expectedSymbol) -> verifier.process(actualSymbol.toIrSymbolReference(), expectedSymbol.toIrSymbolReference()));
     }
 
     @Override

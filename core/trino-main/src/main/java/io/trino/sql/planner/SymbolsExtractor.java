@@ -15,20 +15,20 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.sql.ir.DefaultExpressionTraversalVisitor;
+import io.trino.sql.ir.DefaultTraversalVisitor;
+import io.trino.sql.ir.DereferenceExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Identifier;
+import io.trino.sql.ir.LambdaExpression;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.SubqueryExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
-import io.trino.sql.tree.DefaultTraversalVisitor;
-import io.trino.sql.tree.DereferenceExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SubqueryExpression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Set;
@@ -121,21 +121,6 @@ public final class SymbolsExtractor
         function.getFrame().getSortKeyCoercedForFrameEndComparison().ifPresent(builder::add);
         function.getFrame().getStartValue().ifPresent(builder::add);
         function.getFrame().getSortKeyCoercedForFrameStartComparison().ifPresent(builder::add);
-        return builder.build();
-    }
-
-    // to extract qualified name with prefix
-    public static Set<QualifiedName> extractNames(Expression expression, Set<NodeRef<Expression>> columnReferences)
-    {
-        ImmutableSet.Builder<QualifiedName> builder = ImmutableSet.builder();
-        new QualifiedNameBuilderVisitor(columnReferences, true).process(expression, builder);
-        return builder.build();
-    }
-
-    public static Set<QualifiedName> extractNamesNoSubqueries(Expression expression, Set<NodeRef<Expression>> columnReferences)
-    {
-        ImmutableSet.Builder<QualifiedName> builder = ImmutableSet.builder();
-        new QualifiedNameBuilderVisitor(columnReferences, false).process(expression, builder);
         return builder.build();
     }
 

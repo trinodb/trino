@@ -27,16 +27,14 @@ import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
 import io.trino.sql.analyzer.ResolvedField;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.analyzer.TypeSignatureTranslator;
-import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.ir.AstToIrExpressionRewriter;
+import io.trino.sql.ir.AstToIrExpressionTreeRewriter;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericDataType;
-import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonArrayElement;
@@ -46,14 +44,12 @@ import io.trino.sql.tree.JsonObjectMember;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
 import io.trino.sql.tree.JsonValue;
-import io.trino.sql.tree.LabelDereference;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Parameter;
-import io.trino.sql.tree.Row;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
@@ -76,8 +72,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
-import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.KEEP;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.OMIT;
 import static java.lang.String.format;
@@ -91,7 +85,7 @@ import static java.util.Objects.requireNonNull;
  * <li>AST expressions contain Identifiers, while IR expressions contain SymbolReferences</li>
  * <li>FunctionCalls in AST expressions are SQL function names. In IR expressions, they contain an encoded name representing a resolved function</li>
  */
-class TranslationMap
+public class TranslationMap
 {
     // all expressions are rewritten in terms of fields declared by this relation plan
     private final Scope scope;
@@ -192,97 +186,95 @@ class TranslationMap
         return false;
     }
 
-    public Expression rewrite(Expression expression)
+    public io.trino.sql.ir.Expression rewriteAstExpressionToIrExpression(Expression expression)
     {
         verifyAstExpression(expression);
 
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+        return AstToIrExpressionTreeRewriter.rewriteWith(new AstToIrExpressionRewriter<Void>()
         {
             @Override
-            protected Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            protected io.trino.sql.ir.Expression rewriteExpression(Expression node, Void context, AstToIrExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
+                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
                 }
 
-                Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
-                return coerceIfNecessary(node, rewrittenExpression);
+                io.trino.sql.ir.Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
+                return coerceIfNecessary(node, rewrittenExpression, treeRewriter);
             }
 
             @Override
-            public Expression rewriteFieldReference(FieldReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public io.trino.sql.ir.Expression rewriteFieldReference(FieldReference node, Void context, AstToIrExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
+                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
                 }
 
                 return getSymbolForColumn(node)
-                        .map(Symbol::toSymbolReference)
+                        .map(Symbol::toIrSymbolReference)
                         .orElseThrow(() -> new IllegalStateException(format("No symbol mapping for node '%s' (%s)", node, node.getFieldIndex())));
             }
 
             @Override
-            public Expression rewriteIdentifier(Identifier node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public io.trino.sql.ir.Expression rewriteIdentifier(Identifier node, Void context, AstToIrExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
+                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
                 }
 
                 LambdaArgumentDeclaration referencedLambdaArgumentDeclaration = analysis.getLambdaArgumentReference(node);
                 if (referencedLambdaArgumentDeclaration != null) {
                     Symbol symbol = lambdaArguments.get(NodeRef.of(referencedLambdaArgumentDeclaration));
-                    return coerceIfNecessary(node, symbol.toSymbolReference());
+                    return coerceIfNecessary(node, symbol.toIrSymbolReference(), treeRewriter);
                 }
 
                 return getSymbolForColumn(node)
-                        .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
-                        .orElse(coerceIfNecessary(node, node));
+                        .map(symbol -> coerceIfNecessary(node, symbol.toIrSymbolReference(), treeRewriter))
+                        .orElse(coerceIfNecessary(node, treeRewriter.copy(node, context), treeRewriter));
             }
 
             @Override
-            public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public io.trino.sql.ir.Expression rewriteFunctionCall(FunctionCall node, Void context, AstToIrExpressionTreeRewriter<Void> treeRewriter)
             {
                 if (analysis.isPatternRecognitionFunction(node)) {
-                    ImmutableList.Builder<Expression> rewrittenArguments = ImmutableList.builder();
+                    ImmutableList.Builder<io.trino.sql.ir.Expression> rewrittenArguments = ImmutableList.builder();
                     if (!node.getArguments().isEmpty()) {
                         rewrittenArguments.add(treeRewriter.rewrite(node.getArguments().get(0), null));
                         if (node.getArguments().size() > 1) {
                             // do not rewrite the offset literal
-                            rewrittenArguments.add(node.getArguments().get(1));
+                            rewrittenArguments.add(treeRewriter.copy(node.getArguments().get(1), null));
                         }
                     }
                     // Pattern recognition functions are special constructs, passed using the form of FunctionCall.
                     // They are not resolved like regular function calls. They are processed in LogicalIndexExtractor.
-                    return coerceIfNecessary(node, new FunctionCall(
-                            Optional.empty(),
-                            node.getName(),
+                    return coerceIfNecessary(node, new io.trino.sql.ir.FunctionCall(
+                            convertQualifiedName(node.getName()),
                             Optional.empty(),
                             Optional.empty(),
                             Optional.empty(),
                             false,
                             Optional.empty(),
-                            node.getProcessingMode(),
-                            rewrittenArguments.build()));
+                            treeRewriter.copy(node.getProcessingMode(), null),
+                            rewrittenArguments.build()), treeRewriter);
                 }
 
                 // Do not use the mapping for aggregate functions in pattern recognition context. They have different semantics
                 // than aggregate functions outside pattern recognition.
                 if (!analysis.isPatternAggregation(node)) {
-                    Optional<Expression> mapped = tryGetMapping(node);
+                    Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), null);
                     if (mapped.isPresent()) {
-                        return coerceIfNecessary(node, mapped.get());
+                        return coerceIfNecessary(node, mapped.get(), treeRewriter);
                     }
                 }
 
                 ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
                 checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
 
-                FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
-                rewritten = new FunctionCall(
-                        rewritten.getLocation(),
+                io.trino.sql.ir.FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
+                rewritten = new io.trino.sql.ir.FunctionCall(
                         resolvedFunction.toQualifiedName(),
                         rewritten.getWindow(),
                         rewritten.getFilter(),
@@ -291,33 +283,33 @@ class TranslationMap
                         rewritten.getNullTreatment(),
                         rewritten.getProcessingMode(),
                         rewritten.getArguments());
-                return coerceIfNecessary(node, rewritten);
+                return coerceIfNecessary(node, rewritten, treeRewriter);
             }
 
             @Override
-            public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public io.trino.sql.ir.Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, AstToIrExpressionTreeRewriter<Void> treeRewriter)
             {
                 LabelPrefixedReference labelDereference = analysis.getLabelDereference(node);
                 if (labelDereference != null) {
                     if (labelDereference.getColumn().isPresent()) {
-                        Expression rewritten = treeRewriter.rewrite(labelDereference.getColumn().get(), null);
-                        checkState(rewritten instanceof SymbolReference, "expected symbol reference, got: " + rewritten);
-                        return coerceIfNecessary(node, new LabelDereference(labelDereference.getLabel(), (SymbolReference) rewritten));
+                        io.trino.sql.ir.Expression rewritten = treeRewriter.rewrite(labelDereference.getColumn().get(), null);
+                        checkState(rewritten instanceof io.trino.sql.ir.SymbolReference, "expected symbol reference, got: " + rewritten);
+                        return coerceIfNecessary(node, new io.trino.sql.ir.LabelDereference(labelDereference.getLabel(), (io.trino.sql.ir.SymbolReference) rewritten), treeRewriter);
                     }
-                    return new LabelDereference(labelDereference.getLabel());
+                    return new io.trino.sql.ir.LabelDereference(labelDereference.getLabel());
                 }
 
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
+                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
                 }
 
                 if (analysis.isColumnReference(node)) {
                     return coerceIfNecessary(
                             node,
                             getSymbolForColumn(node)
-                                    .map(Symbol::toSymbolReference)
-                                    .orElseThrow(() -> new IllegalStateException(format("No mapping for %s", node))));
+                                    .map(Symbol::toIrSymbolReference)
+                                    .orElseThrow(() -> new IllegalStateException(format("No mapping for %s", node))), treeRewriter);
                 }
 
                 RowType rowType = (RowType) analysis.getType(node.getBase());
@@ -337,97 +329,97 @@ class TranslationMap
 
                 return coerceIfNecessary(
                         node,
-                        new SubscriptExpression(
+                        new io.trino.sql.ir.SubscriptExpression(
                                 treeRewriter.rewrite(node.getBase(), context),
-                                new LongLiteral(Long.toString(index + 1))));
+                                new io.trino.sql.ir.LongLiteral(Long.toString(index + 1))), treeRewriter);
             }
 
             @Override
-            public Expression rewriteTrim(Trim node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public io.trino.sql.ir.Expression rewriteTrim(Trim node, Void context, AstToIrExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
+                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
                 }
 
                 ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
                 checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
 
-                Trim rewritten = treeRewriter.defaultRewrite(node, context);
+                io.trino.sql.ir.Trim rewritten = treeRewriter.defaultRewrite(node, context);
 
-                ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
+                ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.builder();
                 arguments.add(rewritten.getTrimSource());
                 rewritten.getTrimCharacter().ifPresent(arguments::add);
 
-                FunctionCall functionCall = new FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
-                return coerceIfNecessary(node, functionCall);
+                io.trino.sql.ir.FunctionCall functionCall = new io.trino.sql.ir.FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
+                return coerceIfNecessary(node, functionCall, treeRewriter);
             }
 
             @Override
-            public Expression rewriteSubscriptExpression(SubscriptExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public io.trino.sql.ir.Expression rewriteSubscriptExpression(SubscriptExpression node, Void context, AstToIrExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
+                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
                 }
 
                 Type baseType = analysis.getType(node.getBase());
                 if (baseType instanceof RowType) {
                     // Do not rewrite subscript index into symbol. Row subscript index is required to be a literal.
-                    Expression rewrittenBase = treeRewriter.rewrite(node.getBase(), context);
-                    return coerceIfNecessary(node, new SubscriptExpression(rewrittenBase, node.getIndex()));
+                    io.trino.sql.ir.Expression rewrittenBase = treeRewriter.rewrite(node.getBase(), context);
+                    return coerceIfNecessary(node, new io.trino.sql.ir.SubscriptExpression(rewrittenBase, treeRewriter.copy(node.getIndex(), context)), treeRewriter);
                 }
 
-                Expression rewritten = treeRewriter.defaultRewrite(node, context);
-                return coerceIfNecessary(node, rewritten);
+                io.trino.sql.ir.Expression rewritten = treeRewriter.defaultRewrite(node, context);
+                return coerceIfNecessary(node, rewritten, treeRewriter);
             }
 
             @Override
-            public Expression rewriteLambdaExpression(LambdaExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public io.trino.sql.ir.Expression rewriteLambdaExpression(LambdaExpression node, Void context, AstToIrExpressionTreeRewriter<Void> treeRewriter)
             {
                 checkState(analysis.getCoercion(node) == null, "cannot coerce a lambda expression");
 
-                ImmutableList.Builder<LambdaArgumentDeclaration> newArguments = ImmutableList.builder();
+                ImmutableList.Builder<io.trino.sql.ir.LambdaArgumentDeclaration> newArguments = ImmutableList.builder();
                 for (LambdaArgumentDeclaration argument : node.getArguments()) {
                     Symbol symbol = lambdaArguments.get(NodeRef.of(argument));
-                    newArguments.add(new LambdaArgumentDeclaration(new Identifier(symbol.getName())));
+                    newArguments.add(new io.trino.sql.ir.LambdaArgumentDeclaration(new io.trino.sql.ir.Identifier(symbol.getName())));
                 }
-                Expression rewrittenBody = treeRewriter.rewrite(node.getBody(), null);
-                return new LambdaExpression(newArguments.build(), rewrittenBody);
+                io.trino.sql.ir.Expression rewrittenBody = treeRewriter.rewrite(node.getBody(), null);
+                return new io.trino.sql.ir.LambdaExpression(newArguments.build(), rewrittenBody);
             }
 
             @Override
-            public Expression rewriteParameter(Parameter node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public io.trino.sql.ir.Expression rewriteParameter(Parameter node, Void context, AstToIrExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
+                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
                 }
 
                 checkState(analysis.getParameters().size() > node.getPosition(), "Too few parameter values");
-                return coerceIfNecessary(node, treeRewriter.rewrite(analysis.getParameters().get(NodeRef.of(node)), null));
+                return coerceIfNecessary(node, treeRewriter.rewrite(analysis.getParameters().get(NodeRef.of(node)), null), treeRewriter);
             }
 
             @Override
-            public Expression rewriteGenericDataType(GenericDataType node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public io.trino.sql.ir.Expression rewriteGenericDataType(GenericDataType node, Void context, AstToIrExpressionTreeRewriter<Void> treeRewriter)
             {
                 // do not rewrite identifiers within type parameters
-                return node;
+                return treeRewriter.copy(node, context);
             }
 
             @Override
-            public Expression rewriteRowDataType(RowDataType node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public io.trino.sql.ir.Expression rewriteRowDataType(RowDataType node, Void context, AstToIrExpressionTreeRewriter<Void> treeRewriter)
             {
                 // do not rewrite identifiers in field names
-                return node;
+                return treeRewriter.copy(node, context);
             }
 
             @Override
-            public Expression rewriteJsonExists(JsonExists node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public io.trino.sql.ir.Expression rewriteJsonExists(JsonExists node, Void context, AstToIrExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
+                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
                 }
 
                 ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
@@ -435,41 +427,43 @@ class TranslationMap
 
                 // rewrite the input expression and JSON path parameters
                 // the rewrite also applies any coercions necessary for the input functions, which are applied in the next step
-                JsonExists rewritten = treeRewriter.defaultRewrite(node, context);
+                io.trino.sql.ir.JsonExists rewritten = treeRewriter.defaultRewrite(node, context);
 
                 // apply the input function to the input expression
-                BooleanLiteral failOnError = new BooleanLiteral(node.getErrorBehavior() == JsonExists.ErrorBehavior.ERROR ? "true" : "false");
+                io.trino.sql.ir.BooleanLiteral failOnError = new io.trino.sql.ir.BooleanLiteral(node.getErrorBehavior() == JsonExists.ErrorBehavior.ERROR ? "true" : "false");
                 ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getJsonPathInvocation().getInputExpression());
-                Expression input = new FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(rewritten.getJsonPathInvocation().getInputExpression(), failOnError));
+                io.trino.sql.ir.Expression input = new io.trino.sql.ir.FunctionCall(inputToJson.toQualifiedName(),
+                        ImmutableList.of(rewritten.getJsonPathInvocation().getInputExpression(), failOnError));
 
                 // apply the input functions to the JSON path parameters having FORMAT,
                 // and collect all JSON path parameters in a Row
-                ParametersRow orderedParameters = getParametersRow(
+                IrParametersRow orderedParameters = getParametersRow(
                         node.getJsonPathInvocation().getPathParameters(),
                         rewritten.getJsonPathInvocation().getPathParameters(),
                         resolvedFunction.getSignature().getArgumentType(2),
-                        failOnError);
+                        failOnError,
+                        treeRewriter);
 
                 IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
-                Expression pathExpression = new LiteralEncoder(plannerContext).toExpression(session, path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)));
+                io.trino.sql.ir.Expression pathExpression = treeRewriter.copy(new LiteralEncoder(plannerContext).toExpression(session, path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME))), context);
 
-                ImmutableList.Builder<Expression> arguments = ImmutableList.<Expression>builder()
+                ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
                         .add(input)
                         .add(pathExpression)
                         .add(orderedParameters.getParametersRow())
-                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())));
+                        .add(new io.trino.sql.ir.GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())));
 
-                Expression result = new FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
+                io.trino.sql.ir.Expression result = new io.trino.sql.ir.FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
 
-                return coerceIfNecessary(node, result);
+                return coerceIfNecessary(node, result, treeRewriter);
             }
 
             @Override
-            public Expression rewriteJsonValue(JsonValue node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public io.trino.sql.ir.Expression rewriteJsonValue(JsonValue node, Void context, AstToIrExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
+                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
                 }
 
                 ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
@@ -477,44 +471,45 @@ class TranslationMap
 
                 // rewrite the input expression, default expressions, and JSON path parameters
                 // the rewrite also applies any coercions necessary for the input functions, which are applied in the next step
-                JsonValue rewritten = treeRewriter.defaultRewrite(node, context);
+                io.trino.sql.ir.JsonValue rewritten = treeRewriter.defaultRewrite(node, context);
 
                 // apply the input function to the input expression
-                BooleanLiteral failOnError = new BooleanLiteral(node.getErrorBehavior() == JsonValue.EmptyOrErrorBehavior.ERROR ? "true" : "false");
+                io.trino.sql.ir.BooleanLiteral failOnError = new io.trino.sql.ir.BooleanLiteral(node.getErrorBehavior() == JsonValue.EmptyOrErrorBehavior.ERROR ? "true" : "false");
                 ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getJsonPathInvocation().getInputExpression());
-                Expression input = new FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(rewritten.getJsonPathInvocation().getInputExpression(), failOnError));
+                io.trino.sql.ir.Expression input = new io.trino.sql.ir.FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(rewritten.getJsonPathInvocation().getInputExpression(), failOnError));
 
                 // apply the input functions to the JSON path parameters having FORMAT,
                 // and collect all JSON path parameters in a Row
-                ParametersRow orderedParameters = getParametersRow(
+                IrParametersRow orderedParameters = getParametersRow(
                         node.getJsonPathInvocation().getPathParameters(),
                         rewritten.getJsonPathInvocation().getPathParameters(),
                         resolvedFunction.getSignature().getArgumentType(2),
-                        failOnError);
+                        failOnError,
+                        treeRewriter);
 
                 IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
-                Expression pathExpression = new LiteralEncoder(plannerContext).toExpression(session, path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)));
+                io.trino.sql.ir.Expression pathExpression = treeRewriter.copy(new LiteralEncoder(plannerContext).toExpression(session, path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME))), null);
 
-                ImmutableList.Builder<Expression> arguments = ImmutableList.<Expression>builder()
+                ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
                         .add(input)
                         .add(pathExpression)
                         .add(orderedParameters.getParametersRow())
-                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getEmptyBehavior().ordinal())))
-                        .add(rewritten.getEmptyDefault().orElse(new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType()))))
-                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())))
-                        .add(rewritten.getErrorDefault().orElse(new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType()))));
+                        .add(new io.trino.sql.ir.GenericLiteral("tinyint", String.valueOf(rewritten.getEmptyBehavior().ordinal())))
+                        .add(rewritten.getEmptyDefault().orElse(treeRewriter.copy(new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType())), context)))
+                        .add(new io.trino.sql.ir.GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())))
+                        .add(rewritten.getErrorDefault().orElse(treeRewriter.copy(new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType())), context)));
 
-                Expression result = new FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
+                io.trino.sql.ir.Expression result = new io.trino.sql.ir.FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
 
-                return coerceIfNecessary(node, result);
+                return coerceIfNecessary(node, result, treeRewriter);
             }
 
             @Override
-            public Expression rewriteJsonQuery(JsonQuery node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public io.trino.sql.ir.Expression rewriteJsonQuery(JsonQuery node, Void context, AstToIrExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
+                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
                 }
 
                 ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
@@ -522,39 +517,40 @@ class TranslationMap
 
                 // rewrite the input expression and JSON path parameters
                 // the rewrite also applies any coercions necessary for the input functions, which are applied in the next step
-                JsonQuery rewritten = treeRewriter.defaultRewrite(node, context);
+                io.trino.sql.ir.JsonQuery rewritten = treeRewriter.defaultRewrite(node, context);
 
                 // apply the input function to the input expression
-                BooleanLiteral failOnError = new BooleanLiteral(node.getErrorBehavior() == JsonQuery.EmptyOrErrorBehavior.ERROR ? "true" : "false");
+                io.trino.sql.ir.BooleanLiteral failOnError = new io.trino.sql.ir.BooleanLiteral(node.getErrorBehavior() == JsonQuery.EmptyOrErrorBehavior.ERROR ? "true" : "false");
                 ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getJsonPathInvocation().getInputExpression());
-                Expression input = new FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(rewritten.getJsonPathInvocation().getInputExpression(), failOnError));
+                io.trino.sql.ir.Expression input = new io.trino.sql.ir.FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(rewritten.getJsonPathInvocation().getInputExpression(), failOnError));
 
                 // apply the input functions to the JSON path parameters having FORMAT,
                 // and collect all JSON path parameters in a Row
-                ParametersRow orderedParameters = getParametersRow(
+                IrParametersRow orderedParameters = getParametersRow(
                         node.getJsonPathInvocation().getPathParameters(),
                         rewritten.getJsonPathInvocation().getPathParameters(),
                         resolvedFunction.getSignature().getArgumentType(2),
-                        failOnError);
+                        failOnError,
+                        treeRewriter);
 
                 IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
-                Expression pathExpression = new LiteralEncoder(plannerContext).toExpression(session, path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)));
+                io.trino.sql.ir.Expression pathExpression = treeRewriter.copy(new LiteralEncoder(plannerContext).toExpression(session, path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME))), context);
 
-                ImmutableList.Builder<Expression> arguments = ImmutableList.<Expression>builder()
+                ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
                         .add(input)
                         .add(pathExpression)
                         .add(orderedParameters.getParametersRow())
-                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getWrapperBehavior().ordinal())))
-                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getEmptyBehavior().ordinal())))
-                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())));
+                        .add(new io.trino.sql.ir.GenericLiteral("tinyint", String.valueOf(rewritten.getWrapperBehavior().ordinal())))
+                        .add(new io.trino.sql.ir.GenericLiteral("tinyint", String.valueOf(rewritten.getEmptyBehavior().ordinal())))
+                        .add(new io.trino.sql.ir.GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())));
 
-                Expression function = new FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
+                io.trino.sql.ir.Expression function = new io.trino.sql.ir.FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
 
                 // apply function to format output
-                GenericLiteral errorBehavior = new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal()));
-                BooleanLiteral omitQuotes = new BooleanLiteral(node.getQuotesBehavior().orElse(KEEP) == OMIT ? "true" : "false");
+                io.trino.sql.ir.GenericLiteral errorBehavior = new io.trino.sql.ir.GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal()));
+                io.trino.sql.ir.BooleanLiteral omitQuotes = new io.trino.sql.ir.BooleanLiteral(node.getQuotesBehavior().orElse(KEEP) == OMIT ? "true" : "false");
                 ResolvedFunction outputFunction = analysis.getJsonOutputFunction(node);
-                Expression result = new FunctionCall(outputFunction.toQualifiedName(), ImmutableList.of(function, errorBehavior, omitQuotes));
+                io.trino.sql.ir.Expression result = new io.trino.sql.ir.FunctionCall(outputFunction.toQualifiedName(), ImmutableList.of(function, errorBehavior, omitQuotes));
 
                 // cast to requested returned type
                 Type returnedType = node.getReturnedType()
@@ -564,105 +560,106 @@ class TranslationMap
 
                 Type resultType = outputFunction.getSignature().getReturnType();
                 if (!resultType.equals(returnedType)) {
-                    result = new Cast(result, toSqlType(returnedType));
+                    result = new io.trino.sql.ir.Cast(result, treeRewriter.copy(toSqlType(returnedType), context));
                 }
 
-                return coerceIfNecessary(node, result);
+                return coerceIfNecessary(node, result, treeRewriter);
             }
 
-            private ParametersRow getParametersRow(
+            private IrParametersRow getParametersRow(
                     List<JsonPathParameter> pathParameters,
-                    List<JsonPathParameter> rewrittenPathParameters,
+                    List<io.trino.sql.ir.JsonPathParameter> rewrittenPathParameters,
                     Type parameterRowType,
-                    BooleanLiteral failOnError)
+                    io.trino.sql.ir.BooleanLiteral failOnError,
+                    AstToIrExpressionTreeRewriter<Void> treeRewriter)
             {
-                Expression parametersRow;
+                io.trino.sql.ir.Expression parametersRow;
                 List<String> parametersOrder;
                 if (!pathParameters.isEmpty()) {
-                    ImmutableList.Builder<Expression> parameters = ImmutableList.builder();
+                    ImmutableList.Builder<io.trino.sql.ir.Expression> parameters = ImmutableList.builder();
                     for (int i = 0; i < pathParameters.size(); i++) {
                         ResolvedFunction parameterToJson = analysis.getJsonInputFunction(pathParameters.get(i).getParameter());
-                        Expression rewrittenParameter = rewrittenPathParameters.get(i).getParameter();
+                        io.trino.sql.ir.Expression rewrittenParameter = rewrittenPathParameters.get(i).getParameter();
                         if (parameterToJson != null) {
-                            parameters.add(new FunctionCall(parameterToJson.toQualifiedName(), ImmutableList.of(rewrittenParameter, failOnError)));
+                            parameters.add(new io.trino.sql.ir.FunctionCall(parameterToJson.toQualifiedName(), ImmutableList.of(rewrittenParameter, failOnError)));
                         }
                         else {
                             parameters.add(rewrittenParameter);
                         }
                     }
-                    parametersRow = new Cast(new Row(parameters.build()), toSqlType(parameterRowType));
+                    parametersRow = new io.trino.sql.ir.Cast(new io.trino.sql.ir.Row(parameters.build()), treeRewriter.copy(toSqlType(parameterRowType), null));
                     parametersOrder = pathParameters.stream()
                             .map(parameter -> parameter.getName().getCanonicalValue())
                             .collect(toImmutableList());
                 }
                 else {
                     checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(parameterRowType), "invalid type of parameters row when no parameters are passed");
-                    parametersRow = new Cast(new NullLiteral(), toSqlType(JSON_NO_PARAMETERS_ROW_TYPE));
+                    parametersRow = new io.trino.sql.ir.Cast(new io.trino.sql.ir.NullLiteral(), treeRewriter.copy(toSqlType(JSON_NO_PARAMETERS_ROW_TYPE), null));
                     parametersOrder = ImmutableList.of();
                 }
 
-                return new ParametersRow(parametersRow, parametersOrder);
+                return new IrParametersRow(parametersRow, parametersOrder);
             }
 
             @Override
-            public Expression rewriteJsonObject(JsonObject node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public io.trino.sql.ir.Expression rewriteJsonObject(JsonObject node, Void context, AstToIrExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
+                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
                 }
 
                 ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
                 checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
 
-                Expression keysRow;
-                Expression valuesRow;
+                io.trino.sql.ir.Expression keysRow;
+                io.trino.sql.ir.Expression valuesRow;
 
                 // prepare keys and values as rows
                 if (node.getMembers().isEmpty()) {
                     checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(resolvedFunction.getSignature().getArgumentType(0)));
                     checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(resolvedFunction.getSignature().getArgumentType(1)));
-                    keysRow = new Cast(new NullLiteral(), toSqlType(JSON_NO_PARAMETERS_ROW_TYPE));
-                    valuesRow = new Cast(new NullLiteral(), toSqlType(JSON_NO_PARAMETERS_ROW_TYPE));
+                    keysRow = new io.trino.sql.ir.Cast(new io.trino.sql.ir.NullLiteral(), treeRewriter.copy(toSqlType(JSON_NO_PARAMETERS_ROW_TYPE), context));
+                    valuesRow = new io.trino.sql.ir.Cast(new io.trino.sql.ir.NullLiteral(), treeRewriter.copy(toSqlType(JSON_NO_PARAMETERS_ROW_TYPE), context));
                 }
                 else {
-                    ImmutableList.Builder<Expression> keys = ImmutableList.builder();
-                    ImmutableList.Builder<Expression> values = ImmutableList.builder();
+                    ImmutableList.Builder<io.trino.sql.ir.Expression> keys = ImmutableList.builder();
+                    ImmutableList.Builder<io.trino.sql.ir.Expression> values = ImmutableList.builder();
                     for (JsonObjectMember member : node.getMembers()) {
                         Expression key = member.getKey();
                         Expression value = member.getValue();
 
-                        Expression rewrittenKey = treeRewriter.rewrite(key, context);
+                        io.trino.sql.ir.Expression rewrittenKey = treeRewriter.rewrite(key, context);
                         keys.add(rewrittenKey);
 
-                        Expression rewrittenValue = treeRewriter.rewrite(value, context);
+                        io.trino.sql.ir.Expression rewrittenValue = treeRewriter.rewrite(value, context);
                         ResolvedFunction valueToJson = analysis.getJsonInputFunction(value);
                         if (valueToJson != null) {
-                            values.add(new FunctionCall(valueToJson.toQualifiedName(), ImmutableList.of(rewrittenValue, TRUE_LITERAL)));
+                            values.add(new io.trino.sql.ir.FunctionCall(valueToJson.toQualifiedName(), ImmutableList.of(rewrittenValue, io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL)));
                         }
                         else {
                             values.add(rewrittenValue);
                         }
                     }
-                    keysRow = new Row(keys.build());
-                    valuesRow = new Row(values.build());
+                    keysRow = new io.trino.sql.ir.Row(keys.build());
+                    valuesRow = new io.trino.sql.ir.Row(values.build());
                 }
 
-                List<Expression> arguments = ImmutableList.<Expression>builder()
+                List<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
                         .add(keysRow)
                         .add(valuesRow)
-                        .add(node.isNullOnNull() ? TRUE_LITERAL : FALSE_LITERAL)
-                        .add(node.isUniqueKeys() ? TRUE_LITERAL : FALSE_LITERAL)
+                        .add(node.isNullOnNull() ? io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL : io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL)
+                        .add(node.isUniqueKeys() ? io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL : io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL)
                         .build();
 
-                Expression function = new FunctionCall(resolvedFunction.toQualifiedName(), arguments);
+                io.trino.sql.ir.Expression function = new io.trino.sql.ir.FunctionCall(resolvedFunction.toQualifiedName(), arguments);
 
                 // apply function to format output
                 ResolvedFunction outputFunction = analysis.getJsonOutputFunction(node);
-                Expression result = new FunctionCall(outputFunction.toQualifiedName(), ImmutableList.of(
+                io.trino.sql.ir.Expression result = new io.trino.sql.ir.FunctionCall(outputFunction.toQualifiedName(), ImmutableList.of(
                         function,
-                        new GenericLiteral("tinyint", String.valueOf(JsonQuery.EmptyOrErrorBehavior.ERROR.ordinal())),
-                        FALSE_LITERAL));
+                        new io.trino.sql.ir.GenericLiteral("tinyint", String.valueOf(JsonQuery.EmptyOrErrorBehavior.ERROR.ordinal())),
+                        io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL));
 
                 // cast to requested returned type
                 Type returnedType = node.getReturnedType()
@@ -672,59 +669,59 @@ class TranslationMap
 
                 Type resultType = outputFunction.getSignature().getReturnType();
                 if (!resultType.equals(returnedType)) {
-                    result = new Cast(result, toSqlType(returnedType));
+                    result = new io.trino.sql.ir.Cast(result, treeRewriter.copy(toSqlType(returnedType), context));
                 }
 
-                return coerceIfNecessary(node, result);
+                return coerceIfNecessary(node, result, treeRewriter);
             }
 
             @Override
-            public Expression rewriteJsonArray(JsonArray node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public io.trino.sql.ir.Expression rewriteJsonArray(JsonArray node, Void context, AstToIrExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
+                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
                 }
 
                 ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
                 checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
 
-                Expression elementsRow;
+                io.trino.sql.ir.Expression elementsRow;
 
                 // prepare elements as row
                 if (node.getElements().isEmpty()) {
                     checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(resolvedFunction.getSignature().getArgumentType(0)));
-                    elementsRow = new Cast(new NullLiteral(), toSqlType(JSON_NO_PARAMETERS_ROW_TYPE));
+                    elementsRow = new io.trino.sql.ir.Cast(new io.trino.sql.ir.NullLiteral(), treeRewriter.copy(toSqlType(JSON_NO_PARAMETERS_ROW_TYPE), context));
                 }
                 else {
-                    ImmutableList.Builder<Expression> elements = ImmutableList.builder();
+                    ImmutableList.Builder<io.trino.sql.ir.Expression> elements = ImmutableList.builder();
                     for (JsonArrayElement arrayElement : node.getElements()) {
                         Expression element = arrayElement.getValue();
-                        Expression rewrittenElement = treeRewriter.rewrite(element, context);
+                        io.trino.sql.ir.Expression rewrittenElement = treeRewriter.rewrite(element, context);
                         ResolvedFunction elementToJson = analysis.getJsonInputFunction(element);
                         if (elementToJson != null) {
-                            elements.add(new FunctionCall(elementToJson.toQualifiedName(), ImmutableList.of(rewrittenElement, TRUE_LITERAL)));
+                            elements.add(new io.trino.sql.ir.FunctionCall(elementToJson.toQualifiedName(), ImmutableList.of(rewrittenElement, io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL)));
                         }
                         else {
                             elements.add(rewrittenElement);
                         }
                     }
-                    elementsRow = new Row(elements.build());
+                    elementsRow = new io.trino.sql.ir.Row(elements.build());
                 }
 
-                List<Expression> arguments = ImmutableList.<Expression>builder()
+                List<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
                         .add(elementsRow)
-                        .add(node.isNullOnNull() ? TRUE_LITERAL : FALSE_LITERAL)
+                        .add(node.isNullOnNull() ? io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL : io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL)
                         .build();
 
-                Expression function = new FunctionCall(resolvedFunction.toQualifiedName(), arguments);
+                io.trino.sql.ir.Expression function = new io.trino.sql.ir.FunctionCall(resolvedFunction.toQualifiedName(), arguments);
 
                 // apply function to format output
                 ResolvedFunction outputFunction = analysis.getJsonOutputFunction(node);
-                Expression result = new FunctionCall(outputFunction.toQualifiedName(), ImmutableList.of(
+                io.trino.sql.ir.Expression result = new io.trino.sql.ir.FunctionCall(outputFunction.toQualifiedName(), ImmutableList.of(
                         function,
-                        new GenericLiteral("tinyint", String.valueOf(JsonQuery.EmptyOrErrorBehavior.ERROR.ordinal())),
-                        FALSE_LITERAL));
+                        new io.trino.sql.ir.GenericLiteral("tinyint", String.valueOf(JsonQuery.EmptyOrErrorBehavior.ERROR.ordinal())),
+                        io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL));
 
                 // cast to requested returned type
                 Type returnedType = node.getReturnedType()
@@ -734,22 +731,36 @@ class TranslationMap
 
                 Type resultType = outputFunction.getSignature().getReturnType();
                 if (!resultType.equals(returnedType)) {
-                    result = new Cast(result, toSqlType(returnedType));
+                    result = new io.trino.sql.ir.Cast(result, treeRewriter.copy(toSqlType(returnedType), context));
                 }
 
-                return coerceIfNecessary(node, result);
+                return coerceIfNecessary(node, result, treeRewriter);
             }
 
-            private Expression coerceIfNecessary(Expression original, Expression rewritten)
+            private io.trino.sql.ir.Expression coerceIfNecessary(Expression original, io.trino.sql.ir.Expression rewritten, AstToIrExpressionTreeRewriter<Void> treeRewriter)
             {
                 // Don't add a coercion for the top-level expression. That depends on the context the expression is used and it's the responsibility of the caller.
                 if (original == expression) {
                     return rewritten;
                 }
 
-                return QueryPlanner.coerceIfNecessary(analysis, original, rewritten);
+                Type coercion = analysis.getCoercion(original);
+                if (coercion == null) {
+                    return rewritten;
+                }
+
+                return new io.trino.sql.ir.Cast(
+                        rewritten,
+                        treeRewriter.copy(toSqlType(coercion), null),
+                        false,
+                        analysis.isTypeOnlyCoercion(original));
             }
         }, expression, null);
+    }
+
+    public static io.trino.sql.ir.Expression copyAstExpressionToIrExpression(Expression expression)
+    {
+        return AstToIrExpressionTreeRewriter.copyAstNodeToIrNode(expression);
     }
 
     private Optional<Expression> tryGetMapping(Expression expression)
@@ -773,7 +784,7 @@ class TranslationMap
         }
 
         if (outerContext.isPresent()) {
-            return Optional.of(Symbol.from(outerContext.get().rewrite(expression)));
+            return Optional.of(Symbol.from(outerContext.get().rewriteAstExpressionToIrExpression(expression)));
         }
 
         return Optional.empty();
@@ -783,12 +794,25 @@ class TranslationMap
     {
         verify(AstUtils.preOrder(astExpression).noneMatch(expression ->
                 expression instanceof SymbolReference ||
-                        expression instanceof FunctionCall && ResolvedFunction.isResolved(((FunctionCall) expression).getName())));
+                        expression instanceof FunctionCall && ResolvedFunction.isResolved(convertQualifiedName(((FunctionCall) expression).getName()))));
     }
 
     public Scope getScope()
     {
         return scope;
+    }
+
+    //We use a separate method to convert Ast QualifiedName to Ir QualifiedName. Because Ast QualifiedName is used in StatementAnalyzer which involves only with AST, however, some functionalities like
+    //MetadataManager only accepts IR QualifiedName, but we should not rely on copyAstExpressionToIrExpression method since AST to IR conversion doesn't happen there, so we create a seperated dedicated method
+    // for converting Ast QualifiedName to Ir QualifiedName. In the future, we may split Identifier out of Expression hierarchy such that we don't need this conversion.
+    public static io.trino.sql.ir.QualifiedName convertQualifiedName(QualifiedName qualifiedName)
+    {
+        return io.trino.sql.ir.QualifiedName.of(qualifiedName.getOriginalParts().stream().map(originalPart -> new io.trino.sql.ir.Identifier(originalPart.getValue(), originalPart.isDelimited())).collect(toImmutableList()));
+    }
+
+    public static QualifiedName convertQualifiedName(io.trino.sql.ir.QualifiedName qualifiedName)
+    {
+        return QualifiedName.of(qualifiedName.getOriginalParts().stream().map(originalPart -> new Identifier(originalPart.getValue(), originalPart.isDelimited())).collect(toImmutableList()));
     }
 
     private static class ParametersRow
@@ -803,6 +827,28 @@ class TranslationMap
         }
 
         public Expression getParametersRow()
+        {
+            return parametersRow;
+        }
+
+        public List<String> getParametersOrder()
+        {
+            return parametersOrder;
+        }
+    }
+
+    private static class IrParametersRow
+    {
+        private final io.trino.sql.ir.Expression parametersRow;
+        private final List<String> parametersOrder;
+
+        public IrParametersRow(io.trino.sql.ir.Expression parametersRow, List<String> parametersOrder)
+        {
+            this.parametersRow = requireNonNull(parametersRow, "parametersRow is null");
+            this.parametersOrder = requireNonNull(parametersOrder, "parametersOrder is null");
+        }
+
+        public io.trino.sql.ir.Expression getParametersRow()
         {
             return parametersRow;
         }

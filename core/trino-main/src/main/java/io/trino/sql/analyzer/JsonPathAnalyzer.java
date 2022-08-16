@@ -58,7 +58,6 @@ import io.trino.sql.jsonpath.tree.SqlValueLiteral;
 import io.trino.sql.jsonpath.tree.StartsWithPredicate;
 import io.trino.sql.jsonpath.tree.TypeMethod;
 import io.trino.sql.tree.Node;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 
 import java.util.LinkedHashMap;
@@ -147,7 +146,7 @@ public class JsonPathAnalyzer
             if (sourceType != null) {
                 Type resultType;
                 try {
-                    resultType = metadata.resolveFunction(session, QualifiedName.of("abs"), fromTypes(sourceType)).getSignature().getReturnType();
+                    resultType = metadata.resolveFunction(session, io.trino.sql.ir.QualifiedName.of("abs"), fromTypes(sourceType)).getSignature().getReturnType();
                 }
                 catch (TrinoException e) {
                     throw semanticException(INVALID_PATH, pathNode, e, "cannot perform JSON path abs() method with %s argument: %s", sourceType.getDisplayName(), e.getMessage());
@@ -225,7 +224,7 @@ public class JsonPathAnalyzer
             if (sourceType != null) {
                 Type resultType;
                 try {
-                    resultType = metadata.resolveFunction(session, QualifiedName.of("ceiling"), fromTypes(sourceType)).getSignature().getReturnType();
+                    resultType = metadata.resolveFunction(session, io.trino.sql.ir.QualifiedName.of("ceiling"), fromTypes(sourceType)).getSignature().getReturnType();
                 }
                 catch (TrinoException e) {
                     throw semanticException(INVALID_PATH, pathNode, e, "cannot perform JSON path ceiling() method with %s argument: %s", sourceType.getDisplayName(), e.getMessage());
@@ -298,7 +297,7 @@ public class JsonPathAnalyzer
             if (sourceType != null) {
                 Type resultType;
                 try {
-                    resultType = metadata.resolveFunction(session, QualifiedName.of("floor"), fromTypes(sourceType)).getSignature().getReturnType();
+                    resultType = metadata.resolveFunction(session, io.trino.sql.ir.QualifiedName.of("floor"), fromTypes(sourceType)).getSignature().getReturnType();
                 }
                 catch (TrinoException e) {
                     throw semanticException(INVALID_PATH, pathNode, e, "cannot perform JSON path floor() method with %s argument: %s", sourceType.getDisplayName(), e.getMessage());

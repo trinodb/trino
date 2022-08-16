@@ -22,8 +22,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.SqlPathElement;
 import io.trino.sql.analyzer.TypeSignatureProvider;
-import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.ir.QualifiedName;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -210,7 +209,36 @@ public class FunctionResolver
 
         // add resolved path items
         for (SqlPathElement sqlPathElement : session.getPath().getParsedPath()) {
-            String catalog = sqlPathElement.getCatalog().map(Identifier::getCanonicalValue).or(session::getCatalog)
+            String catalog = sqlPathElement.getCatalog().map(io.trino.sql.tree.Identifier::getCanonicalValue).or(session::getCatalog)
+                    .orElseThrow(() -> new IllegalArgumentException("Session default catalog must be set to resolve a partial function name: " + name));
+            names.add(new CatalogSchemaFunctionName(catalog, sqlPathElement.getSchema().getCanonicalValue(), functionName));
+        }
+        return names.build();
+    }
+
+    public static List<CatalogSchemaFunctionName> toPath(Session session, io.trino.sql.tree.QualifiedName name)
+    {
+        List<String> parts = name.getParts();
+        checkArgument(parts.size() <= 3, "Function name can only have 3 parts: " + name);
+        if (parts.size() == 3) {
+            return ImmutableList.of(new CatalogSchemaFunctionName(parts.get(0), parts.get(1), parts.get(2)));
+        }
+
+        if (parts.size() == 2) {
+            String currentCatalog = session.getCatalog()
+                    .orElseThrow(() -> new IllegalArgumentException("Session default catalog must be set to resolve a partial function name: " + name));
+            return ImmutableList.of(new CatalogSchemaFunctionName(currentCatalog, parts.get(0), parts.get(1)));
+        }
+
+        ImmutableList.Builder<CatalogSchemaFunctionName> names = ImmutableList.builder();
+        String functionName = parts.get(0);
+
+        // global namespace
+        names.add(new CatalogSchemaFunctionName(GLOBAL_CATALOG, GLOBAL_SCHEMA, functionName));
+
+        // add resolved path items
+        for (SqlPathElement sqlPathElement : session.getPath().getParsedPath()) {
+            String catalog = sqlPathElement.getCatalog().map(io.trino.sql.tree.Identifier::getCanonicalValue).or(session::getCatalog)
                     .orElseThrow(() -> new IllegalArgumentException("Session default catalog must be set to resolve a partial function name: " + name));
             names.add(new CatalogSchemaFunctionName(catalog, sqlPathElement.getSchema().getCanonicalValue(), functionName));
         }

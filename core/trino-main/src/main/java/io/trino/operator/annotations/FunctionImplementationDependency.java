@@ -19,7 +19,7 @@ import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclara
 import io.trino.metadata.FunctionInvoker;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.ir.QualifiedName;
 
 import java.util.List;
 import java.util.Objects;

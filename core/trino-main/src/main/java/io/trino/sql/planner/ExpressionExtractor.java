@@ -14,6 +14,7 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -25,7 +26,6 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.Expression;
 
 import java.util.List;
 import java.util.function.Consumer;

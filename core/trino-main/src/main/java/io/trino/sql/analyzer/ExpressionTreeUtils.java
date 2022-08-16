@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.Location;
+import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
@@ -71,7 +72,7 @@ public final class ExpressionTreeUtils
 
     private static boolean isAggregation(FunctionCall functionCall, Session session, Metadata metadata)
     {
-        return ((metadata.isAggregationFunction(session, functionCall.getName()) || functionCall.getFilter().isPresent())
+        return ((metadata.isAggregationFunction(session, TranslationMap.convertQualifiedName(functionCall.getName())) || functionCall.getFilter().isPresent())
                 && functionCall.getWindow().isEmpty())
                 || functionCall.getOrderBy().isPresent();
     }

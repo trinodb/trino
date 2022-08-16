@@ -20,6 +20,8 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -27,8 +29,6 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
@@ -97,7 +97,7 @@ public class PushProjectionThroughExchange
             partitioningColumns.stream()
                     .map(outputToInputMap::get)
                     .forEach(inputSymbol -> {
-                        projections.put(inputSymbol, inputSymbol.toSymbolReference());
+                        projections.put(inputSymbol, inputSymbol.toIrSymbolReference());
                         inputs.add(inputSymbol);
                     });
 
@@ -105,7 +105,7 @@ public class PushProjectionThroughExchange
             exchange.getPartitioningScheme().getHashColumn()
                     .map(outputToInputMap::get)
                     .ifPresent(inputSymbol -> {
-                        projections.put(inputSymbol, inputSymbol.toSymbolReference());
+                        projections.put(inputSymbol, inputSymbol.toIrSymbolReference());
                         inputs.add(inputSymbol);
                     });
 
@@ -116,7 +116,7 @@ public class PushProjectionThroughExchange
                         .filter(symbol -> !partitioningColumns.contains(symbol))
                         .map(outputToInputMap::get)
                         .forEach(inputSymbol -> {
-                            projections.put(inputSymbol, inputSymbol.toSymbolReference());
+                            projections.put(inputSymbol, inputSymbol.toIrSymbolReference());
                             inputs.add(inputSymbol);
                         });
             }
@@ -128,7 +128,7 @@ public class PushProjectionThroughExchange
             Set<Symbol> partitioningHashAndOrderingOutputs = outputBuilder.build();
 
             Map<Symbol, Expression> translationMap = outputToInputMap.entrySet().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));
+                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().toIrSymbolReference()));
 
             for (Map.Entry<Symbol, Expression> projection : project.getAssignments().entrySet()) {
                 // Skip identity projection if symbol is in outputs already

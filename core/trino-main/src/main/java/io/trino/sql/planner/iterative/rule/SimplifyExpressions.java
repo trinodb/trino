@@ -17,15 +17,15 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.ExpressionInterpreter;
-import io.trino.sql.planner.LiteralEncoder;
-import io.trino.sql.planner.NoOpSymbolResolver;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrLiteralEncoder;
+import io.trino.sql.planner.IrNoOpSymbolResolver;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.Map;
 import java.util.Set;
@@ -50,9 +50,9 @@ public class SimplifyExpressions
         expression = extractCommonPredicates(plannerContext.getMetadata(), expression);
         expression = normalizeOrExpression(expression);
         expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, plannerContext, session, expressionTypes);
-        Object optimized = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
-        return new LiteralEncoder(plannerContext).toExpression(session, optimized, expressionTypes.get(NodeRef.of(expression)));
+        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes);
+        Object optimized = interpreter.optimize(IrNoOpSymbolResolver.INSTANCE);
+        return new IrLiteralEncoder(plannerContext).toExpression(session, optimized, expressionTypes.get(NodeRef.of(expression)));
     }
 
     public SimplifyExpressions(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)

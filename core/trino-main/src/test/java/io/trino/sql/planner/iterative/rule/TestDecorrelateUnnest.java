@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.UnnestMapping.unnestMapping;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -39,7 +40,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public class TestDecorrelateUnnest
         extends BaseRuleTest

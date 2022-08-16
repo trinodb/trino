@@ -21,6 +21,9 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.QualifiedName;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -31,9 +34,6 @@ import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.List;
 import java.util.Optional;
@@ -138,8 +138,8 @@ public class ImplementLimitWithTies
                 idAllocator.getNextId(),
                 windowNode,
                 new ComparisonExpression(
-                        ComparisonExpression.Operator.LESS_THAN_OR_EQUAL,
-                        rankSymbol.toSymbolReference(),
+                        io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL,
+                        rankSymbol.toIrSymbolReference(),
                         new GenericLiteral("BIGINT", Long.toString(limitNode.getCount()))));
     }
 }

@@ -17,24 +17,24 @@ import com.google.common.collect.ImmutableList.Builder;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.ArrayConstructor;
+import io.trino.sql.ir.AtTimeZone;
+import io.trino.sql.ir.CurrentCatalog;
+import io.trino.sql.ir.CurrentPath;
+import io.trino.sql.ir.CurrentSchema;
+import io.trino.sql.ir.CurrentUser;
+import io.trino.sql.ir.DefaultExpressionTraversalVisitor;
+import io.trino.sql.ir.DereferenceExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Extract;
+import io.trino.sql.ir.LikePredicate;
+import io.trino.sql.ir.Node;
+import io.trino.sql.ir.TryExpression;
 import io.trino.sql.planner.ExpressionExtractor;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.tree.ArrayConstructor;
-import io.trino.sql.tree.AtTimeZone;
-import io.trino.sql.tree.CurrentCatalog;
-import io.trino.sql.tree.CurrentPath;
-import io.trino.sql.tree.CurrentSchema;
-import io.trino.sql.tree.CurrentUser;
-import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
-import io.trino.sql.tree.DereferenceExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Extract;
-import io.trino.sql.tree.LikePredicate;
-import io.trino.sql.tree.Node;
-import io.trino.sql.tree.TryExpression;
 
 /**
  * Verifies the plan does not contain any "syntactic sugar" from the AST.
