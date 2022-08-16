@@ -16,7 +16,7 @@ FROM eclipse-temurin:17.0.4_8-jdk
 RUN \
     set -xeu && \
     apt-get update -q && \
-    apt-get install -y -q less python3 && \
+    apt-get install -y -q less python3 curl && \
     rm -rf /var/lib/apt/lists/* && \
     update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
     groupadd trino --gid 1000 && \
