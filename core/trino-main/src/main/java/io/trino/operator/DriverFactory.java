@@ -16,6 +16,8 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.plan.PlanNodeId;
 
+import javax.annotation.concurrent.GuardedBy;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -34,7 +36,8 @@ public class DriverFactory
     private final Optional<PlanNodeId> sourceId;
     private final OptionalInt driverInstances;
 
-    private boolean closed;
+    @GuardedBy("this")
+    private boolean noMoreDrivers;
 
     public DriverFactory(int pipelineId, boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances)
     {
@@ -91,7 +94,7 @@ public class DriverFactory
 
     public synchronized Driver createDriver(DriverContext driverContext)
     {
-        checkState(!closed, "DriverFactory is already closed");
+        checkState(!noMoreDrivers, "noMoreDrivers is already set");
         requireNonNull(driverContext, "driverContext is null");
         ImmutableList.Builder<Operator> operators = ImmutableList.builder();
         for (OperatorFactory operatorFactory : operatorFactories) {
@@ -103,12 +106,17 @@ public class DriverFactory
 
     public synchronized void noMoreDrivers()
     {
-        if (closed) {
+        if (noMoreDrivers) {
             return;
         }
-        closed = true;
+        noMoreDrivers = true;
         for (OperatorFactory operatorFactory : operatorFactories) {
             operatorFactory.noMoreOperators();
         }
+    }
+
+    public synchronized boolean isNoMoreDrivers()
+    {
+        return noMoreDrivers;
     }
 }
