@@ -18,6 +18,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.NodeVersion;
@@ -170,6 +171,7 @@ public class TestDeltaLakePageSink
 
         DeltaLakePageSinkProvider provider = new DeltaLakePageSinkProvider(
                 new GroupByHashPageIndexerFactory(new JoinCompiler(new TypeOperators()), new BlockTypeOperators()),
+                new HdfsFileSystemFactory(HDFS_ENVIRONMENT),
                 HDFS_ENVIRONMENT,
                 JsonCodec.jsonCodec(DataFileInfo.class),
                 JsonCodec.jsonCodec(DeltaLakeMergeResult.class),

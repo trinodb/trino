@@ -16,13 +16,9 @@ package io.trino.plugin.deltalake.transactionlog.statistics;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
-import io.trino.hdfs.DynamicHdfsConfiguration;
-import io.trino.hdfs.HdfsConfig;
-import io.trino.hdfs.HdfsConfiguration;
-import io.trino.hdfs.HdfsConfigurationInitializer;
-import io.trino.hdfs.HdfsContext;
-import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.authentication.NoHdfsAuthentication;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
@@ -39,8 +35,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -53,6 +47,7 @@ import static com.google.common.collect.Iterators.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -92,39 +87,34 @@ public class TestDeltaLakeFileStatistics
             throws Exception
     {
         File statsFile = new File(getClass().getResource("/databricks/pruning/parquet_struct_statistics/_delta_log/00000000000000000010.checkpoint.parquet").toURI());
-        Path checkpointPath = new Path(statsFile.toURI());
 
         TypeManager typeManager = TESTING_TYPE_MANAGER;
         CheckpointSchemaManager checkpointSchemaManager = new CheckpointSchemaManager(typeManager);
 
-        HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
-        FileSystem fs = hdfsEnvironment.getFileSystem(new HdfsContext(SESSION), checkpointPath);
+        TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT).create(SESSION);
+        TrinoInputFile checkpointFile = fileSystem.newInputFile(statsFile.toURI().toString());
 
         CheckpointEntryIterator metadataEntryIterator = new CheckpointEntryIterator(
-                checkpointPath,
+                checkpointFile,
                 SESSION,
-                fs.getFileStatus(checkpointPath).getLen(),
+                checkpointFile.length(),
                 checkpointSchemaManager,
                 typeManager,
                 ImmutableSet.of(METADATA),
                 Optional.empty(),
-                hdfsEnvironment,
                 new FileFormatDataSourceStats(),
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 true);
         MetadataEntry metadataEntry = getOnlyElement(metadataEntryIterator).getMetaData();
 
         CheckpointEntryIterator checkpointEntryIterator = new CheckpointEntryIterator(
-                checkpointPath,
+                checkpointFile,
                 SESSION,
-                fs.getFileStatus(checkpointPath).getLen(),
+                checkpointFile.length(),
                 checkpointSchemaManager,
                 typeManager,
                 ImmutableSet.of(CheckpointEntryIterator.EntryType.ADD),
                 Optional.of(metadataEntry),
-                hdfsEnvironment,
                 new FileFormatDataSourceStats(),
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 true);

@@ -53,6 +53,7 @@ import io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteFilter;

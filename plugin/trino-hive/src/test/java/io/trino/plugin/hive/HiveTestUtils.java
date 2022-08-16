@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.DynamicHdfsConfiguration;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfigurationInitializer;
@@ -149,11 +151,12 @@ public final class HiveTestUtils
 
     public static Set<HivePageSourceFactory> getDefaultHivePageSourceFactories(HdfsEnvironment hdfsEnvironment, HiveConfig hiveConfig)
     {
+        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment);
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         return ImmutableSet.<HivePageSourceFactory>builder()
                 .add(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, hdfsEnvironment, stats, hiveConfig))
                 .add(new OrcPageSourceFactory(new OrcReaderConfig(), hdfsEnvironment, stats, hiveConfig))
-                .add(new ParquetPageSourceFactory(hdfsEnvironment, stats, new ParquetReaderConfig(), hiveConfig))
+                .add(new ParquetPageSourceFactory(fileSystemFactory, stats, new ParquetReaderConfig(), hiveConfig))
                 .build();
     }
 

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.parquet.ParquetReaderOptions;
@@ -100,6 +101,7 @@ public class DeltaLakeUpdatablePageSource
     private final long fileSize;
     private final ConnectorSession session;
     private final ExecutorService executorService;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
     private final DateTimeZone parquetDateTimeZone;
@@ -130,6 +132,7 @@ public class DeltaLakeUpdatablePageSource
             long fileModifiedTime,
             ConnectorSession session,
             ExecutorService executorService,
+            TrinoFileSystemFactory fileSystemFactory,
             HdfsEnvironment hdfsEnvironment,
             HdfsContext hdfsContext,
             DateTimeZone parquetDateTimeZone,
@@ -145,6 +148,7 @@ public class DeltaLakeUpdatablePageSource
         this.fileSize = fileSize;
         this.session = requireNonNull(session, "session is null");
         this.executorService = requireNonNull(executorService, "executorService is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
         this.parquetDateTimeZone = requireNonNull(parquetDateTimeZone, "parquetDateTimeZone is null");
@@ -565,16 +569,12 @@ public class DeltaLakeUpdatablePageSource
     private ReaderPageSource createParquetPageSource(TupleDomain<HiveColumnHandle> parquetPredicate, List<HiveColumnHandle> columns)
     {
         return ParquetPageSourceFactory.createPageSource(
-                new Path(path),
+                fileSystemFactory.create(session).newInputFile(path, fileSize),
                 0,
-                fileSize,
                 fileSize,
                 columns,
                 parquetPredicate,
                 true,
-                hdfsEnvironment,
-                hdfsEnvironment.getConfiguration(hdfsContext, new Path(path)),
-                this.session.getIdentity(),
                 parquetDateTimeZone,
                 new FileFormatDataSourceStats(),
                 parquetReaderOptions.withMaxReadBlockSize(getParquetMaxReadBlockSize(this.session))

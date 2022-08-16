@@ -23,6 +23,7 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
+import io.trino.filesystem.hdfs.HdfsFileSystemModule;
 import io.trino.hdfs.HdfsModule;
 import io.trino.hdfs.authentication.HdfsAuthenticationModule;
 import io.trino.plugin.base.CatalogNameModule;
@@ -115,6 +116,7 @@ public final class InternalHiveConnectorFactory
                     new HiveMetastoreModule(metastore),
                     new HiveSecurityModule(),
                     new HdfsAuthenticationModule(),
+                    new HdfsFileSystemModule(),
                     new HiveProcedureModule(),
                     new MBeanServerModule(),
                     binder -> {
