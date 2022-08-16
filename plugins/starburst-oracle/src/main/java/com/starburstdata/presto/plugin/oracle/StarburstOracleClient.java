@@ -314,7 +314,7 @@ public class StarburstOracleClient
     {
         String escape = metadata.getSearchStringEscape();
         return metadata.getColumns(
-                tableHandle.getCatalogName(),
+                tableHandle.getRequiredNamedRelation().getRemoteTableName().getCatalogName().orElse(null),
                 escapeNamePattern(Optional.ofNullable(tableHandle.getSchemaName()), escape).orElse(null),
                 escapeNamePattern(Optional.ofNullable(tableHandle.getTableName()), escape).orElse("") + tableNameSuffix,
                 null);
