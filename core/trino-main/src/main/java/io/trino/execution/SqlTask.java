@@ -448,6 +448,7 @@ public class SqlTask
                             this::notifyStatusChanged);
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                     needsPlan.set(false);
+                    taskExecution.start();
                 }
             }
 
