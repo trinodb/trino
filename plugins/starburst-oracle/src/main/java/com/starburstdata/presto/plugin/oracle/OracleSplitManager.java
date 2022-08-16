@@ -130,7 +130,7 @@ public class OracleSplitManager
         try (Handle handle = Jdbi.open(() -> connectionFactory.openConnection(session))) {
             return handle.createQuery("SELECT partition_name FROM all_tab_partitions WHERE table_name = :name AND table_owner = :owner")
                     .bind("name", tableHandle.getTableName())
-                    .bind("owner", tableHandle.getSchemaName())
+                    .bind("owner", tableHandle.getRequiredNamedRelation().getRemoteTableName().getSchemaName().orElse(null))
                     .mapTo(String.class)
                     .list();
         }

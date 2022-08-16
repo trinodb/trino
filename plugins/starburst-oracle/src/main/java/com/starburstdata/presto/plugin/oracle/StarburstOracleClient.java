@@ -277,6 +277,7 @@ public class StarburstOracleClient
         // this method was used when setIncludeSynonym(false) is set, then openProxySession is also working as expected
         // Forcing is done by using wildcard '%' at the end of table name. And so we have to filter rows with columns from other tables.
         // Whenever you change this method make sure TestOracleIntegrationSmokeTest.testGetColumns covers your changes.
+        checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
         try (Connection connection = connectionFactory.openConnection(session)) {
             try (ResultSet resultSet = getColumns(tableHandle, connection.getMetaData(), "%")) {
                 List<JdbcColumnHandle> columns = new ArrayList<>();
@@ -315,7 +316,7 @@ public class StarburstOracleClient
         String escape = metadata.getSearchStringEscape();
         return metadata.getColumns(
                 tableHandle.getRequiredNamedRelation().getRemoteTableName().getCatalogName().orElse(null),
-                escapeNamePattern(Optional.ofNullable(tableHandle.getSchemaName()), escape).orElse(null),
+                escapeNamePattern(tableHandle.getRequiredNamedRelation().getRemoteTableName().getSchemaName(), escape).orElse(null),
                 escapeNamePattern(Optional.ofNullable(tableHandle.getTableName()), escape).orElse("") + tableNameSuffix,
                 null);
     }
@@ -408,7 +409,8 @@ public class StarburstOracleClient
                 Handle handle = Jdbi.open(connection)) {
             StatisticsDao statisticsDao = new StatisticsDao(handle);
 
-            Long rowCount = statisticsDao.getRowCount(table.getSchemaName(), table.getTableName());
+            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
+            Long rowCount = statisticsDao.getRowCount(remoteTableName.getSchemaName().orElse(null), table.getTableName());
             if (rowCount == null) {
                 return TableStatistics.empty();
             }
@@ -420,7 +422,7 @@ public class StarburstOracleClient
                 return tableStatistics.build();
             }
 
-            Map<String, ColumnStatisticsResult> columnStatistics = statisticsDao.getColumnStatistics(table.getSchemaName(), table.getTableName()).stream()
+            Map<String, ColumnStatisticsResult> columnStatistics = statisticsDao.getColumnStatistics(remoteTableName.getSchemaName().orElse(null), table.getTableName()).stream()
                     .collect(toImmutableMap(ColumnStatisticsResult::getColumnName, identity()));
 
             for (JdbcColumnHandle column : this.getColumns(session, table)) {
