@@ -15,15 +15,9 @@ package io.trino.plugin.deltalake;
 
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.hdfs.DynamicHdfsConfiguration;
-import io.trino.hdfs.HdfsConfig;
-import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsContext;
-import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.glue.DefaultGlueColumnStatisticsProviderFactory;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
@@ -38,12 +32,13 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestDeltaLakeTableWithCustomLocationUsingGlueMetastore
         extends BaseDeltaLakeTableWithCustomLocation
 {
-    private static final Logger LOG = Logger.get(TestDeltaLakeSharedGlueMetastoreWithTableRedirections.class);
+    private static final Logger LOG = Logger.get(TestDeltaLakeTableWithCustomLocationUsingGlueMetastore.class);
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -69,15 +64,10 @@ public class TestDeltaLakeTableWithCustomLocationUsingGlueMetastore
                         .put("hive.metastore.glue.default-warehouse-dir", metastoreDir.getPath())
                         .buildOrThrow());
 
-        HdfsConfig hdfsConfig = new HdfsConfig();
-        hdfsEnvironment = new HdfsEnvironment(
-                new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of()),
-                hdfsConfig,
-                new NoHdfsAuthentication());
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
                 .setGlueRegion("us-east-2");
         metastore = new GlueHiveMetastore(
-                hdfsEnvironment,
+                HDFS_ENVIRONMENT,
                 glueConfig,
                 DefaultAWSCredentialsProviderChain.getInstance(),
                 directExecutor(),
