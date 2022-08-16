@@ -117,32 +117,7 @@ public class SqlTaskExecution
     // number of created Drivers that haven't yet finished
     private final AtomicLong remainingDrivers = new AtomicLong();
 
-    static SqlTaskExecution createSqlTaskExecution(
-            TaskStateMachine taskStateMachine,
-            TaskContext taskContext,
-            OutputBuffer outputBuffer,
-            LocalExecutionPlan localExecutionPlan,
-            TaskExecutor taskExecutor,
-            Executor notificationExecutor,
-            SplitMonitor queryMonitor)
-    {
-        SqlTaskExecution task = new SqlTaskExecution(
-                taskStateMachine,
-                taskContext,
-                outputBuffer,
-                localExecutionPlan,
-                taskExecutor,
-                queryMonitor,
-                notificationExecutor);
-        try (SetThreadName ignored = new SetThreadName("Task-%s", task.getTaskId())) {
-            // The scheduleDriversForTaskLifeCycle method calls enqueueDriverSplitRunner, which registers a callback with access to this object.
-            // The call back is accessed from another thread, so this code cannot be placed in the constructor.
-            task.scheduleDriversForTaskLifeCycle();
-            return task;
-        }
-    }
-
-    private SqlTaskExecution(
+    public SqlTaskExecution(
             TaskStateMachine taskStateMachine,
             TaskContext taskContext,
             OutputBuffer outputBuffer,
@@ -194,6 +169,15 @@ public class SqlTaskExecution
             }
 
             outputBuffer.addStateChangeListener(new CheckTaskCompletionOnBufferFinish(SqlTaskExecution.this));
+        }
+    }
+
+    public void start()
+    {
+        try (SetThreadName ignored = new SetThreadName("Task-%s", getTaskId())) {
+            // The scheduleDriversForTaskLifeCycle method calls enqueueDriverSplitRunner, which registers a callback with access to this object.
+            // The call back is accessed from another thread, so this code cannot be placed in the constructor.
+            scheduleDriversForTaskLifeCycle();
         }
     }
 
