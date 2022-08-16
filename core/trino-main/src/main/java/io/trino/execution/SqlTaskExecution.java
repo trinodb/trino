@@ -66,6 +66,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Iterables.concat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.SystemSessionProperties.getInitialSplitsPerNode;
 import static io.trino.SystemSessionProperties.getMaxDriversPerTask;
@@ -384,6 +385,7 @@ public class SqlTaskExecution
             driverRunnerFactory.noMoreDriverRunner();
             verify(driverRunnerFactory.isNoMoreDriverRunner());
         }
+        checkTaskCompletion();
     }
 
     private synchronized void enqueueDriverSplitRunner(boolean forceRunSplit, List<DriverSplitRunner> runners)
@@ -469,9 +471,9 @@ public class SqlTaskExecution
             return;
         }
 
-        // are there more partition splits expected?
-        for (DriverSplitRunnerFactory driverSplitRunnerFactory : driverRunnerFactoriesWithSplitLifeCycle.values()) {
-            if (!driverSplitRunnerFactory.isNoMoreDriverRunner()) {
+        // are there more drivers expected?
+        for (DriverSplitRunnerFactory driverSplitRunnerFactory : concat(driverRunnerFactoriesWithTaskLifeCycle, driverRunnerFactoriesWithSplitLifeCycle.values())) {
+            if (!driverSplitRunnerFactory.isNoMoreDrivers()) {
                 return;
             }
         }
@@ -659,6 +661,11 @@ public class SqlTaskExecution
             if (isNoMoreDriverRunner() && pendingCreations.get() == 0) {
                 driverFactory.noMoreDrivers();
             }
+        }
+
+        public boolean isNoMoreDrivers()
+        {
+            return driverFactory.isNoMoreDrivers();
         }
 
         public OptionalInt getDriverInstances()
