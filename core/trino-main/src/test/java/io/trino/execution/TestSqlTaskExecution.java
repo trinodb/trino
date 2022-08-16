@@ -135,14 +135,15 @@ public class TestSqlTaskExecution
                             OptionalInt.empty())),
                     ImmutableList.of(TABLE_SCAN_NODE_ID));
             TaskContext taskContext = newTestingTaskContext(taskNotificationExecutor, driverYieldExecutor, taskStateMachine);
-            SqlTaskExecution sqlTaskExecution = SqlTaskExecution.createSqlTaskExecution(
+            SqlTaskExecution sqlTaskExecution = new SqlTaskExecution(
                     taskStateMachine,
                     taskContext,
                     outputBuffer,
                     localExecutionPlan,
                     taskExecutor,
-                    taskNotificationExecutor,
-                    createTestSplitMonitor());
+                    createTestSplitMonitor(),
+                    taskNotificationExecutor);
+            sqlTaskExecution.start();
 
             //
             // test body
