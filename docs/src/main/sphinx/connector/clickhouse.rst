@@ -238,8 +238,8 @@ to the following table:
   * - ``Date``
     - ``DATE``
     -
-  * - ``DateTime``
-    - ``TIMESTAMP(0)``
+  * - ``DateTime[(timezone)]``
+    - ``TIMESTAMP(0) [WITH TIME ZONE]``
     -
   * - ``IPv4``
     - ``IPADDRESS``
