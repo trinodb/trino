@@ -43,9 +43,22 @@ class HdfsOutputFile
     public OutputStream create()
             throws IOException
     {
+        return create(false);
+    }
+
+    @Override
+    public OutputStream createOrOverwrite()
+            throws IOException
+    {
+        return create(true);
+    }
+
+    private OutputStream create(boolean overwrite)
+            throws IOException
+    {
         Path file = hadoopPath(path);
         FileSystem fileSystem = environment.getFileSystem(context, file);
-        return environment.doAs(context.getIdentity(), () -> fileSystem.create(file, false));
+        return environment.doAs(context.getIdentity(), () -> fileSystem.create(file, overwrite));
     }
 
     @Override
