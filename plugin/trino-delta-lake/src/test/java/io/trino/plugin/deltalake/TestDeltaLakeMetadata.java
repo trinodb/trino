@@ -21,6 +21,8 @@ import com.google.inject.Injector;
 import com.google.inject.Provides;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.filesystem.hdfs.HdfsFileSystemModule;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
@@ -161,6 +163,7 @@ public class TestDeltaLakeMetadata
                 // test setup
                 binder -> {
                     binder.bind(HdfsEnvironment.class).toInstance(HDFS_ENVIRONMENT);
+                    binder.install(new HdfsFileSystemModule());
                 },
                 new AbstractModule()
                 {
@@ -176,7 +179,7 @@ public class TestDeltaLakeMetadata
                                 transactionLogAccess,
                                 typeManager,
                                 statistics,
-                                HDFS_ENVIRONMENT);
+                                new HdfsFileSystemFactory(HDFS_ENVIRONMENT));
                     }
                 });
 

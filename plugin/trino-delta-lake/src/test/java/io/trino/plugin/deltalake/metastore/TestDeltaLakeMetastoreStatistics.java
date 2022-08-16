@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import io.airlift.json.JsonCodecFactory;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.DynamicHdfsConfiguration;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfiguration;
@@ -104,6 +106,7 @@ public class TestDeltaLakeMetastoreStatistics
         HdfsConfig hdfsConfig = new HdfsConfig();
         HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
+        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment);
         FileFormatDataSourceStats fileFormatDataSourceStats = new FileFormatDataSourceStats();
 
         TransactionLogAccess transactionLogAccess = new TransactionLogAccess(
@@ -111,7 +114,7 @@ public class TestDeltaLakeMetastoreStatistics
                 checkpointSchemaManager,
                 new DeltaLakeConfig(),
                 fileFormatDataSourceStats,
-                hdfsEnvironment,
+                fileSystemFactory,
                 new ParquetReaderConfig());
 
         File tmpDir = Files.createTempDirectory(null).toFile();
@@ -132,7 +135,7 @@ public class TestDeltaLakeMetastoreStatistics
                 transactionLogAccess,
                 typeManager,
                 statistics,
-                hdfsEnvironment);
+                fileSystemFactory);
     }
 
     private DeltaLakeTableHandle registerTable(String tableName)
