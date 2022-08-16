@@ -22,5 +22,8 @@ public interface TrinoOutputFile
     OutputStream create()
             throws IOException;
 
+    OutputStream createOrOverwrite()
+            throws IOException;
+
     String location();
 }
