@@ -17,7 +17,7 @@ import com.google.common.collect.AbstractIterator;
 
 import java.util.OptionalInt;
 
-public interface DefLevelIterable
+public interface DefLevelWriterProvider
 {
     DefLevelIterator getIterator();
 
