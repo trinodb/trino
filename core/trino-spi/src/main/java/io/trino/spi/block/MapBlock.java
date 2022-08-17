@@ -37,6 +37,7 @@ public class MapBlock
     private final int startOffset;
     private final int positionCount;
 
+    @Nullable
     private final boolean[] mapIsNull;
     private final int[] offsets;
     private final Block keyBlock;
@@ -199,6 +200,12 @@ public class MapBlock
     protected boolean[] getMapIsNull()
     {
         return mapIsNull;
+    }
+
+    @Override
+    public boolean mayHaveNull()
+    {
+        return mapIsNull != null;
     }
 
     @Override
