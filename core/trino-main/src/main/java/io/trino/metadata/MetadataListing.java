@@ -210,7 +210,7 @@ public final class MetadataListing
                     }
                 }
 
-                if (redirectionSucceeded == false) {
+                if (!redirectionSucceeded) {
                     return;
                 }
 
