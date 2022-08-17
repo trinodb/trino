@@ -16,7 +16,6 @@ package io.trino.plugin.elasticsearch;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.log.Logger;
-import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.jmx.JmxPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -54,10 +53,25 @@ public final class ElasticsearchQueryRunner
             int nodeCount)
             throws Exception
     {
+        return createElasticsearchQueryRunner(address, tables, extraProperties, extraConnectorProperties, nodeCount, "elasticsearch");
+    }
+
+    public static DistributedQueryRunner createElasticsearchQueryRunner(
+            HostAndPort address,
+            Iterable<TpchTable<?>> tables,
+            Map<String, String> extraProperties,
+            Map<String, String> extraConnectorProperties,
+            int nodeCount,
+            String catalogName)
+            throws Exception
+    {
         RestHighLevelClient client = null;
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = DistributedQueryRunner.builder(createSession())
+            queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
+                            .setCatalog(catalogName)
+                            .setSchema(TPCH_SCHEMA)
+                            .build())
                     .setExtraProperties(extraProperties)
                     .setNodeCount(nodeCount)
                     .build();
@@ -70,7 +84,7 @@ public final class ElasticsearchQueryRunner
 
             ElasticsearchConnectorFactory testFactory = new ElasticsearchConnectorFactory();
 
-            installElasticsearchPlugin(address, queryRunner, testFactory, extraConnectorProperties);
+            installElasticsearchPlugin(address, queryRunner, catalogName, testFactory, extraConnectorProperties);
 
             TestingTrinoClient trinoClient = queryRunner.getClient();
 
@@ -91,7 +105,12 @@ public final class ElasticsearchQueryRunner
         }
     }
 
-    private static void installElasticsearchPlugin(HostAndPort address, QueryRunner queryRunner, ElasticsearchConnectorFactory factory, Map<String, String> extraConnectorProperties)
+    private static void installElasticsearchPlugin(
+            HostAndPort address,
+            QueryRunner queryRunner,
+            String catalogName,
+            ElasticsearchConnectorFactory factory,
+            Map<String, String> extraConnectorProperties)
     {
         queryRunner.installPlugin(new ElasticsearchPlugin(factory));
         Map<String, String> config = ImmutableMap.<String, String>builder()
@@ -107,7 +126,7 @@ public final class ElasticsearchQueryRunner
                 .putAll(extraConnectorProperties)
                 .buildOrThrow();
 
-        queryRunner.createCatalog("elasticsearch", "elasticsearch", config);
+        queryRunner.createCatalog(catalogName, "elasticsearch", config);
     }
 
     private static void loadTpchTopic(RestHighLevelClient client, TestingTrinoClient trinoClient, TpchTable<?> table)
@@ -117,11 +136,6 @@ public final class ElasticsearchQueryRunner
         ElasticsearchLoader loader = new ElasticsearchLoader(client, table.getTableName().toLowerCase(ENGLISH), trinoClient.getServer(), trinoClient.getDefaultSession());
         loader.execute(format("SELECT * from %s", new QualifiedObjectName(TPCH_SCHEMA, TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH))));
         LOG.info("Imported %s in %s", table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
-    }
-
-    public static Session createSession()
-    {
-        return testSessionBuilder().setCatalog("elasticsearch").setSchema(TPCH_SCHEMA).build();
     }
 
     public static void main(String[] args)
