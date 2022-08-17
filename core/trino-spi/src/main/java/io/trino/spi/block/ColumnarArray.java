@@ -117,7 +117,7 @@ public class ColumnarArray
 
     private ColumnarArray(Block nullCheckBlock, int offsetsOffset, int[] offsets, Block elementsBlock)
     {
-        this.nullCheckBlock = nullCheckBlock;
+        this.nullCheckBlock = requireNonNull(nullCheckBlock, "nullCheckBlock is null");
         this.offsetsOffset = offsetsOffset;
         this.offsets = offsets;
         this.elementsBlock = elementsBlock;
@@ -126,6 +126,11 @@ public class ColumnarArray
     public int getPositionCount()
     {
         return nullCheckBlock.getPositionCount();
+    }
+
+    public boolean mayHaveNull()
+    {
+        return nullCheckBlock.mayHaveNull();
     }
 
     public boolean isNull(int position)

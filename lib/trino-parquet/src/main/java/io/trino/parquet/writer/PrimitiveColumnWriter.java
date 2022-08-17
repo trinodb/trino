@@ -20,7 +20,6 @@ import io.trino.parquet.writer.repdef.DefLevelWriterProviders;
 import io.trino.parquet.writer.repdef.RepLevelIterable;
 import io.trino.parquet.writer.repdef.RepLevelIterables;
 import io.trino.parquet.writer.valuewriter.PrimitiveValueWriter;
-import io.trino.spi.block.Block;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
@@ -50,6 +49,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.parquet.writer.ParquetCompressor.getCompressor;
 import static io.trino.parquet.writer.ParquetDataOutput.createDataOutput;
+import static io.trino.parquet.writer.repdef.DefLevelWriterProvider.DefinitionLevelWriter;
+import static io.trino.parquet.writer.repdef.DefLevelWriterProvider.getRootDefinitionLevelWriter;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -116,38 +117,15 @@ public class PrimitiveColumnWriter
         // write values
         primitiveValueWriter.write(columnChunk.getBlock());
 
-        if (columnChunk.getDefLevelWriterProviders().isEmpty()) {
-            // write definition levels for flat data types
-            Block block = columnChunk.getBlock();
-            if (!block.mayHaveNull()) {
-                for (int position = 0; position < block.getPositionCount(); position++) {
-                    definitionLevelWriter.writeInteger(maxDefinitionLevel);
-                }
-            }
-            else {
-                for (int position = 0; position < block.getPositionCount(); position++) {
-                    byte isNull = (byte) (block.isNull(position) ? 1 : 0);
-                    definitionLevelWriter.writeInteger(maxDefinitionLevel - isNull);
-                    currentPageNullCounts += isNull;
-                }
-            }
-            valueCount += block.getPositionCount();
-        }
-        else {
-            // write definition levels for nested data types
-            Iterator<Integer> defIterator = DefLevelWriterProviders.getIterator(ImmutableList.<DefLevelWriterProvider>builder()
-                    .addAll(columnChunk.getDefLevelWriterProviders())
-                    .add(DefLevelWriterProviders.of(columnChunk.getBlock(), maxDefinitionLevel))
-                    .build());
-            while (defIterator.hasNext()) {
-                int next = defIterator.next();
-                definitionLevelWriter.writeInteger(next);
-                if (next != maxDefinitionLevel) {
-                    currentPageNullCounts++;
-                }
-                valueCount++;
-            }
-        }
+        List<DefLevelWriterProvider> defLevelWriterProviders = ImmutableList.<DefLevelWriterProvider>builder()
+                .addAll(columnChunk.getDefLevelWriterProviders())
+                .add(DefLevelWriterProviders.of(columnChunk.getBlock(), maxDefinitionLevel))
+                .build();
+        DefinitionLevelWriter rootDefinitionLevelWriter = getRootDefinitionLevelWriter(defLevelWriterProviders, definitionLevelWriter);
+
+        DefLevelWriterProvider.ValuesCount valuesCount = rootDefinitionLevelWriter.writeDefinitionLevels();
+        currentPageNullCounts += valuesCount.totalValuesCount() - valuesCount.maxDefinitionLevelValuesCount();
+        valueCount += valuesCount.totalValuesCount();
 
         if (columnDescriptor.getMaxRepetitionLevel() > 0) {
             // write repetition levels for nested types
