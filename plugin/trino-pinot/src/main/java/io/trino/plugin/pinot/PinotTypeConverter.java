@@ -131,4 +131,10 @@ public class PinotTypeConverter
         }
         throw new PinotException(PINOT_UNSUPPORTED_COLUMN_TYPE, Optional.empty(), "Unsupported column data type: " + columnDataType);
     }
+
+    public boolean isJsonType(Type type)
+    {
+        requireNonNull(type, "type is null");
+        return type.equals(jsonTypeSupplier.get());
+    }
 }
