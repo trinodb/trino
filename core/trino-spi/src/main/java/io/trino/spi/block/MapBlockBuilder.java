@@ -43,6 +43,7 @@ public class MapBlockBuilder
     private int positionCount;
     private int[] offsets;
     private boolean[] mapIsNull;
+    private boolean hasNullValue;
     private final BlockBuilder keyBlockBuilder;
     private final BlockBuilder valueBlockBuilder;
     private final MapHashTables hashTables;
@@ -120,10 +121,17 @@ public class MapBlockBuilder
         return 0;
     }
 
+    @Nullable
     @Override
     protected boolean[] getMapIsNull()
     {
-        return mapIsNull;
+        return hasNullValue ? mapIsNull : null;
+    }
+
+    @Override
+    public boolean mayHaveNull()
+    {
+        return hasNullValue;
     }
 
     @Override
@@ -249,6 +257,7 @@ public class MapBlockBuilder
         }
         offsets[positionCount + 1] = keyBlockBuilder.getPositionCount();
         mapIsNull[positionCount] = isNull;
+        hasNullValue |= isNull;
         positionCount++;
 
         if (blockBuilderStatus != null) {
@@ -279,7 +288,7 @@ public class MapBlockBuilder
                 getMapType(),
                 0,
                 positionCount,
-                Optional.of(mapIsNull),
+                hasNullValue ? Optional.of(mapIsNull) : Optional.empty(),
                 offsets,
                 keyBlockBuilder.build(),
                 valueBlockBuilder.build(),

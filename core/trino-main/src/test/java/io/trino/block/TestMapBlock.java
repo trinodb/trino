@@ -205,6 +205,7 @@ public class TestMapBlock
     private void testWith(Map<String, Long>[] expectedValues)
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
+        assertFalse(blockBuilder.mayHaveNull());
 
         assertBlock(blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
         assertBlock(blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
@@ -214,6 +215,7 @@ public class TestMapBlock
         assertBlockFilteredPositions(expectedValues, blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), 2, 3, 5, 6);
 
         Block block = createBlockWithValuesFromKeyValueBlock(expectedValues);
+        assertFalse(block.mayHaveNull());
 
         assertBlock(block, () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
         assertBlockFilteredPositions(expectedValues, block, () -> blockBuilder.newBlockBuilderLike(null), 0, 1, 3, 4, 7);
@@ -221,6 +223,7 @@ public class TestMapBlock
 
         Map<String, Long>[] expectedValuesWithNull = alternatingNullValues(expectedValues);
         BlockBuilder blockBuilderWithNull = createBlockBuilderWithValues(expectedValuesWithNull);
+        assertTrue(blockBuilderWithNull.mayHaveNull());
 
         assertBlock(blockBuilderWithNull, () -> blockBuilder.newBlockBuilderLike(null), expectedValuesWithNull);
         assertBlock(blockBuilderWithNull.build(), () -> blockBuilder.newBlockBuilderLike(null), expectedValuesWithNull);
@@ -230,6 +233,7 @@ public class TestMapBlock
         assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), () -> blockBuilder.newBlockBuilderLike(null), 2, 3, 4, 9, 13, 14);
 
         Block blockWithNull = createBlockWithValuesFromKeyValueBlock(expectedValuesWithNull);
+        assertTrue(blockWithNull.mayHaveNull());
 
         assertBlock(blockWithNull, () -> blockBuilder.newBlockBuilderLike(null), expectedValuesWithNull);
         assertBlockFilteredPositions(expectedValuesWithNull, blockWithNull, () -> blockBuilder.newBlockBuilderLike(null), 0, 1, 5, 6, 7, 10, 11, 12, 15);
@@ -252,9 +256,12 @@ public class TestMapBlock
         List<Long> values = new ArrayList<>();
         int[] offsets = new int[maps.length + 1];
         boolean[] mapIsNull = new boolean[maps.length];
+        boolean hasNullValue = false;
         for (int i = 0; i < maps.length; i++) {
             Map<String, Long> map = maps[i];
-            mapIsNull[i] = map == null;
+            boolean isNull = map == null;
+            mapIsNull[i] = isNull;
+            hasNullValue |= isNull;
             if (map == null) {
                 offsets[i + 1] = offsets[i];
             }
@@ -266,7 +273,11 @@ public class TestMapBlock
                 offsets[i + 1] = offsets[i] + map.size();
             }
         }
-        return (MapBlock) mapType(VARCHAR, BIGINT).createBlockFromKeyValue(Optional.of(mapIsNull), offsets, createStringsBlock(keys), createLongsBlock(values));
+        return (MapBlock) mapType(VARCHAR, BIGINT).createBlockFromKeyValue(
+                hasNullValue ? Optional.of(mapIsNull) : Optional.empty(),
+                offsets,
+                createStringsBlock(keys),
+                createLongsBlock(values));
     }
 
     private void createBlockBuilderWithValues(Map<String, Long> map, BlockBuilder mapBlockBuilder)
