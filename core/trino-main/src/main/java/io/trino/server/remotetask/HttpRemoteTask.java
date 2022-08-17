@@ -23,6 +23,7 @@ import com.google.common.net.MediaType;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
@@ -224,7 +225,7 @@ public final class HttpRemoteTask
             this.planFragment = planFragment;
             this.outputBuffers.set(outputBuffers);
             this.httpClient = httpClient;
-            this.executor = executor;
+            this.executor = new BoundedExecutor(executor,  Runtime.getRuntime().availableProcessors() * 2);
             this.errorScheduledExecutor = errorScheduledExecutor;
             this.maxErrorDuration = requireNonNull(maxErrorDuration, "maxErrorDuration is null");
             this.summarizeTaskInfo = summarizeTaskInfo;
