@@ -234,9 +234,9 @@ public class MockThriftMetastoreClient
 
     @Override
     public void setPartitionColumnStatisticsBatch(String databaseName, String tableName, Map<String, List<ColumnStatisticsObj>> partitionStatistics)
-            throws TException
     {
-        throw new UnsupportedOperationException();
+        accessCount.incrementAndGet();
+        // No-op
     }
 
     @Override
@@ -523,9 +523,9 @@ public class MockThriftMetastoreClient
 
     @Override
     public void alterPartitions(String dbName, String tableName, List<Partition> partitions)
-            throws TException
     {
-        throw new UnsupportedOperationException();
+        accessCount.incrementAndGet();
+        // No-op
     }
 
     @Override
