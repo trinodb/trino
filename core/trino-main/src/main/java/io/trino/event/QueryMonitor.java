@@ -32,6 +32,7 @@ import io.trino.execution.Column;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.Input;
 import io.trino.execution.QueryInfo;
+import io.trino.execution.QueryState;
 import io.trino.execution.QueryStats;
 import io.trino.execution.StageInfo;
 import io.trino.execution.TaskInfo;
@@ -44,6 +45,7 @@ import io.trino.operator.RetryPolicy;
 import io.trino.operator.TableFinishInfo;
 import io.trino.operator.TaskStats;
 import io.trino.server.BasicQueryInfo;
+import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.eventlistener.OutputColumnMetadata;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
@@ -565,7 +567,8 @@ public class QueryMonitor
 
             logQueryTimeline(
                     queryInfo.getQueryId(),
-                    queryInfo.getSession().getTransactionId().map(TransactionId::toString).orElse(""),
+                    queryInfo.getState(),
+                    Optional.ofNullable(queryInfo.getErrorCode()),
                     elapsed,
                     planning,
                     waiting,
@@ -594,7 +597,8 @@ public class QueryMonitor
 
         logQueryTimeline(
                 queryInfo.getQueryId(),
-                queryInfo.getSession().getTransactionId().map(TransactionId::toString).orElse(""),
+                queryInfo.getState(),
+                Optional.ofNullable(queryInfo.getErrorCode()),
                 elapsed,
                 elapsed,
                 0,
@@ -607,7 +611,8 @@ public class QueryMonitor
 
     private static void logQueryTimeline(
             QueryId queryId,
-            String transactionId,
+            QueryState queryState,
+            Optional<ErrorCode> errorCode,
             long elapsedMillis,
             long planningMillis,
             long waitingMillis,
@@ -617,9 +622,10 @@ public class QueryMonitor
             DateTime queryStartTime,
             DateTime queryEndTime)
     {
-        log.debug("TIMELINE: Query %s :: Transaction:[%s] :: elapsed %sms :: planning %sms :: waiting %sms :: scheduling %sms :: running %sms :: finishing %sms :: begin %s :: end %s",
+        log.info("TIMELINE: Query %s :: %s%s :: elapsed %sms :: planning %sms :: waiting %sms :: scheduling %sms :: running %sms :: finishing %sms :: begin %s :: end %s",
                 queryId,
-                transactionId,
+                queryState,
+                errorCode.map(code -> " (%s)".formatted(code.getName())).orElse(""),
                 elapsedMillis,
                 planningMillis,
                 waitingMillis,
