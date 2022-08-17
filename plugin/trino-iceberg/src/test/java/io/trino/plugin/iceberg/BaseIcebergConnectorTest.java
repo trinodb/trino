@@ -1106,6 +1106,31 @@ public abstract class BaseIcebergConnectorTest
         dropTable("test_rollback");
     }
 
+    @Test
+    public void testRollbackSnapshotWithSchemaEvolution()
+    {
+        assertUpdate("CREATE TABLE test_rollback_with_schema_evolution AS SELECT 1 col0", 1);
+        long afterCreateTableId = getCurrentSnapshotId("test_rollback_with_schema_evolution");
+
+        assertUpdate("ALTER TABLE test_rollback_with_schema_evolution ADD COLUMN col1 int");
+        assertUpdate("INSERT INTO test_rollback_with_schema_evolution VALUES (2, 2)", 1);
+
+        assertQuery("SELECT * FROM test_rollback_with_schema_evolution", "VALUES (1, NULL), (2, 2)");
+
+        assertQuery("SELECT * FROM test_rollback_with_schema_evolution FOR VERSION AS OF " + afterCreateTableId, "VALUES 1");
+
+        assertUpdate("CALL system.rollback_to_snapshot('tpch', 'test_rollback_with_schema_evolution', " + afterCreateTableId + ")");
+
+        // Verify the output doesn't have col1 column after rollback
+        assertThat(query("DESCRIBE test_rollback_with_schema_evolution"))
+                .projected(0)
+                .skippingTypesCheck()
+                .matches("VALUES 'col0'");
+        assertQuery("SELECT * FROM test_rollback_with_schema_evolution", "VALUES 1");
+
+        dropTable("test_rollback_with_schema_evolution");
+    }
+
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {

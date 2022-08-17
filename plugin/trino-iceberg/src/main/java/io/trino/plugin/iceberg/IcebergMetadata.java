@@ -146,6 +146,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -347,7 +348,7 @@ public class IcebergMetadata
         }
         else {
             tableSnapshotId = Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId);
-            tableSchema = table.schema();
+            tableSchema = getCurrentSnapshotSchema(table);
             partitionSpec = Optional.of(table.spec());
         }
 
@@ -595,7 +596,7 @@ public class IcebergMetadata
                         }
 
                         Table icebergTable = catalog.loadTable(session, tableName);
-                        List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema());
+                        List<ColumnMetadata> columns = getColumnMetadatas(getCurrentSnapshotSchema(icebergTable));
                         return Stream.of(TableColumnsMetadata.forTable(tableName, columns));
                     }
                     catch (TableNotFoundException e) {
@@ -613,6 +614,27 @@ public class IcebergMetadata
                     }
                 })
                 .iterator();
+    }
+
+    private static Schema getCurrentSnapshotSchema(Table icebergTable)
+    {
+        Optional<Long> tableSnapshotId = Optional.ofNullable(icebergTable.currentSnapshot()).map(Snapshot::snapshotId);
+        // Check whether the snapshot is latest or not because changing table definition (e.g. ADD COLUMN) doesn't generate a new snapshot
+        // If we use schema for 'tableSnapshotId' without this comparison, it returns old table definition which isn't different from the latest one
+        if (tableSnapshotId.isPresent() && !findLatestSnapshotId(icebergTable.snapshots()).equals(tableSnapshotId)) {
+            return schemaFor(icebergTable, tableSnapshotId.get());
+        }
+        return icebergTable.schema();
+    }
+
+    private static Optional<Long> findLatestSnapshotId(Iterable<Snapshot> snapshots)
+    {
+        try {
+            return Optional.of(Iterables.getLast(snapshots).snapshotId());
+        }
+        catch (NoSuchElementException e) {
+            return Optional.empty();
+        }
     }
 
     @Override
