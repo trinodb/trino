@@ -14,7 +14,7 @@
 package io.trino.parquet.writer.repdef;
 
 import com.google.common.collect.AbstractIterator;
-import io.trino.parquet.writer.repdef.DefLevelIterable.DefLevelIterator;
+import io.trino.parquet.writer.repdef.DefLevelWriterProvider.DefLevelIterator;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
@@ -29,42 +29,42 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
-public class DefLevelIterables
+public class DefLevelWriterProviders
 {
-    private DefLevelIterables() {}
+    private DefLevelWriterProviders() {}
 
-    public static DefLevelIterable of(Block block, int maxDefinitionLevel)
+    public static DefLevelWriterProvider of(Block block, int maxDefinitionLevel)
     {
-        return new PrimitiveDefLevelIterable(block, maxDefinitionLevel);
+        return new PrimitiveDefLevelWriterProvider(block, maxDefinitionLevel);
     }
 
-    public static DefLevelIterable of(ColumnarRow columnarRow, int maxDefinitionLevel)
+    public static DefLevelWriterProvider of(ColumnarRow columnarRow, int maxDefinitionLevel)
     {
-        return new ColumnRowDefLevelIterable(columnarRow, maxDefinitionLevel);
+        return new ColumnRowDefLevelWriterProvider(columnarRow, maxDefinitionLevel);
     }
 
-    public static DefLevelIterable of(ColumnarArray columnarArray, int maxDefinitionLevel)
+    public static DefLevelWriterProvider of(ColumnarArray columnarArray, int maxDefinitionLevel)
     {
-        return new ColumnArrayDefLevelIterable(columnarArray, maxDefinitionLevel);
+        return new ColumnArrayDefLevelWriterProvider(columnarArray, maxDefinitionLevel);
     }
 
-    public static DefLevelIterable of(ColumnarMap columnarMap, int maxDefinitionLevel)
+    public static DefLevelWriterProvider of(ColumnarMap columnarMap, int maxDefinitionLevel)
     {
-        return new ColumnMapDefLevelIterable(columnarMap, maxDefinitionLevel);
+        return new ColumnMapDefLevelWriterProvider(columnarMap, maxDefinitionLevel);
     }
 
-    public static Iterator<Integer> getIterator(List<DefLevelIterable> iterables)
+    public static Iterator<Integer> getIterator(List<DefLevelWriterProvider> iterables)
     {
         return new NestedDefLevelIterator(iterables);
     }
 
-    static class PrimitiveDefLevelIterable
-            implements DefLevelIterable
+    static class PrimitiveDefLevelWriterProvider
+            implements DefLevelWriterProvider
     {
         private final Block block;
         private final int maxDefinitionLevel;
 
-        PrimitiveDefLevelIterable(Block block, int maxDefinitionLevel)
+        PrimitiveDefLevelWriterProvider(Block block, int maxDefinitionLevel)
         {
             this.block = requireNonNull(block, "block is null");
             this.maxDefinitionLevel = maxDefinitionLevel;
@@ -99,13 +99,13 @@ public class DefLevelIterables
         }
     }
 
-    static class ColumnRowDefLevelIterable
-            implements DefLevelIterable
+    static class ColumnRowDefLevelWriterProvider
+            implements DefLevelWriterProvider
     {
         private final ColumnarRow columnarRow;
         private final int maxDefinitionLevel;
 
-        ColumnRowDefLevelIterable(ColumnarRow columnarRow, int maxDefinitionLevel)
+        ColumnRowDefLevelWriterProvider(ColumnarRow columnarRow, int maxDefinitionLevel)
         {
             this.columnarRow = requireNonNull(columnarRow, "columnarRow is null");
             this.maxDefinitionLevel = maxDefinitionLevel;
@@ -140,13 +140,13 @@ public class DefLevelIterables
         }
     }
 
-    static class ColumnMapDefLevelIterable
-            implements DefLevelIterable
+    static class ColumnMapDefLevelWriterProvider
+            implements DefLevelWriterProvider
     {
         private final ColumnarMap columnarMap;
         private final int maxDefinitionLevel;
 
-        ColumnMapDefLevelIterable(ColumnarMap columnarMap, int maxDefinitionLevel)
+        ColumnMapDefLevelWriterProvider(ColumnarMap columnarMap, int maxDefinitionLevel)
         {
             this.columnarMap = requireNonNull(columnarMap, "columnarMap is null");
             this.maxDefinitionLevel = maxDefinitionLevel;
@@ -190,13 +190,13 @@ public class DefLevelIterables
         }
     }
 
-    static class ColumnArrayDefLevelIterable
-            implements DefLevelIterable
+    static class ColumnArrayDefLevelWriterProvider
+            implements DefLevelWriterProvider
     {
         private final ColumnarArray columnarArray;
         private final int maxDefinitionLevel;
 
-        ColumnArrayDefLevelIterable(ColumnarArray columnarArray, int maxDefinitionLevel)
+        ColumnArrayDefLevelWriterProvider(ColumnarArray columnarArray, int maxDefinitionLevel)
         {
             this.columnarArray = requireNonNull(columnarArray, "columnarArray is null");
             this.maxDefinitionLevel = maxDefinitionLevel;
@@ -246,9 +246,9 @@ public class DefLevelIterables
         private final List<DefLevelIterator> iterators;
         private int iteratorIndex;
 
-        NestedDefLevelIterator(List<DefLevelIterable> iterables)
+        NestedDefLevelIterator(List<DefLevelWriterProvider> iterables)
         {
-            this.iterators = iterables.stream().map(DefLevelIterable::getIterator).collect(toImmutableList());
+            this.iterators = iterables.stream().map(DefLevelWriterProvider::getIterator).collect(toImmutableList());
         }
 
         @Override
