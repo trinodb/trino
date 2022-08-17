@@ -37,6 +37,7 @@ import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
@@ -266,7 +267,7 @@ public class SapHanaClient
             }
             String sql = format(
                     "ALTER TABLE %s ADD (%s)",
-                    quoted(handle.getRemoteTableName()),
+                    quoted(handle.asPlainTable().getRemoteTableName()),
                     this.getColumnDefinitionSql(session, column, columnName));
             execute(connection, sql);
         }
@@ -280,7 +281,7 @@ public class SapHanaClient
     {
         String sql = format(
                 "ALTER TABLE %s DROP (%s)",
-                quoted(handle.getRemoteTableName()),
+                quoted(handle.asPlainTable().getRemoteTableName()),
                 column.getColumnName());
         execute(session, sql);
     }
@@ -294,7 +295,7 @@ public class SapHanaClient
             }
             String sql = format(
                     "RENAME COLUMN %s.%s TO %s",
-                    quoted(handle.getRemoteTableName()),
+                    quoted(handle.asPlainTable().getRemoteTableName()),
                     jdbcColumn.getColumnName(),
                     newColumnName);
             execute(connection, sql);
@@ -777,11 +778,11 @@ public class SapHanaClient
             throws SQLException
     {
         checkArgument(table.isNamedRelation(), "Relation is not a table: %s", table);
-
+        RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
         try (Connection connection = connectionFactory.openConnection(session);
                 Handle handle = Jdbi.open(connection)) {
-            String schemaName = table.getRemoteTableName().getSchemaName().orElseThrow();
-            String tableName = table.getRemoteTableName().getTableName();
+            String schemaName = remoteTableName.getSchemaName().orElseThrow();
+            String tableName = remoteTableName.getTableName();
 
             StatisticsDao statisticsDao = new StatisticsDao(handle);
             Long rowCount = statisticsDao.getRowCount(schemaName, tableName);
