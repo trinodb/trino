@@ -26,6 +26,7 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
+import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
@@ -278,11 +279,12 @@ public class StarburstOracleClient
         // Forcing is done by using wildcard '%' at the end of table name. And so we have to filter rows with columns from other tables.
         // Whenever you change this method make sure TestOracleIntegrationSmokeTest.testGetColumns covers your changes.
         checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
+        JdbcNamedRelationHandle namedRelation = tableHandle.getRequiredNamedRelation();
         try (Connection connection = connectionFactory.openConnection(session)) {
             try (ResultSet resultSet = getColumns(tableHandle, connection.getMetaData(), "%")) {
                 List<JdbcColumnHandle> columns = new ArrayList<>();
                 while (resultSet.next()) {
-                    if (!resultSet.getString("TABLE_NAME").equals(tableHandle.getTableName())) {
+                    if (!resultSet.getString("TABLE_NAME").equals(namedRelation.getRemoteTableName().getTableName())) {
                         continue;
                     }
                     JdbcTypeHandle typeHandle = new JdbcTypeHandle(
@@ -300,7 +302,7 @@ public class StarburstOracleClient
                 }
                 if (columns.isEmpty()) {
                     // Table has no supported columns, but such table is not supported in Presto
-                    throw new TableNotFoundException(tableHandle.getRequiredNamedRelation().getSchemaTableName());
+                    throw new TableNotFoundException(namedRelation.getSchemaTableName());
                 }
                 return ImmutableList.copyOf(columns);
             }
@@ -314,10 +316,11 @@ public class StarburstOracleClient
             throws SQLException
     {
         String escape = metadata.getSearchStringEscape();
+        RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
         return metadata.getColumns(
-                tableHandle.getRequiredNamedRelation().getRemoteTableName().getCatalogName().orElse(null),
-                escapeNamePattern(tableHandle.getRequiredNamedRelation().getRemoteTableName().getSchemaName(), escape).orElse(null),
-                escapeNamePattern(Optional.ofNullable(tableHandle.getTableName()), escape).orElse("") + tableNameSuffix,
+                remoteTableName.getCatalogName().orElse(null),
+                escapeNamePattern(remoteTableName.getSchemaName(), escape).orElse(null),
+                escapeNamePattern(Optional.ofNullable(remoteTableName.getTableName()), escape).orElse("") + tableNameSuffix,
                 null);
     }
 
@@ -410,7 +413,7 @@ public class StarburstOracleClient
             StatisticsDao statisticsDao = new StatisticsDao(handle);
 
             RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
-            Long rowCount = statisticsDao.getRowCount(remoteTableName.getSchemaName().orElse(null), table.getTableName());
+            Long rowCount = statisticsDao.getRowCount(remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName());
             if (rowCount == null) {
                 return TableStatistics.empty();
             }
@@ -422,7 +425,7 @@ public class StarburstOracleClient
                 return tableStatistics.build();
             }
 
-            Map<String, ColumnStatisticsResult> columnStatistics = statisticsDao.getColumnStatistics(remoteTableName.getSchemaName().orElse(null), table.getTableName()).stream()
+            Map<String, ColumnStatisticsResult> columnStatistics = statisticsDao.getColumnStatistics(remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()).stream()
                     .collect(toImmutableMap(ColumnStatisticsResult::getColumnName, identity()));
 
             for (JdbcColumnHandle column : this.getColumns(session, table)) {

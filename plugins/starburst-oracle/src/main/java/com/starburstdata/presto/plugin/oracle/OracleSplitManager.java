@@ -17,6 +17,7 @@ import com.starburstdata.presto.license.LicenseManager;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -128,9 +129,10 @@ public class OracleSplitManager
     private List<String> listPartitionsForTable(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         try (Handle handle = Jdbi.open(() -> connectionFactory.openConnection(session))) {
+            RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
             return handle.createQuery("SELECT partition_name FROM all_tab_partitions WHERE table_name = :name AND table_owner = :owner")
-                    .bind("name", tableHandle.getTableName())
-                    .bind("owner", tableHandle.getRequiredNamedRelation().getRemoteTableName().getSchemaName().orElse(null))
+                    .bind("name", remoteTableName.getTableName())
+                    .bind("owner", remoteTableName.getSchemaName().orElse(null))
                     .mapTo(String.class)
                     .list();
         }
