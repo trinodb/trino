@@ -31,6 +31,9 @@ public interface TrinoFileSystem
     void deleteDirectory(String path)
             throws IOException;
 
+    void renameFile(String source, String target)
+            throws IOException;
+
     FileIterator listFiles(String path)
             throws IOException;
 
