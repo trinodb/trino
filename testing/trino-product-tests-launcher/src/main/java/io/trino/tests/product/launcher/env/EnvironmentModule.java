@@ -21,6 +21,7 @@ import com.google.inject.multibindings.MapBinder;
 import io.trino.tests.product.launcher.env.common.Hadoop;
 import io.trino.tests.product.launcher.env.common.HadoopKerberos;
 import io.trino.tests.product.launcher.env.common.HadoopKerberosKms;
+import io.trino.tests.product.launcher.env.common.HadoopKerberosKmsWithImpersonation;
 import io.trino.tests.product.launcher.env.common.HydraIdentityProvider;
 import io.trino.tests.product.launcher.env.common.Kafka;
 import io.trino.tests.product.launcher.env.common.KafkaSaslPlaintext;
@@ -68,6 +69,7 @@ public final class EnvironmentModule
         binder.bind(Hadoop.class).in(SINGLETON);
         binder.bind(HadoopKerberos.class).in(SINGLETON);
         binder.bind(HadoopKerberosKms.class).in(SINGLETON);
+        binder.bind(HadoopKerberosKmsWithImpersonation.class).in(SINGLETON);
         binder.bind(HydraIdentityProvider.class).in(SINGLETON);
         binder.bind(Kafka.class).in(SINGLETON);
         binder.bind(KafkaSsl.class).in(SINGLETON);
