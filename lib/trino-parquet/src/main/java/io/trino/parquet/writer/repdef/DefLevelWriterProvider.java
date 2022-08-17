@@ -13,17 +13,37 @@
  */
 package io.trino.parquet.writer.repdef;
 
-import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.Iterables;
+import org.apache.parquet.column.values.ValuesWriter;
 
-import java.util.OptionalInt;
+import java.util.List;
+import java.util.Optional;
 
 public interface DefLevelWriterProvider
 {
-    DefLevelIterator getIterator();
+    DefinitionLevelWriter getDefinitionLevelWriter(Optional<DefinitionLevelWriter> nestedWriter, ValuesWriter encoder);
 
-    abstract class DefLevelIterator
-            extends AbstractIterator<OptionalInt>
+    interface DefinitionLevelWriter
     {
-        abstract boolean end();
+        ValuesCount writeDefinitionLevels(int positionsCount);
+
+        ValuesCount writeDefinitionLevels();
+    }
+
+    record ValuesCount(int totalValuesCount, int maxDefinitionLevelValuesCount)
+    {
+    }
+
+    static DefinitionLevelWriter getRootDefinitionLevelWriter(List<DefLevelWriterProvider> defLevelWriterProviders, ValuesWriter encoder)
+    {
+        // Constructs hierarchy of DefinitionLevelWriter from leaf to root
+        DefinitionLevelWriter rootDefinitionLevelWriter = Iterables.getLast(defLevelWriterProviders)
+                .getDefinitionLevelWriter(Optional.empty(), encoder);
+        for (int nestedLevel = defLevelWriterProviders.size() - 2; nestedLevel >= 0; nestedLevel--) {
+            DefinitionLevelWriter nestedWriter = rootDefinitionLevelWriter;
+            rootDefinitionLevelWriter = defLevelWriterProviders.get(nestedLevel)
+                    .getDefinitionLevelWriter(Optional.of(nestedWriter), encoder);
+        }
+        return rootDefinitionLevelWriter;
     }
 }
