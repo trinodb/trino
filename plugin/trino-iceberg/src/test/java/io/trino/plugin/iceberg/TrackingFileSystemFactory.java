@@ -141,6 +141,13 @@ public class TrackingFileSystemFactory
         }
 
         @Override
+        public void renameFile(String source, String target)
+                throws IOException
+        {
+            delegate.renameFile(source, target);
+        }
+
+        @Override
         public FileIterator listFiles(String path)
                 throws IOException
         {
