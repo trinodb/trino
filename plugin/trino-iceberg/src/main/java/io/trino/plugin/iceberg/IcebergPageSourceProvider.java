@@ -1359,7 +1359,7 @@ public class IcebergPageSourceProvider
         return new TrinoException(ICEBERG_CURSOR_ERROR, format("Failed to read ORC file: %s", dataSourceId), exception);
     }
 
-    private static final class ReaderPageSourceWithRowPositions
+    public static final class ReaderPageSourceWithRowPositions
     {
         private final ReaderPageSource readerPageSource;
         private final Optional<Long> startRowPosition;
