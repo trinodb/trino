@@ -15,8 +15,8 @@ package io.trino.parquet.writer;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-import io.trino.parquet.writer.repdef.DefLevelIterable;
-import io.trino.parquet.writer.repdef.DefLevelIterables;
+import io.trino.parquet.writer.repdef.DefLevelWriterProvider;
+import io.trino.parquet.writer.repdef.DefLevelWriterProviders;
 import io.trino.parquet.writer.repdef.RepLevelIterable;
 import io.trino.parquet.writer.repdef.RepLevelIterables;
 import io.trino.parquet.writer.valuewriter.PrimitiveValueWriter;
@@ -116,7 +116,7 @@ public class PrimitiveColumnWriter
         // write values
         primitiveValueWriter.write(columnChunk.getBlock());
 
-        if (columnChunk.getDefLevelIterables().isEmpty()) {
+        if (columnChunk.getDefLevelWriterProviders().isEmpty()) {
             // write definition levels for flat data types
             Block block = columnChunk.getBlock();
             if (!block.mayHaveNull()) {
@@ -135,9 +135,9 @@ public class PrimitiveColumnWriter
         }
         else {
             // write definition levels for nested data types
-            Iterator<Integer> defIterator = DefLevelIterables.getIterator(ImmutableList.<DefLevelIterable>builder()
-                    .addAll(columnChunk.getDefLevelIterables())
-                    .add(DefLevelIterables.of(columnChunk.getBlock(), maxDefinitionLevel))
+            Iterator<Integer> defIterator = DefLevelWriterProviders.getIterator(ImmutableList.<DefLevelWriterProvider>builder()
+                    .addAll(columnChunk.getDefLevelWriterProviders())
+                    .add(DefLevelWriterProviders.of(columnChunk.getBlock(), maxDefinitionLevel))
                     .build());
             while (defIterator.hasNext()) {
                 int next = defIterator.next();
