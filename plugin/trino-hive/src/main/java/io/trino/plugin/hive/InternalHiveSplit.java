@@ -56,7 +56,7 @@ public class InternalHiveSplit
     private final OptionalInt readBucketNumber;
     private final OptionalInt tableBucketNumber;
     // This supplier returns an unused statementId, to guarantee that created split
-    // files do not collide.  Successive calls return the the next sequential integer,
+    // files do not collide.  Successive calls return the next sequential integer,
     // starting with zero.
     private final Supplier<Integer> statementIdSupplier;
     private final boolean splittable;
