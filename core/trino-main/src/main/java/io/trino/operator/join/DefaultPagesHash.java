@@ -74,7 +74,7 @@ public final class DefaultPagesHash
 
         positionToHashes = new byte[addresses.size()];
 
-        // We will process addresses in batches, to save memory on array of hashes.
+        // We will process addresses in batches, to save memory on array of hashes and improve memory locality.
         int positionsInStep = Math.min(addresses.size() + 1, (int) CACHE_SIZE.toBytes() / Integer.SIZE);
         long[] positionToFullHashes = new long[positionsInStep];
         long hashCollisionsLocal = 0;
