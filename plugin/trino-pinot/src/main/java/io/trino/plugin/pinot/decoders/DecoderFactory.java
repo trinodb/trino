@@ -27,6 +27,7 @@ import io.trino.spi.type.VarbinaryType;
 import java.util.Optional;
 
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static java.util.Objects.requireNonNull;
 
 public class DecoderFactory
@@ -63,6 +64,9 @@ public class DecoderFactory
         }
         else if (type instanceof VarbinaryType) {
             return new VarbinaryDecoder();
+        }
+        else if (type.getTypeSignature().getBase().equals(JSON)) {
+            return new JsonDecoder();
         }
         else {
             return new VarcharDecoder();

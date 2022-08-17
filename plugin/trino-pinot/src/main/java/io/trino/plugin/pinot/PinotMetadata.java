@@ -54,6 +54,7 @@ import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.Type;
 import org.apache.pinot.spi.data.Schema;
 
 import javax.inject.Inject;
@@ -290,8 +291,13 @@ public class PinotMetadata
             Map<ColumnHandle, Domain> supported = new HashMap<>();
             Map<ColumnHandle, Domain> unsupported = new HashMap<>();
             for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
-                // Pinot does not support array literals
-                if (((PinotColumnHandle) entry.getKey()).getDataType() instanceof ArrayType) {
+                Type columnType = ((PinotColumnHandle) entry.getKey()).getDataType();
+                if (columnType instanceof ArrayType) {
+                    // Pinot does not support array literals
+                    unsupported.put(entry.getKey(), entry.getValue());
+                }
+                else if (typeConverter.isJsonType(columnType)) {
+                    // Pinot does not support filtering on json values
                     unsupported.put(entry.getKey(), entry.getValue());
                 }
                 else {

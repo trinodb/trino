@@ -112,6 +112,7 @@ public abstract class AbstractPinotIntegrationSmokeTest
     private static final String DUPLICATE_TABLE_LOWERCASE = "dup_table";
     private static final String DUPLICATE_TABLE_MIXED_CASE = "dup_Table";
     private static final String JSON_TABLE = "my_table";
+    private static final String JSON_TYPE_TABLE = "json_table";
     private static final String RESERVED_KEYWORD_TABLE = "reserved_keyword";
     private static final String QUOTES_IN_COLUMN_NAME_TABLE = "quotes_in_column_name";
     private static final String DUPLICATE_VALUES_IN_COLUMNS_TABLE = "duplicate_values_in_columns";
@@ -309,6 +310,28 @@ public abstract class AbstractPinotIntegrationSmokeTest
         kafka.sendMessages(dateTimeFieldsProducerRecords.stream(), schemaRegistryAwareProducer(kafka));
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("date_time_fields_schema.json"), DATE_TIME_FIELDS_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("date_time_fields_realtimeSpec.json"), DATE_TIME_FIELDS_TABLE);
+
+        // Create json type table
+        kafka.createTopic(JSON_TYPE_TABLE);
+
+        Schema jsonTableAvroSchema = SchemaBuilder.record(JSON_TYPE_TABLE).fields()
+                .name("string_col").type().optional().stringType()
+                .name("json_col").type().optional().stringType()
+                .name("updatedAt").type().optional().longType()
+                .endRecord();
+
+        ImmutableList.Builder<ProducerRecord<String, GenericRecord>> jsonTableRecordsBuilder = ImmutableList.builder();
+        for (int i = 0; i < 3; i++) {
+            jsonTableRecordsBuilder.add(new ProducerRecord<>(JSON_TYPE_TABLE, "key" + i, new GenericRecordBuilder(jsonTableAvroSchema)
+                    .set("string_col", "string_" + i)
+                    .set("json_col", "{ \"name\": \"user_" + i + "\", \"id\": " + i + "}")
+                    .set("updatedAt", initialUpdatedAt.plusMillis(i * 1000).toEpochMilli())
+                    .build()));
+        }
+        kafka.sendMessages(jsonTableRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
+        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("json_schema.json"), JSON_TYPE_TABLE);
+        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("json_realtimeSpec.json"), JSON_TYPE_TABLE);
+        pinot.addOfflineTable(getClass().getClassLoader().getResourceAsStream("json_offlineSpec.json"), JSON_TYPE_TABLE);
 
         // Create json table
         kafka.createTopic(JSON_TABLE);
@@ -2202,5 +2225,27 @@ public abstract class AbstractPinotIntegrationSmokeTest
                 .matches(expectedValues);
         assertThat(query("SELECT bytes_col FROM \"SELECT bytes_col, string_col FROM alltypes\" WHERE string_col != 'array_null'"))
                 .matches(expectedValues);
+    }
+
+    @Test
+    public void testJson()
+    {
+        assertThat(query("SELECT json_col FROM " + JSON_TYPE_TABLE))
+                .matches("VALUES (JSON '{\"id\":0,\"name\":\"user_0\"}')," +
+                        "  (JSON '{\"id\":1,\"name\":\"user_1\"}')," +
+                        "  (JSON '{\"id\":2,\"name\":\"user_2\"}')");
+        assertThat(query("SELECT json_col" +
+                "  FROM \"SELECT json_col FROM " + JSON_TYPE_TABLE + "\""))
+                .matches("VALUES (JSON '{\"id\":0,\"name\":\"user_0\"}')," +
+                        "  (JSON '{\"id\":1,\"name\":\"user_1\"}')," +
+                        "  (JSON '{\"id\":2,\"name\":\"user_2\"}')");
+        assertThat(query("SELECT name FROM \"SELECT json_extract_scalar(json_col, '$.name', 'STRING', '0') AS name" +
+                "  FROM json_table WHERE json_extract_scalar(json_col, '$.id', 'INT', '0') = '1'\""))
+                .matches("VALUES (VARCHAR 'user_1')");
+        assertThat(query("SELECT JSON_EXTRACT_SCALAR(json_col, '$.name') FROM " + JSON_TYPE_TABLE +
+                "  WHERE JSON_EXTRACT_SCALAR(json_col, '$.id') = '1'"))
+                .matches("VALUES (VARCHAR 'user_1')");
+        assertThat(query("SELECT string_col FROM " + JSON_TYPE_TABLE + " WHERE json_col = JSON '{\"id\":0,\"name\":\"user_0\"}'"))
+                .matches("VALUES VARCHAR 'string_0'");
     }
 }

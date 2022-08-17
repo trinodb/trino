@@ -23,6 +23,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -35,6 +36,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_DECODE_ERROR;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
 import static io.trino.plugin.pinot.decoders.VarbinaryDecoder.toBytes;
@@ -327,6 +329,10 @@ public class PinotSegmentPageSource
         }
         else if (trinoType instanceof VarbinaryType) {
             return Slices.wrappedBuffer(toBytes(currentDataTable.getDataTable().getString(rowIndex, columnIndex)));
+        }
+        else if (trinoType.getTypeSignature().getBase() == StandardTypes.JSON) {
+            String field = currentDataTable.getDataTable().getString(rowIndex, columnIndex);
+            return jsonParse(getUtf8Slice(field));
         }
         return Slices.EMPTY_SLICE;
     }
