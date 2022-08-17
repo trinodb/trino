@@ -119,7 +119,7 @@ public class ColumnarMap
 
     private ColumnarMap(Block nullCheckBlock, int offsetsOffset, int[] offsets, Block keysBlock, Block valuesBlock)
     {
-        this.nullCheckBlock = nullCheckBlock;
+        this.nullCheckBlock = requireNonNull(nullCheckBlock, "nullCheckBlock is null");
         this.offsetsOffset = offsetsOffset;
         this.offsets = offsets;
         this.keysBlock = keysBlock;
@@ -129,6 +129,11 @@ public class ColumnarMap
     public int getPositionCount()
     {
         return nullCheckBlock.getPositionCount();
+    }
+
+    public boolean mayHaveNull()
+    {
+        return nullCheckBlock.mayHaveNull();
     }
 
     public boolean isNull(int position)

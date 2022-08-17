@@ -13,20 +13,16 @@
  */
 package io.trino.parquet.writer.repdef;
 
-import com.google.common.collect.AbstractIterator;
-import io.trino.parquet.writer.repdef.DefLevelWriterProvider.DefLevelIterator;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.ColumnarRow;
+import org.apache.parquet.column.values.ValuesWriter;
 
-import java.util.Iterator;
-import java.util.List;
-import java.util.OptionalInt;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Collections.nCopies;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class DefLevelWriterProviders
@@ -53,11 +49,6 @@ public class DefLevelWriterProviders
         return new ColumnMapDefLevelWriterProvider(columnarMap, maxDefinitionLevel);
     }
 
-    public static Iterator<Integer> getIterator(List<DefLevelWriterProvider> iterables)
-    {
-        return new NestedDefLevelIterator(iterables);
-    }
-
     static class PrimitiveDefLevelWriterProvider
             implements DefLevelWriterProvider
     {
@@ -71,29 +62,39 @@ public class DefLevelWriterProviders
         }
 
         @Override
-        public DefLevelIterator getIterator()
+        public DefinitionLevelWriter getDefinitionLevelWriter(Optional<DefinitionLevelWriter> nestedWriter, ValuesWriter encoder)
         {
-            return new DefLevelIterator()
+            checkArgument(nestedWriter.isEmpty(), "nestedWriter should be empty for primitive definition level writer");
+            return new DefinitionLevelWriter()
             {
-                private int position = -1;
+                private int offset;
 
                 @Override
-                boolean end()
+                public ValuesCount writeDefinitionLevels()
                 {
-                    return true;
+                    return writeDefinitionLevels(block.getPositionCount());
                 }
 
                 @Override
-                protected OptionalInt computeNext()
+                public ValuesCount writeDefinitionLevels(int positionsCount)
                 {
-                    position++;
-                    if (position == block.getPositionCount()) {
-                        return endOfData();
+                    checkValidPosition(offset, positionsCount, block.getPositionCount());
+                    int nonNullsCount = 0;
+                    if (!block.mayHaveNull()) {
+                        for (int position = offset; position < offset + positionsCount; position++) {
+                            encoder.writeInteger(maxDefinitionLevel);
+                        }
+                        nonNullsCount = positionsCount;
                     }
-                    if (block.isNull(position)) {
-                        return OptionalInt.of(maxDefinitionLevel - 1);
+                    else {
+                        for (int position = offset; position < offset + positionsCount; position++) {
+                            int isNull = block.isNull(position) ? 1 : 0;
+                            encoder.writeInteger(maxDefinitionLevel - isNull);
+                            nonNullsCount += isNull ^ 1;
+                        }
                     }
-                    return OptionalInt.of(maxDefinitionLevel);
+                    offset += positionsCount;
+                    return new ValuesCount(positionsCount, nonNullsCount);
                 }
             };
         }
@@ -112,29 +113,51 @@ public class DefLevelWriterProviders
         }
 
         @Override
-        public DefLevelIterator getIterator()
+        public DefinitionLevelWriter getDefinitionLevelWriter(Optional<DefinitionLevelWriter> nestedWriterOptional, ValuesWriter encoder)
         {
-            return new DefLevelIterator()
+            checkArgument(nestedWriterOptional.isPresent(), "nestedWriter should be present for column row definition level writer");
+            return new DefinitionLevelWriter()
             {
-                private int position = -1;
+                private final DefinitionLevelWriter nestedWriter = nestedWriterOptional.orElseThrow();
+
+                private int offset;
 
                 @Override
-                boolean end()
+                public ValuesCount writeDefinitionLevels()
                 {
-                    return true;
+                    return writeDefinitionLevels(columnarRow.getPositionCount());
                 }
 
                 @Override
-                protected OptionalInt computeNext()
+                public ValuesCount writeDefinitionLevels(int positionsCount)
                 {
-                    position++;
-                    if (position == columnarRow.getPositionCount()) {
-                        return endOfData();
+                    checkValidPosition(offset, positionsCount, columnarRow.getPositionCount());
+                    if (!columnarRow.mayHaveNull()) {
+                        offset += positionsCount;
+                        return nestedWriter.writeDefinitionLevels(positionsCount);
                     }
-                    if (columnarRow.isNull(position)) {
-                        return OptionalInt.of(maxDefinitionLevel - 1);
+                    int maxDefinitionValuesCount = 0;
+                    int totalValuesCount = 0;
+                    for (int position = offset; position < offset + positionsCount; ) {
+                        if (columnarRow.isNull(position)) {
+                            encoder.writeInteger(maxDefinitionLevel - 1);
+                            totalValuesCount++;
+                            position++;
+                        }
+                        else {
+                            int consecutiveNonNullsCount = 1;
+                            position++;
+                            while (position < offset + positionsCount && !columnarRow.isNull(position)) {
+                                position++;
+                                consecutiveNonNullsCount++;
+                            }
+                            ValuesCount valuesCount = nestedWriter.writeDefinitionLevels(consecutiveNonNullsCount);
+                            maxDefinitionValuesCount += valuesCount.maxDefinitionLevelValuesCount();
+                            totalValuesCount += valuesCount.totalValuesCount();
+                        }
                     }
-                    return OptionalInt.empty();
+                    offset += positionsCount;
+                    return new ValuesCount(totalValuesCount, maxDefinitionValuesCount);
                 }
             };
         }
@@ -153,38 +176,73 @@ public class DefLevelWriterProviders
         }
 
         @Override
-        public DefLevelIterator getIterator()
+        public DefinitionLevelWriter getDefinitionLevelWriter(Optional<DefinitionLevelWriter> nestedWriterOptional, ValuesWriter encoder)
         {
-            return new DefLevelIterator()
+            checkArgument(nestedWriterOptional.isPresent(), "nestedWriter should be present for column map definition level writer");
+            return new DefinitionLevelWriter()
             {
-                private int position = -1;
-                private Iterator<OptionalInt> iterator;
+                private final DefinitionLevelWriter nestedWriter = nestedWriterOptional.orElseThrow();
+
+                private int offset;
 
                 @Override
-                boolean end()
+                public ValuesCount writeDefinitionLevels()
                 {
-                    return iterator == null || !iterator.hasNext();
+                    return writeDefinitionLevels(columnarMap.getPositionCount());
                 }
 
                 @Override
-                protected OptionalInt computeNext()
+                public ValuesCount writeDefinitionLevels(int positionsCount)
                 {
-                    if (iterator != null && iterator.hasNext()) {
-                        return iterator.next();
+                    checkValidPosition(offset, positionsCount, columnarMap.getPositionCount());
+                    int maxDefinitionValuesCount = 0;
+                    int totalValuesCount = 0;
+                    if (!columnarMap.mayHaveNull()) {
+                        for (int position = offset; position < offset + positionsCount; ) {
+                            int mapLength = columnarMap.getEntryCount(position);
+                            if (mapLength == 0) {
+                                encoder.writeInteger(maxDefinitionLevel - 1);
+                                totalValuesCount++;
+                                position++;
+                            }
+                            else {
+                                int consecutiveNonEmptyArrayLength = mapLength;
+                                position++;
+                                while (position < offset + positionsCount) {
+                                    mapLength = columnarMap.getEntryCount(position);
+                                    if (mapLength == 0) {
+                                        break;
+                                    }
+                                    position++;
+                                    consecutiveNonEmptyArrayLength += mapLength;
+                                }
+                                ValuesCount valuesCount = nestedWriter.writeDefinitionLevels(consecutiveNonEmptyArrayLength);
+                                maxDefinitionValuesCount += valuesCount.maxDefinitionLevelValuesCount();
+                                totalValuesCount += valuesCount.totalValuesCount();
+                            }
+                        }
                     }
-                    position++;
-                    if (position == columnarMap.getPositionCount()) {
-                        return endOfData();
+                    else {
+                        for (int position = offset; position < offset + positionsCount; position++) {
+                            if (columnarMap.isNull(position)) {
+                                encoder.writeInteger(maxDefinitionLevel - 2);
+                                totalValuesCount++;
+                                continue;
+                            }
+                            int mapLength = columnarMap.getEntryCount(position);
+                            if (mapLength == 0) {
+                                encoder.writeInteger(maxDefinitionLevel - 1);
+                                totalValuesCount++;
+                            }
+                            else {
+                                ValuesCount valuesCount = nestedWriter.writeDefinitionLevels(mapLength);
+                                maxDefinitionValuesCount += valuesCount.maxDefinitionLevelValuesCount();
+                                totalValuesCount += valuesCount.totalValuesCount();
+                            }
+                        }
                     }
-                    if (columnarMap.isNull(position)) {
-                        return OptionalInt.of(maxDefinitionLevel - 2);
-                    }
-                    int arrayLength = columnarMap.getEntryCount(position);
-                    if (arrayLength == 0) {
-                        return OptionalInt.of(maxDefinitionLevel - 1);
-                    }
-                    iterator = nCopies(arrayLength, OptionalInt.empty()).iterator();
-                    return iterator.next();
+                    offset += positionsCount;
+                    return new ValuesCount(totalValuesCount, maxDefinitionValuesCount);
                 }
             };
         }
@@ -203,73 +261,82 @@ public class DefLevelWriterProviders
         }
 
         @Override
-        public DefLevelIterator getIterator()
+        public DefinitionLevelWriter getDefinitionLevelWriter(Optional<DefinitionLevelWriter> nestedWriterOptional, ValuesWriter encoder)
         {
-            return new DefLevelIterator()
+            checkArgument(nestedWriterOptional.isPresent(), "nestedWriter should be present for column map definition level writer");
+            return new DefinitionLevelWriter()
             {
-                private int position = -1;
-                private Iterator<OptionalInt> iterator;
+                private final DefinitionLevelWriter nestedWriter = nestedWriterOptional.orElseThrow();
+
+                private int offset;
 
                 @Override
-                boolean end()
+                public ValuesCount writeDefinitionLevels()
                 {
-                    return iterator == null || !iterator.hasNext();
+                    return writeDefinitionLevels(columnarArray.getPositionCount());
                 }
 
                 @Override
-                protected OptionalInt computeNext()
+                public ValuesCount writeDefinitionLevels(int positionsCount)
                 {
-                    if (iterator != null && iterator.hasNext()) {
-                        return iterator.next();
+                    checkValidPosition(offset, positionsCount, columnarArray.getPositionCount());
+                    int maxDefinitionValuesCount = 0;
+                    int totalValuesCount = 0;
+                    if (!columnarArray.mayHaveNull()) {
+                        for (int position = offset; position < offset + positionsCount; ) {
+                            int arrayLength = columnarArray.getLength(position);
+                            if (arrayLength == 0) {
+                                encoder.writeInteger(maxDefinitionLevel - 1);
+                                totalValuesCount++;
+                                position++;
+                            }
+                            else {
+                                int consecutiveNonEmptyArrayLength = arrayLength;
+                                position++;
+                                while (position < offset + positionsCount) {
+                                    arrayLength = columnarArray.getLength(position);
+                                    if (arrayLength == 0) {
+                                        break;
+                                    }
+                                    position++;
+                                    consecutiveNonEmptyArrayLength += arrayLength;
+                                }
+                                ValuesCount valuesCount = nestedWriter.writeDefinitionLevels(consecutiveNonEmptyArrayLength);
+                                maxDefinitionValuesCount += valuesCount.maxDefinitionLevelValuesCount();
+                                totalValuesCount += valuesCount.totalValuesCount();
+                            }
+                        }
                     }
-                    position++;
-                    if (position == columnarArray.getPositionCount()) {
-                        return endOfData();
+                    else {
+                        for (int position = offset; position < offset + positionsCount; position++) {
+                            if (columnarArray.isNull(position)) {
+                                encoder.writeInteger(maxDefinitionLevel - 2);
+                                totalValuesCount++;
+                                continue;
+                            }
+                            int arrayLength = columnarArray.getLength(position);
+                            if (arrayLength == 0) {
+                                encoder.writeInteger(maxDefinitionLevel - 1);
+                                totalValuesCount++;
+                            }
+                            else {
+                                ValuesCount valuesCount = nestedWriter.writeDefinitionLevels(arrayLength);
+                                maxDefinitionValuesCount += valuesCount.maxDefinitionLevelValuesCount();
+                                totalValuesCount += valuesCount.totalValuesCount();
+                            }
+                        }
                     }
-                    if (columnarArray.isNull(position)) {
-                        return OptionalInt.of(maxDefinitionLevel - 2);
-                    }
-                    int arrayLength = columnarArray.getLength(position);
-                    if (arrayLength == 0) {
-                        return OptionalInt.of(maxDefinitionLevel - 1);
-                    }
-                    iterator = nCopies(arrayLength, OptionalInt.empty()).iterator();
-                    return iterator.next();
+                    offset += positionsCount;
+                    return new ValuesCount(totalValuesCount, maxDefinitionValuesCount);
                 }
             };
         }
     }
 
-    static class NestedDefLevelIterator
-            extends AbstractIterator<Integer>
+    private static void checkValidPosition(int offset, int positionsCount, int totalPositionsCount)
     {
-        private final List<DefLevelIterator> iterators;
-        private int iteratorIndex;
-
-        NestedDefLevelIterator(List<DefLevelWriterProvider> iterables)
-        {
-            this.iterators = iterables.stream().map(DefLevelWriterProvider::getIterator).collect(toImmutableList());
-        }
-
-        @Override
-        protected Integer computeNext()
-        {
-            DefLevelIterator current = iterators.get(iteratorIndex);
-            while (iteratorIndex > 0 && current.end()) {
-                iteratorIndex--;
-                current = iterators.get(iteratorIndex);
-            }
-
-            while (current.hasNext()) {
-                OptionalInt next = current.next();
-                if (next.isPresent()) {
-                    return next.getAsInt();
-                }
-                iteratorIndex++;
-                current = iterators.get(iteratorIndex);
-            }
-            checkState(iterators.stream().noneMatch(AbstractIterator::hasNext));
-            return endOfData();
+        if (offset < 0 || positionsCount < 0 || offset + positionsCount > totalPositionsCount) {
+            throw new IndexOutOfBoundsException(format("Invalid offset %s and positionsCount %s in block with %s positions", offset, positionsCount, totalPositionsCount));
         }
     }
 }
