@@ -13,24 +13,32 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+@Immutable
 public class FieldReference
         extends Expression
 {
     private final int fieldIndex;
 
-    public FieldReference(int fieldIndex)
+    @JsonCreator
+    public FieldReference(
+            @JsonProperty("fieldIndex") int fieldIndex)
     {
         checkArgument(fieldIndex >= 0, "fieldIndex must be >= 0");
 
         this.fieldIndex = fieldIndex;
     }
 
+    @JsonProperty
     public int getFieldIndex()
     {
         return fieldIndex;

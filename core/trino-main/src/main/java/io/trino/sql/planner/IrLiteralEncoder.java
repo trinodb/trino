@@ -219,7 +219,7 @@ public final class IrLiteralEncoder
         }
 
         if (type.equals(BOOLEAN)) {
-            return new BooleanLiteral(object.toString());
+            return BooleanLiteral.of(object.toString());
         }
 
         if (type.equals(DATE)) {

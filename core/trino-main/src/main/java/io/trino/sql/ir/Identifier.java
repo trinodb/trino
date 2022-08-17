@@ -13,9 +13,13 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -25,6 +29,7 @@ import static com.google.common.base.Verify.verify;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class Identifier
         extends Expression
 {
@@ -45,20 +50,25 @@ public class Identifier
         this(value, !isValidIdentifier(value));
     }
 
-    public Identifier(String value, boolean delimited)
+    @JsonCreator
+    public Identifier(
+            @JsonProperty("value") String value,
+            @JsonProperty("delimited") boolean delimited)
     {
-        this.value = requireNonNull(value, "value is null");
-        this.delimited = delimited;
-
         checkArgument(!value.isEmpty(), "value is empty");
         checkArgument(delimited || isValidIdentifier(value), "value contains illegal characters: %s", value);
+
+        this.value = requireNonNull(value, "value is null");
+        this.delimited = delimited;
     }
 
+    @JsonProperty
     public String getValue()
     {
         return value;
     }
 
+    @JsonProperty
     public boolean isDelimited()
     {
         return delimited;

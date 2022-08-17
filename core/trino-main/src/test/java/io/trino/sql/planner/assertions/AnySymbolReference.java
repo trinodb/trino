@@ -13,11 +13,16 @@
  */
 package io.trino.sql.planner.assertions;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import io.trino.sql.ir.SymbolReference;
 
+import javax.annotation.concurrent.Immutable;
+
+@Immutable
 class AnySymbolReference
         extends SymbolReference
 {
+    @JsonCreator
     AnySymbolReference()
     {
         super("*");

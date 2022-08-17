@@ -13,7 +13,11 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -33,13 +37,17 @@ import static java.util.Objects.requireNonNull;
  * is represented as `FunctionCall` having a `Window` member.
  * // TODO refactor `FunctionCall` so that it does not contain `Window`, and instead represent a windowed function call as `WindowOperation`
  */
+@Immutable
 public class WindowOperation
         extends Expression
 {
     private final Identifier name;
     private final Window window;
 
-    public WindowOperation(Identifier name, Window window)
+    @JsonCreator
+    public WindowOperation(
+            @JsonProperty("name") Identifier name,
+            @JsonProperty("window") Window window)
     {
         requireNonNull(name, "name is null");
         requireNonNull(window, "window is null");
@@ -49,11 +57,13 @@ public class WindowOperation
         this.window = window;
     }
 
+    @JsonProperty
     public Identifier getName()
     {
         return name;
     }
 
+    @JsonProperty
     public Window getWindow()
     {
         return window;

@@ -13,7 +13,11 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -21,16 +25,20 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class RowDataType
         extends DataType
 {
     private final List<Field> fields;
 
-    public RowDataType(List<Field> fields)
+    @JsonCreator
+    public RowDataType(
+            @JsonProperty("fields") List<Field> fields)
     {
         this.fields = ImmutableList.copyOf(fields);
     }
 
+    @JsonProperty
     public List<Field> getFields()
     {
         return fields;

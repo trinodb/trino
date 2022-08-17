@@ -13,28 +13,38 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
+@Immutable
 public class InPredicate
         extends Expression
 {
     private final Expression value;
     private final Expression valueList;
 
-    public InPredicate(Expression value, Expression valueList)
+    @JsonCreator
+    public InPredicate(
+            @JsonProperty("value") Expression value,
+            @JsonProperty("valueList") Expression valueList)
     {
         this.value = value;
         this.valueList = valueList;
     }
 
+    @JsonProperty
     public Expression getValue()
     {
         return value;
     }
 
+    @JsonProperty
     public Expression getValueList()
     {
         return valueList;

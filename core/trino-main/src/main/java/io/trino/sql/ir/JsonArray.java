@@ -13,8 +13,12 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.JsonPathParameter.JsonFormat;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -22,6 +26,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class JsonArray
         extends Expression
 {
@@ -30,7 +35,12 @@ public class JsonArray
     private final Optional<DataType> returnedType;
     private final Optional<JsonFormat> outputFormat;
 
-    public JsonArray(List<JsonArrayElement> elements, boolean nullOnNull, Optional<DataType> returnedType, Optional<JsonFormat> outputFormat)
+    @JsonCreator
+    public JsonArray(
+            @JsonProperty("elements") List<JsonArrayElement> elements,
+            @JsonProperty("nullOnNull") boolean nullOnNull,
+            @JsonProperty("returnedType") Optional<DataType> returnedType,
+            @JsonProperty("outputFormat") Optional<JsonFormat> outputFormat)
     {
         requireNonNull(elements, "elements is null");
         requireNonNull(returnedType, "returnedType is null");
@@ -42,21 +52,25 @@ public class JsonArray
         this.outputFormat = outputFormat;
     }
 
+    @JsonProperty
     public List<JsonArrayElement> getElements()
     {
         return elements;
     }
 
+    @JsonProperty
     public boolean isNullOnNull()
     {
         return nullOnNull;
     }
 
+    @JsonProperty
     public Optional<DataType> getReturnedType()
     {
         return returnedType;
     }
 
+    @JsonProperty
     public Optional<JsonFormat> getOutputFormat()
     {
         return outputFormat;

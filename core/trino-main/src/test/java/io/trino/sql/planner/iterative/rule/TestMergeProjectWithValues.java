@@ -71,8 +71,8 @@ public class TestMergeProjectWithValues
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                         ImmutableList.of(
-                                                new Row(ImmutableList.of(new CharLiteral("x"), new BooleanLiteral("true"))),
-                                                new Row(ImmutableList.of(new CharLiteral("y"), new BooleanLiteral("false")))))))
+                                                new Row(ImmutableList.of(CharLiteral.of("x"), BooleanLiteral.of("true"))),
+                                                new Row(ImmutableList.of(CharLiteral.of("y"), BooleanLiteral.of("false")))))))
                 .matches(values(2));
 
         // ValuesNode has no output symbols and two rows
@@ -113,21 +113,21 @@ public class TestMergeProjectWithValues
         tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("a"), new CharLiteral("x"), p.symbol("b"), new BooleanLiteral("true")),
+                                Assignments.of(p.symbol("a"), CharLiteral.of("x"), p.symbol("b"), BooleanLiteral.of("true")),
                                 p.values(
                                         ImmutableList.of(),
                                         ImmutableList.of(ImmutableList.of(), ImmutableList.of()))))
                 .matches(values(
                         ImmutableList.of("a", "b"),
                         ImmutableList.of(
-                                ImmutableList.of(new CharLiteral("x"), new BooleanLiteral("true")),
-                                ImmutableList.of(new CharLiteral("x"), new BooleanLiteral("true")))));
+                                ImmutableList.of(CharLiteral.of("x"), BooleanLiteral.of("true")),
+                                ImmutableList.of(CharLiteral.of("x"), BooleanLiteral.of("true")))));
 
         // ValuesNode has no rows
         tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("a"), new CharLiteral("x"), p.symbol("b"), new BooleanLiteral("true")),
+                                Assignments.of(p.symbol("a"), CharLiteral.of("x"), p.symbol("b"), BooleanLiteral.of("true")),
                                 p.values(
                                         ImmutableList.of(),
                                         ImmutableList.of())))
@@ -283,16 +283,16 @@ public class TestMergeProjectWithValues
                             p.valuesOfExpressions(
                                     ImmutableList.of(a, b, c),
                                     ImmutableList.of(
-                                            new Row(ImmutableList.of(new CharLiteral("x"), new BooleanLiteral("true"), new LongLiteral("1"))),
-                                            new Row(ImmutableList.of(new CharLiteral("y"), new BooleanLiteral("false"), new LongLiteral("2"))),
-                                            new Row(ImmutableList.of(new CharLiteral("z"), new BooleanLiteral("true"), new LongLiteral("3"))))));
+                                            new Row(ImmutableList.of(CharLiteral.of("x"), BooleanLiteral.of("true"), new LongLiteral("1"))),
+                                            new Row(ImmutableList.of(CharLiteral.of("y"), BooleanLiteral.of("false"), new LongLiteral("2"))),
+                                            new Row(ImmutableList.of(CharLiteral.of("z"), BooleanLiteral.of("true"), new LongLiteral("3"))))));
                 })
                 .matches(values(
                         ImmutableList.of("a", "d", "e", "f"),
                         ImmutableList.of(
-                                ImmutableList.of(new CharLiteral("x"), new BooleanLiteral("true"), new IsNullPredicate(new CharLiteral("x")), new LongLiteral("1")),
-                                ImmutableList.of(new CharLiteral("y"), new BooleanLiteral("false"), new IsNullPredicate(new CharLiteral("y")), new LongLiteral("1")),
-                                ImmutableList.of(new CharLiteral("z"), new BooleanLiteral("true"), new IsNullPredicate(new CharLiteral("z")), new LongLiteral("1")))));
+                                ImmutableList.of(CharLiteral.of("x"), BooleanLiteral.of("true"), new IsNullPredicate(CharLiteral.of("x")), new LongLiteral("1")),
+                                ImmutableList.of(CharLiteral.of("y"), BooleanLiteral.of("false"), new IsNullPredicate(CharLiteral.of("y")), new LongLiteral("1")),
+                                ImmutableList.of(CharLiteral.of("z"), BooleanLiteral.of("true"), new IsNullPredicate(CharLiteral.of("z")), new LongLiteral("1")))));
 
         // ValuesNode has no rows
         tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))

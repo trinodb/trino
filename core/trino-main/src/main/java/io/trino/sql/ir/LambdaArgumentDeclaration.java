@@ -13,21 +13,29 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
+@Immutable
 public class LambdaArgumentDeclaration
         extends Expression
 {
     private final Identifier name;
 
-    public LambdaArgumentDeclaration(Identifier name)
+    @JsonCreator
+    public LambdaArgumentDeclaration(
+            @JsonProperty("name") Identifier name)
     {
         this.name = name;
     }
 
+    @JsonProperty
     public Identifier getName()
     {
         return name;

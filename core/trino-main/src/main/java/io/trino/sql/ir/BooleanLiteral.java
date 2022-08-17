@@ -13,28 +13,44 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.annotation.concurrent.Immutable;
+
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class BooleanLiteral
         extends Literal
 {
-    public static final BooleanLiteral TRUE_LITERAL = new BooleanLiteral("true");
-    public static final BooleanLiteral FALSE_LITERAL = new BooleanLiteral("false");
+    public static final BooleanLiteral TRUE_LITERAL = BooleanLiteral.of("true");
+    public static final BooleanLiteral FALSE_LITERAL = BooleanLiteral.of("false");
 
     private final boolean value;
 
-    public BooleanLiteral(String value)
+    public static BooleanLiteral of(String value)
     {
         requireNonNull(value, "value is null");
         checkArgument(value.toLowerCase(ENGLISH).equals("true") || value.toLowerCase(ENGLISH).equals("false"));
 
-        this.value = value.toLowerCase(ENGLISH).equals("true");
+        boolean booleanValue = value.toLowerCase(ENGLISH).equals("true");
+
+        return new BooleanLiteral(booleanValue);
     }
 
+    @JsonCreator
+    public BooleanLiteral(
+            @JsonProperty("value") boolean value)
+    {
+        this.value = value;
+    }
+
+    @JsonProperty
     public boolean getValue()
     {
         return value;

@@ -13,13 +13,18 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public final class Cast
         extends Expression
 {
@@ -38,7 +43,12 @@ public final class Cast
         this(expression, type, safe, false);
     }
 
-    public Cast(Expression expression, DataType type, boolean safe, boolean typeOnly)
+    @JsonCreator
+    public Cast(
+            @JsonProperty("expression") Expression expression,
+            @JsonProperty("type") DataType type,
+            @JsonProperty("safe") boolean safe,
+            @JsonProperty("typeOnly") boolean typeOnly)
     {
         requireNonNull(expression, "expression is null");
 
@@ -48,21 +58,25 @@ public final class Cast
         this.typeOnly = typeOnly;
     }
 
+    @JsonProperty
     public Expression getExpression()
     {
         return expression;
     }
 
+    @JsonProperty
     public DataType getType()
     {
         return type;
     }
 
+    @JsonProperty
     public boolean isSafe()
     {
         return safe;
     }
 
+    @JsonProperty
     public boolean isTypeOnly()
     {
         return typeOnly;

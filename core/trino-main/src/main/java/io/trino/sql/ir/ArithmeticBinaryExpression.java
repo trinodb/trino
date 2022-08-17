@@ -13,12 +13,17 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.ArithmeticBinaryExpression.Operator;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
+@Immutable
 public class ArithmeticBinaryExpression
         extends Expression
 {
@@ -26,23 +31,30 @@ public class ArithmeticBinaryExpression
     private final Expression left;
     private final Expression right;
 
-    public ArithmeticBinaryExpression(Operator operator, Expression left, Expression right)
+    @JsonCreator
+    public ArithmeticBinaryExpression(
+            @JsonProperty("operator") Operator operator,
+            @JsonProperty("left") Expression left,
+            @JsonProperty("right") Expression right)
     {
         this.operator = operator;
         this.left = left;
         this.right = right;
     }
 
+    @JsonProperty
     public Operator getOperator()
     {
         return operator;
     }
 
+    @JsonProperty
     public Expression getLeft()
     {
         return left;
     }
 
+    @JsonProperty
     public Expression getRight()
     {
         return right;

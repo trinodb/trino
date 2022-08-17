@@ -13,25 +13,38 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.CharMatcher;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class CharLiteral
         extends Literal
 {
     private final String value;
     private final int length;
 
-    public CharLiteral(String value)
+    public static CharLiteral of(String value)
     {
         requireNonNull(value, "value is null");
-        this.length = value.length();
-        this.value = CharMatcher.is(' ').trimTrailingFrom(value);
+        return new CharLiteral(CharMatcher.is(' ').trimTrailingFrom(value));
     }
 
+    @JsonCreator
+    public CharLiteral(
+            @JsonProperty("value") String value)
+    {
+        this.length = value.length();
+        this.value = value;
+    }
+
+    @JsonProperty
     public String getValue()
     {
         return value;

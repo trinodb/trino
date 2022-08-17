@@ -13,14 +13,19 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.ComparisonExpression.Operator;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class ComparisonExpression
         extends Expression
 {
@@ -28,7 +33,11 @@ public class ComparisonExpression
     private final Expression left;
     private final Expression right;
 
-    public ComparisonExpression(Operator operator, Expression left, Expression right)
+    @JsonCreator
+    public ComparisonExpression(
+            @JsonProperty("operator") Operator operator,
+            @JsonProperty("left") Expression left,
+            @JsonProperty("right") Expression right)
     {
         requireNonNull(operator, "operator is null");
         requireNonNull(left, "left is null");
@@ -39,16 +48,19 @@ public class ComparisonExpression
         this.right = right;
     }
 
+    @JsonProperty
     public Operator getOperator()
     {
         return operator;
     }
 
+    @JsonProperty
     public Expression getLeft()
     {
         return left;
     }
 
+    @JsonProperty
     public Expression getRight()
     {
         return right;

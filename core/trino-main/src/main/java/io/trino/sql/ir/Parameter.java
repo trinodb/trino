@@ -13,21 +13,29 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
+@Immutable
 public class Parameter
         extends Expression
 {
     private final int position;
 
-    public Parameter(int position)
+    @JsonCreator
+    public Parameter(
+            @JsonProperty("position") int position)
     {
         this.position = position;
     }
 
+    @JsonProperty
     public int getPosition()
     {
         return position;

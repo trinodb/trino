@@ -13,8 +13,12 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.JsonValue.EmptyOrErrorBehavior;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -24,6 +28,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.sql.tree.JsonValue.EmptyOrErrorBehavior.DEFAULT;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class JsonValue
         extends Expression
 {
@@ -34,13 +39,14 @@ public class JsonValue
     private final EmptyOrErrorBehavior errorBehavior;
     private final Optional<Expression> errorDefault;
 
+    @JsonCreator
     public JsonValue(
-            JsonPathInvocation jsonPathInvocation,
-            Optional<DataType> returnedType,
-            EmptyOrErrorBehavior emptyBehavior,
-            Optional<Expression> emptyDefault,
-            EmptyOrErrorBehavior errorBehavior,
-            Optional<Expression> errorDefault)
+            @JsonProperty("jsonPathInvocation") JsonPathInvocation jsonPathInvocation,
+            @JsonProperty("returnedType") Optional<DataType> returnedType,
+            @JsonProperty("emptyBehavior") EmptyOrErrorBehavior emptyBehavior,
+            @JsonProperty("emptyDefault") Optional<Expression> emptyDefault,
+            @JsonProperty("errorBehavior") EmptyOrErrorBehavior errorBehavior,
+            @JsonProperty("errorDefault") Optional<Expression> errorDefault)
     {
         requireNonNull(jsonPathInvocation, "jsonPathInvocation is null");
         requireNonNull(returnedType, "returnedType is null");
@@ -61,31 +67,37 @@ public class JsonValue
         this.errorDefault = errorDefault;
     }
 
+    @JsonProperty
     public JsonPathInvocation getJsonPathInvocation()
     {
         return jsonPathInvocation;
     }
 
+    @JsonProperty
     public Optional<DataType> getReturnedType()
     {
         return returnedType;
     }
 
+    @JsonProperty
     public EmptyOrErrorBehavior getEmptyBehavior()
     {
         return emptyBehavior;
     }
 
+    @JsonProperty
     public Optional<Expression> getEmptyDefault()
     {
         return emptyDefault;
     }
 
+    @JsonProperty
     public EmptyOrErrorBehavior getErrorBehavior()
     {
         return errorBehavior;
     }
 
+    @JsonProperty
     public Optional<Expression> getErrorDefault()
     {
         return errorDefault;

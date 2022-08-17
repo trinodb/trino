@@ -13,6 +13,8 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.sql.parser.ParsingException;
 
 import static java.util.Objects.requireNonNull;
@@ -33,6 +35,14 @@ public class LongLiteral
         }
     }
 
+    @JsonCreator
+    public LongLiteral(
+            @JsonProperty("value") long value)
+    {
+        this.value = value;
+    }
+
+    @JsonProperty
     public long getValue()
     {
         return value;

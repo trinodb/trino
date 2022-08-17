@@ -13,9 +13,13 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +31,7 @@ import static com.google.common.collect.Iterables.isEmpty;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class QualifiedName
 {
     private final List<Identifier> originalParts;
@@ -50,7 +55,9 @@ public class QualifiedName
         return of(ImmutableList.of(new Identifier(name)));
     }
 
-    public static QualifiedName of(Iterable<Identifier> originalParts)
+    @JsonCreator
+    public static QualifiedName of(
+            @JsonProperty("originalParts") Iterable<Identifier> originalParts)
     {
         requireNonNull(originalParts, "originalParts is null");
         checkArgument(!isEmpty(originalParts), "originalParts is empty");
@@ -87,6 +94,7 @@ public class QualifiedName
         return parts;
     }
 
+    @JsonProperty
     public List<Identifier> getOriginalParts()
     {
         return originalParts;

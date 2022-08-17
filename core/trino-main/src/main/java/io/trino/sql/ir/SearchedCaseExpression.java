@@ -13,7 +13,11 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -21,13 +25,17 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class SearchedCaseExpression
         extends Expression
 {
     private final List<WhenClause> whenClauses;
     private final Optional<Expression> defaultValue;
 
-    public SearchedCaseExpression(List<WhenClause> whenClauses, Optional<Expression> defaultValue)
+    @JsonCreator
+    public SearchedCaseExpression(
+            @JsonProperty("whenClauses") List<WhenClause> whenClauses,
+            @JsonProperty("defaultValue") Optional<Expression> defaultValue)
     {
         requireNonNull(whenClauses, "whenClauses is null");
         requireNonNull(defaultValue, "defaultValue is null");
@@ -35,11 +43,13 @@ public class SearchedCaseExpression
         this.defaultValue = defaultValue;
     }
 
+    @JsonProperty
     public List<WhenClause> getWhenClauses()
     {
         return whenClauses;
     }
 
+    @JsonProperty
     public Optional<Expression> getDefaultValue()
     {
         return defaultValue;

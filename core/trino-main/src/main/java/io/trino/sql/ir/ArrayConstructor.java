@@ -13,25 +13,33 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class ArrayConstructor
         extends Expression
 {
     public static final String ARRAY_CONSTRUCTOR = "ARRAY_CONSTRUCTOR";
     private final List<Expression> values;
 
-    public ArrayConstructor(List<Expression> values)
+    @JsonCreator
+    public ArrayConstructor(
+            @JsonProperty("values") List<Expression> values)
     {
         requireNonNull(values, "values is null");
         this.values = ImmutableList.copyOf(values);
     }
 
+    @JsonProperty
     public List<Expression> getValues()
     {
         return values;

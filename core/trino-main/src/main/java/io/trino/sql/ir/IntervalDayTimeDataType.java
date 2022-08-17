@@ -13,31 +13,41 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.IntervalDayTimeDataType.Field;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class IntervalDayTimeDataType
         extends DataType
 {
     private final Field from;
     private final Field to;
 
-    public IntervalDayTimeDataType(Field from, Field to)
+    @JsonCreator
+    public IntervalDayTimeDataType(
+            @JsonProperty("from") Field from,
+            @JsonProperty("to") Field to)
     {
         this.from = requireNonNull(from, "from is null");
         this.to = requireNonNull(to, "to is null");
     }
 
+    @JsonProperty
     public Field getFrom()
     {
         return from;
     }
 
+    @JsonProperty
     public Field getTo()
     {
         return to;

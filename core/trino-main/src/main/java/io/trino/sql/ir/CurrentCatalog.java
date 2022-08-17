@@ -13,13 +13,18 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
+@Immutable
 public class CurrentCatalog
         extends Expression
 {
+    @JsonCreator
     public CurrentCatalog()
     {
     }

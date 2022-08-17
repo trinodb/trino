@@ -13,24 +13,32 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class ExistsPredicate
         extends Expression
 {
     private final Expression subquery;
 
-    public ExistsPredicate(Expression subquery)
+    @JsonCreator
+    public ExistsPredicate(
+            @JsonProperty("subquery") Expression subquery)
     {
         requireNonNull(subquery, "subquery is null");
         this.subquery = subquery;
     }
 
+    @JsonProperty
     public Expression getSubquery()
     {
         return subquery;

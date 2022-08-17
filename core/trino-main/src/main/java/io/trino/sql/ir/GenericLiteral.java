@@ -13,17 +13,26 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.annotation.concurrent.Immutable;
+
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public final class GenericLiteral
         extends Literal
 {
     private final String type;
     private final String value;
 
-    public GenericLiteral(String type, String value)
+    @JsonCreator
+    public GenericLiteral(
+            @JsonProperty("type") String type,
+            @JsonProperty("value") String value)
     {
         requireNonNull(type, "type is null");
         requireNonNull(value, "value is null");
@@ -37,11 +46,13 @@ public final class GenericLiteral
         this.value = value;
     }
 
+    @JsonProperty
     public String getType()
     {
         return type;
     }
 
+    @JsonProperty
     public String getValue()
     {
         return value;

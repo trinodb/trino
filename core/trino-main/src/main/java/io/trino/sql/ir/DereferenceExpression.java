@@ -13,7 +13,11 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -22,6 +26,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class DereferenceExpression
         extends Expression
 {
@@ -38,7 +43,10 @@ public class DereferenceExpression
         this(label, Optional.empty());
     }
 
-    private DereferenceExpression(Expression base, Optional<Identifier> field)
+    @JsonCreator
+    public DereferenceExpression(
+            @JsonProperty("base") Expression base,
+            @JsonProperty("field") Optional<Identifier> field)
     {
         checkArgument(base != null, "base is null");
         requireNonNull(field, "field is null");
@@ -61,11 +69,13 @@ public class DereferenceExpression
         return children.build();
     }
 
+    @JsonProperty
     public Expression getBase()
     {
         return base;
     }
 
+    @JsonProperty
     public Optional<Identifier> getField()
     {
         return field;

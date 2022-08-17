@@ -13,20 +13,29 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.annotation.concurrent.Immutable;
+
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class DecimalLiteral
         extends Literal
 {
     private final String value;
 
-    public DecimalLiteral(String value)
+    @JsonCreator
+    public DecimalLiteral(
+            @JsonProperty("value") String value)
     {
         this.value = requireNonNull(value, "value is null");
     }
 
+    @JsonProperty
     public String getValue()
     {
         return value;

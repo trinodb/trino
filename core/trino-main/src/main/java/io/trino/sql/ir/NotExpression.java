@@ -13,24 +13,32 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class NotExpression
         extends Expression
 {
     private final Expression value;
 
-    public NotExpression(Expression value)
+    @JsonCreator
+    public NotExpression(
+            @JsonProperty("value") Expression value)
     {
         requireNonNull(value, "value is null");
         this.value = value;
     }
 
+    @JsonProperty
     public Expression getValue()
     {
         return value;

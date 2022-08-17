@@ -13,8 +13,12 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.Trim.Specification;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -22,6 +26,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class Trim
         extends Expression
 {
@@ -29,23 +34,30 @@ public class Trim
     private final Expression trimSource;
     private final Optional<Expression> trimCharacter;
 
-    public Trim(Specification specification, Expression trimSource, Optional<Expression> trimCharacter)
+    @JsonCreator
+    public Trim(
+            @JsonProperty("specification") Specification specification,
+            @JsonProperty("trimSource") Expression trimSource,
+            @JsonProperty("trimCharacter") Optional<Expression> trimCharacter)
     {
         this.specification = requireNonNull(specification, "specification is null");
         this.trimSource = requireNonNull(trimSource, "trimSource is null");
         this.trimCharacter = requireNonNull(trimCharacter, "trimCharacter is null");
     }
 
+    @JsonProperty
     public Specification getSpecification()
     {
         return specification;
     }
 
+    @JsonProperty
     public Expression getTrimSource()
     {
         return trimSource;
     }
 
+    @JsonProperty
     public Optional<Expression> getTrimCharacter()
     {
         return trimCharacter;

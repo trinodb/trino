@@ -13,15 +13,20 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.ComparisonExpression.Operator;
 import io.trino.sql.tree.QuantifiedComparisonExpression.Quantifier;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class QuantifiedComparisonExpression
         extends Expression
 {
@@ -30,7 +35,12 @@ public class QuantifiedComparisonExpression
     private final Expression value;
     private final Expression subquery;
 
-    public QuantifiedComparisonExpression(Operator operator, Quantifier quantifier, Expression value, Expression subquery)
+    @JsonCreator
+    public QuantifiedComparisonExpression(
+            @JsonProperty("operator") Operator operator,
+            @JsonProperty("quantifier") Quantifier quantifier,
+            @JsonProperty("value") Expression value,
+            @JsonProperty("subquery") Expression subquery)
     {
         this.operator = requireNonNull(operator, "operator is null");
         this.quantifier = requireNonNull(quantifier, "quantifier is null");
@@ -38,21 +48,25 @@ public class QuantifiedComparisonExpression
         this.subquery = requireNonNull(subquery, "subquery is null");
     }
 
+    @JsonProperty
     public Operator getOperator()
     {
         return operator;
     }
 
+    @JsonProperty
     public Quantifier getQuantifier()
     {
         return quantifier;
     }
 
+    @JsonProperty
     public Expression getValue()
     {
         return value;
     }
 
+    @JsonProperty
     public Expression getSubquery()
     {
         return subquery;

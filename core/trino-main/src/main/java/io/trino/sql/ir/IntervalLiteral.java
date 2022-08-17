@@ -13,14 +13,19 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.sql.tree.IntervalLiteral.IntervalField;
 import io.trino.sql.tree.IntervalLiteral.Sign;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class IntervalLiteral
         extends Literal
 {
@@ -34,7 +39,12 @@ public class IntervalLiteral
         this(value, sign, startField, Optional.empty());
     }
 
-    public IntervalLiteral(String value, Sign sign, IntervalField startField, Optional<IntervalField> endField)
+    @JsonCreator
+    public IntervalLiteral(
+            @JsonProperty("value") String value,
+            @JsonProperty("sign") Sign sign,
+            @JsonProperty("startField") IntervalField startField,
+            @JsonProperty("endField") Optional<IntervalField> endField)
     {
         requireNonNull(value, "value is null");
         requireNonNull(sign, "sign is null");
@@ -47,21 +57,25 @@ public class IntervalLiteral
         this.endField = endField;
     }
 
+    @JsonProperty
     public String getValue()
     {
         return value;
     }
 
+    @JsonProperty
     public Sign getSign()
     {
         return sign;
     }
 
+    @JsonProperty
     public IntervalField getStartField()
     {
         return startField;
     }
 
+    @JsonProperty
     public Optional<IntervalField> getEndField()
     {
         return endField;

@@ -13,8 +13,14 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.annotation.concurrent.Immutable;
+
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class DoubleLiteral
         extends Literal
 {
@@ -22,10 +28,17 @@ public class DoubleLiteral
 
     public DoubleLiteral(String value)
     {
-        requireNonNull(value, "value is null");
-        this.value = Double.parseDouble(value);
+        this(Double.parseDouble(requireNonNull(value, "value is null")));
     }
 
+    @JsonCreator
+    public DoubleLiteral(
+            @JsonProperty("value") double value)
+    {
+        this.value = value;
+    }
+
+    @JsonProperty
     public double getValue()
     {
         return value;

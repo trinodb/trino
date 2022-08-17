@@ -13,7 +13,11 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -36,6 +40,7 @@ import static java.util.Objects.requireNonNull;
  * cannot be used for that purpose, because it only contains identifiers, and a Symbol
  * cannot be safely converted to an Identifier.
  */
+@Immutable
 public class LabelDereference
         extends Expression
 {
@@ -52,17 +57,22 @@ public class LabelDereference
         this(label, Optional.empty());
     }
 
-    public LabelDereference(String label, Optional<SymbolReference> reference)
+    @JsonCreator
+    public LabelDereference(
+            @JsonProperty("name") String label,
+            @JsonProperty("reference") Optional<SymbolReference> reference)
     {
         this.label = requireNonNull(label, "label is null");
         this.reference = requireNonNull(reference, "reference is null");
     }
 
+    @JsonProperty
     public String getLabel()
     {
         return label;
     }
 
+    @JsonProperty
     public Optional<SymbolReference> getReference()
     {
         return reference;

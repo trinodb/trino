@@ -13,21 +13,29 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.sql.tree.Query;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
+@Immutable
 public class SubqueryExpression
         extends Expression
 {
     private final Query query;
 
-    public SubqueryExpression(Query query)
+    @JsonCreator
+    public SubqueryExpression(
+            @JsonProperty("query") Query query)
     {
         this.query = query;
     }
 
+    @JsonProperty
     public Query getQuery()
     {
         return query;

@@ -13,7 +13,11 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -21,6 +25,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class LikePredicate
         extends Expression
 {
@@ -33,7 +38,11 @@ public class LikePredicate
         this(value, pattern, Optional.of(escape));
     }
 
-    public LikePredicate(Expression value, Expression pattern, Optional<Expression> escape)
+    @JsonCreator
+    public LikePredicate(
+            @JsonProperty("value") Expression value,
+            @JsonProperty("pattern") Expression pattern,
+            @JsonProperty("escape") Optional<Expression> escape)
     {
         requireNonNull(value, "value is null");
         requireNonNull(pattern, "pattern is null");
@@ -44,16 +53,19 @@ public class LikePredicate
         this.escape = escape;
     }
 
+    @JsonProperty
     public Expression getValue()
     {
         return value;
     }
 
+    @JsonProperty
     public Expression getPattern()
     {
         return pattern;
     }
 
+    @JsonProperty
     public Optional<Expression> getEscape()
     {
         return escape;

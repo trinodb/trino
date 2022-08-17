@@ -13,10 +13,29 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        property = "@type")
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = BinaryLiteral.class, name = "binaryLiteral"),
+        @JsonSubTypes.Type(value = BooleanLiteral.class, name = "booleanLiteral"),
+        @JsonSubTypes.Type(value = CharLiteral.class, name = "charLiteral"),
+        @JsonSubTypes.Type(value = DecimalLiteral.class, name = "decimalLiteral"),
+        @JsonSubTypes.Type(value = DoubleLiteral.class, name = "doubleLiteral"),
+        @JsonSubTypes.Type(value = GenericLiteral.class, name = "genericLiteral"),
+        @JsonSubTypes.Type(value = IntervalLiteral.class, name = "intervalLiteral"),
+        @JsonSubTypes.Type(value = LongLiteral.class, name = "longLiteral"),
+        @JsonSubTypes.Type(value = NullLiteral.class, name = "nullLiteral"),
+        @JsonSubTypes.Type(value = StringLiteral.class, name = "stringLiteral"),
+        @JsonSubTypes.Type(value = TimeLiteral.class, name = "timeLiteral"),
+        @JsonSubTypes.Type(value = TimestampLiteral.class, name = "timestampLiteral")
+})
 public abstract class Literal
         extends Expression
 {

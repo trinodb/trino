@@ -13,7 +13,11 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -21,24 +25,30 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class AtTimeZone
         extends Expression
 {
     private final Expression value;
     private final Expression timeZone;
 
-    public AtTimeZone(Expression value, Expression timeZone)
+    @JsonCreator
+    public AtTimeZone(
+            @JsonProperty("value") Expression value,
+            @JsonProperty("timeZone") Expression timeZone)
     {
         checkArgument(timeZone instanceof IntervalLiteral || timeZone instanceof StringLiteral, "timeZone must be IntervalLiteral or StringLiteral");
         this.value = requireNonNull(value, "value is null");
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
 
+    @JsonProperty
     public Expression getValue()
     {
         return value;
     }
 
+    @JsonProperty
     public Expression getTimeZone()
     {
         return timeZone;

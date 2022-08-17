@@ -13,14 +13,20 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.CharMatcher;
 import com.google.common.io.BaseEncoding;
 
+import javax.annotation.concurrent.Immutable;
+
 import java.util.Arrays;
+import java.util.function.Function;
 
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class BinaryLiteral
         extends Literal
 {
@@ -32,17 +38,26 @@ public class BinaryLiteral
 
     private final byte[] value;
 
+    private static final Function<String, String> hexChecker = hex -> {
+        if (!HEX_DIGIT_MATCHER.matchesAllOf(hex)) {
+            throw new IllegalArgumentException();
+        }
+        if (hex.length() % 2 != 0) {
+            throw new IllegalArgumentException();
+        }
+        return hex;
+    };
+
     public BinaryLiteral(String value)
     {
-        requireNonNull(value, "value is null");
-        String hexString = WHITESPACE_MATCHER.removeFrom(value).toUpperCase(ENGLISH);
-        if (!HEX_DIGIT_MATCHER.matchesAllOf(hexString)) {
-            throw new IllegalArgumentException();
-        }
-        if (hexString.length() % 2 != 0) {
-            throw new IllegalArgumentException();
-        }
-        this.value = BaseEncoding.base16().decode(hexString);
+        this(BaseEncoding.base16().decode(hexChecker.apply(WHITESPACE_MATCHER.removeFrom(requireNonNull(value, "value is null")).toUpperCase(ENGLISH))));
+    }
+
+    @JsonCreator
+    public BinaryLiteral(
+            @JsonProperty("value") byte[] value)
+    {
+        this.value = value;
     }
 
     /**
@@ -53,6 +68,7 @@ public class BinaryLiteral
         return BaseEncoding.base16().encode(value);
     }
 
+    @JsonProperty
     public byte[] getValue()
     {
         return value.clone();

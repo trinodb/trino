@@ -13,7 +13,11 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -21,18 +25,22 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class InListExpression
         extends Expression
 {
     private final List<Expression> values;
 
-    public InListExpression(List<Expression> values)
+    @JsonCreator
+    public InListExpression(
+            @JsonProperty("values") List<Expression> values)
     {
         requireNonNull(values, "values is null");
         checkArgument(!values.isEmpty(), "values cannot be empty");
         this.values = ImmutableList.copyOf(values);
     }
 
+    @JsonProperty
     public List<Expression> getValues()
     {
         return values;

@@ -13,8 +13,12 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.FunctionCall.NullTreatment;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -23,6 +27,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class FunctionCall
         extends Expression
 {
@@ -40,15 +45,16 @@ public class FunctionCall
         this(name, Optional.empty(), Optional.empty(), Optional.empty(), false, Optional.empty(), Optional.empty(), arguments);
     }
 
+    @JsonCreator
     public FunctionCall(
-            QualifiedName name,
-            Optional<Window> window,
-            Optional<Expression> filter,
-            Optional<OrderBy> orderBy,
-            boolean distinct,
-            Optional<NullTreatment> nullTreatment,
-            Optional<ProcessingMode> processingMode,
-            List<Expression> arguments)
+            @JsonProperty("name") QualifiedName name,
+            @JsonProperty("window") Optional<Window> window,
+            @JsonProperty("filter") Optional<Expression> filter,
+            @JsonProperty("orderBy") Optional<OrderBy> orderBy,
+            @JsonProperty("distinct") boolean distinct,
+            @JsonProperty("nullTreatment") Optional<NullTreatment> nullTreatment,
+            @JsonProperty("processingMode") Optional<ProcessingMode> processingMode,
+            @JsonProperty("arguments") List<Expression> arguments)
     {
         requireNonNull(name, "name is null");
         requireNonNull(window, "window is null");
@@ -69,41 +75,49 @@ public class FunctionCall
         this.arguments = arguments;
     }
 
+    @JsonProperty
     public QualifiedName getName()
     {
         return name;
     }
 
+    @JsonProperty
     public Optional<Window> getWindow()
     {
         return window;
     }
 
+    @JsonProperty
     public Optional<OrderBy> getOrderBy()
     {
         return orderBy;
     }
 
+    @JsonProperty
     public boolean isDistinct()
     {
         return distinct;
     }
 
+    @JsonProperty
     public Optional<NullTreatment> getNullTreatment()
     {
         return nullTreatment;
     }
 
+    @JsonProperty
     public Optional<ProcessingMode> getProcessingMode()
     {
         return processingMode;
     }
 
+    @JsonProperty
     public List<Expression> getArguments()
     {
         return arguments;
     }
 
+    @JsonProperty
     public Optional<Expression> getFilter()
     {
         return filter;

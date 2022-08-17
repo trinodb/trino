@@ -13,23 +13,29 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.JsonExists.ErrorBehavior;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class JsonExists
         extends Expression
 {
     private final JsonPathInvocation jsonPathInvocation;
     private final ErrorBehavior errorBehavior;
 
+    @JsonCreator
     public JsonExists(
-            JsonPathInvocation jsonPathInvocation,
-            ErrorBehavior errorBehavior)
+            @JsonProperty("jsonPathInvocation") JsonPathInvocation jsonPathInvocation,
+            @JsonProperty("errorBehavior") ErrorBehavior errorBehavior)
     {
         requireNonNull(jsonPathInvocation, "jsonPathInvocation is null");
         requireNonNull(errorBehavior, "errorBehavior is null");
@@ -38,11 +44,13 @@ public class JsonExists
         this.errorBehavior = errorBehavior;
     }
 
+    @JsonProperty
     public JsonPathInvocation getJsonPathInvocation()
     {
         return jsonPathInvocation;
     }
 
+    @JsonProperty
     public ErrorBehavior getErrorBehavior()
     {
         return errorBehavior;

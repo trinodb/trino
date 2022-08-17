@@ -13,28 +13,38 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
+@Immutable
 public class WhenClause
         extends Expression
 {
     private final Expression operand;
     private final Expression result;
 
-    public WhenClause(Expression operand, Expression result)
+    @JsonCreator
+    public WhenClause(
+            @JsonProperty("operand") Expression operand,
+            @JsonProperty("result") Expression result)
     {
         this.operand = operand;
         this.result = result;
     }
 
+    @JsonProperty
     public Expression getOperand()
     {
         return operand;
     }
 
+    @JsonProperty
     public Expression getResult()
     {
         return result;

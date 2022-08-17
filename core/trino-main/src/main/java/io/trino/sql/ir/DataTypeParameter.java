@@ -13,10 +13,20 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        property = "@type")
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = NumericParameter.class, name = "numericParameter"),
+        @JsonSubTypes.Type(value = TypeParameter.class, name = "typeParameter"),
+})
 public abstract class DataTypeParameter
         extends Node
 {
-    protected DataTypeParameter()
+    public DataTypeParameter()
     {
     }
 

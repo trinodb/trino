@@ -14,7 +14,11 @@
 
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -43,6 +47,8 @@ import static java.util.Objects.requireNonNull;
  * Lambda capturing is implemented through desugaring in Trino.
  * This expression facilitates desugaring.
  */
+
+@Immutable
 public class BindExpression
         extends Expression
 {
@@ -51,17 +57,22 @@ public class BindExpression
     // It is not necessarily a lambda. For example, it can be another bind expression.
     private final Expression function;
 
-    public BindExpression(List<Expression> values, Expression function)
+    @JsonCreator
+    public BindExpression(
+            @JsonProperty("values") List<Expression> values,
+            @JsonProperty("function") Expression function)
     {
         this.values = requireNonNull(values, "values is null");
         this.function = requireNonNull(function, "function is null");
     }
 
+    @JsonProperty
     public List<Expression> getValues()
     {
         return values;
     }
 
+    @JsonProperty
     public Expression getFunction()
     {
         return function;

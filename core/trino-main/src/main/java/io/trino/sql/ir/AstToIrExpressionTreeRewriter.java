@@ -726,7 +726,7 @@ public final class AstToIrExpressionTreeRewriter<C>
                 }
             }
 
-            return new BooleanLiteral(Boolean.toString(node.getValue()));
+            return BooleanLiteral.of(Boolean.toString(node.getValue()));
         }
 
         @Override
@@ -739,7 +739,7 @@ public final class AstToIrExpressionTreeRewriter<C>
                 }
             }
 
-            return new CharLiteral(node.getValue());
+            return CharLiteral.of(node.getValue());
         }
 
         @Override
@@ -1080,7 +1080,7 @@ public final class AstToIrExpressionTreeRewriter<C>
                 }
             }
             List<Expression> groupingColumnExpressions = defaultRewrite(node.getGroupingColumns(), context.get());
-            return new GroupingOperation(groupingColumnExpressions.toArray(Expression[]::new));
+            return new GroupingOperation(groupingColumnExpressions);
         }
 
         @Override
@@ -1711,13 +1711,13 @@ public final class AstToIrExpressionTreeRewriter<C>
         @Override
         public Node visitBooleanLiteral(io.trino.sql.tree.BooleanLiteral node, Void v)
         {
-            return new BooleanLiteral(Boolean.toString(node.getValue()));
+            return BooleanLiteral.of(Boolean.toString(node.getValue()));
         }
 
         @Override
         public Node visitCharLiteral(io.trino.sql.tree.CharLiteral node, Void v)
         {
-            return new CharLiteral(node.getValue());
+            return CharLiteral.of(node.getValue());
         }
 
         @Override
@@ -1843,7 +1843,7 @@ public final class AstToIrExpressionTreeRewriter<C>
         public Node visitGroupingOperation(io.trino.sql.tree.GroupingOperation node, Void v)
         {
             List<Expression> groupingColumnExpressions = copy(node.getGroupingColumns(), v);
-            return new GroupingOperation(groupingColumnExpressions.toArray(Expression[]::new));
+            return new GroupingOperation(groupingColumnExpressions);
         }
 
         @Override

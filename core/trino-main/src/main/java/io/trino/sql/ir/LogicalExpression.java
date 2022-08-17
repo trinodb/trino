@@ -13,8 +13,12 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.LogicalExpression.Operator;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -22,13 +26,17 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class LogicalExpression
         extends Expression
 {
     private final Operator operator;
     private final List<Expression> terms;
 
-    public LogicalExpression(Operator operator, List<Expression> terms)
+    @JsonCreator
+    public LogicalExpression(
+            @JsonProperty("operator") Operator operator,
+            @JsonProperty("terms") List<Expression> terms)
     {
         requireNonNull(operator, "operator is null");
         checkArgument(terms.size() >= 2, "Expected at least 2 terms");
@@ -37,11 +45,13 @@ public class LogicalExpression
         this.terms = ImmutableList.copyOf(terms);
     }
 
+    @JsonProperty
     public Operator getOperator()
     {
         return operator;
     }
 
+    @JsonProperty
     public List<Expression> getTerms()
     {
         return terms;

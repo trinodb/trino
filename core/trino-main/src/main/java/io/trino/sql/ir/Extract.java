@@ -13,6 +13,8 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.Extract.Field;
 
@@ -30,7 +32,10 @@ public class Extract
     private final Expression expression;
     private final Field field;
 
-    public Extract(Expression expression, Field field)
+    @JsonCreator
+    public Extract(
+            @JsonProperty("expression") Expression expression,
+            @JsonProperty("field") Field field)
     {
         requireNonNull(expression, "expression is null");
         requireNonNull(field, "field is null");
@@ -39,11 +44,13 @@ public class Extract
         this.field = field;
     }
 
+    @JsonProperty
     public Expression getExpression()
     {
         return expression;
     }
 
+    @JsonProperty
     public Field getField()
     {
         return field;

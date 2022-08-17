@@ -13,9 +13,15 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+
+import javax.annotation.concurrent.Immutable;
+
+@Immutable
 public class NullLiteral
         extends Literal
 {
+    @JsonCreator
     public NullLiteral()
     {
     }

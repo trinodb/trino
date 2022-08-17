@@ -13,11 +13,15 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.JsonPathParameter.JsonFormat;
 import io.trino.sql.tree.JsonQuery.ArrayWrapperBehavior;
 import io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior;
 import io.trino.sql.tree.JsonQuery.QuotesBehavior;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -25,6 +29,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class JsonQuery
         extends Expression
 {
@@ -36,14 +41,15 @@ public class JsonQuery
     private final EmptyOrErrorBehavior emptyBehavior;
     private final EmptyOrErrorBehavior errorBehavior;
 
+    @JsonCreator
     public JsonQuery(
-            JsonPathInvocation jsonPathInvocation,
-            Optional<DataType> returnedType,
-            Optional<JsonFormat> outputFormat,
-            ArrayWrapperBehavior wrapperBehavior,
-            Optional<QuotesBehavior> quotesBehavior,
-            EmptyOrErrorBehavior emptyBehavior,
-            EmptyOrErrorBehavior errorBehavior)
+            @JsonProperty("jsonPathInvocation") JsonPathInvocation jsonPathInvocation,
+            @JsonProperty("returnedType") Optional<DataType> returnedType,
+            @JsonProperty("outputFormat") Optional<JsonFormat> outputFormat,
+            @JsonProperty("wrapperBehavior") ArrayWrapperBehavior wrapperBehavior,
+            @JsonProperty("quotesBehavior") Optional<QuotesBehavior> quotesBehavior,
+            @JsonProperty("emptyBehavior") EmptyOrErrorBehavior emptyBehavior,
+            @JsonProperty("errorBehavior") EmptyOrErrorBehavior errorBehavior)
     {
         requireNonNull(jsonPathInvocation, "jsonPathInvocation is null");
         requireNonNull(returnedType, "returnedType is null");
@@ -62,36 +68,43 @@ public class JsonQuery
         this.errorBehavior = errorBehavior;
     }
 
+    @JsonProperty
     public JsonPathInvocation getJsonPathInvocation()
     {
         return jsonPathInvocation;
     }
 
+    @JsonProperty
     public Optional<DataType> getReturnedType()
     {
         return returnedType;
     }
 
+    @JsonProperty
     public Optional<JsonFormat> getOutputFormat()
     {
         return outputFormat;
     }
 
+    @JsonProperty
     public ArrayWrapperBehavior getWrapperBehavior()
     {
         return wrapperBehavior;
     }
 
+    @JsonProperty
     public Optional<QuotesBehavior> getQuotesBehavior()
     {
         return quotesBehavior;
     }
 
+    @JsonProperty
     public EmptyOrErrorBehavior getEmptyBehavior()
     {
         return emptyBehavior;
     }
 
+    @JsonProperty
     public EmptyOrErrorBehavior getErrorBehavior()
     {
         return errorBehavior;

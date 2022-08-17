@@ -13,34 +13,31 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.annotation.concurrent.Immutable;
+
 import java.util.List;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class GroupingOperation
         extends Expression
 {
     private final List<Expression> groupingColumns;
 
-    //use varagrs to bypass type erasure
-    public GroupingOperation(Expression... groupingColumnExpressions)
+    @JsonCreator
+    public GroupingOperation(
+            @JsonProperty("groupingColumnExpressions") List<Expression> groupingColumnExpressions)
     {
         requireNonNull(groupingColumnExpressions);
-        this.groupingColumns = List.of(groupingColumnExpressions);
+        this.groupingColumns = groupingColumnExpressions;
     }
 
-    public GroupingOperation(List<QualifiedName> groupingColumns)
-    {
-        requireNonNull(groupingColumns);
-        checkArgument(!groupingColumns.isEmpty(), "grouping operation columns cannot be empty");
-        this.groupingColumns = groupingColumns.stream()
-                .map(DereferenceExpression::from)
-                .collect(toImmutableList());
-    }
-
+    @JsonProperty
     public List<Expression> getGroupingColumns()
     {
         return groupingColumns;

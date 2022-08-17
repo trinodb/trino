@@ -13,24 +13,32 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public final class Row
         extends Expression
 {
     private final List<Expression> items;
 
-    public Row(List<Expression> items)
+    @JsonCreator
+    public Row(
+            @JsonProperty("items") List<Expression> items)
     {
         requireNonNull(items, "items is null");
         this.items = ImmutableList.copyOf(items);
     }
 
+    @JsonProperty
     public List<Expression> getItems()
     {
         return items;

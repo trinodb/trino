@@ -13,23 +13,32 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.annotation.concurrent.Immutable;
+
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class StringLiteral
         extends Literal
 {
     private final String value;
     private final int length;
 
-    public StringLiteral(String value)
+    @JsonCreator
+    public StringLiteral(
+            @JsonProperty("value") String value)
     {
         requireNonNull(value, "value is null");
         this.value = value;
         this.length = value.codePointCount(0, value.length());
     }
 
+    @JsonProperty
     public String getValue()
     {
         return value;

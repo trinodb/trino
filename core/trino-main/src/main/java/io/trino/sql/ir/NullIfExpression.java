@@ -13,7 +13,11 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -21,23 +25,29 @@ import java.util.Objects;
 /**
  * NULLIF(V1,V2): CASE WHEN V1=V2 THEN NULL ELSE V1 END
  */
+@Immutable
 public class NullIfExpression
         extends Expression
 {
     private final Expression first;
     private final Expression second;
 
-    public NullIfExpression(Expression first, Expression second)
+    @JsonCreator
+    public NullIfExpression(
+            @JsonProperty("first") Expression first,
+            @JsonProperty("second") Expression second)
     {
         this.first = first;
         this.second = second;
     }
 
+    @JsonProperty
     public Expression getFirst()
     {
         return first;
     }
 
+    @JsonProperty
     public Expression getSecond()
     {
         return second;

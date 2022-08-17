@@ -13,13 +13,18 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class BetweenPredicate
         extends Expression
 {
@@ -27,7 +32,11 @@ public class BetweenPredicate
     private final Expression min;
     private final Expression max;
 
-    public BetweenPredicate(Expression value, Expression min, Expression max)
+    @JsonCreator
+    public BetweenPredicate(
+            @JsonProperty("value") Expression value,
+            @JsonProperty("min") Expression min,
+            @JsonProperty("max") Expression max)
     {
         requireNonNull(value, "value is null");
         requireNonNull(min, "min is null");
@@ -38,16 +47,19 @@ public class BetweenPredicate
         this.max = max;
     }
 
+    @JsonProperty
     public Expression getValue()
     {
         return value;
     }
 
+    @JsonProperty
     public Expression getMin()
     {
         return min;
     }
 
+    @JsonProperty
     public Expression getMax()
     {
         return max;

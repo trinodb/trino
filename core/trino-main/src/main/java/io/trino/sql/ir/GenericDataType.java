@@ -13,30 +13,40 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class GenericDataType
         extends DataType
 {
     private final Identifier name;
     private final List<DataTypeParameter> arguments;
 
-    public GenericDataType(Identifier name, List<DataTypeParameter> arguments)
+    @JsonCreator
+    public GenericDataType(
+            @JsonProperty("name") Identifier name,
+            @JsonProperty("arguments") List<DataTypeParameter> arguments)
     {
         this.name = requireNonNull(name, "name is null");
         this.arguments = requireNonNull(arguments, "arguments is null");
     }
 
+    @JsonProperty
     public Identifier getName()
     {
         return name;
     }
 
+    @JsonProperty
     public List<DataTypeParameter> getArguments()
     {
         return arguments;

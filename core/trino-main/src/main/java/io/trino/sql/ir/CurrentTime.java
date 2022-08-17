@@ -13,14 +13,19 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.CurrentTime.Function;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class CurrentTime
         extends Expression
 {
@@ -32,18 +37,23 @@ public class CurrentTime
         this(function, null);
     }
 
-    public CurrentTime(Function function, Integer precision)
+    @JsonCreator
+    public CurrentTime(
+            @JsonProperty("function") Function function,
+            @JsonProperty("precision") Integer precision)
     {
         requireNonNull(function, "function is null");
         this.function = function;
         this.precision = precision;
     }
 
+    @JsonProperty
     public Function getFunction()
     {
         return function;
     }
 
+    @JsonProperty
     public Integer getPrecision()
     {
         return precision;

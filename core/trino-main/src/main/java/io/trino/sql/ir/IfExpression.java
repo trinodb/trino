@@ -13,7 +13,11 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -24,6 +28,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * IF(v1,v2[,v3]): CASE WHEN v1 THEN v2 [ELSE v3] END
  */
+@Immutable
 public class IfExpression
         extends Expression
 {
@@ -31,23 +36,30 @@ public class IfExpression
     private final Expression trueValue;
     private final Optional<Expression> falseValue;
 
-    public IfExpression(Expression condition, Expression trueValue, Expression falseValue)
+    @JsonCreator
+    public IfExpression(
+            @JsonProperty("condition") Expression condition,
+            @JsonProperty("trueValue") Expression trueValue,
+            @JsonProperty("falseValue") Expression falseValue)
     {
         this.condition = requireNonNull(condition, "condition is null");
         this.trueValue = requireNonNull(trueValue, "trueValue is null");
         this.falseValue = Optional.ofNullable(falseValue);
     }
 
+    @JsonProperty
     public Expression getCondition()
     {
         return condition;
     }
 
+    @JsonProperty
     public Expression getTrueValue()
     {
         return trueValue;
     }
 
+    @JsonProperty
     public Optional<Expression> getFalseValue()
     {
         return falseValue;

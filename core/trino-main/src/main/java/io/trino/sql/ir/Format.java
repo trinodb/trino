@@ -13,7 +13,11 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -21,18 +25,22 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class Format
         extends Expression
 {
     private final List<Expression> arguments;
 
-    public Format(List<Expression> arguments)
+    @JsonCreator
+    public Format(
+            @JsonProperty("arguments") List<Expression> arguments)
     {
         requireNonNull(arguments, "arguments is null");
         checkArgument(arguments.size() >= 2, "must have at least two arguments");
         this.arguments = ImmutableList.copyOf(arguments);
     }
 
+    @JsonProperty
     public List<Expression> getArguments()
     {
         return arguments;

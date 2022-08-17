@@ -13,21 +13,29 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.ArithmeticUnaryExpression.Sign;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class ArithmeticUnaryExpression
         extends Expression
 {
     private final Expression value;
     private final Sign sign;
 
-    public ArithmeticUnaryExpression(Sign sign, Expression value)
+    @JsonCreator
+    public ArithmeticUnaryExpression(
+            @JsonProperty("sign") Sign sign,
+            @JsonProperty("value") Expression value)
     {
         requireNonNull(value, "value is null");
         requireNonNull(sign, "sign is null");
@@ -46,11 +54,13 @@ public class ArithmeticUnaryExpression
         return new ArithmeticUnaryExpression(Sign.MINUS, value);
     }
 
+    @JsonProperty
     public Expression getValue()
     {
         return value;
     }
 
+    @JsonProperty
     public Sign getSign()
     {
         return sign;

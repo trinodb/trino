@@ -300,7 +300,7 @@ public class TransformCorrelatedInPredicateToJoin
         if (value == null) {
             return new Cast(new NullLiteral(), toSqlType(BOOLEAN));
         }
-        return new BooleanLiteral(value.toString());
+        return BooleanLiteral.of(value.toString());
     }
 
     private static class DecorrelatingVisitor

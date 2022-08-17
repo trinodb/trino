@@ -13,30 +13,40 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class LambdaExpression
         extends Expression
 {
     private final List<LambdaArgumentDeclaration> arguments;
     private final Expression body;
 
-    public LambdaExpression(List<LambdaArgumentDeclaration> arguments, Expression body)
+    @JsonCreator
+    public LambdaExpression(
+            @JsonProperty("arguments") List<LambdaArgumentDeclaration> arguments,
+            @JsonProperty("body") Expression body)
     {
         this.arguments = requireNonNull(arguments, "arguments is null");
         this.body = requireNonNull(body, "body is null");
     }
 
+    @JsonProperty
     public List<LambdaArgumentDeclaration> getArguments()
     {
         return arguments;
     }
 
+    @JsonProperty
     public Expression getBody()
     {
         return body;

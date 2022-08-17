@@ -13,20 +13,28 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class SubscriptExpression
         extends Expression
 {
     private final Expression base;
     private final Expression index;
 
-    public SubscriptExpression(Expression base, Expression index)
+    @JsonCreator
+    public SubscriptExpression(
+            @JsonProperty("base") Expression base,
+            @JsonProperty("index") Expression index)
     {
         this.base = requireNonNull(base, "base is null");
         this.index = requireNonNull(index, "index is null");
@@ -44,11 +52,13 @@ public class SubscriptExpression
         return ImmutableList.of(base, index);
     }
 
+    @JsonProperty
     public Expression getBase()
     {
         return base;
     }
 
+    @JsonProperty
     public Expression getIndex()
     {
         return index;

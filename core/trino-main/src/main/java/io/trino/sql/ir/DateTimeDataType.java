@@ -13,8 +13,12 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.DateTimeDataType.Type;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -22,6 +26,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class DateTimeDataType
         extends DataType
 {
@@ -29,23 +34,30 @@ public class DateTimeDataType
     private final boolean withTimeZone;
     private final Optional<DataTypeParameter> precision;
 
-    public DateTimeDataType(Type type, boolean withTimeZone, Optional<DataTypeParameter> precision)
+    @JsonCreator
+    public DateTimeDataType(
+            @JsonProperty("type") Type type,
+            @JsonProperty("withTimeZone") boolean withTimeZone,
+            @JsonProperty("precision") Optional<DataTypeParameter> precision)
     {
         this.type = requireNonNull(type, "type is null");
         this.withTimeZone = withTimeZone;
         this.precision = requireNonNull(precision, "precision is null");
     }
 
+    @JsonProperty
     public Type getType()
     {
         return type;
     }
 
+    @JsonProperty
     public boolean isWithTimeZone()
     {
         return withTimeZone;
     }
 
+    @JsonProperty
     public Optional<DataTypeParameter> getPrecision()
     {
         return precision;

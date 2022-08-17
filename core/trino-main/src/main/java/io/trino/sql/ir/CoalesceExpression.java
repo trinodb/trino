@@ -13,7 +13,11 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -21,6 +25,7 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class CoalesceExpression
         extends Expression
 {
@@ -34,7 +39,9 @@ public class CoalesceExpression
                 .build());
     }
 
-    public CoalesceExpression(List<Expression> operands)
+    @JsonCreator
+    public CoalesceExpression(
+            @JsonProperty("operands") List<Expression> operands)
     {
         requireNonNull(operands, "operands is null");
         checkArgument(operands.size() >= 2, "must have at least two operands");
@@ -42,6 +49,7 @@ public class CoalesceExpression
         this.operands = ImmutableList.copyOf(operands);
     }
 
+    @JsonProperty
     public List<Expression> getOperands()
     {
         return operands;

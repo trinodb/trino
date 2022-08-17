@@ -13,6 +13,18 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        property = "@type")
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = DateTimeDataType.class, name = "binaryLiteral"),
+        @JsonSubTypes.Type(value = GenericDataType.class, name = "booleanLiteral"),
+        @JsonSubTypes.Type(value = IntervalDayTimeDataType.class, name = "charLiteral"),
+        @JsonSubTypes.Type(value = RowDataType.class, name = "decimalLiteral"),
+})
 public abstract class DataType
         extends Expression
 {
