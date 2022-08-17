@@ -203,7 +203,7 @@ public class SpoolingExchangeOutputBuffer
                 stateMachine.finish();
             }
             exchangeSink = null;
-            updateMemoryUsage(0);
+            forceFreeMemory();
         });
     }
 
@@ -234,7 +234,7 @@ public class SpoolingExchangeOutputBuffer
                 log.warn(failure, "Error aborting exchange sink");
             }
             exchangeSink = null;
-            updateMemoryUsage(0);
+            forceFreeMemory();
         });
     }
 
@@ -269,6 +269,14 @@ public class SpoolingExchangeOutputBuffer
             if (peakMemoryUsage.compareAndSet(currentValue, bytes)) {
                 return;
             }
+        }
+    }
+
+    private void forceFreeMemory()
+    {
+        LocalMemoryContext context = getSystemMemoryContextOrNull();
+        if (context != null) {
+            context.close();
         }
     }
 
