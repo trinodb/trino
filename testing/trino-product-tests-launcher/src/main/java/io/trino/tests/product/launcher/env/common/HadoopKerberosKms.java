@@ -59,7 +59,10 @@ public class HadoopKerberosKms
                     .withCopyFileToContainer(forHostPath(configDir.getPath("kms-core-site.xml")), "/etc/hadoop-kms/conf/core-site.xml");
         });
 
-        builder.configureContainer(COORDINATOR, container -> container.setDockerImageName(dockerImageName));
+        builder.configureContainer(COORDINATOR,
+                container -> container
+                        .withCopyFileToContainer(forHostPath(configDir.getPath("hive-disable-key-provider-cache-site.xml")), "/etc/hadoop-kms/conf/hive-disable-key-provider-cache-site.xml")
+                        .setDockerImageName(dockerImageName));
 
         builder.configureContainer(TESTS, container -> {
             container.setDockerImageName(dockerImageName);
