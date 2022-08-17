@@ -34,17 +34,20 @@ import com.amazonaws.event.ProgressEventType;
 import com.amazonaws.event.ProgressListener;
 import com.amazonaws.metrics.RequestMetricCollector;
 import com.amazonaws.regions.DefaultAwsRegionProviderChain;
+import com.amazonaws.regions.Region;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Builder;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3Encryption;
 import com.amazonaws.services.s3.AmazonS3EncryptionClient;
+import com.amazonaws.services.s3.AmazonS3EncryptionClientBuilder;
 import com.amazonaws.services.s3.Headers;
 import com.amazonaws.services.s3.internal.Constants;
 import com.amazonaws.services.s3.model.AbortMultipartUploadRequest;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
 import com.amazonaws.services.s3.model.CopyObjectRequest;
+import com.amazonaws.services.s3.model.CryptoConfiguration;
 import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
@@ -905,7 +908,13 @@ public class TrinoS3FileSystem
 
         // use local region when running inside of EC2
         if (pinS3ClientToCurrentRegion) {
-            clientBuilder.setRegion(getCurrentRegionFromEC2Metadata().getName());
+            Region region = getCurrentRegionFromEC2Metadata();
+            clientBuilder.setRegion(region.getName());
+            if (encryptionMaterialsProvider.isPresent()) {
+                CryptoConfiguration cryptoConfiguration = new CryptoConfiguration();
+                cryptoConfiguration.setAwsKmsRegion(region);
+                ((AmazonS3EncryptionClientBuilder) clientBuilder).withCryptoConfiguration(cryptoConfiguration);
+            }
             regionOrEndpointSet = true;
         }
 
