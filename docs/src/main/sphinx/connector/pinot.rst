@@ -167,6 +167,7 @@ Pinot                        Trino
 ``DOUBLE``                   ``DOUBLE``
 ``STRING``                   ``VARCHAR``
 ``BYTES``                    ``VARBINARY``
+``JSON``                     ``JSON``
 ``INT_ARRAY``                ``VARCHAR``
 ``LONG_ARRAY``               ``VARCHAR``
 ``FLOAT_ARRAY``              ``VARCHAR``
