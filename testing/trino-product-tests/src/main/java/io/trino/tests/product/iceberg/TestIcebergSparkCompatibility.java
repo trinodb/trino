@@ -1277,8 +1277,8 @@ public class TestIcebergSparkCompatibility
         assertThat(onTrino().executeQuery("SHOW SESSION LIKE 'iceberg.compression_codec'"))
                 .containsOnly(row(
                         "iceberg.compression_codec",
-                        "SNAPPY",
-                        "SNAPPY",
+                        "ZSTD",
+                        "ZSTD",
                         "varchar",
                         "Compression codec to use when writing files. Possible values: " + compressionCodecs()));
     }
