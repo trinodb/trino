@@ -83,7 +83,7 @@ jobs:
         uses: trinodb/github-actions/block-commits@c2991972560c5219d9ae5fb68c0c9d687ffcdd10
         with:
           action-merge: fail
-          action-fixup: request-changes
+          action-fixup: none
 
   error-prone-checks:
     runs-on: ubuntu-latest
