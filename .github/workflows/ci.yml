@@ -418,7 +418,6 @@ jobs:
             - { modules: plugin/trino-hive }
             - { modules: plugin/trino-hive, profile: test-parquet }
             - { modules: plugin/trino-elasticsearch }
-            - { modules: plugin/trino-elasticsearch, profile: test-stats }
             - { modules: plugin/trino-mongodb }
             - { modules: plugin/trino-kafka }
             - { modules: plugin/trino-pinot }
