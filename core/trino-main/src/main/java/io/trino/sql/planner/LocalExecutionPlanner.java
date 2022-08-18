@@ -711,11 +711,6 @@ public class LocalExecutionPlanner
             return taskContext.getLocalDynamicFiltersCollector();
         }
 
-        private void addLocalDynamicFilters(Map<DynamicFilterId, Domain> dynamicTupleDomain)
-        {
-            taskContext.addDynamicFilter(dynamicTupleDomain);
-        }
-
         private void registerCoordinatorDynamicFilters(List<DynamicFilters.Descriptor> dynamicFilters)
         {
             if (!isEnableCoordinatorDynamicFiltersDistribution(taskContext.getSession())) {
@@ -730,12 +725,9 @@ public class LocalExecutionPlanner
                     difference(consumedFilterIds, dynamicFiltersCollector.getRegisteredDynamicFilterIds()));
         }
 
-        private Consumer<Map<DynamicFilterId, Domain>> getCoordinatorDynamicFilterDomainsCollector(Set<DynamicFilterId> coordinatorDynamicFilters)
+        private TaskContext getTaskContext()
         {
-            return domains -> taskContext.updateDomains(
-                    domains.entrySet().stream()
-                            .filter(entry -> coordinatorDynamicFilters.contains(entry.getKey()))
-                            .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
+            return taskContext;
         }
 
         public Optional<IndexSourceContext> getIndexSourceContext()
@@ -2867,10 +2859,13 @@ public class LocalExecutionPlanner
                             Map.Entry::getKey,
                             entry -> source.getTypes().get(entry.getValue())));
 
+            TaskContext taskContext = context.getTaskContext();
             LocalDynamicFilterConsumer dynamicFilterSourceConsumer = new LocalDynamicFilterConsumer(
                     dynamicFilterChannels,
                     dynamicFilterChannelTypes,
-                    ImmutableList.of(context.getCoordinatorDynamicFilterDomainsCollector(node.getDynamicFilters().keySet())),
+                    // In fault-tolerant execution, all tasks need to collect dynamic filters even if the join has
+                    // broadcast distribution type because the collection takes place before the remote exchange
+                    ImmutableList.of(taskContext::updateDomains),
                     getDynamicFilteringMaxSizePerOperator(session, false));
             return createDynamicFilterSourceOperatorFactory(
                     context.getNextOperatorId(),
@@ -2942,11 +2937,12 @@ public class LocalExecutionPlanner
             }
             log.debug("[Join] Dynamic filters: %s", node.getDynamicFilters());
             ImmutableList.Builder<Consumer<Map<DynamicFilterId, Domain>>> collectors = ImmutableList.builder();
+            TaskContext taskContext = context.getTaskContext();
             if (!localDynamicFilters.isEmpty()) {
-                collectors.add(context::addLocalDynamicFilters);
+                collectors.add(taskContext::addDynamicFilter);
             }
             if (!coordinatorDynamicFilters.isEmpty()) {
-                collectors.add(context.getCoordinatorDynamicFilterDomainsCollector(coordinatorDynamicFilters));
+                collectors.add(getCoordinatorDynamicFilterDomainsCollector(taskContext, coordinatorDynamicFilters));
             }
             LocalDynamicFilterConsumer filterConsumer = LocalDynamicFilterConsumer.create(
                     node,
@@ -3111,11 +3107,12 @@ public class LocalExecutionPlanner
                 DynamicFilterId filterId = node.getDynamicFilterId().get();
                 log.debug("[Semi-join] Dynamic filter: %s", filterId);
                 ImmutableList.Builder<Consumer<Map<DynamicFilterId, Domain>>> collectors = ImmutableList.builder();
+                TaskContext taskContext = context.getTaskContext();
                 if (isLocalDynamicFilter) {
-                    collectors.add(context::addLocalDynamicFilters);
+                    collectors.add(taskContext::addDynamicFilter);
                 }
                 if (isCoordinatorDynamicFilter) {
-                    collectors.add(context.getCoordinatorDynamicFilterDomainsCollector(ImmutableSet.of(filterId)));
+                    collectors.add(getCoordinatorDynamicFilterDomainsCollector(taskContext, ImmutableSet.of(filterId)));
                 }
                 boolean isReplicatedJoin = isBuildSideReplicated(node);
                 LocalDynamicFilterConsumer filterConsumer = new LocalDynamicFilterConsumer(
@@ -3175,6 +3172,14 @@ public class LocalExecutionPlanner
             }
 
             return ImmutableSet.of();
+        }
+
+        private static Consumer<Map<DynamicFilterId, Domain>> getCoordinatorDynamicFilterDomainsCollector(TaskContext taskContext, Set<DynamicFilterId> coordinatorDynamicFilters)
+        {
+            return domains -> taskContext.updateDomains(
+                    domains.entrySet().stream()
+                            .filter(entry -> coordinatorDynamicFilters.contains(entry.getKey()))
+                            .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
         }
 
         @Override
