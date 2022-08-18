@@ -3164,7 +3164,7 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operator, outputMappings, context, probeSource);
         }
 
-        private Set<DynamicFilterId> getCoordinatorDynamicFilters(Set<DynamicFilterId> dynamicFilters, PlanNode node, TaskId taskId)
+        private static Set<DynamicFilterId> getCoordinatorDynamicFilters(Set<DynamicFilterId> dynamicFilters, PlanNode node, TaskId taskId)
         {
             if (!isBuildSideReplicated(node) || taskId.getPartitionId() == 0) {
                 // replicated dynamic filters are collected by single stage task only
