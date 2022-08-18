@@ -17,6 +17,7 @@ import io.airlift.log.Logger;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -43,6 +44,7 @@ public class BigQueryConnector
     private final BigQueryMetadata metadata;
     private final BigQuerySplitManager splitManager;
     private final BigQueryPageSourceProvider pageSourceProvider;
+    private final BigQueryPageSinkProvider pageSinkProvider;
     private final Set<ConnectorTableFunction> connectorTableFunctions;
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -51,12 +53,14 @@ public class BigQueryConnector
             BigQueryMetadata metadata,
             BigQuerySplitManager splitManager,
             BigQueryPageSourceProvider pageSourceProvider,
+            BigQueryPageSinkProvider pageSinkProvider,
             Set<ConnectorTableFunction> connectorTableFunctions,
             Set<SessionPropertiesProvider> sessionPropertiesProviders)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.connectorTableFunctions = requireNonNull(connectorTableFunctions, "connectorTableFunctions is null");
         this.sessionProperties = requireNonNull(sessionPropertiesProviders, "sessionPropertiesProviders is null").stream()
                 .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
@@ -87,6 +91,12 @@ public class BigQueryConnector
     public ConnectorPageSourceProvider getPageSourceProvider()
     {
         return pageSourceProvider;
+    }
+
+    @Override
+    public ConnectorPageSinkProvider getPageSinkProvider()
+    {
+        return pageSinkProvider;
     }
 
     @Override
