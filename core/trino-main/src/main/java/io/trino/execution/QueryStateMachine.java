@@ -731,7 +731,7 @@ public class QueryStateMachine
         outputManager.setColumns(columnNames, columnTypes);
     }
 
-    public void updateInputsForQueryResults(Set<ExchangeInput> inputs, boolean noMoreInputs)
+    public void updateInputsForQueryResults(List<ExchangeInput> inputs, boolean noMoreInputs)
     {
         outputManager.updateInputsForQueryResults(inputs, noMoreInputs);
     }
@@ -1294,7 +1294,7 @@ public class QueryStateMachine
         @GuardedBy("this")
         private List<Type> columnTypes;
         @GuardedBy("this")
-        private final Set<ExchangeInput> inputs = new HashSet<>();
+        private final List<ExchangeInput> inputs = new ArrayList<>();
         @GuardedBy("this")
         private boolean noMoreInputs;
 
@@ -1339,18 +1339,15 @@ public class QueryStateMachine
             queryOutputInfo.ifPresent(info -> fireStateChanged(info, outputInfoListeners));
         }
 
-        public void updateInputsForQueryResults(Set<ExchangeInput> newInputs, boolean noMoreInputs)
+        public void updateInputsForQueryResults(List<ExchangeInput> newInputs, boolean noMoreInputs)
         {
             requireNonNull(newInputs, "newInputs is null");
 
             Optional<QueryOutputInfo> queryOutputInfo;
             List<Consumer<QueryOutputInfo>> outputInfoListeners;
             synchronized (this) {
-                if (this.noMoreInputs) {
-                    checkArgument(inputs.containsAll(newInputs), "New inputs added after no more inputs set");
-                    return;
-                }
-
+                // noMoreInputs can be set more than once
+                checkState(newInputs.isEmpty() || !this.noMoreInputs, "new inputs added after no more inputs set");
                 inputs.addAll(newInputs);
                 this.noMoreInputs = noMoreInputs;
                 queryOutputInfo = getQueryOutputInfo();

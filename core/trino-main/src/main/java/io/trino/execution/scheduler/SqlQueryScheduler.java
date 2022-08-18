@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.graph.Traverser;
 import com.google.common.primitives.Ints;
@@ -789,13 +788,13 @@ public class SqlQueryScheduler
                     .appendPath("results")
                     .appendPath("0").build();
             DirectExchangeInput input = new DirectExchangeInput(task.getTaskId(), taskUri.toString());
-            queryStateMachine.updateInputsForQueryResults(ImmutableSet.of(input), false);
+            queryStateMachine.updateInputsForQueryResults(ImmutableList.of(input), false);
         }
 
         @Override
         public void noMoreTasks(PlanFragmentId fragmentId)
         {
-            queryStateMachine.updateInputsForQueryResults(ImmutableSet.of(), true);
+            queryStateMachine.updateInputsForQueryResults(ImmutableList.of(), true);
         }
     }
 
@@ -1045,7 +1044,7 @@ public class SqlQueryScheduler
             }
         }
 
-        public synchronized void setSpoolingExchangeInputs(Set<ExchangeInput> inputs)
+        public synchronized void setSpoolingExchangeInputs(List<ExchangeInput> inputs)
         {
             checkState(scheduled.get(), "coordinator stages are expected to be scheduled at this point");
             if (stageExecutions.isEmpty()) {
@@ -1851,7 +1850,7 @@ public class SqlQueryScheduler
                         List<ExchangeSourceHandle> handles = result.stream()
                                 .flatMap(List::stream)
                                 .collect(toImmutableList());
-                        ImmutableSet.Builder<ExchangeInput> inputs = ImmutableSet.builder();
+                        ImmutableList.Builder<ExchangeInput> inputs = ImmutableList.builder();
                         if (!handles.isEmpty()) {
                             inputs.add(new SpoolingExchangeInput(handles));
                         }
