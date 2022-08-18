@@ -572,6 +572,14 @@ Property Name                              Description
    * - ``hive.metastore.thrift.delete-files-on-drop``
      - Actively delete the files for drop table operations, for cases when the
        metastore does not delete the files. Default is ``false``.
+   * - ``hive.metastore.thrift.update-partition-statistics.batch.enabled``
+     - Update partition statistics using Hive thrift batch API. This can be
+       used to speed up the analysis of partitioned tables. Default is ``true``.
+   * - ``hive.metastore.thrift.update-partition-statistics.batch-size``
+     - The batch size of partitions to set statistics in one thrift request.
+       If the hive metastore connection timeout occurs when analyzing partitioned
+       table, you can increase ``hive.metastore-timeout`` or decrease this configuration.
+       Default is ``30``.
 
 .. _hive-glue-metastore:
 
