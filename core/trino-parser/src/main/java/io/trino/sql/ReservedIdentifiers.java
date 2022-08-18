@@ -44,6 +44,27 @@ public final class ReservedIdentifiers
 
     private static final SqlParser PARSER = new SqlParser();
 
+    private static final Set<String> SQL_KEYWORDS;
+
+    private static final Set<String> RESERVED_IDENTIFIERS;
+
+    static {
+        ImmutableSet.Builder<String> names = ImmutableSet.builder();
+        Vocabulary vocabulary = SqlBaseLexer.VOCABULARY;
+        for (int i = 0; i <= vocabulary.getMaxTokenType(); i++) {
+            String name = nullToEmpty(vocabulary.getLiteralName(i));
+            Matcher matcher = IDENTIFIER.matcher(name);
+            if (matcher.matches()) {
+                names.add(matcher.group(1));
+            }
+        }
+        SQL_KEYWORDS = names.build();
+        RESERVED_IDENTIFIERS = SQL_KEYWORDS.stream()
+                .filter(ReservedIdentifiers::reserved)
+                .sorted()
+                .collect(toImmutableSet());
+    }
+
     private ReservedIdentifiers() {}
 
     @SuppressWarnings("CallToPrintStackTrace")
@@ -121,24 +142,12 @@ public final class ReservedIdentifiers
 
     public static Set<String> reservedIdentifiers()
     {
-        return sqlKeywords().stream()
-                .filter(ReservedIdentifiers::reserved)
-                .sorted()
-                .collect(toImmutableSet());
+        return RESERVED_IDENTIFIERS;
     }
 
     public static Set<String> sqlKeywords()
     {
-        ImmutableSet.Builder<String> names = ImmutableSet.builder();
-        Vocabulary vocabulary = SqlBaseLexer.VOCABULARY;
-        for (int i = 0; i <= vocabulary.getMaxTokenType(); i++) {
-            String name = nullToEmpty(vocabulary.getLiteralName(i));
-            Matcher matcher = IDENTIFIER.matcher(name);
-            if (matcher.matches()) {
-                names.add(matcher.group(1));
-            }
-        }
-        return names.build();
+        return SQL_KEYWORDS;
     }
 
     public static boolean reserved(String name)
