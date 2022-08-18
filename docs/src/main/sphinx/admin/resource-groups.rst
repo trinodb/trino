@@ -283,16 +283,13 @@ Database resource group manager
 
 This example is for a MySQL database.
 
-As stated above, the environment ``'test'`` in the example should match ``node.environment`` property from
-:ref:`node_properties`.
-
 .. code-block:: sql
 
     -- global properties
     INSERT INTO resource_groups_global_properties (name, value) VALUES ('cpu_quota_period', '1h');
 
-    -- Every row in resource_groups table indicates a resource group. The parent-child relationship
-    -- is indicated by the ID in 'parent' column.
+    -- Every row in resource_groups table indicates a resource group. The enviroment name is 'test'.
+    -- The parent-child relationship is indicated by the ID in 'parent' column. 
 
     -- create a root group 'global' with NULL parent
     INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_policy, jmx_export, environment) VALUES ('global', '80%', 100, 1000, 'weighted', true, 'test');
