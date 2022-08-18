@@ -50,7 +50,9 @@ public class TestElasticsearchBackpressure
                 ImmutableMap.of(),
                 // This test can only run on a single node, otherwise each node exports its own stats beans and they override each other
                 // You can only bind one such bean per JVM, so this causes problems with statistics being 0 despite backpressure handling
-                1);
+                1,
+                // Use a unique catalog name to make sure JMX stats beans are unique and not affected by other tests
+                "elasticsearch-backpressure");
     }
 
     @AfterClass(alwaysRun = true)
