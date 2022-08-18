@@ -20,6 +20,7 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
+import io.trino.plugin.jdbc.ForJdbcDynamicFiltering;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcRecordSetProvider;
@@ -70,7 +71,7 @@ public class StarburstSynapseModule
                 .to(StarburstSynapseClient.class)
                 .in(Scopes.SINGLETON);
 
-        newOptionalBinder(binder, Key.get(ConnectorSplitManager.class, ForBaseJdbc.class))
+        newOptionalBinder(binder, Key.get(ConnectorSplitManager.class, ForJdbcDynamicFiltering.class))
                 .setDefault()
                 .to(JdbcSplitManager.class)
                 .in(Scopes.SINGLETON);

@@ -783,6 +783,18 @@ public abstract class BaseSnowflakeConnectorTest
     }
 
     @Override
+    protected OptionalInt maxSchemaNameLength()
+    {
+        return OptionalInt.of(255);
+    }
+
+    @Override
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("exceeds maximum length limit of 255 characters");
+    }
+
+    @Override
     protected OptionalInt maxTableNameLength()
     {
         return OptionalInt.of(255);
@@ -792,5 +804,12 @@ public abstract class BaseSnowflakeConnectorTest
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageContaining("exceeds maximum length limit of 255 characters");
+    }
+
+    @Override
+    protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
+    {
+        assertThat(e)
+                .hasMessageMatching(".* Non-nullable column '.*' cannot be added to non-empty table '.*' unless it has a non-null default value.");
     }
 }

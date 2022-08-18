@@ -10,13 +10,14 @@
 package com.starburstdata.trino.plugins.snowflake.distributed;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.plugin.hive.ConfigurationInitializer;
-import io.trino.plugin.hive.HdfsConfig;
-import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.hdfs.ConfigurationInitializer;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfiguration;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.HiveColumnHandle;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.azure.HiveAzureConfig;
 import io.trino.plugin.hive.azure.TrinoAzureConfigurationInitializer;
 import io.trino.plugin.hive.s3.HiveS3Config;
@@ -37,7 +38,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getLast;
 import static com.starburstdata.trino.plugins.snowflake.distributed.S3EncryptionMaterialsProvider.configureClientSideEncryption;
 import static com.starburstdata.trino.plugins.snowflake.distributed.SnowflakeHiveTypeTranslator.toHiveType;
-import static io.trino.plugin.hive.DynamicConfigurationProvider.setCacheKey;
+import static io.trino.hdfs.DynamicConfigurationProvider.setCacheKey;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SESSION_TOKEN;
 import static java.lang.String.format;
@@ -179,7 +180,7 @@ public final class HiveUtils
             Optional<String> queryStageMasterKey)
     {
         String wasbHostname = wasbStorageAccount + "." + wasbEndpoint;
-        HiveHdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(
+        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(
                 new HdfsConfigurationInitializer(hdfsConfig, ImmutableSet.of(
                         getTrinoAzureConfigurationInitializer(wasbSasKey, wasbHostname),
                         new SnowflakeAzureConfigurationInitializer(wasbContainer, wasbHostname, wasbSasKey, queryStageMasterKey))),
@@ -194,7 +195,7 @@ public final class HiveUtils
             String s3AwsSessionToken,
             Optional<String> queryStageMasterKey)
     {
-        HiveHdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(
+        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(
                 new HdfsConfigurationInitializer(hdfsConfig, ImmutableSet.of(
                         getTrinoS3ConfigurationInitializer(s3AwsAccessKey, s3AwsSecretKey),
                         new SetS3SessionTokenAndEncryptionMaterials(s3AwsSessionToken, queryStageMasterKey))),

@@ -46,7 +46,10 @@ public class SnowflakeDistributedConnectorFactory
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             Bootstrap app = new Bootstrap(
                     new SnowflakeDistributedModule(catalogName),
-                    binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()));
+                    binder -> {
+                        binder.bind(ClassLoader.class).toInstance(SnowflakeDistributedConnectorFactory.class.getClassLoader());
+                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                    });
 
             Injector injector = app
                     .doNotInitializeLogging()

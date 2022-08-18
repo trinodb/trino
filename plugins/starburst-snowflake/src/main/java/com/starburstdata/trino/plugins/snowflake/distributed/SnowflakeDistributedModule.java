@@ -19,9 +19,12 @@ import com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeJdbcClientModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
+import io.trino.plugin.base.classloader.ForClassLoaderSafe;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.s3.TrinoS3FileSystem;
 import io.trino.plugin.hive.s3.TrinoS3FileSystemStats;
+import io.trino.plugin.jdbc.ForJdbcDynamicFiltering;
+import io.trino.plugin.jdbc.JdbcDynamicFilteringSplitManager;
 import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcModule;
 import io.trino.plugin.jdbc.JdbcPageSinkProvider;
@@ -33,8 +36,6 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.ptf.ConnectorTableFunction;
 
-import javax.inject.Inject;
-import javax.inject.Provider;
 import javax.inject.Qualifier;
 
 import java.lang.annotation.Retention;
@@ -75,7 +76,9 @@ public class SnowflakeDistributedModule
         //       replace them if necessary.
         newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(SnowflakeMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(SnowflakeConnectionManager.class).in(Scopes.SINGLETON);
-        binder.bind(SnowflakeSplitManager.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, Key.get(ConnectorSplitManager.class, ForJdbcDynamicFiltering.class)).setBinding().to(SnowflakeSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorSplitManager.class).annotatedWith(ForClassLoaderSafe.class).to(JdbcDynamicFilteringSplitManager.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, ConnectorSplitManager.class).setBinding().to(ClassLoaderSafeConnectorSplitManager.class).in(Scopes.SINGLETON);
 
         newOptionalBinder(binder, Key.get(SnowflakePageSourceProvider.class, ForSnowflake.class))
                 .setDefault()
@@ -98,11 +101,6 @@ public class SnowflakeDistributedModule
         install(new JdbcModule(catalogName));
         install(new SnowflakeJdbcClientModule(catalogName, true));
 
-        // Override binding from JDBC module
-        newOptionalBinder(binder, ConnectorSplitManager.class)
-                .setBinding()
-                .toProvider(SnowflakeDistributedSplitManagerProvider.class)
-                .in(Scopes.SINGLETON);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
@@ -119,24 +117,6 @@ public class SnowflakeDistributedModule
     public static ListeningExecutorService createListeningExecutorService()
     {
         return listeningDecorator(newCachedThreadPool(daemonThreadsNamed("snowflake-%s")));
-    }
-
-    public static class SnowflakeDistributedSplitManagerProvider
-            implements Provider<ConnectorSplitManager>
-    {
-        private final SnowflakeSplitManager snowflakeSplitManager;
-
-        @Inject
-        public SnowflakeDistributedSplitManagerProvider(SnowflakeSplitManager snowflakeSplitManager)
-        {
-            this.snowflakeSplitManager = requireNonNull(snowflakeSplitManager, "snowflakeSplitManager is null");
-        }
-
-        @Override
-        public ConnectorSplitManager get()
-        {
-            return new ClassLoaderSafeConnectorSplitManager(snowflakeSplitManager, getClass().getClassLoader());
-        }
     }
 
     // TODO: When cleaning bindings, if this is still needed, move it to its own file

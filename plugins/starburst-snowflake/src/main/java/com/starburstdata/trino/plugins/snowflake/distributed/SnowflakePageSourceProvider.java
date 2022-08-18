@@ -9,9 +9,9 @@
  */
 package com.starburstdata.trino.plugins.snowflake.distributed;
 
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
@@ -51,6 +51,7 @@ import static com.starburstdata.trino.plugins.snowflake.distributed.HiveUtils.va
 import static com.starburstdata.trino.plugins.snowflake.distributed.SnowflakeDistributedSessionProperties.getParquetMaxReadBlockSize;
 import static com.starburstdata.trino.plugins.snowflake.distributed.SnowflakeDistributedSessionProperties.isParquetUseColumnIndex;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
+import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.dynamicFilteringEnabled;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -153,11 +154,6 @@ public class SnowflakePageSourceProvider
         verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");
 
         return new TranslatingPageSource(pageSource.get(), hiveColumns);
-    }
-
-    protected boolean dynamicFilteringEnabled(ConnectorSession session)
-    {
-        return false;
     }
 
     // for more information see https://en.wikipedia.org/wiki/Padding_(cryptography)#PKCS%235_and_PKCS%237
