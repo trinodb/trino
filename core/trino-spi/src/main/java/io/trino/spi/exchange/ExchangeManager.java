@@ -64,6 +64,11 @@ public interface ExchangeManager
     ExchangeSink createSink(ExchangeSinkInstanceHandle handle, boolean preserveRecordsOrder);
 
     /**
+     * Updates sink with a refreshed sinkInstanceHandle.
+     */
+    void refreshSink(ExchangeSink sink, ExchangeSinkInstanceHandle newHandle);
+
+    /**
      * Called by a worker to create an {@link ExchangeSource} to read data corresponding to
      * a given list of exchange source handles.
      * <p>

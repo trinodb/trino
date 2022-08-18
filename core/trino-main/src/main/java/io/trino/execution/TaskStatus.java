@@ -68,6 +68,8 @@ public class TaskStatus
 
     private final long dynamicFiltersVersion;
 
+    private final boolean exchangeSinkRefreshNeeded;
+
     @JsonCreator
     public TaskStatus(
             @JsonProperty("taskId") TaskId taskId,

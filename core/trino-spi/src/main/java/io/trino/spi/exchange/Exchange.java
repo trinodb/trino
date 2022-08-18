@@ -60,6 +60,12 @@ public interface Exchange
     ExchangeSinkInstanceHandle instantiateSink(ExchangeSinkHandle sinkHandle, int taskAttemptId);
 
     /**
+     * Refreshes sink instance handle. Called after we learn from the worker (via TaskStatus) that sink is permanently blocked.
+     * Method can be also proactively called by Coordinator without signal from the worker side.
+     */
+    ExchangeSinkInstanceHandle refreshSinkInstanceHandle(ExchangeSinkInstanceHandle oldHandle);
+
+    /**
      * Called by the engine when an attempt finishes successfully.
      * <p>
      * This method is expected to be lightweight. An implementation shouldn't perform any long running blocking operations within this method.

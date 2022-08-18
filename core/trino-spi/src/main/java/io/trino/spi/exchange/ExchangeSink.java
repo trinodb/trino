@@ -32,6 +32,13 @@ public interface ExchangeSink
     CompletableFuture<Void> isBlocked();
 
     /**
+     * May return true only if isBlocked() return a blocked future.
+     * If needsRefresh returns true it means we are permanently blocked and we need to refresh the sink with
+     * new ExchangeSinkInstanceHandle via ExchangeManager.updateSink(...) method.
+     */
+    boolean needsRefresh();
+
+    /**
      * Appends arbitrary {@code data} to a partition specified by {@code partitionId}.
      * The engine is free to reuse the {@code data} buffer.
      * The implementation is expected to copy the buffer as it may be invalidated and recycled.
