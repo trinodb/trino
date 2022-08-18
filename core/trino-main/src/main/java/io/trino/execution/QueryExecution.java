@@ -14,7 +14,6 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -29,7 +28,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.Plan;
 
 import java.util.List;
-import java.util.Set;
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
@@ -97,14 +95,14 @@ public interface QueryExecution
     {
         private final List<String> columnNames;
         private final List<Type> columnTypes;
-        private final Set<ExchangeInput> inputs;
+        private final List<ExchangeInput> inputs;
         private final boolean noMoreInputs;
 
-        public QueryOutputInfo(List<String> columnNames, List<Type> columnTypes, Set<ExchangeInput> inputs, boolean noMoreInputs)
+        public QueryOutputInfo(List<String> columnNames, List<Type> columnTypes, List<ExchangeInput> inputs, boolean noMoreInputs)
         {
             this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
             this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
-            this.inputs = ImmutableSet.copyOf(requireNonNull(inputs, "inputs is null"));
+            this.inputs = ImmutableList.copyOf(requireNonNull(inputs, "inputs is null"));
             this.noMoreInputs = noMoreInputs;
         }
 
@@ -118,7 +116,7 @@ public interface QueryExecution
             return columnTypes;
         }
 
-        public Set<ExchangeInput> getInputs()
+        public List<ExchangeInput> getInputs()
         {
             return inputs;
         }
