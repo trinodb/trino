@@ -44,7 +44,8 @@ public class TestPrometheusConnectorConfig
                 .setBearerTokenFile(null)
                 .setUser(null)
                 .setPassword(null)
-                .setReadTimeout(new Duration(10, SECONDS)));
+                .setReadTimeout(new Duration(10, SECONDS))
+                .setCaseInsensitiveNameMatching(false));
     }
 
     @Test
@@ -59,6 +60,7 @@ public class TestPrometheusConnectorConfig
                 .put("prometheus.auth.user", "admin")
                 .put("prometheus.auth.password", "password")
                 .put("prometheus.read-timeout", "30s")
+                .put("prometheus.case-insensitive-name-matching", "true")
                 .buildOrThrow();
 
         URI uri = URI.create("file://test.json");
@@ -71,6 +73,7 @@ public class TestPrometheusConnectorConfig
         expected.setUser("admin");
         expected.setPassword("password");
         expected.setReadTimeout(new Duration(30, SECONDS));
+        expected.setCaseInsensitiveNameMatching(true);
 
         assertFullMapping(properties, expected);
     }
