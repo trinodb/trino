@@ -19,6 +19,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 @ThreadSafe
@@ -84,7 +85,14 @@ public interface Exchange
      * @return Future containing a list of {@link ExchangeSourceHandle} to be sent to a
      * worker that is needed to create an {@link ExchangeSource} using {@link ExchangeManager#createSource(List)}
      */
-    CompletableFuture<List<ExchangeSourceHandle>> getSourceHandles();
+    CompletableFuture<ExchageSourceHandlesResults> getSourceHandles();
+
+    class ExchageSourceHandlesResults
+    {
+        private final List<ExchangeSourceHandle> sourceHandles;
+        private final Set<Integer> completedPartitions;
+        private final boolean noMoreHandles;
+    }
 
     /**
      * Splits an {@link ExchangeSourceHandle} into a number of smaller partitions.
