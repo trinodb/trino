@@ -34,7 +34,7 @@ information about reporting vulnerabilities.
 ## Build requirements
 
 * Mac OS X or Linux
-* Java 11.0.11+, 64-bit
+* Java 17.0.4+, 64-bit
 * Docker
 
 ## Building Trino
