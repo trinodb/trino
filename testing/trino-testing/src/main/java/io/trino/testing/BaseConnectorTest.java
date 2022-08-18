@@ -2290,6 +2290,8 @@ public abstract class BaseConnectorTest
                         "SELECT 1234567890, 1.23",
                 "SELECT count(*) + 1 FROM customer");
 
+        // TODO: BigQuery throws table not found at BigQueryClient.insert if we reuse the same table name
+        tableName = "test_ctas" + randomTableSuffix();
         assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT mktsegment FROM customer");
         assertQuery("SELECT * from " + tableName, "SELECT mktsegment FROM customer");
         assertUpdate("DROP TABLE " + tableName);

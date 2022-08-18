@@ -208,12 +208,14 @@ SQL support
 -----------
 
 The connector provides read and write access to data and metadata in the
-BigQuery database, though write access is limited. In addition to the
+BigQuery database. In addition to the
 :ref:`globally available <sql-globally-available>` and
 :ref:`read operation <sql-read-operations>` statements, the connector supports
 the following features:
 
+* :doc:`/sql/insert`
 * :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`
 * :doc:`/sql/create-schema`
 * :doc:`/sql/drop-schema`

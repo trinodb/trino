@@ -107,7 +107,19 @@ public class TestBigQueryCaseInsensitiveMapping
             assertQuery("SELECT upper_case_name FROM " + trinoSchema + ".nonlowercasetable", "VALUES 'c'");
             assertQuery("SELECT upper_case_name FROM " + bigQuerySchema + ".NonLowerCaseTable", "VALUES 'c'");
             assertQuery("SELECT upper_case_name FROM \"" + bigQuerySchema + "\".\"NonLowerCaseTable\"", "VALUES 'c'");
-            // TODO: test with INSERT and CTAS https://github.com/trinodb/trino/issues/6868, https://github.com/trinodb/trino/issues/6869
+
+            assertUpdate("INSERT INTO " + trinoSchema + ".nonlowercasetable (lower_case_name) VALUES ('l')", 1);
+            assertUpdate("INSERT INTO " + trinoSchema + ".nonlowercasetable (mixed_case_name) VALUES ('m')", 1);
+            assertUpdate("INSERT INTO " + trinoSchema + ".nonlowercasetable (upper_case_name) VALUES ('u')", 1);
+            assertQuery(
+                    "SELECT * FROM " + trinoSchema + ".nonlowercasetable",
+                    "VALUES ('a', 'b', 'c')," +
+                            "('l', NULL, NULL)," +
+                            "(NULL, 'm', NULL)," +
+                            "(NULL, NULL, 'u')");
+
+            assertUpdate("CREATE TABLE " + trinoSchema + ".test_ctas_in_nonlowercase_schema AS SELECT 1 x", 1);
+            assertQuery("SELECt * FROM " + trinoSchema + ".test_ctas_in_nonlowercase_schema", "VALUES 1");
         }
     }
 
