@@ -21,7 +21,6 @@ import javax.annotation.concurrent.Immutable;
 public class NullLiteral
         extends Literal
 {
-
     @JsonCreator
     public NullLiteral()
     {
