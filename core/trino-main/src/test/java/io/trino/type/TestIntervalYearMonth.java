@@ -71,11 +71,11 @@ public class TestIntervalYearMonth
     @Test
     public void testInvalidLiteral()
     {
-        assertInvalidFunction("INTERVAL '124X' YEAR", INVALID_LITERAL, "line 1:1: '124X' is not a valid interval literal");
-        assertInvalidFunction("INTERVAL '124-30' YEAR", INVALID_LITERAL, "line 1:1: '124-30' is not a valid interval literal");
-        assertInvalidFunction("INTERVAL '124-X' YEAR TO MONTH", INVALID_LITERAL, "line 1:1: '124-X' is not a valid interval literal");
-        assertInvalidFunction("INTERVAL '124--30' YEAR TO MONTH", INVALID_LITERAL, "line 1:1: '124--30' is not a valid interval literal");
-        assertInvalidFunction("INTERVAL '--124--30' YEAR TO MONTH", INVALID_LITERAL, "line 1:1: '--124--30' is not a valid interval literal");
+        assertInvalidFunction("INTERVAL '124X' YEAR", INVALID_LITERAL, "'124X' is not a valid interval literal");
+        assertInvalidFunction("INTERVAL '124-30' YEAR", INVALID_LITERAL, "'124-30' is not a valid interval literal");
+        assertInvalidFunction("INTERVAL '124-X' YEAR TO MONTH", INVALID_LITERAL, "'124-X' is not a valid interval literal");
+        assertInvalidFunction("INTERVAL '124--30' YEAR TO MONTH", INVALID_LITERAL, "'124--30' is not a valid interval literal");
+        assertInvalidFunction("INTERVAL '--124--30' YEAR TO MONTH", INVALID_LITERAL, "'--124--30' is not a valid interval literal");
     }
 
     @Test

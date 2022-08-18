@@ -21,14 +21,11 @@ import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.server.ExpressionSerialization.ExpressionDeserializer;
-import io.trino.server.ExpressionSerialization.ExpressionSerializer;
 import io.trino.server.SliceSerialization.SliceDeserializer;
 import io.trino.server.SliceSerialization.SliceSerializer;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.QualifiedName;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.OrderingScheme;
@@ -68,12 +65,10 @@ public class TestWindowNode
         SqlParser sqlParser = new SqlParser();
         ObjectMapperProvider provider = new ObjectMapperProvider();
         provider.setJsonSerializers(ImmutableMap.of(
-                Slice.class, new SliceSerializer(),
-                Expression.class, new ExpressionSerializer()));
+                Slice.class, new SliceSerializer()));
         provider.setJsonDeserializers(ImmutableMap.of(
                 Type.class, new TypeDeserializer(functionResolution.getPlannerContext().getTypeManager()),
                 Slice.class, new SliceDeserializer(),
-                Expression.class, new ExpressionDeserializer(sqlParser),
                 TypeSignature.class, new TypeSignatureDeserializer()));
         provider.setKeyDeserializers(ImmutableMap.of(
                 TypeSignature.class, new TypeSignatureKeyDeserializer()));

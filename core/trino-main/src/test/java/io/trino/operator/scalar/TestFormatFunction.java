@@ -67,8 +67,8 @@ public class TestFormatFunction
         assertInvalidFunction("format('%s %d', 8)", "Invalid format string: %s %d (MissingFormatArgument: Format specifier '%d')");
         assertInvalidFunction("format('%d', decimal '8')", "Invalid format string: %d (IllegalFormatConversion: d != java.math.BigDecimal)");
         assertInvalidFunction("format('%tT', current_time)", "Invalid format string: %tT (IllegalFormatConversion: T != java.lang.String)");
-        assertInvalidFunction("format('%s', array[8])", NOT_SUPPORTED, "line 1:14: Type not supported for formatting: array(integer)");
-        assertInvalidFunction("format(5, 8)", TYPE_MISMATCH, "line 1:8: Type of first argument to format() must be VARCHAR (actual: integer)");
+        assertInvalidFunction("format('%s', array[8])", NOT_SUPPORTED, "Type not supported for formatting: array(integer)");
+        assertInvalidFunction("format(5, 8)", TYPE_MISMATCH, "Type of first argument to format() must be VARCHAR (actual: integer)");
     }
 
     private void assertFormat(String projection, String expected)

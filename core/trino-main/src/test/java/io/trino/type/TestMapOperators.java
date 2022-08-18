@@ -467,7 +467,7 @@ public class TestMapOperators
                                 null)));
 
         // invalid cast
-        assertInvalidFunction("CAST(JSON '{\"[]\": 1}' AS MAP<ARRAY<BIGINT>, BIGINT>)", TYPE_MISMATCH, "line 1:1: Cannot cast json to map(array(bigint), bigint)");
+        assertInvalidFunction("CAST(JSON '{\"[]\": 1}' AS MAP<ARRAY<BIGINT>, BIGINT>)", TYPE_MISMATCH, "Cannot cast json to map(array(bigint), bigint)");
 
         assertInvalidCast("CAST(JSON '[1, 2]' AS MAP<BIGINT, BIGINT>)", "Cannot cast to map(bigint, bigint). Expected a json object, but got [\n[1,2]");
         assertInvalidCast("CAST(JSON '{\"a\": 1, \"b\": 2}' AS MAP<VARCHAR, MAP<VARCHAR, BIGINT>>)", "Cannot cast to map(varchar, map(varchar, bigint)). Expected a json object, but got 1\n{\"a\":1,\"b\":2}");

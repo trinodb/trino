@@ -751,7 +751,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitTypeParameter(TypeParameter node, Void context)
         {
-            return process(node.getValue(), context);
+            return process(node.getType(), context);
         }
 
         @Override

@@ -72,9 +72,9 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.immutableEnumMap;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.planprinter.PlanPrinter.formatAggregation;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.lang.String.format;
 
 public final class GraphvizPrinter

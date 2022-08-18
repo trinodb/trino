@@ -172,12 +172,12 @@ public class TestLambdaExpression
     @Test
     public void testFunctionParameter()
     {
-        assertInvalidFunction("count(x -> x)", FUNCTION_NOT_FOUND, "line 1:1: Unexpected parameters (<function>) for function count. Expected: count(), count(t) T");
-        assertInvalidFunction("max(x -> x)", FUNCTION_NOT_FOUND, "line 1:1: Unexpected parameters (<function>) for function max. Expected: max(t) T:orderable, max(e, bigint) E:orderable");
-        assertInvalidFunction("sqrt(x -> x)", FUNCTION_NOT_FOUND, "line 1:1: Unexpected parameters (<function>) for function sqrt. Expected: sqrt(double)");
-        assertInvalidFunction("sqrt(x -> x, 123, x -> x)", FUNCTION_NOT_FOUND, "line 1:1: Unexpected parameters (<function>, integer, <function>) for function sqrt. Expected: sqrt(double)");
-        assertInvalidFunction("pow(x -> x, 123)", FUNCTION_NOT_FOUND, "line 1:1: Unexpected parameters (<function>, integer) for function pow. Expected: pow(double, double)");
-        assertInvalidFunction("pow(123, x -> x)", FUNCTION_NOT_FOUND, "line 1:1: Unexpected parameters (integer, <function>) for function pow. Expected: pow(double, double)");
+        assertInvalidFunction("count(x -> x)", FUNCTION_NOT_FOUND, "Unexpected parameters (<function>) for function count. Expected: count(), count(t) T");
+        assertInvalidFunction("max(x -> x)", FUNCTION_NOT_FOUND, "Unexpected parameters (<function>) for function max. Expected: max(t) T:orderable, max(e, bigint) E:orderable");
+        assertInvalidFunction("sqrt(x -> x)", FUNCTION_NOT_FOUND, "Unexpected parameters (<function>) for function sqrt. Expected: sqrt(double)");
+        assertInvalidFunction("sqrt(x -> x, 123, x -> x)", FUNCTION_NOT_FOUND, "Unexpected parameters (<function>, integer, <function>) for function sqrt. Expected: sqrt(double)");
+        assertInvalidFunction("pow(x -> x, 123)", FUNCTION_NOT_FOUND, "Unexpected parameters (<function>, integer) for function pow. Expected: pow(double, double)");
+        assertInvalidFunction("pow(123, x -> x)", FUNCTION_NOT_FOUND, "Unexpected parameters (integer, <function>) for function pow. Expected: pow(double, double)");
     }
 
     private static String quote(String identifier)

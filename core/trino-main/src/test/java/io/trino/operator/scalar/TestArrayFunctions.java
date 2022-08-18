@@ -42,6 +42,6 @@ public class TestArrayFunctions
         assertInvalidFunction(
                 "CONCAT(" + Joiner.on(", ").join(nCopies(128, "array[1]")) + ")",
                 TOO_MANY_ARGUMENTS,
-                "line 1:1: Too many arguments for function call concat()");
+                "Too many arguments for function call concat()");
     }
 }

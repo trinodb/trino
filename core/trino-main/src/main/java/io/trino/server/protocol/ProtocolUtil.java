@@ -130,7 +130,7 @@ public final class ProtocolUtil
                             return ((NumericParameter) parameter).getValue();
                         }
                         if (parameter instanceof TypeParameter) {
-                            return formatType(((TypeParameter) parameter).getValue(), supportsParametricDateTime);
+                            return formatType(((TypeParameter) parameter).getType(), supportsParametricDateTime);
                         }
                         throw new IllegalArgumentException("Unsupported parameter type: " + parameter.getClass().getName());
                     })

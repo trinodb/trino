@@ -126,7 +126,7 @@ public class TestTimestamp
         assertFunction("TIMESTAMP '+123001-01-22 03:04:05.321'", createTimestampType(3), sqlTimestampOf(3, 123001, 1, 22, 3, 4, 5, 321));
         assertFunction("TIMESTAMP '-123001-01-22 03:04:05.321'", createTimestampType(3), sqlTimestampOf(3, -123001, 1, 22, 3, 4, 5, 321));
 
-        assertInvalidFunction("TIMESTAMP 'text'", INVALID_LITERAL, "line 1:1: 'text' is not a valid timestamp literal");
+        assertInvalidFunction("TIMESTAMP 'text'", INVALID_LITERAL, "'text' is not a valid timestamp literal");
     }
 
     @Test

@@ -479,14 +479,14 @@ public class TestRowOperators
         assertComparisonCombination("row(1, 2.0E0, TRUE, 'kittens', from_unixtime(1))", "row(1, 3.0E0, TRUE, 'kittens', from_unixtime(1))");
 
         assertInvalidFunction("cast(row(cast(cast ('' as varbinary) as hyperloglog)) as row(col0 hyperloglog)) = cast(row(cast(cast ('' as varbinary) as hyperloglog)) as row(col0 hyperloglog))",
-                TYPE_MISMATCH, "line 1:81: Cannot apply operator: row(col0 HyperLogLog) = row(col0 HyperLogLog)");
+                TYPE_MISMATCH, "Cannot apply operator: row(col0 HyperLogLog) = row(col0 HyperLogLog)");
         assertInvalidFunction("cast(row(cast(cast ('' as varbinary) as hyperloglog)) as row(col0 hyperloglog)) > cast(row(cast(cast ('' as varbinary) as hyperloglog)) as row(col0 hyperloglog))",
-                TYPE_MISMATCH, "line 1:81: Cannot apply operator: row(col0 HyperLogLog) < row(col0 HyperLogLog)");
+                TYPE_MISMATCH, "Cannot apply operator: row(col0 HyperLogLog) < row(col0 HyperLogLog)");
 
         assertInvalidFunction("cast(row(cast(cast ('' as varbinary) as qdigest(double))) as row(col0 qdigest(double))) = cast(row(cast(cast ('' as varbinary) as qdigest(double))) as row(col0 qdigest(double)))",
-                TYPE_MISMATCH, "line 1:89: Cannot apply operator: row(col0 qdigest(double)) = row(col0 qdigest(double))");
+                TYPE_MISMATCH, "Cannot apply operator: row(col0 qdigest(double)) = row(col0 qdigest(double))");
         assertInvalidFunction("cast(row(cast(cast ('' as varbinary) as qdigest(double))) as row(col0 qdigest(double))) > cast(row(cast(cast ('' as varbinary) as qdigest(double))) as row(col0 qdigest(double)))",
-                TYPE_MISMATCH, "line 1:89: Cannot apply operator: row(col0 qdigest(double)) < row(col0 qdigest(double))");
+                TYPE_MISMATCH, "Cannot apply operator: row(col0 qdigest(double)) < row(col0 qdigest(double))");
 
         assertFunction("row(TRUE, ARRAY [1], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0])) = row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0]))", BOOLEAN, false);
         assertFunction("row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0])) = row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0]))", BOOLEAN, true);
@@ -496,7 +496,7 @@ public class TestRowOperators
         assertFunction("row(2, CAST(NULL AS INTEGER)) = row(1, 2)", BOOLEAN, false);
         assertFunction("row(2, CAST(NULL AS INTEGER)) != row(1, 2)", BOOLEAN, true);
         assertInvalidFunction("row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0])) > row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0]))",
-                TYPE_MISMATCH, "line 1:64: Cannot apply operator: row(boolean, array(integer), map(integer, double)) < row(boolean, array(integer), map(integer, double))");
+                TYPE_MISMATCH, "Cannot apply operator: row(boolean, array(integer), map(integer, double)) < row(boolean, array(integer), map(integer, double))");
 
         assertInvalidFunction("row(1, CAST(NULL AS INTEGER)) < row(1, 2)", StandardErrorCode.NOT_SUPPORTED);
 

@@ -1224,7 +1224,7 @@ public class TestMathFunctions
         assertInvalidFunction(
                 "greatest(" + Joiner.on(", ").join(nCopies(128, "rand()")) + ")",
                 TOO_MANY_ARGUMENTS,
-                "line 1:1: Too many arguments for function call greatest()");
+                "Too many arguments for function call greatest()");
 
         // row(double)
         assertFunction("greatest(ROW(1.5E0), ROW(2.3E0))", anonymousRow(DOUBLE), ImmutableList.of(2.3));

@@ -13,24 +13,32 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class TypeParameter
         extends DataTypeParameter
 {
     private final DataType type;
 
-    public TypeParameter(DataType type)
+    @JsonCreator
+    public TypeParameter(
+            @JsonProperty("type") DataType type)
     {
         this.type = requireNonNull(type, "type is null");
     }
 
-    public DataType getValue()
+    @JsonProperty
+    public DataType getType()
     {
         return type;
     }

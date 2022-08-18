@@ -269,32 +269,32 @@ public class TestDateTimeOperators
         assertFunction("DATE '2013-2-02'", DATE, toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
         assertFunction("DATE '2013-02-2'", DATE, toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
         // three digit for month or day
-        assertInvalidFunction("DATE '2013-02-002'", INVALID_LITERAL, "line 1:1: '2013-02-002' is not a valid date literal");
-        assertInvalidFunction("DATE '2013-002-02'", INVALID_LITERAL, "line 1:1: '2013-002-02' is not a valid date literal");
+        assertInvalidFunction("DATE '2013-02-002'", INVALID_LITERAL, "'2013-02-002' is not a valid date literal");
+        assertInvalidFunction("DATE '2013-002-02'", INVALID_LITERAL, "'2013-002-02' is not a valid date literal");
         // zero-padded year
         assertFunction("DATE '02013-02-02'", DATE, toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
         assertFunction("DATE '0013-02-02'", DATE, toDate(new DateTime(13, 2, 2, 0, 0, 0, 0, UTC)));
         // invalid date
-        assertInvalidFunction("DATE '2013-02-29'", INVALID_LITERAL, "line 1:1: '2013-02-29' is not a valid date literal");
+        assertInvalidFunction("DATE '2013-02-29'", INVALID_LITERAL, "'2013-02-29' is not a valid date literal");
         // surrounding whitespace
         assertFunction("DATE '  2013-02-02  '", DATE, toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
         assertFunction("DATE ' \t\n\u000B\f\r\u001C\u001D\u001E\u001F 2013-02-02 \t\n\u000B\f\n\u001C\u001D\u001E\u001F '", DATE, toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
         // intra whitespace
-        assertInvalidFunction("DATE '2013 -02-02'", INVALID_LITERAL, "line 1:1: '2013 -02-02' is not a valid date literal");
-        assertInvalidFunction("DATE '2013- 2-02'", INVALID_LITERAL, "line 1:1: '2013- 2-02' is not a valid date literal");
+        assertInvalidFunction("DATE '2013 -02-02'", INVALID_LITERAL, "'2013 -02-02' is not a valid date literal");
+        assertInvalidFunction("DATE '2013- 2-02'", INVALID_LITERAL, "'2013- 2-02' is not a valid date literal");
         // large year
-        assertInvalidFunction("DATE '5881580-07-12'", INVALID_LITERAL, "line 1:1: '5881580-07-12' is not a valid date literal");
-        assertInvalidFunction("DATE '392251590-07-12'", INVALID_LITERAL, "line 1:1: '392251590-07-12' is not a valid date literal");
+        assertInvalidFunction("DATE '5881580-07-12'", INVALID_LITERAL, "'5881580-07-12' is not a valid date literal");
+        assertInvalidFunction("DATE '392251590-07-12'", INVALID_LITERAL, "'392251590-07-12' is not a valid date literal");
         // signed
         assertFunction("DATE '+2013-02-02'", DATE, toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
         assertFunction("DATE '-2013-02-02'", DATE, toDate(new DateTime(-2013, 2, 2, 0, 0, 0, 0, UTC)));
         // signed with whitespace
         assertFunction("DATE ' +2013-02-02'", DATE, toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
-        assertInvalidFunction("DATE '+ 2013-02-02'", INVALID_LITERAL, "line 1:1: '+ 2013-02-02' is not a valid date literal");
-        assertInvalidFunction("DATE ' + 2013-02-02'", INVALID_LITERAL, "line 1:1: ' + 2013-02-02' is not a valid date literal");
+        assertInvalidFunction("DATE '+ 2013-02-02'", INVALID_LITERAL, "'+ 2013-02-02' is not a valid date literal");
+        assertInvalidFunction("DATE ' + 2013-02-02'", INVALID_LITERAL, "' + 2013-02-02' is not a valid date literal");
         assertFunction("DATE ' -2013-02-02'", DATE, toDate(new DateTime(-2013, 2, 2, 0, 0, 0, 0, UTC)));
-        assertInvalidFunction("DATE '- 2013-02-02'", INVALID_LITERAL, "line 1:1: '- 2013-02-02' is not a valid date literal");
-        assertInvalidFunction("DATE ' - 2013-02-02'", INVALID_LITERAL, "line 1:1: ' - 2013-02-02' is not a valid date literal");
+        assertInvalidFunction("DATE '- 2013-02-02'", INVALID_LITERAL, "'- 2013-02-02' is not a valid date literal");
+        assertInvalidFunction("DATE ' - 2013-02-02'", INVALID_LITERAL, "' - 2013-02-02' is not a valid date literal");
     }
 
     /**

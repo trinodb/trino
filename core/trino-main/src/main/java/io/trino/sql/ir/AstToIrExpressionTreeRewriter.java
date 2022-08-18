@@ -739,7 +739,7 @@ public final class AstToIrExpressionTreeRewriter<C>
                 }
             }
 
-            return CharLiteral.of(node.getValue());
+            return CharLiteral.of(node.getValue(), node.length());
         }
 
         @Override
@@ -959,7 +959,6 @@ public final class AstToIrExpressionTreeRewriter<C>
             for (io.trino.sql.tree.RowDataType.Field field : node.getFields()) {
                 DataType dataType = rewrite(field.getType(), context.get());
 
-                Optional<io.trino.sql.tree.Identifier> name = field.getName();
                 Optional<Identifier> rewrittenName = Optional.empty();
 
                 if (field.getName().isPresent()) {
@@ -1717,7 +1716,7 @@ public final class AstToIrExpressionTreeRewriter<C>
         @Override
         public Node visitCharLiteral(io.trino.sql.tree.CharLiteral node, Void v)
         {
-            return CharLiteral.of(node.getValue());
+            return CharLiteral.of(node.getValue(), node.length());
         }
 
         @Override
@@ -2045,6 +2044,7 @@ public final class AstToIrExpressionTreeRewriter<C>
             return new NumericParameter(node.getValue());
         }
 
+        @Override
         protected Node visitTypeParameter(io.trino.sql.tree.TypeParameter node, Void v)
         {
             return new TypeParameter(copy(node.getValue(), v));

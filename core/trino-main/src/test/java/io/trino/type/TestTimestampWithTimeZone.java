@@ -111,9 +111,9 @@ public class TestTimestampWithTimeZone
                 SqlTimestampWithTimeZone.newInstance(3, new DateTime(-12001, 1, 2, 3, 4, 5, 321, BERLIN_ZONE).getMillis(), 0, BERLIN_TIME_ZONE_KEY));
 
         // Overflow
-        assertInvalidFunction("TIMESTAMP '123001-01-02 03:04:05.321 Europe/Berlin'", INVALID_LITERAL, "line 1:1: '123001-01-02 03:04:05.321 Europe/Berlin' is not a valid timestamp literal");
-        assertInvalidFunction("TIMESTAMP '+123001-01-02 03:04:05.321 Europe/Berlin'", INVALID_LITERAL, "line 1:1: '+123001-01-02 03:04:05.321 Europe/Berlin' is not a valid timestamp literal");
-        assertInvalidFunction("TIMESTAMP '-123001-01-02 03:04:05.321 Europe/Berlin'", INVALID_LITERAL, "line 1:1: '-123001-01-02 03:04:05.321 Europe/Berlin' is not a valid timestamp literal");
+        assertInvalidFunction("TIMESTAMP '123001-01-02 03:04:05.321 Europe/Berlin'", INVALID_LITERAL, "'123001-01-02 03:04:05.321 Europe/Berlin' is not a valid timestamp literal");
+        assertInvalidFunction("TIMESTAMP '+123001-01-02 03:04:05.321 Europe/Berlin'", INVALID_LITERAL, "'+123001-01-02 03:04:05.321 Europe/Berlin' is not a valid timestamp literal");
+        assertInvalidFunction("TIMESTAMP '-123001-01-02 03:04:05.321 Europe/Berlin'", INVALID_LITERAL, "'-123001-01-02 03:04:05.321 Europe/Berlin' is not a valid timestamp literal");
     }
 
     @Test

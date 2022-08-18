@@ -33,14 +33,21 @@ public class CharLiteral
     public static CharLiteral of(String value)
     {
         requireNonNull(value, "value is null");
-        return new CharLiteral(CharMatcher.is(' ').trimTrailingFrom(value));
+        return new CharLiteral(CharMatcher.is(' ').trimTrailingFrom(value), value.length());
+    }
+
+    public static CharLiteral of(String value, int length)
+    {
+        requireNonNull(value, "value is null");
+        return new CharLiteral(CharMatcher.is(' ').trimTrailingFrom(value), length);
     }
 
     @JsonCreator
     public CharLiteral(
-            @JsonProperty("value") String value)
+            @JsonProperty("value") String value,
+            @JsonProperty("length") int length)
     {
-        this.length = value.length();
+        this.length = length;
         this.value = value;
     }
 
@@ -50,6 +57,7 @@ public class CharLiteral
         return value;
     }
 
+    @JsonProperty
     public int length()
     {
         return length;

@@ -29,7 +29,6 @@ import io.trino.sql.analyzer.Scope;
 import io.trino.sql.analyzer.TypeSignatureTranslator;
 import io.trino.sql.ir.AstToIrExpressionRewriter;
 import io.trino.sql.ir.AstToIrExpressionTreeRewriter;
-import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FieldReference;
@@ -47,7 +46,6 @@ import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.RowDataType;
@@ -69,8 +67,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.iranalyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
+import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.KEEP;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.OMIT;
@@ -495,9 +493,9 @@ public class TranslationMap
                         .add(pathExpression)
                         .add(orderedParameters.getParametersRow())
                         .add(new io.trino.sql.ir.GenericLiteral("tinyint", String.valueOf(rewritten.getEmptyBehavior().ordinal())))
-                        .add(rewritten.getEmptyDefault().orElse(treeRewriter.copy(new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType())), context)))
+                        .add(rewritten.getEmptyDefault().orElse(new io.trino.sql.ir.Cast(new io.trino.sql.ir.NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType()))))
                         .add(new io.trino.sql.ir.GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())))
-                        .add(rewritten.getErrorDefault().orElse(treeRewriter.copy(new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType())), context)));
+                        .add(rewritten.getErrorDefault().orElse(new io.trino.sql.ir.Cast(new io.trino.sql.ir.NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType()))));
 
                 io.trino.sql.ir.Expression result = new io.trino.sql.ir.FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
 
@@ -560,7 +558,7 @@ public class TranslationMap
 
                 Type resultType = outputFunction.getSignature().getReturnType();
                 if (!resultType.equals(returnedType)) {
-                    result = new io.trino.sql.ir.Cast(result, treeRewriter.copy(toSqlType(returnedType), context));
+                    result = new io.trino.sql.ir.Cast(result, toSqlType(returnedType));
                 }
 
                 return coerceIfNecessary(node, result, treeRewriter);
@@ -587,14 +585,14 @@ public class TranslationMap
                             parameters.add(rewrittenParameter);
                         }
                     }
-                    parametersRow = new io.trino.sql.ir.Cast(new io.trino.sql.ir.Row(parameters.build()), treeRewriter.copy(toSqlType(parameterRowType), null));
+                    parametersRow = new io.trino.sql.ir.Cast(new io.trino.sql.ir.Row(parameters.build()), toSqlType(parameterRowType));
                     parametersOrder = pathParameters.stream()
                             .map(parameter -> parameter.getName().getCanonicalValue())
                             .collect(toImmutableList());
                 }
                 else {
                     checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(parameterRowType), "invalid type of parameters row when no parameters are passed");
-                    parametersRow = new io.trino.sql.ir.Cast(new io.trino.sql.ir.NullLiteral(), treeRewriter.copy(toSqlType(JSON_NO_PARAMETERS_ROW_TYPE), null));
+                    parametersRow = new io.trino.sql.ir.Cast(new io.trino.sql.ir.NullLiteral(), toSqlType(JSON_NO_PARAMETERS_ROW_TYPE));
                     parametersOrder = ImmutableList.of();
                 }
 
@@ -619,8 +617,8 @@ public class TranslationMap
                 if (node.getMembers().isEmpty()) {
                     checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(resolvedFunction.getSignature().getArgumentType(0)));
                     checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(resolvedFunction.getSignature().getArgumentType(1)));
-                    keysRow = new io.trino.sql.ir.Cast(new io.trino.sql.ir.NullLiteral(), treeRewriter.copy(toSqlType(JSON_NO_PARAMETERS_ROW_TYPE), context));
-                    valuesRow = new io.trino.sql.ir.Cast(new io.trino.sql.ir.NullLiteral(), treeRewriter.copy(toSqlType(JSON_NO_PARAMETERS_ROW_TYPE), context));
+                    keysRow = new io.trino.sql.ir.Cast(new io.trino.sql.ir.NullLiteral(), toSqlType(JSON_NO_PARAMETERS_ROW_TYPE));
+                    valuesRow = new io.trino.sql.ir.Cast(new io.trino.sql.ir.NullLiteral(), toSqlType(JSON_NO_PARAMETERS_ROW_TYPE));
                 }
                 else {
                     ImmutableList.Builder<io.trino.sql.ir.Expression> keys = ImmutableList.builder();
@@ -669,7 +667,7 @@ public class TranslationMap
 
                 Type resultType = outputFunction.getSignature().getReturnType();
                 if (!resultType.equals(returnedType)) {
-                    result = new io.trino.sql.ir.Cast(result, treeRewriter.copy(toSqlType(returnedType), context));
+                    result = new io.trino.sql.ir.Cast(result, toSqlType(returnedType));
                 }
 
                 return coerceIfNecessary(node, result, treeRewriter);
@@ -691,7 +689,7 @@ public class TranslationMap
                 // prepare elements as row
                 if (node.getElements().isEmpty()) {
                     checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(resolvedFunction.getSignature().getArgumentType(0)));
-                    elementsRow = new io.trino.sql.ir.Cast(new io.trino.sql.ir.NullLiteral(), treeRewriter.copy(toSqlType(JSON_NO_PARAMETERS_ROW_TYPE), context));
+                    elementsRow = new io.trino.sql.ir.Cast(new io.trino.sql.ir.NullLiteral(), toSqlType(JSON_NO_PARAMETERS_ROW_TYPE));
                 }
                 else {
                     ImmutableList.Builder<io.trino.sql.ir.Expression> elements = ImmutableList.builder();
@@ -731,7 +729,7 @@ public class TranslationMap
 
                 Type resultType = outputFunction.getSignature().getReturnType();
                 if (!resultType.equals(returnedType)) {
-                    result = new io.trino.sql.ir.Cast(result, treeRewriter.copy(toSqlType(returnedType), context));
+                    result = new io.trino.sql.ir.Cast(result, toSqlType(returnedType));
                 }
 
                 return coerceIfNecessary(node, result, treeRewriter);
@@ -751,7 +749,7 @@ public class TranslationMap
 
                 return new io.trino.sql.ir.Cast(
                         rewritten,
-                        treeRewriter.copy(toSqlType(coercion), null),
+                        toSqlType(coercion),
                         false,
                         analysis.isTypeOnlyCoercion(original));
             }

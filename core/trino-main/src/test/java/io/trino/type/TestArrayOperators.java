@@ -489,7 +489,7 @@ public class TestArrayOperators
 
         assertThatThrownBy(() -> assertFunction("ARRAY [ARRAY [1]] || ARRAY [ARRAY ['x']]", new ArrayType(new ArrayType(INTEGER)), null))
                 .isInstanceOf(TrinoException.class)
-                .hasMessage("line 1:19: Unexpected parameters (array(array(integer)), array(array(varchar(1)))) for function concat. Expected: concat(char(x), char(y)), concat(array(E), E) E, concat(E, array(E)) E, concat(array(E)) E, concat(varchar), concat(varbinary)");
+                .hasMessage("Unexpected parameters (array(array(integer)), array(array(varchar(1)))) for function concat. Expected: concat(char(x), char(y)), concat(array(E), E) E, concat(E, array(E)) E, concat(array(E)) E, concat(varchar), concat(varbinary)");
 
         assertCachedInstanceHasBoundedRetainedSize("ARRAY [1, NULL] || ARRAY [3]");
     }
@@ -533,7 +533,7 @@ public class TestArrayOperators
 
         assertThatThrownBy(() -> assertFunction("ARRAY [ARRAY[1]] || ARRAY ['x']", new ArrayType(new ArrayType(INTEGER)), null))
                 .isInstanceOf(TrinoException.class)
-                .hasMessage("line 1:18: Unexpected parameters (array(array(integer)), array(varchar(1))) for function concat. Expected: concat(char(x), char(y)), concat(array(E), E) E, concat(E, array(E)) E, concat(array(E)) E, concat(varchar), concat(varbinary)");
+                .hasMessage("Unexpected parameters (array(array(integer)), array(varchar(1))) for function concat. Expected: concat(char(x), char(y)), concat(array(E), E) E, concat(E, array(E)) E, concat(array(E)) E, concat(varchar), concat(varbinary)");
 
         assertCachedInstanceHasBoundedRetainedSize("ARRAY [1, NULL] || 3");
         assertCachedInstanceHasBoundedRetainedSize("3 || ARRAY [1, NULL]");
@@ -833,7 +833,7 @@ public class TestArrayOperators
         assertInvalidFunction("ARRAY [1, 2, 3][0]", "SQL array indices start at 1");
         assertInvalidFunction("ARRAY [1, 2, 3][-1]", "Array subscript is negative: -1");
         assertInvalidFunction("ARRAY [1, 2, 3][4]", "Array subscript must be less than or equal to array length: 4 > 3");
-        assertInvalidFunction("ARRAY [1, 2, 3][1.1E0]", TYPE_MISMATCH, "line 1:1: Cannot use double for subscript of array(integer)");
+        assertInvalidFunction("ARRAY [1, 2, 3][1.1E0]", TYPE_MISMATCH, "Cannot use double for subscript of array(integer)");
 
         assertFunction("ARRAY[NULL][1]", UNKNOWN, null);
         assertFunction("ARRAY[NULL, NULL, NULL][3]", UNKNOWN, null);

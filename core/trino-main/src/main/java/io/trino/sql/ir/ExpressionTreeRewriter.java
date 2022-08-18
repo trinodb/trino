@@ -942,9 +942,9 @@ public final class ExpressionTreeRewriter<C>
                 }
                 else if (argument instanceof TypeParameter) {
                     TypeParameter parameter = (TypeParameter) argument;
-                    DataType value = (DataType) process(parameter.getValue(), context);
+                    DataType value = (DataType) process(parameter.getType(), context);
 
-                    if (value != parameter.getValue()) {
+                    if (value != parameter.getType()) {
                         arguments.add(new TypeParameter(value));
                     }
                     else {

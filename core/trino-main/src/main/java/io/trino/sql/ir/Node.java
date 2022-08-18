@@ -13,8 +13,17 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
 import java.util.List;
 
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        property = "@type")
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = DataTypeParameter.class, name = "dataTypeParameter"),
+})
 public abstract class Node
 {
     protected Node()

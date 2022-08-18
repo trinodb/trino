@@ -32,7 +32,6 @@ import io.trino.sql.ir.IntervalDayTimeDataType;
 import io.trino.sql.ir.NumericParameter;
 import io.trino.sql.ir.RowDataType;
 import io.trino.sql.ir.TypeParameter;
-import io.trino.sql.parser.SqlParser;
 import org.assertj.core.util.VisibleForTesting;
 
 import java.util.ArrayList;
@@ -60,8 +59,6 @@ import static java.lang.String.format;
 
 public class TypeSignatureTranslator
 {
-    private static final SqlParser SQL_PARSER = new SqlParser();
-
     private TypeSignatureTranslator() {}
 
     public static DataType toSqlType(Type type)
@@ -115,7 +112,7 @@ public class TypeSignatureTranslator
                 }
             }
             else if (parameter instanceof TypeParameter) {
-                DataType value = ((TypeParameter) parameter).getValue();
+                DataType value = ((TypeParameter) parameter).getType();
                 if (value instanceof GenericDataType && ((GenericDataType) value).getArguments().isEmpty() && typeVariables.contains(((GenericDataType) value).getName().getValue())) {
                     parameters.add(typeVariable(((GenericDataType) value).getName().getValue()));
                 }
@@ -196,7 +193,7 @@ public class TypeSignatureTranslator
                 parameters.add(TypeSignatureParameter.numericParameter(Long.parseLong(((NumericParameter) precision).getValue())));
             }
             else if (precision instanceof TypeParameter) {
-                DataType typeVariable = ((TypeParameter) precision).getValue();
+                DataType typeVariable = ((TypeParameter) precision).getType();
                 checkArgument(typeVariable instanceof GenericDataType && ((GenericDataType) typeVariable).getArguments().isEmpty());
                 String variable = ((GenericDataType) typeVariable).getName().getValue();
                 checkArgument(typeVariables.contains(variable), "Parameter to datetime type must be either a number or a type variable: %s", variable);

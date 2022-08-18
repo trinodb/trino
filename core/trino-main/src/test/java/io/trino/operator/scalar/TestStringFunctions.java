@@ -125,7 +125,7 @@ public class TestStringFunctions
         assertInvalidFunction(
                 "CONCAT(" + Joiner.on(", ").join(nCopies(128, "'x'")) + ")",
                 TOO_MANY_ARGUMENTS,
-                "line 1:1: Too many arguments for function call concat()");
+                "Too many arguments for function call concat()");
     }
 
     @Test
@@ -956,7 +956,7 @@ public class TestStringFunctions
 
         assertFunction("concat('hello na\u00EFve', cast(' world' as char(6)))", createCharType(17), "hello na\u00EFve world");
 
-        assertInvalidFunction("concat(cast('ab ' as char(40000)), cast('' as char(40000)))", "line 1:1: CHAR length must be in range [0, 65536], got 80000");
+        assertInvalidFunction("concat(cast('ab ' as char(40000)), cast('' as char(40000)))", "CHAR length must be in range [0, 65536], got 80000");
 
         assertFunction("concat(cast(null as char(1)), cast(' ' as char(1)))", createCharType(2), null);
     }

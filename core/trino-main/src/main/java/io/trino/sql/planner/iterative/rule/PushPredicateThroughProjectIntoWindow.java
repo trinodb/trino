@@ -42,12 +42,12 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.isOptimizeTopNRanking;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Range.range;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.iterative.rule.Util.toTopNRankingType;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.window;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

@@ -64,6 +64,6 @@ public class TestTypeOfFunction
     @Test
     public void testLambda()
     {
-        assertInvalidFunction("typeof(x -> x)", FUNCTION_NOT_FOUND, "line 1:1: Unexpected parameters (<function>) for function typeof. Expected: typeof(t) T");
+        assertInvalidFunction("typeof(x -> x)", FUNCTION_NOT_FOUND, "Unexpected parameters (<function>) for function typeof. Expected: typeof(t) T");
     }
 }

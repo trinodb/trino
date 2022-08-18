@@ -20,19 +20,16 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.server.ExpressionSerialization;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.QualifiedName;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.WindowNode.Frame;
@@ -87,9 +84,7 @@ public class TestPatternRecognitionNodeSerialization
     public void testAggregationValuePointerRoundtrip()
     {
         ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonSerializers(ImmutableMap.of(Expression.class, new ExpressionSerialization.ExpressionSerializer()));
         provider.setJsonDeserializers(ImmutableMap.of(
-                Expression.class, new ExpressionSerialization.ExpressionDeserializer(new SqlParser()),
                 Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)));
         provider.setKeyDeserializers(ImmutableMap.of(
                 TypeSignature.class, new TypeSignatureKeyDeserializer()));
@@ -116,8 +111,6 @@ public class TestPatternRecognitionNodeSerialization
     public void testExpressionAndValuePointersRoundtrip()
     {
         ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonSerializers(ImmutableMap.of(Expression.class, new ExpressionSerialization.ExpressionSerializer()));
-        provider.setJsonDeserializers(ImmutableMap.of(Expression.class, new ExpressionSerialization.ExpressionDeserializer(new SqlParser())));
         JsonCodec<ExpressionAndValuePointers> codec = new JsonCodecFactory(provider).jsonCodec(ExpressionAndValuePointers.class);
 
         assertJsonRoundTrip(codec, new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of(), ImmutableList.of(), ImmutableSet.of(), ImmutableSet.of()));
@@ -146,9 +139,7 @@ public class TestPatternRecognitionNodeSerialization
     public void testMeasureRoundtrip()
     {
         ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonSerializers(ImmutableMap.of(Expression.class, new ExpressionSerialization.ExpressionSerializer()));
         provider.setJsonDeserializers(ImmutableMap.of(
-                Expression.class, new ExpressionSerialization.ExpressionDeserializer(new SqlParser()),
                 Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)));
         JsonCodec<Measure> codec = new JsonCodecFactory(provider).jsonCodec(Measure.class);
 
@@ -182,9 +173,7 @@ public class TestPatternRecognitionNodeSerialization
     public void testPatternRecognitionNodeRoundtrip()
     {
         ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonSerializers(ImmutableMap.of(Expression.class, new ExpressionSerialization.ExpressionSerializer()));
         provider.setJsonDeserializers(ImmutableMap.of(
-                Expression.class, new ExpressionSerialization.ExpressionDeserializer(new SqlParser()),
                 Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)));
         provider.setKeyDeserializers(ImmutableMap.of(
                 TypeSignature.class, new TypeSignatureKeyDeserializer()));
