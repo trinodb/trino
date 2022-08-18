@@ -14,7 +14,6 @@
 package io.trino.sql.ir;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -22,24 +21,10 @@ import javax.annotation.concurrent.Immutable;
 public class NullLiteral
         extends Literal
 {
-    private final String value;
-
-    public NullLiteral()
-    {
-        this("null");
-    }
 
     @JsonCreator
-    public NullLiteral(
-            @JsonProperty("value") String value)
+    public NullLiteral()
     {
-        this.value = value;
-    }
-
-    @JsonProperty
-    public String getValue()
-    {
-        return value;
     }
 
     @Override
