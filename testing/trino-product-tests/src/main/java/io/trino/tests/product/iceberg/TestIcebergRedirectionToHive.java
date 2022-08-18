@@ -240,6 +240,19 @@ public class TestIcebergRedirectionToHive
     }
 
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testCreateOrReplaceTable()
+    {
+        String tableName = "iceberg_create_or_replace_hive_" + randomNameSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+
+        createHiveTable(hiveTableName, false);
+
+        assertQueryFailure(() -> onTrino().executeQuery("CREATE OR REPLACE TABLE " + icebergTableName + " (d integer)"))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table '" + icebergTableName + "' of unsupported type already exists");
+    }
+
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testDropTable()
     {
         String tableName = "iceberg_drop_hive_" + randomNameSuffix();
