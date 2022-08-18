@@ -58,6 +58,7 @@ Property name                                 Description
 ``prometheus.auth.password``                  Password for basic authentication
 ``prometheus.bearer.token.file``              File holding bearer token if needed for access to Prometheus
 ``prometheus.read-timeout``                   How much time a query to Prometheus has before timing out
+``prometheus.case-insensitive-name-matching`` Match Prometheus metric names case insensitively. Defaults to ``false``
 ============================================= ============================================================================================
 
 Not exhausting your Trino available heap
