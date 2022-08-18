@@ -103,7 +103,7 @@ public class SpoolingExchangeDataSource
         // the same input may be delivered multiple times.
         checkState(
                 exchangeInput.getExchangeSourceHandles().equals(exchangeSourceHandles),
-                "split is expected to contain an identical exchangeSourceHandles list: %s != %s",
+                "exchange input is expected to contain an identical exchangeSourceHandles list: %s != %s",
                 exchangeInput.getExchangeSourceHandles(),
                 exchangeSourceHandles);
     }
