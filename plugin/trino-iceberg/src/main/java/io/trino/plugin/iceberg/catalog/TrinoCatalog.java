@@ -95,6 +95,15 @@ public interface TrinoCatalog
             String location,
             Map<String, String> properties);
 
+    Transaction newCreateOrReplaceTableTransaction(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            Schema schema,
+            PartitionSpec partitionSpec,
+            SortOrder sortOrder,
+            String location,
+            Map<String, String> properties);
+
     void registerTable(ConnectorSession session, SchemaTableName tableName, TableMetadata tableMetadata);
 
     void unregisterTable(ConnectorSession session, SchemaTableName tableName);
