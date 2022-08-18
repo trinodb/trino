@@ -32,6 +32,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.MapType;
@@ -43,6 +44,7 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.AppendFiles;
+import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
@@ -96,6 +98,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
+import static org.apache.iceberg.Transactions.createOrReplaceTableTransaction;
 import static org.apache.iceberg.Transactions.createTableTransaction;
 
 public abstract class AbstractTrinoCatalog
@@ -202,6 +205,46 @@ public abstract class AbstractTrinoCatalog
         return createTableTransaction(schemaTableName.toString(), ops, metadata);
     }
 
+    protected Transaction newCreateOrReplaceTableTransaction(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            Schema schema,
+            PartitionSpec partitionSpec,
+            SortOrder sortOrder,
+            String location,
+            Map<String, String> properties,
+            Optional<String> owner)
+    {
+        BaseTable table;
+        Optional<TableMetadata> metadata = Optional.empty();
+        try {
+            table = (BaseTable) loadTable(session, new SchemaTableName(schemaTableName.getSchemaName(), schemaTableName.getTableName()));
+            metadata = Optional.of(table.operations().current());
+        }
+        catch (TableNotFoundException ignored) {
+            // ignored
+        }
+        IcebergTableOperations operations = tableOperationsProvider.createTableOperations(
+                this,
+                session,
+                schemaTableName.getSchemaName(),
+                schemaTableName.getTableName(),
+                owner,
+                Optional.of(location));
+        TableMetadata newMetaData;
+        if (metadata.isPresent()) {
+            operations.initializeFromMetadata(metadata.get());
+            newMetaData = operations.current()
+                    // don't inherit table properties from earlier snapshots
+                    .replaceProperties(properties)
+                    .buildReplacement(schema, partitionSpec, sortOrder, location, properties);
+        }
+        else {
+            newMetaData = newTableMetadata(schema, partitionSpec, sortOrder, location, properties);
+        }
+        return createOrReplaceTableTransaction(schemaTableName.toString(), operations, newMetaData);
+    }
+
     protected String createNewTableName(String baseTableName)
     {
         String tableNameLocationComponent = escapeTableName(baseTableName);
@@ -273,7 +316,7 @@ public abstract class AbstractTrinoCatalog
                 });
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTable, columns, storageTableProperties, Optional.empty());
-        Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session);
+        Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session, false);
         AppendFiles appendFiles = transaction.newAppend();
         commit(appendFiles, session);
         transaction.commitTransaction();
