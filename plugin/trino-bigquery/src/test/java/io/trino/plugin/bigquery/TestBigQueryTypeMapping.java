@@ -15,16 +15,19 @@ package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
+import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TrinoSqlExecutor;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -75,6 +78,8 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip("boolean", "true", BOOLEAN, "true")
                 .addRoundTrip("boolean", "false", BOOLEAN, "false")
                 .addRoundTrip("boolean", "NULL", BOOLEAN, "CAST(NULL AS BOOLEAN)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test.boolean"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test.boolean"))
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.boolean"))
                 .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.boolean"));
     }
@@ -94,6 +99,18 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip("bytes(4001)", "from_hex('68656C6C6F')", VARBINARY, "to_utf8('hello')")
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.bytes"))
                 .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.bytes"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("varbinary", "NULL", VARBINARY, "CAST(NULL AS VARBINARY)")
+                .addRoundTrip("varbinary", "X''", VARBINARY, "X''")
+                .addRoundTrip("varbinary", "X'68656C6C6F'", VARBINARY, "to_utf8('hello')")
+                .addRoundTrip("varbinary", "X'5069C4996B6E6120C582C4856B61207720E69DB1E4BAACE983BD'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip("varbinary", "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰')")
+                .addRoundTrip("varbinary", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
+                .addRoundTrip("varbinary", "X'000000000000'", VARBINARY, "X'000000000000'")
+                .addRoundTrip("varbinary", "X'68656C6C6F'", VARBINARY, "to_utf8('hello')")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test.varbinary"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test.varbinary"));
     }
 
     @Test(dataProvider = "bigqueryIntegerTypeProvider")
@@ -124,6 +141,54 @@ public class TestBigQueryTypeMapping
     }
 
     @Test
+    public void testTinyint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("tinyint", "-128", BIGINT, "BIGINT '-128'")
+                .addRoundTrip("tinyint", "5", BIGINT, "BIGINT '5'")
+                .addRoundTrip("tinyint", "127", BIGINT, "BIGINT '127'")
+                .addRoundTrip("tinyint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test.tinyint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test.tinyint"));
+    }
+
+    @Test
+    public void testSmallint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("smallint", "-32768", BIGINT, "BIGINT '-32768'")
+                .addRoundTrip("smallint", "32456", BIGINT, "BIGINT '32456'")
+                .addRoundTrip("smallint", "32767", BIGINT, "BIGINT '32767'")
+                .addRoundTrip("smallint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test.smallint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test.smallint"));
+    }
+
+    @Test
+    public void testInteger()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("integer", "-2147483648", BIGINT, "BIGINT '-2147483648'")
+                .addRoundTrip("integer", "1234567890", BIGINT, "BIGINT '1234567890'")
+                .addRoundTrip("integer", "2147483647", BIGINT, "BIGINT '2147483647'")
+                .addRoundTrip("integer", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test.integer"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test.integer"));
+    }
+
+    @Test
+    public void testBigint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("bigint", "-9223372036854775808", BIGINT, "-9223372036854775808")
+                .addRoundTrip("bigint", "9223372036854775807", BIGINT, "9223372036854775807")
+                .addRoundTrip("bigint", "0", BIGINT, "CAST(0 AS BIGINT)")
+                .addRoundTrip("bigint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test.bigint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test.bigint"));
+    }
+
+    @Test
     public void testFloat()
     {
         SqlDataTypeTest.create()
@@ -135,6 +200,18 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip("float64", "CAST('-Infinity' AS float64)", DOUBLE, "-infinity()")
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.float"))
                 .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.float"));
+    }
+
+    @Test
+    public void testDouble()
+    {
+        // TODO: Add nan, infinity, -infinity cases. Currently, it fails by IllegalArgumentException without helpful message
+        SqlDataTypeTest.create()
+                .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
+                .addRoundTrip("double", "double '1.0E100'", DOUBLE, "1.0E100")
+                .addRoundTrip("double", "double '123.456E10'", DOUBLE, "123.456E10")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test.double"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test.double"));
     }
 
     @Test
@@ -291,7 +368,9 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'")
                 .addRoundTrip("date", "DATE '9999-12-31'", DATE, "DATE '9999-12-31'") // max value in BigQuery
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.date"))
-                .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.date"));
+                .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.date"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test.date"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test.date"));
     }
 
     @Test
@@ -422,6 +501,17 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip("STRING(4001)", "'text_c'", VARCHAR, "VARCHAR 'text_c'")
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.string"))
                 .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.string"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar", "NULL", VARCHAR, "CAST(NULL AS VARCHAR)")
+                .addRoundTrip("varchar", "'text_a'", VARCHAR, "VARCHAR 'text_a'")
+                .addRoundTrip("varchar", "'攻殻機動隊'", VARCHAR, "VARCHAR '攻殻機動隊'")
+                .addRoundTrip("varchar", "'😂'", VARCHAR, "VARCHAR '😂'")
+                .addRoundTrip("varchar", "'Ну, погоди!'", VARCHAR, "VARCHAR 'Ну, погоди!'")
+                .addRoundTrip("varchar(255)", "'text_b'", VARCHAR, "VARCHAR 'text_b'")
+                .addRoundTrip("varchar(4001)", "'text_c'", VARCHAR, "VARCHAR 'text_c'")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test.varchar"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test.varchar"));
     }
 
     @Test
@@ -474,6 +564,26 @@ public class TestBigQueryTypeMapping
                         "CAST(NULL AS ROW(x BIGINT))")
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.struct"))
                 .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.struct"));
+    }
+
+    private DataSetup trinoCreateAsSelect(String tableNamePrefix)
+    {
+        return trinoCreateAsSelect(getSession(), tableNamePrefix);
+    }
+
+    private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
+    {
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+    }
+
+    private DataSetup trinoCreateAndInsert(String tableNamePrefix)
+    {
+        return trinoCreateAndInsert(getSession(), tableNamePrefix);
+    }
+
+    private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
+    {
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private DataSetup bigqueryCreateAndInsert(String tableNamePrefix)
