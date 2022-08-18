@@ -69,7 +69,7 @@
         <dep.minio.version>7.1.4</dep.minio.version>
         <dep.iceberg.version>0.14.0</dep.iceberg.version>
 
-        <dep.docker.images.version>65</dep.docker.images.version>
+        <dep.docker.images.version>67</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:

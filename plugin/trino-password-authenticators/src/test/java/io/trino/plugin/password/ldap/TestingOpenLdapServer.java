@@ -54,7 +54,7 @@ public class TestingOpenLdapServer
 
     public TestingOpenLdapServer(Network network)
     {
-        openLdapServer = new GenericContainer<>("ghcr.io/trinodb/testing/centos7-oj11-openldap:" + TestingProperties.getDockerImagesVersion())
+        openLdapServer = new GenericContainer<>("ghcr.io/trinodb/testing/centos7-oj17-openldap:" + TestingProperties.getDockerImagesVersion())
                 .withNetwork(network)
                 .withExposedPorts(LDAP_PORT)
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
