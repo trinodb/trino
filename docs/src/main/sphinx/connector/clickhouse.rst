@@ -176,9 +176,10 @@ Type mapping
 ------------
 
 Because Trino and ClickHouse each support types that the other does not, this
-connector modifies some types when reading or writing data. Data types may not
-map the same way in both directions between Trino and the data source. Refer to
-the following sections for type mapping in each direction.
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
 
 ClickHouse type to Trino type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

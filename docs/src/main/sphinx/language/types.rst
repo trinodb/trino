@@ -5,10 +5,33 @@ Data types
 Trino has a set of built-in data types, described below.
 Additional types can be provided by plugins.
 
-.. note::
+.. _type-mapping-overview:
 
-    Connectors are not required to support all types.
-    See connector documentation for details on supported types.
+Trino type support and mapping
+------------------------------
+
+Connectors to data sources are not required to support all Trino data types
+described on this page. If there are data types similar to Trino's that are used
+on the data source, the connector may map the Trino and remote data types to
+each other as needed.
+
+Depending on the connector and the data source, type mapping may apply
+in either direction as follows:
+
+* **Data source to Trino** mapping applies to any operation where columns in the
+  data source are read by Trino, such as a :doc:`/sql/select` statement, and the
+  underlying source data type needs to be represented by a Trino data type.
+
+* **Trino to data source** mapping applies to any operation where the columns
+  or expressions in Trino need to be translated into data types or expressions
+  compatible with the underlying data source. For example,
+  :doc:`/sql/create-table-as` statements specify Trino types that are then
+  mapped to types on the remote data source. Predicates like ``WHERE`` also use
+  these mappings in order to ensure that the predicate is translated to valid
+  syntax on the remote data source.
+
+Data type support and mappings vary depending on the connector. Refer to the
+:doc:`connector documentation </connector>` for more information.
 
 .. _boolean-data-types:
 
