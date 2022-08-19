@@ -13,16 +13,16 @@
  */
 package io.trino.parquet.reader;
 
-import io.trino.parquet.RichColumnDescriptor;
+import io.trino.parquet.PrimitiveField;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 
 public class IntColumnReader
         extends PrimitiveColumnReader
 {
-    public IntColumnReader(RichColumnDescriptor descriptor)
+    public IntColumnReader(PrimitiveField field)
     {
-        super(descriptor);
+        super(field);
     }
 
     @Override

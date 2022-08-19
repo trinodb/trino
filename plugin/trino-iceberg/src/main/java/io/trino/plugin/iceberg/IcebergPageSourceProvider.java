@@ -39,7 +39,6 @@ import io.trino.parquet.Field;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
-import io.trino.parquet.RichColumnDescriptor;
 import io.trino.parquet.predicate.Predicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
@@ -961,7 +960,7 @@ public class IcebergPageSourceProvider
                     .collect(toList());
 
             MessageType requestedSchema = new MessageType(fileSchema.getName(), parquetFields.stream().filter(Objects::nonNull).collect(toImmutableList()));
-            Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
+            Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
             TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate);
             Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, UTC);
 
@@ -985,21 +984,12 @@ public class IcebergPageSourceProvider
             }
 
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
-            ParquetReader parquetReader = new ParquetReader(
-                    Optional.ofNullable(fileMetaData.getCreatedBy()),
-                    messageColumnIO,
-                    blocks,
-                    blockStarts.build(),
-                    dataSource,
-                    UTC,
-                    memoryContext,
-                    options);
 
             ConstantPopulatingPageSource.Builder constantPopulatingPageSourceBuilder = ConstantPopulatingPageSource.builder();
             int parquetSourceChannel = 0;
 
             ImmutableList.Builder<Type> trinoTypes = ImmutableList.builder();
-            ImmutableList.Builder<Optional<Field>> internalFields = ImmutableList.builder();
+            ImmutableList.Builder<Optional<Field>> internalFieldsBuilder = ImmutableList.builder();
             ImmutableList.Builder<Boolean> rowIndexChannels = ImmutableList.builder();
             for (int columnIndex = 0; columnIndex < readColumns.size(); columnIndex++) {
                 IcebergColumnHandle column = readColumns.get(columnIndex);
@@ -1021,14 +1011,14 @@ public class IcebergPageSourceProvider
                 else if (column.isUpdateRowIdColumn() || column.isMergeRowIdColumn()) {
                     // $row_id is a composite of multiple physical columns, it is assembled by the IcebergPageSource
                     trinoTypes.add(column.getType());
-                    internalFields.add(Optional.empty());
+                    internalFieldsBuilder.add(Optional.empty());
                     rowIndexChannels.add(false);
                     constantPopulatingPageSourceBuilder.addDelegateColumn(parquetSourceChannel);
                     parquetSourceChannel++;
                 }
                 else if (column.isRowPositionColumn()) {
                     trinoTypes.add(BIGINT);
-                    internalFields.add(Optional.empty());
+                    internalFieldsBuilder.add(Optional.empty());
                     rowIndexChannels.add(true);
                     constantPopulatingPageSourceBuilder.addDelegateColumn(parquetSourceChannel);
                     parquetSourceChannel++;
@@ -1046,12 +1036,12 @@ public class IcebergPageSourceProvider
                     trinoTypes.add(trinoType);
 
                     if (parquetField == null) {
-                        internalFields.add(Optional.empty());
+                        internalFieldsBuilder.add(Optional.empty());
                     }
                     else {
                         // The top level columns are already mapped by name/id appropriately.
                         ColumnIO columnIO = messageColumnIO.getChild(parquetField.getName());
-                        internalFields.add(IcebergParquetColumnIOConverter.constructField(new FieldContext(trinoType, column.getColumnIdentity()), columnIO));
+                        internalFieldsBuilder.add(IcebergParquetColumnIOConverter.constructField(new FieldContext(trinoType, column.getColumnIdentity()), columnIO));
                     }
 
                     constantPopulatingPageSourceBuilder.addDelegateColumn(parquetSourceChannel);
@@ -1059,9 +1049,20 @@ public class IcebergPageSourceProvider
                 }
             }
 
+            List<Optional<Field>> internalFields = internalFieldsBuilder.build();
+            ParquetReader parquetReader = new ParquetReader(
+                    Optional.ofNullable(fileMetaData.getCreatedBy()),
+                    internalFields,
+                    blocks,
+                    blockStarts.build(),
+                    dataSource,
+                    UTC,
+                    memoryContext,
+                    options);
+
             return new ReaderPageSourceWithRowPositions(
                     new ReaderPageSource(
-                            constantPopulatingPageSourceBuilder.build(new ParquetPageSource(parquetReader, trinoTypes.build(), rowIndexChannels.build(), internalFields.build())),
+                            constantPopulatingPageSourceBuilder.build(new ParquetPageSource(parquetReader, trinoTypes.build(), rowIndexChannels.build(), internalFields)),
                             columnProjections),
                     startRowPosition,
                     endRowPosition);
@@ -1329,7 +1330,7 @@ public class IcebergPageSourceProvider
         return Optional.of(new ReaderColumns(projectedColumns.build(), outputColumnMapping.build()));
     }
 
-    private static TupleDomain<ColumnDescriptor> getParquetTupleDomain(Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<IcebergColumnHandle> effectivePredicate)
+    private static TupleDomain<ColumnDescriptor> getParquetTupleDomain(Map<List<String>, ColumnDescriptor> descriptorsByPath, TupleDomain<IcebergColumnHandle> effectivePredicate)
     {
         if (effectivePredicate.isNone()) {
             return TupleDomain.none();
@@ -1340,7 +1341,7 @@ public class IcebergPageSourceProvider
             String baseType = columnHandle.getType().getTypeSignature().getBase();
             // skip looking up predicates for complex types as Parquet only stores stats for primitives
             if (!baseType.equals(StandardTypes.MAP) && !baseType.equals(StandardTypes.ARRAY) && !baseType.equals(StandardTypes.ROW)) {
-                RichColumnDescriptor descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
+                ColumnDescriptor descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
                 if (descriptor != null) {
                     predicate.put(descriptor, domain);
                 }

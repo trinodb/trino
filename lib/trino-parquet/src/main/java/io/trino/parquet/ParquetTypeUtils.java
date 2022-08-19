@@ -14,6 +14,7 @@
 package io.trino.parquet;
 
 import io.trino.spi.type.DecimalType;
+import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.ColumnIOFactory;
@@ -94,19 +95,19 @@ public final class ParquetTypeUtils
         return columnIO;
     }
 
-    public static Map<List<String>, RichColumnDescriptor> getDescriptors(MessageType fileSchema, MessageType requestedSchema)
+    public static Map<List<String>, ColumnDescriptor> getDescriptors(MessageType fileSchema, MessageType requestedSchema)
     {
-        Map<List<String>, RichColumnDescriptor> descriptorsByPath = new HashMap<>();
+        Map<List<String>, ColumnDescriptor> descriptorsByPath = new HashMap<>();
         List<PrimitiveColumnIO> columns = getColumns(fileSchema, requestedSchema);
         for (String[] paths : fileSchema.getPaths()) {
             List<String> columnPath = Arrays.asList(paths);
             getDescriptor(columns, columnPath)
-                    .ifPresent(richColumnDescriptor -> descriptorsByPath.put(columnPath, richColumnDescriptor));
+                    .ifPresent(columnDescriptor -> descriptorsByPath.put(columnPath, columnDescriptor));
         }
         return descriptorsByPath;
     }
 
-    public static Optional<RichColumnDescriptor> getDescriptor(List<PrimitiveColumnIO> columns, List<String> path)
+    public static Optional<ColumnDescriptor> getDescriptor(List<PrimitiveColumnIO> columns, List<String> path)
     {
         checkArgument(path.size() >= 1, "Parquet nested path should have at least one component");
         int index = getPathIndex(columns, path);
@@ -114,7 +115,7 @@ public final class ParquetTypeUtils
             return Optional.empty();
         }
         PrimitiveColumnIO columnIO = columns.get(index);
-        return Optional.of(new RichColumnDescriptor(columnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType()));
+        return Optional.of(columnIO.getColumnDescriptor());
     }
 
     private static int getPathIndex(List<PrimitiveColumnIO> columns, List<String> path)
@@ -218,12 +219,11 @@ public final class ParquetTypeUtils
         return null;
     }
 
-    public static Optional<DecimalType> createDecimalType(RichColumnDescriptor descriptor)
+    public static Optional<DecimalType> createDecimalType(PrimitiveField field)
     {
-        if (!(descriptor.getPrimitiveType().getLogicalTypeAnnotation() instanceof DecimalLogicalTypeAnnotation)) {
+        if (!(field.getDescriptor().getPrimitiveType().getLogicalTypeAnnotation() instanceof DecimalLogicalTypeAnnotation decimalLogicalType)) {
             return Optional.empty();
         }
-        DecimalLogicalTypeAnnotation decimalLogicalType = (DecimalLogicalTypeAnnotation) descriptor.getPrimitiveType().getLogicalTypeAnnotation();
         return Optional.of(DecimalType.createDecimalType(decimalLogicalType.getPrecision(), decimalLogicalType.getScale()));
     }
 

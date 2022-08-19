@@ -545,8 +545,7 @@ public class TestTupleDomainParquetPredicate
             throws ParquetCorruptionException
     {
         String value = "Test";
-        ColumnDescriptor columnDescriptor = createColumnDescriptor(BINARY, "VarcharColumn");
-        RichColumnDescriptor column = new RichColumnDescriptor(columnDescriptor, new PrimitiveType(OPTIONAL, BINARY, "Test column"));
+        ColumnDescriptor column = createColumnDescriptor(BINARY, "VarcharColumn");
         TupleDomain<ColumnDescriptor> effectivePredicate = getEffectivePredicate(column, createVarcharType(255), utf8Slice(value));
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
         PrimitiveType type = column.getPrimitiveType();
@@ -562,9 +561,7 @@ public class TestTupleDomainParquetPredicate
     public void testIntegerMatchesWithStatistics(Type typeForParquetInt32)
             throws ParquetCorruptionException
     {
-        RichColumnDescriptor column = new RichColumnDescriptor(
-                createColumnDescriptor(INT32, "Test column"),
-                new PrimitiveType(OPTIONAL, INT32, "Test column"));
+        ColumnDescriptor column = createColumnDescriptor(INT32, "Test column");
         TupleDomain<ColumnDescriptor> effectivePredicate = TupleDomain.withColumnDomains(ImmutableMap.of(
                 column,
                 Domain.create(ValueSet.of(typeForParquetInt32, 42L, 43L, 44L, 112L), false)));
@@ -589,9 +586,7 @@ public class TestTupleDomainParquetPredicate
     public void testBigintMatchesWithStatistics()
             throws ParquetCorruptionException
     {
-        RichColumnDescriptor column = new RichColumnDescriptor(
-                new ColumnDescriptor(new String[] {"path"}, Types.optional(INT64).named("Test column"), 0, 0),
-                new PrimitiveType(OPTIONAL, INT64, "Test column"));
+        ColumnDescriptor column = new ColumnDescriptor(new String[] {"path"}, Types.optional(INT64).named("Test column"), 0, 0);
         TupleDomain<ColumnDescriptor> effectivePredicate = TupleDomain.withColumnDomains(ImmutableMap.of(
                 column,
                 Domain.create(ValueSet.of(BIGINT, 42L, 43L, 44L, 404L), false)));
@@ -605,8 +600,7 @@ public class TestTupleDomainParquetPredicate
     @Test
     public void testVarcharMatchesWithDictionaryDescriptor()
     {
-        ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {"path"}, Types.optional(BINARY).named("Test column"), 0, 0);
-        RichColumnDescriptor column = new RichColumnDescriptor(columnDescriptor, new PrimitiveType(OPTIONAL, BINARY, "Test column"));
+        ColumnDescriptor column = new ColumnDescriptor(new String[] {"path"}, Types.optional(BINARY).named("Test column"), 0, 0);
         TupleDomain<ColumnDescriptor> effectivePredicate = getEffectivePredicate(column, createVarcharType(255), EMPTY_SLICE);
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
         DictionaryPage page = new DictionaryPage(Slices.wrappedBuffer(new byte[] {0, 0, 0, 0}), 1, PLAIN_DICTIONARY);
@@ -616,8 +610,7 @@ public class TestTupleDomainParquetPredicate
     @Test
     public void testEmptyDictionary()
     {
-        ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {"path"}, Types.optional(BINARY).named("Test column"), 0, 0);
-        RichColumnDescriptor column = new RichColumnDescriptor(columnDescriptor, new PrimitiveType(OPTIONAL, BINARY, "Test column"));
+        ColumnDescriptor column = new ColumnDescriptor(new String[] {"path"}, Types.optional(BINARY).named("Test column"), 0, 0);
         ColumnDescriptor descriptor = new ColumnDescriptor(column.getPath(), column.getPrimitiveType(), 0, 0);
         VarcharType type = createVarcharType(255);
 
@@ -657,8 +650,7 @@ public class TestTupleDomainParquetPredicate
                 asList(1L, 2L, 3L, 4L, 5L, 6L),
                 toByteBufferList(null, 2L, null, 4L, null, 9L),
                 toByteBufferList(null, 3L, null, 15L, null, 10L));
-        ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {"path"}, Types.optional(INT64).named("Test column"), 0, 0);
-        RichColumnDescriptor column = new RichColumnDescriptor(columnDescriptor, new PrimitiveType(OPTIONAL, INT64, "Test column"));
+        ColumnDescriptor column = new ColumnDescriptor(new String[] {"path"}, Types.optional(INT64).named("Test column"), 0, 0);
         assertThat(getDomain(BIGINT, 200, columnIndex, new ParquetDataSourceId("test"), column, UTC))
                 .isEqualTo(Domain.create(
                         ValueSet.ofRanges(
@@ -673,7 +665,7 @@ public class TestTupleDomainParquetPredicate
         return new ColumnDescriptor(new String[]{}, new PrimitiveType(REQUIRED, typeName, columnName), 0, 0);
     }
 
-    private TupleDomain<ColumnDescriptor> getEffectivePredicate(RichColumnDescriptor column, VarcharType type, Slice value)
+    private TupleDomain<ColumnDescriptor> getEffectivePredicate(ColumnDescriptor column, VarcharType type, Slice value)
     {
         ColumnDescriptor predicateColumn = new ColumnDescriptor(column.getPath(), column.getPrimitiveType(), 0, 0);
         Domain predicateDomain = singleValue(type, value);
