@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.base.authentication;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 
 import javax.security.auth.kerberos.KerberosPrincipal;
@@ -26,9 +27,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 import static java.nio.file.Files.exists;
 import static java.nio.file.Files.isReadable;
 import static java.util.Locale.ENGLISH;
@@ -38,7 +40,7 @@ public record KerberosConfiguration(KerberosPrincipal kerberosPrincipal, Map<Str
 {
     private static final String KERBEROS_LOGIN_MODULE = "com.sun.security.auth.module.Krb5LoginModule";
 
-    private static final String HOSTNAME_PATTERN = "_HOST";
+    private static final Pattern PRINCIPAL_NAME_PATTERN = Pattern.compile("(.*/)_HOST(@.*)?");
 
     public KerberosConfiguration
     {
@@ -114,13 +116,14 @@ public record KerberosConfiguration(KerberosPrincipal kerberosPrincipal, Map<Str
             }
         }
 
-        private static String getServerPrincipal(String principal, String hostname)
+        @VisibleForTesting
+        static String getServerPrincipal(String principal, String hostname)
         {
-            String[] components = principal.split("[/@]");
-            if (components.length != 3 || !components[1].equals(HOSTNAME_PATTERN)) {
-                return principal;
+            Matcher matcher = PRINCIPAL_NAME_PATTERN.matcher(principal);
+            if (matcher.matches()) {
+                return matcher.replaceAll("$1" + hostname.toLowerCase(ENGLISH) + "$2");
             }
-            return format("%s/%s@%s", components[0], hostname.toLowerCase(ENGLISH), components[2]);
+            return principal;
         }
 
         private static void verifyFile(String fileLocation)
