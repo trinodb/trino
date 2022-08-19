@@ -79,8 +79,9 @@ public class TestSpiBackwardCompatibility
 
     private static Set<String> getBackwardIncompatibleChanges()
     {
-        String version = new ConnectorContext() {}.getSpiVersion().replace("-SNAPSHOT", "");
-        return BACKWARD_INCOMPATIBLE_CHANGES.get(version);
+        String majorVersion = new ConnectorContext() {}.getSpiVersion()
+                .replaceAll("^(\\d+).*$", "$1");
+        return BACKWARD_INCOMPATIBLE_CHANGES.get(majorVersion);
     }
 
     private static Set<String> getCurrentSpi()
