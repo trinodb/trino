@@ -388,9 +388,7 @@ public class BigQueryMetadata
     public void dropSchema(ConnectorSession session, String schemaName)
     {
         BigQueryClient client = bigQueryClientFactory.create(session);
-        String remoteSchemaName = client.toRemoteDataset(getProjectId(client), schemaName)
-                .map(RemoteDatabaseObject::getOnlyRemoteName)
-                .orElseThrow(() -> new SchemaNotFoundException(schemaName));
+        String remoteSchemaName = getRemoteSchemaName(client, getProjectId(client), schemaName);
         client.dropSchema(DatasetId.of(remoteSchemaName));
     }
 
@@ -509,6 +507,13 @@ public class BigQueryMetadata
                 .collect(toImmutableList());
 
         return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
+    }
+
+    private String getRemoteSchemaName(BigQueryClient client, String projectId, String datasetName)
+    {
+        return client.toRemoteDataset(projectId, datasetName)
+                .map(RemoteDatabaseObject::getOnlyRemoteName)
+                .orElseThrow(() -> new SchemaNotFoundException(datasetName));
     }
 
     private static boolean containSameElements(Iterable<? extends ColumnHandle> first, Iterable<? extends ColumnHandle> second)
