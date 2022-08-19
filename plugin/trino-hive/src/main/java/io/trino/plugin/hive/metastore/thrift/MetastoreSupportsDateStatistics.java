@@ -24,8 +24,10 @@ import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatist
 import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.UNKNOWN;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+// Needs to be public to allow for creating
+// `io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreClient`
 @ThreadSafe
-class MetastoreSupportsDateStatistics
+public class MetastoreSupportsDateStatistics
 {
     private static final int MAX_SET_DATE_STATISTICS_ATTEMPTS = 100;
 
