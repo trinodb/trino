@@ -214,9 +214,7 @@ public class TestMockConnector
         assertQuery("SELECT count(*) FROM mock.default.nation WHERE name = 'ALGERIA'", "SELECT 1");
         assertUpdate("UPDATE mock.default.nation SET name = 'ALGERIA'", 25);
         assertUpdate("UPDATE mock.default.nation SET name = 'ALGERIA' WHERE nationkey = 1", 1);
-        assertThatThrownBy(() -> assertUpdate("UPDATE mock.default.nation SET name = 'x' WHERE false", 0))
-                // TODO https://github.com/trinodb/trino/issues/8855 - UPDATE with WHERE false currently is not supported
-                .hasMessage("Invalid descendant for DeleteNode or UpdateNode: io.trino.sql.planner.plan.ExchangeNode");
+        assertUpdate("UPDATE mock.default.nation SET name = 'x' WHERE false", 0);
         // Mock connector only pretends support for UPDATE, it does not manipulate any data
         assertQuery("SELECT count(*) FROM mock.default.nation WHERE name = 'ALGERIA'", "SELECT 1");
     }
