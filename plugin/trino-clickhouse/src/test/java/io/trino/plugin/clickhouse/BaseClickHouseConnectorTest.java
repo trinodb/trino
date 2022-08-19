@@ -200,6 +200,20 @@ public abstract class BaseClickHouseConnectorTest
         }
     }
 
+    @Override
+    public void testAlterTableAddLongColumnName()
+    {
+        // TODO: Find the maximum column name length in ClickHouse and enable this test.
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    public void testAlterTableRenameColumnToLongName()
+    {
+        // TODO: Find the maximum column name length in ClickHouse and enable this test.
+        throw new SkipException("TODO");
+    }
+
     @Test
     @Override
     public void testShowCreateTable()

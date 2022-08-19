@@ -1030,6 +1030,17 @@ public class PostgreSqlClient
         }
     }
 
+    @Override
+    protected void verifyColumnName(DatabaseMetaData databaseMetadata, String columnName)
+            throws SQLException
+    {
+        // PostgreSQL truncates table name to 63 chars silently
+        // PostgreSQL driver caches the max column name length in a DatabaseMetaData object. The cost to call this method per column is low.
+        if (columnName.length() > databaseMetadata.getMaxColumnNameLength()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Column name must be shorter than or equal to '%s' characters but got '%s': '%s'", databaseMetadata.getMaxColumnNameLength(), columnName.length(), columnName));
+        }
+    }
+
     private static ColumnMapping charColumnMapping(int charLength)
     {
         if (charLength > CharType.MAX_LENGTH) {

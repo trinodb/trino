@@ -139,6 +139,15 @@ public class TestPhoenixConnectorTest
     }
 
     @Override
+    public void testAlterTableRenameColumnToLongName()
+    {
+        assertThatThrownBy(super::testAlterTableRenameColumnToLongName)
+                // TODO (https://github.com/trinodb/trino/issues/7205) support column rename in Phoenix
+                .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
+        throw new SkipException("Rename column is not yet supported by Phoenix connector");
+    }
+
+    @Override
     public void testInsert()
     {
         String query = "SELECT orderdate, orderkey, totalprice FROM orders";
@@ -677,6 +686,20 @@ public class TestPhoenixConnectorTest
         // TODO: Find the maximum table name length in Phoenix and enable this test.
         // Table name length with 65536 chars throws "startRow's length must be less than or equal to 32767 to meet the criteria for a row key."
         // 32767 chars still causes the same error and shorter names (e.g. 10000) causes timeout.
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    public void testCreateTableWithLongColumnName()
+    {
+        // TODO: Find the maximum column name length in Phoenix and enable this test.
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    public void testAlterTableAddLongColumnName()
+    {
+        // TODO: Find the maximum column name length in Phoenix and enable this test.
         throw new SkipException("TODO");
     }
 

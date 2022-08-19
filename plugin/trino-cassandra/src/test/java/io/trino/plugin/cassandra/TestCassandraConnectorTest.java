@@ -554,6 +554,15 @@ public class TestCassandraConnectorTest
         execute("DROP TABLE test_create_table");
     }
 
+    @Override
+    public void testCreateTableWithLongColumnName()
+    {
+        // TODO: Find the maximum column name length in Cassandra and enable this test.
+        assertThatThrownBy(super::testCreateTableWithLongColumnName)
+                .hasMessageMatching(".* Mutation of .* bytes is too large.*");
+        throw new SkipException("TODO");
+    }
+
     @Test
     public void testCreateTableAs()
     {

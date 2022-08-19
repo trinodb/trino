@@ -408,6 +408,12 @@ public abstract class BaseMySqlConnectorTest
     }
 
     @Override
+    protected OptionalInt maxColumnNameLength()
+    {
+        return OptionalInt.of(64);
+    }
+
+    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return mySqlServer::execute;

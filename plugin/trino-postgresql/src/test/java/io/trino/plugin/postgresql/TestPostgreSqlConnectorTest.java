@@ -1016,4 +1016,16 @@ public class TestPostgreSqlConnectorTest
     {
         assertThat(e).hasMessage("Table name must be shorter than or equal to '63' characters but got '64'");
     }
+
+    @Override
+    protected OptionalInt maxColumnNameLength()
+    {
+        return OptionalInt.of(63);
+    }
+
+    @Override
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("Column name must be shorter than or equal to '63' characters but got '64': '.*'");
+    }
 }

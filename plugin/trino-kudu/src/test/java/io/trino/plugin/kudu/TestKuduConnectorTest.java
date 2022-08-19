@@ -419,6 +419,32 @@ public class TestKuduConnectorTest
     }
 
     @Override
+    public void testCreateTableWithLongColumnName()
+    {
+        // Overridden because DDL in base class can't create Kudu table due to lack of primary key and required table properties
+        String tableName = "test_long_column" + randomTableSuffix();
+        String basColumnName = "col";
+
+        int maxLength = maxColumnNameLength().orElseThrow();
+
+        String validColumnName = basColumnName + "z".repeat(maxLength - basColumnName.length());
+        assertUpdate("CREATE TABLE " + tableName + " (" +
+                "id INT WITH (primary_key=true)," +
+                validColumnName + " bigint)" +
+                "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)");
+        assertTrue(columnExists(tableName, validColumnName));
+        assertUpdate("DROP TABLE " + tableName);
+
+        String invalidColumnName = validColumnName + "z";
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + tableName + " (" +
+                "id INT WITH (primary_key=true)," +
+                invalidColumnName + " bigint)" +
+                "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)"))
+                .satisfies(this::verifyColumnNameLengthFailurePermissible);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Override
     public void testCreateTableWithColumnComment()
     {
         // TODO https://github.com/trinodb/trino/issues/12469 Support column comment when creating tables
@@ -690,6 +716,18 @@ public class TestKuduConnectorTest
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageContaining("invalid table name: identifier");
+    }
+
+    @Override
+    protected OptionalInt maxColumnNameLength()
+    {
+        return OptionalInt.of(256);
+    }
+
+    @Override
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("invalid column name: identifier");
     }
 
     private void assertTableProperty(String tableProperties, String key, String regexValue)

@@ -353,4 +353,16 @@ public abstract class BaseMariaDbConnectorTest
     {
         assertThat(e).hasMessageContaining("Incorrect table name");
     }
+
+    @Override
+    protected OptionalInt maxColumnNameLength()
+    {
+        return OptionalInt.of(64);
+    }
+
+    @Override
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("(.*Identifier name '.*' is too long|.*Incorrect column name.*)");
+    }
 }
