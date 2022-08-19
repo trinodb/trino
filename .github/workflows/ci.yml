@@ -21,6 +21,7 @@ env:
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_INSTALL_OPTS: "-Xmx3G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T C1 -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all"
+  MAVEN_COMPILE_COMMITS: "-B --strict-checksums --quiet -T C1 -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress -pl '!:trino-server-rpm'"
   MAVEN_GIB: "-P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
   MAVEN_TEST: "-B --strict-checksums -Dmaven.source.skip=true -Dair.check.skip-all --fail-at-end -P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
   RETRY: .github/bin/retry
@@ -83,11 +84,39 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # checkout all commits to be able to determine merge base
+          ref: ${{ github.event.pull_request.head.sha }} # checkout PR HEAD commit instead of merge commit
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: 17
+          cache: 'maven'
+      - name: Fetch base ref to find merge-base for GIB
+        run: .github/bin/git-fetch-base-ref.sh
       - name: Check Commits
         uses: trinodb/github-actions/block-commits@c2991972560c5219d9ae5fb68c0c9d687ffcdd10
         with:
           action-merge: fail
           action-fixup: none
+      - name: Check if all intermediate commits of this PR compile
+        run: |
+          set -x
+          # Fake identity to tag rebased commits with.
+          # These commits will be discarded, but the important part is that `git rebase` executes commands between all commits. 
+          git config user.name "Compile all commits builder"
+          git config user.email "compile-all-commits@trino.io"
+          # Show the entire PR branch and the base ref all the way to the fork point.
+          # This shows some context on the state of the repo and shows commit hashes without having to scroll through entire repo history.
+          git log --oneline --decorate=full --graph "$( git merge-base HEAD refs/remotes/origin/${{ github.event.pull_request.base.ref }} )~..refs/remotes/origin/${{ github.event.pull_request.base.ref }}" HEAD
+          # We can skip compiling the top commit since it's already being compiled and tested in other jobs.
+          git checkout HEAD~
+          # If the PR branch contains only 1 commit, checkout will move HEAD to a commit already on the base branch, and the rebase doesn't do anything.
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          git rebase --verbose --exec "$MAVEN package ${MAVEN_COMPILE_COMMITS} ${MAVEN_GIB} || (git status && false)" $( git merge-base HEAD refs/remotes/origin/${{ github.event.pull_request.base.ref }} )
+      # The local repo is broken at this point, and should be abandoned
+      - name: Clean local Maven repo
+        run: rm -rf ~/.m2/repository
 
   error-prone-checks:
     runs-on: ubuntu-latest
