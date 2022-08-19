@@ -2171,6 +2171,114 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testCreateTableWithLongColumnName()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        String tableName = "test_long_column" + randomTableSuffix();
+        String basColumnName = "col";
+
+        int maxLength = maxColumnNameLength()
+                // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
+                .orElse(65536 + 5);
+
+        String validColumnName = basColumnName + "z".repeat(maxLength - basColumnName.length());
+        assertUpdate("CREATE TABLE " + tableName + " (" + validColumnName + " bigint)");
+        assertTrue(columnExists(tableName, validColumnName));
+        assertUpdate("DROP TABLE " + tableName);
+
+        if (maxColumnNameLength().isEmpty()) {
+            return;
+        }
+
+        String invalidColumnName = validColumnName + "z";
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + tableName + " (" + invalidColumnName + " bigint)"))
+                .satisfies(this::verifyColumnNameLengthFailurePermissible);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    // TODO: Add test for CREATE TABLE AS SELECT with long column name
+
+    @Test
+    public void testAlterTableAddLongColumnName()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN));
+
+        String tableName = "test_long_column" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
+
+        String basColumnName = "col";
+        int maxLength = maxColumnNameLength()
+                // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
+                .orElse(65536 + 5);
+
+        String validTargetColumnName = basColumnName + "z".repeat(maxLength - basColumnName.length());
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN " + validTargetColumnName + " int");
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertQuery("SELECT x FROM " + tableName, "VALUES 123");
+        assertUpdate("DROP TABLE " + tableName);
+
+        if (maxColumnNameLength().isEmpty()) {
+            return;
+        }
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
+        String invalidTargetColumnName = validTargetColumnName + "z";
+        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN " + invalidTargetColumnName + " int"))
+                .satisfies(this::verifyColumnNameLengthFailurePermissible);
+        assertQuery("SELECT x FROM " + tableName, "VALUES 123");
+    }
+
+    @Test
+    public void testAlterTableRenameColumnToLongName()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_RENAME_COLUMN));
+
+        String tableName = "test_long_column" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
+
+        String baseColumnName = "col";
+        int maxLength = maxColumnNameLength()
+                // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
+                .orElse(65536 + 5);
+
+        String validTargetColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN x TO " + validTargetColumnName);
+        assertQuery("SELECT " + validTargetColumnName + " FROM " + tableName, "VALUES 123");
+        assertUpdate("DROP TABLE " + tableName);
+
+        if (maxColumnNameLength().isEmpty()) {
+            return;
+        }
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
+        String invalidTargetTableName = validTargetColumnName + "z";
+        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN x TO " + invalidTargetTableName))
+                .satisfies(this::verifyColumnNameLengthFailurePermissible);
+        assertQuery("SELECT x FROM " + tableName, "VALUES 123");
+    }
+
+    protected boolean columnExists(String tableName, String columnName)
+    {
+        MaterializedResult materializedResult = computeActual(format(
+                "SELECT 1 FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s' AND column_name = '%s'",
+                getSession().getSchema().orElseThrow(),
+                tableName,
+                columnName));
+        return materializedResult.getRowCount() == 1;
+    }
+
+    protected OptionalInt maxColumnNameLength()
+    {
+        return OptionalInt.empty();
+    }
+
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
+        throw new AssertionError("Unexpected column name length failure", e);
+    }
+
+    @Test
     public void testCreateTableWithTableComment()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));

@@ -585,6 +585,18 @@ public abstract class BaseSqlServerConnectorTest
         assertThat(e).hasMessageMatching("(The identifier that starts with '.*' is too long. Maximum length is 128.|Table name must be shorter than or equal to '128' characters but got '129')");
     }
 
+    @Override
+    protected OptionalInt maxColumnNameLength()
+    {
+        return OptionalInt.of(128);
+    }
+
+    @Override
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("Column name must be shorter than or equal to '128' characters but got '129': '.*'");
+    }
+
     private String getLongInClause(int start, int length)
     {
         String longValues = range(start, start + length)

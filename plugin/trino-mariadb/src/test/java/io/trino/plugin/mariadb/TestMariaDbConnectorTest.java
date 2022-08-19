@@ -43,4 +43,11 @@ public class TestMariaDbConnectorTest
         assertThatThrownBy(super::testRenameColumn)
                 .hasMessageContaining("Rename column not supported for the MariaDB server version");
     }
+
+    @Override
+    public void testAlterTableRenameColumnToLongName()
+    {
+        assertThatThrownBy(super::testAlterTableRenameColumnToLongName)
+                .hasMessageContaining("Rename column not supported for the MariaDB server version");
+    }
 }
