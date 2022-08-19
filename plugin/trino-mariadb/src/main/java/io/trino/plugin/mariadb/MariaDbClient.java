@@ -150,6 +150,9 @@ public class MariaDbClient
     // An empty character means that the table doesn't have a comment in MariaDB
     private static final String NO_COMMENT = "";
 
+    // MariaDB Error Codes https://mariadb.com/kb/en/mariadb-error-codes/
+    private static final int PARSE_ERROR = 1064;
+
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
 
     @Inject
@@ -457,7 +460,8 @@ public class MariaDbClient
             execute(connection, sql);
         }
         catch (TrinoException e) {
-            if (e.getCause() instanceof SQLSyntaxErrorException) {
+            // Note: SQLSyntaxErrorException can be thrown also when column name is invalid
+            if (e.getCause() instanceof SQLSyntaxErrorException syntaxError && syntaxError.getErrorCode() == PARSE_ERROR) {
                 throw new TrinoException(NOT_SUPPORTED, "Rename column not supported for the MariaDB server version", e);
             }
             throw e;
