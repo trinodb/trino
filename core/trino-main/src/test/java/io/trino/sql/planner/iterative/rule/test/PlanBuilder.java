@@ -701,6 +701,34 @@ public class PlanBuilder
                 Optional.empty());
     }
 
+    public TableFinishNode tableWithExchangeUpdate(SchemaTableName schemaTableName, PlanNode updateSource, Symbol updateRowId, List<Symbol> columnsToBeUpdated)
+    {
+        UpdateTarget updateTarget = updateTarget(
+                schemaTableName,
+                columnsToBeUpdated.stream()
+                        .map(Symbol::getName)
+                        .collect(toImmutableList()));
+        return new TableFinishNode(
+                idAllocator.getNextId(),
+                exchange(e -> e
+                        .addSource(new UpdateNode(
+                                idAllocator.getNextId(),
+                                updateSource,
+                                updateTarget,
+                                updateRowId,
+                                ImmutableList.<Symbol>builder()
+                                        .addAll(columnsToBeUpdated)
+                                        .add(updateRowId)
+                                        .build(),
+                                ImmutableList.of(updateRowId)))
+                        .addInputsSet(updateRowId)
+                        .singleDistributionPartitioningScheme(updateRowId)),
+                updateTarget,
+                updateRowId,
+                Optional.empty(),
+                Optional.empty());
+    }
+
     public TableFinishNode tableWithExchangeCreate(WriterTarget target, PlanNode source, Symbol rowCountSymbol, PartitioningScheme partitioningScheme)
     {
         return new TableFinishNode(

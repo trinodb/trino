@@ -21,19 +21,34 @@ import io.trino.plugin.tpch.TpchTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.BigintType;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import static io.trino.sql.planner.iterative.rule.RemoveEmptyUpdateRuleSet.remoteEmptyUpdateRule;
+import static io.trino.sql.planner.iterative.rule.RemoveEmptyUpdateRuleSet.removeEmptyUpdateWithExchangeRule;
+import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 
-public class TestRemoveEmptyUpdate
+public class TestRemoveEmptyUpdateRuleSet
         extends BaseRuleTest
 {
-    @Test
-    public void testRuleDoesNotFireOnTableScan()
+    @Test(dataProvider = "rules")
+    public void testRuleDoesNotFireOnTableScan(Rule<?> rule)
     {
-        tester().assertThat(new RemoveEmptyUpdate())
+        tester().assertThat(rule)
                 .on(p -> p.tableUpdate(
+                        new SchemaTableName("sch", "tab"),
+                        p.tableScan(
+                                new TableHandle(TEST_CATALOG_HANDLE, new TpchTableHandle("sf1", "nation", 1.0), TpchTransactionHandle.INSTANCE),
+                                ImmutableList.of(),
+                                ImmutableMap.of()),
+                        p.symbol("a", BigintType.BIGINT),
+                        ImmutableList.of(p.symbol("a", BigintType.BIGINT))))
+                .doesNotFire();
+        tester().assertThat(rule)
+                .on(p -> p.tableWithExchangeUpdate(
                         new SchemaTableName("sch", "tab"),
                         p.tableScan(
                                 new TableHandle(TEST_CATALOG_HANDLE, new TpchTableHandle("sf1", "nation", 1.0), TpchTransactionHandle.INSTANCE),
@@ -47,7 +62,7 @@ public class TestRemoveEmptyUpdate
     @Test
     public void testRuleFiresWhenAppliedOnEmptyValuesNode()
     {
-        tester().assertThat(new RemoveEmptyUpdate())
+        tester().assertThat(remoteEmptyUpdateRule())
                 .on(p -> p.tableUpdate(
                         new SchemaTableName("sch", "tab"),
                         p.values(),
@@ -55,5 +70,25 @@ public class TestRemoveEmptyUpdate
                         ImmutableList.of(p.symbol("a", BigintType.BIGINT))))
                 .matches(
                         PlanMatchPattern.values(ImmutableMap.of("a", 0)));
+    }
+
+    @Test
+    public void testExchangeRuleFiresWhenAppliedOnEmptyValuesNode()
+    {
+        tester().assertThat(removeEmptyUpdateWithExchangeRule())
+                .on(p -> p.tableWithExchangeUpdate(
+                        new SchemaTableName("sch", "tab"),
+                        p.values(),
+                        p.symbol("a", BigintType.BIGINT),
+                        ImmutableList.of(p.symbol("a", BigintType.BIGINT))))
+                .matches(
+                        PlanMatchPattern.values(ImmutableMap.of("a", 0)));
+    }
+
+    @DataProvider
+    public static Object[][] rules()
+    {
+        return RemoveEmptyUpdateRuleSet.rules().stream()
+                .collect(toDataProvider());
     }
 }
