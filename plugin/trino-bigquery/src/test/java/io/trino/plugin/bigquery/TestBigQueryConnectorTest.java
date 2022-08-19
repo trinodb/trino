@@ -880,6 +880,19 @@ public class TestBigQueryConnectorTest
                 .hasMessage("Unsupported column type: char(3)");
     }
 
+    @Override
+    protected OptionalInt maxColumnNameLength()
+    {
+        return OptionalInt.of(300);
+    }
+
+    @Override
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e)
+                .hasMessageContaining("Fields must contain only letters, numbers, and underscores, start with a letter or underscore, and be at most 300 characters long.");
+    }
+
     private void onBigQuery(@Language("SQL") String sql)
     {
         bigQuerySqlExecutor.execute(sql);

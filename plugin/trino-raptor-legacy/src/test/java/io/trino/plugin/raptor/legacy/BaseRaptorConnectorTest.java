@@ -924,6 +924,18 @@ public abstract class BaseRaptorConnectorTest
         assertThat(e).hasMessage("Failed to perform metadata operation");
     }
 
+    @Override
+    protected OptionalInt maxColumnNameLength()
+    {
+        return OptionalInt.of(255);
+    }
+
+    @Override
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessage("Failed to perform metadata operation");
+    }
+
     @Test
     public void testMergeMultipleOperationsUnbucketed()
     {

@@ -565,6 +565,7 @@ public abstract class BaseJdbcClient
 
             for (ColumnMetadata column : columns) {
                 String columnName = identifierMapping.toRemoteColumnName(connection, column.getName());
+                verifyColumnName(connection.getMetaData(), columnName);
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
                 columnList.add(getColumnDefinitionSql(session, column, columnName));
@@ -762,6 +763,7 @@ public abstract class BaseJdbcClient
 
         try (Connection connection = connectionFactory.openConnection(session)) {
             String columnName = column.getName();
+            verifyColumnName(connection.getMetaData(), columnName);
             String remoteColumnName = identifierMapping.toRemoteColumnName(connection, columnName);
             String sql = format(
                     "ALTER TABLE %s ADD %s",
@@ -779,6 +781,7 @@ public abstract class BaseJdbcClient
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
             String newRemoteColumnName = identifierMapping.toRemoteColumnName(connection, newColumnName);
+            verifyColumnName(connection.getMetaData(), newRemoteColumnName);
             String sql = renameColumnSql(handle, jdbcColumn, newRemoteColumnName);
             execute(connection, sql);
         }
@@ -1101,6 +1104,12 @@ public abstract class BaseJdbcClient
             throws SQLException
     {
         // expect remote databases throw an exception for unsupported table names
+    }
+
+    protected void verifyColumnName(DatabaseMetaData databaseMetadata, String columnName)
+            throws SQLException
+    {
+        // expect remote databases throw an exception for unsupported column names
     }
 
     protected String quoted(@Nullable String catalog, @Nullable String schema, String table)
