@@ -1410,7 +1410,7 @@ public class PredicatePushDown
                     .filter(Objects::nonNull)
                     .forEach(sourceConjuncts::add);
 
-            // See if we can push the source effective predicate to the filtering soruce side
+            // See if we can push the source effective predicate to the filtering source side
             EqualityInference.nonInferrableConjuncts(metadata, sourceEffectivePredicate)
                     .map(conjunct -> allInference.rewrite(conjunct, filterScope))
                     .filter(Objects::nonNull)
