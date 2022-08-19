@@ -63,6 +63,7 @@ public class TestTpchConnectorTest
                 return false;
 
             case SUPPORTS_ADD_COLUMN:
+            case SUPPORTS_RENAME_COLUMN:
                 return false;
 
             case SUPPORTS_RENAME_TABLE:
