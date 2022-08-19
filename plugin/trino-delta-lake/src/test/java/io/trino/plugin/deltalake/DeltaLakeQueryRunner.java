@@ -167,6 +167,7 @@ public final class DeltaLakeQueryRunner
                         .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
                         .put("hive.s3.endpoint", minioAddress)
                         .put("hive.s3.path-style-access", "true")
+                        .put("hive.metastore-timeout", "1m") // read timed out sometimes happens with the default timeout
                         .putAll(connectorProperties)
                         .buildOrThrow(),
                 testingHadoop,
