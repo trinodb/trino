@@ -55,6 +55,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
                                 .put("iceberg.file-format", format.name())
                                 .put("iceberg.catalog.type", "HIVE_METASTORE")
                                 .put("hive.metastore.uri", "thrift://" + hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+                                .put("hive.metastore-timeout", "1m") // read timed out sometimes happens with the default timeout
                                 .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
                                 .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
                                 .put("hive.s3.endpoint", "http://" + hiveMinioDataLake.getMinio().getMinioApiEndpoint())
