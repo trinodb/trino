@@ -194,6 +194,7 @@ import io.trino.sql.planner.iterative.rule.RemoveEmptyExceptBranches;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyGlobalAggregation;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyTableExecute;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyUnionBranches;
+import io.trino.sql.planner.iterative.rule.RemoveEmptyUpdate;
 import io.trino.sql.planner.iterative.rule.RemoveFullSample;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantDistinctLimit;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantEnforceSingleRowNode;
@@ -864,8 +865,9 @@ public class PlanOptimizers
                         statsCalculator,
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
-                                // Run RemoveEmptyDeleteRuleSet and RemoveEmptyTableExecute after table scan is removed by PickTableLayout/AddExchanges
+                                // Run RemoveEmptyDeleteRuleSet, RemoveEmptyUpdate and RemoveEmptyTableExecute after table scan is removed by PickTableLayout/AddExchanges
                                 .addAll(RemoveEmptyDeleteRuleSet.rules())
+                                .add(new RemoveEmptyUpdate())
                                 .add(new RemoveEmptyTableExecute())
                                 .build()));
 
