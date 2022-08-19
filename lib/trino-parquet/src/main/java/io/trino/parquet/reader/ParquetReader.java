@@ -14,6 +14,7 @@
 package io.trino.parquet.reader;
 
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
@@ -29,7 +30,6 @@ import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
-import io.trino.parquet.RichColumnDescriptor;
 import io.trino.parquet.predicate.Predicate;
 import io.trino.parquet.reader.FilteredOffsetIndex.OffsetRange;
 import io.trino.plugin.base.metrics.LongCount;
@@ -57,14 +57,11 @@ import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexFilter;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.internal.filter2.columnindex.RowRanges;
-import org.apache.parquet.io.MessageColumnIO;
-import org.apache.parquet.io.PrimitiveColumnIO;
 import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -92,7 +89,7 @@ public class ParquetReader
     private final Optional<String> fileCreatedBy;
     private final List<BlockMetaData> blocks;
     private final List<Long> firstRowsOfBlocks;
-    private final List<PrimitiveColumnIO> columns;
+    private final List<PrimitiveField> fields;
     private final ParquetDataSource dataSource;
     private final DateTimeZone timeZone;
     private final AggregatedMemoryContext memoryContext;
@@ -112,8 +109,8 @@ public class ParquetReader
     private long nextRowInGroup;
     private int batchSize;
     private int nextBatchSize = INITIAL_BATCH_SIZE;
-    private final PrimitiveColumnReader[] columnReaders;
-    private final long[] maxBytesPerCell;
+    private final Map<Integer, PrimitiveColumnReader> columnReaders;
+    private final Map<Integer, Long> maxBytesPerCell;
     private long maxCombinedBytesPerRow;
     private final ParquetReaderOptions options;
     private int maxBatchSize = MAX_VECTOR_LENGTH;
@@ -127,7 +124,7 @@ public class ParquetReader
 
     public ParquetReader(
             Optional<String> fileCreatedBy,
-            MessageColumnIO messageColumnIO,
+            List<Optional<Field>> fields,
             List<BlockMetaData> blocks,
             List<Long> firstRowsOfBlocks,
             ParquetDataSource dataSource,
@@ -136,12 +133,12 @@ public class ParquetReader
             ParquetReaderOptions options)
             throws IOException
     {
-        this(fileCreatedBy, messageColumnIO, blocks, firstRowsOfBlocks, dataSource, timeZone, memoryContext, options, null, null);
+        this(fileCreatedBy, fields, blocks, firstRowsOfBlocks, dataSource, timeZone, memoryContext, options, null, null);
     }
 
     public ParquetReader(
             Optional<String> fileCreatedBy,
-            MessageColumnIO messageColumnIO,
+            List<Optional<Field>> fields,
             List<BlockMetaData> blocks,
             List<Long> firstRowsOfBlocks,
             ParquetDataSource dataSource,
@@ -153,7 +150,8 @@ public class ParquetReader
             throws IOException
     {
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
-        this.columns = requireNonNull(messageColumnIO, "messageColumnIO is null").getLeaves();
+        List<PrimitiveField> primitiveFields = getPrimitiveFields(requireNonNull(fields, "fields is null"));
+        this.fields = primitiveFields;
         this.blocks = requireNonNull(blocks, "blocks is null");
         this.firstRowsOfBlocks = requireNonNull(firstRowsOfBlocks, "firstRowsOfBlocks is null");
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
@@ -161,15 +159,15 @@ public class ParquetReader
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
         this.currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
         this.options = requireNonNull(options, "options is null");
-        this.columnReaders = new PrimitiveColumnReader[columns.size()];
-        this.maxBytesPerCell = new long[columns.size()];
+        this.columnReaders = new HashMap<>();
+        this.maxBytesPerCell = new HashMap<>();
 
         checkArgument(blocks.size() == firstRowsOfBlocks.size(), "elements of firstRowsOfBlocks must correspond to blocks");
 
         this.columnIndexStore = columnIndexStore;
         this.blockRowRanges = listWithNulls(this.blocks.size());
-        for (PrimitiveColumnIO column : columns) {
-            ColumnDescriptor columnDescriptor = column.getColumnDescriptor();
+        for (PrimitiveField field : primitiveFields) {
+            ColumnDescriptor columnDescriptor = field.getDescriptor();
             this.paths.put(ColumnPath.get(columnDescriptor.getPath()), columnDescriptor);
         }
         if (parquetPredicate != null && options.isUseColumnIndex()) {
@@ -182,9 +180,9 @@ public class ParquetReader
         Map<String, LongCount> codecMetrics = new HashMap<>();
         for (int rowGroup = 0; rowGroup < blocks.size(); rowGroup++) {
             BlockMetaData metadata = blocks.get(rowGroup);
-            for (PrimitiveColumnIO column : columns) {
-                int columnId = column.getId();
-                ColumnChunkMetaData chunkMetadata = getColumnChunkMetaData(metadata, column.getColumnDescriptor());
+            for (PrimitiveField field : primitiveFields) {
+                int columnId = field.getId();
+                ColumnChunkMetaData chunkMetadata = getColumnChunkMetaData(metadata, field.getDescriptor());
                 ColumnPath columnPath = chunkMetadata.getPath();
                 long rowGroupRowCount = metadata.getRowCount();
                 long startingPosition = chunkMetadata.getStartingPos();
@@ -243,8 +241,7 @@ public class ParquetReader
         batchSize = toIntExact(min(batchSize, currentGroupRowCount - nextRowInGroup));
 
         nextRowInGroup += batchSize;
-        Arrays.stream(columnReaders)
-                .forEach(reader -> reader.prepareNextRead(batchSize));
+        columnReaders.values().forEach(reader -> reader.prepareNextRead(batchSize));
         return batchSize;
     }
 
@@ -281,7 +278,7 @@ public class ParquetReader
             return;
         }
 
-        for (int column = 0; column < columns.size(); column++) {
+        for (int column = 0; column < fields.size(); column++) {
             Collection<ChunkReader> readers = chunkReaders.get(new ChunkKey(column, currentRowGroup));
             if (readers != null) {
                 for (ChunkReader reader : readers) {
@@ -370,7 +367,7 @@ public class ParquetReader
     {
         ColumnDescriptor columnDescriptor = field.getDescriptor();
         int fieldId = field.getId();
-        PrimitiveColumnReader columnReader = columnReaders[fieldId];
+        PrimitiveColumnReader columnReader = columnReaders.get(fieldId);
         if (columnReader.getPageReader() == null) {
             validateParquet(currentBlockMetadata.getRowCount() > 0, "Row group has 0 rows");
             ColumnChunkMetaData metadata = getColumnChunkMetaData(currentBlockMetadata, columnDescriptor);
@@ -382,11 +379,11 @@ public class ParquetReader
 
         // update max size per primitive column chunk
         long bytesPerCell = columnChunk.getBlock().getSizeInBytes() / batchSize;
-        if (maxBytesPerCell[fieldId] < bytesPerCell) {
+        if (maxBytesPerCell.getOrDefault(fieldId, 0L) < bytesPerCell) {
             // update batch size
-            maxCombinedBytesPerRow = maxCombinedBytesPerRow - maxBytesPerCell[fieldId] + bytesPerCell;
+            maxCombinedBytesPerRow = maxCombinedBytesPerRow - maxBytesPerCell.getOrDefault(fieldId, 0L) + bytesPerCell;
             maxBatchSize = toIntExact(min(maxBatchSize, max(1, options.getMaxReadBlockSize().toBytes() / maxCombinedBytesPerRow)));
-            maxBytesPerCell[fieldId] = bytesPerCell;
+            maxBytesPerCell.replace(fieldId, bytesPerCell);
         }
         return columnChunk;
     }
@@ -432,9 +429,31 @@ public class ParquetReader
 
     private void initializeColumnReaders()
     {
-        for (PrimitiveColumnIO columnIO : columns) {
-            RichColumnDescriptor column = new RichColumnDescriptor(columnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
-            columnReaders[columnIO.getId()] = PrimitiveColumnReader.createReader(column, timeZone);
+        for (PrimitiveField field : fields) {
+            columnReaders.put(field.getId(), PrimitiveColumnReader.createReader(field, timeZone));
+        }
+    }
+
+    public static List<PrimitiveField> getPrimitiveFields(List<Optional<Field>> fields)
+    {
+        Map<Integer, PrimitiveField> primitiveFields = new HashMap<>();
+
+        fields.stream()
+                .flatMap(Optional::stream)
+                .forEach(field -> parseField(field, primitiveFields));
+
+        return ImmutableList.copyOf(primitiveFields.values());
+    }
+
+    private static void parseField(Field field, Map<Integer, PrimitiveField> primitiveFields)
+    {
+        if (field instanceof PrimitiveField primitiveField) {
+            primitiveFields.put(primitiveField.getId(), primitiveField);
+        }
+        else if (field instanceof GroupField groupField) {
+            groupField.getChildren().stream()
+                    .flatMap(Optional::stream)
+                    .forEach(child -> parseField(child, primitiveFields));
         }
     }
 
