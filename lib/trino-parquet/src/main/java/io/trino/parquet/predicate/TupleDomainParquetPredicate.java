@@ -21,7 +21,6 @@ import io.airlift.slice.Slices;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSourceId;
-import io.trino.parquet.RichColumnDescriptor;
 import io.trino.parquet.dictionary.Dictionary;
 import io.trino.plugin.base.type.TrinoTimestampEncoder;
 import io.trino.spi.predicate.Domain;
@@ -81,10 +80,10 @@ public class TupleDomainParquetPredicate
         implements Predicate
 {
     private final TupleDomain<ColumnDescriptor> effectivePredicate;
-    private final List<RichColumnDescriptor> columns;
+    private final List<ColumnDescriptor> columns;
     private final DateTimeZone timeZone;
 
-    public TupleDomainParquetPredicate(TupleDomain<ColumnDescriptor> effectivePredicate, List<RichColumnDescriptor> columns, DateTimeZone timeZone)
+    public TupleDomainParquetPredicate(TupleDomain<ColumnDescriptor> effectivePredicate, List<ColumnDescriptor> columns, DateTimeZone timeZone)
     {
         this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
@@ -104,7 +103,7 @@ public class TupleDomainParquetPredicate
         Map<ColumnDescriptor, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
                 .orElseThrow(() -> new IllegalStateException("Effective predicate other than none should have domains"));
 
-        for (RichColumnDescriptor column : columns) {
+        for (ColumnDescriptor column : columns) {
             Domain effectivePredicateDomain = effectivePredicateDomains.get(column);
             if (effectivePredicateDomain == null) {
                 continue;
@@ -162,7 +161,7 @@ public class TupleDomainParquetPredicate
         Map<ColumnDescriptor, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
                 .orElseThrow(() -> new IllegalStateException("Effective predicate other than none should have domains"));
 
-        for (RichColumnDescriptor column : columns) {
+        for (ColumnDescriptor column : columns) {
             Domain effectivePredicateDomain = effectivePredicateDomains.get(column);
             if (effectivePredicateDomain == null) {
                 continue;
@@ -405,7 +404,7 @@ public class TupleDomainParquetPredicate
             long rowCount,
             ColumnIndex columnIndex,
             ParquetDataSourceId id,
-            RichColumnDescriptor descriptor,
+            ColumnDescriptor descriptor,
             DateTimeZone timeZone)
             throws ParquetCorruptionException
     {
@@ -539,7 +538,7 @@ public class TupleDomainParquetPredicate
     {
         FilterPredicate filter = null;
 
-        for (RichColumnDescriptor column : columns) {
+        for (ColumnDescriptor column : columns) {
             Domain domain = effectivePredicate.getDomains().get().get(column);
             if (domain == null || domain.isNone()) {
                 continue;
