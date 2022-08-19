@@ -6,14 +6,14 @@
 		"dockerfile": "Dockerfile",
 		"args": {
 			// Update the VARIANT arg to pick a Java version: 11, 15
-			"VARIANT": "11",
+			"VARIANT": "17",
 			// Options
 			"INSTALL_ZSH": "false",
 			"UPGRADE_PACKAGES": "false",
 			"ENABLE_NONROOT_DOCKER": "true",
 			"USE_MOBY": "true",
 			// Version of the Trino CLI to install
-			"TRINO_VERSION": "359"
+			"TRINO_VERSION": "389"
 		}
 	},
 	"runArgs": [
