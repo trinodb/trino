@@ -103,9 +103,11 @@ public class BigQueryQueryPageSource
 
     private static String buildSql(BigQueryTableHandle table, String projectId, List<String> columnNames, Optional<String> filter)
     {
-        // TODO: Use filter in query relation handle
-        if (table.getRelationHandle() instanceof BigQueryQueryRelationHandle) {
-            return ((BigQueryQueryRelationHandle) table.getRelationHandle()).getQuery();
+        if (table.getRelationHandle() instanceof BigQueryQueryRelationHandle queryRelationHandle) {
+            if (filter.isEmpty()) {
+                return queryRelationHandle.getQuery();
+            }
+            return "SELECT * FROM (" + queryRelationHandle.getQuery() + " ) WHERE " + filter.get();
         }
         TableId tableId = TableId.of(projectId, table.asPlainTable().getRemoteTableName().getDatasetName(), table.asPlainTable().getRemoteTableName().getTableName());
         return selectSql(tableId, ImmutableList.copyOf(columnNames), filter);
