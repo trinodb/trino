@@ -433,6 +433,11 @@ Property Name                                      Description                  
                                                    on auto_purge.
 
 ``hive.partition-projection-enabled``              Enables Athena partition projection support                     ``false``
+
+``hive.iceberg-catalog-name``                      Catalog to redirect to when an Iceberg table is referenced.
+
+``hive.delta-lake-catalog-name``                   Catalog to redirect to when a Delta Lake table is
+                                                   referenced.
 ================================================== ============================================================ ============
 
 ORC format configuration properties
