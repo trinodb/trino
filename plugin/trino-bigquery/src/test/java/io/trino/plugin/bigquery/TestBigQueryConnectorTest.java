@@ -770,6 +770,9 @@ public class TestBigQueryConnectorTest
         assertQuery(
                 "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT name FROM tpch.nation WHERE nationkey = 0'))",
                 "VALUES 'ALGERIA'");
+        assertQuery(
+                "SELECT name FROM TABLE(bigquery.system.query(query => 'SELECT * FROM tpch.nation')) WHERE nationkey = 0",
+                "VALUES 'ALGERIA'");
     }
 
     @Test
