@@ -334,21 +334,14 @@ public class SingleStoreClient
     }
 
     @Override
-    public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    protected String renameColumnSql(JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newRemoteColumnName)
     {
-        try (Connection connection = connectionFactory.openConnection(session)) {
-            String newRemoteColumnName = getIdentifierMapping().toRemoteColumnName(connection, newColumnName);
-            // SingleStore versions earlier than 5.7 do not support the CHANGE syntax
-            String sql = format(
-                    "ALTER TABLE %s CHANGE %s %s",
-                    quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
-                    quoted(jdbcColumn.getColumnName()),
-                    quoted(newRemoteColumnName));
-            execute(connection, sql);
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
-        }
+        // SingleStore versions earlier than 5.7 do not support the CHANGE syntax
+        return format(
+                "ALTER TABLE %s CHANGE %s %s",
+                quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
+                quoted(jdbcColumn.getColumnName()),
+                quoted(newRemoteColumnName));
     }
 
     @Override

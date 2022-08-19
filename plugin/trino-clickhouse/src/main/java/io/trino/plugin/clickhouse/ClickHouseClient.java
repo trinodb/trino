@@ -425,19 +425,12 @@ public class ClickHouseClient
     }
 
     @Override
-    public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    protected String renameColumnSql(JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newRemoteColumnName)
     {
-        try (Connection connection = connectionFactory.openConnection(session)) {
-            String newRemoteColumnName = getIdentifierMapping().toRemoteColumnName(connection, newColumnName);
-            String sql = format("ALTER TABLE %s RENAME COLUMN %s TO %s ",
-                    quoted(handle.getRemoteTableName()),
-                    quoted(jdbcColumn.getColumnName()),
-                    quoted(newRemoteColumnName));
-            execute(connection, sql);
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
-        }
+        return format("ALTER TABLE %s RENAME COLUMN %s TO %s ",
+                quoted(handle.getRemoteTableName()),
+                quoted(jdbcColumn.getColumnName()),
+                quoted(newRemoteColumnName));
     }
 
     @Override

@@ -308,13 +308,12 @@ public class SqlServerClient
     }
 
     @Override
-    public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    protected String renameColumnSql(JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newRemoteColumnName)
     {
-        String sql = format(
+        return format(
                 "sp_rename %s, %s, 'COLUMN'",
                 singleQuote(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), jdbcColumn.getColumnName()),
-                singleQuote(newColumnName));
-        execute(session, sql);
+                singleQuote(newRemoteColumnName));
     }
 
     @Override
