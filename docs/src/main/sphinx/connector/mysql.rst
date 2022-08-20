@@ -38,7 +38,7 @@ connection properties as appropriate for your setup:
 The ``connection-url`` defines the connection information and parameters to pass
 to the MySQL JDBC driver. The supported parameters for the URL are
 available in the `MySQL Developer Guide
-<https://dev.mysql.com/doc/connector-j/8.0/en/>`_.
+<https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-configuration-properties.html>`_.
 
 For example, the following ``connection-url`` allows you to
 configure the JDBC driver to interpret time values based on UTC as a timezone on
