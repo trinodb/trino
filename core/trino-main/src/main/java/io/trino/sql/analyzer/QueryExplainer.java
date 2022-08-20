@@ -58,7 +58,6 @@ public class QueryExplainer
     private final PlanFragmenter planFragmenter;
     private final PlannerContext plannerContext;
     private final AnalyzerFactory analyzerFactory;
-    private final StatementAnalyzerFactory statementAnalyzerFactory;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
 
@@ -67,7 +66,6 @@ public class QueryExplainer
             PlanFragmenter planFragmenter,
             PlannerContext plannerContext,
             AnalyzerFactory analyzerFactory,
-            StatementAnalyzerFactory statementAnalyzerFactory,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator)
     {
@@ -75,7 +73,6 @@ public class QueryExplainer
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
-        this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
     }

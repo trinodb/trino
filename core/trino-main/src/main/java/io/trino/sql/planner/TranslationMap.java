@@ -439,8 +439,7 @@ public class TranslationMap
                         node.getJsonPathInvocation().getPathParameters(),
                         rewritten.getJsonPathInvocation().getPathParameters(),
                         resolvedFunction.getSignature().getArgumentType(2),
-                        failOnError,
-                        treeRewriter);
+                        failOnError);
 
                 IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
                 io.trino.sql.ir.Expression pathExpression = treeRewriter.copy(new LiteralEncoder(plannerContext).toExpression(session, path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME))), context);
@@ -482,8 +481,7 @@ public class TranslationMap
                         node.getJsonPathInvocation().getPathParameters(),
                         rewritten.getJsonPathInvocation().getPathParameters(),
                         resolvedFunction.getSignature().getArgumentType(2),
-                        failOnError,
-                        treeRewriter);
+                        failOnError);
 
                 IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
                 io.trino.sql.ir.Expression pathExpression = treeRewriter.copy(new LiteralEncoder(plannerContext).toExpression(session, path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME))), null);
@@ -528,8 +526,7 @@ public class TranslationMap
                         node.getJsonPathInvocation().getPathParameters(),
                         rewritten.getJsonPathInvocation().getPathParameters(),
                         resolvedFunction.getSignature().getArgumentType(2),
-                        failOnError,
-                        treeRewriter);
+                        failOnError);
 
                 IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
                 io.trino.sql.ir.Expression pathExpression = treeRewriter.copy(new LiteralEncoder(plannerContext).toExpression(session, path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME))), context);
@@ -568,8 +565,7 @@ public class TranslationMap
                     List<JsonPathParameter> pathParameters,
                     List<io.trino.sql.ir.JsonPathParameter> rewrittenPathParameters,
                     Type parameterRowType,
-                    io.trino.sql.ir.BooleanLiteral failOnError,
-                    AstToIrExpressionTreeRewriter<Void> treeRewriter)
+                    io.trino.sql.ir.BooleanLiteral failOnError)
             {
                 io.trino.sql.ir.Expression parametersRow;
                 List<String> parametersOrder;

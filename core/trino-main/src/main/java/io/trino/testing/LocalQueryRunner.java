@@ -1100,7 +1100,6 @@ public class LocalQueryRunner
                 () -> optimizers,
                 planFragmenter,
                 plannerContext,
-                statementAnalyzerFactory,
                 statsCalculator,
                 costCalculator);
     }
