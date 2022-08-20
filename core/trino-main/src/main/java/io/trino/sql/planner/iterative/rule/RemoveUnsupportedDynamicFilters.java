@@ -17,21 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.connector.CatalogServiceProvider;
 import io.trino.cost.TableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.OperatorNotFoundException;
-import io.trino.metadata.SessionPropertyManager;
-import io.trino.metadata.TableFunctionRegistry;
-import io.trino.metadata.TableProceduresPropertyManager;
-import io.trino.metadata.TableProceduresRegistry;
-import io.trino.metadata.TablePropertyManager;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
@@ -39,7 +30,6 @@ import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -54,7 +44,6 @@ import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.transaction.NoOpTransactionManager;
 import io.trino.type.TypeCoercion;
 
 import java.util.HashSet;
@@ -97,19 +86,7 @@ public class RemoveUnsupportedDynamicFilters
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         // This is a limited type analyzer for the simple expressions used in dynamic filters
         this.typeAnalyzer = new TypeAnalyzer(
-                plannerContext,
-                new StatementAnalyzerFactory(
-                        plannerContext,
-                        new SqlParser(),
-                        new AllowAllAccessControl(),
-                        new NoOpTransactionManager(),
-                        user -> ImmutableSet.of(),
-                        new TableProceduresRegistry(CatalogServiceProvider.fail("procedures are not supported in testing analyzer")),
-                        new TableFunctionRegistry(CatalogServiceProvider.fail("table functions are not supported in testing analyzer")),
-                        new SessionPropertyManager(),
-                        new TablePropertyManager(CatalogServiceProvider.fail("table properties not supported in testing analyzer")),
-                        new AnalyzePropertyManager(CatalogServiceProvider.fail("analyze properties not supported in testing analyzer")),
-                        new TableProceduresPropertyManager(CatalogServiceProvider.fail("procedures are not supported in testing analyzer"))));
+                plannerContext);
     }
 
     @Override

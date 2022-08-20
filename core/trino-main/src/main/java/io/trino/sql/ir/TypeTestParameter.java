@@ -22,68 +22,56 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Objects;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class OrderBy
-        extends Node
+public class TypeTestParameter
+        extends Expression
 {
-    private final List<SortItem> sortItems;
+    private final GenericDataType type;
 
     @JsonCreator
-    public OrderBy(
-            @JsonProperty("sortItems") List<SortItem> sortItems)
+    public TypeTestParameter(
+            @JsonProperty("type") GenericDataType type)
     {
-        requireNonNull(sortItems, "sortItems is null");
-        checkArgument(!sortItems.isEmpty(), "sortItems should not be empty");
-        this.sortItems = ImmutableList.copyOf(sortItems);
+        this.type = requireNonNull(type, "type is null");
     }
 
     @JsonProperty
-    public List<SortItem> getSortItems()
+    public GenericDataType getType()
     {
-        return sortItems;
-    }
-
-    @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitOrderBy(this, context);
+        return type;
     }
 
     @Override
     public List<? extends Node> getChildren()
     {
-        return sortItems;
+        return ImmutableList.of(type);
     }
 
     @Override
-    public String toString()
+    protected <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
-        return toStringHelper(this)
-                .add("sortItems", sortItems)
-                .toString();
+        throw new UnsupportedOperationException();
     }
 
     @Override
-    public boolean equals(Object obj)
+    public boolean equals(Object o)
     {
-        if (this == obj) {
+        if (this == o) {
             return true;
         }
-        if ((obj == null) || (getClass() != obj.getClass())) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        OrderBy o = (OrderBy) obj;
-        return Objects.equals(sortItems, o.sortItems);
+        TypeTestParameter that = (TypeTestParameter) o;
+        return type.equals(that.type);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(sortItems);
+        return Objects.hash(type);
     }
 
     @Override

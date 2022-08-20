@@ -434,7 +434,7 @@ public class LocalQueryRunner
                 tablePropertyManager,
                 analyzePropertyManager,
                 tableProceduresPropertyManager);
-        TypeAnalyzer typeAnalyzer = new TypeAnalyzer(plannerContext, statementAnalyzerFactory);
+        TypeAnalyzer typeAnalyzer = new TypeAnalyzer(plannerContext);
         this.statsCalculator = createNewStatsCalculator(plannerContext, typeAnalyzer);
         this.scalarStatsCalculator = new ScalarStatsCalculator(plannerContext, typeAnalyzer);
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
@@ -927,7 +927,7 @@ public class LocalQueryRunner
         tableExecuteContextManager.registerTableExecuteContextForQuery(taskContext.getQueryContext().getQueryId());
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 plannerContext,
-                new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
+                new TypeAnalyzer(plannerContext),
                 Optional.empty(),
                 pageSourceManager,
                 indexManager,
@@ -1043,7 +1043,7 @@ public class LocalQueryRunner
     {
         return new PlanOptimizers(
                 plannerContext,
-                new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
+                new TypeAnalyzer(plannerContext),
                 taskManagerConfig,
                 forceSingleNode,
                 splitManager,
@@ -1084,7 +1084,7 @@ public class LocalQueryRunner
                 new PlanSanityChecker(true),
                 idAllocator,
                 getPlannerContext(),
-                new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
+                new TypeAnalyzer(plannerContext),
                 statsCalculator,
                 costCalculator,
                 warningCollector);

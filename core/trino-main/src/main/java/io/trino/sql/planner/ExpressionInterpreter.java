@@ -1293,10 +1293,10 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCurrentCatalog(CurrentCatalog node, Object context)
         {
-            return visitFunctionCall(desugarCurrentCatalog(session, node, metadata), context);
+            return visitFunctionCall(desugarCurrentCatalog(session, metadata), context);
         }
 
-        private FunctionCall desugarCurrentCatalog(Session session, CurrentCatalog node, Metadata metadata)
+        private FunctionCall desugarCurrentCatalog(Session session, Metadata metadata)
         {
             return AstFunctionCallBuilder.resolve(session, metadata)
                     .setName(QualifiedName.of("$current_catalog"))
@@ -1306,10 +1306,10 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCurrentSchema(CurrentSchema node, Object context)
         {
-            return visitFunctionCall(desugarCurrentSchema(session, node, metadata), context);
+            return visitFunctionCall(desugarCurrentSchema(session, metadata), context);
         }
 
-        private FunctionCall desugarCurrentSchema(Session session, CurrentSchema node, Metadata metadata)
+        private FunctionCall desugarCurrentSchema(Session session, Metadata metadata)
         {
             return AstFunctionCallBuilder.resolve(session, metadata)
                     .setName(QualifiedName.of("$current_schema"))
@@ -1319,10 +1319,10 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCurrentUser(CurrentUser node, Object context)
         {
-            return visitFunctionCall(getCall(node, metadata, session), context);
+            return visitFunctionCall(getCallCurrentUser(metadata, session), context);
         }
 
-        private FunctionCall getCall(CurrentUser node, Metadata metadata, Session session)
+        private FunctionCall getCallCurrentUser(Metadata metadata, Session session)
         {
             return AstFunctionCallBuilder.resolve(session, metadata)
                     .setName(QualifiedName.of("$current_user"))
@@ -1332,10 +1332,10 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCurrentPath(CurrentPath node, Object context)
         {
-            return visitFunctionCall(getCall(node, metadata, session), context);
+            return visitFunctionCall(getCallCurrentPath(metadata, session), context);
         }
 
-        private FunctionCall getCall(CurrentPath node, Metadata metadata, Session session)
+        private FunctionCall getCallCurrentPath(Metadata metadata, Session session)
         {
             return AstFunctionCallBuilder.resolve(session, metadata)
                     .setName(QualifiedName.of("$current_path"))

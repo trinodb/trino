@@ -23,6 +23,7 @@ import java.util.List;
         property = "@type")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = DataTypeParameter.class, name = "dataTypeParameter"),
+        @JsonSubTypes.Type(value = OrderBy.class, name = "orderBy")
 })
 public abstract class Node
 {

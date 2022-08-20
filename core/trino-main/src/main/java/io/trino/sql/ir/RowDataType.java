@@ -81,17 +81,22 @@ public class RowDataType
         private final Optional<Identifier> name;
         private final DataType type;
 
-        public Field(Optional<Identifier> name, DataType type)
+        @JsonCreator
+        public Field(
+                @JsonProperty("name") Optional<Identifier> name,
+                @JsonProperty("type") DataType type)
         {
             this.name = requireNonNull(name, "name is null");
             this.type = requireNonNull(type, "type is null");
         }
 
+        @JsonProperty
         public Optional<Identifier> getName()
         {
             return name;
         }
 
+        @JsonProperty
         public DataType getType()
         {
             return type;

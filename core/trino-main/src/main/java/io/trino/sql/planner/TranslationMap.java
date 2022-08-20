@@ -195,11 +195,11 @@ public class TranslationMap
             {
                 Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
+                    return coerceIfNecessary(node, mapped.get());
                 }
 
                 io.trino.sql.ir.Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
-                return coerceIfNecessary(node, rewrittenExpression, treeRewriter);
+                return coerceIfNecessary(node, rewrittenExpression);
             }
 
             @Override
@@ -207,7 +207,7 @@ public class TranslationMap
             {
                 Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
+                    return coerceIfNecessary(node, mapped.get());
                 }
 
                 return getSymbolForColumn(node)
@@ -220,18 +220,18 @@ public class TranslationMap
             {
                 Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
+                    return coerceIfNecessary(node, mapped.get());
                 }
 
                 LambdaArgumentDeclaration referencedLambdaArgumentDeclaration = analysis.getLambdaArgumentReference(node);
                 if (referencedLambdaArgumentDeclaration != null) {
                     Symbol symbol = lambdaArguments.get(NodeRef.of(referencedLambdaArgumentDeclaration));
-                    return coerceIfNecessary(node, symbol.toIrSymbolReference(), treeRewriter);
+                    return coerceIfNecessary(node, symbol.toIrSymbolReference());
                 }
 
                 return getSymbolForColumn(node)
-                        .map(symbol -> coerceIfNecessary(node, symbol.toIrSymbolReference(), treeRewriter))
-                        .orElse(coerceIfNecessary(node, treeRewriter.copy(node, context), treeRewriter));
+                        .map(symbol -> coerceIfNecessary(node, symbol.toIrSymbolReference()))
+                        .orElse(coerceIfNecessary(node, treeRewriter.copy(node, context)));
             }
 
             @Override
@@ -256,7 +256,7 @@ public class TranslationMap
                             false,
                             Optional.empty(),
                             treeRewriter.copy(node.getProcessingMode(), null),
-                            rewrittenArguments.build()), treeRewriter);
+                            rewrittenArguments.build()));
                 }
 
                 // Do not use the mapping for aggregate functions in pattern recognition context. They have different semantics
@@ -264,7 +264,7 @@ public class TranslationMap
                 if (!analysis.isPatternAggregation(node)) {
                     Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), null);
                     if (mapped.isPresent()) {
-                        return coerceIfNecessary(node, mapped.get(), treeRewriter);
+                        return coerceIfNecessary(node, mapped.get());
                     }
                 }
 
@@ -281,7 +281,7 @@ public class TranslationMap
                         rewritten.getNullTreatment(),
                         rewritten.getProcessingMode(),
                         rewritten.getArguments());
-                return coerceIfNecessary(node, rewritten, treeRewriter);
+                return coerceIfNecessary(node, rewritten);
             }
 
             @Override
@@ -292,14 +292,14 @@ public class TranslationMap
                     if (labelDereference.getColumn().isPresent()) {
                         io.trino.sql.ir.Expression rewritten = treeRewriter.rewrite(labelDereference.getColumn().get(), null);
                         checkState(rewritten instanceof io.trino.sql.ir.SymbolReference, "expected symbol reference, got: " + rewritten);
-                        return coerceIfNecessary(node, new io.trino.sql.ir.LabelDereference(labelDereference.getLabel(), (io.trino.sql.ir.SymbolReference) rewritten), treeRewriter);
+                        return coerceIfNecessary(node, new io.trino.sql.ir.LabelDereference(labelDereference.getLabel(), (io.trino.sql.ir.SymbolReference) rewritten));
                     }
                     return new io.trino.sql.ir.LabelDereference(labelDereference.getLabel());
                 }
 
                 Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
+                    return coerceIfNecessary(node, mapped.get());
                 }
 
                 if (analysis.isColumnReference(node)) {
@@ -307,7 +307,7 @@ public class TranslationMap
                             node,
                             getSymbolForColumn(node)
                                     .map(Symbol::toIrSymbolReference)
-                                    .orElseThrow(() -> new IllegalStateException(format("No mapping for %s", node))), treeRewriter);
+                                    .orElseThrow(() -> new IllegalStateException(format("No mapping for %s", node))));
                 }
 
                 RowType rowType = (RowType) analysis.getType(node.getBase());
@@ -329,7 +329,7 @@ public class TranslationMap
                         node,
                         new io.trino.sql.ir.SubscriptExpression(
                                 treeRewriter.rewrite(node.getBase(), context),
-                                new io.trino.sql.ir.LongLiteral(Long.toString(index + 1))), treeRewriter);
+                                new io.trino.sql.ir.LongLiteral(Long.toString(index + 1))));
             }
 
             @Override
@@ -337,7 +337,7 @@ public class TranslationMap
             {
                 Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
+                    return coerceIfNecessary(node, mapped.get());
                 }
 
                 ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
@@ -350,7 +350,7 @@ public class TranslationMap
                 rewritten.getTrimCharacter().ifPresent(arguments::add);
 
                 io.trino.sql.ir.FunctionCall functionCall = new io.trino.sql.ir.FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
-                return coerceIfNecessary(node, functionCall, treeRewriter);
+                return coerceIfNecessary(node, functionCall);
             }
 
             @Override
@@ -358,18 +358,18 @@ public class TranslationMap
             {
                 Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
+                    return coerceIfNecessary(node, mapped.get());
                 }
 
                 Type baseType = analysis.getType(node.getBase());
                 if (baseType instanceof RowType) {
                     // Do not rewrite subscript index into symbol. Row subscript index is required to be a literal.
                     io.trino.sql.ir.Expression rewrittenBase = treeRewriter.rewrite(node.getBase(), context);
-                    return coerceIfNecessary(node, new io.trino.sql.ir.SubscriptExpression(rewrittenBase, treeRewriter.copy(node.getIndex(), context)), treeRewriter);
+                    return coerceIfNecessary(node, new io.trino.sql.ir.SubscriptExpression(rewrittenBase, treeRewriter.copy(node.getIndex(), context)));
                 }
 
                 io.trino.sql.ir.Expression rewritten = treeRewriter.defaultRewrite(node, context);
-                return coerceIfNecessary(node, rewritten, treeRewriter);
+                return coerceIfNecessary(node, rewritten);
             }
 
             @Override
@@ -391,11 +391,11 @@ public class TranslationMap
             {
                 Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
+                    return coerceIfNecessary(node, mapped.get());
                 }
 
                 checkState(analysis.getParameters().size() > node.getPosition(), "Too few parameter values");
-                return coerceIfNecessary(node, treeRewriter.rewrite(analysis.getParameters().get(NodeRef.of(node)), null), treeRewriter);
+                return coerceIfNecessary(node, treeRewriter.rewrite(analysis.getParameters().get(NodeRef.of(node)), null));
             }
 
             @Override
@@ -417,7 +417,7 @@ public class TranslationMap
             {
                 Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
+                    return coerceIfNecessary(node, mapped.get());
                 }
 
                 ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
@@ -453,7 +453,7 @@ public class TranslationMap
 
                 io.trino.sql.ir.Expression result = new io.trino.sql.ir.FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
 
-                return coerceIfNecessary(node, result, treeRewriter);
+                return coerceIfNecessary(node, result);
             }
 
             @Override
@@ -461,7 +461,7 @@ public class TranslationMap
             {
                 Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
+                    return coerceIfNecessary(node, mapped.get());
                 }
 
                 ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
@@ -499,7 +499,7 @@ public class TranslationMap
 
                 io.trino.sql.ir.Expression result = new io.trino.sql.ir.FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
 
-                return coerceIfNecessary(node, result, treeRewriter);
+                return coerceIfNecessary(node, result);
             }
 
             @Override
@@ -507,7 +507,7 @@ public class TranslationMap
             {
                 Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
+                    return coerceIfNecessary(node, mapped.get());
                 }
 
                 ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
@@ -561,7 +561,7 @@ public class TranslationMap
                     result = new io.trino.sql.ir.Cast(result, toSqlType(returnedType));
                 }
 
-                return coerceIfNecessary(node, result, treeRewriter);
+                return coerceIfNecessary(node, result);
             }
 
             private IrParametersRow getParametersRow(
@@ -604,7 +604,7 @@ public class TranslationMap
             {
                 Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
+                    return coerceIfNecessary(node, mapped.get());
                 }
 
                 ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
@@ -670,7 +670,7 @@ public class TranslationMap
                     result = new io.trino.sql.ir.Cast(result, toSqlType(returnedType));
                 }
 
-                return coerceIfNecessary(node, result, treeRewriter);
+                return coerceIfNecessary(node, result);
             }
 
             @Override
@@ -678,7 +678,7 @@ public class TranslationMap
             {
                 Optional<io.trino.sql.ir.Expression> mapped = treeRewriter.copy(tryGetMapping(node), context);
                 if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get(), treeRewriter);
+                    return coerceIfNecessary(node, mapped.get());
                 }
 
                 ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
@@ -732,10 +732,10 @@ public class TranslationMap
                     result = new io.trino.sql.ir.Cast(result, toSqlType(returnedType));
                 }
 
-                return coerceIfNecessary(node, result, treeRewriter);
+                return coerceIfNecessary(node, result);
             }
 
-            private io.trino.sql.ir.Expression coerceIfNecessary(Expression original, io.trino.sql.ir.Expression rewritten, AstToIrExpressionTreeRewriter<Void> treeRewriter)
+            private io.trino.sql.ir.Expression coerceIfNecessary(Expression original, io.trino.sql.ir.Expression rewritten)
             {
                 // Don't add a coercion for the top-level expression. That depends on the context the expression is used and it's the responsibility of the caller.
                 if (original == expression) {

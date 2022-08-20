@@ -458,11 +458,6 @@ public class ExpressionAnalyzer
         return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(context));
     }
 
-    private void analyzeWindow(ResolvedWindow window, Scope scope, Node originalNode, CorrelationSupport correlationSupport)
-    {
-        throw new UnsupportedOperationException();
-    }
-
     public Set<NodeRef<SubqueryExpression>> getSubqueries()
     {
         return unmodifiableSet(subqueries);
@@ -1197,11 +1192,7 @@ public class ExpressionAnalyzer
             }
 
             if (node.getWindow().isPresent()) {
-                ResolvedWindow window = getResolvedWindow.apply(node);
-                checkState(window != null, "no resolved window for: " + node);
-
-                analyzeWindow(window, context, (Node) node.getWindow().get());
-                windowFunctions.add(NodeRef.of(node));
+                throw new UnsupportedOperationException("can't analyze FunctionCall with Window");
             }
             else {
                 if (node.isDistinct() && !plannerContext.getMetadata().isAggregationFunction(session, node.getName())) {
@@ -1303,15 +1294,10 @@ public class ExpressionAnalyzer
             return setExpressionType(node, type);
         }
 
-        private void analyzeWindow(ResolvedWindow window, StackableAstVisitorContext<Context> context, Node originalNode)
-        {
-            throw new UnsupportedOperationException();
-        }
-
         @Override
         protected Type visitWindowOperation(WindowOperation node, StackableAstVisitorContext<Context> context)
         {
-            throw new UnsupportedOperationException();
+            throw new UnsupportedOperationException("analyzer for WindowOperation not supported" + node.toString() + "on context" + context.toString());
         }
 
         public List<TypeSignatureProvider> getCallArgumentTypes(List<Expression> arguments, StackableAstVisitorContext<Context> context)

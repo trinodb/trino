@@ -167,7 +167,7 @@ public class QueryExplainer
                 planOptimizers,
                 idAllocator,
                 plannerContext,
-                new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
+                new TypeAnalyzer(plannerContext),
                 statsCalculator,
                 costCalculator,
                 warningCollector);

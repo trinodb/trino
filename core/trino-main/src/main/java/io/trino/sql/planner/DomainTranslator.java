@@ -16,21 +16,12 @@ package io.trino.sql.planner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.PeekingIterator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
-import io.trino.connector.CatalogServiceProvider;
-import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.metadata.SessionPropertyManager;
-import io.trino.metadata.TableFunctionRegistry;
-import io.trino.metadata.TableProceduresPropertyManager;
-import io.trino.metadata.TableProceduresRegistry;
-import io.trino.metadata.TablePropertyManager;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.DiscreteValues;
 import io.trino.spi.predicate.Domain;
@@ -46,7 +37,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.Cast;
@@ -65,8 +55,6 @@ import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.parser.SqlParser;
-import io.trino.transaction.NoOpTransactionManager;
 import io.trino.type.LikeFunctions;
 import io.trino.type.TypeCoercion;
 
@@ -308,19 +296,7 @@ public final class DomainTranslator
     {
         // This is a limited type analyzer for the simple expressions used in this method
         TypeAnalyzer typeAnalyzer = new TypeAnalyzer(
-                plannerContext,
-                new StatementAnalyzerFactory(
-                        plannerContext,
-                        new SqlParser(),
-                        new AllowAllAccessControl(),
-                        new NoOpTransactionManager(),
-                        user -> ImmutableSet.of(),
-                        new TableProceduresRegistry(CatalogServiceProvider.fail("procedures are not supported in domain translator")),
-                        new TableFunctionRegistry(CatalogServiceProvider.fail("table functions are not supported in domain translator")),
-                        new SessionPropertyManager(),
-                        new TablePropertyManager(CatalogServiceProvider.fail("table properties not supported in domain translator")),
-                        new AnalyzePropertyManager(CatalogServiceProvider.fail("analyze properties not supported in domain translator")),
-                        new TableProceduresPropertyManager(CatalogServiceProvider.fail("procedures are not supported in domain translator"))));
+                plannerContext);
         return new Visitor(plannerContext, session, types, typeAnalyzer).process(predicate, false);
     }
 

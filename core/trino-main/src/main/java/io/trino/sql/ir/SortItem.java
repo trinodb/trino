@@ -13,15 +13,20 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.SortItem.NullOrdering;
 import io.trino.sql.tree.SortItem.Ordering;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
+@Immutable
 public class SortItem
         extends Node
 {
@@ -29,23 +34,30 @@ public class SortItem
     private final Ordering ordering;
     private final NullOrdering nullOrdering;
 
-    public SortItem(Expression sortKey, Ordering ordering, NullOrdering nullOrdering)
+    @JsonCreator
+    public SortItem(
+            @JsonProperty("sortKey") Expression sortKey,
+            @JsonProperty("ordering") Ordering ordering,
+            @JsonProperty("nullOrdering") NullOrdering nullOrdering)
     {
         this.ordering = ordering;
         this.sortKey = sortKey;
         this.nullOrdering = nullOrdering;
     }
 
+    @JsonProperty
     public Expression getSortKey()
     {
         return sortKey;
     }
 
+    @JsonProperty
     public Ordering getOrdering()
     {
         return ordering;
     }
 
+    @JsonProperty
     public NullOrdering getNullOrdering()
     {
         return nullOrdering;

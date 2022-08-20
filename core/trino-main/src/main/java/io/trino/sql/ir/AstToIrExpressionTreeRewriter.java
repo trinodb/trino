@@ -2112,7 +2112,7 @@ public final class AstToIrExpressionTreeRewriter<C>
         private JoinCriteria copyJoinCriteria(io.trino.sql.tree.JoinCriteria joinCriteria)
         {
             if (joinCriteria instanceof io.trino.sql.tree.JoinOn) {
-                return new JoinOn(defaultRewrite(((io.trino.sql.tree.JoinOn) joinCriteria).getExpression(), null));
+                return new JoinOn(copy(((io.trino.sql.tree.JoinOn) joinCriteria).getExpression(), null));
             }
             else if (joinCriteria instanceof io.trino.sql.tree.JoinUsing) {
                 return new JoinUsing(copy(((io.trino.sql.tree.JoinUsing) joinCriteria).getColumns(), null));
@@ -2134,7 +2134,7 @@ public final class AstToIrExpressionTreeRewriter<C>
         {
             return new PatternRecognitionRelation(
                     copy(lateral.getInput(), v),
-                    defaultRewrite(lateral.getPartitionBy(), null),
+                    copy(lateral.getPartitionBy(), null),
                     copy(lateral.getOrderBy(), v),
                     copy(lateral.getMeasures(), v),
                     lateral.getRowsPerMatch(),
@@ -2148,7 +2148,7 @@ public final class AstToIrExpressionTreeRewriter<C>
         @Override
         protected Node visitMeasureDefinition(io.trino.sql.tree.MeasureDefinition measureDefinition, Void v)
         {
-            return new MeasureDefinition(defaultRewrite(measureDefinition.getExpression(), null), copy(measureDefinition.getName(), v));
+            return new MeasureDefinition(copy(measureDefinition.getExpression(), null), copy(measureDefinition.getName(), v));
         }
 
         @Override
@@ -2160,7 +2160,7 @@ public final class AstToIrExpressionTreeRewriter<C>
         @Override
         protected Node visitSortItem(io.trino.sql.tree.SortItem sortItem, Void v)
         {
-            return new SortItem(defaultRewrite(sortItem.getSortKey(), null), sortItem.getOrdering(), sortItem.getNullOrdering());
+            return new SortItem(copy(sortItem.getSortKey(), null), sortItem.getOrdering(), sortItem.getNullOrdering());
         }
 
         @Override
@@ -2256,7 +2256,7 @@ public final class AstToIrExpressionTreeRewriter<C>
         @Override
         protected Node visitRangeQuantifier(io.trino.sql.tree.RangeQuantifier rangeQuantifier, Void v)
         {
-            return new RangeQuantifier(rangeQuantifier.isGreedy(), rangeQuantifier.getAtLeast().map(atLeast -> defaultRewrite(atLeast, null)), rangeQuantifier.getAtMost().map(atMost -> defaultRewrite(atMost, null)));
+            return new RangeQuantifier(rangeQuantifier.isGreedy(), rangeQuantifier.getAtLeast().map(atLeast -> copy(atLeast, null)), rangeQuantifier.getAtMost().map(atMost -> copy(atMost, null)));
         }
 
         @Override
@@ -2268,7 +2268,7 @@ public final class AstToIrExpressionTreeRewriter<C>
         @Override
         protected Node visitVariableDefinition(io.trino.sql.tree.VariableDefinition variableDefinition, Void v)
         {
-            return new VariableDefinition(copy(variableDefinition.getName(), v), defaultRewrite(variableDefinition.getExpression(), null));
+            return new VariableDefinition(copy(variableDefinition.getName(), v), copy(variableDefinition.getExpression(), null));
         }
 
         @Override
@@ -2292,13 +2292,13 @@ public final class AstToIrExpressionTreeRewriter<C>
         @Override
         protected Node visitAllColumns(io.trino.sql.tree.AllColumns allColumns, Void v)
         {
-            return new AllColumns(defaultRewrite(allColumns.getTarget(), null), copy(allColumns.getAliases(), v));
+            return new AllColumns(copy(allColumns.getTarget(), null), copy(allColumns.getAliases(), v));
         }
 
         @Override
         protected Node visitSingleColumn(io.trino.sql.tree.SingleColumn singleColumn, Void v)
         {
-            return new SingleColumn(defaultRewrite(singleColumn.getExpression(), null), copy(singleColumn.getAlias(), v));
+            return new SingleColumn(copy(singleColumn.getExpression(), null), copy(singleColumn.getAlias(), v));
         }
 
         @Override
@@ -2316,25 +2316,28 @@ public final class AstToIrExpressionTreeRewriter<C>
         @Override
         protected Node visitCube(io.trino.sql.tree.Cube cube, Void v)
         {
-            return new Cube(defaultRewrite(cube.getExpressions(), null));
+            return new Cube(copy(cube.getExpressions(), null));
         }
 
         @Override
         protected Node visitGroupingSets(io.trino.sql.tree.GroupingSets groupingSets, Void v)
         {
-            return new GroupingSets(groupingSets.getSets().stream().map(groupingSet -> defaultRewrite(groupingSet, null)).collect(toImmutableList()));
+            return new GroupingSets(groupingSets.getSets().stream().map(
+                    groupingSet -> copy(groupingSet, null).stream()
+                            .map(e -> (Expression) e)
+                            .collect(toImmutableList())).collect(toImmutableList()));
         }
 
         @Override
         protected Node visitRollup(io.trino.sql.tree.Rollup rollUp, Void v)
         {
-            return new Rollup(defaultRewrite(rollUp.getExpressions(), null));
+            return new Rollup(copy(rollUp.getExpressions(), null));
         }
 
         @Override
         protected Node visitSimpleGroupBy(io.trino.sql.tree.SimpleGroupBy simpleGroupBy, Void v)
         {
-            return new SimpleGroupBy(defaultRewrite(simpleGroupBy.getExpressions(), null));
+            return new SimpleGroupBy(copy(simpleGroupBy.getExpressions(), null));
         }
     }
 

@@ -43,19 +43,28 @@ public final class Cast
         this(expression, type, safe, false);
     }
 
-    @JsonCreator
     public Cast(
+            Expression expression,
+            DataType type,
+            boolean safe,
+            boolean typeOnly)
+    {
+        requireNonNull(expression, "expression is null");
+        this.expression = expression;
+        this.type = type;
+        this.safe = safe;
+        this.typeOnly = typeOnly;
+    }
+
+    @JsonCreator
+    public static Cast of(
             @JsonProperty("expression") Expression expression,
             @JsonProperty("type") DataType type,
             @JsonProperty("safe") boolean safe,
             @JsonProperty("typeOnly") boolean typeOnly)
     {
         requireNonNull(expression, "expression is null");
-
-        this.expression = expression;
-        this.type = type;
-        this.safe = safe;
-        this.typeOnly = typeOnly;
+        return new Cast(expression, type, safe, safe);
     }
 
     @JsonProperty
@@ -70,13 +79,13 @@ public final class Cast
         return type;
     }
 
-    @JsonProperty
+    @JsonProperty(value = "safe")
     public boolean isSafe()
     {
         return safe;
     }
 
-    @JsonProperty
+    @JsonProperty(value = "typeOnly")
     public boolean isTypeOnly()
     {
         return typeOnly;
