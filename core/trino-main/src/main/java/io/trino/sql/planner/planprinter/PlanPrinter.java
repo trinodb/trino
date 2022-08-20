@@ -1746,12 +1746,6 @@ public class PlanPrinter
     {
         StringBuilder builder = new StringBuilder(frame.getType().toString());
 
-        frame.getOriginalStartValue().ifPresent(value -> builder.append(" ").append(value));
-        builder.append(" ").append(frame.getStartType());
-
-        frame.getOriginalEndValue().ifPresent(value -> builder.append(" ").append(value));
-        builder.append(" ").append(frame.getEndType());
-
         return builder.toString();
     }
 

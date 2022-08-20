@@ -231,8 +231,6 @@ public class WindowNode
                 Optional.empty(),
                 CURRENT_ROW,
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty());
 
         private final io.trino.sql.tree.WindowFrame.Type type;
@@ -243,10 +241,6 @@ public class WindowNode
         private final Optional<Symbol> endValue;
         private final Optional<Symbol> sortKeyCoercedForFrameEndComparison;
 
-        // This information is only used for printing the plan.
-        private final Optional<Expression> originalStartValue;
-        private final Optional<Expression> originalEndValue;
-
         @JsonCreator
         public Frame(
                 @JsonProperty("type") io.trino.sql.tree.WindowFrame.Type type,
@@ -255,9 +249,7 @@ public class WindowNode
                 @JsonProperty("sortKeyCoercedForFrameStartComparison") Optional<Symbol> sortKeyCoercedForFrameStartComparison,
                 @JsonProperty("endType") io.trino.sql.tree.FrameBound.Type endType,
                 @JsonProperty("endValue") Optional<Symbol> endValue,
-                @JsonProperty("sortKeyCoercedForFrameEndComparison") Optional<Symbol> sortKeyCoercedForFrameEndComparison,
-                @JsonProperty("originalStartValue") Optional<Expression> originalStartValue,
-                @JsonProperty("originalEndValue") Optional<Expression> originalEndValue)
+                @JsonProperty("sortKeyCoercedForFrameEndComparison") Optional<Symbol> sortKeyCoercedForFrameEndComparison)
         {
             this.startType = requireNonNull(startType, "startType is null");
             this.startValue = requireNonNull(startValue, "startValue is null");
@@ -266,22 +258,6 @@ public class WindowNode
             this.endValue = requireNonNull(endValue, "endValue is null");
             this.sortKeyCoercedForFrameEndComparison = requireNonNull(sortKeyCoercedForFrameEndComparison, "sortKeyCoercedForFrameEndComparison is null");
             this.type = requireNonNull(type, "type is null");
-            this.originalStartValue = requireNonNull(originalStartValue, "originalStartValue is null");
-            this.originalEndValue = requireNonNull(originalEndValue, "originalEndValue is null");
-
-            if (startValue.isPresent()) {
-                checkArgument(originalStartValue.isPresent(), "originalStartValue must be present if startValue is present");
-                if (type == RANGE) {
-                    checkArgument(sortKeyCoercedForFrameStartComparison.isPresent(), "for frame of type RANGE, sortKeyCoercedForFrameStartComparison must be present if startValue is present");
-                }
-            }
-
-            if (endValue.isPresent()) {
-                checkArgument(originalEndValue.isPresent(), "originalEndValue must be present if endValue is present");
-                if (type == RANGE) {
-                    checkArgument(sortKeyCoercedForFrameEndComparison.isPresent(), "for frame of type RANGE, sortKeyCoercedForFrameEndComparison must be present if endValue is present");
-                }
-            }
         }
 
         @JsonProperty
@@ -324,18 +300,6 @@ public class WindowNode
         public Optional<Symbol> getSortKeyCoercedForFrameEndComparison()
         {
             return sortKeyCoercedForFrameEndComparison;
-        }
-
-        @JsonProperty
-        public Optional<Expression> getOriginalStartValue()
-        {
-            return originalStartValue;
-        }
-
-        @JsonProperty
-        public Optional<Expression> getOriginalEndValue()
-        {
-            return originalEndValue;
         }
 
         @Override

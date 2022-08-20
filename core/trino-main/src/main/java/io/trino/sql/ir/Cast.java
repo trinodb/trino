@@ -64,7 +64,7 @@ public final class Cast
             @JsonProperty("typeOnly") boolean typeOnly)
     {
         requireNonNull(expression, "expression is null");
-        return new Cast(expression, type, safe, safe);
+        return new Cast(expression, type, safe, false);
     }
 
     @JsonProperty

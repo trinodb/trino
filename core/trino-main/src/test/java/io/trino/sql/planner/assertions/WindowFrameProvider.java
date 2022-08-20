@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.plan.WindowNode;
 
 import java.util.Optional;
@@ -55,8 +54,6 @@ public class WindowFrameProvider
     {
         // synthetize original start/end value to keep the constructor of the frame happy. These are irrelevant for the purpose
         // of testing the plan structure.
-        Optional<Expression> originalStartValue = startValue.map(alias -> alias.toSymbol(aliases).toIrSymbolReference());
-        Optional<Expression> originalEndValue = endValue.map(alias -> alias.toSymbol(aliases).toIrSymbolReference());
 
         return new WindowNode.Frame(
                 type,
@@ -65,9 +62,7 @@ public class WindowFrameProvider
                 sortKeyForStartComparison.map(alias -> alias.toSymbol(aliases)),
                 endType,
                 endValue.map(alias -> alias.toSymbol(aliases)),
-                sortKeyForEndComparison.map(alias -> alias.toSymbol(aliases)),
-                originalStartValue,
-                originalEndValue);
+                sortKeyForEndComparison.map(alias -> alias.toSymbol(aliases)));
     }
 
     @Override

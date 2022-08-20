@@ -600,8 +600,6 @@ public class TestPushDownDereferencesRules
                                                                 Optional.empty(),
                                                                 io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING,
                                                                 Optional.empty(),
-                                                                Optional.empty(),
-                                                                Optional.empty(),
                                                                 Optional.empty()),
                                                         true)),
                                         p.values(

@@ -19,17 +19,16 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
-import io.trino.sql.ExpressionFormatter;
-import io.trino.sql.ir.Expression;
+import io.trino.sql.AstExpressionFormatter;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.TranslationMap;
+import io.trino.sql.tree.Expression;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
 
-import static io.trino.sql.IrExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 
 public final class ExpressionSerialization
 {
@@ -42,7 +41,7 @@ public final class ExpressionSerialization
         public void serialize(Expression expression, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
                 throws IOException
         {
-            jsonGenerator.writeString(ExpressionFormatter.formatExpression(expression));
+            jsonGenerator.writeString(AstExpressionFormatter.formatExpression(expression));
         }
     }
 
@@ -62,7 +61,7 @@ public final class ExpressionSerialization
                 throws IOException
         {
             return rewriteIdentifiersToSymbolReferences(
-                    TranslationMap.copyAstExpressionToIrExpression(sqlParser.createExpression(jsonParser.readValueAs(String.class), new ParsingOptions())));
+                    sqlParser.createExpression(jsonParser.readValueAs(String.class), new ParsingOptions()));
         }
     }
 }

@@ -223,9 +223,7 @@ public class TestPruneWindowColumns
                                                 Optional.of(orderKey),
                                                 CURRENT_ROW,
                                                 Optional.of(endValue1),
-                                                Optional.of(orderKey),
-                                                Optional.of(startValue1.toIrSymbolReference()),
-                                                Optional.of(endValue2.toIrSymbolReference())),
+                                                Optional.of(orderKey)),
                                         false),
                                 output2,
                                 new WindowNode.Function(
@@ -238,9 +236,7 @@ public class TestPruneWindowColumns
                                                 Optional.of(orderKey),
                                                 CURRENT_ROW,
                                                 Optional.of(endValue2),
-                                                Optional.of(orderKey),
-                                                Optional.of(startValue2.toIrSymbolReference()),
-                                                Optional.of(endValue2.toIrSymbolReference())),
+                                                Optional.of(orderKey)),
                                         false)),
                         hash,
                         p.values(

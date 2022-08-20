@@ -1591,19 +1591,14 @@ class QueryPlanner
         FrameBound.Type frameStartType = FrameBound.Type.UNBOUNDED_PRECEDING;
         FrameBound.Type frameEndType = FrameBound.Type.CURRENT_ROW;
 
-        Optional<Expression> frameStartExpression = Optional.empty();
-        Optional<Expression> frameEndExpression = Optional.empty();
-
         if (window.getFrame().isPresent()) {
             WindowFrame frame = window.getFrame().get();
             frameType = frame.getType();
 
             frameStartType = frame.getStart().getType();
-            frameStartExpression = frame.getStart().getValue();
 
             if (frame.getEnd().isPresent()) {
                 frameEndType = frame.getEnd().get().getType();
-                frameEndExpression = frame.getEnd().get().getValue();
             }
         }
 
@@ -1617,9 +1612,7 @@ class QueryPlanner
                 sortKeyCoercedForFrameStartComparison,
                 frameEndType,
                 frameEndSymbol,
-                sortKeyCoercedForFrameEndComparison,
-                frameStartExpression.map(TranslationMap::copyAstExpressionToIrExpression),
-                frameEndExpression.map(TranslationMap::copyAstExpressionToIrExpression));
+                sortKeyCoercedForFrameEndComparison);
 
         Symbol newSymbol = symbolAllocator.newSymbol(TranslationMap.copyAstExpressionToIrExpression(windowFunction), analysis.getType(windowFunction));
 
@@ -1672,9 +1665,7 @@ class QueryPlanner
                 Optional.empty(),
                 frameEnd.getType(),
                 frameEndSymbol,
-                Optional.empty(),
-                Optional.empty(),
-                frameEnd.getValue().map(TranslationMap::copyAstExpressionToIrExpression));
+                Optional.empty());
 
         Symbol newSymbol = symbolAllocator.newSymbol(TranslationMap.copyAstExpressionToIrExpression(windowFunction), analysis.getType(windowFunction));
 
@@ -1821,9 +1812,7 @@ class QueryPlanner
                 Optional.empty(),
                 frameEnd.getType(),
                 frameEndSymbol,
-                Optional.empty(),
-                Optional.empty(),
-                frameEnd.getValue().map(TranslationMap::copyAstExpressionToIrExpression));
+                Optional.empty());
 
         PatternRecognitionComponents components = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .planPatternRecognitionComponents(

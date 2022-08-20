@@ -150,8 +150,6 @@ public class TestTypeValidator
                 Optional.empty(),
                 io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING,
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty());
 
         WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnC.toIrSymbolReference()), frame, false);
@@ -279,8 +277,6 @@ public class TestTypeValidator
                 Optional.empty(),
                 io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING,
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty());
 
         WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnA.toIrSymbolReference()), frame, false);
@@ -313,8 +309,6 @@ public class TestTypeValidator
                 Optional.empty(),
                 Optional.empty(),
                 io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING,
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 

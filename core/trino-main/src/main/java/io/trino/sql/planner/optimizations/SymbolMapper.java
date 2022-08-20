@@ -234,9 +234,7 @@ public class SymbolMapper
                 frame.getSortKeyCoercedForFrameStartComparison().map(this::map),
                 frame.getEndType(),
                 frame.getEndValue().map(this::map),
-                frame.getSortKeyCoercedForFrameEndComparison().map(this::map),
-                frame.getOriginalStartValue(),
-                frame.getOriginalEndValue());
+                frame.getSortKeyCoercedForFrameEndComparison().map(this::map));
     }
 
     private WindowNode.Specification mapAndDistinct(WindowNode.Specification specification)

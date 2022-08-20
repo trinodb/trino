@@ -27,7 +27,6 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.ir.QualifiedName;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -62,7 +61,6 @@ public class TestWindowNode
         functionResolution = new TestingFunctionResolution();
 
         // dependencies copied from ServerMainModule.java to avoid depending on whole ServerMainModule here
-        SqlParser sqlParser = new SqlParser();
         ObjectMapperProvider provider = new ObjectMapperProvider();
         provider.setJsonSerializers(ImmutableMap.of(
                 Slice.class, new SliceSerializer()));
@@ -101,8 +99,6 @@ public class TestWindowNode
                 Optional.empty(),
                 Optional.empty(),
                 io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING,
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 
