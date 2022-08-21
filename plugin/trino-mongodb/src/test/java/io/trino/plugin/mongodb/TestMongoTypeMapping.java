@@ -48,6 +48,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -309,6 +310,17 @@ public class TestMongoTypeMapping
             assertThat(query("SELECT c2 FROM " + table.getName())).matches("VALUES CAST(ARRAY[NULL] AS ARRAY(varchar))");
             assertThat(query("SELECT c3 FROM " + table.getName())).matches("VALUES CAST(ARRAY['foo', NULL, 'bar', NULL] AS ARRAY(varchar))");
         }
+    }
+
+    @Test
+    public void testJson()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("json", "json '{\"id\":0,\"name\":\"user_0\"}'", JSON, "json '{\"id\":0,\"name\":\"user_0\"}'")
+                .addRoundTrip("json", "json '{}'", JSON, "json '{}'")
+                .addRoundTrip("json", "CAST(NULL AS json)", JSON, "CAST(NULL AS json)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_json"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_json"));
     }
 
     @DataProvider
