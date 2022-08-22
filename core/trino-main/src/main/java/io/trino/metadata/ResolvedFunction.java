@@ -70,7 +70,7 @@ public class ResolvedFunction
             @JsonProperty("id") FunctionId functionId,
             @JsonProperty("functionKind") FunctionKind functionKind,
             @JsonProperty("deterministic") boolean deterministic,
-            @JsonProperty("nullability") FunctionNullability functionNullability,
+            @JsonProperty("functionNullability") FunctionNullability functionNullability,
             @JsonProperty("typeDependencies") Map<TypeSignature, Type> typeDependencies,
             @JsonProperty("functionDependencies") Set<ResolvedFunction> functionDependencies)
     {
@@ -78,7 +78,7 @@ public class ResolvedFunction
         this.functionId = requireNonNull(functionId, "functionId is null");
         this.functionKind = requireNonNull(functionKind, "functionKind is null");
         this.deterministic = deterministic;
-        this.functionNullability = requireNonNull(functionNullability, "nullability is null");
+        this.functionNullability = requireNonNull(functionNullability, "functionNullability is null");
         this.typeDependencies = ImmutableMap.copyOf(requireNonNull(typeDependencies, "typeDependencies is null"));
         this.functionDependencies = ImmutableSet.copyOf(requireNonNull(functionDependencies, "functionDependencies is null"));
         checkArgument(functionNullability.getArgumentNullable().size() == signature.getArgumentTypes().size(), "signature and functionNullability must have same argument count");
