@@ -24,7 +24,7 @@ import java.sql.Connection;
 import java.time.temporal.ChronoUnit;
 
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
-import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_RETRY_POLICY;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_RETRY_POLICY;
 
 public final class QueryExecutors
 {
