@@ -368,6 +368,16 @@ this table:
 
 No other types are supported.
 
+.. _delta-lake-table-redirection:
+
+Table redirection
+-----------------
+
+.. include:: table-redirection.fragment
+
+The connector supports redirection from Delta Lake tables to Hive tables
+with the ``delta.hive-catalog-name`` catalog configuration property.
+
 .. _delta-lake-sql-support:
 
 SQL support
