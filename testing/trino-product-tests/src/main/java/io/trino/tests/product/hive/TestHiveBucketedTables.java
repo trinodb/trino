@@ -51,6 +51,8 @@ import static io.trino.tests.product.hive.BucketingType.BUCKETED_V1;
 import static io.trino.tests.product.hive.BucketingType.BUCKETED_V2;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.temporaryHiveTable;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static io.trino.tests.product.utils.TableDefinitionUtils.mutableTableInstanceOf;
