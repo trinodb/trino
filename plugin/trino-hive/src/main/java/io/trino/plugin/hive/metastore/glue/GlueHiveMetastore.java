@@ -630,7 +630,50 @@ public class GlueHiveMetastore
     @Override
     public void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "Table rename is not yet supported by Glue service");
+        boolean newTableCreated = false;
+        try {
+            GetTableRequest getTableRequest = new GetTableRequest().withDatabaseName(databaseName)
+                    .withName(tableName);
+            GetTableResult glueTable = glueClient.getTable(getTableRequest);
+            TableInput tableInput = convertGlueTableToTableInput(glueTable.getTable(), newTableName);
+            CreateTableRequest createTableRequest = new CreateTableRequest()
+                    .withDatabaseName(newDatabaseName)
+                    .withTableInput(tableInput);
+            stats.getCreateTable().call(() -> glueClient.createTable(createTableRequest));
+            newTableCreated = true;
+            dropTable(databaseName, tableName, false);
+        }
+        catch (RuntimeException e) {
+            if (newTableCreated) {
+                try {
+                    dropTable(databaseName, tableName, false);
+                }
+                catch (RuntimeException cleanupException) {
+                    if (!cleanupException.equals(e)) {
+                        e.addSuppressed(cleanupException);
+                    }
+                }
+            }
+            throw e;
+        }
+    }
+
+    private TableInput convertGlueTableToTableInput(com.amazonaws.services.glue.model.Table glueTable, String newTableName)
+    {
+        return new TableInput()
+                .withName(newTableName)
+                .withDescription(glueTable.getDescription())
+                .withOwner(glueTable.getOwner())
+                .withLastAccessTime(glueTable.getLastAccessTime())
+                .withLastAnalyzedTime(glueTable.getLastAnalyzedTime())
+                .withRetention(glueTable.getRetention())
+                .withStorageDescriptor(glueTable.getStorageDescriptor())
+                .withPartitionKeys(glueTable.getPartitionKeys())
+                .withViewOriginalText(glueTable.getViewOriginalText())
+                .withViewExpandedText(glueTable.getViewExpandedText())
+                .withTableType(glueTable.getTableType())
+                .withTargetTable(glueTable.getTargetTable())
+                .withParameters(glueTable.getParameters());
     }
 
     @Override

@@ -23,6 +23,7 @@ import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryLister;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.MetastoreTypeConfig;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.security.AccessControlMetadataFactory;
 import io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
@@ -75,6 +76,7 @@ public class HiveMetadataFactory
     private final DirectoryLister directoryLister;
     private final long perTransactionFileStatusCacheMaximumSize;
     private final PartitionProjectionService partitionProjectionService;
+    private final String metastoreType;
 
     @Inject
     public HiveMetadataFactory(
@@ -96,7 +98,8 @@ public class HiveMetadataFactory
             HiveMaterializedViewMetadataFactory hiveMaterializedViewMetadataFactory,
             AccessControlMetadataFactory accessControlMetadataFactory,
             DirectoryLister directoryLister,
-            PartitionProjectionService partitionProjectionService)
+            PartitionProjectionService partitionProjectionService,
+            MetastoreTypeConfig metastoreTypeConfig)
     {
         this(
                 catalogName,
@@ -129,7 +132,8 @@ public class HiveMetadataFactory
                 accessControlMetadataFactory,
                 directoryLister,
                 hiveConfig.getPerTransactionFileStatusCacheMaximumSize(),
-                partitionProjectionService);
+                partitionProjectionService,
+                metastoreTypeConfig);
     }
 
     public HiveMetadataFactory(
@@ -163,7 +167,8 @@ public class HiveMetadataFactory
             AccessControlMetadataFactory accessControlMetadataFactory,
             DirectoryLister directoryLister,
             long perTransactionFileStatusCacheMaximumSize,
-            PartitionProjectionService partitionProjectionService)
+            PartitionProjectionService partitionProjectionService,
+            MetastoreTypeConfig metastoreTypeConfig)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -203,6 +208,8 @@ public class HiveMetadataFactory
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.perTransactionFileStatusCacheMaximumSize = perTransactionFileStatusCacheMaximumSize;
         this.partitionProjectionService = requireNonNull(partitionProjectionService, "partitionProjectionService is null");
+        requireNonNull(metastoreTypeConfig, "metastoreTypeConfig is null");
+        this.metastoreType = requireNonNull(metastoreTypeConfig.getMetastoreType(), "metastoreType is null");
     }
 
     @Override
@@ -248,6 +255,7 @@ public class HiveMetadataFactory
                 hiveMaterializedViewMetadataFactory.create(hiveMetastoreClosure),
                 accessControlMetadataFactory.create(metastore),
                 directoryLister,
-                partitionProjectionService);
+                partitionProjectionService,
+                metastoreType);
     }
 }

@@ -371,6 +371,7 @@ public class HiveMetadata
     private final AccessControlMetadata accessControlMetadata;
     private final DirectoryLister directoryLister;
     private final PartitionProjectionService partitionProjectionService;
+    private final String metastoreType;
 
     public HiveMetadata(
             CatalogName catalogName,
@@ -394,7 +395,8 @@ public class HiveMetadata
             HiveMaterializedViewMetadata hiveMaterializedViewMetadata,
             AccessControlMetadata accessControlMetadata,
             DirectoryLister directoryLister,
-            PartitionProjectionService partitionProjectionService)
+            PartitionProjectionService partitionProjectionService,
+            String metastoreType)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -418,6 +420,7 @@ public class HiveMetadata
         this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.partitionProjectionService = requireNonNull(partitionProjectionService, "partitionProjectionService is null");
+        this.metastoreType = requireNonNull(metastoreType, "metastoreType is null");
     }
 
     @Override
@@ -1263,6 +1266,9 @@ public class HiveMetadata
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
+        if (metastoreType.equalsIgnoreCase("glue")) {
+            throw new TrinoException(NOT_SUPPORTED, "Table rename is not yet supported by Glue service");
+        }
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         metastore.renameTable(handle.getSchemaName(), handle.getTableName(), newTableName.getSchemaName(), newTableName.getTableName());
     }
