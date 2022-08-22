@@ -60,6 +60,7 @@ class StageManager
 {
     private final QueryStateMachine queryStateMachine;
     private final Map<StageId, SqlStage> stages;
+    private final List<SqlStage> stagesInTopologicalOrder;
     private final List<SqlStage> coordinatorStagesInTopologicalOrder;
     private final List<SqlStage> distributedStagesInTopologicalOrder;
     private final StageId rootStageId;
@@ -78,6 +79,7 @@ class StageManager
     {
         Session session = queryStateMachine.getSession();
         ImmutableMap.Builder<StageId, SqlStage> stages = ImmutableMap.builder();
+        ImmutableList.Builder<SqlStage> stagesInTopologicalOrder = ImmutableList.builder();
         ImmutableList.Builder<SqlStage> coordinatorStagesInTopologicalOrder = ImmutableList.builder();
         ImmutableList.Builder<SqlStage> distributedStagesInTopologicalOrder = ImmutableList.builder();
         StageId rootStageId = null;
@@ -97,6 +99,7 @@ class StageManager
                     schedulerStats);
             StageId stageId = stage.getStageId();
             stages.put(stageId, stage);
+            stagesInTopologicalOrder.add(stage);
             if (fragment.getPartitioning().isCoordinatorOnly()) {
                 coordinatorStagesInTopologicalOrder.add(stage);
             }
@@ -115,6 +118,7 @@ class StageManager
         StageManager stageManager = new StageManager(
                 queryStateMachine,
                 stages.buildOrThrow(),
+                stagesInTopologicalOrder.build(),
                 coordinatorStagesInTopologicalOrder.build(),
                 distributedStagesInTopologicalOrder.build(),
                 rootStageId,
@@ -150,6 +154,7 @@ class StageManager
     private StageManager(
             QueryStateMachine queryStateMachine,
             Map<StageId, SqlStage> stages,
+            List<SqlStage> stagesInTopologicalOrder,
             List<SqlStage> coordinatorStagesInTopologicalOrder,
             List<SqlStage> distributedStagesInTopologicalOrder,
             StageId rootStageId,
@@ -158,6 +163,7 @@ class StageManager
     {
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
         this.stages = ImmutableMap.copyOf(requireNonNull(stages, "stages is null"));
+        this.stagesInTopologicalOrder = ImmutableList.copyOf(requireNonNull(stagesInTopologicalOrder, "stagesInTopologicalOrder is null"));
         this.coordinatorStagesInTopologicalOrder = ImmutableList.copyOf(requireNonNull(coordinatorStagesInTopologicalOrder, "coordinatorStagesInTopologicalOrder is null"));
         this.distributedStagesInTopologicalOrder = ImmutableList.copyOf(requireNonNull(distributedStagesInTopologicalOrder, "distributedStagesInTopologicalOrder is null"));
         this.rootStageId = requireNonNull(rootStageId, "rootStageId is null");
@@ -187,6 +193,11 @@ class StageManager
     {
         SqlStage sqlStage = requireNonNull(stages.get(taskId.getStageId()), () -> "stage not found: %s" + taskId.getStageId());
         sqlStage.failTaskRemotely(taskId, failureCause);
+    }
+
+    public List<SqlStage> getStagesInTopologicalOrder()
+    {
+        return stagesInTopologicalOrder;
     }
 
     public List<SqlStage> getCoordinatorStagesInTopologicalOrder()

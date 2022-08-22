@@ -24,11 +24,13 @@ import io.trino.cost.StatsCalculator;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.execution.scheduler.FaultTolerantQueryScheduler;
 import io.trino.execution.scheduler.NodeAllocatorService;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.PartitionMemoryEstimatorFactory;
+import io.trino.execution.scheduler.PipelinedQueryScheduler;
+import io.trino.execution.scheduler.QueryScheduler;
 import io.trino.execution.scheduler.SplitSchedulerStats;
-import io.trino.execution.scheduler.SqlQueryScheduler;
 import io.trino.execution.scheduler.TaskDescriptorStorage;
 import io.trino.execution.scheduler.TaskExecutionStats;
 import io.trino.execution.scheduler.TaskSourceFactory;
@@ -37,6 +39,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.ForScheduler;
+import io.trino.operator.RetryPolicy;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.DynamicFilterService;
 import io.trino.server.protocol.Slug;
@@ -81,6 +84,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.trino.SystemSessionProperties.getMaxTasksWaitingForNodePerStage;
+import static io.trino.SystemSessionProperties.getRetryPolicy;
+import static io.trino.SystemSessionProperties.getTaskRetryAttemptsOverall;
+import static io.trino.SystemSessionProperties.getTaskRetryAttemptsPerTask;
 import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.PLANNING;
@@ -112,7 +119,7 @@ public class SqlQueryExecution
     private final ScheduledExecutorService schedulerExecutor;
     private final FailureDetector failureDetector;
 
-    private final AtomicReference<SqlQueryScheduler> queryScheduler = new AtomicReference<>();
+    private final AtomicReference<QueryScheduler> queryScheduler = new AtomicReference<>();
     private final AtomicReference<Plan> queryPlan = new AtomicReference<>();
     private final NodeTaskMap nodeTaskMap;
     private final ExecutionPolicy executionPolicy;
@@ -278,7 +285,7 @@ public class SqlQueryExecution
         // acquire reference to scheduler before checking finalQueryInfo, because
         // state change listener sets finalQueryInfo and then clears scheduler when
         // the query finishes.
-        SqlQueryScheduler scheduler = queryScheduler.get();
+        QueryScheduler scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
         if (finalQueryInfo.isPresent()) {
             return finalQueryInfo.get().getQueryStats().getUserMemoryReservation();
@@ -295,7 +302,7 @@ public class SqlQueryExecution
         // acquire reference to scheduler before checking finalQueryInfo, because
         // state change listener sets finalQueryInfo and then clears scheduler when
         // the query finishes.
-        SqlQueryScheduler scheduler = queryScheduler.get();
+        QueryScheduler scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
         if (finalQueryInfo.isPresent()) {
             return finalQueryInfo.get().getQueryStats().getTotalMemoryReservation();
@@ -339,7 +346,7 @@ public class SqlQueryExecution
     @Override
     public Duration getTotalCpuTime()
     {
-        SqlQueryScheduler scheduler = queryScheduler.get();
+        QueryScheduler scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
         if (finalQueryInfo.isPresent()) {
             return finalQueryInfo.get().getQueryStats().getTotalCpuTime();
@@ -355,7 +362,7 @@ public class SqlQueryExecution
     {
         return stateMachine.getFinalQueryInfo()
                 .map(BasicQueryInfo::new)
-                .orElseGet(() -> stateMachine.getBasicQueryInfo(Optional.ofNullable(queryScheduler.get()).map(SqlQueryScheduler::getBasicStageStats)));
+                .orElseGet(() -> stateMachine.getBasicQueryInfo(Optional.ofNullable(queryScheduler.get()).map(QueryScheduler::getBasicStageStats)));
     }
 
     @Override
@@ -404,7 +411,7 @@ public class SqlQueryExecution
                 }
 
                 // if query is not finished, start the scheduler, otherwise cancel it
-                SqlQueryScheduler scheduler = queryScheduler.get();
+                QueryScheduler scheduler = queryScheduler.get();
 
                 if (!stateMachine.isDone()) {
                     scheduler.start();
@@ -488,32 +495,58 @@ public class SqlQueryExecution
                 ((OutputNode) rootFragment.getRoot()).getColumnNames(),
                 rootFragment.getTypes());
 
-        // build the stage execution objects (this doesn't schedule execution)
-        SqlQueryScheduler scheduler = new SqlQueryScheduler(
-                stateMachine,
-                plan.getRoot(),
-                nodePartitioningManager,
-                nodeScheduler,
-                nodeAllocatorService,
-                partitionMemoryEstimatorFactory,
-                taskExecutionStats,
-                remoteTaskFactory,
-                plan.isSummarizeTaskInfos(),
-                scheduleSplitBatchSize,
-                queryExecutor,
-                schedulerExecutor,
-                failureDetector,
-                nodeTaskMap,
-                executionPolicy,
-                schedulerStats,
-                dynamicFilterService,
-                tableExecuteContextManager,
-                plannerContext.getMetadata(),
-                splitSourceFactory,
-                coordinatorTaskManager,
-                exchangeManagerRegistry,
-                taskSourceFactory,
-                taskDescriptorStorage);
+        RetryPolicy retryPolicy = getRetryPolicy(getSession());
+        QueryScheduler scheduler;
+        switch (retryPolicy) {
+            case QUERY:
+            case NONE:
+                scheduler = new PipelinedQueryScheduler(
+                        stateMachine,
+                        plan.getRoot(),
+                        nodePartitioningManager,
+                        nodeScheduler,
+                        remoteTaskFactory,
+                        plan.isSummarizeTaskInfos(),
+                        scheduleSplitBatchSize,
+                        queryExecutor,
+                        schedulerExecutor,
+                        failureDetector,
+                        nodeTaskMap,
+                        executionPolicy,
+                        schedulerStats,
+                        dynamicFilterService,
+                        tableExecuteContextManager,
+                        plannerContext.getMetadata(),
+                        splitSourceFactory,
+                        coordinatorTaskManager);
+                break;
+            case TASK:
+                scheduler = new FaultTolerantQueryScheduler(
+                        stateMachine,
+                        queryExecutor,
+                        schedulerStats,
+                        failureDetector,
+                        taskSourceFactory,
+                        taskDescriptorStorage,
+                        exchangeManagerRegistry.getExchangeManager(),
+                        nodePartitioningManager,
+                        getTaskRetryAttemptsOverall(getSession()),
+                        getTaskRetryAttemptsPerTask(getSession()),
+                        getMaxTasksWaitingForNodePerStage(getSession()),
+                        schedulerExecutor,
+                        nodeAllocatorService,
+                        partitionMemoryEstimatorFactory,
+                        taskExecutionStats,
+                        dynamicFilterService,
+                        plannerContext.getMetadata(),
+                        remoteTaskFactory,
+                        nodeTaskMap,
+                        plan.getRoot(),
+                        plan.isSummarizeTaskInfos());
+                break;
+            default:
+                throw new IllegalArgumentException("Unexpected retry policy: " + retryPolicy);
+        }
 
         queryScheduler.set(scheduler);
     }
@@ -530,7 +563,7 @@ public class SqlQueryExecution
         requireNonNull(stageId, "stageId is null");
 
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
-            SqlQueryScheduler scheduler = queryScheduler.get();
+            QueryScheduler scheduler = queryScheduler.get();
             if (scheduler != null) {
                 scheduler.cancelStage(stageId);
             }
@@ -543,7 +576,7 @@ public class SqlQueryExecution
         requireNonNull(taskId, "stageId is null");
 
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
-            SqlQueryScheduler scheduler = queryScheduler.get();
+            QueryScheduler scheduler = queryScheduler.get();
             if (scheduler != null) {
                 scheduler.failTask(taskId, reason);
             }
@@ -613,7 +646,7 @@ public class SqlQueryExecution
             // acquire reference to scheduler before checking finalQueryInfo, because
             // state change listener sets finalQueryInfo and then clears scheduler when
             // the query finishes.
-            SqlQueryScheduler scheduler = queryScheduler.get();
+            QueryScheduler scheduler = queryScheduler.get();
 
             return stateMachine.getFinalQueryInfo().orElseGet(() -> buildQueryInfo(scheduler));
         }
@@ -631,7 +664,7 @@ public class SqlQueryExecution
         return queryPlan.get();
     }
 
-    private QueryInfo buildQueryInfo(SqlQueryScheduler scheduler)
+    private QueryInfo buildQueryInfo(QueryScheduler scheduler)
     {
         Optional<StageInfo> stageInfo = Optional.empty();
         if (scheduler != null) {
