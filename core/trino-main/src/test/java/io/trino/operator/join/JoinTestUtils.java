@@ -63,6 +63,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
+import static io.trino.operator.OperatorFactories.JoinOperatorType.innerJoin;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
@@ -92,14 +93,12 @@ public final class JoinTestUtils
             boolean outputSingleMatch,
             boolean hasFilter)
     {
-        return operatorFactories.innerJoin(
+        return operatorFactories.spillingJoin(
+                innerJoin(outputSingleMatch, false),
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
-                outputSingleMatch,
-                false,
                 hasFilter,
-                true,
                 probePages.getTypes(),
                 probePages.getHashChannels().orElseThrow(),
                 getHashChannelAsInt(probePages),
