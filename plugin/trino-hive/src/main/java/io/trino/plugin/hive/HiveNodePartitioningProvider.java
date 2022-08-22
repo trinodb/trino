@@ -80,9 +80,9 @@ public class HiveNodePartitioningProvider
         }
 
         // Allocate a fixed number of buckets. Trino will assign consecutive buckets
-        // to shuffled nodes (e.g "1 -> node2, 2 -> node1, 3 -> node2, 4 -> node1, ...").
+        // to shuffled nodes (e.g. "1 -> node2, 2 -> node1, 3 -> node2, 4 -> node1, ...").
         // Hash function generates consecutive bucket numbers within a partition
-        // (e.g "(part1, bucket1) -> 1234, (part1, bucket2) -> 1235, ...").
+        // (e.g. "(part1, bucket1) -> 1234, (part1, bucket2) -> 1235, ...").
         // Thus single partition insert will be distributed across all worker nodes
         // (if number of workers is greater or equal to number of buckets within a partition).
         // We can write to (number of partitions P) * (number of buckets B) in parallel.

@@ -229,7 +229,7 @@ public class DynamicFilterService
     {
         DynamicFilterContext context = dynamicFilterContexts.get(queryId);
         if (context == null) {
-            // query has been removed or not registered (e.g dynamic filtering is disabled)
+            // query has been removed or not registered (e.g. dynamic filtering is disabled)
             return false;
         }
 
@@ -241,7 +241,7 @@ public class DynamicFilterService
     {
         DynamicFilterContext context = dynamicFilterContexts.get(queryId);
         if (context == null) {
-            // query has been removed or not registered (e.g dynamic filtering is disabled)
+            // query has been removed or not registered (e.g. dynamic filtering is disabled)
             return false;
         }
 
