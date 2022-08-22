@@ -40,6 +40,7 @@ import io.trino.plugin.hive.metastore.ForwardingHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.MetastoreTypeConfig;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
@@ -214,7 +215,8 @@ public abstract class AbstractTestHiveFileSystem
                 new DefaultHiveMaterializedViewMetadataFactory(),
                 SqlStandardAccessControlMetadata::new,
                 new FileSystemDirectoryLister(),
-                new PartitionProjectionService(config, ImmutableMap.of(), new TestingTypeManager()));
+                new PartitionProjectionService(config, ImmutableMap.of(), new TestingTypeManager()),
+                new MetastoreTypeConfig());
         transactionManager = new HiveTransactionManager(metadataFactory);
         splitManager = new HiveSplitManager(
                 transactionManager,
