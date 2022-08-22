@@ -158,6 +158,12 @@ public final class SqlStage
         }
     }
 
+    public void failTaskRemotely(TaskId taskId, Throwable failureCause)
+    {
+        RemoteTask task = requireNonNull(tasks.get(taskId), () -> "task not found: " + taskId);
+        task.failRemotely(failureCause);
+    }
+
     /**
      * Add a listener for the final stage info.  This notification is guaranteed to be fired only once.
      * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
