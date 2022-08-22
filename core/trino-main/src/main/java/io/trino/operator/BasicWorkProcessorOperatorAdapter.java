@@ -24,7 +24,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * This {@link WorkProcessorOperator} adapter allows to adapt {@link WorkProcessor} operators
- * that do not require special input handling (e.g streaming operators).
+ * that do not require special input handling (e.g. streaming operators).
  */
 public class BasicWorkProcessorOperatorAdapter
         implements AdapterWorkProcessorOperator

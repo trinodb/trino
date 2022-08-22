@@ -331,7 +331,7 @@ public class PreAggregateCaseAggregations
 
         String name = aggregation.getResolvedFunction().getSignature().getName();
         if (!ALLOWED_FUNCTIONS.contains(name)) {
-            // only cumulative aggregations (e.g that can be split into aggregation of aggregations) are supported
+            // only cumulative aggregations (e.g. that can be split into aggregation of aggregations) are supported
             return Optional.empty();
         }
 
@@ -431,7 +431,7 @@ public class PreAggregateCaseAggregations
         private final Symbol aggregationSymbol;
         // original aggregation function
         private final ResolvedFunction function;
-        // cumulative aggregation function (e.g aggregation of aggregations)
+        // cumulative aggregation function (e.g. aggregation of aggregations)
         private final ResolvedFunction cumulativeFunction;
         // aggregation function name
         private final String name;
