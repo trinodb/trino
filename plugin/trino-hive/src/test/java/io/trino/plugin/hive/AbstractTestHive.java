@@ -41,6 +41,7 @@ import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
+import io.trino.plugin.hive.metastore.MetastoreTypeConfig;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
@@ -872,7 +873,8 @@ public abstract class AbstractTestHive
                 SqlStandardAccessControlMetadata::new,
                 countingDirectoryLister,
                 1000,
-                new PartitionProjectionService(hiveConfig, ImmutableMap.of(), new TestingTypeManager()));
+                new PartitionProjectionService(hiveConfig, ImmutableMap.of(), new TestingTypeManager()),
+                new MetastoreTypeConfig());
         transactionManager = new HiveTransactionManager(metadataFactory);
         splitManager = new HiveSplitManager(
                 transactionManager,

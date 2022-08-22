@@ -48,6 +48,7 @@ import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.fs.FileSystemDirectoryLister;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.MetastoreTypeConfig;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.s3.HiveS3Config;
 import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
@@ -150,7 +151,8 @@ public class S3SelectTestHelper
                 new DefaultHiveMaterializedViewMetadataFactory(),
                 SqlStandardAccessControlMetadata::new,
                 new FileSystemDirectoryLister(),
-                new PartitionProjectionService(this.hiveConfig, ImmutableMap.of(), new TestingTypeManager()));
+                new PartitionProjectionService(this.hiveConfig, ImmutableMap.of(), new TestingTypeManager()),
+                new MetastoreTypeConfig());
         transactionManager = new HiveTransactionManager(metadataFactory);
 
         splitManager = new HiveSplitManager(
