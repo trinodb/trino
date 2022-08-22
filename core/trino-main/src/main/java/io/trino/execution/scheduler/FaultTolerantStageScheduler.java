@@ -527,14 +527,6 @@ public class FaultTolerantStageScheduler
         }
     }
 
-    public synchronized void reportTaskFailure(TaskId taskId, Throwable failureCause)
-    {
-        RemoteTask task = runningTasks.get(taskId);
-        if (task != null) {
-            task.fail(failureCause);
-        }
-    }
-
     public void failTaskRemotely(TaskId taskId, Throwable failureCause)
     {
         RemoteTask task = runningTasks.get(taskId);
