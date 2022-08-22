@@ -20,8 +20,6 @@ instances of the following services:
 * :ref:`connector-split-manager`
 * :ref:`connector-record-set-provider` or :ref:`connector-page-source-provider`
 
-.. _connector-metadata:
-
 Configuration
 ^^^^^^^^^^^^^
 
@@ -166,6 +164,7 @@ a predicate for it:
   WHERE url = 'https://github.com/trinodb/trino.git'
 
 
+.. _connector-metadata:
 
 ConnectorMetadata
 -----------------
