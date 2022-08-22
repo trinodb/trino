@@ -138,21 +138,24 @@ public final class SqlStage
 
     public synchronized void finish()
     {
-        stateMachine.transitionToFinished();
-        tasks.values().forEach(RemoteTask::cancel);
+        if (stateMachine.transitionToFinished()) {
+            tasks.values().forEach(RemoteTask::cancel);
+        }
     }
 
     public synchronized void abort()
     {
-        stateMachine.transitionToAborted();
-        tasks.values().forEach(RemoteTask::abort);
+        if (stateMachine.transitionToAborted()) {
+            tasks.values().forEach(RemoteTask::abort);
+        }
     }
 
     public synchronized void fail(Throwable throwable)
     {
         requireNonNull(throwable, "throwable is null");
-        stateMachine.transitionToFailed(throwable);
-        tasks.values().forEach(RemoteTask::abort);
+        if (stateMachine.transitionToFailed(throwable)) {
+            tasks.values().forEach(RemoteTask::abort);
+        }
     }
 
     /**
