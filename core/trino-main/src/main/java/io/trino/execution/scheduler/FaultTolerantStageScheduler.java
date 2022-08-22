@@ -527,14 +527,6 @@ public class FaultTolerantStageScheduler
         }
     }
 
-    public void failTaskRemotely(TaskId taskId, Throwable failureCause)
-    {
-        RemoteTask task = runningTasks.get(taskId);
-        if (task != null) {
-            task.failRemotely(failureCause);
-        }
-    }
-
     private int getNextAttemptIdForPartition(int partition)
     {
         int latestAttemptId = partitionToRemoteTaskMap.get(partition).stream()
