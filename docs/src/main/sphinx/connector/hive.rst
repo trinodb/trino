@@ -719,6 +719,19 @@ connector.
         also have more overhead and increase load on the system.
       - ``64 MB``
 
+.. _hive-table-redirection:
+
+Table redirection
+-----------------
+
+.. include:: table-redirection.fragment
+
+The connector supports redirection from Hive tables to Iceberg
+and Delta Lake tables with the following catalog configuration properties:
+
+- ``hive.iceberg-catalog-name`` for redirecting the query to :doc:`/connector/iceberg`
+- ``hive.delta-lake-catalog-name`` for redirecting the query to :doc:`/connector/delta-lake`
+
 .. _hive-sql-support:
 
 SQL support
