@@ -33,9 +33,6 @@ configuration metadata document
 During startup of the coordinator Trino retrieves the document and uses provided
 values to set corresponding OAuth2 authentication configuration properties:
 
-* ``authorization_endpoint`` -> ``http-server.authentication.oauth2.auth-url``
-* ``token_endpoint`` -> ``http-server.authentication.oauth2.token-url``
-* ``jwks_uri`` -> ``http-server.authentication.oauth2.jwks-url``
 * ``userinfo_endpoint`` ->  ``http-server.authentication.oauth2.userinfo-url``
 * ``access_token_issuer`` -> ``http-server.authentication.oauth2.access-token-issuer``
 
@@ -98,21 +95,6 @@ The following configuration properties are available:
        Providing this value while OIDC discovery is enabled overrides the value
        from the OpenID provider metadata document.
        Defaults to the value of ``http-server.authentication.oauth2.issuer``.
-   * - ``http-server.authentication.oauth2.auth-url``
-     - The authorization URL. The URL a user's browser will be redirected to in
-       order to begin the OAuth 2.0 authorization process. Providing this value
-       while OIDC discovery is enabled overrides the value from the OpenID
-       provider metadata document.
-   * - ``http-server.authentication.oauth2.token-url``
-     - The URL of the endpoint on the authorization server which Trino uses to
-       obtain an access token. Providing this value while OIDC discovery is
-       enabled overrides the value from the OpenID provider metadata document.
-   * - ``http-server.authentication.oauth2.jwks-url``
-     - The URL of the JSON Web Key Set (JWKS) endpoint on the authorization
-       server. It provides Trino the set of keys containing the public key
-       to verify any JSON Web Token (JWT) from the authorization server.
-       Providing this value while OIDC discovery is enabled overrides the value
-       from the OpenID provider metadata document.
    * - ``http-server.authentication.oauth2.userinfo-url``
      - The URL of the IdPs ``/userinfo`` endpoint. If supplied then this URL is
        used to validate the OAuth access token and retrieve any associated
