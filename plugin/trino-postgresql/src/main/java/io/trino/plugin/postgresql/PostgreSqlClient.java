@@ -1014,9 +1014,11 @@ public class PostgreSqlClient
     protected void verifySchemaName(DatabaseMetaData databaseMetadata, String schemaName)
             throws SQLException
     {
+        // CockroachDB may return negative values
         // PostgreSQL truncates schema name to 63 chars silently
-        if (schemaName.length() > databaseMetadata.getMaxSchemaNameLength()) {
-            throw new TrinoException(NOT_SUPPORTED, format("Schema name must be shorter than or equal to '%s' characters but got '%s'", databaseMetadata.getMaxSchemaNameLength(), schemaName.length()));
+        int maxSchemaNameLength = databaseMetadata.getMaxSchemaNameLength();
+        if (maxSchemaNameLength > 0 && schemaName.length() > maxSchemaNameLength) {
+            throw new TrinoException(NOT_SUPPORTED, format("Schema name must be shorter than or equal to '%s' characters but got '%s'", maxSchemaNameLength, schemaName.length()));
         }
     }
 
@@ -1024,9 +1026,11 @@ public class PostgreSqlClient
     protected void verifyTableName(DatabaseMetaData databaseMetadata, String tableName)
             throws SQLException
     {
+        // CockroachDB may return negative values
         // PostgreSQL truncates table name to 63 chars silently
-        if (tableName.length() > databaseMetadata.getMaxTableNameLength()) {
-            throw new TrinoException(NOT_SUPPORTED, format("Table name must be shorter than or equal to '%s' characters but got '%s'", databaseMetadata.getMaxTableNameLength(), tableName.length()));
+        int maxTableNameLength = databaseMetadata.getMaxTableNameLength();
+        if (maxTableNameLength > 0 && tableName.length() > maxTableNameLength) {
+            throw new TrinoException(NOT_SUPPORTED, format("Table name must be shorter than or equal to '%s' characters but got '%s'", maxTableNameLength, tableName.length()));
         }
     }
 
