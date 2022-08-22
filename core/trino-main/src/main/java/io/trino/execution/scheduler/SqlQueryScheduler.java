@@ -500,11 +500,7 @@ public class SqlQueryScheduler
     public void failTask(TaskId taskId, Throwable failureCause)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
-            coordinatorStagesScheduler.failTaskRemotely(taskId, failureCause);
-            DistributedStagesScheduler distributedStagesScheduler = this.distributedStagesScheduler.get();
-            if (distributedStagesScheduler != null) {
-                distributedStagesScheduler.failTaskRemotely(taskId, failureCause);
-            }
+            stageManager.failTaskRemotely(taskId, failureCause);
         }
     }
 
@@ -658,6 +654,12 @@ public class SqlQueryScheduler
         public void abort()
         {
             stages.values().forEach(SqlStage::abort);
+        }
+
+        public void failTaskRemotely(TaskId taskId, Throwable failureCause)
+        {
+            SqlStage sqlStage = requireNonNull(stages.get(taskId.getStageId()), () -> "stage not found: %s" + taskId.getStageId());
+            sqlStage.failTaskRemotely(taskId, failureCause);
         }
 
         public List<SqlStage> getCoordinatorStagesInTopologicalOrder()
@@ -1091,15 +1093,6 @@ public class SqlQueryScheduler
             }
         }
 
-        public void failTaskRemotely(TaskId taskId, Throwable failureCause)
-        {
-            for (StageExecution stageExecution : stageExecutions) {
-                if (stageExecution.getStageId().equals(taskId.getStageId())) {
-                    stageExecution.failTaskRemotely(taskId, failureCause);
-                }
-            }
-        }
-
         public void cancel()
         {
             stageExecutions.forEach(StageExecution::cancel);
@@ -1163,8 +1156,6 @@ public class SqlQueryScheduler
         void abort();
 
         void reportTaskFailure(TaskId taskId, Throwable failureCause);
-
-        void failTaskRemotely(TaskId taskId, Throwable failureCause);
 
         void addStateChangeListener(StateChangeListener<DistributedStagesSchedulerState> stateChangeListener);
 
@@ -1711,14 +1702,6 @@ public class SqlQueryScheduler
         }
 
         @Override
-        public void failTaskRemotely(TaskId taskId, Throwable failureCause)
-        {
-            // for PipelinedDistributedStagesScheduler waiting for updated task status for a failed task
-            // does not change anything as we are killing whole stages anyway.
-            reportTaskFailure(taskId, failureCause);
-        }
-
-        @Override
         public void addStateChangeListener(StateChangeListener<DistributedStagesSchedulerState> stateChangeListener)
         {
             stateMachine.addStateChangeListener(stateChangeListener);
@@ -2100,16 +2083,6 @@ public class SqlQueryScheduler
         public void reportTaskFailure(TaskId taskId, Throwable failureCause)
         {
             throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void failTaskRemotely(TaskId taskId, Throwable failureCause)
-        {
-            for (FaultTolerantStageScheduler scheduler : schedulers) {
-                if (scheduler.getStageId().equals(taskId.getStageId())) {
-                    scheduler.failTaskRemotely(taskId, failureCause);
-                }
-            }
         }
 
         @Override
