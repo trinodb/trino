@@ -159,6 +159,7 @@ public final class SystemSessionProperties
     public static final String FAULT_TOLERANT_EXECUTION_MIN_TASK_SPLIT_COUNT = "fault_tolerant_execution_min_task_split_count";
     public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_SPLIT_COUNT = "fault_tolerant_execution_target_task_split_count";
     public static final String FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT = "fault_tolerant_execution_max_task_split_count";
+    public static final String FAULT_TOLERANT_EXECUTION_COORDINATOR_TASK_MEMORY = "fault_tolerant_execution_coordinator_task_memory";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY = "fault_tolerant_execution_task_memory";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_GROWTH_FACTOR = "fault_tolerant_execution_task_memory_growth_factor";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE = "fault_tolerant_execution_task_memory_estimation_quantile";
@@ -780,8 +781,13 @@ public final class SystemSessionProperties
                         queryManagerConfig.getFaultTolerantExecutionMaxTaskSplitCount(),
                         false),
                 dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_COORDINATOR_TASK_MEMORY,
+                        "Estimated amount of memory a single coordinator task will use when task level retries are used; value is used when allocating nodes for tasks execution",
+                        memoryManagerConfig.getFaultTolerantExecutionCoordinatorTaskMemory(),
+                        false),
+                dataSizeProperty(
                         FAULT_TOLERANT_EXECUTION_TASK_MEMORY,
-                        "Estimated amount of memory a single task will use when task level retries are used; value is used allocating nodes for tasks execution",
+                        "Estimated amount of memory a single task will use when task level retries are used; value is used when allocating nodes for tasks execution",
                         memoryManagerConfig.getFaultTolerantExecutionTaskMemory(),
                         false),
                 doubleProperty(
@@ -1437,6 +1443,11 @@ public final class SystemSessionProperties
     public static int getFaultTolerantExecutionMaxTaskSplitCount(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT, Integer.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionDefaultCoordinatorTaskMemory(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_COORDINATOR_TASK_MEMORY, DataSize.class);
     }
 
     public static DataSize getFaultTolerantExecutionDefaultTaskMemory(Session session)

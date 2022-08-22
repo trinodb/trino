@@ -39,8 +39,10 @@ import io.trino.execution.ForQueryExecution;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TableExecuteContext;
 import io.trino.execution.TableExecuteContextManager;
+import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
+import io.trino.spi.Node;
 import io.trino.spi.QueryId;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.exchange.Exchange;
@@ -86,12 +88,14 @@ import static com.google.common.util.concurrent.Futures.allAsList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultCoordinatorTaskMemory;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultTaskMemory;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxTaskSplitCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMinTaskSplitCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskInputSize;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskSplitCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantPreserveInputPartitionsInWriteStage;
+import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
@@ -110,31 +114,36 @@ public class StageTaskSourceFactory
     private final TableExecuteContextManager tableExecuteContextManager;
     private final int splitBatchSize;
     private final Executor executor;
+    private final InternalNodeManager nodeManager;
 
     @Inject
     public StageTaskSourceFactory(
             SplitSourceFactory splitSourceFactory,
             TableExecuteContextManager tableExecuteContextManager,
             QueryManagerConfig queryManagerConfig,
-            @ForQueryExecution ExecutorService executor)
+            @ForQueryExecution ExecutorService executor,
+            InternalNodeManager nodeManager)
     {
         this(
                 splitSourceFactory,
                 tableExecuteContextManager,
                 requireNonNull(queryManagerConfig, "queryManagerConfig is null").getScheduleSplitBatchSize(),
-                executor);
+                executor,
+                nodeManager);
     }
 
     public StageTaskSourceFactory(
             SplitSourceFactory splitSourceFactory,
             TableExecuteContextManager tableExecuteContextManager,
             int splitBatchSize,
-            ExecutorService executor)
+            ExecutorService executor,
+            InternalNodeManager nodeManager)
     {
         this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
         this.splitBatchSize = splitBatchSize;
         this.executor = requireNonNull(executor, "executor is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     @Override
@@ -149,8 +158,8 @@ public class StageTaskSourceFactory
     {
         PartitioningHandle partitioning = fragment.getPartitioning();
 
-        if (partitioning.equals(SINGLE_DISTRIBUTION)) {
-            return SingleDistributionTaskSource.create(session, fragment, exchangeSourceHandles);
+        if (partitioning.equals(SINGLE_DISTRIBUTION) || partitioning.equals(COORDINATOR_DISTRIBUTION)) {
+            return SingleDistributionTaskSource.create(session, fragment, exchangeSourceHandles, nodeManager, partitioning.equals(COORDINATOR_DISTRIBUTION));
         }
         if (partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION) || partitioning.equals(SCALED_WRITER_DISTRIBUTION)) {
             return ArbitraryDistributionTaskSource.create(
@@ -199,21 +208,34 @@ public class StageTaskSourceFactory
             implements TaskSource
     {
         private final ListMultimap<PlanNodeId, ExchangeSourceHandle> exchangeSourceHandles;
+        private final DataSize taskMemory;
+        private final InternalNodeManager nodeManager;
+        private final boolean coordinatorOnly;
 
         private boolean finished;
-        private DataSize taskMemory;
 
-        public static SingleDistributionTaskSource create(Session session, PlanFragment fragment, Multimap<PlanFragmentId, ExchangeSourceHandle> exchangeSourceHandles)
+        public static SingleDistributionTaskSource create(
+                Session session,
+                PlanFragment fragment,
+                Multimap<PlanFragmentId, ExchangeSourceHandle> exchangeSourceHandles,
+                InternalNodeManager nodeManager,
+                boolean coordinatorOnly)
         {
             checkArgument(fragment.getPartitionedSources().isEmpty(), "no partitioned sources (table scans) expected, got: %s", fragment.getPartitionedSources());
-            return new SingleDistributionTaskSource(getInputsForRemoteSources(fragment.getRemoteSourceNodes(), exchangeSourceHandles), getFaultTolerantExecutionDefaultTaskMemory(session));
+            return new SingleDistributionTaskSource(
+                    getInputsForRemoteSources(fragment.getRemoteSourceNodes(), exchangeSourceHandles),
+                    coordinatorOnly ? getFaultTolerantExecutionDefaultCoordinatorTaskMemory(session) : getFaultTolerantExecutionDefaultTaskMemory(session),
+                    nodeManager,
+                    coordinatorOnly);
         }
 
         @VisibleForTesting
-        SingleDistributionTaskSource(ListMultimap<PlanNodeId, ExchangeSourceHandle> exchangeSourceHandles, DataSize taskMemory)
+        SingleDistributionTaskSource(ListMultimap<PlanNodeId, ExchangeSourceHandle> exchangeSourceHandles, DataSize taskMemory, InternalNodeManager nodeManager, boolean coordinatorOnly)
         {
             this.exchangeSourceHandles = ImmutableListMultimap.copyOf(requireNonNull(exchangeSourceHandles, "exchangeSourceHandles is null"));
             this.taskMemory = requireNonNull(taskMemory, "taskMemory is null");
+            this.nodeManager = requireNonNull(nodeManager, "nodeManager");
+            this.coordinatorOnly = coordinatorOnly;
         }
 
         @Override
@@ -222,11 +244,17 @@ public class StageTaskSourceFactory
             if (finished) {
                 return immediateFuture(ImmutableList.of());
             }
+            ImmutableSet<HostAddress> hostRequirement = ImmutableSet.of();
+            if (coordinatorOnly) {
+                Node currentNode = nodeManager.getCurrentNode();
+                verify(currentNode.isCoordinator(), "current node is expected to be a coordinator");
+                hostRequirement = ImmutableSet.of(currentNode.getHostAndPort());
+            }
             List<TaskDescriptor> result = ImmutableList.of(new TaskDescriptor(
                     0,
                     ImmutableListMultimap.of(),
                     exchangeSourceHandles,
-                    new NodeRequirements(Optional.empty(), ImmutableSet.of(), taskMemory)));
+                    new NodeRequirements(Optional.empty(), hostRequirement, taskMemory)));
             finished = true;
             return immediateFuture(result);
         }
@@ -250,7 +278,7 @@ public class StageTaskSourceFactory
         private final Multimap<PlanNodeId, ExchangeSourceHandle> partitionedExchangeSourceHandles;
         private final Multimap<PlanNodeId, ExchangeSourceHandle> replicatedExchangeSourceHandles;
         private final long targetPartitionSizeInBytes;
-        private DataSize taskMemory;
+        private final DataSize taskMemory;
 
         private boolean finished;
 

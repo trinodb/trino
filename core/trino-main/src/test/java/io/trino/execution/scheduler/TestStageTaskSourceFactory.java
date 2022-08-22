@@ -32,7 +32,9 @@ import io.trino.execution.scheduler.StageTaskSourceFactory.HashDistributionTaskS
 import io.trino.execution.scheduler.StageTaskSourceFactory.SingleDistributionTaskSource;
 import io.trino.execution.scheduler.StageTaskSourceFactory.SourceDistributionTaskSource;
 import io.trino.execution.scheduler.TestingExchange.TestingExchangeSourceHandle;
+import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNode;
+import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
 import io.trino.spi.QueryId;
@@ -97,7 +99,7 @@ public class TestStageTaskSourceFactory
                 .put(PLAN_NODE_2, new TestingExchangeSourceHandle(0, 321))
                 .put(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 222))
                 .build();
-        TaskSource taskSource = new SingleDistributionTaskSource(sources, DataSize.of(4, GIGABYTE));
+        TaskSource taskSource = new SingleDistributionTaskSource(sources, DataSize.of(4, GIGABYTE), new InMemoryNodeManager(), false);
 
         assertFalse(taskSource.isFinished());
 
@@ -108,6 +110,33 @@ public class TestStageTaskSourceFactory
         TaskDescriptor task = tasks.get(0);
         assertThat(task.getNodeRequirements().getCatalogHandle()).isEmpty();
         assertThat(task.getNodeRequirements().getAddresses()).isEmpty();
+        assertEquals(task.getNodeRequirements().getMemory(), DataSize.of(4, GIGABYTE));
+        assertEquals(task.getPartitionId(), 0);
+        assertEquals(task.getExchangeSourceHandles(), sources);
+        assertEquals(task.getSplits(), ImmutableListMultimap.of());
+    }
+
+    @Test
+    public void testCoordinatorDistributionTaskSource()
+    {
+        ListMultimap<PlanNodeId, ExchangeSourceHandle> sources = ImmutableListMultimap.<PlanNodeId, ExchangeSourceHandle>builder()
+                .put(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 123))
+                .put(PLAN_NODE_2, new TestingExchangeSourceHandle(0, 321))
+                .put(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 222))
+                .build();
+        InternalNodeManager nodeManager = new InMemoryNodeManager();
+        TaskSource taskSource = new SingleDistributionTaskSource(sources, DataSize.of(4, GIGABYTE), nodeManager, true);
+
+        assertFalse(taskSource.isFinished());
+
+        List<TaskDescriptor> tasks = getFutureValue(taskSource.getMoreTasks());
+        assertThat(tasks).hasSize(1);
+        assertTrue(taskSource.isFinished());
+
+        TaskDescriptor task = tasks.get(0);
+        assertThat(task.getNodeRequirements().getCatalogHandle()).isEmpty();
+        assertThat(task.getNodeRequirements().getAddresses()).containsExactly(nodeManager.getCurrentNode().getHostAndPort());
+        assertEquals(task.getNodeRequirements().getMemory(), DataSize.of(4, GIGABYTE));
         assertEquals(task.getPartitionId(), 0);
         assertEquals(task.getExchangeSourceHandles(), sources);
         assertEquals(task.getSplits(), ImmutableListMultimap.of());

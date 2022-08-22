@@ -94,6 +94,7 @@ import static io.trino.spi.ErrorType.INTERNAL_ERROR;
 import static io.trino.spi.ErrorType.USER_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_HOST_GONE;
+import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.util.Failures.toFailure;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -625,7 +626,9 @@ public class FaultTolerantStageScheduler
                             ErrorCode errorCode = failureInfo.getErrorCode();
                             partitionMemoryEstimator.registerPartitionFinished(session, memoryLimits, taskStatus.getPeakMemoryReservation(), false, Optional.ofNullable(errorCode));
 
-                            int taskRemainingAttempts = remainingAttemptsPerTask.getOrDefault(partitionId, maxRetryAttemptsPerTask);
+                            boolean coordinatorStage = stage.getFragment().getPartitioning().equals(COORDINATOR_DISTRIBUTION);
+                            // coordinator tasks cannot be retried
+                            int taskRemainingAttempts = remainingAttemptsPerTask.getOrDefault(partitionId, coordinatorStage ? 0 : maxRetryAttemptsPerTask);
                             if (remainingRetryAttemptsOverall.get() > 0
                                     && taskRemainingAttempts > 0
                                     && (errorCode == null || errorCode.getType() != USER_ERROR)) {
