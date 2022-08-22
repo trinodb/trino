@@ -127,6 +127,9 @@ public class FaultTolerantStageScheduler
     private ListenableFuture<Void> blocked = immediateVoidFuture();
 
     @GuardedBy("this")
+    private ListenableFuture<Void> tasksPopulatedFuture = immediateVoidFuture();
+
+    @GuardedBy("this")
     private SettableFuture<Void> taskFinishedFuture;
 
     private final Duration minRetryDelay;
@@ -281,7 +284,7 @@ public class FaultTolerantStageScheduler
 
         while (!pendingPartitions.isEmpty() || !queuedPartitions.isEmpty() || !taskSource.isFinished()) {
             while (queuedPartitions.isEmpty() && pendingPartitions.size() < maxTasksWaitingForNodePerStage && !taskSource.isFinished()) {
-                ListenableFuture<Void> tasksPopulatedFuture = Futures.transform(
+                tasksPopulatedFuture = Futures.transform(
                         taskSource.getMoreTasks(),
                         tasks -> {
                             synchronized (this) {
@@ -416,6 +419,7 @@ public class FaultTolerantStageScheduler
         return failure == null &&
                 taskSource != null &&
                 taskSource.isFinished() &&
+                tasksPopulatedFuture.isDone() &&
                 queuedPartitions.isEmpty() &&
                 finishedPartitions.containsAll(allPartitions);
     }
