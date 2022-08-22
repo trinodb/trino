@@ -73,6 +73,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.Iterables.cycle;
@@ -873,6 +874,68 @@ public class TestFaultTolerantStageScheduler
                 task.finish();
             });
             assertThat(scheduler.isFinished()).isTrue();
+        }
+    }
+
+    @Test(invocationCount = 1000)
+    public void testIsFinished()
+            throws Exception
+    {
+        TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(ImmutableMap.of(NODE_1, ImmutableList.of(TEST_CATALOG_HANDLE)));
+        setupNodeAllocatorService(nodeSupplier);
+
+        // scheduler is not finished if the task future is not finished
+        TestingRemoteTaskFactory remoteTaskFactory = new TestingRemoteTaskFactory();
+        SettableFuture<List<TaskDescriptor>> future = SettableFuture.create();
+        AtomicBoolean taskSourceCreated = new AtomicBoolean();
+        AtomicBoolean taskSourceFinished = new AtomicBoolean();
+        TaskSource taskSource = new TaskSource()
+        {
+            @Override
+            public ListenableFuture<List<TaskDescriptor>> getMoreTasks()
+            {
+                return future;
+            }
+
+            @Override
+            public boolean isFinished()
+            {
+                return taskSourceFinished.get();
+            }
+
+            @Override
+            public void close() {}
+        };
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
+            FaultTolerantStageScheduler scheduler = createFaultTolerantTaskScheduler(
+                    remoteTaskFactory,
+                    (session, fragment, sourceExchanges, exchangeSourceHandles, getSplitTimeRecorder, bucketToPartitionMap, bucketNodeMap) -> {
+                        taskSourceCreated.set(true);
+                        return taskSource;
+                    },
+                    nodeAllocator,
+                    new TestingExchange(false),
+                    ImmutableMap.of(),
+                    1,
+                    1);
+
+            // ensure task source is created
+            assertFalse(taskSourceCreated.get());
+            scheduler.schedule();
+            assertTrue(taskSourceCreated.get());
+
+            // ensure scheduler is initially not finished
+            scheduler.schedule();
+            assertFalse(scheduler.isFinished());
+
+            // transition task source to finished
+            taskSourceFinished.set(true);
+            scheduler.schedule();
+            // task source is not finished as the future returned from task source is not yet competed
+            assertFalse(scheduler.isFinished());
+
+            future.set(ImmutableList.of());
+            assertTrue(scheduler.isFinished());
         }
     }
 
