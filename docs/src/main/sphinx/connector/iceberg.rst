@@ -202,6 +202,16 @@ property must be one of the following values:
       :ref:`catalog-file-based-access-control` for information on the
       authorization configuration file.
 
+.. _iceberg-table-redirection:
+
+Table redirection
+-----------------
+
+.. include:: table-redirection.fragment
+
+The connector supports redirection from Iceberg tables to Hive tables
+with the ``iceberg.hive-catalog-name`` catalog configuration property.
+
 .. _iceberg-sql-support:
 
 SQL support
