@@ -2099,11 +2099,7 @@ public class SqlQueryScheduler
         @Override
         public void reportTaskFailure(TaskId taskId, Throwable failureCause)
         {
-            for (FaultTolerantStageScheduler scheduler : schedulers) {
-                if (scheduler.getStageId().equals(taskId.getStageId())) {
-                    scheduler.reportTaskFailure(taskId, failureCause);
-                }
-            }
+            throw new UnsupportedOperationException();
         }
 
         @Override

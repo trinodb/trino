@@ -444,57 +444,6 @@ public class TestFaultTolerantStageScheduler
     }
 
     @Test
-    public void testReportTaskFailure()
-            throws Exception
-    {
-        TestingRemoteTaskFactory remoteTaskFactory = new TestingRemoteTaskFactory();
-        TestingTaskSourceFactory taskSourceFactory = createTaskSourceFactory(2, 1);
-        TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(ImmutableMap.of(
-                NODE_1, ImmutableList.of(TEST_CATALOG_HANDLE),
-                NODE_2, ImmutableList.of(TEST_CATALOG_HANDLE)));
-        setupNodeAllocatorService(nodeSupplier);
-
-        TestingExchange sourceExchange1 = new TestingExchange(false);
-        TestingExchange sourceExchange2 = new TestingExchange(false);
-
-        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
-            FaultTolerantStageScheduler scheduler = createFaultTolerantTaskScheduler(
-                    remoteTaskFactory,
-                    taskSourceFactory,
-                    nodeAllocator,
-                    new TestingExchange(false),
-                    ImmutableMap.of(SOURCE_FRAGMENT_ID_1, sourceExchange1, SOURCE_FRAGMENT_ID_2, sourceExchange2),
-                    1,
-                    1);
-
-            sourceExchange1.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 1)));
-            sourceExchange2.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 1)));
-            assertUnblocked(scheduler.isBlocked());
-
-            scheduler.schedule();
-
-            ListenableFuture<Void> blocked = scheduler.isBlocked();
-            // waiting for tasks to finish
-            assertBlocked(blocked);
-
-            scheduler.reportTaskFailure(getTaskId(0, 0), new RuntimeException("some failure"));
-            assertEquals(remoteTaskFactory.getTasks().get(getTaskId(0, 0)).getTaskStatus().getState(), TaskState.FAILED);
-
-            assertUnblocked(blocked);
-            moveTime(10, SECONDS); // skip retry delay
-            scheduler.schedule();
-
-            assertThat(remoteTaskFactory.getTasks()).containsKey(getTaskId(0, 1));
-
-            remoteTaskFactory.getTasks().get(getTaskId(0, 1)).finish();
-            remoteTaskFactory.getTasks().get(getTaskId(1, 0)).finish();
-
-            assertUnblocked(scheduler.isBlocked());
-            assertTrue(scheduler.isFinished());
-        }
-    }
-
-    @Test
     public void testRetryDelay()
             throws Exception
     {
@@ -542,7 +491,7 @@ public class TestFaultTolerantStageScheduler
             assertEquals(remoteTaskFactory.getTasks().get(getTaskId(2, 0)).getTaskStatus().getState(), TaskState.RUNNING);
 
             // T+0.0 fail task 0.0
-            scheduler.reportTaskFailure(getTaskId(0, 0), new RuntimeException("some failure"));
+            remoteTaskFactory.getTasks().get(getTaskId(0, 0)).fail(new RuntimeException("some failure"));
             assertUnblocked(blocked);
             scheduler.schedule();
             blocked = scheduler.isBlocked();
@@ -573,7 +522,7 @@ public class TestFaultTolerantStageScheduler
             assertEquals(remoteTaskFactory.getTasks().get(getTaskId(2, 0)).getTaskStatus().getState(), TaskState.RUNNING);
 
             // T+1.4 fail task 0.1
-            scheduler.reportTaskFailure(getTaskId(0, 1), new RuntimeException("some other failure"));
+            remoteTaskFactory.getTasks().get(getTaskId(0, 1)).fail(new RuntimeException("some other failure"));
             assertUnblocked(blocked);
             scheduler.schedule();
             blocked = scheduler.isBlocked();
@@ -607,7 +556,7 @@ public class TestFaultTolerantStageScheduler
             assertEquals(remoteTaskFactory.getTasks().get(getTaskId(2, 0)).getTaskStatus().getState(), TaskState.RUNNING);
 
             // T+3.5 fail task 0.2
-            scheduler.reportTaskFailure(getTaskId(0, 2), new RuntimeException("some other failure"));
+            remoteTaskFactory.getTasks().get(getTaskId(0, 2)).fail(new RuntimeException("some other failure"));
             assertUnblocked(blocked);
             scheduler.schedule();
             blocked = scheduler.isBlocked();
@@ -644,7 +593,7 @@ public class TestFaultTolerantStageScheduler
             assertEquals(remoteTaskFactory.getTasks().get(getTaskId(2, 0)).getTaskStatus().getState(), TaskState.RUNNING);
 
             // T+6.6 task 1 failure
-            scheduler.reportTaskFailure(getTaskId(1, 0), new RuntimeException("some other failure"));
+            remoteTaskFactory.getTasks().get(getTaskId(1, 0)).fail(new RuntimeException("some other failure"));
             assertUnblocked(blocked);
             scheduler.schedule();
             blocked = scheduler.isBlocked();
@@ -710,7 +659,7 @@ public class TestFaultTolerantStageScheduler
             assertEquals(remoteTaskFactory.getTasks().get(getTaskId(2, 0)).getTaskStatus().getState(), TaskState.FINISHED);
 
             // T+9.7 kill task 1.1; delay should be 1s now
-            scheduler.reportTaskFailure(getTaskId(1, 1), new RuntimeException("some other failure"));
+            remoteTaskFactory.getTasks().get(getTaskId(1, 1)).fail(new RuntimeException("some other failure"));
             assertUnblocked(blocked);
             scheduler.schedule();
             blocked = scheduler.isBlocked();
@@ -753,7 +702,7 @@ public class TestFaultTolerantStageScheduler
             assertEquals(remoteTaskFactory.getTasks().get(getTaskId(2, 0)).getTaskStatus().getState(), TaskState.FINISHED);
 
             // T+10.8 if we kill task with out of memory error next try should be started right away
-            scheduler.reportTaskFailure(getTaskId(1, 2), new TrinoException(StandardErrorCode.CLUSTER_OUT_OF_MEMORY, "oom"));
+            remoteTaskFactory.getTasks().get(getTaskId(1, 2)).fail(new TrinoException(StandardErrorCode.CLUSTER_OUT_OF_MEMORY, "oom"));
             assertUnblocked(blocked);
             scheduler.schedule();
             blocked = scheduler.isBlocked();
