@@ -5,6 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
+        <!-- TODO remove dep.slf4j.version after upgrading to airbase 129 -->
         <version>128</version>
     </parent>
 
@@ -50,6 +51,7 @@
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.9.3</dep.antlr.version>
         <dep.airlift.version>218</dep.airlift.version>
+        <dep.slf4j.version>1.7.36</dep.slf4j.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.aws-sdk.version>1.12.172</dep.aws-sdk.version>
         <dep.okhttp.version>3.14.9</dep.okhttp.version>
@@ -60,9 +62,9 @@
         <dep.tempto.version>189</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.15.0</dep.errorprone.version>
-        <dep.testcontainers.version>1.16.3</dep.testcontainers.version>
+        <dep.testcontainers.version>1.17.3</dep.testcontainers.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
-        <dep.docker-java.version>3.2.12</dep.docker-java.version>
+        <dep.docker-java.version>3.2.13</dep.docker-java.version>
         <dep.coral.version>2.0.77</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
         <dep.casandra.version>4.14.0</dep.casandra.version>
