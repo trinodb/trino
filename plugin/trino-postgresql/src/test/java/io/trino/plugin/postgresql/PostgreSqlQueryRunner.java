@@ -36,7 +36,7 @@ public final class PostgreSqlQueryRunner
     private static final String TPCH_SCHEMA = "tpch";
 
     public static DistributedQueryRunner createPostgreSqlQueryRunner(
-            TestingPostgreSqlServer server,
+            TestingPostgreSql server,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)

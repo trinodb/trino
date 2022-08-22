@@ -18,7 +18,6 @@ import io.trino.plugin.jdbc.RemoteDatabaseEvent;
 import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.PostgreSQLContainer;
 
-import java.io.Closeable;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -36,7 +35,7 @@ import static java.util.function.Predicate.not;
 import static org.testcontainers.containers.PostgreSQLContainer.POSTGRESQL_PORT;
 
 public class TestingPostgreSqlServer
-        implements Closeable
+        implements TestingPostgreSql
 {
     private static final String USER = "test";
     private static final String PASSWORD = "test";
@@ -63,6 +62,7 @@ public class TestingPostgreSqlServer
         execute("CREATE SCHEMA tpch");
     }
 
+    @Override
     public void execute(@Language("SQL") String sql)
     {
         execute(getJdbcUrl(), getProperties(), sql);
@@ -108,11 +108,13 @@ public class TestingPostgreSqlServer
                 .collect(toImmutableList());
     }
 
+    @Override
     public String getUser()
     {
         return USER;
     }
 
+    @Override
     public String getPassword()
     {
         return PASSWORD;
@@ -127,6 +129,7 @@ public class TestingPostgreSqlServer
         return properties;
     }
 
+    @Override
     public String getJdbcUrl()
     {
         return format("jdbc:postgresql://%s:%s/%s", dockerContainer.getContainerIpAddress(), dockerContainer.getMappedPort(POSTGRESQL_PORT), DATABASE);
