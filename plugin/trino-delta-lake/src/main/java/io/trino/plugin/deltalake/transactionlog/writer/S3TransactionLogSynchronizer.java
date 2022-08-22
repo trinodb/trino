@@ -133,7 +133,7 @@ public class S3TransactionLogSynchronizer
                         currentLock.get().getExpirationTime()));
             }
 
-            // extra check if target file did not appear concurrently; e.g due to conflict with TL writer which uses different synchronization mechanism (like DB)
+            // extra check if target file did not appear concurrently; e.g. due to conflict with TL writer which uses different synchronization mechanism (like DB)
             checkState(!fileSystem.exists(newLogEntryPath), format("Target file %s was created during locking", newLogEntryPath));
 
             // write transaction log entry

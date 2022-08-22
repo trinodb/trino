@@ -102,7 +102,7 @@ public class TaskContext
     private final DynamicFiltersCollector dynamicFiltersCollector;
 
     // The collector is shared for dynamic filters collected from coordinator
-    // as well as from local build-side of replicated joins. It is also shared with
+    // as well as from local build-side of replicated joins. It is also shared
     // with multiple table scans (e.g. co-located joins).
     private final LocalDynamicFiltersCollector localDynamicFiltersCollector;
 

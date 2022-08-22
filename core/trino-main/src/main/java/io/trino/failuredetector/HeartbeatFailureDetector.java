@@ -179,7 +179,7 @@ public class HeartbeatFailureDetector
                     return GONE;
                 }
                 if (lastFailureException instanceof SocketTimeoutException) {
-                    // TODO: distinguish between process unresponsiveness (e.g GC pause) and host reboot
+                    // TODO: distinguish between process unresponsiveness (e.g. GC pause) and host reboot
                     return UNRESPONSIVE;
                 }
 
