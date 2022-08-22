@@ -261,7 +261,6 @@ public class SqlQueryScheduler
 
         stageManager = StageManager.create(
                 queryStateMachine,
-                queryStateMachine.getSession(),
                 metadata,
                 remoteTaskFactory,
                 nodeTaskMap,
