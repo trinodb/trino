@@ -68,7 +68,6 @@ class StageManager
 
     static StageManager create(
             QueryStateMachine queryStateMachine,
-            Session session,
             Metadata metadata,
             RemoteTaskFactory taskFactory,
             NodeTaskMap nodeTaskMap,
@@ -77,6 +76,7 @@ class StageManager
             SubPlan planTree,
             boolean summarizeTaskInfo)
     {
+        Session session = queryStateMachine.getSession();
         ImmutableMap.Builder<StageId, SqlStage> stages = ImmutableMap.builder();
         ImmutableList.Builder<SqlStage> coordinatorStagesInTopologicalOrder = ImmutableList.builder();
         ImmutableList.Builder<SqlStage> distributedStagesInTopologicalOrder = ImmutableList.builder();
