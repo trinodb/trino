@@ -1116,6 +1116,10 @@ public class DeltaLakeMetadata
         DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
         checkSupportedWriterVersion(session, handle.getSchemaTableName());
 
+        if (!newColumnMetadata.isNullable() && !metastore.getValidDataFiles(handle.getSchemaTableName(), session).isEmpty()) {
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to add NOT NULL column '%s' for non-empty table: %s.%s", newColumnMetadata.getName(), handle.getSchemaName(), handle.getTableName()));
+        }
+
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle);
 
         try {
@@ -1137,10 +1141,6 @@ public class DeltaLakeMetadata
             columnsNullability.putAll(getColumnsNullability(handle.getMetadataEntry()));
             columnsNullability.put(newColumnMetadata.getName(), newColumnMetadata.isNullable());
 
-            ImmutableMap.Builder<String, Boolean> columnNullability = ImmutableMap.builder();
-            columnNullability.putAll(getColumnsNullability(handle.getMetadataEntry()));
-            columnNullability.put(newColumnMetadata.getName(), true);
-
             ImmutableMap.Builder<String, Map<String, Object>> columnMetadata = ImmutableMap.builder();
             columnMetadata.putAll(getColumnsMetadata(handle.getMetadataEntry()));
             columnMetadata.put(newColumnMetadata.getName(), ImmutableMap.of());
@@ -1153,7 +1153,7 @@ public class DeltaLakeMetadata
                     columnsBuilder.build(),
                     partitionColumns,
                     columnComments.buildOrThrow(),
-                    columnNullability.buildOrThrow(),
+                    columnsNullability.buildOrThrow(),
                     columnMetadata.buildOrThrow(),
                     handle.getMetadataEntry().getConfiguration(),
                     ADD_COLUMN_OPERATION,
