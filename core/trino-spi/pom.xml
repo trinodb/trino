@@ -129,63 +129,6 @@
 
         <plugins>
             <plugin>
-                <groupId>org.codehaus.gmaven</groupId>
-                <artifactId>groovy-maven-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>released-version</id>
-                        <phase>generate-test-resources</phase>
-                        <goals>
-                            <goal>execute</goal>
-                        </goals>
-                        <configuration>
-                            <source>
-                                def match = project.version =~ /(\d+)(?:-SNAPSHOT)?/
-                                if (!match.matches()) {
-                                    throw new RuntimeException("Invalid version: " + project.version)
-                                }
-                                int version = (match.group(1) as int) - 1
-                                project.properties.setProperty('releasedVersion', version as String)
-                            </source>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>copy</id>
-                        <phase>generate-test-resources</phase>
-                        <goals>
-                            <goal>copy</goal>
-                        </goals>
-                        <configuration>
-                            <skip>false</skip>
-                            <artifactItems>
-                                <artifactItem>
-                                    <groupId>io.trino</groupId>
-                                    <artifactId>trino-spi</artifactId>
-                                    <version>${releasedVersion}</version>
-                                    <type>jar</type>
-                                    <outputDirectory>${released-artifacts.dir}</outputDirectory>
-                                </artifactItem>
-                                <artifactItem>
-                                    <!-- slice is needed when loading trino-spi classes for backward compatibility tests -->
-                                    <groupId>io.airlift</groupId>
-                                    <artifactId>slice</artifactId>
-                                    <type>jar</type>
-                                    <outputDirectory>${released-artifacts.dir}</outputDirectory>
-                                </artifactItem>
-                            </artifactItems>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <plugin>
                 <groupId>org.revapi</groupId>
                 <artifactId>revapi-maven-plugin</artifactId>
                 <version>0.14.7</version>
