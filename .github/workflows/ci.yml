@@ -176,6 +176,7 @@ jobs:
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Clean local Maven repo
+        # Avoid creating a cache entry because this job doesn't download all dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: rm -rf ~/.m2/repository
 
@@ -305,6 +306,7 @@ jobs:
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Clean local Maven repo
+        # Avoid creating a cache entry because this job doesn't download all dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: rm -rf ~/.m2/repository
 
@@ -380,6 +382,7 @@ jobs:
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Clean local Maven repo
+        # Avoid creating a cache entry because this job doesn't download all dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: rm -rf ~/.m2/repository
 
@@ -562,6 +565,7 @@ jobs:
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Clean local Maven repo
+        # Avoid creating a cache entry because this job doesn't download all dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: rm -rf ~/.m2/repository
 
@@ -643,6 +647,7 @@ jobs:
             client/trino-cli/target/*-executable.jar
           retention-days: 1
       - name: Clean local Maven repo
+        # Avoid creating a cache entry because this job doesn't download all dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: rm -rf ~/.m2/repository
 
