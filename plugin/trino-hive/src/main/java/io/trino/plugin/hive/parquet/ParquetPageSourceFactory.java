@@ -285,7 +285,7 @@ public class ParquetPageSourceFactory
                     timeZone,
                     newSimpleAggregatedMemoryContext(),
                     options,
-                    parquetPredicate,
+                    Optional.of(parquetPredicate),
                     columnIndexes.build());
 
             ConnectorPageSource parquetPageSource = new ParquetPageSource(
