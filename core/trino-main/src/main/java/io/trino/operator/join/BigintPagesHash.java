@@ -26,6 +26,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.operator.SyntheticAddress.decodePosition;
@@ -177,6 +178,78 @@ public final class BigintPagesHash
             pos = (pos + 1) & mask;
         }
         return -1;
+    }
+
+    @Override
+    public int[] getAddressIndex(int[] positions, Page hashChannelsPage, long[] rawHashes)
+    {
+        return getAddressIndex(positions, hashChannelsPage);
+    }
+
+    @Override
+    public int[] getAddressIndex(int[] positions, Page hashChannelsPage)
+    {
+        checkArgument(hashChannelsPage.getChannelCount() == 1, "Multiple channel page passed to BigintPagesHash");
+
+        int positionCount = positions.length;
+        long[] incomingValues = new long[positionCount];
+        int[] hashPositions = new int[positionCount];
+
+        for (int i = 0; i < positionCount; i++) {
+            incomingValues[i] = hashChannelsPage.getBlock(0).getLong(positions[i], 0);
+            hashPositions[i] = getHashPosition(incomingValues[i], mask);
+        }
+
+        int[] found = new int[positionCount];
+        int foundCount = 0;
+        int[] result = new int[positionCount];
+        Arrays.fill(result, -1);
+        int[] foundKeys = new int[positionCount];
+
+        // Search for positions in the hash array. This is the most CPU-consuming part as
+        // it relies on random memory accesses
+        for (int i = 0; i < positionCount; i++) {
+            foundKeys[i] = keys[hashPositions[i]];
+        }
+        // Found positions are put into `found` array
+        for (int i = 0; i < positionCount; i++) {
+            if (foundKeys[i] != -1) {
+                found[foundCount++] = i;
+            }
+        }
+
+        // At this step we determine if the found keys were indeed the proper ones or it is a hash collision.
+        // The result array is updated for the found ones, while the collisions land into `remaining` array.
+        int[] remaining = found; // Rename for readability
+        int remainingCount = 0;
+
+        for (int i = 0; i < foundCount; i++) {
+            int index = found[i];
+            if (values[foundKeys[index]] == incomingValues[index]) {
+                result[index] = foundKeys[index];
+            }
+            else {
+                remaining[remainingCount++] = index;
+            }
+        }
+
+        // At this point for any reasoable load factor of a hash array (< .75), there is no more than
+        // 10 - 15% of positions left. We search for them in a sequential order and update the result array.
+        for (int i = 0; i < remainingCount; i++) {
+            int index = remaining[i];
+            int position = (hashPositions[index] + 1) & mask; // hashPositions[index] position has already been checked
+
+            while (keys[position] != -1) {
+                if (values[keys[position]] == incomingValues[index]) {
+                    result[index] = keys[position];
+                    break;
+                }
+                // increment position and mask to handler wrap around
+                position = (position + 1) & mask;
+            }
+        }
+
+        return result;
     }
 
     @Override
