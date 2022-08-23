@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.base.CharMatcher;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
@@ -421,7 +422,7 @@ public final class StandardColumnMappings
             {
                 // 'ResultSet.getObject' without class name may throw an exception
                 // e.g. in MySQL driver, rs.getObject(int) throws for dates between Oct 5 and 14, 1582
-                resultSet.getObject(columnIndex, LocalDate.class);
+                resultSetGetObject(resultSet, columnIndex, LocalDate.class);
                 return resultSet.wasNull();
             }
 
@@ -429,7 +430,7 @@ public final class StandardColumnMappings
             public long readLong(ResultSet resultSet, int columnIndex)
                     throws SQLException
             {
-                LocalDate value = resultSet.getObject(columnIndex, LocalDate.class);
+                LocalDate value = resultSetGetObject(resultSet, columnIndex, LocalDate.class);
                 // Some drivers (e.g. MemSQL's) return null LocalDate even though the value isn't null
                 if (value == null) {
                     throw new TrinoException(JDBC_ERROR, "Driver returned null LocalDate for a non-null value");
@@ -499,7 +500,7 @@ public final class StandardColumnMappings
         requireNonNull(timeType, "timeType is null");
         checkArgument(timeType.getPrecision() <= 9, "Unsupported type precision: %s", timeType);
         return (resultSet, columnIndex) -> {
-            LocalTime time = resultSet.getObject(columnIndex, LocalTime.class);
+            LocalTime time = resultSetGetObject(resultSet, columnIndex, LocalTime.class);
             long nanosOfDay = time.toNanoOfDay();
             verify(nanosOfDay < NANOSECONDS_PER_DAY, "Invalid value of nanosOfDay: %s", nanosOfDay);
             long picosOfDay = nanosOfDay * PICOSECONDS_PER_NANOSECOND;
@@ -571,7 +572,44 @@ public final class StandardColumnMappings
     public static LongReadFunction timestampReadFunction(TimestampType timestampType)
     {
         checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
-        return (resultSet, columnIndex) -> toTrinoTimestamp(timestampType, resultSet.getObject(columnIndex, LocalDateTime.class));
+        return (resultSet, columnIndex) -> toTrinoTimestamp(timestampType, resultSetGetObject(resultSet, columnIndex, LocalDateTime.class));
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> T resultSetGetObject(ResultSet resultSet, int columnIndex, Class<T> type)
+            throws SQLException
+    {
+        try {
+            return resultSet.getObject(columnIndex, type);
+        }
+        catch (AbstractMethodError methodError) {
+            //This happening currently with teradata driver
+            final ImmutableSet<String> expectedErrors = ImmutableSet.<String>builder()
+                    .add("Method com/teradata/jdbc/jdk6/JDK6_SQL_ResultSet.getObject(ILjava/lang/Class;)Ljava/lang/Object; is abstract")
+                    .add("Receiver class com.teradata.jdbc.jdk6.JDK6_SQL_ResultSet does not define or inherit an implementation of the resolved method " +
+                            "'abstract java.lang.Object getObject(int, java.lang.Class)' of interface java.sql.ResultSet.")
+                    .build();
+
+            if (expectedErrors.contains(methodError.getMessage())) {
+                final Object object = resultSet.getObject(columnIndex);
+                if (type.getSimpleName().equals(LocalDateTime.class.getSimpleName())) {
+                    Timestamp timestamp = (Timestamp) object;
+                    return (T) timestamp.toLocalDateTime();
+                }
+                else if (type.getSimpleName().equals(LocalTime.class.getSimpleName())) {
+                    Time time = (Time) object;
+                    return (T) time.toLocalTime();
+                }
+                else if (type.getSimpleName().equals(LocalDate.class.getSimpleName())) {
+                    Date date = (Date) object;
+                    if (date == null) {
+                        return null;
+                    }
+                    return (T) date.toLocalDate();
+                }
+            }
+            throw methodError;
+        }
     }
 
     private static ObjectReadFunction longTimestampReadFunction(TimestampType timestampType)
