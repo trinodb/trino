@@ -26,6 +26,7 @@ import io.airlift.log.Logger;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.StageId;
@@ -579,7 +580,7 @@ public class DeduplicatingDirectExchangeBuffer
                 writeBuffer.writeInt(taskId.getPartitionId());
                 writeBuffer.writeInt(taskId.getAttemptId());
                 writeBuffer.writeBytes(page);
-                exchangeSink.add(0, writeBuffer.slice());
+                exchangeSink.add(0, Slices.copyOf(writeBuffer.slice()));
                 writeBuffer.reset();
                 spilledBytes += page.length();
                 spilledPageCount++;
