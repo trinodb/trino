@@ -221,7 +221,7 @@ public class TestLookupJoinPageBuilder
         @Override
         public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage)
         {
-            throw new UnsupportedOperationException();
+            return -1;
         }
 
         @Override
