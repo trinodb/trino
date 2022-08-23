@@ -26,14 +26,13 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.plugin.bigquery.BigQueryUtil.quote;
 import static io.trino.plugin.bigquery.BigQueryUtil.toBigQueryColumnName;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 public class BigQueryFilterQueryBuilder
 {
-    private static final String QUOTE = "`";
-    private static final String ESCAPED_QUOTE = "``";
     private final TupleDomain<ColumnHandle> tupleDomain;
 
     public static Optional<String> buildFilter(TupleDomain<ColumnHandle> tupleDomain)
@@ -150,10 +149,5 @@ public class BigQueryFilterQueryBuilder
             return Optional.empty();
         }
         return Optional.of(quote(columnName) + " " + operator + " " + valueAsString.get());
-    }
-
-    private String quote(String name)
-    {
-        return QUOTE + name.replace(QUOTE, ESCAPED_QUOTE) + QUOTE;
     }
 }
