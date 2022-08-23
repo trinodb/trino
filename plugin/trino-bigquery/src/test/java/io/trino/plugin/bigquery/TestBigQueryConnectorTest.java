@@ -74,8 +74,6 @@ public class TestBigQueryConnectorTest
             case SUPPORTS_DELETE:
             case SUPPORTS_ADD_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_NEGATIVE_DATE:
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:

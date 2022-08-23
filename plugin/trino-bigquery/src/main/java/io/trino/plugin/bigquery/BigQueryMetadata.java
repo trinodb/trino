@@ -17,6 +17,8 @@ import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
 import com.google.cloud.bigquery.Field;
+import com.google.cloud.bigquery.QueryJobConfiguration;
+import com.google.cloud.bigquery.QueryParameterValue;
 import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.StandardTableDefinition;
 import com.google.cloud.bigquery.Table;
@@ -94,7 +96,9 @@ import static io.trino.plugin.bigquery.BigQueryTableHandle.BigQueryPartitionType
 import static io.trino.plugin.bigquery.BigQueryTableHandle.getPartitionType;
 import static io.trino.plugin.bigquery.BigQueryType.toField;
 import static io.trino.plugin.bigquery.BigQueryUtil.isWildcardTable;
+import static io.trino.plugin.bigquery.BigQueryUtil.quote;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -500,6 +504,44 @@ public class BigQueryMetadata
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> newComment)
+    {
+        BigQueryTableHandle table = (BigQueryTableHandle) tableHandle;
+        BigQueryClient client = bigQueryClientFactory.createBigQueryClient(session);
+
+        RemoteTableName remoteTableName = table.asPlainTable().getRemoteTableName();
+        String sql = format(
+                "ALTER TABLE %s.%s.%s SET OPTIONS (description = ?)",
+                quote(remoteTableName.getProjectId()),
+                quote(remoteTableName.getDatasetName()),
+                quote(remoteTableName.getTableName()));
+        client.executeUpdate(QueryJobConfiguration.newBuilder(sql)
+                .setQuery(sql)
+                .addPositionalParameter(QueryParameterValue.string(newComment.orElse(null)))
+                .build());
+    }
+
+    @Override
+    public void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Optional<String> newComment)
+    {
+        BigQueryTableHandle table = (BigQueryTableHandle) tableHandle;
+        BigQueryColumnHandle column = (BigQueryColumnHandle) columnHandle;
+        BigQueryClient client = bigQueryClientFactory.createBigQueryClient(session);
+
+        RemoteTableName remoteTableName = table.asPlainTable().getRemoteTableName();
+        String sql = format(
+                "ALTER TABLE %s.%s.%s ALTER COLUMN %s SET OPTIONS (description = ?)",
+                quote(remoteTableName.getProjectId()),
+                quote(remoteTableName.getDatasetName()),
+                quote(remoteTableName.getTableName()),
+                column.getName());
+        client.executeUpdate(QueryJobConfiguration.newBuilder(sql)
+                .setQuery(sql)
+                .addPositionalParameter(QueryParameterValue.string(newComment.orElse(null)))
+                .build());
     }
 
     @Override

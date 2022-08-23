@@ -217,6 +217,18 @@ public class BigQueryClient
         return bigQuery.create(jobInfo);
     }
 
+    public void executeUpdate(QueryJobConfiguration job)
+    {
+        log.debug("Execute query: %s", job.getQuery());
+        try {
+            bigQuery.query(job);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BigQueryException(BaseHttpServiceException.UNKNOWN_CODE, format("Failed to run the query [%s]", job.getQuery()), e);
+        }
+    }
+
     public TableResult query(String sql, boolean useQueryResultsCache, CreateDisposition createDisposition)
     {
         log.debug("Execute query: %s", sql);
