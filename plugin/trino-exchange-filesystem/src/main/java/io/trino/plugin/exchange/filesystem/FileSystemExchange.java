@@ -67,8 +67,8 @@ public class FileSystemExchange
         implements Exchange
 {
     private static final Pattern PARTITION_FILE_NAME_PATTERN = Pattern.compile("(\\d+)_(\\d+)\\.data");
-    private static final char[] RANDOMIZED_PREFIX_ALPHABET = "abcdefghijklmnopqrstuvwzyz0123456789".toCharArray();
-    private static final int RANDOMIZED_PREFIX_LENGTH = 6;
+    private static final char[] RANDOMIZED_HEX_PREFIX_ALPHABET = "abcdef0123456789".toCharArray();
+    private static final int RANDOMIZED_HEX_PREFIX_LENGTH = 6;
 
     private final List<URI> baseDirectories;
     private final FileSystemExchangeStorage exchangeStorage;
@@ -257,11 +257,11 @@ public class FileSystemExchange
     private URI getTaskOutputDirectory(int taskPartitionId)
     {
         URI baseDirectory = baseDirectories.get(taskPartitionId % baseDirectories.size());
-        String randomizedPrefix = randomizedPrefixes.computeIfAbsent(taskPartitionId, ignored -> generateRandomizedPrefix());
+        String randomizedHexPrefix = randomizedPrefixes.computeIfAbsent(taskPartitionId, ignored -> generateRandomizedHexPrefix());
 
         // Add a randomized prefix to evenly distribute data into different S3 shards
-        // Data output file path format: {randomizedPrefix}.{queryId}.{stageId}.{sinkPartitionId}/{attemptId}/{sourcePartitionId}_{splitId}.data
-        return baseDirectory.resolve(randomizedPrefix + "." + exchangeContext.getQueryId() + "." + exchangeContext.getExchangeId() + "." + taskPartitionId + PATH_SEPARATOR);
+        // Data output file path format: {randomizedHexPrefix}.{queryId}.{stageId}.{sinkPartitionId}/{attemptId}/{sourcePartitionId}_{splitId}.data
+        return baseDirectory.resolve(randomizedHexPrefix + "." + exchangeContext.getQueryId() + "." + exchangeContext.getExchangeId() + "." + taskPartitionId + PATH_SEPARATOR);
     }
 
     @Override
@@ -314,11 +314,14 @@ public class FileSystemExchange
         stats.getCloseExchange().record(exchangeStorage.deleteRecursively(allSinks.stream().map(this::getTaskOutputDirectory).collect(toImmutableList())));
     }
 
-    private static String generateRandomizedPrefix()
+    /**
+     * Some storage systems prefer the prefix to be hexadecimal characters
+     */
+    private static String generateRandomizedHexPrefix()
     {
-        char[] value = new char[RANDOMIZED_PREFIX_LENGTH];
+        char[] value = new char[RANDOMIZED_HEX_PREFIX_LENGTH];
         for (int i = 0; i < value.length; i++) {
-            value[i] = RANDOMIZED_PREFIX_ALPHABET[ThreadLocalRandom.current().nextInt(RANDOMIZED_PREFIX_ALPHABET.length)];
+            value[i] = RANDOMIZED_HEX_PREFIX_ALPHABET[ThreadLocalRandom.current().nextInt(RANDOMIZED_HEX_PREFIX_ALPHABET.length)];
         }
         return new String(value);
     }
