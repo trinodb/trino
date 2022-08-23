@@ -184,6 +184,69 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <plugin>
+                <groupId>org.revapi</groupId>
+                <artifactId>revapi-maven-plugin</artifactId>
+                <version>0.14.7</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.revapi</groupId>
+                        <artifactId>revapi-java</artifactId>
+                        <version>0.27.0</version>
+                    </dependency>
+                </dependencies>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <ignoreSuggestionsFormat>xml</ignoreSuggestionsFormat>
+                    <analysisConfiguration>
+                        <revapi.filter>
+                            <elements>
+                                <exclude>
+                                    <item>
+                                        <matcher>java</matcher>
+                                        <match>@io.trino.spi.Experimental(*) ^*;</match>
+                                    </item>
+                                </exclude>
+                            </elements>
+                        </revapi.filter>
+                        <revapi.differences>
+                            <ignore>true</ignore>
+                            <differences>
+                                <!-- Allow adding new annotations (such as @Nullable) -->
+                                <item>
+                                    <code>java.annotation.added</code>
+                                </item>
+                                <!-- Allow changing enum constant order (e.g., StandardErrorCode) -->
+                                <item>
+                                    <code>java.field.enumConstantOrderChanged</code>
+                                </item>
+                                <!-- Allow removing things that were previously deprecated -->
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java\.(class|method)\.removed</code>
+                                    <old>
+                                        <matcher>java</matcher>
+                                        <match>@java.lang.Deprecated(*) ^*;</match>
+                                    </old>
+                                </item>
+                                <!-- Backwards incompatible changes since the previous release (394) -->
+                                <!-- Any exclusions below can be deleted after each release -->
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.Set&lt;io.trino.spi.security.RoleGrant&gt; io.trino.spi.connector.ConnectorMetadata::listAllRoleGrants(io.trino.spi.connector.ConnectorSession, java.util.Optional&lt;java.util.Set&lt;java.lang.String&gt;&gt;, java.util.Optional&lt;java.util.Set&lt;java.lang.String&gt;&gt;, java.util.OptionalLong)</old>
+                                </item>
+                            </differences>
+                        </revapi.differences>
+                    </analysisConfiguration>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>
