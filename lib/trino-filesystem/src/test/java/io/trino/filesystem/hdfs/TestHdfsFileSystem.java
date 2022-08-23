@@ -57,10 +57,12 @@ public class TestHdfsFileSystem
 
         createFile(tempDir.resolve("abc"));
         createFile(tempDir.resolve("xyz"));
+        createFile(tempDir.resolve("e f"));
         createDirectory(tempDir.resolve("mydir"));
 
         assertThat(listFiles(fileSystem, root)).containsExactlyInAnyOrder(
                 root + "/abc",
+                root + "/e f",
                 root + "/xyz");
 
         assertThat(listFiles(fileSystem, root + "/abc")).containsExactly(root + "/abc");
@@ -72,6 +74,7 @@ public class TestHdfsFileSystem
 
         assertThat(listFiles(fileSystem, root)).containsExactlyInAnyOrder(
                 root + "/abc",
+                root + "/e f",
                 root + "/xyz",
                 root + "/mydir/qqq");
 
