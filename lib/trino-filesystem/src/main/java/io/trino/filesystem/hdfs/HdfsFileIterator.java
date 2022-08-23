@@ -55,7 +55,7 @@ class HdfsFileIterator
 
         verify(status.isFile(), "iterator returned a non-file: %s", status);
 
-        URI pathUri = URI.create(status.getPath().toString());
+        URI pathUri = status.getPath().toUri();
         URI relativeUri = listingUri.relativize(pathUri);
         verify(!relativeUri.equals(pathUri), "cannot relativize [%s] against [%s]", pathUri, listingUri);
 
