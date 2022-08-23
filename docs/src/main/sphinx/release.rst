@@ -10,6 +10,7 @@ Release notes
 .. toctree::
     :maxdepth: 1
 
+    release/release-394
     release/release-393
     release/release-392
     release/release-391
