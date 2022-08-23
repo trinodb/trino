@@ -958,17 +958,6 @@ public class StageTaskSourceFactory
                 handles);
     }
 
-    private static Map<PlanFragmentId, PlanNodeId> getSourceFragmentToRemoteSourceNodeIdMap(List<RemoteSourceNode> remoteSourceNodes)
-    {
-        ImmutableMap.Builder<PlanFragmentId, PlanNodeId> result = ImmutableMap.builder();
-        for (RemoteSourceNode node : remoteSourceNodes) {
-            for (PlanFragmentId sourceFragmentId : node.getSourceFragmentIds()) {
-                result.put(sourceFragmentId, node.getId());
-            }
-        }
-        return result.buildOrThrow();
-    }
-
     private static ListMultimap<PlanNodeId, ExchangeSourceHandle> getInputsForRemoteSources(
             List<RemoteSourceNode> remoteSources,
             Multimap<PlanFragmentId, ExchangeSourceHandle> exchangeSourceHandles)
