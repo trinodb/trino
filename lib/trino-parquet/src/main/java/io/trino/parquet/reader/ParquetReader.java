@@ -76,6 +76,7 @@ import static io.trino.parquet.reader.ListColumnReader.calculateCollectionOffset
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetReader
@@ -130,10 +131,11 @@ public class ParquetReader
             ParquetDataSource dataSource,
             DateTimeZone timeZone,
             AggregatedMemoryContext memoryContext,
-            ParquetReaderOptions options)
+            ParquetReaderOptions options,
+            Optional<Predicate> parquetPredicate)
             throws IOException
     {
-        this(fileCreatedBy, fields, blocks, firstRowsOfBlocks, dataSource, timeZone, memoryContext, options, null, null);
+        this(fileCreatedBy, fields, blocks, firstRowsOfBlocks, dataSource, timeZone, memoryContext, options, parquetPredicate, nCopies(blocks.size(), Optional.empty()));
     }
 
     public ParquetReader(
@@ -145,7 +147,7 @@ public class ParquetReader
             DateTimeZone timeZone,
             AggregatedMemoryContext memoryContext,
             ParquetReaderOptions options,
-            Predicate parquetPredicate,
+            Optional<Predicate> parquetPredicate,
             List<Optional<ColumnIndexStore>> columnIndexStore)
             throws IOException
     {
@@ -164,14 +166,16 @@ public class ParquetReader
 
         checkArgument(blocks.size() == firstRowsOfBlocks.size(), "elements of firstRowsOfBlocks must correspond to blocks");
 
-        this.columnIndexStore = columnIndexStore;
         this.blockRowRanges = listWithNulls(this.blocks.size());
         for (PrimitiveField field : primitiveFields) {
             ColumnDescriptor columnDescriptor = field.getDescriptor();
             this.paths.put(ColumnPath.get(columnDescriptor.getPath()), columnDescriptor);
         }
-        if (parquetPredicate != null && options.isUseColumnIndex()) {
-            this.filter = parquetPredicate.toParquetFilter(timeZone);
+
+        requireNonNull(parquetPredicate, "parquetPredicate is null");
+        this.columnIndexStore = requireNonNull(columnIndexStore, "columnIndexStore is null");
+        if (parquetPredicate.isPresent() && options.isUseColumnIndex()) {
+            this.filter = parquetPredicate.get().toParquetFilter(timeZone);
         }
         else {
             this.filter = Optional.empty();
