@@ -1739,6 +1739,7 @@ public class SqlQueryScheduler
         private final List<FaultTolerantStageScheduler> schedulers;
         private final SplitSchedulerStats schedulerStats;
         private final NodeAllocator nodeAllocator;
+        private final StageManager stageManager;
 
         private final AtomicBoolean started = new AtomicBoolean();
 
@@ -1863,7 +1864,8 @@ public class SqlQueryScheduler
                         queryStateMachine,
                         schedulers.build(),
                         schedulerStats,
-                        nodeAllocator);
+                        nodeAllocator,
+                        stageManager);
             }
             catch (Throwable t) {
                 for (FaultTolerantStageScheduler scheduler : schedulers.build()) {
@@ -1967,13 +1969,15 @@ public class SqlQueryScheduler
                 QueryStateMachine queryStateMachine,
                 List<FaultTolerantStageScheduler> schedulers,
                 SplitSchedulerStats schedulerStats,
-                NodeAllocator nodeAllocator)
+                NodeAllocator nodeAllocator,
+                StageManager stageManager)
         {
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
             this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
             this.schedulers = requireNonNull(schedulers, "schedulers is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
             this.nodeAllocator = requireNonNull(nodeAllocator, "nodeAllocator is null");
+            this.stageManager = requireNonNull(stageManager, "stageManager is null");
         }
 
         @Override
@@ -1996,6 +2000,7 @@ public class SqlQueryScheduler
                     boolean allFinished = true;
                     for (FaultTolerantStageScheduler scheduler : schedulers) {
                         if (scheduler.isFinished()) {
+                            stageManager.get(scheduler.getStageId()).finish();
                             continue;
                         }
                         allFinished = false;
