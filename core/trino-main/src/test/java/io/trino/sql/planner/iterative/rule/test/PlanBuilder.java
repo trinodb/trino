@@ -781,19 +781,16 @@ public class PlanBuilder
                         .collect(toImmutableList()));
         return new TableFinishNode(
                 idAllocator.getNextId(),
-                exchange(e -> e
-                        .addSource(new UpdateNode(
-                                idAllocator.getNextId(),
-                                updateSource,
-                                updateTarget,
-                                updateRowId,
-                                ImmutableList.<Symbol>builder()
-                                        .addAll(columnsToBeUpdated)
-                                        .add(updateRowId)
-                                        .build(),
-                                ImmutableList.of(updateRowId)))
-                        .addInputsSet(updateRowId)
-                        .singleDistributionPartitioningScheme(updateRowId)),
+                new UpdateNode(
+                        idAllocator.getNextId(),
+                        updateSource,
+                        updateTarget,
+                        updateRowId,
+                        ImmutableList.<Symbol>builder()
+                                .addAll(columnsToBeUpdated)
+                                .add(updateRowId)
+                                .build(),
+                        ImmutableList.of(updateRowId)),
                 updateTarget,
                 updateRowId,
                 Optional.empty(),
