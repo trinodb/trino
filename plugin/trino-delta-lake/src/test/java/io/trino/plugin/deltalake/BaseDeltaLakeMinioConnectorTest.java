@@ -826,11 +826,9 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     }
 
     @Override
-    public void testAddNotNullColumnToNonEmptyTable()
+    protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
     {
-        // TODO https://github.com/trinodb/trino/issues/13587 Disallow adding a new column when the table isn't empty
-        assertThatThrownBy(super::testAddNotNullColumnToNonEmptyTable)
-                .hasMessageContaining("expected [false] but found [true]");
+        assertThat(e).hasMessageMatching("Unable to add NOT NULL column '.*' for non-empty table: .*");
     }
 
     @Override
