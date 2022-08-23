@@ -290,6 +290,7 @@ public class DeltaLakeMetadata
     private final ExtendedStatisticsAccess statisticsAccess;
     private final boolean deleteSchemaLocationsFallback;
     private final boolean useUniqueTableLocation;
+    private final String metastoreType;
 
     public DeltaLakeMetadata(
             DeltaLakeMetastore metastore,
@@ -310,7 +311,8 @@ public class DeltaLakeMetadata
             boolean deleteSchemaLocationsFallback,
             DeltaLakeRedirectionsProvider deltaLakeRedirectionsProvider,
             ExtendedStatisticsAccess statisticsAccess,
-            boolean useUniqueTableLocation)
+            boolean useUniqueTableLocation,
+            String metastoreType)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -332,6 +334,7 @@ public class DeltaLakeMetadata
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         this.useUniqueTableLocation = useUniqueTableLocation;
+        this.metastoreType = requireNonNull(metastoreType, "metastoreType is null");
     }
 
     @Override
@@ -1995,8 +1998,8 @@ public class DeltaLakeMetadata
         DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
         Table table = metastore.getTable(handle.getSchemaName(), handle.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
-        if (table.getTableType().equals(MANAGED_TABLE.name())) {
-            throw new TrinoException(NOT_SUPPORTED, "Renaming managed tables is not supported");
+        if (table.getTableType().equals(MANAGED_TABLE.name()) && !metastoreType.equalsIgnoreCase("glue")) {
+            throw new TrinoException(NOT_SUPPORTED, format("Renaming managed tables is not supported for %s metastore", metastoreType));
         }
         metastore.renameTable(session, handle.getSchemaTableName(), newTableName);
     }

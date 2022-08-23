@@ -22,6 +22,7 @@ import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManager;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.MetastoreTypeConfig;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.spi.NodeManager;
 import io.trino.spi.security.ConnectorIdentity;
@@ -58,6 +59,8 @@ public class DeltaLakeMetadataFactory
     private final boolean deleteSchemaLocationsFallback;
     private final boolean useUniqueTableLocation;
 
+    private final String metastoreType;
+
     @Inject
     public DeltaLakeMetadataFactory(
             HiveMetastoreFactory hiveMetastoreFactory,
@@ -74,7 +77,8 @@ public class DeltaLakeMetadataFactory
             NodeManager nodeManager,
             CheckpointWriterManager checkpointWriterManager,
             DeltaLakeRedirectionsProvider deltaLakeRedirectionsProvider,
-            CachingExtendedStatisticsAccess statisticsAccess)
+            CachingExtendedStatisticsAccess statisticsAccess,
+            MetastoreTypeConfig metastoreTypeConfig)
     {
         this.hiveMetastoreFactory = requireNonNull(hiveMetastoreFactory, "hiveMetastore is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -98,6 +102,8 @@ public class DeltaLakeMetadataFactory
         this.perTransactionMetastoreCacheMaximumSize = deltaLakeConfig.getPerTransactionMetastoreCacheMaximumSize();
         this.deleteSchemaLocationsFallback = deltaLakeConfig.isDeleteSchemaLocationsFallback();
         this.useUniqueTableLocation = deltaLakeConfig.isUniqueTableLocation();
+        requireNonNull(metastoreTypeConfig, "metastoreTypeConfig is null");
+        this.metastoreType = requireNonNull(metastoreTypeConfig.getMetastoreType(), "metastoreType is null");
     }
 
     public DeltaLakeMetadata create(ConnectorIdentity identity)
@@ -131,6 +137,7 @@ public class DeltaLakeMetadataFactory
                 deleteSchemaLocationsFallback,
                 deltaLakeRedirectionsProvider,
                 statisticsAccess,
-                useUniqueTableLocation);
+                useUniqueTableLocation,
+                metastoreType);
     }
 }
