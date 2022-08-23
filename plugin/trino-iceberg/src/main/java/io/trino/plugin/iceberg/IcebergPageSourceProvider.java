@@ -1058,7 +1058,8 @@ public class IcebergPageSourceProvider
                     dataSource,
                     UTC,
                     memoryContext,
-                    options);
+                    options,
+                    Optional.empty());
 
             return new ReaderPageSourceWithRowPositions(
                     new ReaderPageSource(
