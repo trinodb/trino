@@ -80,7 +80,7 @@ public class TestSpiBackwardCompatibility
     private static Set<String> getBackwardIncompatibleChanges()
     {
         String majorVersion = new ConnectorContext() {}.getSpiVersion()
-                .replaceAll("^(\\d+).*$", "$1");
+                .replaceAll("^(\\d++).*$", "$1");
         return BACKWARD_INCOMPATIBLE_CHANGES.get(majorVersion);
     }
 
