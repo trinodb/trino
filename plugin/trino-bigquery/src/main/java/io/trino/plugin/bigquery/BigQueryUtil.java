@@ -30,6 +30,9 @@ import static com.google.common.base.Throwables.getCausalChain;
 
 public final class BigQueryUtil
 {
+    private static final String QUOTE = "`";
+    private static final String ESCAPED_QUOTE = "``";
+
     private static final Set<String> INTERNAL_ERROR_MESSAGES = ImmutableSet.of(
             "HTTP/2 error code: INTERNAL_ERROR",
             "Connection closed with unknown cause",
@@ -72,5 +75,10 @@ public final class BigQueryUtil
     public static boolean isWildcardTable(TableDefinition.Type type, String tableName)
     {
         return type == TABLE && tableName.contains("*");
+    }
+
+    public static String quote(String name)
+    {
+        return QUOTE + name.replace(QUOTE, ESCAPED_QUOTE) + QUOTE;
     }
 }
