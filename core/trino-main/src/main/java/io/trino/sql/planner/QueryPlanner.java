@@ -677,8 +677,10 @@ class QueryPlanner
         PlanBuilder subPlan = newPlanBuilder(joinPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
 
         // Build the SearchedCaseExpression that creates the project merge_row
-
+        Metadata metadata = plannerContext.getMetadata();
+        List<ColumnSchema> dataColumnSchemas = mergeAnalysis.getDataColumnSchemas();
         ImmutableList.Builder<WhenClause> whenClauses = ImmutableList.builder();
+        Set<ColumnHandle> nonNullableColumnHandles = mergeAnalysis.getNonNullableColumnHandles();
         for (int caseNumber = 0; caseNumber < merge.getMergeCases().size(); caseNumber++) {
             MergeCase mergeCase = merge.getMergeCases().get(caseNumber);
 
@@ -698,7 +700,14 @@ class QueryPlanner
                     Expression original = mergeCase.getSetExpressions().get(index);
                     Expression setExpression = coerceIfNecessary(analysis, original, original);
                     subPlan = subqueryPlanner.handleSubqueries(subPlan, setExpression, analysis.getSubqueries(merge));
-                    rowBuilder.add(subPlan.rewrite(setExpression));
+                    Expression rewritten = subPlan.rewrite(setExpression);
+                    if (nonNullableColumnHandles.contains(dataColumnHandle)) {
+                        int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(dataColumnHandle), "Could not find fieldIndex for non nullable column");
+                        ColumnSchema columnSchema = dataColumnSchemas.get(fieldIndex);
+                        String columnName = columnSchema.getName();
+                        rewritten = new CoalesceExpression(rewritten, new Cast(failFunction(metadata, session, INVALID_ARGUMENTS, "Assigning NULL to non-null MERGE target table column " + columnName), toSqlType(columnSchema.getType())));
+                    }
+                    rowBuilder.add(rewritten);
                 }
                 else {
                     Integer fieldNumber = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(dataColumnHandle), "Field number for ColumnHandle is null");
@@ -732,7 +741,7 @@ class QueryPlanner
 
         // Build the "else" clause for the SearchedCaseExpression
         ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
-        mergeAnalysis.getDataColumnSchemas().forEach(columnSchema ->
+        dataColumnSchemas.forEach(columnSchema ->
                 rowBuilder.add(new Cast(new NullLiteral(), toSqlType(columnSchema.getType()))));
         rowBuilder.add(new IsNotNullPredicate(presentColumn.toSymbolReference()));
         // The operation number
@@ -741,7 +750,7 @@ class QueryPlanner
         rowBuilder.add(new GenericLiteral("INTEGER", "-1"));
 
         SearchedCaseExpression caseExpression = new SearchedCaseExpression(whenClauses.build(), Optional.of(new Row(rowBuilder.build())));
-        RowType rowType = createMergeRowType(mergeAnalysis.getDataColumnSchemas());
+        RowType rowType = createMergeRowType(dataColumnSchemas);
 
         FieldReference rowIdReference = analysis.getRowIdField(mergeAnalysis.getTargetTable());
         Symbol rowIdSymbol = planWithPresentColumn.getFieldMappings().get(rowIdReference.getFieldIndex());
@@ -778,7 +787,6 @@ class QueryPlanner
         MarkDistinctNode markDistinctNode = new MarkDistinctNode(idAllocator.getNextId(), project, isDistinctSymbol, ImmutableList.of(uniqueIdSymbol, caseNumberSymbol), Optional.empty());
 
         // Raise an error if unique_id symbol is non-null and the unique_id/case_number combination was not distinct
-        Metadata metadata = plannerContext.getMetadata();
         Expression filter = new IfExpression(
                 LogicalExpression.and(
                         new NotExpression(isDistinctSymbol.toSymbolReference()),
@@ -813,7 +821,7 @@ class QueryPlanner
             int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(columnHandle), "Could not find field number for column handle");
             Symbol symbol = planWithPresentColumn.getFieldMappings().get(fieldIndex);
             columnSymbolsBuilder.add(symbol);
-            if (mergeAnalysis.getNonNullableColumnHandles().contains(columnHandle)) {
+            if (nonNullableColumnHandles.contains(columnHandle)) {
                 nonNullColumnSymbolsBuilder.add(symbol);
             }
         }
