@@ -159,7 +159,7 @@ public class ResolvedFunction
         ResolvedFunction that = (ResolvedFunction) o;
         return Objects.equals(signature, that.signature) &&
                 Objects.equals(functionId, that.functionId) &&
-                Objects.equals(functionKind, that.functionKind) &&
+                functionKind == that.functionKind &&
                 deterministic == that.deterministic &&
                 Objects.equals(functionNullability, that.functionNullability) &&
                 Objects.equals(typeDependencies, that.typeDependencies) &&
