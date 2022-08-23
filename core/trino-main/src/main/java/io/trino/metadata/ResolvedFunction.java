@@ -161,6 +161,7 @@ public class ResolvedFunction
                 Objects.equals(functionId, that.functionId) &&
                 Objects.equals(functionKind, that.functionKind) &&
                 deterministic == that.deterministic &&
+                Objects.equals(functionNullability, that.functionNullability) &&
                 Objects.equals(typeDependencies, that.typeDependencies) &&
                 Objects.equals(functionDependencies, that.functionDependencies);
     }
@@ -168,7 +169,7 @@ public class ResolvedFunction
     @Override
     public int hashCode()
     {
-        return Objects.hash(signature, functionId, functionKind, deterministic, typeDependencies, functionDependencies);
+        return Objects.hash(signature, functionId, functionKind, deterministic, functionNullability, typeDependencies, functionDependencies);
     }
 
     @Override
