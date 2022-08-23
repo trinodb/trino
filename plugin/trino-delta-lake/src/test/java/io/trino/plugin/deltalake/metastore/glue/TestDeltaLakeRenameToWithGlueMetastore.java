@@ -117,8 +117,30 @@ public class TestDeltaLakeRenameToWithGlueMetastore
         }
     }
 
+    @Test
+    public void testRenameOfManagedTable()
+    {
+        String oldTable = "test_table_managed_to_be_renamed_" + randomTableSuffix();
+        String newTable = "test_table_managed_renamed_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s AS SELECT 1 AS val ", oldTable), 1);
+            String oldLocation = (String) computeScalar("SELECT \"$path\" FROM " + oldTable);
+            assertQuery("SELECT val FROM " + oldTable, "VALUES (1)");
+
+            assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
+            assertQueryReturnsEmptyResult("SHOW TABLES LIKE '" + oldTable + "'");
+            assertQuery("SELECT val FROM " + newTable, "VALUES (1)");
+            assertQuery("SELECT \"$path\" FROM " + newTable, "SELECT '" + oldLocation + "'");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + oldTable);
+            assertUpdate("DROP TABLE IF EXISTS " + newTable);
+        }
+    }
+
     @AfterClass
-    public void cleanup() {
+    public void cleanup()
+    {
         assertUpdate("DROP SCHEMA IF EXISTS " + SCHEMA);
     }
 }
