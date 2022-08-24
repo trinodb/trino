@@ -37,7 +37,6 @@ public class MergeProcessorNode
     private final Symbol mergeRowSymbol;
     private final List<Symbol> dataColumnSymbols;
     private final List<Symbol> redistributionColumnSymbols;
-    private final List<Symbol> nonNullColumnSymbols;
     private final List<Symbol> outputs;
 
     @JsonCreator
@@ -49,7 +48,6 @@ public class MergeProcessorNode
             @JsonProperty("mergeRowSymbol") Symbol mergeRowSymbol,
             @JsonProperty("dataColumnSymbols") List<Symbol> dataColumnSymbols,
             @JsonProperty("redistributionColumnSymbols") List<Symbol> redistributionColumnSymbols,
-            @JsonProperty("nonNullColumnSymbols") List<Symbol> nonNullColumnSymbols,
             @JsonProperty("outputs") List<Symbol> outputs)
     {
         super(id);
@@ -60,7 +58,6 @@ public class MergeProcessorNode
         this.rowIdSymbol = requireNonNull(rowIdSymbol, "rowIdSymbol is null");
         this.dataColumnSymbols = requireNonNull(dataColumnSymbols, "dataColumnSymbols is null");
         this.redistributionColumnSymbols = requireNonNull(redistributionColumnSymbols, "redistributionColumnSymbols is null");
-        this.nonNullColumnSymbols = ImmutableList.copyOf(requireNonNull(nonNullColumnSymbols, "nonNullColumnSymbols is null"));
         this.outputs = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
     }
 
@@ -100,12 +97,6 @@ public class MergeProcessorNode
         return redistributionColumnSymbols;
     }
 
-    @JsonProperty
-    public List<Symbol> getNonNullColumnSymbols()
-    {
-        return nonNullColumnSymbols;
-    }
-
     @JsonProperty("outputs")
     @Override
     public List<Symbol> getOutputSymbols()
@@ -128,6 +119,6 @@ public class MergeProcessorNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new MergeProcessorNode(getId(), Iterables.getOnlyElement(newChildren), target, rowIdSymbol, mergeRowSymbol, dataColumnSymbols, redistributionColumnSymbols, nonNullColumnSymbols, outputs);
+        return new MergeProcessorNode(getId(), Iterables.getOnlyElement(newChildren), target, rowIdSymbol, mergeRowSymbol, dataColumnSymbols, redistributionColumnSymbols, outputs);
     }
 }

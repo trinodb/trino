@@ -14,20 +14,15 @@
 package io.trino.operator;
 
 import io.trino.spi.Page;
-import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.block.RunLengthEncodedBlock;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.block.ColumnarRow.toColumnarRow;
-import static io.trino.spi.connector.ConnectorMergeSink.INSERT_OPERATION_NUMBER;
-import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_OPERATION_NUMBER;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.util.Objects.requireNonNull;
@@ -47,24 +42,18 @@ public class ChangeOnlyUpdatedColumnsMergeProcessor
     private final int rowIdChannel;
     private final int mergeRowChannel;
     private final List<Integer> dataColumnChannels;
-    private final List<String> dataColumnNames;
     private final int writeRedistributionColumnCount;
-    private final Set<Integer> nonNullColumnChannels;
 
     public ChangeOnlyUpdatedColumnsMergeProcessor(
             int rowIdChannel,
             int mergeRowChannel,
             List<Integer> dataColumnChannels,
-            List<String> dataColumnNames,
-            List<Integer> redistributionColumnChannels,
-            Set<Integer> nonNullColumnChannels)
+            List<Integer> redistributionColumnChannels)
     {
         this.rowIdChannel = rowIdChannel;
         this.mergeRowChannel = mergeRowChannel;
         this.dataColumnChannels = requireNonNull(dataColumnChannels, "dataColumnChannels is null");
-        this.dataColumnNames = requireNonNull(dataColumnNames, "dataColumnNames is null");
         this.writeRedistributionColumnCount = redistributionColumnChannels.size();
-        this.nonNullColumnChannels = requireNonNull(nonNullColumnChannels, "nonNullColumnChannels is null");
     }
 
     @Override
@@ -93,20 +82,6 @@ public class ChangeOnlyUpdatedColumnsMergeProcessor
         builder.add(new RunLengthEncodedBlock(INSERT_FROM_UPDATE_BLOCK, positionCount));
 
         Page result = new Page(builder.toArray(Block[]::new));
-
-        for (int nonNullColumnChannel : nonNullColumnChannels) {
-            Block block = result.getBlock(nonNullColumnChannel);
-            if (block.mayHaveNull()) {
-                for (int position = 0; position < positionCount; position++) {
-                    long operation = TINYINT.getLong(operationChannelBlock, position);
-                    if (operation == INSERT_OPERATION_NUMBER || operation == UPDATE_OPERATION_NUMBER) {
-                        if (block.isNull(position)) {
-                            throw new TrinoException(CONSTRAINT_VIOLATION, "Assigning NULL to non-null MERGE target table column " + dataColumnNames.get(nonNullColumnChannel));
-                        }
-                    }
-                }
-            }
-        }
 
         int defaultCaseCount = 0;
         for (int position = 0; position < positionCount; position++) {
