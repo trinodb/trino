@@ -13,10 +13,13 @@
  */
 package io.trino.spi.exchange;
 
+import io.trino.spi.Experimental;
+
 import java.io.Closeable;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+@Experimental(eta = "2023-01-01")
 public interface ExchangeSourceSplitter
         extends Closeable
 {

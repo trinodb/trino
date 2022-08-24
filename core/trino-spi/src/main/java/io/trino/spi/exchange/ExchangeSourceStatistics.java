@@ -13,6 +13,9 @@
  */
 package io.trino.spi.exchange;
 
+import io.trino.spi.Experimental;
+
+@Experimental(eta = "2023-01-01")
 public class ExchangeSourceStatistics
 {
     private final long sizeInBytes;
