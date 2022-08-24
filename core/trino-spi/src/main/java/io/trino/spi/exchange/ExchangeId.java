@@ -15,6 +15,7 @@ package io.trino.spi.exchange;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import io.trino.spi.Experimental;
 
 import java.util.Objects;
 import java.util.regex.Pattern;
@@ -22,6 +23,7 @@ import java.util.regex.Pattern;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 
+@Experimental(eta = "2023-01-01")
 public class ExchangeId
 {
     private static final Pattern ID_PATTERN = Pattern.compile("[a-zA-Z0-9_-]+");

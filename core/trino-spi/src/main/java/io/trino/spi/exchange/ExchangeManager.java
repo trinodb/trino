@@ -14,6 +14,7 @@
 package io.trino.spi.exchange;
 
 import io.airlift.slice.Slice;
+import io.trino.spi.Experimental;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -39,6 +40,7 @@ import java.util.List;
  * data written by other instances must be safely discarded
  */
 @ThreadSafe
+@Experimental(eta = "2023-01-01")
 public interface ExchangeManager
 {
     /**
