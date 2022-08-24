@@ -4484,6 +4484,25 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testOptimizeSnapshot()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "allow_legacy_snapshot_syntax", "true")
+                .build();
+        String tableName = "test_optimize_snapshot_" + randomTableSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a) AS VALUES 11", 1);
+        long snapshotId = getCurrentSnapshotId(tableName);
+        assertUpdate("INSERT INTO " + tableName + " VALUES 22", 1);
+        assertThatThrownBy(() -> query(session, "ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE".formatted(tableName, snapshotId)))
+                .hasMessage("Cannot execute table procedure OPTIMIZE on old snapshot " + snapshotId);
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES 11, 22");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testOptimizeSystemTable()
     {
         assertThatThrownBy(() -> query("ALTER TABLE \"nation$files\" EXECUTE OPTIMIZE"))
@@ -4818,6 +4837,25 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testExpireSnapshotsOnSnapshot()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "allow_legacy_snapshot_syntax", "true")
+                .build();
+        String tableName = "test_expire_snapshots_on_snapshot_" + randomTableSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a) AS VALUES 11", 1);
+        long snapshotId = getCurrentSnapshotId(tableName);
+        assertUpdate("INSERT INTO " + tableName + " VALUES 22", 1);
+        assertThatThrownBy(() -> query(session, "ALTER TABLE \"%s@%d\" EXECUTE EXPIRE_SNAPSHOTS".formatted(tableName, snapshotId)))
+                .hasMessage("Cannot execute table procedure EXPIRE_SNAPSHOTS on old snapshot " + snapshotId);
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES 11, 22");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testExpireSnapshotsSystemTable()
     {
         assertThatThrownBy(() -> query("ALTER TABLE \"nation$files\" EXECUTE EXPIRE_SNAPSHOTS"))
@@ -4979,6 +5017,25 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testRemoveOrphanFilesOnSnapshot()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "allow_legacy_snapshot_syntax", "true")
+                .build();
+        String tableName = "test_remove_orphan_files_on_snapshot_" + randomTableSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a) AS VALUES 11", 1);
+        long snapshotId = getCurrentSnapshotId(tableName);
+        assertUpdate("INSERT INTO " + tableName + " VALUES 22", 1);
+        assertThatThrownBy(() -> query(session, "ALTER TABLE \"%s@%d\" EXECUTE REMOVE_ORPHAN_FILES".formatted(tableName, snapshotId)))
+                .hasMessage("Cannot execute table procedure REMOVE_ORPHAN_FILES on old snapshot " + snapshotId);
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES 11, 22");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testRemoveOrphanFilesSystemTable()
     {
         assertThatThrownBy(() -> query("ALTER TABLE \"nation$files\" EXECUTE REMOVE_ORPHAN_FILES"))
@@ -5121,8 +5178,6 @@ public abstract class BaseIcebergConnectorTest
         assertThatThrownBy(() -> query(sessionWithLegacySyntaxSupport, format("DELETE FROM \"%s@%d\" WHERE col = 5", tableName, oldSnapshotId)))
                 .hasMessage("Modifying old snapshot is not supported in Iceberg");
         assertThatThrownBy(() -> query(sessionWithLegacySyntaxSupport, format("UPDATE \"%s@%d\" SET col = 50 WHERE col = 5", tableName, oldSnapshotId)))
-                .hasMessage("Modifying old snapshot is not supported in Iceberg");
-        assertThatThrownBy(() -> query(sessionWithLegacySyntaxSupport, format("ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE", tableName, oldSnapshotId)))
                 .hasMessage("Modifying old snapshot is not supported in Iceberg");
         // TODO Change to assertThatThrownBy because the syntax `table@versionid` should not be supported for DML operations
         assertUpdate(sessionWithLegacySyntaxSupport, format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, getCurrentSnapshotId(tableName)), 3);
