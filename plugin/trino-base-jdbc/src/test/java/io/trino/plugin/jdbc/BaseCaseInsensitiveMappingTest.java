@@ -239,6 +239,44 @@ public abstract class BaseCaseInsensitiveMappingTest
     }
 
     @Test
+    public void testCreateTableNameClash()
+            throws Exception
+    {
+        try (AutoCloseable ignore1 = withTable("CaseSensitiveName", "(c varchar(5))")) {
+            assertQueryFails("CREATE TABLE casesensitivename (c varchar(5))", ".*Table '.*' already exists");
+        }
+    }
+
+    @Test
+    public void testCreateTableAsSelectNameClash()
+            throws Exception
+    {
+        try (AutoCloseable ignore1 = withTable("CaseSensitiveName", "(c varchar(5))")) {
+            assertQueryFails("CREATE TABLE casesensitivename AS SELECT 'a' c", ".*Destination table '.*' already exists");
+        }
+    }
+
+    @Test
+    public void testDropTable()
+    {
+        createTable(getSession().getSchema().orElseThrow(), "CaseSensitiveName", "(c varchar(5))");
+        assertUpdate("DROP TABLE casesensitivename");
+        assertThat(computeActual("SHOW TABLES").getOnlyColumn().toList()).doesNotContain("casesensitivename");
+        assertQueryReturnsEmptyResult("SELECT table_name FROM information_schema.tables WHERE table_schema = '" + getSession().getSchema().orElseThrow().toLowerCase(ENGLISH) + "' AND table_name = 'casesensitivename'");
+    }
+
+    @Test
+    public void testDropTableClash()
+            throws Exception
+    {
+        String tableName = "CaseSensitiveName";
+        try (AutoCloseable ignore1 = withTable(tableName, "(c varchar(5))");
+                AutoCloseable ignore2 = withTable(tableName.toLowerCase(ENGLISH), "(c varchar(5))")) {
+            assertQueryFails("DROP TABLE casesensitivename", "Failed to find remote table name: Ambiguous name: casesensitivename");
+        }
+    }
+
+    @Test
     public void testSchemaNameRuleMapping()
             throws Exception
     {
