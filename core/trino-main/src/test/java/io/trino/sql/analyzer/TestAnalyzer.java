@@ -2890,7 +2890,7 @@ public class TestAnalyzer
         // case
         assertFails("SELECT CASE WHEN TRUE THEN 'a' ELSE 1 END FROM t1")
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:37: All CASE results must be the same type: varchar(1)");
+                .hasMessage("line 1:37: All CASE results must be the same type or coercible to a common type. Cannot find common type between varchar(1) and integer, all types (without duplicates): [varchar(1), integer]");
         assertFails("SELECT CASE WHEN '1' THEN 1 ELSE 2 END FROM t1")
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:18: CASE WHEN clause must evaluate to a boolean (actual: varchar(1))");
@@ -2900,12 +2900,12 @@ public class TestAnalyzer
                 .hasMessage("line 1:20: CASE operand type does not match WHEN clause operand type: integer vs varchar(1)");
         assertFails("SELECT CASE 1 WHEN 1 THEN 2 ELSE 'a' END FROM t1")
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:34: All CASE results must be the same type: integer");
+                .hasMessage("line 1:34: All CASE results must be the same type or coercible to a common type. Cannot find common type between integer and varchar(1), all types (without duplicates): [integer, varchar(1)]");
 
         // coalesce
         assertFails("SELECT COALESCE(1, 'a') FROM t1")
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:20: All COALESCE operands must be the same type: integer");
+                .hasMessage("line 1:20: All COALESCE operands must be the same type or coercible to a common type. Cannot find common type between integer and varchar(1), all types (without duplicates): [integer, varchar(1)]");
 
         // cast
         assertFails("SELECT CAST(date '2014-01-01' AS bigint)")
@@ -2985,13 +2985,13 @@ public class TestAnalyzer
         // in
         assertFails("SELECT * FROM t1 WHERE 1 IN ('a')")
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:30: IN value and list items must be the same type: integer");
+                .hasMessage("line 1:30: IN value and list items must be the same type or coercible to a common type. Cannot find common type between integer and varchar(1), all types (without duplicates): [integer, varchar(1)]");
         assertFails("SELECT * FROM t1 WHERE 'a' IN (1)")
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:32: IN value and list items must be the same type: varchar(1)");
+                .hasMessage("line 1:32: IN value and list items must be the same type or coercible to a common type. Cannot find common type between varchar(1) and integer, all types (without duplicates): [varchar(1), integer]");
         assertFails("SELECT * FROM t1 WHERE 'a' IN (1, 'b')")
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:32: IN value and list items must be the same type: varchar(1)");
+                .hasMessage("line 1:32: IN value and list items must be the same type or coercible to a common type. Cannot find common type between varchar(1) and integer, all types (without duplicates): [varchar(1), integer]");
 
         // row type
         assertFails("SELECT t.x.f1 FROM (VALUES 1) t(x)")
