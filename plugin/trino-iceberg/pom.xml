@@ -197,6 +197,12 @@
 
         <!-- used by tests but also needed transitively -->
         <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hadoop-toolkit</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>concurrent</artifactId>
             <scope>runtime</scope>
@@ -412,6 +418,7 @@
                                 <exclude>**/TestSharedGlueMetastore.java</exclude>
                                 <exclude>**/TestIcebergGlueCatalogAccessOperations.java</exclude>
                                 <exclude>**/TestIcebergGlueCatalogMaterializedViewTest.java</exclude>
+                                <exclude>**/TestIcebergGcsConnectorSmokeTest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -420,7 +427,7 @@
         </profile>
 
         <profile>
-            <id>test-glue-catalog</id>
+            <id>cloud-tests</id>
             <build>
                 <plugins>
                     <plugin>
@@ -433,6 +440,7 @@
                                 <include>**/TestSharedGlueMetastore.java</include>
                                 <include>**/TestIcebergGlueCatalogAccessOperations.java</include>
                                 <include>**/TestIcebergGlueCatalogMaterializedViewTest.java</include>
+                                <include>**/TestIcebergGcsConnectorSmokeTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>
