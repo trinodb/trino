@@ -871,6 +871,7 @@ public class IcebergMetadata
             RetryMode retryMode)
     {
         IcebergTableHandle tableHandle = (IcebergTableHandle) connectorTableHandle;
+        checkArgument(tableHandle.getTableType() == DATA, "Cannot execute table procedure %s on non-DATA table: %s", procedureName, tableHandle.getTableType());
 
         IcebergTableProcedureId procedureId;
         try {
