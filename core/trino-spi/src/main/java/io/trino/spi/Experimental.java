@@ -35,6 +35,8 @@ public @interface Experimental
 {
     /**
      * When the community expects the SPI will be finalized, but this date may be extended.
+     * <p>
+     * The value should be a date in ISO-8601 format uuuu-MM-dd.
      */
     String eta();
 }
