@@ -872,6 +872,10 @@ public class IcebergMetadata
     {
         IcebergTableHandle tableHandle = (IcebergTableHandle) connectorTableHandle;
         checkArgument(tableHandle.getTableType() == DATA, "Cannot execute table procedure %s on non-DATA table: %s", procedureName, tableHandle.getTableType());
+        Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
+        if (tableHandle.getSnapshotId().isPresent() && (tableHandle.getSnapshotId().get() != icebergTable.currentSnapshot().snapshotId())) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot execute table procedure %s on old snapshot %s".formatted(procedureName, tableHandle.getSnapshotId().get()));
+        }
 
         IcebergTableProcedureId procedureId;
         try {
