@@ -6,18 +6,20 @@ final aggregation over ()
                     final aggregation over (ss_customer_sk, ss_item_sk)
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["ss_customer_sk", "ss_item_sk"])
-                                partial aggregation over (ss_customer_sk, ss_item_sk)
-                                    join (INNER, REPLICATED, can skip output duplicates):
-                                        scan store_sales
-                                        local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                scan date_dim
+                                local exchange (REPARTITION, ROUND_ROBIN, [])
+                                    partial aggregation over (ss_customer_sk, ss_item_sk)
+                                        join (INNER, REPLICATED, can skip output duplicates):
+                                            scan store_sales
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    scan date_dim
                     final aggregation over (cs_bill_customer_sk, cs_item_sk)
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["cs_bill_customer_sk", "cs_item_sk"])
-                                partial aggregation over (cs_bill_customer_sk, cs_item_sk)
-                                    join (INNER, REPLICATED, can skip output duplicates):
-                                        scan catalog_sales
-                                        local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                scan date_dim
+                                local exchange (REPARTITION, ROUND_ROBIN, [])
+                                    partial aggregation over (cs_bill_customer_sk, cs_item_sk)
+                                        join (INNER, REPLICATED, can skip output duplicates):
+                                            scan catalog_sales
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    scan date_dim

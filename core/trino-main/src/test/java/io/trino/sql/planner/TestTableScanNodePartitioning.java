@@ -187,9 +187,10 @@ public class TestTableScanNodePartitioning
                         aggregation(ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of("COUNT_PART"))), FINAL,
                                 exchange(LOCAL, REPARTITION,
                                         exchange(REMOTE, REPARTITION,
-                                                project(
-                                                        aggregation(ImmutableMap.of("COUNT_PART", functionCall("count", ImmutableList.of("B"))), PARTIAL,
-                                                                tableScan(table, ImmutableMap.of("A", "column_a", "B", "column_b")))))))));
+                                                exchange(LOCAL, REPARTITION,
+                                                        project(
+                                                                aggregation(ImmutableMap.of("COUNT_PART", functionCall("count", ImmutableList.of("B"))), PARTIAL,
+                                                                        tableScan(table, ImmutableMap.of("A", "column_a", "B", "column_b"))))))))));
         SubPlan subPlan = subplan(query, OPTIMIZED_AND_VALIDATED, false, session);
         assertThat(subPlan.getAllFragments()).hasSize(2);
         assertThat(subPlan.getAllFragments().get(1).getPartitioning().getConnectorHandle()).isEqualTo(SOURCE_DISTRIBUTION.getConnectorHandle());

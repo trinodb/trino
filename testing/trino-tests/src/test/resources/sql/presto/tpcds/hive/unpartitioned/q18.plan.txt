@@ -20,13 +20,16 @@ local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, ["c_current_cdemo_sk"])
                                                             join (INNER, PARTITIONED):
                                                                 remote exchange (REPARTITION, HASH, ["c_current_addr_sk"])
-                                                                    scan customer
+                                                                    local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                        scan customer
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPARTITION, HASH, ["ca_address_sk"])
-                                                                        scan customer_address
+                                                                        local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                            scan customer_address
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, ["cd_demo_sk_3"])
-                                                                scan customer_demographics
+                                                                local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                    scan customer_demographics
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 scan date_dim

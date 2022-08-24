@@ -80,6 +80,7 @@ import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static io.trino.SystemSessionProperties.getTaskWriterCount;
 import static io.trino.SystemSessionProperties.isDistributedSortEnabled;
+import static io.trino.SystemSessionProperties.isForceFixedDistributionForPartitionedOutputOperatorEnabled;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
 import static io.trino.SystemSessionProperties.isTaskScaleWritersEnabled;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
@@ -742,6 +743,9 @@ public class AddLocalExchanges
                         node,
                         any().withOrderSensitivity(),
                         any().withOrderSensitivity());
+            }
+            if (isForceFixedDistributionForPartitionedOutputOperatorEnabled(session) && node.isHashPartitionedExchange()) {
+                return planAndEnforceChildren(node, fixedParallelism(), defaultParallelism(session));
             }
             return planAndEnforceChildren(node, any(), defaultParallelism(session));
         }

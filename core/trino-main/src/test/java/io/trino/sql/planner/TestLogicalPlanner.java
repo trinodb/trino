@@ -224,10 +224,11 @@ public class TestLogicalPlanner
                                 FINAL,
                                 exchange(LOCAL, GATHER,
                                         exchange(REMOTE, REPARTITION,
-                                                aggregation(
-                                                        ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))),
-                                                        PARTIAL,
-                                                        anyTree(tableScan("orders", ImmutableMap.of("totalprice", "totalprice")))))))));
+                                                exchange(LOCAL, REPARTITION,
+                                                        aggregation(
+                                                                ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))),
+                                                                PARTIAL,
+                                                                anyTree(tableScan("orders", ImmutableMap.of("totalprice", "totalprice"))))))))));
 
         // simple group by over filter that keeps at most one group
         assertDistributedPlan("SELECT orderstatus, sum(totalprice) FROM orders WHERE orderstatus='O' GROUP BY orderstatus",
@@ -237,10 +238,11 @@ public class TestLogicalPlanner
                                 FINAL,
                                 exchange(LOCAL, GATHER,
                                         exchange(REMOTE, REPARTITION,
-                                                aggregation(
-                                                        ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))),
-                                                        PARTIAL,
-                                                        anyTree(tableScan("orders", ImmutableMap.of("totalprice", "totalprice")))))))));
+                                                exchange(LOCAL, REPARTITION,
+                                                        aggregation(
+                                                                ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))),
+                                                                PARTIAL,
+                                                                anyTree(tableScan("orders", ImmutableMap.of("totalprice", "totalprice"))))))))));
     }
 
     @Test
@@ -1251,7 +1253,8 @@ public class TestLogicalPlanner
                                 .right(
                                         anyTree(
                                                 exchange(REMOTE, REPARTITION,
-                                                        tableScan("region", ImmutableMap.of("RIGHT_REGIONKEY", "regionkey"))))))),
+                                                        exchange(LOCAL, REPARTITION,
+                                                                tableScan("region", ImmutableMap.of("RIGHT_REGIONKEY", "regionkey")))))))),
                 plan -> // make sure there are only two remote exchanges (one in probe and one in build side)
                         assertEquals(
                                 countOfMatchingNodes(
@@ -1749,11 +1752,13 @@ public class TestLogicalPlanner
                                                 node(MarkDistinctNode.class,
                                                         exchange(LOCAL, REPARTITION,
                                                                 exchange(REMOTE, REPARTITION,
-                                                                        project(ImmutableMap.of("hash_custkey", expression("combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(custkey), 0))"), "hash_nationkey", expression("combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(nationkey), 0))")),
-                                                                                tableScan("customer", ImmutableMap.of("custkey", "custkey", "nationkey", "nationkey")))),
+                                                                        exchange(LOCAL, REPARTITION,
+                                                                                project(ImmutableMap.of("hash_custkey", expression("combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(custkey), 0))"), "hash_nationkey", expression("combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(nationkey), 0))")),
+                                                                                        tableScan("customer", ImmutableMap.of("custkey", "custkey", "nationkey", "nationkey"))))),
                                                                 exchange(REMOTE, REPARTITION,
-                                                                        node(ProjectNode.class,
-                                                                                node(TableScanNode.class))))))))));
+                                                                        exchange(LOCAL, REPARTITION,
+                                                                                node(ProjectNode.class,
+                                                                                        node(TableScanNode.class)))))))))));
     }
 
     @Test
@@ -1930,13 +1935,16 @@ public class TestLogicalPlanner
                                                 exchange(
                                                         REMOTE,
                                                         REPARTITION,
-                                                        aggregation(
-                                                                ImmutableMap.of("partial_count", functionCall("count", ImmutableList.of("CONSTANT"))),
-                                                                PARTIAL,
-                                                                anyTree(
-                                                                        project(
-                                                                                ImmutableMap.of("CONSTANT", expression("1")),
-                                                                                tableScan("orders"))))))))));
+                                                        exchange(
+                                                                LOCAL,
+                                                                REPARTITION,
+                                                                aggregation(
+                                                                        ImmutableMap.of("partial_count", functionCall("count", ImmutableList.of("CONSTANT"))),
+                                                                        PARTIAL,
+                                                                        anyTree(
+                                                                                project(
+                                                                                        ImmutableMap.of("CONSTANT", expression("1")),
+                                                                                        tableScan("orders")))))))))));
     }
 
     @Test

@@ -9,39 +9,45 @@ cross join:
                                 partial aggregation over ()
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["ss_list_price"])
-                                            scan store_sales
+                                            local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                scan store_sales
                     final aggregation over ()
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (GATHER, SINGLE, [])
                                 partial aggregation over ()
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["ss_list_price_13"])
-                                            scan store_sales
+                                            local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                scan store_sales
                 final aggregation over ()
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (GATHER, SINGLE, [])
                             partial aggregation over ()
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["ss_list_price_41"])
-                                        scan store_sales
+                                        local exchange (REPARTITION, ROUND_ROBIN, [])
+                                            scan store_sales
             final aggregation over ()
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (GATHER, SINGLE, [])
                         partial aggregation over ()
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["ss_list_price_69"])
-                                    scan store_sales
+                                    local exchange (REPARTITION, ROUND_ROBIN, [])
+                                        scan store_sales
         final aggregation over ()
             local exchange (GATHER, SINGLE, [])
                 remote exchange (GATHER, SINGLE, [])
                     partial aggregation over ()
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["ss_list_price_97"])
-                                scan store_sales
+                                local exchange (REPARTITION, ROUND_ROBIN, [])
+                                    scan store_sales
     final aggregation over ()
         local exchange (GATHER, SINGLE, [])
             remote exchange (GATHER, SINGLE, [])
                 partial aggregation over ()
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, ["ss_list_price_125"])
-                            scan store_sales
+                            local exchange (REPARTITION, ROUND_ROBIN, [])
+                                scan store_sales
