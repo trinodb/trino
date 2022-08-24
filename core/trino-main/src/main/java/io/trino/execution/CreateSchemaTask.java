@@ -41,6 +41,7 @@ import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -88,7 +89,9 @@ public class CreateSchemaTask
     {
         CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()));
 
-        // TODO: validate that catalog exists
+        if (!plannerContext.getMetadata().catalogExists(session, schema.getCatalogName())) {
+            throw semanticException(CATALOG_NOT_FOUND, statement, "Catalog '%s' does not exist", schema.getCatalogName());
+        }
 
         accessControl.checkCanCreateSchema(session.toSecurityContext(), schema);
 

@@ -82,6 +82,16 @@ public class TestCreateSchemaTask
                 .withMessage("TEST create schema fail: test-catalog.test_db");
     }
 
+    @Test
+    public void testCreateSchemaOfNonexistentCatalog()
+    {
+        CreateSchemaTask task = getCreateSchemaTask();
+        CreateSchema statement = new CreateSchema(QualifiedName.of("nonexistent_catalog", CATALOG_SCHEMA_NAME.getSchemaName()), false, ImmutableList.of());
+        assertThatExceptionOfType(TrinoException.class)
+                .isThrownBy(() -> getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP)))
+                .withMessage("Catalog 'nonexistent_catalog' does not exist");
+    }
+
     private CreateSchemaTask getCreateSchemaTask()
     {
         SchemaPropertyManager schemaPropertyManager = new SchemaPropertyManager(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, ImmutableMap.of()));

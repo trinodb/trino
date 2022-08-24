@@ -238,6 +238,12 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
+        public boolean catalogExists(Session session, String catalogName)
+        {
+            return TEST_CATALOG_NAME.equals(catalogName);
+        }
+
+        @Override
         public boolean schemaExists(Session session, CatalogSchemaName schema)
         {
             return schemas.contains(schema);
