@@ -41,12 +41,14 @@ values to set corresponding OAuth2 authentication configuration properties:
 
 .. warning::
 
-  In situation when Authorization Server is issuing JSON Web Tokens (JWTs) but the
-  metadata document contains ``userinfo_endpoint`` Trino will use this endpoint to
-  check the validity of OAuth2 access tokens. This is unnecessary as JWTs can be
-  inspected locally and using them against ``userinfo_endpoint`` may even result
-  in authentication failure. In this case set:
-  ``http-server.authentication.oauth2.oidc.use-userinfo-endpoint=false`` which
+  If the authorization server is issuing JSON Web Tokens (JWTs) and the
+  metadata document contains ``userinfo_endpoint``, Trino uses this endpoint to
+  check the validity of OAuth2 access tokens. Since JWTs can be inspected
+  locally, using them against ``userinfo_endpoint`` may result in authentication
+  failure. In this case, set the
+  ``http-server.authentication.oauth2.oidc.use-userinfo-endpoint`` configuration
+  property to ``false``
+  (``http-server.authentication.oauth2.oidc.use-userinfo-endpoint=false``). This
   instructs Trino to ignore ``userinfo_endpoint`` and inspect tokens locally.
 
 This functionality is enabled by default but can be turned off with:
