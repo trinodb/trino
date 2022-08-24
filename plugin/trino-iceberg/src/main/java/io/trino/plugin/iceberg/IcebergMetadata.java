@@ -1537,7 +1537,7 @@ public class IcebergMetadata
     private static void validateNotModifyingOldSnapshot(IcebergTableHandle table, Table icebergTable)
     {
         if (table.getSnapshotId().isPresent() && (table.getSnapshotId().get() != icebergTable.currentSnapshot().snapshotId())) {
-            throw new TrinoException(NOT_SUPPORTED, "Modifying old snapshot is not supported in Iceberg.");
+            throw new TrinoException(NOT_SUPPORTED, "Modifying old snapshot is not supported in Iceberg");
         }
     }
 

@@ -5117,13 +5117,13 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(format("INSERT INTO %s VALUES 4,5,6", tableName), 3);
         assertQuery(sessionWithLegacySyntaxSupport, format("SELECT * FROM \"%s@%d\"", tableName, oldSnapshotId), "VALUES 1,2,3");
         assertThatThrownBy(() -> query(sessionWithLegacySyntaxSupport, format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, oldSnapshotId)))
-                .hasMessage("Modifying old snapshot is not supported in Iceberg.");
+                .hasMessage("Modifying old snapshot is not supported in Iceberg");
         assertThatThrownBy(() -> query(sessionWithLegacySyntaxSupport, format("DELETE FROM \"%s@%d\" WHERE col = 5", tableName, oldSnapshotId)))
-                .hasMessage("Modifying old snapshot is not supported in Iceberg.");
+                .hasMessage("Modifying old snapshot is not supported in Iceberg");
         assertThatThrownBy(() -> query(sessionWithLegacySyntaxSupport, format("UPDATE \"%s@%d\" SET col = 50 WHERE col = 5", tableName, oldSnapshotId)))
-                .hasMessage("Modifying old snapshot is not supported in Iceberg.");
+                .hasMessage("Modifying old snapshot is not supported in Iceberg");
         assertThatThrownBy(() -> query(sessionWithLegacySyntaxSupport, format("ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE", tableName, oldSnapshotId)))
-                .hasMessage("Modifying old snapshot is not supported in Iceberg.");
+                .hasMessage("Modifying old snapshot is not supported in Iceberg");
         // TODO Change to assertThatThrownBy because the syntax `table@versionid` should not be supported for DML operations
         assertUpdate(sessionWithLegacySyntaxSupport, format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, getCurrentSnapshotId(tableName)), 3);
         assertUpdate(sessionWithLegacySyntaxSupport, format("DELETE FROM \"%s@%d\" WHERE col = 9", tableName, getCurrentSnapshotId(tableName)), 1);
