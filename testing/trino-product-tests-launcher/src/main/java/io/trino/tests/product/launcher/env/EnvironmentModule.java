@@ -27,7 +27,6 @@ import io.trino.tests.product.launcher.env.common.KafkaSaslPlaintext;
 import io.trino.tests.product.launcher.env.common.KafkaSsl;
 import io.trino.tests.product.launcher.env.common.Kerberos;
 import io.trino.tests.product.launcher.env.common.Minio;
-import io.trino.tests.product.launcher.env.common.Phoenix;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
@@ -74,7 +73,6 @@ public final class EnvironmentModule
         binder.bind(KafkaSaslPlaintext.class).in(SINGLETON);
         binder.bind(Standard.class).in(SINGLETON);
         binder.bind(StandardMultinode.class).in(SINGLETON);
-        binder.bind(Phoenix.class).in(SINGLETON);
         binder.bind(Kerberos.class).in(SINGLETON);
         binder.bind(Minio.class).in(SINGLETON);
 
