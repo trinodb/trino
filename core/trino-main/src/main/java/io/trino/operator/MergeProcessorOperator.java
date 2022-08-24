@@ -18,7 +18,6 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableWriterNode.MergeParadigmAndTypes;
 
 import java.util.List;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.operator.BasicWorkProcessorOperatorAdapter.createAdapterOperatorFactory;
@@ -40,29 +39,29 @@ public class MergeProcessorOperator
             MergeParadigmAndTypes merge,
             int rowIdChannel,
             int mergeRowChannel,
-            List<Integer> redistributionColumnChannels,
-            List<Integer> dataColumnChannels,
-            Set<Integer> nonNullColumnChannels)
+            List<Integer> redistributionColumns,
+            List<Integer> dataColumnChannels)
     {
-        MergeRowChangeProcessor rowChangeProcessor = switch (merge.getParadigm()) {
+        MergeRowChangeProcessor rowChangeProcessor = createRowChangeProcessor(merge, rowIdChannel, mergeRowChannel, redistributionColumns, dataColumnChannels);
+        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, rowChangeProcessor));
+    }
+
+    private static MergeRowChangeProcessor createRowChangeProcessor(MergeParadigmAndTypes merge, int rowIdChannel, int mergeRowChannel, List<Integer> redistributionColumnChannels, List<Integer> dataColumnChannels)
+    {
+        return switch (merge.getParadigm()) {
             case DELETE_ROW_AND_INSERT_ROW -> new DeleteAndInsertMergeProcessor(
                     merge.getColumnTypes(),
-                    merge.getColumnNames(),
                     merge.getRowIdType(),
                     rowIdChannel,
                     mergeRowChannel,
                     redistributionColumnChannels,
-                    dataColumnChannels,
-                    nonNullColumnChannels);
+                    dataColumnChannels);
             case CHANGE_ONLY_UPDATED_COLUMNS -> new ChangeOnlyUpdatedColumnsMergeProcessor(
                     rowIdChannel,
                     mergeRowChannel,
                     dataColumnChannels,
-                    merge.getColumnNames(),
-                    redistributionColumnChannels,
-                    nonNullColumnChannels);
+                    redistributionColumnChannels);
         };
-        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, rowChangeProcessor));
     }
 
     public static class Factory
