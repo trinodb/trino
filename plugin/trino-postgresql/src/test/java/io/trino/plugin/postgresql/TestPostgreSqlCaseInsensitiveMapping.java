@@ -64,6 +64,16 @@ public class TestPostgreSqlCaseInsensitiveMapping
         return requireNonNull(postgreSqlServer, "postgreSqlServer is null")::execute;
     }
 
+    @Override
+    public void testNonLowerCaseSchemaNameCreateTableAsSelect()
+            throws Exception
+    {
+        // TODO: Fix CTAS in non-lowercase schemas to work with case-insensitive name matching enabled (https://github.com/trinodb/trino/issues/13826)
+        try (AutoCloseable ignore1 = withSchema("NonLowerCaseSchema")) {
+            assertQueryFails("CREATE TABLE nonlowercaseschema.ctas_table AS SELECT 'a' c", "\\QThis connector does not support renaming tables across schemas\\E");
+        }
+    }
+
     @Test
     public void forceTestNgToRespectSingleThreaded()
     {
