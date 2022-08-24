@@ -72,9 +72,15 @@ public class TestOracleCaseInsensitiveMapping
     @Override
     protected AutoCloseable withSchema(String remoteSchemaName)
     {
+        createSchema(remoteSchemaName);
+        return () -> onRemoteDatabase().execute("DROP USER " + quoted(remoteSchemaName));
+    }
+
+    @Override
+    protected void createSchema(String remoteSchemaName)
+    {
         onRemoteDatabase().execute(format("CREATE USER %s IDENTIFIED BY SCM", quoted(remoteSchemaName)));
         onRemoteDatabase().execute(format("GRANT UNLIMITED TABLESPACE TO %s", quoted(remoteSchemaName)));
-        return () -> onRemoteDatabase().execute("DROP USER " + quoted(remoteSchemaName));
     }
 
     @Override
