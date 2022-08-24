@@ -869,7 +869,7 @@ public class ExpressionAnalyzer
             }
 
             Type type = coerceToSingleType(context,
-                    "All CASE results must be the same type: %s",
+                    "All CASE results",
                     getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
             setExpressionType(node, type);
 
@@ -887,7 +887,7 @@ public class ExpressionAnalyzer
             coerceCaseOperandToToSingleType(node, context);
 
             Type type = coerceToSingleType(context,
-                    "All CASE results must be the same type: %s",
+                    "All CASE results",
                     getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
             setExpressionType(node, type);
 
@@ -947,7 +947,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitCoalesceExpression(CoalesceExpression node, StackableAstVisitorContext<Context> context)
         {
-            Type type = coerceToSingleType(context, "All COALESCE operands must be the same type: %s", node.getOperands());
+            Type type = coerceToSingleType(context, "All COALESCE operands", node.getOperands());
 
             return setExpressionType(node, type);
         }
@@ -1034,7 +1034,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitArrayConstructor(ArrayConstructor node, StackableAstVisitorContext<Context> context)
         {
-            Type type = coerceToSingleType(context, "All ARRAY elements must be the same type: %s", node.getValues());
+            Type type = coerceToSingleType(context, "All ARRAY elements", node.getValues());
             Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeSignatureParameter.typeParameter(type.getTypeSignature())));
             return setExpressionType(node, arrayType);
         }
@@ -2290,7 +2290,7 @@ public class ExpressionAnalyzer
             if (valueList instanceof InListExpression) {
                 InListExpression inListExpression = (InListExpression) valueList;
                 Type type = coerceToSingleType(context,
-                        "IN value and list items must be the same type: %s",
+                        "IN value and list items",
                         ImmutableList.<Expression>builder().add(value).addAll(inListExpression.getValues()).build());
                 setExpressionType(inListExpression, type);
             }
@@ -3225,7 +3225,7 @@ public class ExpressionAnalyzer
             throw semanticException(TYPE_MISMATCH, node, message, firstType, secondType);
         }
 
-        private Type coerceToSingleType(StackableAstVisitorContext<Context> context, String message, List<Expression> expressions)
+        private Type coerceToSingleType(StackableAstVisitorContext<Context> context, String description, List<Expression> expressions)
         {
             // determine super type
             Type superType = UNKNOWN;
@@ -3234,7 +3234,8 @@ public class ExpressionAnalyzer
             Multimap<Type, NodeRef<Expression>> typeExpressions = LinkedHashMultimap.create();
             for (Expression expression : expressions) {
                 // We need to wrap as NodeRef since LinkedHashMultimap does not allow duplicated values
-                typeExpressions.put(process(expression, context), NodeRef.of(expression));
+                Type type = process(expression, context);
+                typeExpressions.put(type, NodeRef.of(expression));
             }
 
             Set<Type> types = typeExpressions.keySet();
@@ -3242,7 +3243,12 @@ public class ExpressionAnalyzer
             for (Type type : types) {
                 Optional<Type> newSuperType = typeCoercion.getCommonSuperType(superType, type);
                 if (newSuperType.isEmpty()) {
-                    throw semanticException(TYPE_MISMATCH, Iterables.get(typeExpressions.get(type), 0).getNode(), message, superType);
+                    throw semanticException(TYPE_MISMATCH, Iterables.get(typeExpressions.get(type), 0).getNode(), format(
+                            "%s must be the same type or coercible to a common type. Cannot find common type between %s and %s, all types (without duplicates): %s",
+                            description,
+                            superType,
+                            type,
+                            typeExpressions.keySet()));
                 }
                 superType = newSuperType.get();
             }
@@ -3253,7 +3259,12 @@ public class ExpressionAnalyzer
 
                 if (!type.equals(superType)) {
                     if (!typeCoercion.canCoerce(type, superType)) {
-                        throw semanticException(TYPE_MISMATCH, Iterables.get(coercionCandidates, 0).getNode(), message, superType);
+                        throw semanticException(TYPE_MISMATCH, Iterables.get(coercionCandidates, 0).getNode(), format(
+                                "%s must be the same type or coercible to a common type. Cannot find common type between %s and %s, all types (without duplicates): %s",
+                                description,
+                                superType,
+                                type,
+                                typeExpressions.keySet()));
                     }
                     addOrReplaceExpressionsCoercion(coercionCandidates, type, superType);
                 }

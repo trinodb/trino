@@ -1639,7 +1639,7 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testInvalidTypeArray()
     {
-        assertQueryFails("SELECT ARRAY[1, 2, 'a']", "\\Qline 1:20: All ARRAY elements must be the same type: integer\\E");
+        assertQueryFails("SELECT ARRAY[1, 2, 'a']", "\\Qline 1:20: All ARRAY elements must be the same type or coercible to a common type. Cannot find common type between integer and varchar(1), all types (without duplicates): [integer, varchar(1)]\\E");
     }
 
     @Test
@@ -2884,7 +2884,8 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         assertQueryFails(
                 "SELECT orderkey, CASE orderstatus WHEN 'O' THEN 'a' WHEN '1' THEN 2 END FROM orders",
-                "\\Qline 1:67: All CASE results must be the same type: varchar(1)\\E");
+                "\\Qline 1:67: All CASE results must be the same type or coercible to a common type. " +
+                        "Cannot find common type between varchar(1) and integer, all types (without duplicates): [varchar(1), integer]\\E");
     }
 
     @Test
