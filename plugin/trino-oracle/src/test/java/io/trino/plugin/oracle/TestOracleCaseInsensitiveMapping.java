@@ -99,8 +99,15 @@ public class TestOracleCaseInsensitiveMapping
             schemaName = remoteSchemaName;
         }
         String quotedName = schemaName + "." + quoted(remoteTableName);
-        onRemoteDatabase().execute(format("CREATE TABLE %s %s", quotedName, tableDefinition));
+        createTable(schemaName, remoteTableName, tableDefinition);
         return () -> onRemoteDatabase().execute("DROP TABLE " + quotedName);
+    }
+
+    @Override
+    protected void createTable(String remoteSchemaName, String remoteTableName, String tableDefinition)
+    {
+        String quotedName = remoteSchemaName + "." + quoted(remoteTableName);
+        onRemoteDatabase().execute(format("CREATE TABLE %s %s", quotedName, tableDefinition));
     }
 
     @Override

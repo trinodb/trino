@@ -396,9 +396,15 @@ public abstract class BaseCaseInsensitiveMappingTest
 
     protected AutoCloseable withTable(String remoteSchemaName, String remoteTableName, String tableDefinition)
     {
+        createTable(remoteSchemaName, remoteTableName, tableDefinition);
+        String quotedName = quoted(remoteSchemaName) + "." + quoted(remoteTableName);
+        return () -> onRemoteDatabase().execute("DROP TABLE " + quotedName);
+    }
+
+    protected void createTable(String remoteSchemaName, String remoteTableName, String tableDefinition)
+    {
         String quotedName = quoted(remoteSchemaName) + "." + quoted(remoteTableName);
         onRemoteDatabase().execute(format("CREATE TABLE %s %s", quotedName, tableDefinition));
-        return () -> onRemoteDatabase().execute("DROP TABLE " + quotedName);
     }
 
     protected String quoted(String name)
