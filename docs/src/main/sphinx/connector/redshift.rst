@@ -109,6 +109,145 @@ that catalog name instead of ``redshift`` in the above examples.
 Type mapping
 ------------
 
+Because Trino and Redshift each support types that the other does not, this
+connector modifies some types when reading or writing data. Data types may not
+map the same way in both directions between Trino and the data source. Refer to
+the following sections for type mapping in each direction.
+
+Redshift type to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Redshift types to the corresponding Trino types following
+this table:
+
+.. list-table:: Redshift type to Trino type mapping
+  :widths: 40, 40, 50
+  :header-rows: 1
+
+  * - Redshift database type
+    - Trino type
+    - Notes
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+    -
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``INTEGER``
+    - ``INTEGER``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``REAL``
+    - ``REAL``
+    -
+  * - ``DOUBLE PRECISION``
+    - ``DOUBLE``
+    -
+  * - ``DECIMAL(p, s)``, ``NUMERIC(p, s)``
+    - ``DECIMAL(p, s)``
+    -
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+    -
+  * - ``VARCHAR(n)``
+    - ``VARCHAR(n)``
+    -
+  * - ``TEXT``
+    - ``VARCHAR(256)``
+    -
+  * - ``VARBYTE``
+    - ``VARBINARY``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIME(n)``
+    - ``TIME(n)``
+    -
+  * - ``TIMETZ(n)``
+    - ``TIME(n) WITH TIME ZONE``
+    -
+  * - ``TIMESTAMP(n)``
+    - ``TIMESTAMP(n)``
+    -
+  * - ``TIMESTAMPTZ(n)``
+    - ``TIMESTAMP(n) WITH TIME ZONE``
+    -
+  * - ``HLLSKETCH``
+    - ``HyperLogLog``
+    -
+
+No other types are supported.
+
+Trino type to Redshift type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Trino types to the corresponding Redshift types following
+this table:
+
+.. list-table:: Trino type to Redshift type mapping
+  :widths: 40, 40, 50
+  :header-rows: 1
+
+  * - Trino type
+    - Redshift database type
+    - Notes
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+    -
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``INTEGER``
+    - ``INTEGER``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``REAL``
+    - ``REAL``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE PRECISION``
+    -
+  * - ``DECIMAL(p, s)``
+    - ``DECIMAL(p, s)``
+    -
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+    -
+  * - ``VARCHAR(n)``
+    - ``VARCHAR(n)``
+    -
+  * - ``VARBINARY``
+    - ``VARBYTE``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIME(n)``
+    - ``TIME(n)``
+    -
+  * - ``TIME(n) WITH TIME ZONE``
+    - ``TIMETZ(n)``
+    -
+  * - ``TIMESTAMP(n)``
+    - ``TIMESTAMP(n)``
+    -
+  * - ``TIMESTAMP(n) WITH TIME ZONE``
+    - ``TIMESTAMPTZ(n)``
+    -
+  * - ``HyperLogLog``
+    - ``HLLSKETCH``
+    -
+
+No other types are supported.
+
+Complete list of `Redshift data types
+<https://docs.aws.amazon.com/redshift/latest/dg/c_Supported_data_types.html>`_.
+
 .. include:: jdbc-type-mapping.fragment
 
 .. _redshift-sql-support:
