@@ -4483,6 +4483,15 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testOptimizeSystemTable()
+    {
+        assertThatThrownBy(() -> query("ALTER TABLE \"nation$files\" EXECUTE OPTIMIZE"))
+                .hasMessage("This connector does not support table procedures");
+        assertThatThrownBy(() -> query("ALTER TABLE \"nation$snapshots\" EXECUTE OPTIMIZE"))
+                .hasMessage("This connector does not support table procedures");
+    }
+
     private List<String> getActiveFiles(String tableName)
     {
         return computeActual(format("SELECT file_path FROM \"%s$files\"", tableName)).getOnlyColumn()
@@ -4809,6 +4818,15 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testExpireSnapshotsSystemTable()
+    {
+        assertThatThrownBy(() -> query("ALTER TABLE \"nation$files\" EXECUTE EXPIRE_SNAPSHOTS"))
+                .hasMessage("This connector does not support table procedures");
+        assertThatThrownBy(() -> query("ALTER TABLE \"nation$snapshots\" EXECUTE EXPIRE_SNAPSHOTS"))
+                .hasMessage("This connector does not support table procedures");
+    }
+
+    @Test
     public void testExplainExpireSnapshotOutput()
     {
         String tableName = "test_expiring_snapshots_output" + randomTableSuffix();
@@ -4958,6 +4976,15 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '33s')",
                 "\\QRetention specified (33.00s) is shorter than the minimum retention configured in the system (7.00d). Minimum retention can be changed with iceberg.remove_orphan_files.min-retention configuration property or iceberg.remove_orphan_files_min_retention session property");
+    }
+
+    @Test
+    public void testRemoveOrphanFilesSystemTable()
+    {
+        assertThatThrownBy(() -> query("ALTER TABLE \"nation$files\" EXECUTE REMOVE_ORPHAN_FILES"))
+                .hasMessage("This connector does not support table procedures");
+        assertThatThrownBy(() -> query("ALTER TABLE \"nation$snapshots\" EXECUTE REMOVE_ORPHAN_FILES"))
+                .hasMessage("This connector does not support table procedures");
     }
 
     @Test
