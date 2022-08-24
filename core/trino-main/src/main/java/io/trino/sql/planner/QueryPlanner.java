@@ -804,26 +804,18 @@ class QueryPlanner
 
         RowChangeParadigm paradigm = metadata.getRowChangeParadigm(session, handle);
         Type rowIdType = analysis.getType(analysis.getRowIdField(table));
-        ImmutableList.Builder<Type> typeBuilder = ImmutableList.builder();
-        ImmutableList.Builder<String> columnNamesBuilder = ImmutableList.builder();
-        tableMetadata.getMetadata().getColumns().stream()
+        List<Type> dataColumnTypes = tableMetadata.getMetadata().getColumns().stream()
                 .filter(column -> !column.isHidden())
-                .forEach(columnMetadata -> {
-                    typeBuilder.add(columnMetadata.getType());
-                    columnNamesBuilder.add(columnMetadata.getName());
-                });
-        MergeParadigmAndTypes mergeParadigmAndTypes = new MergeParadigmAndTypes(paradigm, typeBuilder.build(), columnNamesBuilder.build(), rowIdType);
+                .map(ColumnMetadata::getType)
+                .collect(toImmutableList());
+
+        MergeParadigmAndTypes mergeParadigmAndTypes = new MergeParadigmAndTypes(paradigm, dataColumnTypes, rowIdType);
         MergeTarget mergeTarget = new MergeTarget(handle, Optional.empty(), tableMetadata.getTable(), mergeParadigmAndTypes);
 
         ImmutableList.Builder<Symbol> columnSymbolsBuilder = ImmutableList.builder();
-        ImmutableList.Builder<Symbol> nonNullColumnSymbolsBuilder = ImmutableList.builder();
         for (ColumnHandle columnHandle : mergeAnalysis.getDataColumnHandles()) {
             int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(columnHandle), "Could not find field number for column handle");
-            Symbol symbol = planWithPresentColumn.getFieldMappings().get(fieldIndex);
-            columnSymbolsBuilder.add(symbol);
-            if (nonNullableColumnHandles.contains(columnHandle)) {
-                nonNullColumnSymbolsBuilder.add(symbol);
-            }
+            columnSymbolsBuilder.add(planWithPresentColumn.getFieldMappings().get(fieldIndex));
         }
         List<Symbol> columnSymbols = columnSymbolsBuilder.build();
         ImmutableList.Builder<Symbol> redistributionSymbolsBuilder = ImmutableList.builder();
@@ -850,7 +842,6 @@ class QueryPlanner
                 mergeRowSymbol,
                 columnSymbols,
                 redistributionSymbolsBuilder.build(),
-                nonNullColumnSymbolsBuilder.build(),
                 projectedSymbols);
 
         Optional<PartitioningScheme> partitioningScheme = createMergePartitioningScheme(
