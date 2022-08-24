@@ -1176,6 +1176,15 @@ public final class MathFunctions
         return Double.isNaN(num);
     }
 
+    @Description("Test if value is not-a-number")
+    @ScalarFunction("is_nan")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isNaNReal(@SqlType(StandardTypes.REAL) long value)
+    {
+        float floatValue = intBitsToFloat(toIntExact(value));
+        return Float.isNaN(floatValue);
+    }
+
     @Description("Test if value is finite")
     @ScalarFunction
     @SqlType(StandardTypes.BOOLEAN)

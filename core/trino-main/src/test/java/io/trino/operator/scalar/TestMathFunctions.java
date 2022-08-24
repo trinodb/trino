@@ -616,6 +616,7 @@ public class TestMathFunctions
         assertFunction("is_nan(0.0E0 / 1.0E0)", BOOLEAN, false);
         assertFunction("is_nan(infinity() / infinity())", BOOLEAN, true);
         assertFunction("is_nan(nan())", BOOLEAN, true);
+        assertFunction("is_nan(REAL 'NaN')", BOOLEAN, true);
         assertFunction("is_nan(REAL '0.0' / REAL '0.0')", BOOLEAN, true);
         assertFunction("is_nan(REAL '0.0' / 1.0E0)", BOOLEAN, false);
         assertFunction("is_nan(infinity() / infinity())", BOOLEAN, true);
