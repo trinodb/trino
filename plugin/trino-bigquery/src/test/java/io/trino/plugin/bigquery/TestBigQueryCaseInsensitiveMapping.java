@@ -227,6 +227,25 @@ public class TestBigQueryCaseInsensitiveMapping
     }
 
     @Test
+    public void testCreateSchema()
+    {
+        String schemaName = "Test_Create_Case_Sensitive_" + randomTableSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName.toLowerCase(ENGLISH));
+        assertQuery(format("SELECT schema_name FROM information_schema.schemata WHERE schema_name = '%s'", schemaName.toLowerCase(ENGLISH)), format("VALUES '%s'", schemaName.toLowerCase(ENGLISH)));
+        assertUpdate("DROP SCHEMA " + schemaName.toLowerCase(ENGLISH));
+    }
+
+    @Test
+    public void testCreateSchemaNameClash()
+            throws Exception
+    {
+        String schemaName = "Test_Create_Case_Sensitive_Clash_" + randomTableSuffix();
+        try (AutoCloseable schema = withSchema(schemaName)) {
+            assertQueryFails("CREATE SCHEMA " + schemaName.toLowerCase(ENGLISH), ".*Schema 'bigquery\\.\\Q" + schemaName.toLowerCase(ENGLISH) + "\\E' already exists");
+        }
+    }
+
+    @Test
     public void testDropSchema()
             throws Exception
     {
