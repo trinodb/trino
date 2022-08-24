@@ -29,6 +29,7 @@ import static io.trino.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 // With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
 // Some tests here create colliding names which can cause any other concurrent test to fail.
@@ -67,6 +68,12 @@ public class TestOracleCaseInsensitiveMapping
     protected Optional<String> optionalFromDual()
     {
         return Optional.of("FROM dual");
+    }
+
+    @Override
+    public void testDropSchema()
+    {
+        assertThatThrownBy(super::testDropSchema).hasMessageContaining("This connector does not support dropping schemas");
     }
 
     @Override

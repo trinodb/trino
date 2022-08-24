@@ -180,6 +180,37 @@ public abstract class BaseCaseInsensitiveMappingTest
     }
 
     @Test
+    public void testCreateSchemaNameClash()
+            throws Exception
+    {
+        String schemaName = "TestCreateSchemaClash";
+        try (AutoCloseable ignore = withSchema(schemaName)) {
+            assertQueryFails("CREATE SCHEMA testcreateschemaclash", ".*Schema '.*\\.testcreateschemaclash' already exists");
+        }
+    }
+
+    @Test
+    public void testDropSchema()
+    {
+        String schemaName = "TestDropNonLowercaseSchema";
+        createSchema(schemaName);
+        assertUpdate("DROP SCHEMA testdropnonlowercaseschema");
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn().toList()).doesNotContain("testdropnonlowercaseschema");
+        assertQueryReturnsEmptyResult("SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'testdropnonlowercaseschema'");
+    }
+
+    @Test
+    public void testDropSchemaNameClash()
+            throws Exception
+    {
+        String schemaName = "TestDropSchemaClash";
+        try (AutoCloseable ignore1 = withSchema(schemaName);
+                AutoCloseable ignore2 = withSchema(schemaName.toLowerCase(ENGLISH))) {
+            assertQueryFails("DROP SCHEMA testdropschemaclash", "Failed to find remote schema name: Ambiguous name: testdropschemaclash");
+        }
+    }
+
+    @Test
     public void testTableNameClash()
             throws Exception
     {
