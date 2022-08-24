@@ -640,10 +640,9 @@ public class DeltaLakeMetadata
         // If we see files in the schema location, don't delete it.
         // If we see no files or can't see the location at all, use fallback.
         boolean deleteData = location.map(path -> {
-            HdfsContext context = new HdfsContext(session); // don't catch errors here
-
-            try (FileSystem fs = hdfsEnvironment.getFileSystem(context, path)) {
-                return !fs.listLocatedStatus(path).hasNext();
+            try {
+                return !hdfsEnvironment.getFileSystem(new HdfsContext(session), path)
+                        .listLocatedStatus(path).hasNext();
             }
             catch (IOException | RuntimeException e) {
                 LOG.warn(e, "Could not check schema directory '%s'", path);

@@ -438,9 +438,9 @@ public class SemiTransactionalHiveMetastore
             // If we see no files, request deletion.
             // If we fail to check the schema location, behave according to fallback.
             boolean deleteData = location.map(path -> {
-                HdfsContext context = new HdfsContext(session);
-                try (FileSystem fs = hdfsEnvironment.getFileSystem(context, path)) {
-                    return !fs.listLocatedStatus(path).hasNext();
+                try {
+                    return !hdfsEnvironment.getFileSystem(new HdfsContext(session), path)
+                            .listLocatedStatus(path).hasNext();
                 }
                 catch (IOException | RuntimeException e) {
                     log.warn(e, "Could not check schema directory '%s'", path);
