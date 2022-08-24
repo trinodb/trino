@@ -4111,6 +4111,50 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testMergeFalseJoinCondition()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_MERGE));
+
+        String targetTable = "merge_inserts_" + randomTableSuffix();
+        assertUpdate(createTableForWrites(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable)));
+
+        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena')", targetTable), 2);
+
+        // Test a literal false
+        assertUpdate("""
+                MERGE INTO %s t USING (VALUES ('Carol', 9, 'Centreville')) AS s(customer, purchases, address)
+                  ON (FALSE)
+                    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
+                """.formatted(targetTable),
+                1);
+
+        assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 9, 'Centreville')");
+
+        // Test a constant-folded false expression
+        assertUpdate("""
+                MERGE INTO %s t USING (VALUES ('Dave', 22, 'Darbyshire')) AS s(customer, purchases, address)
+                  ON (t.customer != t.customer)
+                    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
+                """.formatted(targetTable),
+                1);
+
+        assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 9, 'Centreville'), ('Dave', 22, 'Darbyshire')");
+
+        // Test a more complicated constant-folded false expression
+        assertUpdate("""
+                MERGE INTO %s t USING (VALUES ('Ed', 7, 'Etherville')) AS s(customer, purchases, address)
+                  ON (23 - (12 + 10) > 1)
+                    WHEN MATCHED THEN UPDATE SET customer = concat(s.customer, '_fooled_you')
+                    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
+                """.formatted(targetTable),
+                1);
+
+        assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 9, 'Centreville'), ('Dave', 22, 'Darbyshire'), ('Ed', 7, 'Etherville')");
+
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
+    @Test
     public void testMergeAllColumnsUpdated()
     {
         skipTestUnless(hasBehavior(SUPPORTS_MERGE));
