@@ -1067,10 +1067,10 @@ public abstract class BaseIcebergConnectorTest
     public void testRollbackSnapshot()
     {
         assertUpdate("CREATE TABLE test_rollback (col0 INTEGER, col1 BIGINT)");
-        long afterCreateTableId = getLatestSnapshotId("test_rollback");
+        long afterCreateTableId = getCurrentSnapshotId("test_rollback");
 
         assertUpdate("INSERT INTO test_rollback (col0, col1) VALUES (123, CAST(987 AS BIGINT))", 1);
-        long afterFirstInsertId = getLatestSnapshotId("test_rollback");
+        long afterFirstInsertId = getCurrentSnapshotId("test_rollback");
 
         assertUpdate("INSERT INTO test_rollback (col0, col1) VALUES (456, CAST(654 AS BIGINT))", 1);
         assertQuery("SELECT * FROM test_rollback ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT)), (456, CAST(654 AS BIGINT))");
@@ -1082,7 +1082,7 @@ public abstract class BaseIcebergConnectorTest
         assertEquals((long) computeActual("SELECT COUNT(*) FROM test_rollback").getOnlyValue(), 0);
 
         assertUpdate("INSERT INTO test_rollback (col0, col1) VALUES (789, CAST(987 AS BIGINT))", 1);
-        long afterSecondInsertId = getLatestSnapshotId("test_rollback");
+        long afterSecondInsertId = getCurrentSnapshotId("test_rollback");
 
         // extra insert which should be dropped on rollback
         assertUpdate("INSERT INTO test_rollback (col0, col1) VALUES (999, CAST(999 AS BIGINT))", 1);
@@ -1091,11 +1091,6 @@ public abstract class BaseIcebergConnectorTest
         assertQuery("SELECT * FROM test_rollback ORDER BY col0", "VALUES (789, CAST(987 AS BIGINT))");
 
         dropTable("test_rollback");
-    }
-
-    private long getLatestSnapshotId(String tableName)
-    {
-        return (long) computeScalar(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", tableName));
     }
 
     @Override
@@ -5126,11 +5121,11 @@ public abstract class BaseIcebergConnectorTest
         // Enforce having exactly one snapshot of the table at the timestamp corresponding to `afterInsert123EpochMillis`
         Thread.sleep(1);
         assertUpdate("INSERT INTO " + sourceTableName + " VALUES 1, 2, 3", 3);
-        long afterInsert123SnapshotId = getLatestSnapshotId(sourceTableName);
+        long afterInsert123SnapshotId = getCurrentSnapshotId(sourceTableName);
         long afterInsert123EpochMillis = getCommittedAtInEpochMilliseconds(sourceTableName, afterInsert123SnapshotId);
         Thread.sleep(1);
         assertUpdate("INSERT INTO " + sourceTableName + " VALUES 4, 5, 6", 3);
-        long afterInsert456SnapshotId = getLatestSnapshotId(sourceTableName);
+        long afterInsert456SnapshotId = getCurrentSnapshotId(sourceTableName);
         assertUpdate("INSERT INTO " + sourceTableName + " VALUES 7, 8, 9", 3);
 
         assertUpdate("CREATE TABLE " + snapshotVersionedSinkTableName + " AS SELECT * FROM " + sourceTableName + " FOR VERSION AS OF " + afterInsert456SnapshotId, 6);
@@ -5228,7 +5223,7 @@ public abstract class BaseIcebergConnectorTest
         String tableName = "test_versioned_table_schema_evolution_" + randomTableSuffix();
 
         assertQuerySucceeds("CREATE TABLE " + tableName + "(col1 varchar)");
-        long v1SnapshotId = getLatestSnapshotId(tableName);
+        long v1SnapshotId = getCurrentSnapshotId(tableName);
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v1SnapshotId))
                 .hasOutputTypes(ImmutableList.of(VARCHAR))
                 .returnsEmptyResult();
@@ -5239,7 +5234,7 @@ public abstract class BaseIcebergConnectorTest
                 .returnsEmptyResult();
 
         assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 11)", 1);
-        long v2SnapshotId = getLatestSnapshotId(tableName);
+        long v2SnapshotId = getCurrentSnapshotId(tableName);
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v2SnapshotId))
                 .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER))
                 .matches("VALUES (VARCHAR 'a', 11)");
@@ -5256,7 +5251,7 @@ public abstract class BaseIcebergConnectorTest
                 .matches("VALUES (VARCHAR 'a', 11, CAST(NULL AS bigint))");
 
         assertUpdate("INSERT INTO " + tableName + " VALUES ('b', 22, 32)", 1);
-        long v3SnapshotId = getLatestSnapshotId(tableName);
+        long v3SnapshotId = getCurrentSnapshotId(tableName);
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v1SnapshotId))
                 .hasOutputTypes(ImmutableList.of(VARCHAR))
                 .returnsEmptyResult();
@@ -5277,19 +5272,19 @@ public abstract class BaseIcebergConnectorTest
     {
         String tableName = "test_version_table_with_partition_spec_evolution_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (day varchar, views bigint) WITH(partitioning = ARRAY['day'])");
-        long v1SnapshotId = getLatestSnapshotId(tableName);
+        long v1SnapshotId = getCurrentSnapshotId(tableName);
         long v1EpochMillis = getCommittedAtInEpochMilliseconds(tableName, v1SnapshotId);
         Thread.sleep(1);
 
         assertUpdate("INSERT INTO " + tableName + " (day, views) VALUES ('2022-06-01', 1)", 1);
-        long v2SnapshotId = getLatestSnapshotId(tableName);
+        long v2SnapshotId = getCurrentSnapshotId(tableName);
         long v2EpochMillis = getCommittedAtInEpochMilliseconds(tableName, v2SnapshotId);
         Thread.sleep(1);
 
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN hour varchar");
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['day', 'hour']");
         assertUpdate("INSERT INTO " + tableName + " (day, hour, views) VALUES ('2022-06-02', '10', 2), ('2022-06-02', '10', 3), ('2022-06-02', '11', 10)", 3);
-        long v3SnapshotId = getLatestSnapshotId(tableName);
+        long v3SnapshotId = getCurrentSnapshotId(tableName);
         long v3EpochMillis = getCommittedAtInEpochMilliseconds(tableName, v3SnapshotId);
 
         assertThat(query("SELECT sum(views), day  FROM " + tableName + " GROUP BY day"))
@@ -5320,15 +5315,15 @@ public abstract class BaseIcebergConnectorTest
         String tableName = "test_version_table_with_expired_snapshots_" + randomTableSuffix();
         Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
         assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer)");
-        long v1SnapshotId = getLatestSnapshotId(tableName);
+        long v1SnapshotId = getCurrentSnapshotId(tableName);
         long v1EpochMillis = getCommittedAtInEpochMilliseconds(tableName, v1SnapshotId);
         Thread.sleep(1);
         assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
-        long v2SnapshotId = getLatestSnapshotId(tableName);
+        long v2SnapshotId = getCurrentSnapshotId(tableName);
         long v2EpochMillis = getCommittedAtInEpochMilliseconds(tableName, v2SnapshotId);
         Thread.sleep(1);
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
-        long v3SnapshotId = getLatestSnapshotId(tableName);
+        long v3SnapshotId = getCurrentSnapshotId(tableName);
         long v3EpochMillis = getCommittedAtInEpochMilliseconds(tableName, v3SnapshotId);
         assertThat(query("SELECT sum(value), listagg(key, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
                 .matches("VALUES (BIGINT '3', VARCHAR 'one two')");
