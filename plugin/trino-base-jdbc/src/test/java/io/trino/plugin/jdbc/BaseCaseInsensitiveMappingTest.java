@@ -324,10 +324,10 @@ public abstract class BaseCaseInsensitiveMappingTest
         }
     }
 
-    protected AutoCloseable withSchema(String schemaName)
+    protected AutoCloseable withSchema(String remoteSchemaName)
     {
-        onRemoteDatabase().execute("CREATE SCHEMA " + quoted(schemaName));
-        return () -> onRemoteDatabase().execute("DROP SCHEMA " + quoted(schemaName));
+        onRemoteDatabase().execute("CREATE SCHEMA " + quoted(remoteSchemaName));
+        return () -> onRemoteDatabase().execute("DROP SCHEMA " + quoted(remoteSchemaName));
     }
 
     protected AutoCloseable withTable(String remoteSchemaName, String remoteTableName, String tableDefinition)
