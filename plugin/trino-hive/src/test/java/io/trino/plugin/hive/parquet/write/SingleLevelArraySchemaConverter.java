@@ -161,7 +161,7 @@ public final class SingleLevelArraySchemaConverter
     private static GroupType convertArrayType(String name, ListTypeInfo typeInfo, Repetition repetition)
     {
         TypeInfo subType = typeInfo.getListElementTypeInfo();
-        return listWrapper(name, LogicalTypeAnnotation.listType(), convertType("array", subType, Repetition.REPEATED), repetition);
+        return listWrapper(name, convertType("array", subType, Repetition.REPEATED), repetition);
     }
 
     // An optional group containing multiple elements
@@ -183,9 +183,8 @@ public final class SingleLevelArraySchemaConverter
         return ConversionPatterns.mapType(repetition, name, keyType, valueType);
     }
 
-    private static GroupType listWrapper(String name, LogicalTypeAnnotation logicalType,
-            Type elementType, Repetition repetition)
+    private static GroupType listWrapper(String name, Type elementType, Repetition repetition)
     {
-        return Types.buildGroup(repetition).as(logicalType).addField(elementType).named(name);
+        return Types.buildGroup(repetition).as(LogicalTypeAnnotation.listType()).addField(elementType).named(name);
     }
 }

@@ -144,8 +144,12 @@ public final class MapKeyValuesSchemaConverter
     private static GroupType convertArrayType(String name, ListTypeInfo typeInfo)
     {
         TypeInfo subType = typeInfo.getListElementTypeInfo();
-        return listWrapper(name, LogicalTypeAnnotation.listType(), new GroupType(Repetition.REPEATED,
-                ParquetHiveSerDe.ARRAY.toString(), convertType("array_element", subType)));
+        return listWrapper(
+                name,
+                new GroupType(
+                        Repetition.REPEATED,
+                        ParquetHiveSerDe.ARRAY.toString(),
+                        convertType("array_element", subType)));
     }
 
     // An optional group containing multiple elements
@@ -171,10 +175,9 @@ public final class MapKeyValuesSchemaConverter
     {
         //support projection only on key of a map
         if (valueType == null) {
-            return listWrapper(
+            return mapKvWrapper(
                     repetition,
                     alias,
-                    LogicalTypeAnnotation.MapKeyValueTypeAnnotation.getInstance(),
                     new GroupType(
                             Repetition.REPEATED,
                             mapAlias,
@@ -184,10 +187,9 @@ public final class MapKeyValuesSchemaConverter
             if (!valueType.getName().equals("value")) {
                 throw new RuntimeException(valueType.getName() + " should be value");
             }
-            return listWrapper(
+            return mapKvWrapper(
                     repetition,
                     alias,
-                    LogicalTypeAnnotation.MapKeyValueTypeAnnotation.getInstance(),
                     new GroupType(
                             Repetition.REPEATED,
                             mapAlias,
@@ -196,16 +198,16 @@ public final class MapKeyValuesSchemaConverter
         }
     }
 
-    private static GroupType listWrapper(Repetition repetition, String alias, LogicalTypeAnnotation logicalType, Type nested)
+    private static GroupType mapKvWrapper(Repetition repetition, String alias, Type nested)
     {
         if (!nested.isRepetition(Repetition.REPEATED)) {
             throw new IllegalArgumentException("Nested type should be repeated: " + nested);
         }
-        return Types.buildGroup(repetition).as(logicalType).addField(nested).named(alias);
+        return Types.buildGroup(repetition).as(LogicalTypeAnnotation.MapKeyValueTypeAnnotation.getInstance()).addField(nested).named(alias);
     }
 
-    private static GroupType listWrapper(String name, LogicalTypeAnnotation logicalType, GroupType groupType)
+    private static GroupType listWrapper(String name, GroupType groupType)
     {
-        return Types.optionalGroup().as(logicalType).addField(groupType).named(name);
+        return Types.optionalGroup().as(LogicalTypeAnnotation.listType()).addField(groupType).named(name);
     }
 }
