@@ -7,17 +7,19 @@ remote exchange (GATHER, SINGLE, [])
                         partial aggregation over (substr$gid)
                             join (LEFT, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, ["custkey"])
-                                    cross join:
-                                        scan customer
-                                        local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                final aggregation over ()
-                                                    local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (GATHER, SINGLE, [])
-                                                            partial aggregation over ()
-                                                                scan customer
+                                    local exchange (REPARTITION, ROUND_ROBIN, [])
+                                        cross join:
+                                            scan customer
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    final aggregation over ()
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (GATHER, SINGLE, [])
+                                                                partial aggregation over ()
+                                                                    scan customer
                                 final aggregation over (custkey_11)
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["custkey_11"])
-                                            partial aggregation over (custkey_11)
-                                                scan orders
+                                            local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                partial aggregation over (custkey_11)
+                                                    scan orders

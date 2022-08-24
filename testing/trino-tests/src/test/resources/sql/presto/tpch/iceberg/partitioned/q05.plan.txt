@@ -9,23 +9,27 @@ remote exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["nationkey", "suppkey"])
                                     join (INNER, PARTITIONED):
                                         remote exchange (REPARTITION, HASH, ["orderkey_4"])
-                                            scan lineitem
+                                            local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                scan lineitem
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, ["orderkey"])
                                                 join (INNER, PARTITIONED):
                                                     remote exchange (REPARTITION, HASH, ["custkey_0"])
-                                                        scan orders
+                                                        local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                            scan orders
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, ["custkey"])
-                                                            join (INNER, REPLICATED):
-                                                                scan customer
-                                                                local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPLICATE, BROADCAST, [])
-                                                                        join (INNER, REPLICATED):
-                                                                            scan nation
-                                                                            local exchange (GATHER, SINGLE, [])
-                                                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                                                    scan region
+                                                            local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                join (INNER, REPLICATED):
+                                                                    scan customer
+                                                                    local exchange (GATHER, SINGLE, [])
+                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                            join (INNER, REPLICATED):
+                                                                                scan nation
+                                                                                local exchange (GATHER, SINGLE, [])
+                                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                                        scan region
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["nationkey_11", "suppkey_8"])
-                                        scan supplier
+                                        local exchange (REPARTITION, ROUND_ROBIN, [])
+                                            scan supplier

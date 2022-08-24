@@ -89,6 +89,8 @@ public class OptimizerConfig
     private double adaptivePartialAggregationUniqueRowsRatioThreshold = 0.8;
     private long joinPartitionedBuildMinRowCount = 1_000_000L;
 
+    private boolean forceFixedDistributionForPartitionedOutputOperatorEnabled = true;
+
     public enum JoinReorderingStrategy
     {
         NONE,
@@ -754,6 +756,18 @@ public class OptimizerConfig
     public OptimizerConfig setUseExactPartitioning(boolean useExactPartitioning)
     {
         this.useExactPartitioning = useExactPartitioning;
+        return this;
+    }
+
+    public boolean isForceFixedDistributionForPartitionedOutputOperatorEnabled()
+    {
+        return forceFixedDistributionForPartitionedOutputOperatorEnabled;
+    }
+
+    @Config("experimental.force-fixed-distribution-for-partitioned-output-operator-enabled")
+    public OptimizerConfig setForceFixedDistributionForPartitionedOutputOperatorEnabled(boolean forceFixedDistributionForPartitionedOutputOperatorEnabled)
+    {
+        this.forceFixedDistributionForPartitionedOutputOperatorEnabled = forceFixedDistributionForPartitionedOutputOperatorEnabled;
         return this;
     }
 }

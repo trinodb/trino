@@ -5,32 +5,37 @@ remote exchange (GATHER, SINGLE, [])
                 final aggregation over (suppkey_6)
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, ["suppkey_6"])
-                            partial aggregation over (suppkey_6)
-                                cross join (can skip output duplicates):
-                                    join (RIGHT, PARTITIONED, can skip output duplicates):
-                                        final aggregation over (partkey_21, suppkey_22)
+                            local exchange (REPARTITION, ROUND_ROBIN, [])
+                                partial aggregation over (suppkey_6)
+                                    cross join (can skip output duplicates):
+                                        join (RIGHT, PARTITIONED, can skip output duplicates):
+                                            final aggregation over (partkey_21, suppkey_22)
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPARTITION, HASH, ["partkey_21", "suppkey_22"])
+                                                        local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                            partial aggregation over (partkey_21, suppkey_22)
+                                                                scan lineitem
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["partkey_21", "suppkey_22"])
-                                                    partial aggregation over (partkey_21, suppkey_22)
-                                                        scan lineitem
+                                                remote exchange (REPARTITION, HASH, ["partkey", "suppkey_6"])
+                                                    join (INNER, PARTITIONED, can skip output duplicates):
+                                                        remote exchange (REPARTITION, HASH, ["partkey"])
+                                                            local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                scan partsupp
+                                                        final aggregation over (partkey_13)
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPARTITION, HASH, ["partkey_13"])
+                                                                    local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                        partial aggregation over (partkey_13)
+                                                                            scan part
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPARTITION, HASH, ["partkey", "suppkey_6"])
-                                                join (INNER, PARTITIONED, can skip output duplicates):
-                                                    remote exchange (REPARTITION, HASH, ["partkey"])
-                                                        scan partsupp
-                                                    final aggregation over (partkey_13)
-                                                        local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPARTITION, HASH, ["partkey_13"])
-                                                                partial aggregation over (partkey_13)
-                                                                    scan part
-                                    local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
-                                            single aggregation over ()
-                                                values (1 rows)
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                single aggregation over ()
+                                                    values (1 rows)
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["suppkey"])
-                        join (INNER, REPLICATED):
-                            scan supplier
-                            local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPLICATE, BROADCAST, [])
-                                    scan nation
+                        local exchange (REPARTITION, ROUND_ROBIN, [])
+                            join (INNER, REPLICATED):
+                                scan supplier
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        scan nation

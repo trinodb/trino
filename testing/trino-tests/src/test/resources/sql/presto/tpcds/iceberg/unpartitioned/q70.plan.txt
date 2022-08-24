@@ -8,26 +8,28 @@ local exchange (GATHER, SINGLE, [])
                             partial aggregation over (groupid, s_county$gid, s_state$gid_92)
                                 join (INNER, PARTITIONED):
                                     remote exchange (REPARTITION, HASH, ["s_state"])
-                                        join (INNER, REPLICATED):
+                                        local exchange (REPARTITION, ROUND_ROBIN, [])
                                             join (INNER, REPLICATED):
-                                                scan store_sales
+                                                join (INNER, REPLICATED):
+                                                    scan store_sales
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            scan date_dim
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan date_dim
-                                            local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan store
+                                                        scan store
                                     single aggregation over (s_state_53)
                                         final aggregation over (s_state_53)
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["s_state_53"])
-                                                    partial aggregation over (s_state_53)
-                                                        join (INNER, REPLICATED):
+                                                    local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                        partial aggregation over (s_state_53)
                                                             join (INNER, REPLICATED):
-                                                                scan store_sales
+                                                                join (INNER, REPLICATED):
+                                                                    scan store_sales
+                                                                    local exchange (GATHER, SINGLE, [])
+                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                            scan date_dim
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                                        scan date_dim
-                                                            local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                                    scan store
+                                                                        scan store

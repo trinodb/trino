@@ -7,24 +7,27 @@ remote exchange (GATHER, SINGLE, [])
                         partial aggregation over (expr$gid, name_21, name_27)
                             join (INNER, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, ["orderkey"])
-                                    join (INNER, REPLICATED):
-                                        scan lineitem
-                                        local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                join (INNER, REPLICATED):
-                                                    scan supplier
-                                                    local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan nation
+                                    local exchange (REPARTITION, ROUND_ROBIN, [])
+                                        join (INNER, REPLICATED):
+                                            scan lineitem
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    join (INNER, REPLICATED):
+                                                        scan supplier
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                scan nation
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["orderkey_5"])
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, ["custkey"])
-                                                scan orders
+                                                local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                    scan orders
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["custkey_10"])
-                                                    join (INNER, REPLICATED):
-                                                        scan customer
-                                                        local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan nation
+                                                    local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                        join (INNER, REPLICATED):
+                                                            scan customer
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                    scan nation

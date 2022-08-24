@@ -14,8 +14,9 @@ final aggregation over ()
                                 final aggregation over (partkey_6)
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["partkey_6"])
-                                            partial aggregation over (partkey_6)
-                                                scan lineitem
+                                            local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                partial aggregation over (partkey_6)
+                                                    scan lineitem
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPLICATE, BROADCAST, [])
                             single aggregation over ()

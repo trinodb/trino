@@ -29,4 +29,5 @@ remote exchange (GATHER, SINGLE, [])
                                                 scan item
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["t_time_sk"])
-                                        scan time_dim
+                                        local exchange (REPARTITION, ROUND_ROBIN, [])
+                                            scan time_dim
