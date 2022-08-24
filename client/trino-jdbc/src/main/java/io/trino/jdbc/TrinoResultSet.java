@@ -13,6 +13,7 @@
  */
 package io.trino.jdbc;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -29,9 +30,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -144,7 +145,8 @@ public class TrinoResultSet
         return stream.iterator();
     }
 
-    private static class AsyncIterator<T>
+    @VisibleForTesting
+    static class AsyncIterator<T>
             extends AbstractIterator<T>
     {
         private static final int MAX_QUEUED_ROWS = 50_000;
@@ -152,19 +154,30 @@ public class TrinoResultSet
                 new ThreadFactoryBuilder().setNameFormat("Trino JDBC worker-%s").setDaemon(true).build());
 
         private final StatementClient client;
-        private final BlockingQueue<T> rowQueue = new ArrayBlockingQueue<>(MAX_QUEUED_ROWS);
+        private final BlockingQueue<T> rowQueue;
         // Semaphore to indicate that some data is ready.
         // Each permit represents a row of data (or that the underlying iterator is exhausted).
         private final Semaphore semaphore = new Semaphore(0);
-        private final CompletableFuture<Void> future;
+        private final Future<?> future;
+        private volatile boolean cancelled;
+        private volatile boolean finished;
 
         public AsyncIterator(Iterator<T> dataIterator, StatementClient client)
         {
+            this(dataIterator, client, Optional.empty());
+        }
+
+        @VisibleForTesting
+        AsyncIterator(Iterator<T> dataIterator, StatementClient client, Optional<BlockingQueue<T>> queue)
+        {
             requireNonNull(dataIterator, "dataIterator is null");
             this.client = client;
-            this.future = CompletableFuture.runAsync(() -> {
+            this.rowQueue = queue.orElseGet(() -> new ArrayBlockingQueue<>(MAX_QUEUED_ROWS));
+            this.cancelled = false;
+            this.finished = false;
+            this.future = executorService.submit(() -> {
                 try {
-                    while (dataIterator.hasNext()) {
+                    while (!cancelled && dataIterator.hasNext()) {
                         rowQueue.put(dataIterator.next());
                         semaphore.release();
                     }
@@ -174,20 +187,44 @@ public class TrinoResultSet
                 }
                 finally {
                     semaphore.release();
+                    finished = true;
                 }
-            }, executorService);
+            });
         }
 
         public void cancel()
         {
+            cancelled = true;
             future.cancel(true);
+            cleanup();
         }
 
         public void interrupt(InterruptedException e)
         {
-            client.close();
+            cleanup();
             Thread.currentThread().interrupt();
             throw new RuntimeException(new SQLException("ResultSet thread was interrupted", e));
+        }
+
+        private void cleanup()
+        {
+            // When thread interruption is mis-handled by underlying implementation of `client`, the thread which
+            // is working for `future` may be blocked by `rowQueue.put` (`rowQueue` is full) and will never finish
+            // its work. It is necessary to close `client` and drain `rowQueue` to avoid such leaks.
+            client.close();
+            rowQueue.clear();
+        }
+
+        @VisibleForTesting
+        Future<?> getFuture()
+        {
+            return future;
+        }
+
+        @VisibleForTesting
+        boolean isBackgroundThreadFinished()
+        {
+            return finished;
         }
 
         @Override
