@@ -62,38 +62,37 @@ public final class OrcFileRewriter
     public static OrcFileInfo rewrite(File input, File output, BitSet rowsToDelete)
             throws IOException
     {
-        try (FileSystem fileSystem = new SyncingFileSystem(CONFIGURATION)) {
-            Reader reader = createReader(fileSystem, path(input));
+        FileSystem fileSystem = new SyncingFileSystem(CONFIGURATION);
+        Reader reader = createReader(fileSystem, path(input));
 
-            if (reader.getNumberOfRows() < rowsToDelete.length()) {
-                throw new IOException("File has fewer rows than deletion vector");
-            }
-            int deleteRowCount = rowsToDelete.cardinality();
-            if (reader.getNumberOfRows() == deleteRowCount) {
-                return new OrcFileInfo(0, 0);
-            }
-            if (reader.getNumberOfRows() >= Integer.MAX_VALUE) {
-                throw new IOException("File has too many rows");
-            }
-            int inputRowCount = toIntExact(reader.getNumberOfRows());
+        if (reader.getNumberOfRows() < rowsToDelete.length()) {
+            throw new IOException("File has fewer rows than deletion vector");
+        }
+        int deleteRowCount = rowsToDelete.cardinality();
+        if (reader.getNumberOfRows() == deleteRowCount) {
+            return new OrcFileInfo(0, 0);
+        }
+        if (reader.getNumberOfRows() >= Integer.MAX_VALUE) {
+            throw new IOException("File has too many rows");
+        }
+        int inputRowCount = toIntExact(reader.getNumberOfRows());
 
-            WriterOptions writerOptions = OrcFile.writerOptions(CONFIGURATION)
-                    .memory(new NullMemoryManager())
-                    .fileSystem(fileSystem)
-                    .compress(reader.getCompression())
-                    .inspector(reader.getObjectInspector());
+        WriterOptions writerOptions = OrcFile.writerOptions(CONFIGURATION)
+                .memory(new NullMemoryManager())
+                .fileSystem(fileSystem)
+                .compress(reader.getCompression())
+                .inspector(reader.getObjectInspector());
 
-            long start = System.nanoTime();
-            try (Closer<RecordReader, IOException> recordReader = closer(reader.rows(), RecordReader::close);
-                    Closer<Writer, IOException> writer = closer(createWriter(path(output), writerOptions), Writer::close)) {
-                if (reader.hasMetadataValue(OrcFileMetadata.KEY)) {
-                    ByteBuffer orcFileMetadata = reader.getMetadataValue(OrcFileMetadata.KEY);
-                    writer.get().addUserMetadata(OrcFileMetadata.KEY, orcFileMetadata);
-                }
-                OrcFileInfo fileInfo = rewrite(recordReader.get(), writer.get(), rowsToDelete, inputRowCount);
-                log.debug("Rewrote file %s in %s (input rows: %s, output rows: %s)", input.getName(), nanosSince(start), inputRowCount, inputRowCount - deleteRowCount);
-                return fileInfo;
+        long start = System.nanoTime();
+        try (Closer<RecordReader, IOException> recordReader = closer(reader.rows(), RecordReader::close);
+                Closer<Writer, IOException> writer = closer(createWriter(path(output), writerOptions), Writer::close)) {
+            if (reader.hasMetadataValue(OrcFileMetadata.KEY)) {
+                ByteBuffer orcFileMetadata = reader.getMetadataValue(OrcFileMetadata.KEY);
+                writer.get().addUserMetadata(OrcFileMetadata.KEY, orcFileMetadata);
             }
+            OrcFileInfo fileInfo = rewrite(recordReader.get(), writer.get(), rowsToDelete, inputRowCount);
+            log.debug("Rewrote file %s in %s (input rows: %s, output rows: %s)", input.getName(), nanosSince(start), inputRowCount, inputRowCount - deleteRowCount);
+            return fileInfo;
         }
     }
 

@@ -50,6 +50,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FilterFileSystem;
 import org.apache.hadoop.fs.Path;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -235,7 +236,7 @@ public class TestRubixCaching
     public void tearDown()
             throws IOException
     {
-        nonCachingFileSystem.close();
+        closeFileSystem(nonCachingFileSystem);
     }
 
     @AfterMethod(alwaysRun = true)
@@ -251,7 +252,7 @@ public class TestRubixCaching
             });
             closer.register(() -> {
                 if (cachingFileSystem != null) {
-                    cachingFileSystem.close();
+                    closeFileSystem(cachingFileSystem);
                     cachingFileSystem = null;
                 }
             });
@@ -272,6 +273,13 @@ public class TestRubixCaching
                 }
             });
         }
+    }
+
+    @SuppressModernizer
+    private static void closeFileSystem(FileSystem fileSystem)
+            throws IOException
+    {
+        fileSystem.close();
     }
 
     @DataProvider
@@ -469,6 +477,7 @@ public class TestRubixCaching
                 });
     }
 
+    @SuppressModernizer
     @Test
     public void testFileSystemBindings()
             throws Exception

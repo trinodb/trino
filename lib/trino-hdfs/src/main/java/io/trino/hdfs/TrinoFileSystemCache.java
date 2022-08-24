@@ -34,6 +34,7 @@ import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.UserGroupInformation.AuthenticationMethod;
 import org.apache.hadoop.util.Progressable;
 import org.apache.hadoop.util.ReflectionUtils;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -167,7 +168,7 @@ public class TrinoFileSystemCache
         FilterFileSystem wrapper = new FileSystemWrapper(original);
         FileSystemFinalizerService.getInstance().addFinalizer(wrapper, () -> {
             try {
-                original.close();
+                closeFileSystem(original);
             }
             catch (IOException e) {
                 log.error(e, "Error occurred when finalizing file system");
@@ -188,9 +189,16 @@ public class TrinoFileSystemCache
             throws IOException
     {
         for (FileSystemHolder fileSystemHolder : ImmutableList.copyOf(map.values())) {
-            fileSystemHolder.getFileSystem().close();
+            closeFileSystem(fileSystemHolder.getFileSystem());
         }
         map.clear();
+    }
+
+    @SuppressModernizer
+    private static void closeFileSystem(FileSystem fileSystem)
+            throws IOException
+    {
+        fileSystem.close();
     }
 
     private static FileSystemKey createFileSystemKey(URI uri, UserGroupInformation userGroupInformation, long unique)

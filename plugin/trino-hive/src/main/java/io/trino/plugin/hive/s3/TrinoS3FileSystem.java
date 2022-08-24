@@ -92,6 +92,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
@@ -341,13 +342,20 @@ public class TrinoS3FileSystem
             throws IOException
     {
         try (Closer closer = Closer.create()) {
-            closer.register(super::close);
+            closer.register(this::closeSuper);
             if (credentialsProvider instanceof Closeable) {
                 closer.register((Closeable) credentialsProvider);
             }
             closer.register(uploadExecutor::shutdown);
             closer.register(s3::shutdown);
         }
+    }
+
+    @SuppressModernizer
+    private void closeSuper()
+            throws IOException
+    {
+        super.close();
     }
 
     @Override
