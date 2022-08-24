@@ -159,6 +159,12 @@
     </violation>
 
     <violation>
+        <name>org/apache/hadoop/fs/FileSystem.close:()V</name>
+        <version>1.1</version>
+        <comment>Hadoop FileSystem instances are shared and should not be closed</comment>
+    </violation>
+
+    <violation>
         <name>org/apache/hadoop/conf/Configuration."&lt;init&gt;":(Z)V</name>
         <version>1.1</version>
         <comment>Prefer ConfigurationInstantiator.newEmptyConfiguration()</comment>

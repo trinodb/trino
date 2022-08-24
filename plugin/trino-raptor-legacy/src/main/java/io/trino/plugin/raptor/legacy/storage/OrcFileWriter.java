@@ -40,7 +40,6 @@ import io.trino.spi.type.TypeId;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile;
@@ -217,10 +216,10 @@ public class OrcFileWriter
 
     private static RecordWriter createRecordWriter(Path target, List<Long> columnIds, List<Type> columnTypes, boolean writeMetadata)
     {
-        try (FileSystem fileSystem = new SyncingFileSystem(CONFIGURATION)) {
+        try {
             OrcFile.WriterOptions options = OrcFile.writerOptions(CONFIGURATION)
                     .memory(new NullMemoryManager())
-                    .fileSystem(fileSystem)
+                    .fileSystem(new SyncingFileSystem(CONFIGURATION))
                     .compress(SNAPPY);
 
             if (writeMetadata) {
