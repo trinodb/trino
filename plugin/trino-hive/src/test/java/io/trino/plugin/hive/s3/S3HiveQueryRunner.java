@@ -13,17 +13,21 @@
  */
 package io.trino.plugin.hive.s3;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
+import io.airlift.log.Logger;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.tpch.TpchTable;
 
 import java.util.Locale;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
+import static io.trino.plugin.hive.security.HiveSecurityModule.ALLOW_ALL;
 import static java.util.Objects.requireNonNull;
 
 public final class S3HiveQueryRunner
@@ -136,5 +140,22 @@ public final class S3HiveQueryRunner
             setInitialSchemasLocationBase("s3a://" + bucketName); // cannot use s3:// as Hive metastore is not configured to accept it
             return super.build();
         }
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake("tpch");
+        hiveMinioDataLake.start();
+
+        DistributedQueryRunner queryRunner = S3HiveQueryRunner.builder(hiveMinioDataLake)
+                .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                .setSkipTimezoneSetup(true)
+                .setInitialTables(TpchTable.getTables())
+                .setSecurity(ALLOW_ALL)
+                .build();
+        Logger log = Logger.get(S3HiveQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }
