@@ -45,10 +45,12 @@ local exchange (GATHER, SINGLE, [])
                                                         scan web_sales
                                                         join (INNER, PARTITIONED):
                                                             remote exchange (REPARTITION, HASH, ["ws_item_sk_92", "ws_order_number_106"])
-                                                                scan web_sales
+                                                                local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                    scan web_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPARTITION, HASH, ["wr_item_sk", "wr_order_number"])
-                                                                    scan web_returns
+                                                                    local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                        scan web_returns
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan date_dim

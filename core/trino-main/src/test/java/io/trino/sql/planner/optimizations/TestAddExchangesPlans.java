@@ -167,13 +167,15 @@ public class TestAddExchangesPlans
                                                         anyTree(
                                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
                                                 exchange(REMOTE, REPARTITION,
-                                                        project(
-                                                                values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"))))))))
+                                                        exchange(LOCAL, REPARTITION,
+                                                                project(
+                                                                        values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1")))))))))
                                 .right(
                                         anyTree(
                                                 exchange(REMOTE, REPARTITION,
-                                                        anyTree(
-                                                                tableScan("region", ImmutableMap.of("regionkey", "regionkey")))))))));
+                                                        exchange(LOCAL, REPARTITION,
+                                                                anyTree(
+                                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))))));
     }
 
     @Test
@@ -229,15 +231,17 @@ public class TestAddExchangesPlans
                         node(MarkDistinctNode.class,
                                 anyTree(
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition1", "partition2"),
-                                                project(
-                                                        values(
-                                                                ImmutableList.of("field", "partition2", "partition1"),
-                                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("1")))))),
+                                                exchange(LOCAL, REPARTITION,
+                                                        project(
+                                                                values(
+                                                                        ImmutableList.of("field", "partition2", "partition1"),
+                                                                        ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("1"))))))),
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition3", "partition3"),
-                                                project(
-                                                        values(
-                                                                ImmutableList.of("partition3", "partition4", "field_0"),
-                                                                ImmutableList.of(ImmutableList.of(new LongLiteral("3"), new LongLiteral("4"), new LongLiteral("1"))))))))));
+                                                exchange(LOCAL, REPARTITION,
+                                                        project(
+                                                                values(
+                                                                        ImmutableList.of("partition3", "partition4", "field_0"),
+                                                                        ImmutableList.of(ImmutableList.of(new LongLiteral("3"), new LongLiteral("4"), new LongLiteral("1")))))))))));
 
         assertDistributedPlan(
                 query,
@@ -248,15 +252,17 @@ public class TestAddExchangesPlans
                         node(MarkDistinctNode.class,
                                 anyTree(
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition1"),
-                                                project(
-                                                        values(
-                                                                ImmutableList.of("field", "partition2", "partition1"),
-                                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("1")))))),
+                                                exchange(LOCAL, REPARTITION,
+                                                        project(
+                                                                values(
+                                                                        ImmutableList.of("field", "partition2", "partition1"),
+                                                                        ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("1"))))))),
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition3"),
-                                                project(
-                                                        values(
-                                                                ImmutableList.of("partition3", "partition4", "field_0"),
-                                                                ImmutableList.of(ImmutableList.of(new LongLiteral("3"), new LongLiteral("4"), new LongLiteral("1"))))))))));
+                                                exchange(LOCAL, REPARTITION,
+                                                        project(
+                                                                values(
+                                                                        ImmutableList.of("partition3", "partition4", "field_0"),
+                                                                        ImmutableList.of(ImmutableList.of(new LongLiteral("3"), new LongLiteral("4"), new LongLiteral("1")))))))))));
     }
 
     @Test

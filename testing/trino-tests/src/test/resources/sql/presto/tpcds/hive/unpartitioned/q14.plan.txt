@@ -9,60 +9,66 @@ local exchange (GATHER, SINGLE, [])
                                 final aggregation over (i_brand_id_6, i_category_id_8, i_class_id_7)
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["i_brand_id_6", "i_category_id_8", "i_class_id_7"])
-                                            partial aggregation over (i_brand_id_6, i_category_id_8, i_class_id_7)
-                                                join (INNER, REPLICATED):
+                                            local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                partial aggregation over (i_brand_id_6, i_category_id_8, i_class_id_7)
                                                     join (INNER, REPLICATED):
-                                                        scan store_sales
+                                                        join (INNER, REPLICATED):
+                                                            scan store_sales
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                    scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan date_dim
-                                                    local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
-                                                            join (INNER, PARTITIONED):
-                                                                remote exchange (REPARTITION, HASH, ["i_item_sk"])
-                                                                    scan item
-                                                                final aggregation over (i_item_sk_15)
-                                                                    local exchange (GATHER, SINGLE, [])
-                                                                        remote exchange (REPARTITION, HASH, ["i_item_sk_15"])
-                                                                            partial aggregation over (i_item_sk_15)
-                                                                                join (INNER, PARTITIONED, can skip output duplicates):
-                                                                                    remote exchange (REPARTITION, HASH, ["i_brand_id_22", "i_category_id_26", "i_class_id_24"])
-                                                                                        scan item
-                                                                                    final aggregation over (brand_id, category_id, class_id)
-                                                                                        local exchange (GATHER, SINGLE, [])
-                                                                                            remote exchange (REPARTITION, HASH, ["i_brand_id_76", "i_category_id_80", "i_class_id_78"])
-                                                                                                partial aggregation over (i_brand_id_76, i_category_id_80, i_class_id_78)
-                                                                                                    join (INNER, REPLICATED):
-                                                                                                        join (INNER, REPLICATED):
-                                                                                                            scan store_sales
-                                                                                                            local exchange (GATHER, SINGLE, [])
-                                                                                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                                    scan date_dim
-                                                                                                        local exchange (GATHER, SINGLE, [])
-                                                                                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                                scan item
-                                                                                            remote exchange (REPARTITION, HASH, ["i_brand_id_135", "i_category_id_139", "i_class_id_137"])
-                                                                                                partial aggregation over (i_brand_id_135, i_category_id_139, i_class_id_137)
-                                                                                                    join (INNER, REPLICATED):
-                                                                                                        join (INNER, REPLICATED):
-                                                                                                            scan catalog_sales
-                                                                                                            local exchange (GATHER, SINGLE, [])
-                                                                                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                                    scan date_dim
-                                                                                                        local exchange (GATHER, SINGLE, [])
-                                                                                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                                scan item
-                                                                                            remote exchange (REPARTITION, HASH, ["i_brand_id_194", "i_category_id_198", "i_class_id_196"])
-                                                                                                partial aggregation over (i_brand_id_194, i_category_id_198, i_class_id_196)
-                                                                                                    join (INNER, REPLICATED):
-                                                                                                        join (INNER, REPLICATED):
-                                                                                                            scan web_sales
-                                                                                                            local exchange (GATHER, SINGLE, [])
-                                                                                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                                    scan date_dim
-                                                                                                        local exchange (GATHER, SINGLE, [])
-                                                                                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                                scan item
+                                                                join (INNER, PARTITIONED):
+                                                                    remote exchange (REPARTITION, HASH, ["i_item_sk"])
+                                                                        local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                            scan item
+                                                                    final aggregation over (i_item_sk_15)
+                                                                        local exchange (GATHER, SINGLE, [])
+                                                                            remote exchange (REPARTITION, HASH, ["i_item_sk_15"])
+                                                                                partial aggregation over (i_item_sk_15)
+                                                                                    join (INNER, PARTITIONED, can skip output duplicates):
+                                                                                        remote exchange (REPARTITION, HASH, ["i_brand_id_22", "i_category_id_26", "i_class_id_24"])
+                                                                                            local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                                                scan item
+                                                                                        final aggregation over (brand_id, category_id, class_id)
+                                                                                            local exchange (GATHER, SINGLE, [])
+                                                                                                remote exchange (REPARTITION, HASH, ["i_brand_id_76", "i_category_id_80", "i_class_id_78"])
+                                                                                                    local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                                                        partial aggregation over (i_brand_id_76, i_category_id_80, i_class_id_78)
+                                                                                                            join (INNER, REPLICATED):
+                                                                                                                join (INNER, REPLICATED):
+                                                                                                                    scan store_sales
+                                                                                                                    local exchange (GATHER, SINGLE, [])
+                                                                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                                            scan date_dim
+                                                                                                                local exchange (GATHER, SINGLE, [])
+                                                                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                                        scan item
+                                                                                                remote exchange (REPARTITION, HASH, ["i_brand_id_135", "i_category_id_139", "i_class_id_137"])
+                                                                                                    local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                                                        partial aggregation over (i_brand_id_135, i_category_id_139, i_class_id_137)
+                                                                                                            join (INNER, REPLICATED):
+                                                                                                                join (INNER, REPLICATED):
+                                                                                                                    scan catalog_sales
+                                                                                                                    local exchange (GATHER, SINGLE, [])
+                                                                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                                            scan date_dim
+                                                                                                                local exchange (GATHER, SINGLE, [])
+                                                                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                                        scan item
+                                                                                                remote exchange (REPARTITION, HASH, ["i_brand_id_194", "i_category_id_198", "i_class_id_196"])
+                                                                                                    local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                                                        partial aggregation over (i_brand_id_194, i_category_id_198, i_class_id_196)
+                                                                                                            join (INNER, REPLICATED):
+                                                                                                                join (INNER, REPLICATED):
+                                                                                                                    scan web_sales
+                                                                                                                    local exchange (GATHER, SINGLE, [])
+                                                                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                                            scan date_dim
+                                                                                                                local exchange (GATHER, SINGLE, [])
+                                                                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                                        scan item
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
                                         final aggregation over ()
@@ -90,60 +96,66 @@ local exchange (GATHER, SINGLE, [])
                                 final aggregation over (i_brand_id_488, i_category_id_492, i_class_id_490)
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["i_brand_id_488", "i_category_id_492", "i_class_id_490"])
-                                            partial aggregation over (i_brand_id_488, i_category_id_492, i_class_id_490)
-                                                join (INNER, REPLICATED):
+                                            local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                partial aggregation over (i_brand_id_488, i_category_id_492, i_class_id_490)
                                                     join (INNER, REPLICATED):
-                                                        scan catalog_sales
+                                                        join (INNER, REPLICATED):
+                                                            scan catalog_sales
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                    scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan date_dim
-                                                    local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
-                                                            join (INNER, PARTITIONED):
-                                                                remote exchange (REPARTITION, HASH, ["i_item_sk_481"])
-                                                                    scan item
-                                                                final aggregation over (i_item_sk_539)
-                                                                    local exchange (GATHER, SINGLE, [])
-                                                                        remote exchange (REPARTITION, HASH, ["i_item_sk_539"])
-                                                                            partial aggregation over (i_item_sk_539)
-                                                                                join (INNER, PARTITIONED, can skip output duplicates):
-                                                                                    remote exchange (REPARTITION, HASH, ["i_brand_id_546", "i_category_id_550", "i_class_id_548"])
-                                                                                        scan item
-                                                                                    final aggregation over (brand_id_564, category_id_566, class_id_565)
-                                                                                        local exchange (GATHER, SINGLE, [])
-                                                                                            remote exchange (REPARTITION, HASH, ["i_brand_id_603", "i_category_id_607", "i_class_id_605"])
-                                                                                                partial aggregation over (i_brand_id_603, i_category_id_607, i_class_id_605)
-                                                                                                    join (INNER, REPLICATED):
-                                                                                                        join (INNER, REPLICATED):
-                                                                                                            scan store_sales
-                                                                                                            local exchange (GATHER, SINGLE, [])
-                                                                                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                                    scan date_dim
-                                                                                                        local exchange (GATHER, SINGLE, [])
-                                                                                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                                scan item
-                                                                                            remote exchange (REPARTITION, HASH, ["i_brand_id_696", "i_category_id_700", "i_class_id_698"])
-                                                                                                partial aggregation over (i_brand_id_696, i_category_id_700, i_class_id_698)
-                                                                                                    join (INNER, REPLICATED):
-                                                                                                        join (INNER, REPLICATED):
-                                                                                                            scan catalog_sales
-                                                                                                            local exchange (GATHER, SINGLE, [])
-                                                                                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                                    scan date_dim
-                                                                                                        local exchange (GATHER, SINGLE, [])
-                                                                                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                                scan item
-                                                                                            remote exchange (REPARTITION, HASH, ["i_brand_id_789", "i_category_id_793", "i_class_id_791"])
-                                                                                                partial aggregation over (i_brand_id_789, i_category_id_793, i_class_id_791)
-                                                                                                    join (INNER, REPLICATED):
-                                                                                                        join (INNER, REPLICATED):
-                                                                                                            scan web_sales
-                                                                                                            local exchange (GATHER, SINGLE, [])
-                                                                                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                                    scan date_dim
-                                                                                                        local exchange (GATHER, SINGLE, [])
-                                                                                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                                scan item
+                                                                join (INNER, PARTITIONED):
+                                                                    remote exchange (REPARTITION, HASH, ["i_item_sk_481"])
+                                                                        local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                            scan item
+                                                                    final aggregation over (i_item_sk_539)
+                                                                        local exchange (GATHER, SINGLE, [])
+                                                                            remote exchange (REPARTITION, HASH, ["i_item_sk_539"])
+                                                                                partial aggregation over (i_item_sk_539)
+                                                                                    join (INNER, PARTITIONED, can skip output duplicates):
+                                                                                        remote exchange (REPARTITION, HASH, ["i_brand_id_546", "i_category_id_550", "i_class_id_548"])
+                                                                                            local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                                                scan item
+                                                                                        final aggregation over (brand_id_564, category_id_566, class_id_565)
+                                                                                            local exchange (GATHER, SINGLE, [])
+                                                                                                remote exchange (REPARTITION, HASH, ["i_brand_id_603", "i_category_id_607", "i_class_id_605"])
+                                                                                                    local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                                                        partial aggregation over (i_brand_id_603, i_category_id_607, i_class_id_605)
+                                                                                                            join (INNER, REPLICATED):
+                                                                                                                join (INNER, REPLICATED):
+                                                                                                                    scan store_sales
+                                                                                                                    local exchange (GATHER, SINGLE, [])
+                                                                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                                            scan date_dim
+                                                                                                                local exchange (GATHER, SINGLE, [])
+                                                                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                                        scan item
+                                                                                                remote exchange (REPARTITION, HASH, ["i_brand_id_696", "i_category_id_700", "i_class_id_698"])
+                                                                                                    local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                                                        partial aggregation over (i_brand_id_696, i_category_id_700, i_class_id_698)
+                                                                                                            join (INNER, REPLICATED):
+                                                                                                                join (INNER, REPLICATED):
+                                                                                                                    scan catalog_sales
+                                                                                                                    local exchange (GATHER, SINGLE, [])
+                                                                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                                            scan date_dim
+                                                                                                                local exchange (GATHER, SINGLE, [])
+                                                                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                                        scan item
+                                                                                                remote exchange (REPARTITION, HASH, ["i_brand_id_789", "i_category_id_793", "i_class_id_791"])
+                                                                                                    local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                                                        partial aggregation over (i_brand_id_789, i_category_id_793, i_class_id_791)
+                                                                                                            join (INNER, REPLICATED):
+                                                                                                                join (INNER, REPLICATED):
+                                                                                                                    scan web_sales
+                                                                                                                    local exchange (GATHER, SINGLE, [])
+                                                                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                                            scan date_dim
+                                                                                                                local exchange (GATHER, SINGLE, [])
+                                                                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                                        scan item
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
                                         final aggregation over ()
@@ -171,60 +183,66 @@ local exchange (GATHER, SINGLE, [])
                                 final aggregation over (i_brand_id_1090, i_category_id_1094, i_class_id_1092)
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["i_brand_id_1090", "i_category_id_1094", "i_class_id_1092"])
-                                            partial aggregation over (i_brand_id_1090, i_category_id_1094, i_class_id_1092)
-                                                join (INNER, REPLICATED):
+                                            local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                partial aggregation over (i_brand_id_1090, i_category_id_1094, i_class_id_1092)
                                                     join (INNER, REPLICATED):
-                                                        scan web_sales
+                                                        join (INNER, REPLICATED):
+                                                            scan web_sales
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                    scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan date_dim
-                                                    local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
-                                                            join (INNER, PARTITIONED):
-                                                                remote exchange (REPARTITION, HASH, ["i_item_sk_1083"])
-                                                                    scan item
-                                                                final aggregation over (i_item_sk_1141)
-                                                                    local exchange (GATHER, SINGLE, [])
-                                                                        remote exchange (REPARTITION, HASH, ["i_item_sk_1141"])
-                                                                            partial aggregation over (i_item_sk_1141)
-                                                                                join (INNER, PARTITIONED, can skip output duplicates):
-                                                                                    remote exchange (REPARTITION, HASH, ["i_brand_id_1148", "i_category_id_1152", "i_class_id_1150"])
-                                                                                        scan item
-                                                                                    final aggregation over (brand_id_1166, category_id_1168, class_id_1167)
-                                                                                        local exchange (GATHER, SINGLE, [])
-                                                                                            remote exchange (REPARTITION, HASH, ["i_brand_id_1205", "i_category_id_1209", "i_class_id_1207"])
-                                                                                                partial aggregation over (i_brand_id_1205, i_category_id_1209, i_class_id_1207)
-                                                                                                    join (INNER, REPLICATED):
-                                                                                                        join (INNER, REPLICATED):
-                                                                                                            scan store_sales
-                                                                                                            local exchange (GATHER, SINGLE, [])
-                                                                                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                                    scan date_dim
-                                                                                                        local exchange (GATHER, SINGLE, [])
-                                                                                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                                scan item
-                                                                                            remote exchange (REPARTITION, HASH, ["i_brand_id_1298", "i_category_id_1302", "i_class_id_1300"])
-                                                                                                partial aggregation over (i_brand_id_1298, i_category_id_1302, i_class_id_1300)
-                                                                                                    join (INNER, REPLICATED):
-                                                                                                        join (INNER, REPLICATED):
-                                                                                                            scan catalog_sales
-                                                                                                            local exchange (GATHER, SINGLE, [])
-                                                                                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                                    scan date_dim
-                                                                                                        local exchange (GATHER, SINGLE, [])
-                                                                                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                                scan item
-                                                                                            remote exchange (REPARTITION, HASH, ["i_brand_id_1391", "i_category_id_1395", "i_class_id_1393"])
-                                                                                                partial aggregation over (i_brand_id_1391, i_category_id_1395, i_class_id_1393)
-                                                                                                    join (INNER, REPLICATED):
-                                                                                                        join (INNER, REPLICATED):
-                                                                                                            scan web_sales
-                                                                                                            local exchange (GATHER, SINGLE, [])
-                                                                                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                                    scan date_dim
-                                                                                                        local exchange (GATHER, SINGLE, [])
-                                                                                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                                scan item
+                                                                join (INNER, PARTITIONED):
+                                                                    remote exchange (REPARTITION, HASH, ["i_item_sk_1083"])
+                                                                        local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                            scan item
+                                                                    final aggregation over (i_item_sk_1141)
+                                                                        local exchange (GATHER, SINGLE, [])
+                                                                            remote exchange (REPARTITION, HASH, ["i_item_sk_1141"])
+                                                                                partial aggregation over (i_item_sk_1141)
+                                                                                    join (INNER, PARTITIONED, can skip output duplicates):
+                                                                                        remote exchange (REPARTITION, HASH, ["i_brand_id_1148", "i_category_id_1152", "i_class_id_1150"])
+                                                                                            local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                                                scan item
+                                                                                        final aggregation over (brand_id_1166, category_id_1168, class_id_1167)
+                                                                                            local exchange (GATHER, SINGLE, [])
+                                                                                                remote exchange (REPARTITION, HASH, ["i_brand_id_1205", "i_category_id_1209", "i_class_id_1207"])
+                                                                                                    local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                                                        partial aggregation over (i_brand_id_1205, i_category_id_1209, i_class_id_1207)
+                                                                                                            join (INNER, REPLICATED):
+                                                                                                                join (INNER, REPLICATED):
+                                                                                                                    scan store_sales
+                                                                                                                    local exchange (GATHER, SINGLE, [])
+                                                                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                                            scan date_dim
+                                                                                                                local exchange (GATHER, SINGLE, [])
+                                                                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                                        scan item
+                                                                                                remote exchange (REPARTITION, HASH, ["i_brand_id_1298", "i_category_id_1302", "i_class_id_1300"])
+                                                                                                    local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                                                        partial aggregation over (i_brand_id_1298, i_category_id_1302, i_class_id_1300)
+                                                                                                            join (INNER, REPLICATED):
+                                                                                                                join (INNER, REPLICATED):
+                                                                                                                    scan catalog_sales
+                                                                                                                    local exchange (GATHER, SINGLE, [])
+                                                                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                                            scan date_dim
+                                                                                                                local exchange (GATHER, SINGLE, [])
+                                                                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                                        scan item
+                                                                                                remote exchange (REPARTITION, HASH, ["i_brand_id_1391", "i_category_id_1395", "i_class_id_1393"])
+                                                                                                    local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                                                        partial aggregation over (i_brand_id_1391, i_category_id_1395, i_class_id_1393)
+                                                                                                            join (INNER, REPLICATED):
+                                                                                                                join (INNER, REPLICATED):
+                                                                                                                    scan web_sales
+                                                                                                                    local exchange (GATHER, SINGLE, [])
+                                                                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                                            scan date_dim
+                                                                                                                local exchange (GATHER, SINGLE, [])
+                                                                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                                        scan item
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
                                         final aggregation over ()

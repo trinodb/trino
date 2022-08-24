@@ -2152,7 +2152,7 @@ public abstract class BaseHiveConnectorTest
                 "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c0')",
                 1,
                 // buckets should be repartitioned locally hence local repartitioned exchange should exist in plan
-                assertLocalRepartitionedExchangesCount(1));
+                assertLocalRepartitionedExchangesCount(2));
         assertUpdate(parallelWriter, "INSERT INTO " + tableName + " VALUES ('a1', 'b1', 'c1')", 1);
 
         assertQuery("SELECT * from " + tableName, "VALUES ('a', 'b', 'c'), ('aa', 'bb', 'cc'), ('aaa', 'bbb', 'ccc'), ('a0', 'b0', 'c0'), ('a1', 'b1', 'c1')");
