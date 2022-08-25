@@ -382,7 +382,8 @@ public class FileSystemExchangeSink
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(BufferPool.class).instanceSize();
 
         private final FileSystemExchangeStats stats;
-        private final int numBuffers;
+        private final int maxNumBuffers;
+        private final int writeBufferSize;
         private final long bufferRetainedSize;
         @GuardedBy("this")
         private final Queue<SliceOutput> freeBuffersQueue;
@@ -390,23 +391,25 @@ public class FileSystemExchangeSink
         private CompletableFuture<Void> blockedFuture = new CompletableFuture<>();
         @GuardedBy("this")
         private boolean closed;
+        @GuardedBy("this")
+        private int numBuffersCreated;
 
-        public BufferPool(FileSystemExchangeStats stats, int numBuffers, int writeBufferSize)
+        public BufferPool(FileSystemExchangeStats stats, int maxNumBuffers, int writeBufferSize)
         {
             this.stats = requireNonNull(stats, "stats is null");
-            checkArgument(numBuffers >= 1, "numBuffers must be at least one");
+            checkArgument(maxNumBuffers >= 1, "maxNumBuffers must be at least one");
 
-            this.numBuffers = numBuffers;
-            this.freeBuffersQueue = new ArrayDeque<>(numBuffers);
-            for (int i = 0; i < numBuffers; ++i) {
-                freeBuffersQueue.add(Slices.allocate(writeBufferSize).getOutput());
-            }
+            this.maxNumBuffers = maxNumBuffers;
+            this.writeBufferSize = writeBufferSize;
+            this.numBuffersCreated = 1;
+            this.freeBuffersQueue = new ArrayDeque<>(maxNumBuffers);
+            freeBuffersQueue.add(Slices.allocate(writeBufferSize).getOutput());
             this.bufferRetainedSize = freeBuffersQueue.peek().getRetainedSize();
         }
 
         public synchronized CompletableFuture<Void> isBlocked()
         {
-            if (freeBuffersQueue.isEmpty()) {
+            if (!hasFreeBuffers()) {
                 if (blockedFuture.isDone()) {
                     blockedFuture = new CompletableFuture<>();
                     stats.getExchangeSinkBlocked().record(blockedFuture);
@@ -422,7 +425,7 @@ public class FileSystemExchangeSink
                 if (closed) {
                     return null;
                 }
-                if (!freeBuffersQueue.isEmpty()) {
+                if (hasFreeBuffers()) {
                     return freeBuffersQueue.poll();
                 }
                 try {
@@ -457,7 +460,7 @@ public class FileSystemExchangeSink
             if (closed) {
                 return INSTANCE_SIZE;
             }
-            return INSTANCE_SIZE + numBuffers * bufferRetainedSize;
+            return INSTANCE_SIZE + numBuffersCreated * bufferRetainedSize;
         }
 
         public void close()
@@ -474,6 +477,19 @@ public class FileSystemExchangeSink
             }
 
             completableFuture.complete(null);
+        }
+
+        private boolean hasFreeBuffers()
+        {
+            if (!freeBuffersQueue.isEmpty()) {
+                return true;
+            }
+            if (numBuffersCreated < maxNumBuffers) {
+                freeBuffersQueue.add(Slices.allocate(writeBufferSize).getOutput());
+                numBuffersCreated++;
+                return true;
+            }
+            return false;
         }
     }
 }
