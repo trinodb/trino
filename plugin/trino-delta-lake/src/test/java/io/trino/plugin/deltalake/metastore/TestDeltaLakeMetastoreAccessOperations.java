@@ -15,11 +15,18 @@ package io.trino.plugin.deltalake.metastore;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
 import com.google.inject.Binder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.Session;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfiguration;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.deltalake.TestingDeltaLakePlugin;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
@@ -38,7 +45,6 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.CREATE_TABLE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_DATABASE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_TABLE;
@@ -66,9 +72,12 @@ public class TestDeltaLakeMetastoreAccessOperations
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION).build();
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake").toFile();
+        HdfsConfig hdfsConfig = new HdfsConfig();
+        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
+        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         HiveMetastore hiveMetastore = new FileHiveMetastore(
                 new NodeVersion("testversion"),
-                HDFS_ENVIRONMENT,
+                hdfsEnvironment,
                 false,
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory(baseDir.toURI().toString())

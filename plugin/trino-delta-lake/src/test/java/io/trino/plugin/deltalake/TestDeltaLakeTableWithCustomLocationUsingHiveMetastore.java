@@ -13,8 +13,15 @@
  */
 package io.trino.plugin.deltalake;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfiguration;
+import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
@@ -27,7 +34,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestDeltaLakeTableWithCustomLocationUsingHiveMetastore
@@ -46,6 +52,9 @@ public class TestDeltaLakeTableWithCustomLocationUsingHiveMetastore
         DistributedQueryRunner queryRunner = builder.build();
 
         Map<String, String> connectorProperties = new HashMap<>();
+        HdfsConfig hdfsConfig = new HdfsConfig();
+        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
+        hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         metastoreDir = Files.createTempDirectory("test_delta_lake").toFile();
         FileHiveMetastoreConfig config = new FileHiveMetastoreConfig()
                 .setCatalogDirectory(metastoreDir.toURI().toString())
@@ -53,7 +62,7 @@ public class TestDeltaLakeTableWithCustomLocationUsingHiveMetastore
         hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(config.getMetastoreUser()));
         metastore = new FileHiveMetastore(
                 new NodeVersion("testversion"),
-                HDFS_ENVIRONMENT,
+                hdfsEnvironment,
                 false,
                 config);
         connectorProperties.putIfAbsent("delta.unique-table-location", "true");
