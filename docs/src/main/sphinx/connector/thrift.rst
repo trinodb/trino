@@ -104,7 +104,7 @@ The following IDL describes the ``TrinoThriftService`` that must be implemented:
 .. literalinclude:: /include/TrinoThriftService.thrift
     :language: thrift
 
-.. _thirft-type-mapping:
+.. _thrift-type-mapping:
 
 Type mapping
 ------------
