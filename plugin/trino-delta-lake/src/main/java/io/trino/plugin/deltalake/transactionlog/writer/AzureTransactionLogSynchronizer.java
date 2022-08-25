@@ -53,7 +53,7 @@ public class AzureTransactionLogSynchronizer
                 outputStream.write(entryContents);
             }
             try {
-                fileSystem.renameFile(tmpFileName, newLogEntryPath.toString());
+                fileSystem.renameFile(tmpFilePath, newLogEntryPath.toString());
             }
             catch (IOException e) {
                 conflict = true;
