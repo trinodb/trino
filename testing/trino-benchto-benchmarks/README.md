@@ -66,7 +66,7 @@ macros:
 * Make sure you have configured [Presto TPC-H connector](https://trino.io/docs/current/connector/tpch.html).
 * Bootstrap benchmark data:
   ```bash
-  python presto-benchto-benchmarks/generate_schemas/generate-tpch.py | presto-cli-[version]-executable.jar --server [presto_coordinator-url]:[port]
+  testing/trino-benchto-benchmarks/generate_schemas/generate-tpch.py --factors sf1 --formats orc | trino-cli-[version]-executable.jar --server [trino_coordinator-url]:[port]
   ```
 
 ### Configuring overrides file
