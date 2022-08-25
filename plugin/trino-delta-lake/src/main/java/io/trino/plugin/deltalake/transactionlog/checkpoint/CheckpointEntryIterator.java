@@ -16,7 +16,8 @@ package io.trino.plugin.deltalake.transactionlog.checkpoint;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.LongMath;
 import io.airlift.log.Logger;
-import io.trino.filesystem.TrinoInputFile;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
@@ -47,6 +48,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
+import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
@@ -117,7 +119,7 @@ public class CheckpointEntryIterator
 
     private static final Logger log = Logger.get(CheckpointEntryIterator.class);
 
-    private final String checkpointPath;
+    private final Path checkpoint;
     private final ConnectorSession session;
     private final ConnectorPageSource pageSource;
     private final MapType stringMap;
@@ -132,18 +134,19 @@ public class CheckpointEntryIterator
     private int pagePosition;
 
     public CheckpointEntryIterator(
-            TrinoInputFile checkpoint,
+            Path checkpoint,
             ConnectorSession session,
             long fileSize,
             CheckpointSchemaManager checkpointSchemaManager,
             TypeManager typeManager,
             Set<EntryType> fields,
             Optional<MetadataEntry> metadataEntry,
+            HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
             ParquetReaderOptions parquetReaderOptions,
             boolean checkpointRowStatisticsWritingEnabled)
     {
-        this.checkpointPath = requireNonNull(checkpoint, "checkpoint is null").location();
+        this.checkpoint = requireNonNull(checkpoint, "checkpoint is null");
         this.session = requireNonNull(session, "session is null");
         this.stringList = (ArrayType) requireNonNull(typeManager, "typeManager is null").getType(TypeSignature.arrayType(VarcharType.VARCHAR.getTypeSignature()));
         this.stringMap = (MapType) typeManager.getType(TypeSignature.mapType(VarcharType.VARCHAR.getTypeSignature(), VarcharType.VARCHAR.getTypeSignature()));
@@ -177,9 +180,13 @@ public class CheckpointEntryIterator
                 checkpoint,
                 0,
                 fileSize,
+                fileSize,
                 columns,
                 tupleDomain,
                 true,
+                hdfsEnvironment,
+                hdfsEnvironment.getConfiguration(new HdfsContext(session), checkpoint),
+                session.getIdentity(),
                 DateTimeZone.UTC,
                 stats,
                 parquetReaderOptions);
@@ -590,7 +597,7 @@ public class CheckpointEntryIterator
         if (page.getChannelCount() != extractors.size()) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA,
                     format("Expected page %d (%s) in %s to contain %d channels, but found %d",
-                            pageIndex, page, checkpointPath, extractors.size(), page.getChannelCount()));
+                            pageIndex, page, checkpoint, extractors.size(), page.getChannelCount()));
         }
         pagePosition = 0;
         pageIndex++;

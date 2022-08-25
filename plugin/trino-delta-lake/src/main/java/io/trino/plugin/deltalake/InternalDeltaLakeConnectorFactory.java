@@ -22,7 +22,6 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
-import io.trino.filesystem.hdfs.HdfsFileSystemModule;
 import io.trino.hdfs.HdfsModule;
 import io.trino.hdfs.authentication.HdfsAuthenticationModule;
 import io.trino.plugin.base.CatalogName;
@@ -87,7 +86,6 @@ public final class InternalDeltaLakeConnectorFactory
                     new HiveAzureModule(),
                     new HiveGcsModule(),
                     new HdfsAuthenticationModule(),
-                    new HdfsFileSystemModule(),
                     new CatalogNameModule(catalogName),
                     new DeltaLakeMetastoreModule(),
                     new DeltaLakeModule(),

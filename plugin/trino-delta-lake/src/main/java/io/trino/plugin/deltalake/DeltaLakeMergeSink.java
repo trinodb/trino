@@ -17,8 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.parquet.ParquetReaderOptions;
@@ -40,6 +38,7 @@ import io.trino.spi.connector.MergePage;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
@@ -82,7 +81,6 @@ public class DeltaLakeMergeSink
 {
     private static final JsonCodec<List<String>> PARTITIONS_CODEC = listJsonCodec(String.class);
 
-    private final TrinoFileSystemFactory fileSystemFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final ConnectorSession session;
     private final DateTimeZone parquetDateTimeZone;
@@ -97,7 +95,6 @@ public class DeltaLakeMergeSink
     private final Map<Slice, FileDeletion> fileDeletions = new HashMap<>();
 
     public DeltaLakeMergeSink(
-            TrinoFileSystemFactory fileSystemFactory,
             HdfsEnvironment hdfsEnvironment,
             ConnectorSession session,
             DateTimeZone parquetDateTimeZone,
@@ -109,7 +106,6 @@ public class DeltaLakeMergeSink
             ConnectorPageSink insertPageSink,
             List<DeltaLakeColumnHandle> tableColumns)
     {
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.session = requireNonNull(session, "session is null");
         this.parquetDateTimeZone = requireNonNull(parquetDateTimeZone, "parquetDateTimeZone is null");
@@ -297,17 +293,24 @@ public class DeltaLakeMergeSink
     private ReaderPageSource createParquetPageSource(Path path)
             throws IOException
     {
-        TrinoInputFile inputFile = fileSystemFactory.create(session).newInputFile(path.toString());
+        HdfsContext hdfsContext = new HdfsContext(session);
+        Configuration config = hdfsEnvironment.getConfiguration(hdfsContext, path);
+        FileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, path);
+        long fileSize = fileSystem.getFileStatus(path).getLen();
 
         return ParquetPageSourceFactory.createPageSource(
-                inputFile,
+                path,
                 0,
-                inputFile.length(),
+                fileSize,
+                fileSize,
                 dataColumns.stream()
                         .map(DeltaLakeColumnHandle::toHiveColumnHandle)
                         .collect(toImmutableList()),
                 TupleDomain.all(),
                 true,
+                hdfsEnvironment,
+                config,
+                session.getIdentity(),
                 parquetDateTimeZone,
                 new FileFormatDataSourceStats(),
                 new ParquetReaderOptions());

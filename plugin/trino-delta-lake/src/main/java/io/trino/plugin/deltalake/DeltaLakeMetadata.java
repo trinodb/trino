@@ -26,8 +26,6 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
 import io.airlift.units.DataSize;
-import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
@@ -270,7 +268,6 @@ public class DeltaLakeMetadata
             .build();
 
     private final DeltaLakeMetastore metastore;
-    private final TrinoFileSystemFactory fileSystemFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final AccessControlMetadata accessControlMetadata;
@@ -293,7 +290,6 @@ public class DeltaLakeMetadata
 
     public DeltaLakeMetadata(
             DeltaLakeMetastore metastore,
-            TrinoFileSystemFactory fileSystemFactory,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             AccessControlMetadata accessControlMetadata,
@@ -313,7 +309,6 @@ public class DeltaLakeMetadata
             boolean useUniqueTableLocation)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
@@ -1273,7 +1268,8 @@ public class DeltaLakeMetadata
     {
         String tableLocation = getLocation(tableMetadata.getProperties());
         try {
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsContext(session), new Path(tableLocation));
+
             return new DeltaLakeInsertTableHandle(
                     table.getSchemaName(),
                     table.getTableName(),
@@ -1326,7 +1322,7 @@ public class DeltaLakeMetadata
 
             long createdTime = Instant.now().toEpochMilli();
 
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsContext(session), new Path(handle.getLocation()));
             long commitVersion = getMandatoryCurrentVersion(fileSystem, new Path(handle.getLocation())) + 1;
             if (commitVersion != handle.getReadVersion() + 1) {
                 throw new TransactionConflictException(format("Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s",
@@ -1559,7 +1555,7 @@ public class DeltaLakeMetadata
 
             long createdTime = Instant.now().toEpochMilli();
 
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsContext(session), new Path(tableLocation));
             long currentVersion = getMandatoryCurrentVersion(fileSystem, new Path(tableLocation));
             if (currentVersion != handle.getReadVersion()) {
                 throw new TransactionConflictException(format("Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s", handle.getReadVersion(), currentVersion));
@@ -1873,7 +1869,7 @@ public class DeltaLakeMetadata
 
             long createdTime = Instant.now().toEpochMilli();
 
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsContext(session), new Path(tableLocation));
             long commitVersion = getMandatoryCurrentVersion(fileSystem, new Path(tableLocation)) + 1;
             if (commitVersion != handle.getReadVersion() + 1) {
                 throw new TransactionConflictException(format("Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s",

@@ -17,14 +17,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfiguration;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
-import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
@@ -62,7 +65,6 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractColumnMetadata;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.LAST_CHECKPOINT_FILENAME;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.Assert.assertEquals;
@@ -98,10 +100,10 @@ public class TestTransactionLogAccess
             new RemoveFileEntry("age=42/part-00000-6aed618a-2beb-4edd-8466-653e67a9b380.c000.snappy.parquet", 1579190155406L, false),
             new RemoveFileEntry("age=42/part-00000-b82d8859-84a0-4f05-872c-206b07dd54f0.c000.snappy.parquet", 1579190163932L, false));
 
-    private TransactionLogAccess transactionLogAccess;
+    private TrackingTransactionLogAccess transactionLogAccess;
     private TableSnapshot tableSnapshot;
 
-    private AccessTrackingFileSystemFactory accessTrackingFileSystemFactory;
+    private AccessTrackingHdfsEnvironment hdfsEnvironment;
 
     private void setupTransactionLogAccess(String tableName)
             throws Exception
@@ -121,15 +123,20 @@ public class TestTransactionLogAccess
         TestingConnectorContext context = new TestingConnectorContext();
         TypeManager typeManager = context.getTypeManager();
 
-        accessTrackingFileSystemFactory = new AccessTrackingFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT));
+        HdfsConfig hdfsConfig = new HdfsConfig();
+        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
+        hdfsEnvironment = new AccessTrackingHdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         FileFormatDataSourceStats fileFormatDataSourceStats = new FileFormatDataSourceStats();
 
-        transactionLogAccess = new TransactionLogAccess(
+        transactionLogAccess = new TrackingTransactionLogAccess(
+                tableName,
+                tableLocation,
+                SESSION,
                 typeManager,
                 new CheckpointSchemaManager(typeManager),
                 deltaLakeConfig,
                 fileFormatDataSourceStats,
-                accessTrackingFileSystemFactory,
+                hdfsEnvironment,
                 new ParquetReaderConfig());
 
         DeltaLakeTableHandle tableHandle = new DeltaLakeTableHandle(
@@ -543,10 +550,10 @@ public class TestTransactionLogAccess
                 "age=30/part-00000-37ccfcd3-b44b-4d04-a1e6-d2837da75f7a.c000.snappy.parquet");
 
         assertEqualsIgnoreOrder(activeDataFiles.stream().map(AddFileEntry::getPath).collect(Collectors.toSet()), originalDataFiles);
-        assertThat(accessTrackingFileSystemFactory.getOpenCount()).containsExactlyInAnyOrderEntriesOf(
+        assertEquals(
+                transactionLogAccess.getAccessTrackingFileSystem().getOpenCount(),
                 ImmutableMap.of(
                         "_last_checkpoint", 1,
-                        "00000000000000000010.checkpoint.parquet", 2,
                         // the file is accessed once when the transaction log tail is created
                         // and then it tries to access the following file but that file does not
                         // exist so it knows that it has reached the end of the tail
@@ -560,10 +567,10 @@ public class TestTransactionLogAccess
         TableSnapshot updatedTableSnapshot = transactionLogAccess.loadSnapshot(new SchemaTableName("schema", tableName), new Path(tableDir.toURI()), SESSION);
         activeDataFiles = transactionLogAccess.getActiveFiles(updatedTableSnapshot, SESSION);
         assertEqualsIgnoreOrder(activeDataFiles.stream().map(AddFileEntry::getPath).collect(Collectors.toSet()), union(originalDataFiles, newDataFiles));
-        assertThat(accessTrackingFileSystemFactory.getOpenCount()).containsExactlyInAnyOrderEntriesOf(
+        assertEquals(
+                transactionLogAccess.getAccessTrackingFileSystem().getOpenCount(),
                 ImmutableMap.of(
                         "_last_checkpoint", 2,
-                        "00000000000000000010.checkpoint.parquet", 2,
                         "00000000000000000011.json", 1,
                         "00000000000000000012.json", 3,
                         "00000000000000000013.json", 2,
@@ -709,7 +716,8 @@ public class TestTransactionLogAccess
         cacheDisabledConfig.setMetadataCacheTtl(new Duration(0, TimeUnit.SECONDS));
         setupTransactionLogAccess(tableName, tableDir, cacheDisabledConfig);
 
-        assertThat(accessTrackingFileSystemFactory.getOpenCount()).containsExactlyInAnyOrderEntriesOf(
+        assertEquals(
+                transactionLogAccess.getAccessTrackingFileSystem().getOpenCount(),
                 ImmutableMap.of(
                         "_last_checkpoint", 1,
                         "00000000000000000011.json", 1,
@@ -719,7 +727,8 @@ public class TestTransactionLogAccess
 
         // With the transaction log cache disabled, when loading the snapshot again, all the needed files will be opened again
         transactionLogAccess.loadSnapshot(new SchemaTableName("schema", tableName), tableDir, SESSION);
-        assertThat(accessTrackingFileSystemFactory.getOpenCount()).containsExactlyInAnyOrderEntriesOf(
+        assertEquals(
+                transactionLogAccess.getAccessTrackingFileSystem().getOpenCount(),
                 ImmutableMap.of(
                         "_last_checkpoint", 2,
                         "00000000000000000011.json", 2,
@@ -740,25 +749,19 @@ public class TestTransactionLogAccess
 
         List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
         assertEquals(addFileEntries.size(), 12);
-        assertThat(accessTrackingFileSystemFactory.getOpenCount()).containsExactlyInAnyOrderEntriesOf(
+        assertEquals(
+                hdfsEnvironment.getAccessedPathNames(),
                 ImmutableMap.of(
-                        "_last_checkpoint", 1,
-                        "00000000000000000011.json", 1,
-                        "00000000000000000012.json", 1,
-                        "00000000000000000013.json", 1,
-                        "00000000000000000014.json", 1,
+                        "person", 1,
                         "00000000000000000010.checkpoint.parquet", 2));
 
         addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
         assertEquals(addFileEntries.size(), 12);
         // The internal data cache should still contain the data files for the table
-        assertThat(accessTrackingFileSystemFactory.getOpenCount()).containsExactlyInAnyOrderEntriesOf(
+        assertEquals(
+                hdfsEnvironment.getAccessedPathNames(),
                 ImmutableMap.of(
-                        "_last_checkpoint", 1,
-                        "00000000000000000011.json", 1,
-                        "00000000000000000012.json", 1,
-                        "00000000000000000013.json", 1,
-                        "00000000000000000014.json", 1,
+                        "person", 1,
                         "00000000000000000010.checkpoint.parquet", 2));
     }
 
@@ -774,26 +777,20 @@ public class TestTransactionLogAccess
 
         List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
         assertEquals(addFileEntries.size(), 12);
-        assertThat(accessTrackingFileSystemFactory.getOpenCount()).containsExactlyInAnyOrderEntriesOf(
+        assertEquals(
+                hdfsEnvironment.getAccessedPathNames(),
                 ImmutableMap.of(
-                        "_last_checkpoint", 1,
-                        "00000000000000000011.json", 1,
-                        "00000000000000000012.json", 1,
-                        "00000000000000000013.json", 1,
-                        "00000000000000000014.json", 1,
+                        "person", 1,
                         "00000000000000000010.checkpoint.parquet", 2));
 
         // With no caching for the transaction log entries, when loading the snapshot again,
         // the checkpoint file will be read again
         addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
         assertEquals(addFileEntries.size(), 12);
-        assertThat(accessTrackingFileSystemFactory.getOpenCount()).containsExactlyInAnyOrderEntriesOf(
+        assertEquals(
+                hdfsEnvironment.getAccessedPathNames(),
                 ImmutableMap.of(
-                        "_last_checkpoint", 1,
-                        "00000000000000000011.json", 1,
-                        "00000000000000000012.json", 1,
-                        "00000000000000000013.json", 1,
-                        "00000000000000000014.json", 1,
+                        "person", 1,
                         "00000000000000000010.checkpoint.parquet", 4));
     }
 

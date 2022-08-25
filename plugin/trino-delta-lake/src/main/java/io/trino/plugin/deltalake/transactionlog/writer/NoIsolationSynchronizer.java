@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.deltalake.transactionlog.writer;
 
-import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.TrinoOutputFile;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.spi.connector.ConnectorSession;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
@@ -30,22 +30,21 @@ import static java.util.Objects.requireNonNull;
 public class NoIsolationSynchronizer
         implements TransactionLogSynchronizer
 {
-    private final TrinoFileSystemFactory fileSystemFactory;
+    private final HdfsEnvironment hdfsEnvironment;
 
     @Inject
-    public NoIsolationSynchronizer(TrinoFileSystemFactory fileSystemFactory)
+    public NoIsolationSynchronizer(HdfsEnvironment hdfsEnvironment)
     {
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
     @Override
     public void write(ConnectorSession session, String clusterId, Path newLogEntryPath, byte[] entryContents)
             throws UncheckedIOException
     {
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         try {
-            TrinoOutputFile outputFile = fileSystem.newOutputFile(newLogEntryPath.toString());
-            try (OutputStream outputStream = outputFile.create()) {
+            FileSystem fs = hdfsEnvironment.getFileSystem(new HdfsContext(session), newLogEntryPath);
+            try (OutputStream outputStream = fs.create(newLogEntryPath, false)) {
                 outputStream.write(entryContents);
             }
         }

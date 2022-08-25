@@ -16,7 +16,6 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.parquet.ParquetReaderOptions;
@@ -38,6 +37,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeManager;
+import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -61,7 +61,6 @@ import static java.util.Objects.requireNonNull;
 public class DeltaLakePageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final TrinoFileSystemFactory fileSystemFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final ParquetReaderOptions parquetReaderOptions;
@@ -73,7 +72,6 @@ public class DeltaLakePageSourceProvider
 
     @Inject
     public DeltaLakePageSourceProvider(
-            TrinoFileSystemFactory fileSystemFactory,
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             ParquetReaderConfig parquetReaderConfig,
@@ -82,7 +80,6 @@ public class DeltaLakePageSourceProvider
             TypeManager typeManager,
             JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec)
     {
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.parquetReaderOptions = requireNonNull(parquetReaderConfig, "parquetReaderConfig is null").toParquetReaderOptions();
@@ -147,6 +144,7 @@ public class DeltaLakePageSourceProvider
                 })
                 .collect(toImmutableList());
 
+        Path path = new Path(split.getPath());
         HdfsContext hdfsContext = new HdfsContext(session);
         TupleDomain<HiveColumnHandle> parquetPredicate = getParquetTupleDomain(filteredSplitPredicate.simplify(domainCompactionThreshold));
 
@@ -160,7 +158,6 @@ public class DeltaLakePageSourceProvider
                     split.getFileModifiedTime(),
                     session,
                     executorService,
-                    fileSystemFactory,
                     hdfsEnvironment,
                     hdfsContext,
                     parquetDateTimeZone,
@@ -171,12 +168,16 @@ public class DeltaLakePageSourceProvider
         }
 
         ReaderPageSource pageSource = ParquetPageSourceFactory.createPageSource(
-                fileSystemFactory.create(session).newInputFile(split.getPath(), split.getFileSize()),
+                path,
                 split.getStart(),
                 split.getLength(),
+                split.getFileSize(),
                 hiveColumnHandles,
                 parquetPredicate,
                 true,
+                hdfsEnvironment,
+                hdfsEnvironment.getConfiguration(hdfsContext, path),
+                session.getIdentity(),
                 parquetDateTimeZone,
                 fileFormatDataSourceStats,
                 parquetReaderOptions.withMaxReadBlockSize(getParquetMaxReadBlockSize(session))

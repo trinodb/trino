@@ -15,8 +15,7 @@ package io.trino.plugin.deltalake.transactionlog;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoInputFile;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
@@ -27,10 +26,13 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TypeManager;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -79,7 +81,7 @@ public class TableSnapshot
 
     public static TableSnapshot load(
             SchemaTableName table,
-            TrinoFileSystem fileSystem,
+            FileSystem fileSystem,
             Path tableLocation,
             ParquetReaderOptions parquetReaderOptions,
             boolean checkpointRowStatisticsWritingEnabled)
@@ -98,7 +100,7 @@ public class TableSnapshot
                 checkpointRowStatisticsWritingEnabled);
     }
 
-    public Optional<TableSnapshot> getUpdatedSnapshot(TrinoFileSystem fileSystem)
+    public Optional<TableSnapshot> getUpdatedSnapshot(FileSystem fileSystem)
             throws IOException
     {
         Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(fileSystem, tableLocation);
@@ -157,7 +159,8 @@ public class TableSnapshot
             Set<CheckpointEntryIterator.EntryType> entryTypes,
             CheckpointSchemaManager checkpointSchemaManager,
             TypeManager typeManager,
-            TrinoFileSystem fileSystem,
+            FileSystem fileSystem,
+            HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats)
             throws IOException
     {
@@ -174,13 +177,13 @@ public class TableSnapshot
                         checkpointSchemaManager,
                         typeManager,
                         fileSystem,
+                        hdfsEnvironment,
                         stats,
                         checkpoint)) :
                 Optional.empty();
 
         Stream<DeltaLakeTransactionLogEntry> resultStream = Stream.empty();
         for (Path checkpointPath : getCheckpointPartPaths(checkpoint)) {
-            TrinoInputFile checkpointFile = fileSystem.newInputFile(checkpointPath.toString());
             resultStream = Stream.concat(
                     resultStream,
                     getCheckpointTransactionLogEntries(
@@ -189,9 +192,11 @@ public class TableSnapshot
                             metadataEntry,
                             checkpointSchemaManager,
                             typeManager,
+                            fileSystem,
+                            hdfsEnvironment,
                             stats,
                             checkpoint,
-                            checkpointFile));
+                            checkpointPath));
         }
         return resultStream;
     }
@@ -207,51 +212,57 @@ public class TableSnapshot
             Optional<MetadataEntry> metadataEntry,
             CheckpointSchemaManager checkpointSchemaManager,
             TypeManager typeManager,
+            FileSystem fileSystem,
+            HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
             LastCheckpoint checkpoint,
-            TrinoInputFile checkpointFile)
+            Path checkpointPath)
             throws IOException
     {
-        long fileSize;
+        FileStatus fileStatus;
         try {
-            fileSize = checkpointFile.length();
+            fileStatus = fileSystem.getFileStatus(checkpointPath);
         }
         catch (FileNotFoundException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, format("%s mentions a non-existent checkpoint file for table: %s", checkpoint, table));
         }
-        return stream(new CheckpointEntryIterator(
-                checkpointFile,
+        Iterator<DeltaLakeTransactionLogEntry> checkpointEntryIterator = new CheckpointEntryIterator(
+                checkpointPath,
                 session,
-                fileSize,
+                fileStatus.getLen(),
                 checkpointSchemaManager,
                 typeManager,
                 entryTypes,
                 metadataEntry,
+                hdfsEnvironment,
                 stats,
                 parquetReaderOptions,
-                checkpointRowStatisticsWritingEnabled));
+                checkpointRowStatisticsWritingEnabled);
+        return stream(checkpointEntryIterator);
     }
 
     private MetadataEntry getCheckpointMetadataEntry(
             ConnectorSession session,
             CheckpointSchemaManager checkpointSchemaManager,
             TypeManager typeManager,
-            TrinoFileSystem fileSystem,
+            FileSystem fileSystem,
+            HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
             LastCheckpoint checkpoint)
             throws IOException
     {
         for (Path checkpointPath : getCheckpointPartPaths(checkpoint)) {
-            TrinoInputFile checkpointFile = fileSystem.newInputFile(checkpointPath.toString());
             Stream<DeltaLakeTransactionLogEntry> metadataEntries = getCheckpointTransactionLogEntries(
                     session,
                     ImmutableSet.of(METADATA),
                     Optional.empty(),
                     checkpointSchemaManager,
                     typeManager,
+                    fileSystem,
+                    hdfsEnvironment,
                     stats,
                     checkpoint,
-                    checkpointFile);
+                    checkpointPath);
             Optional<DeltaLakeTransactionLogEntry> metadataEntry = metadataEntries.findFirst();
             if (metadataEntry.isPresent()) {
                 return metadataEntry.get().getMetaData();

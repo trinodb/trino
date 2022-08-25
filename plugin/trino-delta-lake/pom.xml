@@ -34,11 +34,6 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-filesystem</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
             <artifactId>trino-hdfs</artifactId>
         </dependency>
 
@@ -171,11 +166,6 @@
         <dependency>
             <groupId>net.jodah</groupId>
             <artifactId>failsafe</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-api</artifactId>
         </dependency>
 
         <dependency>
@@ -433,7 +423,6 @@
                                      we only explicitly use a class from aws-java-sdk-glue, which in turn extends from a class from
                                      aws-java-sdk-core -->
                                 <ignoredDependency>com.amazonaws:aws-java-sdk-core</ignoredDependency>
-                                <ignoredDependency>org.apache.iceberg:iceberg-api</ignoredDependency>
                             </ignoredNonTestScopedDependencies>
                         </configuration>
                     </plugin>

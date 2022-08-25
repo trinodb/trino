@@ -15,7 +15,6 @@ package io.trino.plugin.hive.benchmark;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.OutputStreamSliceOutput;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcWriter;
@@ -174,11 +173,7 @@ public final class StandardFileFormats
         @Override
         public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
         {
-            return Optional.of(new ParquetPageSourceFactory(
-                    new HdfsFileSystemFactory(hdfsEnvironment),
-                    new FileFormatDataSourceStats(),
-                    new ParquetReaderConfig(),
-                    new HiveConfig()));
+            return Optional.of(new ParquetPageSourceFactory(hdfsEnvironment, new FileFormatDataSourceStats(), new ParquetReaderConfig(), new HiveConfig()));
         }
 
         @Override

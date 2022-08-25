@@ -13,9 +13,10 @@
  */
 package io.trino.plugin.deltalake.transactionlog.writer;
 
-import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.spi.connector.ConnectorSession;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
@@ -25,17 +26,15 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.util.UUID;
 
-import static java.util.Objects.requireNonNull;
-
 public class AzureTransactionLogSynchronizer
         implements TransactionLogSynchronizer
 {
-    private final TrinoFileSystemFactory fileSystemFactory;
+    private final HdfsEnvironment hdfsEnvironment;
 
     @Inject
-    public AzureTransactionLogSynchronizer(TrinoFileSystemFactory fileSystemFactory)
+    public AzureTransactionLogSynchronizer(HdfsEnvironment hdfsEnvironment)
     {
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.hdfsEnvironment = hdfsEnvironment;
     }
 
     // This approach should be compatible with OSS Delta Lake.
@@ -44,33 +43,29 @@ public class AzureTransactionLogSynchronizer
     public void write(ConnectorSession session, String clusterId, Path newLogEntryPath, byte[] entryContents)
     {
         String tmpFileName = newLogEntryPath.getName() + "." + UUID.randomUUID() + ".tmp";
-        String tmpFilePath = new Path(newLogEntryPath.getParent(), tmpFileName).toString();
+        Path tmpFilePath = new Path(newLogEntryPath.getParent(), tmpFileName);
 
-        boolean conflict = false;
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        FileSystem fs = null;
         try {
-            try (OutputStream outputStream = fileSystem.newOutputFile(tmpFilePath).create()) {
+            fs = hdfsEnvironment.getFileSystem(new HdfsContext(session), newLogEntryPath);
+            try (OutputStream outputStream = fs.create(tmpFilePath, false)) {
                 outputStream.write(entryContents);
             }
-            try {
-                fileSystem.renameFile(tmpFileName, newLogEntryPath.toString());
-            }
-            catch (IOException e) {
-                conflict = true;
-                throw e;
+            if (!fs.rename(tmpFilePath, newLogEntryPath)) {
+                fs.delete(tmpFilePath, false);
+                throw new TransactionConflictException("Conflict detected while writing Transaction Log entry to ADLS");
             }
         }
         catch (IOException e) {
             try {
-                fileSystem.deleteFile(tmpFilePath);
-            }
-            catch (IOException | RuntimeException ex) {
-                if (!e.equals(ex)) {
-                    e.addSuppressed(ex);
+                if (fs != null && fs.exists(tmpFilePath)) {
+                    fs.delete(tmpFilePath, false);
                 }
             }
-            if (conflict) {
-                throw new TransactionConflictException("Conflict detected while writing Transaction Log entry to ADLS", e);
+            catch (Exception cleanupException) {
+                if (e != cleanupException) {
+                    e.addSuppressed(cleanupException);
+                }
             }
             throw new UncheckedIOException(e);
         }

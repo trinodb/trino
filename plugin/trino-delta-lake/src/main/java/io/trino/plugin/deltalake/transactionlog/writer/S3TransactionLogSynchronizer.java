@@ -18,13 +18,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
-import io.trino.filesystem.FileEntry;
-import io.trino.filesystem.FileIterator;
-import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.TrinoOutputFile;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.spi.connector.ConnectorSession;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 
 import javax.inject.Inject;
 
@@ -56,13 +57,13 @@ public class S3TransactionLogSynchronizer
     private static final String LOCK_INFIX = "sb-lock_";
     private static final Pattern LOCK_FILENAME_PATTERN = Pattern.compile("(.*)\\." + LOCK_INFIX + ".*");
 
-    private final TrinoFileSystemFactory fileSystemFactory;
+    private final HdfsEnvironment hdfsEnvironment;
     private final JsonCodec<LockFileContents> lockFileContentsJsonCodec;
 
     @Inject
-    public S3TransactionLogSynchronizer(TrinoFileSystemFactory fileSystemFactory, JsonCodec<LockFileContents> lockFileContentesCodec)
+    public S3TransactionLogSynchronizer(HdfsEnvironment hdfsEnvironment, JsonCodec<LockFileContents> lockFileContentesCodec)
     {
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.lockFileContentsJsonCodec = requireNonNull(lockFileContentesCodec, "lockFileContentesCodec is null");
     }
 
@@ -75,13 +76,13 @@ public class S3TransactionLogSynchronizer
     @Override
     public void write(ConnectorSession session, String clusterId, Path newLogEntryPath, byte[] entryContents)
     {
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        FileSystem fileSystem = getFileSystem(session, newLogEntryPath);
         Path locksDirectory = new Path(newLogEntryPath.getParent(), LOCK_DIRECTORY);
         String newEntryFilename = newLogEntryPath.getName();
         Optional<LockInfo> myLockInfo = Optional.empty();
 
         try {
-            if (fileSystem.newInputFile(newLogEntryPath.toString()).exists()) {
+            if (fileSystem.exists(newLogEntryPath)) {
                 throw new TransactionConflictException(newLogEntryPath + " already exists");
             }
 
@@ -133,10 +134,10 @@ public class S3TransactionLogSynchronizer
             }
 
             // extra check if target file did not appear concurrently; e.g. due to conflict with TL writer which uses different synchronization mechanism (like DB)
-            checkState(!fileSystem.newInputFile(newLogEntryPath.toString()).exists(), format("Target file %s was created during locking", newLogEntryPath));
+            checkState(!fileSystem.exists(newLogEntryPath), format("Target file %s was created during locking", newLogEntryPath));
 
             // write transaction log entry
-            try (OutputStream outputStream = fileSystem.newOutputFile(newLogEntryPath.toString()).create()) {
+            try (OutputStream outputStream = fileSystem.create(newLogEntryPath, false)) {
                 outputStream.write(entryContents);
             }
         }
@@ -156,39 +157,47 @@ public class S3TransactionLogSynchronizer
         }
     }
 
-    private LockInfo writeNewLockInfo(TrinoFileSystem fileSystem, Path lockDirectory, String logEntryFilename, String clusterId, String queryId)
+    private FileSystem getFileSystem(ConnectorSession session, Path newLogEntryPath)
+    {
+        try {
+            return hdfsEnvironment.getFileSystem(new HdfsContext(session), newLogEntryPath);
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private LockInfo writeNewLockInfo(FileSystem fileSystem, Path lockDirectory, String logEntryFilename, String clusterId, String queryId)
             throws IOException
     {
         String lockFilename = logEntryFilename + "." + LOCK_INFIX + queryId;
         Instant expiration = Instant.now().plus(EXPIRATION_DURATION);
         LockFileContents contents = new LockFileContents(clusterId, queryId, expiration.toEpochMilli());
         Path lockPath = new Path(lockDirectory, lockFilename);
-        TrinoOutputFile lockFile = fileSystem.newOutputFile(lockPath.toString());
         byte[] contentsBytes = lockFileContentsJsonCodec.toJsonBytes(contents);
-        try (OutputStream outputStream = lockFile.create()) {
+        try (FSDataOutputStream outputStream = fileSystem.create(lockPath, false)) {
             outputStream.write(contentsBytes);
         }
         return new LockInfo(lockFilename, contents);
     }
 
-    private static void deleteLock(TrinoFileSystem fileSystem, Path lockDirectoryPath, LockInfo lockInfo)
+    private void deleteLock(FileSystem fileSystem, Path lockDirectoryPath, LockInfo lockInfo)
             throws IOException
     {
         Path lockPath = new Path(lockDirectoryPath, lockInfo.getLockFilename());
-        fileSystem.deleteFile(lockPath.toString());
+        fileSystem.delete(lockPath, false);
     }
 
-    private List<LockInfo> listLockInfos(TrinoFileSystem fileSystem, Path lockDirectoryPath)
+    private List<LockInfo> listLockInfos(FileSystem fileSystem, Path lockDirectoryPath)
             throws IOException
     {
-        FileIterator files = fileSystem.listFiles(lockDirectoryPath.toString());
+        RemoteIterator<LocatedFileStatus> files = fileSystem.listFiles(lockDirectoryPath, false);
         ImmutableList.Builder<LockInfo> lockInfos = ImmutableList.builder();
 
         while (files.hasNext()) {
-            FileEntry entry = files.next();
-            String name = entry.path().substring(entry.path().lastIndexOf('/') + 1);
-            if (LOCK_FILENAME_PATTERN.matcher(name).matches()) {
-                Optional<LockInfo> lockInfo = parseLockFile(fileSystem, entry.path(), name);
+            LocatedFileStatus fileStatus = files.next();
+            if (LOCK_FILENAME_PATTERN.matcher(fileStatus.getPath().getName()).matches()) {
+                Optional<LockInfo> lockInfo = parseLockFile(fileSystem, fileStatus.getPath());
                 lockInfo.ifPresent(lockInfos::add);
             }
         }
@@ -196,14 +205,14 @@ public class S3TransactionLogSynchronizer
         return lockInfos.build();
     }
 
-    private Optional<LockInfo> parseLockFile(TrinoFileSystem fileSystem, String path, String name)
+    private Optional<LockInfo> parseLockFile(FileSystem fileSystem, Path path)
             throws IOException
     {
         byte[] bytes = null;
-        try (InputStream inputStream = fileSystem.newInputFile(path).newInput().inputStream()) {
+        try (InputStream inputStream = fileSystem.open(path)) {
             bytes = inputStream.readAllBytes();
             LockFileContents lockFileContents = lockFileContentsJsonCodec.fromJson(bytes);
-            return Optional.of(new LockInfo(name, lockFileContents));
+            return Optional.of(new LockInfo(path.getName(), lockFileContents));
         }
         catch (IllegalArgumentException e) {
             String content = null;
