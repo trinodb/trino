@@ -733,27 +733,27 @@ public class TrinoConnection
         int millis = networkTimeoutMillis.get();
         Duration timeout = (millis > 0) ? new Duration(millis, MILLISECONDS) : new Duration(999, DAYS);
 
-        ClientSession session = new ClientSession(
-                httpUri,
-                user,
-                sessionUser,
-                source,
-                Optional.ofNullable(clientInfo.get(TRACE_TOKEN)),
-                ImmutableSet.copyOf(clientTags),
-                clientInfo.get(CLIENT_INFO),
-                catalog.get(),
-                schema.get(),
-                path.get(),
-                timeZoneId.get(),
-                locale.get(),
-                ImmutableMap.of(),
-                ImmutableMap.copyOf(allProperties),
-                ImmutableMap.copyOf(preparedStatements),
-                ImmutableMap.copyOf(roles),
-                extraCredentials,
-                transactionId.get(),
-                timeout,
-                compressionDisabled);
+        ClientSession session = ClientSession.builder()
+                .server(httpUri)
+                .principal(user)
+                .user(sessionUser)
+                .source(source)
+                .traceToken(Optional.ofNullable(clientInfo.get(TRACE_TOKEN)))
+                .clientTags(ImmutableSet.copyOf(clientTags))
+                .clientInfo(clientInfo.get(CLIENT_INFO))
+                .catalog(catalog.get())
+                .schema(schema.get())
+                .path(path.get())
+                .timeZone(timeZoneId.get())
+                .locale(locale.get())
+                .properties(ImmutableMap.copyOf(allProperties))
+                .preparedStatements(ImmutableMap.copyOf(preparedStatements))
+                .roles(ImmutableMap.copyOf(roles))
+                .credentials(extraCredentials)
+                .transactionId(transactionId.get())
+                .clientRequestTimeout(timeout)
+                .compressionDisabled(compressionDisabled)
+                .build();
 
         return newStatementClient(httpClient, session, sql);
     }
