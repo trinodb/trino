@@ -740,7 +740,7 @@ public abstract class BaseSnowflakeConnectorTest
     public void testReadMetadataWithRelationsConcurrentModifications()
     {
         // TODO Fix concurrent metadata modification test https://starburstdata.atlassian.net/browse/SEP-8789
-        throw new SkipException("Test fails (SEP-8789)");
+        throw new SkipException("Test fails with a timeout sometimes and is flaky");
     }
 
     @Override
