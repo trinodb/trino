@@ -1998,7 +1998,8 @@ public class DeltaLakeMetadata
         DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
         Table table = metastore.getTable(handle.getSchemaName(), handle.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
-        if (table.getTableType().equals(MANAGED_TABLE.name()) && !metastoreType.equalsIgnoreCase("glue")) {
+        if (table.getTableType().equals(MANAGED_TABLE.name()) &&
+                !(metastoreType.equalsIgnoreCase("glue") || metastoreType.equalsIgnoreCase("file"))) {
             throw new TrinoException(NOT_SUPPORTED, format("Renaming managed tables is not supported for %s metastore", metastoreType));
         }
         metastore.renameTable(session, handle.getSchemaTableName(), newTableName);
