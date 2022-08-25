@@ -52,12 +52,8 @@ public class ForwardingOutputFile
     @Override
     public PositionOutputStream createOrOverwrite()
     {
-        try {
-            return new CountingPositionOutputStream(outputFile.createOrOverwrite());
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException("Failed to create file: " + location(), e);
-        }
+        // we shouldn't need to overwrite existing files
+        return create();
     }
 
     @Override
