@@ -139,8 +139,6 @@ public class ThriftHiveMetastore
 
     private static final String DEFAULT_METASTORE_USER = "presto";
 
-    private final HdfsContext hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));
-
     private final Optional<ConnectorIdentity> identity;
     private final HdfsEnvironment hdfsEnvironment;
     private final IdentityAwareMetastoreClientFactory metastoreClientFactory;
@@ -955,7 +953,7 @@ public class ThriftHiveMetastore
                             client.dropTable(databaseName, tableName, deleteData);
                             String tableLocation = table.getSd().getLocation();
                             if (deleteFilesOnDrop && deleteData && isManagedTable(table) && !isNullOrEmpty(tableLocation)) {
-                                deleteDirRecursive(hdfsContext, hdfsEnvironment, new Path(tableLocation));
+                                deleteDirRecursive(new Path(tableLocation));
                             }
                         }
                         return null;
@@ -972,9 +970,11 @@ public class ThriftHiveMetastore
         }
     }
 
-    private static void deleteDirRecursive(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
+    private void deleteDirRecursive(Path path)
     {
         try {
+            HdfsContext context = new HdfsContext(identity.orElseGet(() ->
+                    ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER)));
             hdfsEnvironment.getFileSystem(context, path).delete(path, true);
         }
         catch (IOException | RuntimeException e) {
