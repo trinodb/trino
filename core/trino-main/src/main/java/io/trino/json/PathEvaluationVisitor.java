@@ -112,6 +112,7 @@ import static io.trino.type.DecimalCasts.longDecimalToDouble;
 import static io.trino.type.DecimalCasts.shortDecimalToDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -235,7 +236,7 @@ class PathEvaluationVisitor
             return new TypedValue(type, abs(value));
         }
         if (type.equals(REAL)) {
-            float value = intBitsToFloat((int) typedValue.getLongValue());
+            float value = intBitsToFloat(toIntExact(typedValue.getLongValue()));
             if (value > 0) {
                 return typedValue;
             }

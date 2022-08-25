@@ -22,6 +22,7 @@ import io.trino.spi.type.RealType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 
 public class FloatToDoubleCoercer
         extends TypeCoercer<RealType, DoubleType>
@@ -34,6 +35,6 @@ public class FloatToDoubleCoercer
     @Override
     protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
     {
-        DOUBLE.writeDouble(blockBuilder, intBitsToFloat((int) REAL.getLong(block, position)));
+        DOUBLE.writeDouble(blockBuilder, intBitsToFloat(toIntExact(REAL.getLong(block, position))));
     }
 }

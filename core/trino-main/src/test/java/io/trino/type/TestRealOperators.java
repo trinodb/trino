@@ -35,6 +35,7 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Float.isNaN;
+import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -347,13 +348,13 @@ public class TestRealOperators
             throws Throwable
     {
         MethodHandle hashCodeOperator = functionAssertions.getTypeOperators().getHashCodeOperator(REAL, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
-        return (long) hashCodeOperator.invokeExact((long) intBitsToFloat((int) value));
+        return (long) hashCodeOperator.invokeExact((long) intBitsToFloat(toIntExact(value)));
     }
 
     private long executeXxHas64hOperator(long value)
             throws Throwable
     {
         MethodHandle xxHash64Operator = functionAssertions.getTypeOperators().getXxHash64Operator(REAL, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
-        return (long) xxHash64Operator.invokeExact((long) intBitsToFloat((int) value));
+        return (long) xxHash64Operator.invokeExact((long) intBitsToFloat(toIntExact(value)));
     }
 }

@@ -26,6 +26,7 @@ import io.trino.spi.type.StandardTypes;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 
 @AggregationFunction("corr")
 public final class RealCorrelationAggregation
@@ -35,7 +36,7 @@ public final class RealCorrelationAggregation
     @InputFunction
     public static void input(@AggregationState CorrelationState state, @SqlType(StandardTypes.REAL) long dependentValue, @SqlType(StandardTypes.REAL) long independentValue)
     {
-        DoubleCorrelationAggregation.input(state, intBitsToFloat((int) dependentValue), intBitsToFloat((int) independentValue));
+        DoubleCorrelationAggregation.input(state, intBitsToFloat(toIntExact(dependentValue)), intBitsToFloat(toIntExact(independentValue)));
     }
 
     @CombineFunction

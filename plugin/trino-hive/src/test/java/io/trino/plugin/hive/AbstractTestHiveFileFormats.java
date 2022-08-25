@@ -120,6 +120,7 @@ import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
+import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.fill;
 import static java.util.Objects.requireNonNull;
@@ -705,7 +706,7 @@ public abstract class AbstractTestHiveFileFormats
             return cursor.getLong(field);
         }
         if (REAL.equals(type)) {
-            return intBitsToFloat((int) cursor.getLong(field));
+            return intBitsToFloat(toIntExact(cursor.getLong(field)));
         }
         if (DOUBLE.equals(type)) {
             return cursor.getDouble(field);

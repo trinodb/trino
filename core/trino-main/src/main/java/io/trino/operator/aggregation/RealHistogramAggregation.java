@@ -27,6 +27,7 @@ import java.util.Map;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 
 @AggregationFunction("numeric_histogram")
 public final class RealHistogramAggregation
@@ -36,7 +37,7 @@ public final class RealHistogramAggregation
     @InputFunction
     public static void add(@AggregationState DoubleHistogramAggregation.State state, @SqlType(StandardTypes.BIGINT) long buckets, @SqlType(StandardTypes.REAL) long value, @SqlType(StandardTypes.DOUBLE) double weight)
     {
-        DoubleHistogramAggregation.add(state, buckets, intBitsToFloat((int) value), weight);
+        DoubleHistogramAggregation.add(state, buckets, intBitsToFloat(toIntExact(value)), weight);
     }
 
     @InputFunction

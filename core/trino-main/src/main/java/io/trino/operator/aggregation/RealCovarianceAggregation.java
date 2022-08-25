@@ -25,6 +25,7 @@ import io.trino.spi.type.StandardTypes;
 
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 
 @AggregationFunction
 public final class RealCovarianceAggregation
@@ -34,7 +35,7 @@ public final class RealCovarianceAggregation
     @InputFunction
     public static void input(@AggregationState CovarianceState state, @SqlType(StandardTypes.REAL) long dependentValue, @SqlType(StandardTypes.REAL) long independentValue)
     {
-        DoubleCovarianceAggregation.input(state, intBitsToFloat((int) dependentValue), intBitsToFloat((int) independentValue));
+        DoubleCovarianceAggregation.input(state, intBitsToFloat(toIntExact(dependentValue)), intBitsToFloat(toIntExact(independentValue)));
     }
 
     @CombineFunction

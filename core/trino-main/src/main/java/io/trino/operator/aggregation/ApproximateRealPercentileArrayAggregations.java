@@ -31,6 +31,7 @@ import static io.trino.operator.aggregation.ApproximateDoublePercentileArrayAggr
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 
 @AggregationFunction("approx_percentile")
 public final class ApproximateRealPercentileArrayAggregations
@@ -40,13 +41,13 @@ public final class ApproximateRealPercentileArrayAggregations
     @InputFunction
     public static void input(@AggregationState TDigestAndPercentileArrayState state, @SqlType(StandardTypes.REAL) long value, @SqlType("array(double)") Block percentilesArrayBlock)
     {
-        ApproximateDoublePercentileArrayAggregations.input(state, intBitsToFloat((int) value), percentilesArrayBlock);
+        ApproximateDoublePercentileArrayAggregations.input(state, intBitsToFloat(toIntExact(value)), percentilesArrayBlock);
     }
 
     @InputFunction
     public static void weightedInput(@AggregationState TDigestAndPercentileArrayState state, @SqlType(StandardTypes.REAL) long value, @SqlType(StandardTypes.DOUBLE) double weight, @SqlType("array(double)") Block percentilesArrayBlock)
     {
-        ApproximateDoublePercentileArrayAggregations.weightedInput(state, intBitsToFloat((int) value), weight, percentilesArrayBlock);
+        ApproximateDoublePercentileArrayAggregations.weightedInput(state, intBitsToFloat(toIntExact(value)), weight, percentilesArrayBlock);
     }
 
     @CombineFunction

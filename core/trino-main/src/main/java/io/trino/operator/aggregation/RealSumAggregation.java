@@ -26,6 +26,7 @@ import io.trino.spi.type.StandardTypes;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 
 @AggregationFunction("sum")
 public final class RealSumAggregation
@@ -36,7 +37,7 @@ public final class RealSumAggregation
     public static void sum(@AggregationState NullableDoubleState state, @SqlType(StandardTypes.REAL) long value)
     {
         state.setNull(false);
-        state.setValue(state.getValue() + intBitsToFloat((int) value));
+        state.setValue(state.getValue() + intBitsToFloat(toIntExact(value)));
     }
 
     @CombineFunction

@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.orc.metadata.statistics.DoubleStatistics.DOUBLE_VALUE_BYTES;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class DoubleStatisticsBuilder
@@ -45,7 +46,7 @@ public class DoubleStatisticsBuilder
             if (!block.isNull(position)) {
                 double value;
                 if (type == RealType.REAL) {
-                    value = Float.intBitsToFloat((int) type.getLong(block, position));
+                    value = Float.intBitsToFloat(toIntExact(type.getLong(block, position)));
                 }
                 else {
                     value = type.getDouble(block, position);

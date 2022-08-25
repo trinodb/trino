@@ -57,6 +57,7 @@ import static io.trino.util.JsonUtil.currentTokenAsSmallint;
 import static io.trino.util.JsonUtil.currentTokenAsTinyint;
 import static io.trino.util.JsonUtil.currentTokenAsVarchar;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public final class JsonOperators
@@ -296,7 +297,7 @@ public final class JsonOperators
         try {
             SliceOutput output = new DynamicSliceOutput(32);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
-                jsonGenerator.writeNumber(intBitsToFloat((int) value));
+                jsonGenerator.writeNumber(intBitsToFloat(toIntExact(value)));
             }
             return output.slice();
         }

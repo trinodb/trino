@@ -45,6 +45,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isRowType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -316,7 +317,7 @@ public class HiveCoercionRecordCursor
         @Override
         protected void coerce(RecordCursor delegate, int field)
         {
-            setDouble(intBitsToFloat((int) delegate.getLong(field)));
+            setDouble(intBitsToFloat(toIntExact(delegate.getLong(field))));
         }
     }
 

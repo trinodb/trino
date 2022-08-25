@@ -26,6 +26,7 @@ import io.trino.spi.type.StandardTypes;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 
 @AggregationFunction
 public final class RealRegressionAggregation
@@ -35,7 +36,7 @@ public final class RealRegressionAggregation
     @InputFunction
     public static void input(@AggregationState RegressionState state, @SqlType(StandardTypes.REAL) long dependentValue, @SqlType(StandardTypes.REAL) long independentValue)
     {
-        DoubleRegressionAggregation.input(state, intBitsToFloat((int) dependentValue), intBitsToFloat((int) independentValue));
+        DoubleRegressionAggregation.input(state, intBitsToFloat(toIntExact(dependentValue)), intBitsToFloat(toIntExact(independentValue)));
     }
 
     @CombineFunction

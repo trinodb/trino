@@ -154,7 +154,7 @@ public final class IcebergAvroDataConversion
             return type.getLong(block, position);
         }
         if (type.equals(REAL)) {
-            return intBitsToFloat((int) type.getLong(block, position));
+            return intBitsToFloat(toIntExact(type.getLong(block, position)));
         }
         if (type.equals(DOUBLE)) {
             return type.getDouble(block, position);

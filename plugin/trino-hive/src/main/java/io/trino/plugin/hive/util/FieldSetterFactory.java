@@ -269,7 +269,7 @@ public final class FieldSetterFactory
         @Override
         public void setField(Block block, int position)
         {
-            value.set(intBitsToFloat((int) REAL.getLong(block, position)));
+            value.set(intBitsToFloat(toIntExact(REAL.getLong(block, position))));
             rowInspector.setStructFieldData(row, field, value);
         }
     }

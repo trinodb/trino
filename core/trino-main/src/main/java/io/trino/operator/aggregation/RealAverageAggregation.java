@@ -28,6 +28,7 @@ import io.trino.spi.function.SqlType;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 
 @AggregationFunction("avg")
 @Description("Returns the average value of the argument")
@@ -42,7 +43,7 @@ public final class RealAverageAggregation
             @SqlType("REAL") long value)
     {
         count.setValue(count.getValue() + 1);
-        sum.setValue(sum.getValue() + intBitsToFloat((int) value));
+        sum.setValue(sum.getValue() + intBitsToFloat(toIntExact(value)));
     }
 
     @RemoveInputFunction
@@ -52,7 +53,7 @@ public final class RealAverageAggregation
             @SqlType("REAL") long value)
     {
         count.setValue(count.getValue() - 1);
-        sum.setValue(sum.getValue() - intBitsToFloat((int) value));
+        sum.setValue(sum.getValue() - intBitsToFloat(toIntExact(value)));
     }
 
     @CombineFunction

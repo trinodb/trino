@@ -22,6 +22,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 
+import static java.lang.Math.toIntExact;
+
 public class FloatEncoding
         implements TextColumnEncoding
 {
@@ -43,7 +45,7 @@ public class FloatEncoding
                 output.writeBytes(nullSequence);
             }
             else {
-                float value = Float.intBitsToFloat((int) type.getLong(block, position));
+                float value = Float.intBitsToFloat(toIntExact(type.getLong(block, position)));
                 buffer.setLength(0);
                 buffer.append(value);
                 for (int index = 0; index < buffer.length(); index++) {
@@ -57,7 +59,7 @@ public class FloatEncoding
     @Override
     public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
     {
-        float value = Float.intBitsToFloat((int) type.getLong(block, position));
+        float value = Float.intBitsToFloat(toIntExact(type.getLong(block, position)));
         buffer.setLength(0);
         buffer.append(value);
         for (int index = 0; index < buffer.length(); index++) {

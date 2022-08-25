@@ -32,6 +32,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.util.Failures.internalError;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 
 @ScalarFunction("array_max")
 @Description("Get maximum value of array")
@@ -176,7 +177,7 @@ public final class ArrayMaxFunction
     @SuppressWarnings("NumericCastThatLosesPrecision")
     private static float getReal(Block block, int position)
     {
-        return intBitsToFloat((int) REAL.getLong(block, position));
+        return intBitsToFloat(toIntExact(REAL.getLong(block, position)));
     }
 
     private static boolean floatGreater(float left, float right)

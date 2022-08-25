@@ -26,6 +26,7 @@ import io.trino.spi.type.StandardTypes;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 
 @AggregationFunction("geometric_mean")
 public final class RealGeometricMeanAggregations
@@ -36,7 +37,7 @@ public final class RealGeometricMeanAggregations
     public static void input(@AggregationState LongAndDoubleState state, @SqlType(StandardTypes.REAL) long value)
     {
         state.setLong(state.getLong() + 1);
-        state.setDouble(state.getDouble() + Math.log(intBitsToFloat((int) value)));
+        state.setDouble(state.getDouble() + Math.log(intBitsToFloat(toIntExact(value))));
     }
 
     @CombineFunction

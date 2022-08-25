@@ -33,6 +33,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 
 @AggregationFunction("approx_percentile")
 public final class LegacyApproximateRealPercentileAggregations
@@ -45,7 +46,7 @@ public final class LegacyApproximateRealPercentileAggregations
     @InputFunction
     public static void weightedInput(@AggregationState QuantileDigestAndPercentileState state, @SqlType(StandardTypes.REAL) long value, @SqlType(StandardTypes.DOUBLE) double weight, @SqlType(StandardTypes.DOUBLE) double percentile, @SqlType(StandardTypes.DOUBLE) double accuracy)
     {
-        LegacyApproximateLongPercentileAggregations.weightedInput(state, floatToSortableInt(intBitsToFloat((int) value)), weight, percentile, accuracy);
+        LegacyApproximateLongPercentileAggregations.weightedInput(state, floatToSortableInt(intBitsToFloat(toIntExact(value))), weight, percentile, accuracy);
     }
 
     @CombineFunction

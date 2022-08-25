@@ -61,42 +61,42 @@ public final class RealOperators
     @SqlType(StandardTypes.REAL)
     public static long add(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
     {
-        return floatToRawIntBits(intBitsToFloat((int) left) + intBitsToFloat((int) right));
+        return floatToRawIntBits(intBitsToFloat(toIntExact(left)) + intBitsToFloat(toIntExact(right)));
     }
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.REAL)
     public static long subtract(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
     {
-        return floatToRawIntBits(intBitsToFloat((int) left) - intBitsToFloat((int) right));
+        return floatToRawIntBits(intBitsToFloat(toIntExact(left)) - intBitsToFloat(toIntExact(right)));
     }
 
     @ScalarOperator(MULTIPLY)
     @SqlType(StandardTypes.REAL)
     public static long multiply(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
     {
-        return floatToRawIntBits(intBitsToFloat((int) left) * intBitsToFloat((int) right));
+        return floatToRawIntBits(intBitsToFloat(toIntExact(left)) * intBitsToFloat(toIntExact(right)));
     }
 
     @ScalarOperator(DIVIDE)
     @SqlType(StandardTypes.REAL)
     public static long divide(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
     {
-        return floatToRawIntBits(intBitsToFloat((int) left) / intBitsToFloat((int) right));
+        return floatToRawIntBits(intBitsToFloat(toIntExact(left)) / intBitsToFloat(toIntExact(right)));
     }
 
     @ScalarOperator(MODULUS)
     @SqlType(StandardTypes.REAL)
     public static long modulus(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
     {
-        return floatToRawIntBits(intBitsToFloat((int) left) % intBitsToFloat((int) right));
+        return floatToRawIntBits(intBitsToFloat(toIntExact(left)) % intBitsToFloat(toIntExact(right)));
     }
 
     @ScalarOperator(NEGATION)
     @SqlType(StandardTypes.REAL)
     public static long negate(@SqlType(StandardTypes.REAL) long value)
     {
-        return floatToRawIntBits(-intBitsToFloat((int) value));
+        return floatToRawIntBits(-intBitsToFloat(toIntExact(value)));
     }
 
     @ScalarOperator(CAST)
@@ -104,7 +104,7 @@ public final class RealOperators
     @SqlType("varchar(x)")
     public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(StandardTypes.REAL) long value)
     {
-        float floatValue = intBitsToFloat((int) value);
+        float floatValue = intBitsToFloat(toIntExact(value));
         String stringValue;
 
         // handle positive and negative 0
@@ -140,7 +140,7 @@ public final class RealOperators
     @SqlType(StandardTypes.BIGINT)
     public static long castToLong(@SqlType(StandardTypes.REAL) long value)
     {
-        float floatValue = intBitsToFloat((int) value);
+        float floatValue = intBitsToFloat(toIntExact(value));
         if (Float.isNaN(floatValue)) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to bigint");
         }
@@ -151,7 +151,7 @@ public final class RealOperators
     @SqlType(StandardTypes.INTEGER)
     public static long castToInteger(@SqlType(StandardTypes.REAL) long value)
     {
-        float floatValue = intBitsToFloat((int) value);
+        float floatValue = intBitsToFloat(toIntExact(value));
         if (Float.isNaN(floatValue)) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to integer");
         }
@@ -167,7 +167,7 @@ public final class RealOperators
     @SqlType(StandardTypes.SMALLINT)
     public static long castToSmallint(@SqlType(StandardTypes.REAL) long value)
     {
-        float floatValue = intBitsToFloat((int) value);
+        float floatValue = intBitsToFloat(toIntExact(value));
         if (Float.isNaN(floatValue)) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to smallint");
         }
@@ -183,7 +183,7 @@ public final class RealOperators
     @SqlType(StandardTypes.TINYINT)
     public static long castToTinyint(@SqlType(StandardTypes.REAL) long value)
     {
-        float floatValue = intBitsToFloat((int) value);
+        float floatValue = intBitsToFloat(toIntExact(value));
         if (Float.isNaN(floatValue)) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to tinyint");
         }
@@ -199,14 +199,14 @@ public final class RealOperators
     @SqlType(StandardTypes.DOUBLE)
     public static double castToDouble(@SqlType(StandardTypes.REAL) long value)
     {
-        return intBitsToFloat((int) value);
+        return intBitsToFloat(toIntExact(value));
     }
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean castToBoolean(@SqlType(StandardTypes.REAL) long value)
     {
-        return intBitsToFloat((int) value) != 0.0f;
+        return intBitsToFloat(toIntExact(value)) != 0.0f;
     }
 
     @ScalarOperator(SATURATED_FLOOR_CAST)
@@ -225,7 +225,7 @@ public final class RealOperators
 
     private static long saturatedFloorCastToLong(long valueBits, long minValue, float minValueAsDouble, long maxValue, float maxValuePlusOneAsDouble, String targetType)
     {
-        float value = intBitsToFloat((int) valueBits);
+        float value = intBitsToFloat(toIntExact(valueBits));
         if (value <= minValueAsDouble) {
             return minValue;
         }

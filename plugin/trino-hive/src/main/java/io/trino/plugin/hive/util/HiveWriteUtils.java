@@ -320,7 +320,7 @@ public final class HiveWriteUtils
             return SignedBytes.checkedCast(type.getLong(block, position));
         }
         if (REAL.equals(type)) {
-            return intBitsToFloat((int) type.getLong(block, position));
+            return intBitsToFloat(toIntExact(type.getLong(block, position)));
         }
         if (DOUBLE.equals(type)) {
             return type.getDouble(block, position);

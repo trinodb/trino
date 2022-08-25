@@ -36,6 +36,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 
 public final class QuantileDigestAggregationFunction
 {
@@ -119,7 +120,7 @@ public final class QuantileDigestAggregationFunction
                 @SqlType("BIGINT") long weight,
                 @SqlType("DOUBLE") double accuracy)
         {
-            internalInput(state, floatToSortableInt(intBitsToFloat((int) value)), weight, accuracy);
+            internalInput(state, floatToSortableInt(intBitsToFloat(toIntExact(value))), weight, accuracy);
         }
 
         @CombineFunction

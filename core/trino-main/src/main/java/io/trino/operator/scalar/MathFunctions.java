@@ -172,7 +172,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.REAL)
     public static long absFloat(@SqlType(StandardTypes.REAL) long num)
     {
-        return floatToRawIntBits(Math.abs(intBitsToFloat((int) num)));
+        return floatToRawIntBits(Math.abs(intBitsToFloat(toIntExact(num))));
     }
 
     @Description("Arc cosine")
@@ -260,7 +260,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.REAL)
     public static long ceilingFloat(@SqlType(StandardTypes.REAL) long num)
     {
-        return floatToRawIntBits((float) ceiling(intBitsToFloat((int) num)));
+        return floatToRawIntBits((float) ceiling(intBitsToFloat(toIntExact(num))));
     }
 
     @ScalarFunction(value = "ceiling", alias = "ceil")
@@ -324,7 +324,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.REAL)
     public static long truncate(@SqlType(StandardTypes.REAL) long num)
     {
-        float numInFloat = intBitsToFloat((int) num);
+        float numInFloat = intBitsToFloat(toIntExact(num));
         return floatToRawIntBits((float) (Math.signum(numInFloat) * Math.floor(Math.abs(numInFloat))));
     }
 
@@ -461,7 +461,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.REAL)
     public static long floorFloat(@SqlType(StandardTypes.REAL) long num)
     {
-        return floatToRawIntBits((float) floor(intBitsToFloat((int) num)));
+        return floatToRawIntBits((float) floor(intBitsToFloat(toIntExact(num))));
     }
 
     @Description("Natural logarithm")
@@ -549,7 +549,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.REAL)
     public static long modFloat(@SqlType(StandardTypes.REAL) long num1, @SqlType(StandardTypes.REAL) long num2)
     {
-        return floatToRawIntBits(intBitsToFloat((int) num1) % intBitsToFloat((int) num2));
+        return floatToRawIntBits(intBitsToFloat(toIntExact(num1)) % intBitsToFloat(toIntExact(num2)));
     }
 
     @Description("The constant Pi")
@@ -842,7 +842,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.REAL)
     public static long roundFloat(@SqlType(StandardTypes.REAL) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
-        float numInFloat = intBitsToFloat((int) num);
+        float numInFloat = intBitsToFloat(toIntExact(num));
         if (Float.isNaN(numInFloat) || Float.isInfinite(numInFloat)) {
             return num;
         }
@@ -1133,7 +1133,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.REAL)
     public static long signFloat(@SqlType(StandardTypes.REAL) long num)
     {
-        return floatToRawIntBits((Math.signum(intBitsToFloat((int) num))));
+        return floatToRawIntBits((Math.signum(intBitsToFloat(toIntExact(num)))));
     }
 
     @Description("Sine")

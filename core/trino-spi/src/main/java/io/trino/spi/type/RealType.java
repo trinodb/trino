@@ -102,13 +102,13 @@ public final class RealType
     @ScalarOperator(EQUAL)
     private static boolean equalOperator(long left, long right)
     {
-        return intBitsToFloat((int) left) == intBitsToFloat((int) right);
+        return intBitsToFloat(toIntExact(left)) == intBitsToFloat(toIntExact(right));
     }
 
     @ScalarOperator(HASH_CODE)
     private static long hashCodeOperator(long value)
     {
-        float realValue = intBitsToFloat((int) value);
+        float realValue = intBitsToFloat(toIntExact(value));
         if (realValue == 0) {
             realValue = 0;
         }
@@ -118,7 +118,7 @@ public final class RealType
     @ScalarOperator(XX_HASH_64)
     private static long xxHash64Operator(long value)
     {
-        float realValue = intBitsToFloat((int) value);
+        float realValue = intBitsToFloat(toIntExact(value));
         if (realValue == 0) {
             realValue = 0;
         }
@@ -132,8 +132,8 @@ public final class RealType
             return leftNull != rightNull;
         }
 
-        float leftFloat = intBitsToFloat((int) left);
-        float rightFloat = intBitsToFloat((int) right);
+        float leftFloat = intBitsToFloat(toIntExact(left));
+        float rightFloat = intBitsToFloat(toIntExact(right));
         if (Float.isNaN(leftFloat) && Float.isNaN(rightFloat)) {
             return false;
         }
@@ -143,15 +143,15 @@ public final class RealType
     @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonUnorderedLastOperator(long left, long right)
     {
-        return Float.compare(intBitsToFloat((int) left), intBitsToFloat((int) right));
+        return Float.compare(intBitsToFloat(toIntExact(left)), intBitsToFloat(toIntExact(right)));
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_FIRST)
     private static long comparisonUnorderedFirstOperator(long leftBits, long rightBits)
     {
         // Float compare puts NaN last, so we must handle NaNs manually
-        float left = intBitsToFloat((int) leftBits);
-        float right = intBitsToFloat((int) rightBits);
+        float left = intBitsToFloat(toIntExact(leftBits));
+        float right = intBitsToFloat(toIntExact(rightBits));
         if (Float.isNaN(left) && Float.isNaN(right)) {
             return 0;
         }
@@ -167,12 +167,12 @@ public final class RealType
     @ScalarOperator(LESS_THAN)
     private static boolean lessThanOperator(long left, long right)
     {
-        return intBitsToFloat((int) left) < intBitsToFloat((int) right);
+        return intBitsToFloat(toIntExact(left)) < intBitsToFloat(toIntExact(right));
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
     private static boolean lessThanOrEqualOperator(long left, long right)
     {
-        return intBitsToFloat((int) left) <= intBitsToFloat((int) right);
+        return intBitsToFloat(toIntExact(left)) <= intBitsToFloat(toIntExact(right));
     }
 }
