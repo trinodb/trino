@@ -14,8 +14,6 @@
 package io.trino.cli;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
@@ -102,27 +100,19 @@ public class TestQueryRunner
 
     static ClientSession createClientSession(MockWebServer server)
     {
-        return new ClientSession(
-                server.url("/").uri(),
-                Optional.of("user"),
-                Optional.empty(),
-                "source",
-                Optional.empty(),
-                ImmutableSet.of(),
-                "clientInfo",
-                "catalog",
-                "schema",
-                null,
-                ZoneId.of("America/Los_Angeles"),
-                Locale.ENGLISH,
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                null,
-                new Duration(2, MINUTES),
-                true);
+        return ClientSession.builder()
+                .server(server.url("/").uri())
+                .principal(Optional.of("user"))
+                .source("source")
+                .clientInfo("clientInfo")
+                .catalog("catalog")
+                .schema("schema")
+                .timeZone(ZoneId.of("America/Los_Angeles"))
+                .locale(Locale.ENGLISH)
+                .transactionId(null)
+                .clientRequestTimeout(new Duration(2, MINUTES))
+                .compressionDisabled(true)
+                .build();
     }
 
     static String createResults(MockWebServer server)
