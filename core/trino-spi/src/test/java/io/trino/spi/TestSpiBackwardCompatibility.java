@@ -113,13 +113,13 @@ public class TestSpiBackwardCompatibility
         }
     }
 
-    private static Set<String> getSpiEntities(ClassLoader classLoader, boolean includeDeprecated)
+    private static Set<String> getSpiEntities(ClassLoader classLoader, boolean includeDeprecatedAndExperimental)
             throws IOException
     {
         ImmutableSet.Builder<String> entities = ImmutableSet.builder();
         for (ClassInfo classInfo : ClassPath.from(classLoader).getTopLevelClassesRecursive("io.trino.spi")) {
             Class<?> clazz = classInfo.load();
-            addClassEntities(entities, clazz, includeDeprecated);
+            addClassEntities(entities, clazz, includeDeprecatedAndExperimental);
         }
         return entities.build().stream()
                 // Ignore `final` so that we can e.g. remove final from a SPI method.
@@ -128,9 +128,9 @@ public class TestSpiBackwardCompatibility
                 .collect(toImmutableSet());
     }
 
-    private static void addClassEntities(ImmutableSet.Builder<String> entities, Class<?> clazz, boolean includeDeprecated)
+    private static void addClassEntities(ImmutableSet.Builder<String> entities, Class<?> clazz, boolean includeDeprecatedAndExperimental)
     {
-        if (isExperimental(clazz, "class " + clazz.getName())) {
+        if (!includeDeprecatedAndExperimental && isExperimental(clazz, "class " + clazz.getName())) {
             return;
         }
 
@@ -139,46 +139,46 @@ public class TestSpiBackwardCompatibility
         }
 
         // TODO remove this after Experimental is released
-        if (isOriginalPtfClass(clazz, includeDeprecated)) {
+        if (isOriginalPtfClass(clazz, includeDeprecatedAndExperimental)) {
             return;
         }
 
         for (Class<?> nestedClass : clazz.getDeclaredClasses()) {
-            addClassEntities(entities, nestedClass, includeDeprecated);
+            addClassEntities(entities, nestedClass, includeDeprecatedAndExperimental);
         }
-        if (!includeDeprecated && clazz.isAnnotationPresent(Deprecated.class)) {
+        if (!includeDeprecatedAndExperimental && clazz.isAnnotationPresent(Deprecated.class)) {
             return;
         }
         entities.add("Class: " + clazz.toGenericString());
         for (Constructor<?> constructor : clazz.getConstructors()) {
-            if (isExperimental(constructor, "constructor " + constructor)) {
+            if (!includeDeprecatedAndExperimental && isExperimental(constructor, "constructor " + constructor)) {
                 continue;
             }
-            if (!includeDeprecated && constructor.isAnnotationPresent(Deprecated.class)) {
+            if (!includeDeprecatedAndExperimental && constructor.isAnnotationPresent(Deprecated.class)) {
                 continue;
             }
             entities.add("Constructor: " + constructor.toGenericString());
         }
         for (Method method : clazz.getDeclaredMethods()) {
-            if (isExperimental(method, "method " + method)) {
+            if (!includeDeprecatedAndExperimental && isExperimental(method, "method " + method)) {
                 continue;
             }
             if (!isPublic(method.getModifiers())) {
                 continue;
             }
-            if (!includeDeprecated && method.isAnnotationPresent(Deprecated.class)) {
+            if (!includeDeprecatedAndExperimental && method.isAnnotationPresent(Deprecated.class)) {
                 continue;
             }
             entities.add("Method: " + method.toGenericString());
         }
         for (Field field : clazz.getDeclaredFields()) {
-            if (isExperimental(field, "field " + field)) {
+            if (!includeDeprecatedAndExperimental && isExperimental(field, "field " + field)) {
                 continue;
             }
             if (!isPublic(field.getModifiers())) {
                 continue;
             }
-            if (!includeDeprecated && field.isAnnotationPresent(Deprecated.class)) {
+            if (!includeDeprecatedAndExperimental && field.isAnnotationPresent(Deprecated.class)) {
                 continue;
             }
             entities.add("Field: " + field.toGenericString());
@@ -203,8 +203,8 @@ public class TestSpiBackwardCompatibility
     }
 
     // TODO remove this after Experimental is released
-    private static boolean isOriginalPtfClass(Class<?> clazz, boolean includeDeprecated)
+    private static boolean isOriginalPtfClass(Class<?> clazz, boolean includeDeprecatedAndExperimental)
     {
-        return !includeDeprecated && clazz.getName().startsWith("io.trino.spi.ptf.");
+        return !includeDeprecatedAndExperimental && clazz.getName().startsWith("io.trino.spi.ptf.");
     }
 }
