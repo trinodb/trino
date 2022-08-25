@@ -147,27 +147,27 @@ public abstract class AbstractTestingTrinoClient<T>
         estimates.getCpuTime().ifPresent(e -> resourceEstimates.put(CPU_TIME, e.toString()));
         estimates.getPeakMemoryBytes().ifPresent(e -> resourceEstimates.put(PEAK_MEMORY, e.toString()));
 
-        return new ClientSession(
-                server,
-                Optional.of(session.getIdentity().getUser()),
-                Optional.empty(),
-                session.getSource().orElse(null),
-                session.getTraceToken(),
-                session.getClientTags(),
-                session.getClientInfo().orElse(null),
-                session.getCatalog().orElse(null),
-                session.getSchema().orElse(null),
-                session.getPath().toString(),
-                ZoneId.of(session.getTimeZoneKey().getId()),
-                session.getLocale(),
-                resourceEstimates.buildOrThrow(),
-                properties.buildOrThrow(),
-                session.getPreparedStatements(),
-                getRoles(session),
-                session.getIdentity().getExtraCredentials(),
-                session.getTransactionId().map(Object::toString).orElse(null),
-                clientRequestTimeout,
-                true);
+        return ClientSession.builder()
+                .server(server)
+                .principal(Optional.of(session.getIdentity().getUser()))
+                .source(session.getSource().orElse(null))
+                .traceToken(session.getTraceToken())
+                .clientTags(session.getClientTags())
+                .clientInfo(session.getClientInfo().orElse(null))
+                .catalog(session.getCatalog().orElse(null))
+                .schema(session.getSchema().orElse(null))
+                .path(session.getPath().toString())
+                .timeZone(ZoneId.of(session.getTimeZoneKey().getId()))
+                .locale(session.getLocale())
+                .resourceEstimates(resourceEstimates.buildOrThrow())
+                .properties(properties.buildOrThrow())
+                .preparedStatements(session.getPreparedStatements())
+                .roles(getRoles(session))
+                .credentials(session.getIdentity().getExtraCredentials())
+                .transactionId(session.getTransactionId().map(Object::toString).orElse(null))
+                .clientRequestTimeout(clientRequestTimeout)
+                .compressionDisabled(true)
+                .build();
     }
 
     private static Map<String, ClientSelectedRole> getRoles(Session session)
