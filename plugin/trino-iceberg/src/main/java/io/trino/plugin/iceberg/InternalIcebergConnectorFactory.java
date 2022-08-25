@@ -22,7 +22,7 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.hdfs.HdfsFileSystemModule;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsModule;
 import io.trino.hdfs.authentication.HdfsAuthenticationModule;
 import io.trino.plugin.base.CatalogName;
@@ -63,6 +63,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.inject.Scopes.SINGLETON;
 
 public final class InternalIcebergConnectorFactory
 {
@@ -100,7 +101,7 @@ public final class InternalIcebergConnectorFactory
                         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
                         fileSystemFactory.ifPresentOrElse(
                                 factory -> binder.bind(TrinoFileSystemFactory.class).toInstance(factory),
-                                () -> binder.install(new HdfsFileSystemModule()));
+                                () -> binder.bind(TrinoFileSystemFactory.class).to(HdfsFileSystemFactory.class).in(SINGLETON));
                     },
                     module);
 
