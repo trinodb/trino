@@ -28,7 +28,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class HdfsFileSystem
@@ -84,21 +83,6 @@ class HdfsFileSystem
         environment.doAs(context.getIdentity(), () -> {
             if (!fileSystem.delete(directory, true) && fileSystem.exists(directory)) {
                 throw new IOException("Failed to delete directory: " + directory);
-            }
-            return null;
-        });
-    }
-
-    @Override
-    public void renameFile(String source, String target)
-            throws IOException
-    {
-        Path sourcePath = hadoopPath(source);
-        Path targetPath = hadoopPath(target);
-        FileSystem fileSystem = environment.getFileSystem(context, sourcePath);
-        environment.doAs(context.getIdentity(), () -> {
-            if (!fileSystem.rename(sourcePath, targetPath)) {
-                throw new IOException(format("Failed to rename [%s] to [%s]", source, target));
             }
             return null;
         });
