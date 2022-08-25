@@ -211,8 +211,8 @@ public class DynamicFilterSourceOperator
         this.minMaxCollectionLimit = minMaxCollectionLimit;
         this.minMaxChannels = minMaxChannelsBuilder.build();
         if (!minMaxChannels.isEmpty()) {
-            this.minValues = new Block[channels.size()];
-            this.maxValues = new Block[channels.size()];
+            this.minValues = new Block[minMaxChannels.size()];
+            this.maxValues = new Block[minMaxChannels.size()];
         }
         this.minMaxComparisons = minMaxComparisonsBuilder.build();
     }
@@ -249,7 +249,7 @@ public class DynamicFilterSourceOperator
                 Integer channelIndex = minMaxChannels.get(i);
                 BlockPositionComparison comparison = minMaxComparisons.get(i);
                 Block block = page.getBlock(channels.get(channelIndex).index);
-                updateMinMaxValues(block, channelIndex, comparison);
+                updateMinMaxValues(block, i, comparison);
             }
             return;
         }
@@ -290,7 +290,7 @@ public class DynamicFilterSourceOperator
                     Integer channelIndex = minMaxChannels.get(i);
                     BlockPositionComparison comparison = minMaxComparisons.get(i);
                     Block block = blockBuilders[channelIndex].build();
-                    updateMinMaxValues(block, channelIndex, comparison);
+                    updateMinMaxValues(block, i, comparison);
                 }
             }
         }
@@ -379,15 +379,16 @@ public class DynamicFilterSourceOperator
                 return;
             }
             // valueSets became too large, create TupleDomain from min/max values
-            for (Integer channelIndex : minMaxChannels) {
+            for (int i = 0; i < minMaxChannels.size(); i++) {
+                Integer channelIndex = minMaxChannels.get(i);
                 Type type = channels.get(channelIndex).type;
-                if (minValues[channelIndex] == null) {
+                if (minValues[i] == null) {
                     // all values were null
                     domainsBuilder.put(channels.get(channelIndex).filterId, Domain.none(type));
                     continue;
                 }
-                Object min = blockToNativeValue(type, minValues[channelIndex]);
-                Object max = blockToNativeValue(type, maxValues[channelIndex]);
+                Object min = blockToNativeValue(type, minValues[i]);
+                Object max = blockToNativeValue(type, maxValues[i]);
                 Domain domain = Domain.create(
                         ValueSet.ofRanges(range(type, min, true, max, true)),
                         false);
