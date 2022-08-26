@@ -809,7 +809,8 @@ public class ClickHouseClient
 
     private static SliceWriteFunction ipAddressWriteFunction(String bindExpression)
     {
-        return new SliceWriteFunction() {
+        return new SliceWriteFunction()
+        {
             @Override
             public String getBindExpression()
             {
