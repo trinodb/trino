@@ -104,6 +104,13 @@ The following IDL describes the ``TrinoThriftService`` that must be implemented:
 .. literalinclude:: /include/TrinoThriftService.thrift
     :language: thrift
 
+.. _thrift-type-mapping:
+
+Type mapping
+------------
+
+The Thrift service defines data type support and mappings to Trino data types.
+
 .. _thrift-sql-support:
 
 SQL support
