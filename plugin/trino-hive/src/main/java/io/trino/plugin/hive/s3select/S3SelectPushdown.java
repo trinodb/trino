@@ -35,6 +35,8 @@ import static io.trino.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveSessionProperties.isS3SelectPushdownEnabled;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
+import static io.trino.plugin.hive.s3select.S3SelectDataType.CSV;
+import static io.trino.plugin.hive.s3select.S3SelectSerDeDataTypeMapper.getDataType;
 import static io.trino.plugin.hive.util.HiveUtil.getCompressionCodec;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.HiveUtil.getInputFormatName;
@@ -103,11 +105,36 @@ public final class S3SelectPushdown
 
     public static boolean isCompressionCodecSupported(InputFormat<?, ?> inputFormat, Path path)
     {
-        if (inputFormat instanceof TextInputFormat) {
+        if (inputFormat instanceof TextInputFormat textInputFormat) {
             // S3 Select supports the following formats: uncompressed, GZIP and BZIP2.
-            return getCompressionCodec((TextInputFormat) inputFormat, path)
+            return getCompressionCodec(textInputFormat, path)
                     .map(codec -> (codec instanceof GzipCodec) || (codec instanceof BZip2Codec))
                     .orElse(true);
+        }
+
+        return false;
+    }
+
+    public static boolean isSplittable(boolean s3SelectPushdownEnabled, Properties schema,
+                                       InputFormat<?, ?> inputFormat, Path path)
+    {
+        if (!s3SelectPushdownEnabled) {
+            return true;
+        }
+
+        if (isUncompressed(inputFormat, path)) {
+            Optional<S3SelectDataType> s3SelectDataTypeOptional = getDataType(getDeserializerClassName(schema));
+            return CSV.equals(s3SelectDataTypeOptional.orElse(null));
+        }
+
+        return false;
+    }
+
+    private static boolean isUncompressed(InputFormat<?, ?> inputFormat, Path path)
+    {
+        if (inputFormat instanceof TextInputFormat textInputFormat) {
+            // S3 Select supports splitting uncompressed files
+            return getCompressionCodec(textInputFormat, path).isEmpty();
         }
 
         return false;
