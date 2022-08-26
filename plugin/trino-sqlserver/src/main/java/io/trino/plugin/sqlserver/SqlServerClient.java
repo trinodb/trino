@@ -323,8 +323,13 @@ public class SqlServerClient
     {
         return format(
                 "sp_rename %s, %s, 'COLUMN'",
-                singleQuote(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), jdbcColumn.getColumnName()),
-                singleQuote(newRemoteColumnName));
+                singleQuote(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), "[" + escape(jdbcColumn.getColumnName()) + "]"),
+                "[" + newRemoteColumnName + "]");
+    }
+
+    private static String escape(String name)
+    {
+        return name.replace("'", "''");
     }
 
     @Override

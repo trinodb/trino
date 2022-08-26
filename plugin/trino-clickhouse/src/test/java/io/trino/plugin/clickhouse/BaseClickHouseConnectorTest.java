@@ -95,6 +95,39 @@ public abstract class BaseClickHouseConnectorTest
     }
 
     @Override
+    public void testAddAndDropColumnName(String columnName)
+    {
+        // TODO: Enable this test
+        assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
+                .hasMessageContaining("is not supported by storage Log");
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    public void testRenameColumnName(String columnName)
+    {
+        // TODO: Enable this test
+        if (columnName.equals("a.dot")) {
+            assertThatThrownBy(() -> super.testRenameColumnName(columnName))
+                    .hasMessageContaining("Cannot rename column from nested struct to normal column");
+            throw new SkipException("TODO");
+        }
+        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
+                .hasMessageContaining("is not supported by storage Log");
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    protected Optional<String> filterColumnNameTestData(String columnName)
+    {
+        // TODO: Investigate why a\backslash allows creating a table, but it throws an exception when selecting
+        if (columnName.equals("a\\backslash`")) {
+            return Optional.empty();
+        }
+        return Optional.of(columnName);
+    }
+
+    @Override
     public void testDropColumn()
     {
         String tableName = "test_drop_column_" + randomTableSuffix();

@@ -136,6 +136,14 @@ public class TestMySqlLegacyConnectorTest
     }
 
     @Override
+    public void testRenameColumnName(String columnName)
+    {
+        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
+                .hasMessageContaining("You have an error in your SQL syntax")
+                .hasStackTraceContaining("RENAME COLUMN");
+    }
+
+    @Override
     public void testAlterTableRenameColumnToLongName()
     {
         assertThatThrownBy(super::testAlterTableRenameColumnToLongName)
