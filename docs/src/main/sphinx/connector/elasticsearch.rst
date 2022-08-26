@@ -117,31 +117,62 @@ The allowed configuration values are:
       - The key password for the trust store specified by
         ``elasticsearch.tls.truststore-path``.
 
-Data types
-----------
+.. _elasticesearch-type-mapping:
 
-The data type mappings are as follows:
+Type mapping
+------------
 
-Primitive types
-^^^^^^^^^^^^^^^
+Because Trino and Elasticsearch each support types that the other does not, this
+connector :ref:`maps some types <type-mapping-overview>` when reading data.
 
-============= =============
-Elasticsearch Trino
-============= =============
-``binary``    ``VARBINARY``
-``boolean``   ``BOOLEAN``
-``double``    ``DOUBLE``
-``float``     ``REAL``
-``byte``      ``TINYINT``
-``short``     ``SMALLINT``
-``integer``   ``INTEGER``
-``long``      ``BIGINT``
-``keyword``   ``VARCHAR``
-``text``      ``VARCHAR``
-``date``      ``TIMESTAMP``
-``ip``        ``IPADDRESS``
-(all others)  (unsupported)
-============= =============
+Elasticsearch type to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Elasticsearch types to the corresponding Trino types
+according to the following table:
+
+.. list-table:: Elasticsearch type to Trino type mapping
+  :widths: 30, 30, 50
+  :header-rows: 1
+
+  * - Elasticsearch type
+    - Trino type
+    - Notes
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE``
+    -
+  * - ``FLOAT``
+    - ``REAL``
+    -
+  * - ``BYTE``
+    - ``TINYINT``
+    -
+  * - ``SHORT``
+    - ``SMALLINT``
+    -
+  * - ``INTEGER``
+    - ``INTEGER``
+    -
+  * - ``LONG``
+    - ``BIGINT``
+    -
+  * - ``KEYWORD``
+    - ``VARCHAR``
+    -
+  * - ``TEXT``
+    - ``VARCHAR``
+    -
+  * - ``DATE``
+    - ``TIMESTAMP``
+    - For more information, see :ref:`elasticsearch-date-types`.
+  * - ``IPADDRESS``
+    - ``IP``
+    -
+
+No other types are supported.
 
 .. _elasticsearch-array-types:
 
@@ -194,6 +225,8 @@ property definition to the ``_meta.trino`` property of the target index mapping.
 .. note::
 
     It is not allowed to use ``asRawJson`` and ``isArray`` flags simultaneously for the same column.
+
+.. _elasticsearch-date-types:
 
 Date types
 ^^^^^^^^^^
