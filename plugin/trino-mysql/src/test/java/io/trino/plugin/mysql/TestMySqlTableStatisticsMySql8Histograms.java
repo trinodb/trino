@@ -32,7 +32,7 @@ public class TestMySqlTableStatisticsMySql8Histograms
 {
     public TestMySqlTableStatisticsMySql8Histograms()
     {
-        super("mysql:8.0.15",
+        super("mysql:8.0.30",
                 Function.identity(),
                 Function.identity());
     }
