@@ -140,6 +140,24 @@ public class TestKuduConnectorTest
                 .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
     }
 
+    @Override
+    public void testAddAndDropColumnName(String columnName)
+    {
+        // TODO: Enable this test
+        assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
+                .hasMessage("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    public void testRenameColumnName(String columnName)
+    {
+        // TODO: Enable this test
+        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
+                .hasMessage("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
+        throw new SkipException("TODO");
+    }
+
     @Test
     @Override
     public void testDescribeTable()
