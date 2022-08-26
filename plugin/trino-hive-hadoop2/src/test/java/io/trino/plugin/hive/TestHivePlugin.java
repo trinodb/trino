@@ -335,7 +335,7 @@ public class TestHivePlugin
                 "test",
                 ImmutableMap.<String, String>builder()
                         .put("hive.metastore.uri", "thrift://foo:1234")
-                        .put("hive.security", "allow-all")
+                        .put("hive.security", "system")
                         .buildOrThrow(),
                 new TestingConnectorContext())
                 .shutdown();

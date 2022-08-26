@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.base.security;
+package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-public class AllowAllAccessControl
+public class TestingAllowAllAccessControl
         implements ConnectorAccessControl
 {
     @Override

@@ -125,22 +125,6 @@ public class TestIcebergPlugin
     }
 
     @Test
-    public void testAllowAllAccessControl()
-    {
-        ConnectorFactory connectorFactory = getConnectorFactory();
-
-        connectorFactory.create(
-                "test",
-                ImmutableMap.<String, String>builder()
-                        .put("iceberg.catalog.type", "HIVE_METASTORE")
-                        .put("hive.metastore.uri", "thrift://foo:1234")
-                        .put("iceberg.security", "allow-all")
-                        .buildOrThrow(),
-                new TestingConnectorContext())
-                .shutdown();
-    }
-
-    @Test
     public void testReadOnlyAllAccessControl()
     {
         ConnectorFactory connectorFactory = getConnectorFactory();

@@ -20,7 +20,6 @@ import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.plugin.base.security.AllowAllAccessControl;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.plugin.base.security.ReadOnlySystemAccessControl;
@@ -318,7 +317,7 @@ public class TestAccessControlManager
             accessControlManager.loadSystemAccessControl("allow-all", ImmutableMap.of());
 
             queryRunner.createCatalog(TEST_CATALOG_NAME, MockConnectorFactory.create(), ImmutableMap.of());
-            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, Optional.of(new AllowAllAccessControl())));
+            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, Optional.empty()));
 
             transaction(transactionManager, accessControlManager)
                     .execute(transactionId -> {

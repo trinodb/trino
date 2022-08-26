@@ -21,8 +21,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.ALLOW_ALL;
 import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.READ_ONLY;
+import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.SYSTEM;
 
 public class TestIcebergSecurityConfig
 {
@@ -30,7 +30,7 @@ public class TestIcebergSecurityConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(IcebergSecurityConfig.class)
-                .setSecuritySystem(ALLOW_ALL));
+                .setSecuritySystem(SYSTEM));
     }
 
     @Test

@@ -14,7 +14,6 @@
 package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.base.security.AllowAllAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.ConnectorIdentity;
@@ -38,7 +37,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivile
 import static java.util.Objects.requireNonNull;
 
 class MockConnectorAccessControl
-        extends AllowAllAccessControl
+        extends TestingAllowAllAccessControl
 {
     private static final String INFORMATION_SCHEMA = "information_schema";
 

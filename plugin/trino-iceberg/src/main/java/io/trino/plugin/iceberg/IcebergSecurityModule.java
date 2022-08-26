@@ -22,7 +22,6 @@ import io.trino.plugin.base.security.ReadOnlySecurityModule;
 import io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
-import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.ALLOW_ALL;
 import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.FILE;
 import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.READ_ONLY;
 
@@ -33,7 +32,6 @@ public class IcebergSecurityModule
     protected void setup(Binder binder)
     {
         install(new ConnectorAccessControlModule());
-        bindSecurityModule(ALLOW_ALL, new AllowAllSecurityModule());
         bindSecurityModule(READ_ONLY, new ReadOnlySecurityModule());
         bindSecurityModule(FILE, new FileBasedAccessControlModule());
         // SYSTEM: do not bind an ConnectorAccessControl so the engine will use system security with system roles

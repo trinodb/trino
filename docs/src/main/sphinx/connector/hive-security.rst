@@ -36,7 +36,8 @@ Property value                                     Description
                                                    :doc:`/sql/revoke` commands.
                                                    See :ref:`hive-sql-standard-based-authorization` for details.
 
-``allow-all``                                      No authorization checks are enforced.
+``system``                                         No authorization checks are enforced. Roles are controlled by
+                                                   system access control.
 ================================================== ============================================================
 
 .. _hive-sql-standard-based-authorization:

@@ -27,7 +27,6 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
-import static io.trino.plugin.hive.security.HiveSecurityModule.ALLOW_ALL;
 import static java.util.Objects.requireNonNull;
 
 public final class S3HiveQueryRunner
@@ -152,7 +151,6 @@ public final class S3HiveQueryRunner
                 .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .setSkipTimezoneSetup(true)
                 .setInitialTables(TpchTable.getTables())
-                .setSecurity(ALLOW_ALL)
                 .build();
         Logger log = Logger.get(S3HiveQueryRunner.class);
         log.info("======== SERVER STARTED ========");

@@ -21,13 +21,12 @@ public class IcebergSecurityConfig
 {
     public enum IcebergSecurity
     {
-        ALLOW_ALL,
         READ_ONLY,
         SYSTEM,
         FILE,
     }
 
-    private IcebergSecurity securitySystem = IcebergSecurity.ALLOW_ALL;
+    private IcebergSecurity securitySystem = IcebergSecurity.SYSTEM;
 
     @NotNull
     public IcebergSecurity getSecuritySystem()
