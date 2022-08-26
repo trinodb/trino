@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
+import io.airlift.units.Duration;
 import io.trino.hdfs.DynamicHdfsConfiguration;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfigurationInitializer;
@@ -67,6 +68,15 @@ public final class TestingThriftHiveMetastoreBuilder
     }
 
     private TestingThriftHiveMetastoreBuilder() {}
+
+    public TestingThriftHiveMetastoreBuilder metastoreClient(HostAndPort address, Duration timeout)
+    {
+        requireNonNull(address, "address is null");
+        requireNonNull(timeout, "timeout is null");
+        checkState(metastoreLocator == null, "Metastore client already set");
+        metastoreLocator = new TestingMetastoreLocator(HiveTestUtils.SOCKS_PROXY, address, timeout);
+        return this;
+    }
 
     public TestingThriftHiveMetastoreBuilder metastoreClient(HostAndPort address)
     {

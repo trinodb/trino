@@ -87,6 +87,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -441,8 +442,20 @@ public class ThriftHiveMetastore
 
     private static Map<String, HiveColumnStatistics> groupStatisticsByColumn(List<ColumnStatisticsObj> statistics, OptionalLong rowCount)
     {
-        return statistics.stream()
-                .collect(toImmutableMap(ColumnStatisticsObj::getColName, statisticsObj -> ThriftMetastoreUtil.fromMetastoreApiColumnStatistics(statisticsObj, rowCount)));
+        Map<String, HiveColumnStatistics> statisticsByColumn = new HashMap<>();
+        for (ColumnStatisticsObj stats : statistics) {
+            HiveColumnStatistics newColumnStatistics = ThriftMetastoreUtil.fromMetastoreApiColumnStatistics(stats, rowCount);
+            if (statisticsByColumn.containsKey(stats.getColName())) {
+                HiveColumnStatistics existingColumnStatistics = statisticsByColumn.get(stats.getColName());
+                if (!newColumnStatistics.equals(existingColumnStatistics)) {
+                    log.warn("Ignore inconsistent statistics in %s column: %s and %s", stats.getColName(), newColumnStatistics, existingColumnStatistics);
+                }
+            }
+            else {
+                statisticsByColumn.put(stats.getColName(), newColumnStatistics);
+            }
+        }
+        return ImmutableMap.copyOf(statisticsByColumn);
     }
 
     @Override
