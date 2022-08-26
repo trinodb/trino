@@ -36,7 +36,7 @@ public class TestMySqlAutomaticJoinPushdown
     {
         // Using MySQL 8.0.15 because test is sensitive to quality of NDV estimation and 5.5.46 we use
         // in other places does very poor job; for 10000 row table with 1000 distinct keys it estimates NDV at ~2500
-        mySqlServer = closeAfterClass(new TestingMySqlServer("mysql:8.0.15", false));
+        mySqlServer = closeAfterClass(new TestingMySqlServer("mysql:8.0.30", false));
 
         return createMySqlQueryRunner(
                 mySqlServer,
