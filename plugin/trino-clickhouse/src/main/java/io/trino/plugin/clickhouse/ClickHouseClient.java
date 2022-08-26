@@ -658,7 +658,6 @@ public class ClickHouseClient
             return WriteMapping.sliceMapping("String", varbinaryWriteFunction());
         }
         if (type == DATE) {
-            // TODO (https://github.com/trinodb/trino/issues/10055) Deny unsupported dates to prevent inserting wrong values. 2106-02-07 is max value in version 20.8
             return WriteMapping.longMapping("Date", dateWriteFunctionUsingLocalDate());
         }
         if (type == TIMESTAMP_SECONDS) {
