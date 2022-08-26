@@ -795,18 +795,24 @@ public abstract class BaseJdbcClient
         return format(
                 "ALTER TABLE %s RENAME COLUMN %s TO %s",
                 quoted(handle.asPlainTable().getRemoteTableName()),
-                jdbcColumn.getColumnName(),
-                newRemoteColumnName);
+                quoted(jdbcColumn.getColumnName()),
+                quoted(newRemoteColumnName));
     }
 
     @Override
     public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
-        String sql = format(
-                "ALTER TABLE %s DROP COLUMN %s",
-                quoted(handle.asPlainTable().getRemoteTableName()),
-                column.getColumnName());
-        execute(session, sql);
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            String remoteColumnName = identifierMapping.toRemoteColumnName(connection, column.getColumnName());
+            String sql = format(
+                    "ALTER TABLE %s DROP COLUMN %s",
+                    quoted(handle.asPlainTable().getRemoteTableName()),
+                    quoted(remoteColumnName));
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     @Override

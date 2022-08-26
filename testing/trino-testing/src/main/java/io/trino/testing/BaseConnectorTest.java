@@ -3831,6 +3831,79 @@ public abstract class BaseConnectorTest
         }
     }
 
+    @Test(dataProvider = "testColumnNameDataProvider")
+    public void testAddAndDropColumnName(String columnName)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN) && hasBehavior(SUPPORTS_DROP_COLUMN));
+
+        if (!requiresDelimiting(columnName)) {
+            testAddAndDropColumnName(columnName, false);
+        }
+        testAddAndDropColumnName(columnName, true);
+    }
+
+    protected void testAddAndDropColumnName(String columnName, boolean delimited)
+    {
+        String nameInSql = toColumnNameInSql(columnName, delimited);
+        String tableName = "tcn_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "") + randomTableSuffix();
+
+        try {
+            assertUpdate("CREATE TABLE " + tableName + "(" + nameInSql + " varchar(50), value varchar(50))");
+        }
+        catch (RuntimeException e) {
+            if (isColumnNameRejected(e, columnName, delimited)) {
+                // It is OK if give column name is not allowed and is clearly rejected by the connector.
+                return;
+            }
+            throw e;
+        }
+        assertTableColumnNames(tableName, columnName.toLowerCase(ENGLISH), "value");
+
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN " + nameInSql);
+        assertTableColumnNames(tableName, "value");
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN " + nameInSql + " varchar(50)");
+        assertTableColumnNames(tableName, "value", columnName.toLowerCase(ENGLISH));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "testColumnNameDataProvider")
+    public void testRenameColumnName(String columnName)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_RENAME_COLUMN));
+
+        if (!requiresDelimiting(columnName)) {
+            testRenameColumnName(columnName, false);
+        }
+        testRenameColumnName(columnName, true);
+    }
+
+    protected void testRenameColumnName(String columnName, boolean delimited)
+    {
+        String nameInSql = toColumnNameInSql(columnName, delimited);
+        String tableName = "tcn_" + nameInSql.replaceAll("[^a-z0-9]", "") + randomTableSuffix();
+        // Use complex identifier to test a source column name when renaming columns
+        String sourceColumnName = "a;b$c";
+
+        try {
+            assertUpdate("CREATE TABLE " + tableName + "(\"" + sourceColumnName + "\" varchar(50))");
+            assertTableColumnNames(tableName, sourceColumnName);
+
+            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN \"" + sourceColumnName + "\" TO " + nameInSql);
+            assertTableColumnNames(tableName, columnName.toLowerCase(ENGLISH));
+        }
+        catch (RuntimeException e) {
+            if (isColumnNameRejected(e, columnName, delimited)) {
+                // It is OK if give column name is not allowed and is clearly rejected by the connector.
+                return;
+            }
+            throw e;
+        }
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private static String toColumnNameInSql(String columnName, boolean delimited)
     {
         String nameInSql = columnName;
