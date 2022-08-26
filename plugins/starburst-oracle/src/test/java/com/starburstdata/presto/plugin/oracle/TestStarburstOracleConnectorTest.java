@@ -222,6 +222,27 @@ public class TestStarburstOracleConnectorTest
         }
     }
 
+    @Test
+    @Override
+    public void testCreateTableWithLongTableName()
+    {
+        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9681");
+    }
+
+    @Test
+    @Override
+    public void testRenameSchemaToLongName()
+    {
+        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9681");
+    }
+
+    @Test
+    @Override
+    public void testRenameTableToLongTableName()
+    {
+        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9681");
+    }
+
     @Override
     protected TestTable createAggregationTestTable(String name, List<String> rows)
     {
