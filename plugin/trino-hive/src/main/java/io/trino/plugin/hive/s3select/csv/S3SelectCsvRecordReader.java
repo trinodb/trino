@@ -15,9 +15,11 @@ package io.trino.plugin.hive.s3select.csv;
 
 import com.amazonaws.services.s3.model.CSVInput;
 import com.amazonaws.services.s3.model.CSVOutput;
+import com.amazonaws.services.s3.model.CompressionType;
 import com.amazonaws.services.s3.model.ExpressionType;
 import com.amazonaws.services.s3.model.InputSerialization;
 import com.amazonaws.services.s3.model.OutputSerialization;
+import com.amazonaws.services.s3.model.ScanRange;
 import com.amazonaws.services.s3.model.SelectObjectContentRequest;
 import io.trino.plugin.hive.s3.TrinoS3FileSystem;
 import io.trino.plugin.hive.s3select.S3SelectLineRecordReader;
@@ -73,25 +75,39 @@ public class S3SelectCsvRecordReader
         String escapeChar = schema.getProperty(ESCAPE_CHAR, null);
 
         CSVInput selectObjectCSVInputSerialization = new CSVInput();
-        selectObjectCSVInputSerialization.setRecordDelimiter(lineDelimiter);
+        selectObjectCSVInputSerialization.setRecordDelimiter(getLineDelimiter());
         selectObjectCSVInputSerialization.setFieldDelimiter(fieldDelimiter);
         selectObjectCSVInputSerialization.setComments(COMMENTS_CHAR_STR);
         selectObjectCSVInputSerialization.setQuoteCharacter(quoteChar);
         selectObjectCSVInputSerialization.setQuoteEscapeCharacter(escapeChar);
 
         InputSerialization selectObjectInputSerialization = new InputSerialization();
-        selectObjectInputSerialization.setCompressionType(getCompressionType(path));
+        CompressionType compressionType = getCompressionType(path);
+        selectObjectInputSerialization.setCompressionType(compressionType);
         selectObjectInputSerialization.setCsv(selectObjectCSVInputSerialization);
         selectObjectRequest.setInputSerialization(selectObjectInputSerialization);
 
         OutputSerialization selectObjectOutputSerialization = new OutputSerialization();
         CSVOutput selectObjectCSVOutputSerialization = new CSVOutput();
-        selectObjectCSVOutputSerialization.setRecordDelimiter(lineDelimiter);
+        selectObjectCSVOutputSerialization.setRecordDelimiter(getLineDelimiter());
         selectObjectCSVOutputSerialization.setFieldDelimiter(fieldDelimiter);
         selectObjectCSVOutputSerialization.setQuoteCharacter(quoteChar);
         selectObjectCSVOutputSerialization.setQuoteEscapeCharacter(escapeChar);
         selectObjectOutputSerialization.setCsv(selectObjectCSVOutputSerialization);
         selectObjectRequest.setOutputSerialization(selectObjectOutputSerialization);
+
+        // Scan range requests to S3 Select allow us to enable splits,
+        // by providing a finer granularity than file level.
+        // Works for CSV if AllowQuotedRecordDelimiter is disabled.
+        boolean isQuotedRecordDelimiterAllowed = Boolean.TRUE.equals(
+                selectObjectCSVInputSerialization.getAllowQuotedRecordDelimiter());
+        if (CompressionType.NONE.equals(compressionType) && !isQuotedRecordDelimiterAllowed) {
+            // Scan range queries are not supported for compressed files.
+            ScanRange scanRange = new ScanRange();
+            scanRange.setStart(getStart());
+            scanRange.setEnd(getEnd());
+            selectObjectRequest.setScanRange(scanRange);
+        }
 
         return selectObjectRequest;
     }
