@@ -157,4 +157,12 @@ public class TestDynamoDbConnectorTest
 
         assertEquals(expectedParametrizedVarchar, actual, format("%s does not match %s", actual, expectedParametrizedVarchar));
     }
+
+    @Override
+    protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining(
+                "SQL compilation error: Non-nullable column 'C_VARCHAR' cannot be added to non-empty table " +
+                        "'TEST_ADD_NOTNULL_.*' unless it has a non-null default value\\.");
+    }
 }
