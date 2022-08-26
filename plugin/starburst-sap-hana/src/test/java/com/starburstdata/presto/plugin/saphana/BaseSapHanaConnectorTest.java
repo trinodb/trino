@@ -15,6 +15,7 @@ import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -342,6 +343,20 @@ public abstract class BaseSapHanaConnectorTest
     {
         assertThatThrownBy(super::testDeleteWithLike)
                 .hasStackTraceContaining("TrinoException: Unsupported delete");
+    }
+
+    @Test
+    @Override
+    public void testAddNotNullColumnToNonEmptyTable()
+    {
+        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9683");
+    }
+
+    @Test
+    @Override
+    public void testInsertIntoNotNullColumn()
+    {
+        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9684");
     }
 
     @Override
