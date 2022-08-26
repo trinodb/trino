@@ -14,6 +14,8 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.hive.AbstractTestHive.HiveTransaction;
+import io.trino.plugin.hive.AbstractTestHive.Transaction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -29,6 +31,7 @@ import io.trino.spi.type.Type;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.IntStream;
@@ -50,15 +53,19 @@ public class HiveFileSystemTestUtils
                                                ConnectorSplitManager splitManager)
             throws IOException
     {
-        try (AbstractTestHive.Transaction transaction = newTransaction(transactionManager)) {
-            ConnectorMetadata metadata = transaction.getMetadata();
-            ConnectorSession session = newSession(config);
+        ConnectorMetadata metadata = null;
+        ConnectorSession session = null;
+        ConnectorSplitSource splitSource = null;
+
+        try (Transaction transaction = newTransaction(transactionManager)) {
+            metadata = transaction.getMetadata();
+            session = newSession(config);
 
             ConnectorTableHandle table = getTableHandle(metadata, tableName, session);
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, table).values());
 
             metadata.beginQuery(session);
-            ConnectorSplitSource splitSource = getSplits(splitManager, transaction, session, table);
+            splitSource = getSplits(splitManager, transaction, session, table);
 
             List<Type> allTypes = getTypes(columnHandles);
             List<Type> dataTypes = getTypes(columnHandles.stream()
@@ -68,7 +75,13 @@ public class HiveFileSystemTestUtils
 
             List<ConnectorSplit> splits = getAllSplits(splitSource);
             for (ConnectorSplit split : splits) {
-                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, table, columnHandles, DynamicFilter.EMPTY)) {
+                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(
+                        transaction.getTransactionHandle(),
+                        session,
+                        split,
+                        table,
+                        columnHandles,
+                        DynamicFilter.EMPTY)) {
                     MaterializedResult pageSourceResult = materializeSourceDataStream(session, pageSource, allTypes);
                     for (MaterializedRow row : pageSourceResult.getMaterializedRows()) {
                         Object[] dataValues = IntStream.range(0, row.getFieldCount())
@@ -79,9 +92,11 @@ public class HiveFileSystemTestUtils
                     }
                 }
             }
-
-            metadata.cleanupQuery(session);
             return result.build();
+        }
+        finally {
+            cleanUpQuery(metadata, session);
+            closeQuietly(splitSource);
         }
     }
 
@@ -97,25 +112,31 @@ public class HiveFileSystemTestUtils
         return getHiveSession(config);
     }
 
-    public static AbstractTestHive.Transaction newTransaction(HiveTransactionManager transactionManager)
+    public static Transaction newTransaction(HiveTransactionManager transactionManager)
     {
-        return new AbstractTestHive.HiveTransaction(transactionManager);
+        return new HiveTransaction(transactionManager);
     }
 
-    public static MaterializedResult filterTable(SchemaTableName tableName, List<ColumnHandle> projectedColumns,
+    public static MaterializedResult filterTable(SchemaTableName tableName,
+                                                 List<ColumnHandle> projectedColumns,
                                                  HiveTransactionManager transactionManager,
-                                                 HiveConfig config, ConnectorPageSourceProvider pageSourceProvider,
+                                                 HiveConfig config,
+                                                 ConnectorPageSourceProvider pageSourceProvider,
                                                  ConnectorSplitManager splitManager)
             throws IOException
     {
-        try (AbstractTestHive.Transaction transaction = newTransaction(transactionManager)) {
-            ConnectorMetadata metadata = transaction.getMetadata();
-            ConnectorSession session = newSession(config);
+        ConnectorMetadata metadata = null;
+        ConnectorSession session = null;
+        ConnectorSplitSource splitSource = null;
+
+        try (Transaction transaction = newTransaction(transactionManager)) {
+            metadata = transaction.getMetadata();
+            session = newSession(config);
 
             ConnectorTableHandle table = getTableHandle(metadata, tableName, session);
 
             metadata.beginQuery(session);
-            ConnectorSplitSource splitSource = getSplits(splitManager, transaction, session, table);
+            splitSource = getSplits(splitManager, transaction, session, table);
 
             List<Type> allTypes = getTypes(projectedColumns);
             List<Type> dataTypes = getTypes(projectedColumns.stream()
@@ -137,9 +158,54 @@ public class HiveFileSystemTestUtils
                     }
                 }
             }
-
-            metadata.cleanupQuery(session);
             return result.build();
+        }
+        finally {
+            cleanUpQuery(metadata, session);
+            closeQuietly(splitSource);
+        }
+    }
+
+    public static int getSplitsCount(SchemaTableName tableName,
+                                     HiveTransactionManager transactionManager,
+                                     HiveConfig config,
+                                     ConnectorSplitManager splitManager)
+    {
+        ConnectorMetadata metadata = null;
+        ConnectorSession session = null;
+        ConnectorSplitSource splitSource = null;
+
+        try (Transaction transaction = newTransaction(transactionManager)) {
+            metadata = transaction.getMetadata();
+            session = newSession(config);
+
+            ConnectorTableHandle table = getTableHandle(metadata, tableName, session);
+
+            metadata.beginQuery(session);
+            splitSource = getSplits(splitManager, transaction, session, table);
+            return getAllSplits(splitSource).size();
+        }
+        finally {
+            cleanUpQuery(metadata, session);
+            closeQuietly(splitSource);
+        }
+    }
+
+    private static void closeQuietly(Closeable closeable)
+    {
+        try {
+            if (closeable != null) {
+                closeable.close();
+            }
+        }
+        catch (IOException ignored) {
+        }
+    }
+
+    private static void cleanUpQuery(ConnectorMetadata metadata, ConnectorSession session)
+    {
+        if (metadata != null && session != null) {
+            metadata.cleanupQuery(session);
         }
     }
 }

@@ -73,8 +73,8 @@ public abstract class S3SelectLineRecordReader
     private final Duration maxRetryTime;
     private final Closer closer = Closer.create();
     private final SelectObjectContentRequest selectObjectContentRequest;
-    protected final CompressionCodecFactory compressionCodecFactory;
-    protected final String lineDelimiter;
+    private final CompressionCodecFactory compressionCodecFactory;
+    private final String lineDelimiter;
 
     public S3SelectLineRecordReader(
             Configuration configuration,
@@ -235,5 +235,20 @@ public abstract class S3SelectLineRecordReader
             // append bucket and key to the message
             super(format("%s (Bucket: %s, Key: %s)", cause, bucket, key));
         }
+    }
+
+    protected long getStart()
+    {
+        return start;
+    }
+
+    protected long getEnd()
+    {
+        return end;
+    }
+
+    protected String getLineDelimiter()
+    {
+        return lineDelimiter;
     }
 }
