@@ -163,6 +163,12 @@ public class Query
             QueryStatusInfo results = client.isRunning() ? client.currentStatusInfo() : client.finalStatusInfo();
             if (results.getUpdateType() != null) {
                 renderUpdate(errorChannel, results);
+                if (results.getUpdateType().equalsIgnoreCase("EXPLAIN ANALYZE")) {
+                    renderResults(out, outputFormat, usePager, results.getColumns());
+                }
+                else {
+                    discardResults();
+                }
             }
             else if (results.getColumns() == null) {
                 errorChannel.printf("Query %s has no columns\n", results.getId());
@@ -228,7 +234,6 @@ public class Query
             status += format(": %s row%s", count, (count != 1) ? "s" : "");
         }
         out.println(status);
-        discardResults();
     }
 
     private void discardResults()

@@ -1395,6 +1395,7 @@ class StatementAnalyzer
         protected Scope visitExplainAnalyze(ExplainAnalyze node, Optional<Scope> scope)
         {
             process(node.getStatement(), scope);
+            analysis.setUpdateType("EXPLAIN ANALYZE");
             return createAndAssignScope(node, scope, Field.newUnqualified("Query Plan", VARCHAR));
         }
 
