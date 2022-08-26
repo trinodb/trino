@@ -138,11 +138,6 @@ public class TestSpiBackwardCompatibility
             return;
         }
 
-        // TODO remove this after Experimental is released
-        if (isOriginalPtfClass(clazz, includeDeprecatedAndExperimental)) {
-            return;
-        }
-
         for (Class<?> nestedClass : clazz.getDeclaredClasses()) {
             addClassEntities(entities, nestedClass, includeDeprecatedAndExperimental);
         }
@@ -200,11 +195,5 @@ public class TestSpiBackwardCompatibility
             throw new AssertionError(format("Invalid date '%s' in Experimental annotation on %s", date, description));
         }
         return true;
-    }
-
-    // TODO remove this after Experimental is released
-    private static boolean isOriginalPtfClass(Class<?> clazz, boolean includeDeprecatedAndExperimental)
-    {
-        return !includeDeprecatedAndExperimental && clazz.getName().startsWith("io.trino.spi.ptf.");
     }
 }
