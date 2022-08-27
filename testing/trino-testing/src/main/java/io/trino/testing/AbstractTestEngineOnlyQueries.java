@@ -5315,35 +5315,35 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testSetSession()
     {
         MaterializedResult result = computeActual("SET SESSION test_string = 'bar'");
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertNoRelationalResult(result);
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of("test_string", "bar"));
 
         result = computeActual(format("SET SESSION %s.connector_long = 999", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertNoRelationalResult(result);
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_long", "999"));
 
         result = computeActual(format("SET SESSION %s.connector_string = 'baz'", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertNoRelationalResult(result);
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_string", "baz"));
 
         result = computeActual(format("SET SESSION %s.connector_string = 'ban' || 'ana'", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertNoRelationalResult(result);
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_string", "banana"));
 
         result = computeActual(format("SET SESSION %s.connector_long = 444", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertNoRelationalResult(result);
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_long", "444"));
 
         result = computeActual(format("SET SESSION %s.connector_long = 111 + 111", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertNoRelationalResult(result);
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_long", "222"));
 
         result = computeActual(format("SET SESSION %s.connector_boolean = 111 < 3", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertNoRelationalResult(result);
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_boolean", "false"));
 
         result = computeActual(format("SET SESSION %s.connector_double = 11.1", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertNoRelationalResult(result);
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_double", "11.1"));
     }
 
@@ -5351,11 +5351,11 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testResetSession()
     {
         MaterializedResult result = computeActual(getSession(), "RESET SESSION test_string");
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertNoRelationalResult(result);
         assertEquals(result.getResetSessionProperties(), ImmutableSet.of("test_string"));
 
         result = computeActual(getSession(), format("RESET SESSION %s.connector_string", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertNoRelationalResult(result);
         assertEquals(result.getResetSessionProperties(), ImmutableSet.of(TESTING_CATALOG + ".connector_string"));
     }
 
@@ -6534,5 +6534,11 @@ public abstract class AbstractTestEngineOnlyQueries
     private static ZonedDateTime zonedDateTime(String value)
     {
         return ZONED_DATE_TIME_FORMAT.parse(value, ZonedDateTime::from);
+    }
+
+    private void assertNoRelationalResult(MaterializedResult result)
+    {
+        assertThat(result.getMaterializedRows()).isEmpty();
+        assertThat(result.getTypes()).isEmpty(); // i.e. no columns
     }
 }
