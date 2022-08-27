@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.sql.rewrite.StatementRewrite;
+import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GroupingOperation;
@@ -34,6 +35,7 @@ import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowExpressions;
+import static io.trino.sql.analyzer.QueryType.EXPLAIN;
 import static io.trino.sql.analyzer.QueryType.OTHERS;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
@@ -68,7 +70,11 @@ public class Analyzer
 
     public Analysis analyze(Statement statement)
     {
-        return analyze(statement, OTHERS);
+        QueryType queryType = OTHERS;
+        if (statement instanceof ExplainAnalyze) {
+            queryType = EXPLAIN;
+        }
+        return analyze(statement, queryType);
     }
 
     public Analysis analyze(Statement statement, QueryType queryType)

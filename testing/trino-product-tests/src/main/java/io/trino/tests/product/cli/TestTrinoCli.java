@@ -403,6 +403,22 @@ public class TestTrinoCli
         assertThat(trimLines(trino.readLinesUntilPrompt())).doesNotContain("admin");
     }
 
+    @Test(groups = CLI, timeOut = TIMEOUT)
+    public void shouldPrintExplainAnalyzePlan()
+            throws Exception
+    {
+        launchTrinoCliWithServerArgument();
+        trino.waitForPrompt();
+        trino.getProcessInput().println("EXPLAIN ANALYZE CREATE TABLE hive.default.test_table AS SELECT * FROM hive.default.nation;");
+        List<String> lines = trimLines(trino.readLinesUntilPrompt());
+        assertThat(lines).contains("Query Plan");
+        assertThat(lines).doesNotContain("CREATE TABLE");
+        trino.getProcessInput().println("EXPLAIN ANALYZE INSERT INTO hive.default.test_table VALUES(100, 'URUGUAY', 3, 'test comment');");
+        lines = trimLines(trino.readLinesUntilPrompt());
+        assertThat(lines).contains("Query Plan");
+        assertThat(lines).doesNotContain("INSERT");
+    }
+
     private void launchTrinoCliWithServerArgument(String... arguments)
             throws IOException
     {
