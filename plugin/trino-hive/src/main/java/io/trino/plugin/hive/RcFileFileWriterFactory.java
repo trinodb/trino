@@ -15,12 +15,12 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hive.formats.rcfile.RcFileDataSource;
+import io.trino.hive.formats.rcfile.RcFileEncoding;
+import io.trino.hive.formats.rcfile.binary.BinaryRcFileEncoding;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.rcfile.HdfsRcFileDataSource;
-import io.trino.rcfile.RcFileDataSource;
-import io.trino.rcfile.RcFileEncoding;
-import io.trino.rcfile.binary.BinaryRcFileEncoding;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;

@@ -11,48 +11,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.rcfile;
+package io.trino.hive.formats.rcfile;
 
-import io.trino.hive.formats.rcfile.RcFileDataSource;
-import io.trino.hive.formats.rcfile.RcFileDataSourceId;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
-import org.apache.hadoop.fs.FSDataInputStream;
-
+import java.io.File;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class HdfsRcFileDataSource
+public class FileRcFileDataSource
         implements RcFileDataSource
 {
-    private final FSDataInputStream inputStream;
-    private final String path;
+    private final File path;
     private final long size;
-    private final FileFormatDataSourceStats stats;
+    private final RandomAccessFile input;
     private long readTimeNanos;
     private long readBytes;
 
-    public HdfsRcFileDataSource(String path, FSDataInputStream inputStream, long size, FileFormatDataSourceStats stats)
+    public FileRcFileDataSource(File path)
+            throws IOException
     {
         this.path = requireNonNull(path, "path is null");
-        this.inputStream = requireNonNull(inputStream, "inputStream is null");
-        this.size = size;
-        checkArgument(size >= 0, "size is negative");
-        this.stats = requireNonNull(stats, "stats is null");
-    }
-
-    @Override
-    public RcFileDataSourceId getId()
-    {
-        return new RcFileDataSourceId(path);
+        this.size = path.length();
+        this.input = new RandomAccessFile(path, "r");
     }
 
     @Override
     public void close()
             throws IOException
     {
-        inputStream.close();
+        input.close();
     }
 
     @Override
@@ -79,18 +67,22 @@ public class HdfsRcFileDataSource
     {
         long start = System.nanoTime();
 
-        inputStream.readFully(position, buffer, bufferOffset, bufferLength);
+        input.seek(position);
+        input.readFully(buffer, bufferOffset, bufferLength);
 
-        long readDuration = System.nanoTime() - start;
-        stats.readDataBytesPerSecond(bufferLength, readDuration);
-
-        readTimeNanos += readDuration;
+        readTimeNanos += System.nanoTime() - start;
         readBytes += bufferLength;
+    }
+
+    @Override
+    public RcFileDataSourceId getId()
+    {
+        return new RcFileDataSourceId(path.getPath());
     }
 
     @Override
     public String toString()
     {
-        return path;
+        return path.getPath();
     }
 }
