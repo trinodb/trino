@@ -62,6 +62,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -69,6 +70,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verifyNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
@@ -137,6 +139,11 @@ public abstract class BaseDataDefinitionTaskTest
     protected static QualifiedName qualifiedName(String name)
     {
         return QualifiedName.of(TEST_CATALOG_NAME, SCHEMA, name);
+    }
+
+    protected static QualifiedName qualifiedColumnName(String tableName, String columnName)
+    {
+        return QualifiedName.of(TEST_CATALOG_NAME, SCHEMA, tableName, columnName);
     }
 
     protected static QualifiedObjectName asQualifiedObjectName(QualifiedName viewName)
@@ -421,6 +428,21 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
+        public void setColumnComment(Session session, TableHandle tableHandle, ColumnHandle column, Optional<String> comment)
+        {
+            ConnectorTableMetadata tableMetadata = getTableMetadata(tableHandle);
+            TestingColumnHandle columnHandle = (TestingColumnHandle) column;
+            ConnectorTableMetadata newTableMetadata = new ConnectorTableMetadata(
+                    tableMetadata.getTable(),
+                    tableMetadata.getColumns().stream()
+                            .map(tableColumn -> Objects.equals(tableColumn.getName(), columnHandle.getName()) ? withComment(tableColumn, comment) : tableColumn)
+                            .collect(toImmutableList()),
+                    tableMetadata.getProperties(),
+                    tableMetadata.getComment());
+            tables.put(tableMetadata.getTable(), newTableMetadata);
+        }
+
+        @Override
         public void renameMaterializedView(Session session, QualifiedObjectName source, QualifiedObjectName target)
         {
             SchemaTableName oldViewName = source.asSchemaTableName();
@@ -432,6 +454,13 @@ public abstract class BaseDataDefinitionTaskTest
         public ResolvedFunction getCoercion(Session session, OperatorType operatorType, Type fromType, Type toType)
         {
             return delegate.getCoercion(session, operatorType, fromType, toType);
+        }
+
+        private static ColumnMetadata withComment(ColumnMetadata tableColumn, Optional<String> comment)
+        {
+            return ColumnMetadata.builderFrom(tableColumn)
+                    .setComment(comment)
+                    .build();
         }
     }
 }
