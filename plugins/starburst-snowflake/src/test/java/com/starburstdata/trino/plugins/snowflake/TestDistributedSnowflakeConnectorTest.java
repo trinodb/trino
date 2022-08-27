@@ -10,6 +10,11 @@
 package com.starburstdata.trino.plugins.snowflake;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
+import io.trino.execution.QueryManager;
+import io.trino.sql.planner.OptimizerConfig;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
@@ -22,8 +27,12 @@ import java.util.Optional;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.impersonationDisabled;
+import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 
 public class TestDistributedSnowflakeConnectorTest
         extends BaseSnowflakeConnectorTest
@@ -60,6 +69,32 @@ public class TestDistributedSnowflakeConnectorTest
     public void testSimpleSelect()
     {
         assertQuery("SELECT regionkey, name FROM region ORDER BY regionkey", "VALUES (0, 'AFRICA'), (1, 'AMERICA'), (2, 'ASIA'), (3, 'EUROPE'), (4, 'MIDDLE EAST')");
+    }
+
+    @Test
+    public void testDynamicFilterIsApplied()
+    {
+        String sql = "SELECT l.partkey FROM lineitem l JOIN nation n ON n.regionkey = l.orderkey AND n.name < 'B' ";
+
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        MaterializedResultWithQueryId dynamicFilter = queryRunner.executeWithQueryId(fixedBroadcastJoinDistribution(true), sql);
+        MaterializedResultWithQueryId noDynamicFilter = queryRunner.executeWithQueryId(fixedBroadcastJoinDistribution(false), sql);
+        assertEquals(dynamicFilter.getResult().getOnlyColumnAsSet(), noDynamicFilter.getResult().getOnlyColumnAsSet());
+
+        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+        long dynamicFilterProcessedBytes = queryManager.getFullQueryInfo(dynamicFilter.getQueryId()).getQueryStats().getProcessedInputDataSize().toBytes();
+        long noDynamicFilterProcessedBytes = queryManager.getFullQueryInfo(noDynamicFilter.getQueryId()).getQueryStats().getProcessedInputDataSize().toBytes();
+        assertThat(dynamicFilterProcessedBytes).as("dynamicFilterProcessedBytes")
+                .isLessThan(noDynamicFilterProcessedBytes);
+    }
+
+    private Session fixedBroadcastJoinDistribution(boolean dynamicFilteringEnabled)
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, OptimizerConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, OptimizerConfig.JoinDistributionType.BROADCAST.name())
+                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.toString(dynamicFilteringEnabled))
+                .build();
     }
 
     @Test
