@@ -15,10 +15,10 @@ package io.trino.plugin.hive.rcfile;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.trino.hive.formats.rcfile.RcFileCorruptionException;
+import io.trino.hive.formats.rcfile.RcFileReader;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveType;
-import io.trino.rcfile.RcFileCorruptionException;
-import io.trino.rcfile.RcFileReader;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
