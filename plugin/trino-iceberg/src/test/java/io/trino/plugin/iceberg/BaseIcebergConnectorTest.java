@@ -1026,7 +1026,7 @@ public abstract class BaseIcebergConnectorTest
         String tableName = "partitioning_" + randomTableSuffix();
         @Language("SQL") String sql = format("CREATE TABLE %s (%s bigint) WITH (partitioning = ARRAY['%s'])", tableName, columnName, partitioningField);
         if (success) {
-            assertThat(query(sql)).matches("VALUES (true)");
+            assertUpdate(sql);
             dropTable(tableName);
         }
         else {
