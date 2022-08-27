@@ -52,10 +52,13 @@ import static com.google.common.net.HttpHeaders.ACCEPT_ENCODING;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.trino.client.JsonCodec.jsonCodec;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
+import static io.trino.client.QueryType.EXPLAIN_ANALYZE;
+import static io.trino.client.QueryType.OTHER;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -74,6 +77,7 @@ class StatementClientV1
 
     private final OkHttpClient httpClient;
     private final String query;
+    private final QueryType queryType;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
     private final AtomicReference<String> setCatalog = new AtomicReference<>();
     private final AtomicReference<String> setSchema = new AtomicReference<>();
@@ -102,6 +106,7 @@ class StatementClientV1
         this.httpClient = httpClient;
         this.timeZone = session.getTimeZone();
         this.query = query;
+        this.queryType = extractQueryType(query);
         this.requestTimeoutNanos = session.getClientRequestTimeout();
         this.user = Stream.of(session.getUser(), session.getPrincipal())
                 .filter(Optional::isPresent)
@@ -120,6 +125,16 @@ class StatementClientV1
         }
 
         processResponse(response.getHeaders(), response.getValue());
+    }
+
+    private QueryType extractQueryType(String query)
+    {
+        if (query.trim().toLowerCase(ENGLISH).startsWith("explain analyze")) {
+            return EXPLAIN_ANALYZE;
+        }
+        else {
+            return OTHER;
+        }
     }
 
     private Request buildQueryRequest(ClientSession session, String query)
@@ -195,6 +210,12 @@ class StatementClientV1
     public String getQuery()
     {
         return query;
+    }
+
+    @Override
+    public QueryType getQueryType()
+    {
+        return queryType;
     }
 
     @Override

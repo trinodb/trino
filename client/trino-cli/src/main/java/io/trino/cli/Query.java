@@ -53,6 +53,7 @@ import static io.trino.cli.CsvPrinter.CsvOutputFormat.NO_HEADER_AND_QUOTES;
 import static io.trino.cli.CsvPrinter.CsvOutputFormat.NO_QUOTES;
 import static io.trino.cli.CsvPrinter.CsvOutputFormat.STANDARD;
 import static io.trino.cli.TerminalUtils.isRealTerminal;
+import static io.trino.client.QueryType.EXPLAIN_ANALYZE;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -163,6 +164,12 @@ public class Query
             QueryStatusInfo results = client.isRunning() ? client.currentStatusInfo() : client.finalStatusInfo();
             if (results.getUpdateType() != null) {
                 renderUpdate(errorChannel, results);
+                if (client.getQueryType().equals(EXPLAIN_ANALYZE)) {
+                    renderResults(out, outputFormat, usePager, results.getColumns());
+                }
+                else {
+                    discardResults();
+                }
             }
             else if (results.getColumns() == null) {
                 errorChannel.printf("Query %s has no columns\n", results.getId());
@@ -228,7 +235,6 @@ public class Query
             status += format(": %s row%s", count, (count != 1) ? "s" : "");
         }
         out.println(status);
-        discardResults();
     }
 
     private void discardResults()

@@ -26,6 +26,8 @@ public interface StatementClient
 {
     String getQuery();
 
+    QueryType getQueryType();
+
     ZoneId getTimeZone();
 
     boolean isRunning();
