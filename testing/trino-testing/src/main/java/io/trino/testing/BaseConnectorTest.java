@@ -2747,11 +2747,6 @@ public abstract class BaseConnectorTest
             assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS NULL");
             assertThat(getColumnComment(table.getName(), "a")).isEqualTo(null);
         }
-
-        // TODO: comment set when creating a table
-//        assertUpdate("CREATE TABLE " + tableName + "(a integer COMMENT 'new column comment')");
-//        assertThat(getColumnComment(tableName, "a")).isEqualTo("new column comment");
-//        assertUpdate("DROP TABLE " + tableName);
     }
 
     protected String getColumnComment(String tableName, String columnName)
