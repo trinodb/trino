@@ -125,25 +125,6 @@ public final class BytecodeUtils
                 .ifTrue(isNull);
     }
 
-    public static BytecodeNode boxPrimitive(Class<?> type)
-    {
-        BytecodeBlock block = new BytecodeBlock().comment("box primitive");
-        if (type == long.class) {
-            return block.invokeStatic(Long.class, "valueOf", Long.class, long.class);
-        }
-        if (type == double.class) {
-            return block.invokeStatic(Double.class, "valueOf", Double.class, double.class);
-        }
-        if (type == boolean.class) {
-            return block.invokeStatic(Boolean.class, "valueOf", Boolean.class, boolean.class);
-        }
-        if (type.isPrimitive()) {
-            throw new UnsupportedOperationException("not yet implemented: " + type);
-        }
-
-        return NOP;
-    }
-
     public static BytecodeNode unboxPrimitive(Class<?> unboxedType)
     {
         BytecodeBlock block = new BytecodeBlock().comment("unbox primitive");
