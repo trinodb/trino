@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.hive.formats.rcfile;
+package io.trino.hive.formats.compression;
 
 import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.io.compress.CompressionCodec;
@@ -21,7 +21,7 @@ import java.lang.reflect.Constructor;
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 
 public class HadoopCodecFactory
-        implements RcFileCodecFactory
+        implements CodecFactory
 {
     private final ClassLoader classLoader;
 
@@ -31,14 +31,14 @@ public class HadoopCodecFactory
     }
 
     @Override
-    public RcFileCompressor createCompressor(String codecName)
+    public Compressor createCompressor(String codecName)
     {
         CompressionCodec codec = createCompressionCodec(codecName);
         return new HadoopCompressor(codec);
     }
 
     @Override
-    public RcFileDecompressor createDecompressor(String codecName)
+    public Decompressor createDecompressor(String codecName)
     {
         CompressionCodec codec = createCompressionCodec(codecName);
         return new HadoopDecompressor(codec);

@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.hive.formats.rcfile;
+package io.trino.hive.formats.compression;
 
 import java.util.function.Supplier;
 
-class NoneCompressor
-        implements RcFileCompressor
+public class NoneCompressor
+        implements Compressor
 {
     @Override
     public CompressedSliceOutput createCompressedSliceOutput(int minChunkSize, int maxChunkSize)

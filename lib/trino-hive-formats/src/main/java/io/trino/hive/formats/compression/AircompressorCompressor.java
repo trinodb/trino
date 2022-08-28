@@ -11,11 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.hive.formats.rcfile;
+package io.trino.hive.formats.compression;
 
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionOutputStream;
-import org.apache.hadoop.io.compress.Compressor;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -24,7 +23,7 @@ import java.util.function.Supplier;
 import static java.util.Objects.requireNonNull;
 
 public class AircompressorCompressor
-        implements RcFileCompressor
+        implements Compressor
 {
     private final CompressionCodec codec;
 
@@ -43,7 +42,7 @@ public class AircompressorCompressor
             implements Supplier<CompressedSliceOutput>
     {
         private final CompressionCodec codec;
-        private final Compressor compressor;
+        private final org.apache.hadoop.io.compress.Compressor compressor;
         private final ChunkedSliceOutput compressedOutput;
 
         public AircompressorCompressedSliceOutputSupplier(CompressionCodec codec, int minChunkSize, int maxChunkSize)
