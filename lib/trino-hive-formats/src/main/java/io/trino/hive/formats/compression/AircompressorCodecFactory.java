@@ -27,7 +27,6 @@ public class AircompressorCodecFactory
     private static final String LZO_CODEC_NAME = "com.hadoop.compression.lzo.LzoCodec";
     private static final String LZO_CODEC_NAME_DEPRECATED = "org.apache.hadoop.io.compress.LzoCodec";
     private static final String LZ4_CODEC_NAME = "org.apache.hadoop.io.compress.Lz4Codec";
-    private static final String LZ4_HC_CODEC_NAME = "org.apache.hadoop.io.compress.Lz4Codec";
     private static final String GZIP_CODEC_NAME = "org.apache.hadoop.io.compress.GzipCodec";
 
     private final CodecFactory delegate;
@@ -40,36 +39,24 @@ public class AircompressorCodecFactory
     @Override
     public Compressor createCompressor(String codecName)
     {
-        if (SNAPPY_CODEC_NAME.equals(codecName)) {
-            return new AircompressorCompressor(new SnappyCodec());
-        }
-        if (LZO_CODEC_NAME.equals(codecName) || LZO_CODEC_NAME_DEPRECATED.equals(codecName)) {
-            return new AircompressorCompressor(new LzoCodec());
-        }
-        if (LZ4_CODEC_NAME.equals(codecName)) {
-            return new AircompressorCompressor(new Lz4Codec());
-        }
-        if (GZIP_CODEC_NAME.equals(codecName)) {
-            return new AircompressorCompressor(new JdkGzipCodec());
-        }
-        return delegate.createCompressor(codecName);
+        return switch (codecName) {
+            case SNAPPY_CODEC_NAME -> new AircompressorCompressor(new SnappyCodec());
+            case LZO_CODEC_NAME, LZO_CODEC_NAME_DEPRECATED -> new AircompressorCompressor(new LzoCodec());
+            case LZ4_CODEC_NAME -> new AircompressorCompressor(new Lz4Codec());
+            case GZIP_CODEC_NAME -> new AircompressorCompressor(new JdkGzipCodec());
+            default -> delegate.createCompressor(codecName);
+        };
     }
 
     @Override
     public Decompressor createDecompressor(String codecName)
     {
-        if (SNAPPY_CODEC_NAME.equals(codecName)) {
-            return new AircompressorDecompressor(new SnappyCodec());
-        }
-        if (LZO_CODEC_NAME.equals(codecName) || LZO_CODEC_NAME_DEPRECATED.equals(codecName)) {
-            return new AircompressorDecompressor(new LzoCodec());
-        }
-        if (LZ4_CODEC_NAME.equals(codecName) || LZ4_HC_CODEC_NAME.equals(codecName)) {
-            return new AircompressorDecompressor(new Lz4Codec());
-        }
-        if (GZIP_CODEC_NAME.equals(codecName)) {
-            return new AircompressorDecompressor(new JdkGzipCodec());
-        }
-        return delegate.createDecompressor(codecName);
+        return switch (codecName) {
+            case SNAPPY_CODEC_NAME -> new AircompressorDecompressor(new SnappyCodec());
+            case LZO_CODEC_NAME, LZO_CODEC_NAME_DEPRECATED -> new AircompressorDecompressor(new LzoCodec());
+            case LZ4_CODEC_NAME -> new AircompressorDecompressor(new Lz4Codec());
+            case GZIP_CODEC_NAME -> new AircompressorDecompressor(new JdkGzipCodec());
+            default -> delegate.createDecompressor(codecName);
+        };
     }
 }
