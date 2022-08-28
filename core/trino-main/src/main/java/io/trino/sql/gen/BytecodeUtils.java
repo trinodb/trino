@@ -354,7 +354,7 @@ public final class BytecodeUtils
                         lambdaArgumentIndex++;
                         break;
                     default:
-                        throw new UnsupportedOperationException(format("Unsupported argument conventsion type: %s", invocationConvention.getArgumentConvention(realParameterIndex)));
+                        throw new UnsupportedOperationException(format("Unsupported argument convention type: %s", invocationConvention.getArgumentConvention(realParameterIndex)));
                 }
                 realParameterIndex++;
             }
