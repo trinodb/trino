@@ -362,7 +362,9 @@ public class RcFileReader
         if (compressedHeaderSize > compressedHeaderBuffer.length()) {
             compressedHeaderBuffer = Slices.allocate(compressedHeaderSize);
         }
-        input.readBytes(compressedHeaderBuffer, 0, compressedHeaderSize);
+        // use exact sized compressed header to avoid problems where compression algorithms over read
+        Slice compressedHeader = compressedHeaderBuffer.slice(0, compressedHeaderSize);
+        input.readBytes(compressedHeader);
 
         // decompress row group header
         Slice header;
@@ -372,13 +374,13 @@ public class RcFileReader
             }
             Slice buffer = headerBuffer.slice(0, uncompressedHeaderSize);
 
-            decompressor.decompress(compressedHeaderBuffer, buffer);
+            decompressor.decompress(compressedHeader, buffer);
 
             header = buffer;
         }
         else {
             verify(compressedHeaderSize == uncompressedHeaderSize, "Invalid RCFile %s", dataSource.getId());
-            header = compressedHeaderBuffer;
+            header = compressedHeader;
         }
         BasicSliceInput headerInput = header.getInput();
 
