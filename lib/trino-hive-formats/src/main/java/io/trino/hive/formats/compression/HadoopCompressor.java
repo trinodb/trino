@@ -34,13 +34,13 @@ public class HadoopCompressor
     }
 
     @Override
-    public CompressedSliceOutput createCompressedSliceOutput(int minChunkSize, int maxChunkSize)
+    public MemoryCompressedSliceOutput createCompressedSliceOutput(int minChunkSize, int maxChunkSize)
     {
         return new HadoopCompressedSliceOutputSupplier(codec, minChunkSize, maxChunkSize).get();
     }
 
     private static class HadoopCompressedSliceOutputSupplier
-            implements Supplier<CompressedSliceOutput>
+            implements Supplier<MemoryCompressedSliceOutput>
     {
         private final CompressionCodec codec;
         private final org.apache.hadoop.io.compress.Compressor compressor;
@@ -54,13 +54,13 @@ public class HadoopCompressor
         }
 
         @Override
-        public CompressedSliceOutput get()
+        public MemoryCompressedSliceOutput get()
         {
             try {
                 compressor.reset();
                 bufferedOutput.reset();
                 CompressionOutputStream compressionStream = codec.createOutputStream(bufferedOutput, compressor);
-                return new CompressedSliceOutput(compressionStream, bufferedOutput, this, () -> CodecPool.returnCompressor(compressor));
+                return new MemoryCompressedSliceOutput(compressionStream, bufferedOutput, this, () -> CodecPool.returnCompressor(compressor));
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
