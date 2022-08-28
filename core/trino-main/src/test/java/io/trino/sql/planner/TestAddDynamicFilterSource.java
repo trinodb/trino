@@ -155,6 +155,7 @@ public class TestAddDynamicFilterSource
                                                         exchange(
                                                                 REMOTE,
                                                                 Optional.empty(),
+                                                                Optional.empty(),
                                                                 ImmutableList.of(),
                                                                 ImmutableSet.of(),
                                                                 Optional.empty(),
@@ -175,6 +176,7 @@ public class TestAddDynamicFilterSource
                                         tableScan("lineitem", ImmutableMap.of("LINEITEM_SK", "suppkey"))),
                                 exchange(
                                         LOCAL,
+                                        Optional.empty(),
                                         Optional.empty(),
                                         ImmutableList.of(),
                                         ImmutableSet.of(),
