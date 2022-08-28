@@ -120,7 +120,7 @@ public class TimestampEncoding
         return (b >> 7) != 0;
     }
 
-    private DecodedTimestamp getTimestamp(Slice slice, int offset)
+    private static DecodedTimestamp getTimestamp(Slice slice, int offset)
     {
         // read seconds (low 32 bits)
         int lowest31BitsOfSecondsAndFlag = Integer.reverseBytes(slice.getInt(offset));
@@ -130,7 +130,7 @@ public class TimestampEncoding
         int nanos = 0;
         if (lowest31BitsOfSecondsAndFlag < 0) {
             // read nanos
-            // this is an inline version of readVint so it can be stitched together
+            // this is an inline version of readVint, so it can be stitched together
             // the code to read the seconds high bits below
             byte nanosFirstByte = slice.getByte(offset);
             int nanosLength = RcFileDecoderUtils.decodeVIntSize(nanosFirstByte);

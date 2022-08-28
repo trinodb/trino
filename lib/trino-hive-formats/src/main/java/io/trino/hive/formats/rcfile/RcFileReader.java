@@ -199,6 +199,7 @@ public class RcFileReader
 
         // get column count from metadata
         String columnCountString = metadata.get(COLUMN_COUNT_METADATA_KEY);
+        verify(columnCountString != null, "Column count not specified in metadata RCFile %s", dataSource);
         try {
             columnCount = Integer.parseInt(columnCountString);
         }
@@ -490,9 +491,7 @@ public class RcFileReader
 
     private void validateWriteRowGroupChecksum()
     {
-        if (writeChecksumBuilder.isPresent()) {
-            writeChecksumBuilder.get().addRowGroup(rowGroupRowCount);
-        }
+        writeChecksumBuilder.ifPresent(checksumBuilder -> checksumBuilder.addRowGroup(rowGroupRowCount));
     }
 
     private void validateWritePageChecksum()
