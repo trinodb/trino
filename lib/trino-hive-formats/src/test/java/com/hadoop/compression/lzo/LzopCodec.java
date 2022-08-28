@@ -13,14 +13,5 @@
  */
 package com.hadoop.compression.lzo;
 
-import org.apache.hadoop.io.compress.Compressor;
-
 public class LzopCodec
-        extends io.airlift.compress.lzo.LzopCodec
-{
-    @Override
-    public Class<? extends Compressor> getCompressorType()
-    {
-        return null;
-    }
-}
+        extends io.airlift.compress.lzo.LzopCodec {}
