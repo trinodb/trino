@@ -20,7 +20,7 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
 import io.trino.hive.formats.compression.CodecFactory;
 import io.trino.hive.formats.compression.Compressor;
-import io.trino.hive.formats.compression.Compressor.CompressedSliceOutput;
+import io.trino.hive.formats.compression.MemoryCompressedSliceOutput;
 import io.trino.hive.formats.compression.NoneCompressor;
 import io.trino.hive.formats.rcfile.RcFileWriteValidation.RcFileWriteValidationBuilder;
 import io.trino.spi.Page;
@@ -78,7 +78,7 @@ public class RcFileWriter
     private final long syncFirst = ThreadLocalRandom.current().nextLong();
     private final long syncSecond = ThreadLocalRandom.current().nextLong();
 
-    private CompressedSliceOutput keySectionOutput;
+    private MemoryCompressedSliceOutput keySectionOutput;
     private final ColumnEncoder[] columnEncoders;
 
     private final int targetMinRowGroupSize;
@@ -339,7 +339,7 @@ public class RcFileWriter
 
         private final SliceOutput lengthOutput = new DynamicSliceOutput(512);
 
-        private CompressedSliceOutput output;
+        private MemoryCompressedSliceOutput output;
 
         private boolean columnClosed;
 

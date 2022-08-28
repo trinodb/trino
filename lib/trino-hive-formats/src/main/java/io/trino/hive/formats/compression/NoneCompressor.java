@@ -19,13 +19,13 @@ public class NoneCompressor
         implements Compressor
 {
     @Override
-    public CompressedSliceOutput createCompressedSliceOutput(int minChunkSize, int maxChunkSize)
+    public MemoryCompressedSliceOutput createCompressedSliceOutput(int minChunkSize, int maxChunkSize)
     {
         return new NoneCompressedSliceOutputSupplier(minChunkSize, maxChunkSize).get();
     }
 
     private static class NoneCompressedSliceOutputSupplier
-            implements Supplier<CompressedSliceOutput>
+            implements Supplier<MemoryCompressedSliceOutput>
     {
         private final ChunkedSliceOutput chunkedSliceOutput;
 
@@ -35,10 +35,10 @@ public class NoneCompressor
         }
 
         @Override
-        public CompressedSliceOutput get()
+        public MemoryCompressedSliceOutput get()
         {
             chunkedSliceOutput.reset();
-            return new CompressedSliceOutput(chunkedSliceOutput, chunkedSliceOutput, this, () -> {});
+            return new MemoryCompressedSliceOutput(chunkedSliceOutput, chunkedSliceOutput, this, () -> {});
         }
     }
 }
