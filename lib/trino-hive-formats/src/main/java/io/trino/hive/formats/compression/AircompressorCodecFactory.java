@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.hive.formats.rcfile;
+package io.trino.hive.formats.compression;
 
 import io.airlift.compress.gzip.JdkGzipCodec;
 import io.airlift.compress.lz4.Lz4Codec;
@@ -21,7 +21,7 @@ import io.airlift.compress.snappy.SnappyCodec;
 import static java.util.Objects.requireNonNull;
 
 public class AircompressorCodecFactory
-        implements RcFileCodecFactory
+        implements CodecFactory
 {
     private static final String SNAPPY_CODEC_NAME = "org.apache.hadoop.io.compress.SnappyCodec";
     private static final String LZO_CODEC_NAME = "com.hadoop.compression.lzo.LzoCodec";
@@ -30,15 +30,15 @@ public class AircompressorCodecFactory
     private static final String LZ4_HC_CODEC_NAME = "org.apache.hadoop.io.compress.Lz4Codec";
     private static final String GZIP_CODEC_NAME = "org.apache.hadoop.io.compress.GzipCodec";
 
-    private final RcFileCodecFactory delegate;
+    private final CodecFactory delegate;
 
-    public AircompressorCodecFactory(RcFileCodecFactory delegate)
+    public AircompressorCodecFactory(CodecFactory delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
 
     @Override
-    public RcFileCompressor createCompressor(String codecName)
+    public Compressor createCompressor(String codecName)
     {
         if (SNAPPY_CODEC_NAME.equals(codecName)) {
             return new AircompressorCompressor(new SnappyCodec());
@@ -56,7 +56,7 @@ public class AircompressorCodecFactory
     }
 
     @Override
-    public RcFileDecompressor createDecompressor(String codecName)
+    public Decompressor createDecompressor(String codecName)
     {
         if (SNAPPY_CODEC_NAME.equals(codecName)) {
             return new AircompressorDecompressor(new SnappyCodec());

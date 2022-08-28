@@ -18,7 +18,10 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
-import io.trino.hive.formats.rcfile.RcFileCompressor.CompressedSliceOutput;
+import io.trino.hive.formats.compression.CodecFactory;
+import io.trino.hive.formats.compression.Compressor;
+import io.trino.hive.formats.compression.Compressor.CompressedSliceOutput;
+import io.trino.hive.formats.compression.NoneCompressor;
 import io.trino.hive.formats.rcfile.RcFileWriteValidation.RcFileWriteValidationBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -70,7 +73,7 @@ public class RcFileWriter
     private final SliceOutput output;
     private final List<Type> types;
     private final RcFileEncoding encoding;
-    private final RcFileCodecFactory codecFactory;
+    private final CodecFactory codecFactory;
 
     private final long syncFirst = ThreadLocalRandom.current().nextLong();
     private final long syncSecond = ThreadLocalRandom.current().nextLong();
@@ -94,7 +97,7 @@ public class RcFileWriter
             List<Type> types,
             RcFileEncoding encoding,
             Optional<String> codecName,
-            RcFileCodecFactory codecFactory,
+            CodecFactory codecFactory,
             Map<String, String> metadata,
             boolean validate)
             throws IOException
@@ -116,7 +119,7 @@ public class RcFileWriter
             List<Type> types,
             RcFileEncoding encoding,
             Optional<String> codecName,
-            RcFileCodecFactory codecFactory,
+            CodecFactory codecFactory,
             Map<String, String> metadata,
             DataSize targetMinRowGroupSize,
             DataSize targetMaxRowGroupSize,
@@ -168,7 +171,7 @@ public class RcFileWriter
         recordValidation(validation -> validation.setSyncSecond(syncSecond));
 
         // initialize columns
-        RcFileCompressor compressor = codecName.map(codecFactory::createCompressor).orElse(new NoneCompressor());
+        Compressor compressor = codecName.map(codecFactory::createCompressor).orElse(new NoneCompressor());
         keySectionOutput = compressor.createCompressedSliceOutput((int) MIN_BUFFER_SIZE.toBytes(), (int) MAX_BUFFER_SIZE.toBytes());
         keySectionOutput.close(); // output is recycled on first use which requires output to be closed
         columnEncoders = new ColumnEncoder[types.size()];
@@ -340,7 +343,7 @@ public class RcFileWriter
 
         private boolean columnClosed;
 
-        public ColumnEncoder(ColumnEncoding columnEncoding, RcFileCompressor compressor)
+        public ColumnEncoder(ColumnEncoding columnEncoding, Compressor compressor)
         {
             this.columnEncoding = columnEncoding;
             this.output = compressor.createCompressedSliceOutput((int) MIN_BUFFER_SIZE.toBytes(), (int) MAX_BUFFER_SIZE.toBytes());

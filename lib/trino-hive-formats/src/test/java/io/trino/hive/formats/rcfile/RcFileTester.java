@@ -24,6 +24,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.hadoop.HadoopNative;
+import io.trino.hive.formats.compression.AircompressorCodecFactory;
+import io.trino.hive.formats.compression.HadoopCodecFactory;
 import io.trino.hive.formats.rcfile.binary.BinaryRcFileEncoding;
 import io.trino.hive.formats.rcfile.text.TextRcFileEncoding;
 import io.trino.spi.Page;

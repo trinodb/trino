@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.hive.formats.rcfile;
+package io.trino.hive.formats.compression;
 
 import io.airlift.slice.Slice;
 
@@ -23,7 +23,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public interface RcFileCompressor
+public interface Compressor
 {
     CompressedSliceOutput createCompressedSliceOutput(int minChunkSize, int maxChunkSize);
 

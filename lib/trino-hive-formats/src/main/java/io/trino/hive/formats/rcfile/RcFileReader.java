@@ -23,6 +23,8 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import io.trino.hive.formats.compression.CodecFactory;
+import io.trino.hive.formats.compression.Decompressor;
 import io.trino.hive.formats.rcfile.RcFileWriteValidation.WriteChecksum;
 import io.trino.hive.formats.rcfile.RcFileWriteValidation.WriteChecksumBuilder;
 import io.trino.spi.Page;
@@ -76,7 +78,7 @@ public class RcFileReader
 
     private final byte version;
 
-    private final RcFileDecompressor decompressor;
+    private final Decompressor decompressor;
 
     private final Map<String, String> metadata;
     private final int columnCount;
@@ -106,7 +108,7 @@ public class RcFileReader
             RcFileDataSource dataSource,
             RcFileEncoding encoding,
             Map<Integer, Type> readColumns,
-            RcFileCodecFactory codecFactory,
+            CodecFactory codecFactory,
             long offset,
             long length,
             DataSize bufferSize)
@@ -119,7 +121,7 @@ public class RcFileReader
             RcFileDataSource dataSource,
             RcFileEncoding encoding,
             Map<Integer, Type> readColumns,
-            RcFileCodecFactory codecFactory,
+            CodecFactory codecFactory,
             long offset,
             long length,
             DataSize bufferSize,
@@ -510,7 +512,7 @@ public class RcFileReader
             RcFileDataSource input,
             RcFileEncoding encoding,
             List<Type> types,
-            RcFileCodecFactory codecFactory)
+            CodecFactory codecFactory)
             throws RcFileCorruptionException
     {
         ImmutableMap.Builder<Integer, Type> readTypes = ImmutableMap.builder();
@@ -541,7 +543,7 @@ public class RcFileReader
     private static class Column
     {
         private final ColumnEncoding encoding;
-        private final RcFileDecompressor decompressor;
+        private final Decompressor decompressor;
 
         private BasicSliceInput lengthsInput;
         private Slice dataBuffer;
@@ -557,7 +559,7 @@ public class RcFileReader
         private int runLength;
         private int lastValueLength = -1;
 
-        public Column(ColumnEncoding encoding, RcFileDecompressor decompressor)
+        public Column(ColumnEncoding encoding, Decompressor decompressor)
         {
             this.encoding = encoding;
             this.decompressor = decompressor;
