@@ -59,7 +59,7 @@ class ValidationHash
         }
     }
 
-    // This should really come from the environment, but there is not good way to get a value here
+    // This should really come from the environment, but there is no good way to get a value here
     private static final TypeOperators VALIDATION_TYPE_OPERATORS_CACHE = new TypeOperators();
 
     public static ValidationHash createValidationHash(Type type)

@@ -62,7 +62,7 @@ public class ShortEncoding
             int length = columnData.getLength(i);
             if (length != 0) {
                 checkState(length == SIZE_OF_SHORT, "Short should be 2 bytes");
-                type.writeLong(builder, (long) Short.reverseBytes(slice.getShort(columnData.getOffset(i))));
+                type.writeLong(builder, Short.reverseBytes(slice.getShort(columnData.getOffset(i))));
             }
             else {
                 builder.appendNull();

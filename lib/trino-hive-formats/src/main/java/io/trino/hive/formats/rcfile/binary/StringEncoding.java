@@ -61,7 +61,7 @@ public class StringEncoding
     public void encodeValueInto(Block block, int position, SliceOutput output)
     {
         Slice slice = type.getSlice(block, position);
-        // Note strings nested in complex structures do no use the empty string marker
+        // Note strings nested in complex structures do not use the empty string marker
         writeVInt(output, slice.length());
         output.writeBytes(slice);
     }
@@ -107,7 +107,7 @@ public class StringEncoding
     @Override
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
-        // Note strings nested in complex structures do no use the empty string marker
+        // Note strings nested in complex structures do not use the empty string marker
         length = calculateTruncationLength(type, slice, offset, length);
         type.writeSlice(builder, slice, offset, length);
     }

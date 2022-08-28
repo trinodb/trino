@@ -173,7 +173,7 @@ public class RcFileWriter
         // initialize columns
         Compressor compressor = codecName.map(codecFactory::createCompressor).orElse(new NoneCompressor());
         keySectionOutput = compressor.createCompressedSliceOutput((int) MIN_BUFFER_SIZE.toBytes(), (int) MAX_BUFFER_SIZE.toBytes());
-        keySectionOutput.close(); // output is recycled on first use which requires output to be closed
+        keySectionOutput.close(); // output is recycled on first use which requires the output to be closed
         columnEncoders = new ColumnEncoder[types.size()];
         for (int columnIndex = 0; columnIndex < types.size(); columnIndex++) {
             Type type = types.get(columnIndex);
