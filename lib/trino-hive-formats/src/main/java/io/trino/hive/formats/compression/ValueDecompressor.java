@@ -17,10 +17,14 @@ import io.airlift.slice.Slice;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.OutputStream;
 
 public interface ValueDecompressor
         extends Closeable
 {
+    void decompress(Slice compressed, OutputStream uncompressed)
+            throws IOException;
+
     void decompress(Slice compressed, Slice uncompressed)
             throws IOException;
 

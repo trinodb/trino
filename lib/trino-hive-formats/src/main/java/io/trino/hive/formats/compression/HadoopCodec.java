@@ -149,6 +149,20 @@ public class HadoopCodec
         }
 
         @Override
+        public void decompress(Slice compressed, OutputStream uncompressed)
+                throws IOException
+        {
+            checkState(!closed, "Value decompressor has been closed");
+            decompressor.reset();
+            try (CompressionInputStream decompressorStream = codec.createInputStream(compressed.getInput(), decompressor)) {
+                decompressorStream.transferTo(uncompressed);
+            }
+            catch (IndexOutOfBoundsException | IOException e) {
+                throw new IOException("Compressed stream is truncated", e);
+            }
+        }
+
+        @Override
         public void decompress(Slice compressed, Slice uncompressed)
                 throws IOException
         {
