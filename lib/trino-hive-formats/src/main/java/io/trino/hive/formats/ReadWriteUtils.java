@@ -220,6 +220,20 @@ public final class ReadWriteUtils
         }
     }
 
+    public static int computeVIntLength(int value)
+    {
+        if (value >= -112 && value <= 127) {
+            return 1;
+        }
+
+        if (value < 0) {
+            // one's complement
+            value ^= -1;
+        }
+
+        return ((31 - Integer.numberOfLeadingZeros(value)) / 8) + 2;
+    }
+
     public static void writeVInt(SliceOutput out, int value)
     {
         if (value >= -112 && value <= 127) {
