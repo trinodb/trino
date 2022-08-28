@@ -45,7 +45,5 @@ public class AircompressorDecompressor
     }
 
     @Override
-    public void destroy()
-    {
-    }
+    public void destroy() {}
 }
