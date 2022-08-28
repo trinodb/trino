@@ -19,6 +19,9 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
+import io.trino.hive.formats.compression.CodecFactory;
+import io.trino.hive.formats.compression.Compressor;
+import io.trino.hive.formats.compression.Decompressor;
 import io.trino.hive.formats.rcfile.binary.BinaryRcFileEncoding;
 import io.trino.spi.block.Block;
 import org.joda.time.DateTimeZone;
@@ -292,16 +295,16 @@ public class TestRcFileReaderManual
     }
 
     private static class BogusRcFileCodecFactory
-            implements RcFileCodecFactory
+            implements CodecFactory
     {
         @Override
-        public RcFileCompressor createCompressor(String codecName)
+        public Compressor createCompressor(String codecName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public RcFileDecompressor createDecompressor(String codecName)
+        public Decompressor createDecompressor(String codecName)
         {
             throw new UnsupportedOperationException();
         }

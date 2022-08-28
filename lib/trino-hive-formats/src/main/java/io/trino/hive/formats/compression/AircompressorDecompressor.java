@@ -11,9 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.hive.formats.rcfile;
+package io.trino.hive.formats.compression;
 
 import io.airlift.slice.Slice;
+import io.trino.hive.formats.rcfile.RcFileCorruptionException;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionInputStream;
 
@@ -22,7 +23,7 @@ import java.io.IOException;
 import static java.util.Objects.requireNonNull;
 
 public class AircompressorDecompressor
-        implements RcFileDecompressor
+        implements Decompressor
 {
     private final CompressionCodec codec;
 

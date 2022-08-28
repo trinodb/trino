@@ -11,11 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.hive.formats.rcfile;
+package io.trino.hive.formats.compression;
 
-public interface RcFileCodecFactory
+import io.airlift.slice.Slice;
+import io.trino.hive.formats.rcfile.RcFileCorruptionException;
+
+public interface Decompressor
 {
-    RcFileCompressor createCompressor(String codecName);
+    void decompress(Slice compressed, Slice uncompressed)
+            throws RcFileCorruptionException;
 
-    RcFileDecompressor createDecompressor(String codecName);
+    void destroy();
 }
