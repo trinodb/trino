@@ -88,7 +88,6 @@ public class DateEncoding
                 builder.appendNull();
             }
             else {
-                //noinspection deprecation
                 type.writeLong(builder, parseDate(slice, offset, length));
             }
         }

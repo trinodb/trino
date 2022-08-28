@@ -89,8 +89,7 @@ public class StructEncoding
             fieldId++;
         }
 
-        // Some times a struct does not have all fields written
-        // so we fill with nulls
+        // Sometimes a struct does not have all fields written, so we fill with nulls
         while (fieldId < structFields.size()) {
             rowBuilder.appendNull();
             fieldId++;

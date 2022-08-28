@@ -127,7 +127,7 @@ public class BinaryRcFileEncoding
         return new StructEncoding(
                 type,
                 fieldEncodings.stream()
-                        .map(field -> (BinaryColumnEncoding) field)
+                        .map(BinaryColumnEncoding.class::cast)
                         .collect(Collectors.toList()));
     }
 }

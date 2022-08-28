@@ -55,7 +55,7 @@ public class BinaryEncoding
     public void encodeValueInto(Block block, int position, SliceOutput output)
     {
         Slice slice = type.getSlice(block, position);
-        // Note binary nested in complex structures do no use the empty marker.
+        // Note binary nested in complex structures do not use the empty marker.
         // Therefore, empty VARBINARY values are ok.
         writeVInt(output, slice.length());
         output.writeBytes(slice);

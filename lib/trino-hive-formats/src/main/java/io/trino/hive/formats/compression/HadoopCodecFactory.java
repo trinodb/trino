@@ -52,8 +52,8 @@ public class HadoopCodecFactory
             constructor.setAccessible(true);
             CompressionCodec codec = constructor.newInstance();
             if (codec instanceof Configurable) {
-                // Hadoop is crazy... you have to give codecs an empty configuration or they throw NPEs
-                // but you need to make sure the configuration doesn't "load" defaults or it spends
+                // Hadoop is crazy... you have to give codecs an empty configuration, or they throw NPEs,
+                // but you need to make sure the configuration doesn't "load" defaults, or it spends
                 // forever loading XML with no useful information
                 ((Configurable) codec).setConf(newEmptyConfiguration());
             }

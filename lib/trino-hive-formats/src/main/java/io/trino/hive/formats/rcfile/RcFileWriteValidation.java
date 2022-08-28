@@ -200,46 +200,39 @@ public class RcFileWriteValidation
             this.checksum = new WriteChecksumBuilder(types);
         }
 
-        public RcFileWriteValidationBuilder setVersion(byte version)
+        public void setVersion(byte version)
         {
             this.version = version;
-            return this;
         }
 
-        public RcFileWriteValidationBuilder addMetadataProperty(String key, String value)
+        public void addMetadataProperty(String key, String value)
         {
             metadata.put(key, value);
-            return this;
         }
 
-        public RcFileWriteValidationBuilder setCodecClassName(Optional<String> codecClassName)
+        public void setCodecClassName(Optional<String> codecClassName)
         {
             this.codecClassName = codecClassName;
-            return this;
         }
 
-        public RcFileWriteValidationBuilder setSyncFirst(long syncFirst)
+        public void setSyncFirst(long syncFirst)
         {
             this.syncFirst = syncFirst;
-            return this;
         }
 
-        public RcFileWriteValidationBuilder setSyncSecond(long syncSecond)
+        public void setSyncSecond(long syncSecond)
         {
             this.syncSecond = syncSecond;
-            return this;
         }
 
-        public RcFileWriteValidationBuilder addRowGroup(int rowCount)
+        public void addRowGroup(int rowCount)
         {
             checksum.addRowGroup(rowCount);
-            return this;
         }
 
-        public RcFileWriteValidationBuilder addPage(Page page)
+        public void addPage(Page page)
         {
             checksum.addPage(page);
-            return this;
         }
 
         public RcFileWriteValidation build()

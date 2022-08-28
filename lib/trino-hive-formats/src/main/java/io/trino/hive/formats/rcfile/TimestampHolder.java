@@ -33,7 +33,7 @@ public final class TimestampHolder
     private final long seconds;
     private final int nanosOfSecond;
 
-    public TimestampHolder(long epochMicros, int picosOfMicro)
+    private TimestampHolder(long epochMicros, int picosOfMicro)
     {
         this.seconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
         long picosOfSecond = (long) floorMod(epochMicros, MICROSECONDS_PER_SECOND) * PICOSECONDS_PER_MICROSECOND + picosOfMicro;
