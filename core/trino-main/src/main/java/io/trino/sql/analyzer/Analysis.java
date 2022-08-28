@@ -37,6 +37,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.eventlistener.ClauseInfo;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
@@ -644,9 +645,9 @@ public class Analysis
         return resolvedFunctions.get(NodeRef.of(node)).getFunction();
     }
 
-    public void addResolvedFunction(Expression node, ResolvedFunction function, String authorization)
+    public void addResolvedFunction(Expression node, ResolvedFunction function, String authorization, ClauseInfo clauseInfo)
     {
-        resolvedFunctions.put(NodeRef.of(node), new RoutineEntry(function, authorization));
+        resolvedFunctions.put(NodeRef.of(node), new RoutineEntry(function, authorization, clauseInfo));
     }
 
     public Set<NodeRef<Expression>> getColumnReferences()
@@ -1136,7 +1137,7 @@ public class Analysis
     public List<RoutineInfo> getRoutines()
     {
         return resolvedFunctions.entrySet().stream()
-                .map(entry -> new RoutineInfo(entry.getValue().function.getSignature().getName(), entry.getValue().getAuthorization()))
+                .map(entry -> new RoutineInfo(entry.getValue().function.getSignature().getName(), entry.getValue().getAuthorization(), entry.getValue().getClauseInfo()))
                 .collect(toImmutableList());
     }
 
@@ -1959,11 +1960,13 @@ public class Analysis
     {
         private final ResolvedFunction function;
         private final String authorization;
+        private final ClauseInfo clauseInfo;
 
-        public RoutineEntry(ResolvedFunction function, String authorization)
+        public RoutineEntry(ResolvedFunction function, String authorization, ClauseInfo clauseInfo)
         {
             this.function = requireNonNull(function, "function is null");
             this.authorization = requireNonNull(authorization, "authorization is null");
+            this.clauseInfo = requireNonNull(clauseInfo, "clauseInfo is null");
         }
 
         public ResolvedFunction getFunction()
@@ -1974,6 +1977,11 @@ public class Analysis
         public String getAuthorization()
         {
             return authorization;
+        }
+
+        public ClauseInfo getClauseInfo()
+        {
+            return clauseInfo;
         }
     }
 

@@ -189,6 +189,10 @@
                                     <code>java.method.addedToInterface</code>
                                     <new>method io.trino.spi.block.BlockBuilder io.trino.spi.block.BlockBuilder::newBlockBuilderLike(int, io.trino.spi.block.BlockBuilderStatus)</new>
                                 </item>
+                                <item>
+                                    <code>java.annotation.removed</code>
+                                    <old>method void io.trino.spi.eventlistener.RoutineInfo::&lt;init>(java.lang.String, java.lang.String)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

@@ -16,6 +16,8 @@ package io.trino.spi.eventlistener;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -25,14 +27,34 @@ public class RoutineInfo
 {
     private final String routine;
     private final String authorization;
+    private final Optional<ClauseInfo> clauseInfo;
+
+    @Deprecated
+    public RoutineInfo(String routine, String authorization)
+    {
+        this(
+                routine,
+                authorization,
+                Optional.empty());
+    }
+
+    public RoutineInfo(String routine, String authorization, ClauseInfo clauseInfo)
+    {
+        this(
+                routine,
+                authorization,
+                Optional.of(requireNonNull(clauseInfo, "clauseInfo is null")));
+    }
 
     @JsonCreator
     public RoutineInfo(
             @JsonProperty("routine") String routine,
-            @JsonProperty("authorization") String authorization)
+            @JsonProperty("authorization") String authorization,
+            @JsonProperty("clauseInfo") Optional<ClauseInfo> clauseInfo)
     {
         this.routine = requireNonNull(routine, "routine is null");
         this.authorization = requireNonNull(authorization, "authorization is null");
+        this.clauseInfo = requireNonNull(clauseInfo, "clauseInfo is null");
     }
 
     @JsonProperty
@@ -45,5 +67,11 @@ public class RoutineInfo
     public String getAuthorization()
     {
         return authorization;
+    }
+
+    @JsonProperty
+    public Optional<ClauseInfo> getClauseInfo()
+    {
+        return clauseInfo;
     }
 }

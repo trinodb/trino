@@ -68,6 +68,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
+import io.trino.spi.eventlistener.ClauseInfo;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.ptf.Argument;
@@ -1441,7 +1442,7 @@ class StatementAnalyzer
             for (Expression expression : node.getExpressions()) {
                 List<Field> expressionOutputs = new ArrayList<>();
 
-                ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, createScope(scope));
+                ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, createScope(scope), ClauseInfo.UNNEST);
                 Type expressionType = expressionAnalysis.getType(expression);
                 if (expressionType instanceof ArrayType) {
                     Type elementType = ((ArrayType) expressionType).getElementType();
@@ -1855,7 +1856,7 @@ class StatementAnalyzer
 
             if (addRowIdColumn) {
                 FieldReference reference = new FieldReference(outputFields.size() - 1);
-                analyzeExpression(reference, tableScope);
+                analyzeExpression(reference, tableScope, ClauseInfo.FROM);
                 analysis.setRowIdField(table, reference);
             }
 
@@ -2161,7 +2162,7 @@ class StatementAnalyzer
             for (Expression expression : relation.getPartitionBy()) {
                 // The PARTITION BY clause is a list of columns of the row pattern input table.
                 validateAndGetInputField(expression, inputScope);
-                Type type = analyzeExpression(expression, inputScope).getType(expression);
+                Type type = analyzeExpression(expression, inputScope, ClauseInfo.PATTERN_RECOGNITION).getType(expression);
                 if (!type.isComparable()) {
                     throw semanticException(TYPE_MISMATCH, expression, "%s is not comparable, and therefore cannot be used in PARTITION BY", type);
                 }
@@ -2172,7 +2173,7 @@ class StatementAnalyzer
                 // The ORDER BY clause is a list of columns of the row pattern input table.
                 Expression expression = sortItem.getSortKey();
                 validateAndGetInputField(expression, inputScope);
-                Type type = analyzeExpression(expression, inputScope).getType(sortItem.getSortKey());
+                Type type = analyzeExpression(expression, inputScope, ClauseInfo.PATTERN_RECOGNITION).getType(sortItem.getSortKey());
                 if (!type.isOrderable()) {
                     throw semanticException(TYPE_MISMATCH, sortItem, "%s is not orderable, and therefore cannot be used in ORDER BY", type);
                 }
@@ -2665,7 +2666,7 @@ class StatementAnalyzer
 
                 // Need to register coercions in case when join criteria requires coercion (e.g. join on char(1) = char(2))
                 // Correlations are only currently support in the join criteria for INNER joins
-                ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, output, node.getType() == INNER ? CorrelationSupport.ALLOWED : CorrelationSupport.DISALLOWED);
+                ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, output, node.getType() == INNER ? CorrelationSupport.ALLOWED : CorrelationSupport.DISALLOWED, ClauseInfo.JOIN);
                 Type clauseType = expressionAnalysis.getType(expression);
                 if (!clauseType.equals(BOOLEAN)) {
                     if (!clauseType.equals(UNKNOWN)) {
@@ -2746,7 +2747,7 @@ class StatementAnalyzer
             ImmutableList.Builder<Type> expressionTypesBuilder = ImmutableList.builder();
             for (UpdateAssignment assignment : update.getAssignments()) {
                 Expression expression = assignment.getValue();
-                ExpressionAnalysis analysis = analyzeExpression(expression, tableScope);
+                ExpressionAnalysis analysis = analyzeExpression(expression, tableScope, ClauseInfo.UPDATE);
                 analysesBuilder.add(analysis);
                 expressionTypesBuilder.add(analysis.getType(expression));
             }
@@ -2871,7 +2872,7 @@ class StatementAnalyzer
             // Analyze all expressions in the Merge node
 
             Expression mergePredicate = merge.getPredicate();
-            ExpressionAnalysis predicateAnalysis = analyzeExpression(mergePredicate, joinScope, CorrelationSupport.DISALLOWED);
+            ExpressionAnalysis predicateAnalysis = analyzeExpression(mergePredicate, joinScope, CorrelationSupport.DISALLOWED, ClauseInfo.MERGE);
             Type mergePredicateType = predicateAnalysis.getType(mergePredicate);
             if (!typeCoercion.canCoerce(mergePredicateType, BOOLEAN)) {
                 throw semanticException(TYPE_MISMATCH, mergePredicate, "The MERGE predicate must evaluate to a boolean: actual type %s", mergePredicateType);
@@ -2905,7 +2906,7 @@ class StatementAnalyzer
 
                 if (operation.getExpression().isPresent()) {
                     Expression predicate = operation.getExpression().get();
-                    analysis.recordSubqueries(merge, analyzeExpression(predicate, joinScope));
+                    analysis.recordSubqueries(merge, analyzeExpression(predicate, joinScope, ClauseInfo.MERGE));
                     Type predicateType = analysis.getType(predicate);
 
                     if (!predicateType.equals(BOOLEAN)) {
@@ -2922,7 +2923,7 @@ class StatementAnalyzer
                 for (int index = 0; index < caseColumnNames.size(); index++) {
                     String columnName = caseColumnNames.get(index);
                     Expression expression = setExpressions.get(index);
-                    ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, joinScope);
+                    ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, joinScope, ClauseInfo.MERGE);
                     analysis.recordSubqueries(merge, expressionAnalysis);
                     Type targetType = requireNonNull(dataColumnTypes.get(columnName));
                     setColumnTypesBuilder.add(targetType);
@@ -3132,7 +3133,7 @@ class StatementAnalyzer
             checkState(node.getRows().size() >= 1);
 
             List<Type> rowTypes = node.getRows().stream()
-                    .map(row -> analyzeExpression(row, createScope(scope)).getType(row))
+                    .map(row -> analyzeExpression(row, createScope(scope), ClauseInfo.VALUES).getType(row))
                     .map(type -> {
                         if (type instanceof RowType) {
                             return type;
@@ -3407,7 +3408,7 @@ class StatementAnalyzer
                     throw semanticException(NESTED_WINDOW, windowExpressions.get(0), "HAVING clause cannot contain window functions or row pattern measures");
                 }
 
-                ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope);
+                ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope, ClauseInfo.HAVING);
                 analysis.recordSubqueries(node, expressionAnalysis);
 
                 Type predicateType = expressionAnalysis.getType(predicate);
@@ -3483,7 +3484,7 @@ class StatementAnalyzer
                             }
                             else {
                                 verifyNoAggregateWindowOrGroupingFunctions(session, metadata, column, "GROUP BY clause");
-                                analyzeExpression(column, scope);
+                                analyzeExpression(column, scope, ClauseInfo.GROUP_BY);
                             }
 
                             ResolvedField field = analysis.getColumnReferenceFields().get(NodeRef.of(column));
@@ -3491,7 +3492,7 @@ class StatementAnalyzer
                                 sets.add(ImmutableList.of(ImmutableSet.of(field.getFieldId())));
                             }
                             else {
-                                analysis.recordSubqueries(node, analyzeExpression(column, scope));
+                                analysis.recordSubqueries(node, analyzeExpression(column, scope, ClauseInfo.GROUP_BY));
                                 complexExpressions.add(column);
                             }
 
@@ -3500,7 +3501,7 @@ class StatementAnalyzer
                     }
                     else {
                         for (Expression column : groupingElement.getExpressions()) {
-                            analyzeExpression(column, scope);
+                            analyzeExpression(column, scope, ClauseInfo.GROUP_BY);
                             if (!analysis.getColumnReferences().contains(NodeRef.of(column))) {
                                 throw semanticException(INVALID_COLUMN_REFERENCE, column, "GROUP BY expression must be a column reference: %s", column);
                             }
@@ -3805,7 +3806,7 @@ class StatementAnalyzer
                     checkState(field.getRelationAlias().isPresent(), "missing relation alias");
                     fieldExpression = new DereferenceExpression(DereferenceExpression.from(field.getRelationAlias().get()), new Identifier(field.getName().get()));
                 }
-                analyzeExpression(fieldExpression, scope);
+                analyzeExpression(fieldExpression, scope, ClauseInfo.SELECT);
                 outputExpressionBuilder.add(fieldExpression);
                 selectExpressionBuilder.add(new SelectExpression(fieldExpression, Optional.empty()));
 
@@ -3843,7 +3844,7 @@ class StatementAnalyzer
         {
             ImmutableList.Builder<Field> itemOutputFieldBuilder = ImmutableList.builder();
 
-            ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, scope);
+            ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, scope, ClauseInfo.SELECT);
             Type type = expressionAnalysis.getType(expression);
             if (!(type instanceof RowType)) {
                 throw semanticException(TYPE_MISMATCH, node.getSelect(), "expected expression of type Row");
@@ -3858,7 +3859,7 @@ class StatementAnalyzer
             for (int i = 0; i < referencedFieldsCount; i++) {
                 Expression outputExpression = new SubscriptExpression(expression, new LongLiteral("" + (i + 1)));
                 outputExpressionBuilder.add(outputExpression);
-                analyzeExpression(outputExpression, scope);
+                analyzeExpression(outputExpression, scope, ClauseInfo.SELECT);
                 unfoldedExpressionsBuilder.add(outputExpression);
 
                 Type outputExpressionType = type.getTypeParameters().get(i);
@@ -3884,7 +3885,7 @@ class StatementAnalyzer
                 ImmutableList.Builder<SelectExpression> selectExpressionBuilder)
         {
             Expression expression = singleColumn.getExpression();
-            ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, scope);
+            ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, scope, ClauseInfo.SELECT);
             analysis.recordSubqueries(node, expressionAnalysis);
             outputExpressionBuilder.add(expression);
             selectExpressionBuilder.add(new SelectExpression(expression, Optional.empty()));
@@ -3903,7 +3904,7 @@ class StatementAnalyzer
         {
             verifyNoAggregateWindowOrGroupingFunctions(session, metadata, predicate, "WHERE clause");
 
-            ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope);
+            ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope, ClauseInfo.WHERE);
             analysis.recordSubqueries(node, expressionAnalysis);
 
             Type predicateType = expressionAnalysis.getType(predicate);
@@ -4070,7 +4071,7 @@ class StatementAnalyzer
             }
         }
 
-        private ExpressionAnalysis analyzeExpression(Expression expression, Scope scope)
+        private ExpressionAnalysis analyzeExpression(Expression expression, Scope scope, ClauseInfo clauseInfo)
         {
             return ExpressionAnalyzer.analyzeExpression(
                     session,
@@ -4081,10 +4082,11 @@ class StatementAnalyzer
                     analysis,
                     expression,
                     warningCollector,
-                    correlationSupport);
+                    correlationSupport,
+                    clauseInfo);
         }
 
-        private ExpressionAnalysis analyzeExpression(Expression expression, Scope scope, CorrelationSupport correlationSupport)
+        private ExpressionAnalysis analyzeExpression(Expression expression, Scope scope, CorrelationSupport correlationSupport, ClauseInfo clauseInfo)
         {
             return ExpressionAnalyzer.analyzeExpression(
                     session,
@@ -4095,7 +4097,8 @@ class StatementAnalyzer
                     analysis,
                     expression,
                     warningCollector,
-                    correlationSupport);
+                    correlationSupport,
+                    clauseInfo);
         }
 
         private void analyzeRowFilter(String currentIdentity, Table table, QualifiedObjectName name, Scope scope, ViewExpression filter)
@@ -4127,7 +4130,8 @@ class StatementAnalyzer
                         analysis,
                         expression,
                         warningCollector,
-                        correlationSupport);
+                        correlationSupport,
+                        ClauseInfo.ROW_FILTER);
             }
             catch (TrinoException e) {
                 throw new TrinoException(e::getErrorCode, extractLocation(table), format("Invalid row filter for '%s': %s", name, e.getRawMessage()), e);
@@ -4182,7 +4186,8 @@ class StatementAnalyzer
                         analysis,
                         expression,
                         warningCollector,
-                        correlationSupport);
+                        correlationSupport,
+                        ClauseInfo.COLUMN_MASK);
             }
             catch (TrinoException e) {
                 throw new TrinoException(e::getErrorCode, extractLocation(table), format("Invalid column mask for '%s.%s': %s", tableName, column, e.getRawMessage()), e);
@@ -4218,7 +4223,7 @@ class StatementAnalyzer
             for (int fieldIndex = 0; fieldIndex < scope.getRelationType().getAllFieldCount(); fieldIndex++) {
                 FieldReference expression = new FieldReference(fieldIndex);
                 builder.add(expression);
-                analyzeExpression(expression, scope);
+                analyzeExpression(expression, scope, ClauseInfo.SELECT);
             }
             return builder.build();
         }
@@ -4612,7 +4617,8 @@ class StatementAnalyzer
                         analysis,
                         expression,
                         WarningCollector.NOOP,
-                        correlationSupport);
+                        correlationSupport,
+                        ClauseInfo.ORDER_BY);
                 analysis.recordSubqueries(node, expressionAnalysis);
 
                 Type type = analysis.getType(expression);
@@ -4709,12 +4715,12 @@ class StatementAnalyzer
         private OptionalLong analyzeParameterAsRowCount(Parameter parameter, Scope scope, String context)
         {
             if (analysis.isDescribe()) {
-                analyzeExpression(parameter, scope);
+                analyzeExpression(parameter, scope, ClauseInfo.SELECT);
                 analysis.addCoercion(parameter, BIGINT, false);
                 return OptionalLong.empty();
             }
             // validate parameter index
-            analyzeExpression(parameter, scope);
+            analyzeExpression(parameter, scope, ClauseInfo.SELECT);
             Expression providedValue = analysis.getParameters().get(NodeRef.of(parameter));
             Object value;
             try {
@@ -4809,7 +4815,7 @@ class StatementAnalyzer
             if (version.isEmpty()) {
                 return tableVersion;
             }
-            ExpressionAnalysis expressionAnalysis = analyzeExpression(version.get(), scope.get());
+            ExpressionAnalysis expressionAnalysis = analyzeExpression(version.get(), scope.get(), ClauseInfo.FROM);
             analysis.recordSubqueries(table, expressionAnalysis);
 
             // Once the range value is analyzed, we can evaluate it

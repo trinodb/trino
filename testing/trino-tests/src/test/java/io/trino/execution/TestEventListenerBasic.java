@@ -34,6 +34,7 @@ import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.eventlistener.ClauseInfo;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
 import io.trino.spi.eventlistener.OutputColumnMetadata;
@@ -332,7 +333,7 @@ public class TestEventListenerBasic
     public void testReferencedTablesAndRoutines()
             throws Exception
     {
-        QueryEvents queryEvents = runQueryAndWaitForEvents("SELECT sum(linenumber) FROM lineitem").getQueryEvents();
+        QueryEvents queryEvents = runQueryAndWaitForEvents("SELECT sum(linenumber) FROM lineitem WHERE floor(linenumber) = 3 HAVING sum(linenumber) > 1").getQueryEvents();
 
         QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
 
@@ -352,11 +353,28 @@ public class TestEventListenerBasic
         assertTrue(column.getMasks().isEmpty());
 
         List<RoutineInfo> routines = event.getMetadata().getRoutines();
-        assertEquals(tables.size(), 1);
+        assertEquals(routines.size(), 3);
 
-        RoutineInfo routine = routines.get(0);
-        assertEquals(routine.getRoutine(), "sum");
-        assertEquals(routine.getAuthorization(), "user");
+        List<RoutineInfo> selectRoutines = routines.stream()
+                .filter(routine -> Optional.of(ClauseInfo.SELECT).equals(routine.getClauseInfo()))
+                .toList();
+        assertEquals(selectRoutines.size(), 1);
+        assertEquals(selectRoutines.get(0).getRoutine(), "sum");
+        assertEquals(selectRoutines.get(0).getAuthorization(), "user");
+
+        List<RoutineInfo> whereRoutines = routines.stream()
+                .filter(routine -> Optional.of(ClauseInfo.WHERE).equals(routine.getClauseInfo()))
+                .toList();
+        assertEquals(whereRoutines.size(), 1);
+        assertEquals(whereRoutines.get(0).getRoutine(), "floor");
+        assertEquals(whereRoutines.get(0).getAuthorization(), "user");
+
+        List<RoutineInfo> havingRoutines = routines.stream()
+                .filter(routine -> Optional.of(ClauseInfo.HAVING).equals(routine.getClauseInfo()))
+                .toList();
+        assertEquals(havingRoutines.size(), 1);
+        assertEquals(havingRoutines.get(0).getRoutine(), "sum");
+        assertEquals(havingRoutines.get(0).getAuthorization(), "user");
     }
 
     @Test

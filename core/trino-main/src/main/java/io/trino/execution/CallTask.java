@@ -26,6 +26,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.eventlistener.ClauseInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
@@ -202,7 +203,7 @@ public class CallTask
         }
 
         accessControl.checkCanExecuteProcedure(session.toSecurityContext(), procedureName);
-        stateMachine.setRoutines(ImmutableList.of(new RoutineInfo(procedureName.getObjectName(), session.getUser())));
+        stateMachine.setRoutines(ImmutableList.of(new RoutineInfo(procedureName.getObjectName(), session.getUser(), ClauseInfo.CALL)));
 
         try {
             procedure.getMethodHandle().invokeWithArguments(arguments);

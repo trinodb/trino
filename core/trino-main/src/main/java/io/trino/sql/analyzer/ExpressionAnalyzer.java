@@ -34,6 +34,7 @@ import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
+import io.trino.spi.eventlistener.ClauseInfo;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
@@ -3379,7 +3380,7 @@ public class ExpressionAnalyzer
         ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, TypeProvider.empty(), warningCollector);
         analyzer.analyze(expression, scope, labels);
 
-        updateAnalysis(analysis, analyzer, session, accessControl);
+        updateAnalysis(analysis, analyzer, session, accessControl, ClauseInfo.PATTERN_RECOGNITION);
 
         return new ExpressionAnalysis(
                 analyzer.getExpressionTypes(),
@@ -3435,12 +3436,13 @@ public class ExpressionAnalyzer
             Analysis analysis,
             Expression expression,
             WarningCollector warningCollector,
-            CorrelationSupport correlationSupport)
+            CorrelationSupport correlationSupport,
+            ClauseInfo clauseInfo)
     {
         ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, TypeProvider.empty(), warningCollector);
         analyzer.analyze(expression, scope, correlationSupport);
 
-        updateAnalysis(analysis, analyzer, session, accessControl);
+        updateAnalysis(analysis, analyzer, session, accessControl, clauseInfo);
         analysis.addExpressionFields(expression, analyzer.getSourceFields());
 
         return new ExpressionAnalysis(
@@ -3470,7 +3472,7 @@ public class ExpressionAnalyzer
         ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, TypeProvider.empty(), warningCollector);
         analyzer.analyzeWindow(window, scope, originalNode, correlationSupport);
 
-        updateAnalysis(analysis, analyzer, session, accessControl);
+        updateAnalysis(analysis, analyzer, session, accessControl, ClauseInfo.WINDOW);
 
         return new ExpressionAnalysis(
                 analyzer.getExpressionTypes(),
@@ -3484,7 +3486,7 @@ public class ExpressionAnalyzer
                 analyzer.getWindowFunctions());
     }
 
-    private static void updateAnalysis(Analysis analysis, ExpressionAnalyzer analyzer, Session session, AccessControl accessControl)
+    private static void updateAnalysis(Analysis analysis, ExpressionAnalyzer analyzer, Session session, AccessControl accessControl, ClauseInfo clauseInfo)
     {
         analysis.addTypes(analyzer.getExpressionTypes());
         analysis.addCoercions(
@@ -3493,7 +3495,7 @@ public class ExpressionAnalyzer
                 analyzer.getSortKeyCoercionsForFrameBoundCalculation(),
                 analyzer.getSortKeyCoercionsForFrameBoundComparison());
         analysis.addFrameBoundCalculations(analyzer.getFrameBoundCalculations());
-        analyzer.getResolvedFunctions().forEach((key, value) -> analysis.addResolvedFunction(key.getNode(), value, session.getUser()));
+        analyzer.getResolvedFunctions().forEach((key, value) -> analysis.addResolvedFunction(key.getNode(), value, session.getUser(), clauseInfo));
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
         analysis.addTableColumnReferences(accessControl, session.getIdentity(), analyzer.getTableColumnReferences());
