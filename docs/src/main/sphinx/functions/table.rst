@@ -54,7 +54,7 @@ There are two conventions of passing arguments to a table function:
 
 - **Arguments passed by name**::
 
-    SELECT * FROM TABLE(my_function("row_count" => 100, "column_count" => 1))
+    SELECT * FROM TABLE(my_function(row_count => 100, column_count => 1))
 
 In this convention, you can pass the arguments in arbitrary order. Arguments
 declared with default values can be skipped. Argument names are resolved
@@ -75,6 +75,6 @@ which is compatible with the declared argument type. You can also use
 parameters in arguments::
 
     PREPARE stmt FROM
-    SELECT * FROM TABLE(my_function("row_count" => ? + 1, "column_count" => ?));
+    SELECT * FROM TABLE(my_function(row_count => ? + 1, column_count => ?));
 
     EXECUTE stmt USING 100, 1;
