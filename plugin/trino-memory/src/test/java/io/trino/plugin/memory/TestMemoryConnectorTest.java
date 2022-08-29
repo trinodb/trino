@@ -90,7 +90,6 @@ public class TestMemoryConnectorTest
                 return false;
 
             case SUPPORTS_ADD_COLUMN:
-            case SUPPORTS_DROP_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
                 return false;
 
