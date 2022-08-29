@@ -162,7 +162,7 @@ public class LocalDynamicFiltersCollector
             this.futuresLeft = predicateFutures.size();
             this.isBlocked = predicateFutures.isEmpty() ? NOT_BLOCKED : new CompletableFuture<>();
             this.currentPredicate = TupleDomain.all();
-            predicateFutures.stream().forEach(future -> addSuccessCallback(future, this::update, directExecutor()));
+            predicateFutures.forEach(future -> addSuccessCallback(future, this::update, directExecutor()));
         }
 
         private void update(TupleDomain<ColumnHandle> predicate)
