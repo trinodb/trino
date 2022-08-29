@@ -203,7 +203,7 @@ public final class HiveTestUtils
     public static Set<HiveFileWriterFactory> getDefaultHiveFileWriterFactories(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
     {
         return ImmutableSet.<HiveFileWriterFactory>builder()
-                .add(new RcFileFileWriterFactory(hdfsEnvironment, TESTING_TYPE_MANAGER, new NodeVersion("test_version"), hiveConfig, new FileFormatDataSourceStats()))
+                .add(new RcFileFileWriterFactory(hdfsEnvironment, TESTING_TYPE_MANAGER, new NodeVersion("test_version"), hiveConfig))
                 .add(getDefaultOrcFileWriterFactory(hdfsEnvironment))
                 .build();
     }

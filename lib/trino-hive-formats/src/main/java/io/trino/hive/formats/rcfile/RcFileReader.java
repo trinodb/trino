@@ -15,14 +15,10 @@ package io.trino.hive.formats.rcfile;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.BasicSliceInput;
-import io.airlift.slice.ChunkedSliceInput;
-import io.airlift.slice.ChunkedSliceInput.BufferReference;
-import io.airlift.slice.ChunkedSliceInput.SliceLoader;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
+import io.trino.filesystem.TrinoInputFile;
+import io.trino.hive.formats.DataSeekableInputStream;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.compression.ValueDecompressor;
 import io.trino.hive.formats.rcfile.RcFileWriteValidation.WriteChecksum;
@@ -34,7 +30,6 @@ import io.trino.spi.type.Type;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -71,9 +66,10 @@ public class RcFileReader
 
     private static final String COLUMN_COUNT_METADATA_KEY = "hive.io.rcfile.column.number";
 
-    private final RcFileDataSource dataSource;
+    private final String location;
+    private final long fileSize;
     private final Map<Integer, Type> readColumns;
-    private final ChunkedSliceInput input;
+    private final DataSeekableInputStream input;
     private final long length;
 
     private final byte version;
@@ -105,47 +101,47 @@ public class RcFileReader
     private final Optional<WriteChecksumBuilder> writeChecksumBuilder;
 
     public RcFileReader(
-            RcFileDataSource dataSource,
+            TrinoInputFile inputFile,
             RcFileEncoding encoding,
             Map<Integer, Type> readColumns,
             long offset,
-            long length,
-            DataSize bufferSize)
+            long length)
             throws IOException
     {
-        this(dataSource, encoding, readColumns, offset, length, bufferSize, Optional.empty());
+        this(inputFile, encoding, readColumns, offset, length, Optional.empty());
     }
 
     private RcFileReader(
-            RcFileDataSource dataSource,
+            TrinoInputFile inputFile,
             RcFileEncoding encoding,
             Map<Integer, Type> readColumns,
             long offset,
             long length,
-            DataSize bufferSize,
             Optional<RcFileWriteValidation> writeValidation)
             throws IOException
     {
-        this.dataSource = requireNonNull(dataSource, "dataSource is null");
+        requireNonNull(inputFile, "inputFile is null");
+        this.location = inputFile.location();
+        this.fileSize = inputFile.length();
         this.readColumns = ImmutableMap.copyOf(requireNonNull(readColumns, "readColumns is null"));
-        this.input = new ChunkedSliceInput(new DataSourceSliceLoader(dataSource), toIntExact(bufferSize.toBytes()));
+        this.input = new DataSeekableInputStream(inputFile.newInput().inputStream());
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         this.writeChecksumBuilder = writeValidation.map(validation -> WriteChecksumBuilder.createWriteChecksumBuilder(readColumns));
 
         verify(offset >= 0, "offset is negative");
-        verify(offset < dataSource.getSize(), "offset is greater than data size");
+        verify(offset < inputFile.length(), "offset is greater than data size");
         verify(length >= 1, "length must be at least 1");
         this.length = length;
         this.end = offset + length;
-        verify(end <= dataSource.getSize(), "offset plus length is greater than data size");
+        verify(end <= fileSize, "offset plus length is greater than data size");
 
         // read header
         Slice magic = input.readSlice(RCFILE_MAGIC.length());
         boolean compressed;
         if (RCFILE_MAGIC.equals(magic)) {
             version = input.readByte();
-            verify(version <= CURRENT_VERSION, "RCFile version %s not supported: %s", version, dataSource);
+            verify(version <= CURRENT_VERSION, "RCFile version %s not supported: %s", version, inputFile.location());
             validateWrite(validation -> validation.getVersion() == version, "Unexpected file version");
             compressed = input.readBoolean();
         }
@@ -154,23 +150,23 @@ public class RcFileReader
 
             // first version of RCFile used magic SEQ with version 6
             byte sequenceFileVersion = input.readByte();
-            verify(sequenceFileVersion == SEQUENCE_FILE_VERSION, "File %s is a SequenceFile not an RCFile", dataSource);
+            verify(sequenceFileVersion == SEQUENCE_FILE_VERSION, "File %s is a SequenceFile not an RCFile", inputFile.location());
 
             // this is the first version of RCFile
             this.version = FIRST_VERSION;
 
             Slice keyClassName = readLengthPrefixedString(input);
             Slice valueClassName = readLengthPrefixedString(input);
-            verify(RCFILE_KEY_BUFFER_NAME.equals(keyClassName) && RCFILE_VALUE_BUFFER_NAME.equals(valueClassName), "File %s is a SequenceFile not an RCFile", dataSource);
+            verify(RCFILE_KEY_BUFFER_NAME.equals(keyClassName) && RCFILE_VALUE_BUFFER_NAME.equals(valueClassName), "File %s is a SequenceFile not an RCFile", inputFile);
             compressed = input.readBoolean();
 
             // RC file is never block compressed
             if (input.readBoolean()) {
-                throw corrupt("File %s is a SequenceFile not an RCFile", dataSource);
+                throw corrupt("File %s is a SequenceFile not an RCFile", inputFile.location());
             }
         }
         else {
-            throw corrupt("File %s is not an RCFile", dataSource);
+            throw corrupt("File %s is not an RCFile", inputFile.location());
         }
 
         // setup the compression codec
@@ -186,8 +182,8 @@ public class RcFileReader
 
         // read metadata
         int metadataEntries = Integer.reverseBytes(input.readInt());
-        verify(metadataEntries >= 0, "Invalid metadata entry count %s in RCFile %s", metadataEntries, dataSource);
-        verify(metadataEntries <= MAX_METADATA_ENTRIES, "Too many metadata entries (%s) in RCFile %s", metadataEntries, dataSource);
+        verify(metadataEntries >= 0, "Invalid metadata entry count %s in RCFile %s", metadataEntries, inputFile.location());
+        verify(metadataEntries <= MAX_METADATA_ENTRIES, "Too many metadata entries (%s) in RCFile %s", metadataEntries, inputFile.location());
         ImmutableMap.Builder<String, String> metadataBuilder = ImmutableMap.builder();
         for (int i = 0; i < metadataEntries; i++) {
             metadataBuilder.put(readLengthPrefixedString(input).toStringUtf8(), readLengthPrefixedString(input).toStringUtf8());
@@ -197,16 +193,16 @@ public class RcFileReader
 
         // get column count from metadata
         String columnCountString = metadata.get(COLUMN_COUNT_METADATA_KEY);
-        verify(columnCountString != null, "Column count not specified in metadata RCFile %s", dataSource);
+        verify(columnCountString != null, "Column count not specified in metadata RCFile %s", inputFile.location());
         try {
             columnCount = Integer.parseInt(columnCountString);
         }
         catch (NumberFormatException e) {
-            throw corrupt("Invalid column count %s in RCFile %s", columnCountString, dataSource);
+            throw corrupt("Invalid column count %s in RCFile %s", columnCountString, inputFile.location());
         }
 
         // initialize columns
-        verify(columnCount <= MAX_COLUMN_COUNT, "Too many columns (%s) in RCFile %s", columnCountString, dataSource);
+        verify(columnCount <= MAX_COLUMN_COUNT, "Too many columns (%s) in RCFile %s", columnCountString, inputFile.location());
         columns = new Column[columnCount];
         for (Entry<Integer, Type> entry : readColumns.entrySet()) {
             if (entry.getKey() < columnCount) {
@@ -225,7 +221,12 @@ public class RcFileReader
         // of the file.  In that case, the reader owns all row groups up to the first sync point.
         if (offset != 0) {
             // if the specified file region does not contain the start of a sync sequence, this call will close the reader
-            seekToFirstRowGroupInRange(offset, length);
+            long startOfSyncSequence = RcFileDecoderUtils.findFirstSyncPosition(inputFile, offset, length, syncFirst, syncSecond);
+            if (startOfSyncSequence < 0) {
+                closeQuietly();
+                return;
+            }
+            input.seek(startOfSyncSequence);
         }
     }
 
@@ -251,7 +252,7 @@ public class RcFileReader
 
     public long getBytesRead()
     {
-        return dataSource.getReadBytes();
+        return input.getReadBytes();
     }
 
     public long getRowsRead()
@@ -261,7 +262,7 @@ public class RcFileReader
 
     public long getReadTimeNanos()
     {
-        return dataSource.getReadTimeNanos();
+        return input.getReadTimeNanos();
     }
 
     public Slice getSync()
@@ -320,18 +321,18 @@ public class RcFileReader
         }
 
         // are we at the end?
-        if (input.remaining() == 0) {
+        if (fileSize - input.getPos() == 0) {
             close();
             return -1;
         }
 
         // read uncompressed size of row group (which is useless information)
-        verify(input.remaining() >= SIZE_OF_INT, "RCFile truncated %s", dataSource.getId());
+        verify(fileSize - input.getPos() >= SIZE_OF_INT, "RCFile truncated %s", location);
         int unusedRowGroupSize = Integer.reverseBytes(input.readInt());
 
         // read sequence sync if present
         if (unusedRowGroupSize == -1) {
-            verify(input.remaining() >= SIZE_OF_LONG + SIZE_OF_LONG + SIZE_OF_INT, "RCFile truncated %s", dataSource.getId());
+            verify(fileSize - input.getPos() >= SIZE_OF_LONG + SIZE_OF_LONG + SIZE_OF_INT, "RCFile truncated %s", length);
 
             // The full sync sequence is "0xFFFFFFFF syncFirst syncSecond".  If
             // this sequence begins in our segment, we must continue process until the
@@ -339,12 +340,12 @@ public class RcFileReader
             // We have already read the 0xFFFFFFFF above, so we must test the
             // end condition back 4 bytes.
             // NOTE: this decision must agree with RcFileDecoderUtils.findFirstSyncPosition
-            if (input.position() - SIZE_OF_INT >= end) {
+            if (input.getPos() - SIZE_OF_INT >= end) {
                 close();
                 return -1;
             }
 
-            verify(syncFirst == input.readLong() && syncSecond == input.readLong(), "Invalid sync in RCFile %s", dataSource.getId());
+            verify(syncFirst == input.readLong() && syncSecond == input.readLong(), "Invalid sync in RCFile %s", location);
 
             // read the useless uncompressed length
             unusedRowGroupSize = Integer.reverseBytes(input.readInt());
@@ -362,7 +363,7 @@ public class RcFileReader
         }
         // use exact sized compressed header to avoid problems where compression algorithms over read
         Slice compressedHeader = compressedHeaderBuffer.slice(0, compressedHeaderSize);
-        input.readBytes(compressedHeader);
+        input.readFully(compressedHeader);
 
         // decompress row group header
         Slice header;
@@ -377,7 +378,7 @@ public class RcFileReader
             header = buffer;
         }
         else {
-            verify(compressedHeaderSize == uncompressedHeaderSize, "Invalid RCFile %s", dataSource.getId());
+            verify(compressedHeaderSize == uncompressedHeaderSize, "Invalid RCFile %s", location);
             header = compressedHeader;
         }
         BasicSliceInput headerInput = header.getInput();
@@ -395,7 +396,7 @@ public class RcFileReader
             totalCompressedDataSize += compressedDataSize;
             int uncompressedDataSize = toIntExact(RcFileDecoderUtils.readVInt(headerInput));
             if (decompressor == null && compressedDataSize != uncompressedDataSize) {
-                throw corrupt("Invalid RCFile %s", dataSource.getId());
+                throw corrupt("Invalid RCFile %s", location);
             }
 
             int lengthsSize = toIntExact(RcFileDecoderUtils.readVInt(headerInput));
@@ -434,20 +435,9 @@ public class RcFileReader
         return columns[columnIndex].readBlock(rowGroupPosition, currentChunkRowCount);
     }
 
-    public RcFileDataSourceId getId()
+    public String getFileLocation()
     {
-        return dataSource.getId();
-    }
-
-    private void seekToFirstRowGroupInRange(long offset, long length)
-            throws IOException
-    {
-        long startOfSyncSequence = RcFileDecoderUtils.findFirstSyncPosition(dataSource, offset, length, syncFirst, syncSecond);
-        if (startOfSyncSequence < 0) {
-            closeQuietly();
-            return;
-        }
-        input.setPosition(startOfSyncSequence);
+        return location;
     }
 
     private void closeQuietly()
@@ -459,8 +449,8 @@ public class RcFileReader
         }
     }
 
-    private Slice readLengthPrefixedString(SliceInput in)
-            throws RcFileCorruptionException
+    private Slice readLengthPrefixedString(DataSeekableInputStream in)
+            throws IOException
     {
         int length = toIntExact(RcFileDecoderUtils.readVInt(in));
         verify(length <= MAX_METADATA_STRING_LENGTH, "Metadata string value is too long (%s) in RCFile %s", length, in);
@@ -508,7 +498,7 @@ public class RcFileReader
 
     static void validateFile(
             RcFileWriteValidation writeValidation,
-            RcFileDataSource input,
+            TrinoInputFile inputFile,
             RcFileEncoding encoding,
             List<Type> types)
             throws RcFileCorruptionException
@@ -518,12 +508,11 @@ public class RcFileReader
             readTypes.put(columnIndex, types.get(columnIndex));
         }
         try (RcFileReader rcFileReader = new RcFileReader(
-                input,
+                inputFile,
                 encoding,
                 readTypes.buildOrThrow(),
                 0,
-                input.getSize(),
-                DataSize.of(8, Unit.MEGABYTE),
+                inputFile.length(),
                 Optional.of(writeValidation))) {
             while (rcFileReader.advance() >= 0) {
                 // ignored
@@ -657,75 +646,6 @@ public class RcFileReader
                 compressed = false;
             }
             return dataBuffer;
-        }
-    }
-
-    private static class DataSourceSliceLoader
-            implements SliceLoader<ByteArrayBufferReference>
-    {
-        private final RcFileDataSource dataSource;
-
-        public DataSourceSliceLoader(RcFileDataSource dataSource)
-        {
-            this.dataSource = dataSource;
-        }
-
-        @Override
-        public ByteArrayBufferReference createBuffer(int bufferSize)
-        {
-            return new ByteArrayBufferReference(bufferSize);
-        }
-
-        @Override
-        public long getSize()
-        {
-            return dataSource.getSize();
-        }
-
-        @Override
-        public void load(long position, ByteArrayBufferReference bufferReference, int length)
-        {
-            try {
-                dataSource.readFully(position, bufferReference.getByteBuffer(), 0, length);
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        }
-
-        @Override
-        public void close()
-        {
-            try {
-                dataSource.close();
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        }
-    }
-
-    private static class ByteArrayBufferReference
-            implements BufferReference
-    {
-        private final byte[] byteBuffer;
-        private final Slice sliceBuffer;
-
-        public ByteArrayBufferReference(int size)
-        {
-            byteBuffer = new byte[size];
-            sliceBuffer = Slices.wrappedBuffer(byteBuffer);
-        }
-
-        public byte[] getByteBuffer()
-        {
-            return byteBuffer;
-        }
-
-        @Override
-        public Slice getSlice()
-        {
-            return sliceBuffer;
         }
     }
 }

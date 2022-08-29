@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.airlift.units.DataSize;
+import io.trino.filesystem.memory.MemoryInputFile;
 import io.trino.hive.formats.rcfile.binary.BinaryRcFileEncoding;
 import io.trino.spi.block.Block;
 import org.joda.time.DateTimeZone;
@@ -29,7 +29,6 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
@@ -236,12 +235,11 @@ public class TestRcFileReaderManual
         }
 
         RcFileReader reader = new RcFileReader(
-                new MemoryRcFileDataSource(new RcFileDataSourceId("test"), data),
+                new MemoryInputFile("test", data),
                 new BinaryRcFileEncoding(DateTimeZone.UTC),
                 ImmutableMap.of(0, SMALLINT),
                 offset,
-                length,
-                DataSize.of(8, MEGABYTE));
+                length);
 
         ImmutableList.Builder<Integer> values = ImmutableList.builder();
         while (reader.advance() >= 0) {
