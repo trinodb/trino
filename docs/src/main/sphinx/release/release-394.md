@@ -28,6 +28,7 @@
 * Disallow adding a column with a `NOT NULL` constraint to a table which is not
   empty. ({issue}`13785`)
 * Fix failure when reading Parquet data that contains only null values. ({issue}`9424`)
+* Fix potential failure of unrelated queries after dropping a schema. ({issue}`13810`)
 
 ## Druid connector
 
@@ -44,6 +45,7 @@
 * Add support for a Kerberos credential cache. ({issue}`13482`)
 * Fix failure when reading Parquet data that contains only null values. ({issue}`9424`)
 * Fix failure when the metastore returns duplicated column statistics. ({issue}`13787`)
+* Fix potential failure of unrelated queries after dropping a schema. ({issue}`13810`)
 
 ## Iceberg connector
 
