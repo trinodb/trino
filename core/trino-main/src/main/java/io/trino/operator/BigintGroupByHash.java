@@ -50,7 +50,7 @@ public class BigintGroupByHash
         implements GroupByHash
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(BigintGroupByHash.class).instanceSize();
-    private static final int BATCH_SIZE = 1024;
+    private static final int BATCH_SIZE = 128;
 
     private static final float FILL_RATIO = 0.75f;
     private static final List<Type> TYPES = ImmutableList.of(BIGINT);
@@ -245,10 +245,28 @@ public class BigintGroupByHash
 
         long value = BIGINT.getLong(block, position);
         int hashPosition = getHashPosition(value, mask);
+        return putIfAbsentNotNull(value, hashPosition);
+    }
+
+    private int putIfAbsentNotNull(long value, int hashPosition)
+    {
+        // Make code more friendly for CPU branch prediction by extracting collision branch from empty group branch
+        int groupId = groupIds[hashPosition];
+        if (groupId == -1) {
+            return addNewGroup(hashPosition, value);
+        }
+
+        if (value == values[hashPosition]) {
+            return groupId;
+        }
+
+        // increment position and mask to handle wrap around
+        hashPosition = (hashPosition + 1) & mask;
+        hashCollisions++;
 
         // look for an empty slot or a slot containing this key
         while (true) {
-            int groupId = groupIds[hashPosition];
+            groupId = groupIds[hashPosition];
             if (groupId == -1) {
                 break;
             }
@@ -263,6 +281,236 @@ public class BigintGroupByHash
         }
 
         return addNewGroup(hashPosition, value);
+    }
+
+    private void batchedPutIfAbsentNullable(
+            Block block,
+            BatchPositions batch,
+            long[] groupIds,
+            int groupIdsOffset,
+            boolean groupIdsRequired)
+    {
+        checkArgument(batch.isRange());
+        checkArgument(groupIds.length - groupIdsOffset >= batch.size());
+        checkArgument(block instanceof LongArrayBlock);
+
+        BatchPositions nonNullPositions = batch;
+        if (block.mayHaveNull()) {
+            SplitNullPositionsResult splitNullPositionsResult = splitNullPositions(batch, block);
+            setNullGroupIds(splitNullPositionsResult.nullPositions(), groupIds, groupIdsOffset, groupIdsRequired);
+            nonNullPositions = splitNullPositionsResult.nonNullPositions();
+        }
+
+        long[] blockValues = ((LongArrayBlock) block).getValues();
+        int blockOffset = ((LongArrayBlock) block).getArrayOffset();
+
+        int[] hashPositions = new int[batch.size()];
+        getHashPositions(nonNullPositions, blockValues, blockOffset, hashPositions);
+        getGroupIds(nonNullPositions, hashPositions, groupIds, groupIdsOffset);
+        long[] values = new long[batch.size()];
+        getValues(nonNullPositions, hashPositions, values);
+        BatchPositions nonMatchingPositions = initialMatchPositions(nonNullPositions, blockValues, blockOffset, values, groupIds, groupIdsOffset);
+        putRemainingPositions(nonMatchingPositions, blockValues, blockOffset, hashPositions, groupIds, groupIdsOffset, groupIdsRequired);
+    }
+
+    private SplitNullPositionsResult splitNullPositions(BatchPositions batch, Block block)
+    {
+        checkArgument(batch.isRange());
+
+        int nullPositionCount = 0;
+        int[] nullPositions = new int[batch.size()];
+
+        int nonNullPositionCount = 0;
+        int[] nonNullPositions = new int[batch.size()];
+
+        // batch position == batch index
+        for (int position = 0; position < batch.size(); ++position) {
+            int realPosition = batch.offset() + position;
+            boolean isNull = block.isNull(realPosition);
+
+            nullPositions[nullPositionCount] = position;
+            nullPositionCount += (isNull ? 1 : 0);
+
+            nonNullPositions[nonNullPositionCount] = position;
+            nonNullPositionCount += (isNull ? 0 : 1);
+        }
+
+        return new SplitNullPositionsResult(
+                BatchPositions.list(nullPositions, batch.offset(), nullPositionCount),
+                BatchPositions.list(nonNullPositions, batch.offset(), nonNullPositionCount));
+    }
+
+    private record SplitNullPositionsResult(BatchPositions nullPositions, BatchPositions nonNullPositions) {}
+
+    private void setNullGroupIds(BatchPositions batch, long[] groupIds, int groupIdsOffset, boolean groupIdsRequired)
+    {
+        checkArgument(batch.isList());
+
+        if (batch.size() == 0) {
+            // no null positions
+            return;
+        }
+
+        if (nullGroupId < 0) {
+            // set null group id
+            nullGroupId = nextGroupId++;
+        }
+
+        if (!groupIdsRequired) {
+            return;
+        }
+
+        int[] positions = batch.positions();
+        for (int index = 0; index < batch.size(); ++index) {
+            groupIds[groupIdsOffset + positions[index]] = nullGroupId;
+        }
+    }
+
+    private void getHashPositions(BatchPositions batch, long[] blockValues, int blockOffset, int[] hashPosition)
+    {
+        if (batch.isRange()) {
+            // batch position == batch index
+            for (int position = 0; position < batch.size(); ++position) {
+                int realPosition = batch.offset() + position;
+                long value = blockValues[blockOffset + realPosition];
+                hashPosition[position] = getHashPosition(value, mask);
+            }
+        }
+        else {
+            int[] positions = batch.positions();
+            for (int index = 0; index < batch.size(); ++index) {
+                int position = positions[index];
+                int realPosition = batch.offset() + position;
+                long value = blockValues[blockOffset + realPosition];
+                hashPosition[position] = getHashPosition(value, mask);
+            }
+        }
+    }
+
+    private void getGroupIds(BatchPositions batch, int[] hashPositions, long[] groupIds, int groupIdsOffset)
+    {
+        if (batch.isRange()) {
+            // batch position == batch index
+            for (int position = 0; position < batch.size(); ++position) {
+                groupIds[groupIdsOffset + position] = this.groupIds[hashPositions[position]];
+            }
+        }
+        else {
+            int[] positions = batch.positions();
+            for (int index = 0; index < batch.size(); ++index) {
+                int position = positions[index];
+                groupIds[groupIdsOffset + position] = this.groupIds[hashPositions[position]];
+            }
+        }
+    }
+
+    private void getValues(BatchPositions batch, int[] hashPositions, long[] values)
+    {
+        if (batch.isRange()) {
+            // batch position == batch index
+            for (int position = 0; position < batch.size(); ++position) {
+                values[position] = this.values[hashPositions[position]];
+            }
+        }
+        else {
+            int[] positions = batch.positions();
+            for (int index = 0; index < batch.size(); ++index) {
+                int position = positions[index];
+                values[position] = this.values[hashPositions[position]];
+            }
+        }
+    }
+
+    private BatchPositions initialMatchPositions(BatchPositions batch, long[] blockValues, int blockOffset, long[] values, long[] groupIds, int groupIdsOffset)
+    {
+        int nonMatchingPositionCount = 0;
+        int[] nonMatchingPositions = new int[batch.size()];
+
+        /*if (batch.isRange()) {
+            int maxStepSize = LONG_SPECIES.length();
+            long[] values = new long[maxStepSize];
+
+            // batch position == batch index
+            for (int position = 0; position < batch.size(); position += maxStepSize) {
+                int stepSize = Math.min(batch.size() - position, maxStepSize);
+                for (int i = 0; i < stepSize; ++i) {
+                    values[i] = block.getLong(batch.offset() + position + i, 0);
+                }
+
+                LongVector groupIdVector = LongVector.fromArray(LONG_SPECIES, groupIds, position);
+                LongVector valueVector = LongVector.fromArray(LONG_SPECIES, values, 0);
+                LongVector currentValueVector = LongVector.fromArray(LONG_SPECIES, currentValues, position);
+                VectorMask<Long> fullMask = groupIdVector.eq(-1).not();
+                VectorMask<Long> matchMask = fullMask.and(valueVector.eq(currentValueVector));
+                LongVector hashPositionVector = LongVector.fromArray(LONG_SPECIES, hashPositions, position);
+                hashPositionVector = hashPositionVector.add(1, fullMask).and(mask);
+                if (matchMask.length() - matchMask.trueCount() > 0) {
+                    long[] newHashPositionsSlice = hashPositionVector.toArray();
+                    boolean[] match = matchMask.toArray();
+                    for (int i = 0; i < stepSize; ++i) {
+                        nonMatchingPositions[nonMatchingPositionCount] = batch.offset() + position + i;
+                        newHashPositions[nonMatchingPositionCount] = (int) newHashPositionsSlice[i];
+                        nonMatchingPositionCount += match[i] ? 0 : 1;
+                    }
+                }
+            }
+        }
+        else {
+            throw new UnsupportedOperationException();
+        }*/
+
+        if (batch.isRange()) {
+            // batch position == batch index
+            for (int position = 0; position < batch.size(); ++position) {
+                int realPosition = batch.offset() + position;
+                long groupId = groupIds[groupIdsOffset + position];
+                nonMatchingPositionCount = matchPosition(blockValues, blockOffset, position, realPosition, groupId, values, nonMatchingPositions, nonMatchingPositionCount);
+            }
+        }
+        else {
+            int[] positions = batch.positions();
+            for (int index = 0; index < batch.size(); ++index) {
+                int position = positions[index];
+                int realPosition = batch.offset() + position;
+                long groupId = groupIds[groupIdsOffset + position];
+                nonMatchingPositionCount = matchPosition(blockValues, blockOffset, position, realPosition, groupId, values, nonMatchingPositions, nonMatchingPositionCount);
+            }
+        }
+
+        return BatchPositions.list(nonMatchingPositions, batch.offset(), nonMatchingPositionCount);
+    }
+
+    private int matchPosition(long[] blockValues, int blockOffset, int position, int realPosition, long groupId, long[] values, int[] nonMatchingPositions, int nonMatchingPositionCount)
+    {
+        long value = values[position];
+        long blockValue = blockValues[blockOffset + realPosition];
+        boolean match = (groupId != -1) & blockValue == value;
+        nonMatchingPositions[nonMatchingPositionCount] = position;
+        nonMatchingPositionCount += match ? 0 : 1;
+        return nonMatchingPositionCount;
+    }
+
+    private void putRemainingPositions(BatchPositions batch, long[] blockValues, int blockOffset, int[] hashPositions, long[] groupIds, int groupIdsOffset, boolean groupIdsRequired)
+    {
+        checkArgument(batch.isList());
+
+        int[] positions = batch.positions();
+        if (groupIdsRequired) {
+            for (int index = 0; index < batch.size(); ++index) {
+                int position = positions[index];
+                int realPosition = batch.offset() + position;
+                boolean full = groupIds[groupIdsOffset + position] != -1;
+                groupIds[groupIdsOffset + position] = putIfAbsentNotNull(blockValues[blockOffset + realPosition], (hashPositions[position] + (full ? 1 : 0)) & mask);
+            }
+        }
+        else {
+            for (int index = 0; index < batch.size(); ++index) {
+                int position = positions[index];
+                int realPosition = batch.offset() + position;
+                boolean full = groupIds[groupIdsOffset + position] != -1;
+                putIfAbsentNotNull(blockValues[blockOffset + realPosition], (hashPositions[position] + (full ? 1 : 0)) & mask);
+            }
+        }
     }
 
     private int addNewGroup(int hashPosition, long value)
@@ -305,22 +553,40 @@ public class BigintGroupByHash
         int[] newGroupIds = new int[newCapacity];
         Arrays.fill(newGroupIds, -1);
 
+        // compact existing values
+        int compactLength = 0;
         for (int i = 0; i < values.length; i++) {
-            int groupId = groupIds[i];
+            groupIds[compactLength] = groupIds[i];
+            values[compactLength] = values[i];
+            compactLength += (groupIds[i] == -1 ? 0 : 1);
+        }
 
-            if (groupId != -1) {
-                long value = values[i];
-                int hashPosition = getHashPosition(value, newMask);
+        int[] hashPositions = new int[BATCH_SIZE];
+        for (int offset = 0; offset < compactLength; offset += BATCH_SIZE) {
+            int batchSize = min(compactLength - offset, BATCH_SIZE);
 
-                // find an empty slot for the address
-                while (newGroupIds[hashPosition] != -1) {
+            for (int i = 0; i < batchSize; ++i) {
+                hashPositions[i] = getHashPosition(values[offset + i], newMask);
+            }
+
+            for (int i = 0; i < batchSize; i++) {
+                int hashPosition = hashPositions[i];
+
+                // Find an empty slot for the address.
+                // Make code more friendly for CPU branch prediction by extracting collision branch from empty group branch
+                if (newGroupIds[hashPosition] != -1) {
                     hashPosition = (hashPosition + 1) & newMask;
                     hashCollisions++;
+
+                    while (newGroupIds[hashPosition] != -1) {
+                        hashPosition = (hashPosition + 1) & newMask;
+                        hashCollisions++;
+                    }
                 }
 
                 // record the mapping
-                newValues[hashPosition] = value;
-                newGroupIds[hashPosition] = groupId;
+                newValues[hashPosition] = values[offset + i];
+                newGroupIds[hashPosition] = groupIds[offset + i];
             }
         }
 
@@ -399,8 +665,14 @@ public class BigintGroupByHash
                     return false;
                 }
 
-                for (int i = lastPosition; i < lastPosition + batchSize; i++) {
-                    putIfAbsent(i, block);
+                if (values.length > 100_000) {
+                    long[] groupIds = new long[batchSize];
+                    batchedPutIfAbsentNullable(block, BatchPositions.range(lastPosition, batchSize), groupIds, 0, false);
+                }
+                else {
+                    for (int i = lastPosition; i < lastPosition + batchSize; i++) {
+                        putIfAbsent(i, block);
+                    }
                 }
 
                 lastPosition += batchSize;
@@ -535,9 +807,14 @@ public class BigintGroupByHash
                     return false;
                 }
 
-                for (int i = lastPosition; i < lastPosition + batchSize; i++) {
-                    // output the group id for this row
-                    groupIds[i] = putIfAbsent(i, block);
+                if (values.length > 100_000) {
+                    batchedPutIfAbsentNullable(block, BatchPositions.range(lastPosition, batchSize), groupIds, lastPosition, true);
+                }
+                else {
+                    for (int i = lastPosition; i < lastPosition + batchSize; i++) {
+                        // output the group id for this row
+                        groupIds[i] = putIfAbsent(i, block);
+                    }
                 }
 
                 lastPosition += batchSize;

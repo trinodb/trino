@@ -51,6 +51,16 @@ public class LongArrayBlock
         this(0, positionCount, valueIsNull.orElse(null), values);
     }
 
+    public long[] getValues()
+    {
+        return values;
+    }
+
+    public int getArrayOffset()
+    {
+        return arrayOffset;
+    }
+
     LongArrayBlock(int arrayOffset, int positionCount, boolean[] valueIsNull, long[] values)
     {
         if (arrayOffset < 0) {

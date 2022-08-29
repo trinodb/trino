@@ -57,6 +57,7 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.jmh.Benchmarks.benchmark;
+import static io.trino.operator.BenchmarkGroupByHashOnSimulatedData.AggregationDefinition.BIGINT_10M_GROUPS;
 import static io.trino.operator.BenchmarkGroupByHashOnSimulatedData.AggregationDefinition.BIGINT_1K_GROUPS;
 import static io.trino.operator.BenchmarkGroupByHashOnSimulatedData.AggregationDefinition.BIGINT_1M_GROUPS;
 import static io.trino.operator.BenchmarkGroupByHashOnSimulatedData.AggregationDefinition.BIGINT_2_GROUPS;
@@ -71,7 +72,7 @@ import static java.util.Objects.requireNonNull;
  */
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-@Fork(3)
+@Fork(1)
 @Warmup(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
@@ -112,6 +113,17 @@ public class BenchmarkGroupByHashOnSimulatedData
         }
         pages.add(pageBuilder.build());
         return ImmutableList.of(pages, results); // all the things that might get erased by the compiler
+    }
+
+    @Test(enabled = true)
+    public void testFoo()
+    {
+        BenchmarkGroupByHashOnSimulatedData benchmark = new BenchmarkGroupByHashOnSimulatedData();
+        BenchmarkContext data = new BenchmarkContext(GET_GROUPS, BIGINT_10M_GROUPS, 0., DEFAULT_POSITIONS);
+        data.setup();
+        for (int i = 0; i < 1000; ++i) {
+            benchmark.groupBy(data);
+        }
     }
 
     @Test
@@ -237,7 +249,7 @@ public class BenchmarkGroupByHashOnSimulatedData
         @Param
         private AggregationDefinition query;
 
-        @Param({"0", ".1", ".5", ".9"})
+        @Param(".0")//, ".1", ".5", ".9"})
         private double nullChance;
 
         private final int positions;
@@ -331,6 +343,7 @@ public class BenchmarkGroupByHashOnSimulatedData
         BIGINT_100K_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 100_000)),
         BIGINT_1M_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 1_000_000)),
         BIGINT_10M_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 10_000_000)),
+/*
         // Single bigint dictionary column
         BIGINT_2_GROUPS_1_SMALL_DICTIONARY(new ChannelDefinition(ColumnType.BIGINT, 2, 1, 50)),
         BIGINT_2_GROUPS_1_BIG_DICTIONARY(new ChannelDefinition(ColumnType.BIGINT, 2, 1, 10000)),
@@ -629,7 +642,10 @@ public class BenchmarkGroupByHashOnSimulatedData
     {
         benchmark(BenchmarkGroupByHashOnSimulatedData.class)
                 .withOptions(optionsBuilder -> optionsBuilder
-                        .jvmArgs("-Xmx8g"))
+                        .jvmArgs(
+                                "-Xmx8g",
+                                "--add-modules=jdk.incubator.vector"))
+                //"-XX:CompileCommand=print,*.matchPosition"))
                 .run();
     }
 }

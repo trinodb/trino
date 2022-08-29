@@ -1974,6 +1974,9 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration combine.children="append">
                     <fork>false</fork>
+                    <compilerArgs>
+                        <arg>--add-modules=jdk.incubator.vector</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
 
