@@ -31,7 +31,6 @@ import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ExpressionUtils;
 import io.trino.sql.NodeUtils;
@@ -750,11 +749,10 @@ class QueryPlanner
         rowBuilder.add(new GenericLiteral("INTEGER", "-1"));
 
         SearchedCaseExpression caseExpression = new SearchedCaseExpression(whenClauses.build(), Optional.of(new Row(rowBuilder.build())));
-        RowType rowType = createMergeRowType(dataColumnSchemas);
 
         FieldReference rowIdReference = analysis.getRowIdField(mergeAnalysis.getTargetTable());
         Symbol rowIdSymbol = planWithPresentColumn.getFieldMappings().get(rowIdReference.getFieldIndex());
-        Symbol mergeRowSymbol = symbolAllocator.newSymbol("merge_row", rowType);
+        Symbol mergeRowSymbol = symbolAllocator.newSymbol("merge_row", mergeAnalysis.getMergeRowType());
         Symbol caseNumberSymbol = symbolAllocator.newSymbol("case_number", INTEGER);
 
         // Project the partition symbols, the merge_row, the rowId, and the unique_id symbol
@@ -779,7 +777,7 @@ class QueryPlanner
                 subPlanProject,
                 Assignments.builder()
                         .putIdentities(subPlanProject.getOutputSymbols())
-                        .put(caseNumberSymbol, new SubscriptExpression(mergeRowSymbol.toSymbolReference(), new LongLiteral(Long.toString(rowType.getFields().size()))))
+                        .put(caseNumberSymbol, new SubscriptExpression(mergeRowSymbol.toSymbolReference(), new LongLiteral(Long.toString(mergeAnalysis.getMergeRowType().getFields().size()))))
                         .build());
 
         // Mark distinct combinations of the unique_id value and the case_number
@@ -877,19 +875,6 @@ class QueryPlanner
             return DELETE_OPERATION_NUMBER;
         }
         throw new IllegalArgumentException("Unrecognized MergeCase: " + mergeCase);
-    }
-
-    private static RowType createMergeRowType(List<ColumnSchema> allColumnsSchema)
-    {
-        // create the RowType that holds all column values
-        List<RowType.Field> fields = new ArrayList<>();
-        for (ColumnSchema schema : allColumnsSchema) {
-            fields.add(new RowType.Field(Optional.of(schema.getName()), schema.getType()));
-        }
-        fields.add(new RowType.Field(Optional.empty(), BOOLEAN)); // present
-        fields.add(new RowType.Field(Optional.empty(), TINYINT)); // operation_number
-        fields.add(new RowType.Field(Optional.empty(), INTEGER)); // case_number
-        return RowType.from(fields);
     }
 
     public static Optional<PartitioningScheme> createMergePartitioningScheme(
