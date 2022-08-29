@@ -22,7 +22,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 
-import static io.trino.hive.formats.rcfile.RcFileDecoderUtils.calculateTruncationLength;
+import static io.trino.hive.formats.ReadWriteUtils.calculateTruncationLength;
 
 public class StringEncoding
         implements TextColumnEncoding

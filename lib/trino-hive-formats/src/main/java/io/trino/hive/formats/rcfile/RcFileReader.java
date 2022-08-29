@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.DataSeekableInputStream;
+import io.trino.hive.formats.ReadWriteUtils;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.compression.ValueDecompressor;
 import io.trino.hive.formats.rcfile.RcFileWriteValidation.WriteChecksum;
@@ -221,7 +222,7 @@ public class RcFileReader
         // of the file.  In that case, the reader owns all row groups up to the first sync point.
         if (offset != 0) {
             // if the specified file region does not contain the start of a sync sequence, this call will close the reader
-            long startOfSyncSequence = RcFileDecoderUtils.findFirstSyncPosition(inputFile, offset, length, syncFirst, syncSecond);
+            long startOfSyncSequence = ReadWriteUtils.findFirstSyncPosition(inputFile, offset, length, syncFirst, syncSecond);
             if (startOfSyncSequence < 0) {
                 closeQuietly();
                 return;
@@ -384,7 +385,7 @@ public class RcFileReader
         BasicSliceInput headerInput = header.getInput();
 
         // read number of rows in row group
-        rowGroupRowCount = toIntExact(RcFileDecoderUtils.readVInt(headerInput));
+        rowGroupRowCount = toIntExact(ReadWriteUtils.readVInt(headerInput));
         rowsRead += rowGroupRowCount;
         rowGroupPosition = 0;
         currentChunkRowCount = min(ColumnData.MAX_SIZE, rowGroupRowCount);
@@ -392,14 +393,14 @@ public class RcFileReader
         // set column buffers
         int totalCompressedDataSize = 0;
         for (int columnIndex = 0; columnIndex < columnCount; columnIndex++) {
-            int compressedDataSize = toIntExact(RcFileDecoderUtils.readVInt(headerInput));
+            int compressedDataSize = toIntExact(ReadWriteUtils.readVInt(headerInput));
             totalCompressedDataSize += compressedDataSize;
-            int uncompressedDataSize = toIntExact(RcFileDecoderUtils.readVInt(headerInput));
+            int uncompressedDataSize = toIntExact(ReadWriteUtils.readVInt(headerInput));
             if (decompressor == null && compressedDataSize != uncompressedDataSize) {
                 throw corrupt("Invalid RCFile %s", location);
             }
 
-            int lengthsSize = toIntExact(RcFileDecoderUtils.readVInt(headerInput));
+            int lengthsSize = toIntExact(ReadWriteUtils.readVInt(headerInput));
 
             Slice lengthsBuffer = headerInput.readSlice(lengthsSize);
 
@@ -452,7 +453,7 @@ public class RcFileReader
     private Slice readLengthPrefixedString(DataSeekableInputStream in)
             throws IOException
     {
-        int length = toIntExact(RcFileDecoderUtils.readVInt(in));
+        int length = toIntExact(ReadWriteUtils.readVInt(in));
         verify(length <= MAX_METADATA_STRING_LENGTH, "Metadata string value is too long (%s) in RCFile %s", length, in);
         return in.readSlice(length);
     }
@@ -615,7 +616,7 @@ public class RcFileReader
                 return lastValueLength;
             }
 
-            int valueLength = toIntExact(RcFileDecoderUtils.readVInt(lengthsInput));
+            int valueLength = toIntExact(ReadWriteUtils.readVInt(lengthsInput));
 
             // negative length is used to encode a run or the last value
             if (valueLength < 0) {
