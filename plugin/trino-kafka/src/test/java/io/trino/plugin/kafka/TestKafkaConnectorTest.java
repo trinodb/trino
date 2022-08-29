@@ -160,7 +160,6 @@ public class TestKafkaConnectorTest
     {
         switch (connectorBehavior) {
             case SUPPORTS_ADD_COLUMN:
-            case SUPPORTS_DROP_COLUMN:
             case SUPPORTS_CREATE_SCHEMA:
             case SUPPORTS_CREATE_TABLE:
             case SUPPORTS_CREATE_TABLE_WITH_DATA:
