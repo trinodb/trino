@@ -13,10 +13,13 @@
  */
 package io.trino.plugin.jdbc;
 
+import io.airlift.slice.Slice;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.DiscreteValues;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.Ranges;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.VarcharType;
 
@@ -47,20 +50,52 @@ public interface PredicatePushdownController
             return FULL_PUSHDOWN.apply(session, domain);
         }
 
-        if (!domain.getValues().isDiscreteSet()) {
-            // case insensitive predicate pushdown could return incorrect results for operators like `!=`, `<` or `>`
-            return DISABLE_PUSHDOWN.apply(session, domain);
-        }
-
         Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
-        if (!simplifiedDomain.getValues().isDiscreteSet()) {
+        boolean safeForCaseInsensitivePushdown = isSafeForCaseInsensitivePushdown(simplifiedDomain.getValues());
+        if (!simplifiedDomain.getValues().isDiscreteSet() && !safeForCaseInsensitivePushdown) {
             // Domain#simplify can turn a discrete set into a range predicate
             // Push down of range predicate for varchar/char types could lead to incorrect results
             // when the remote database is case insensitive
             return DISABLE_PUSHDOWN.apply(session, domain);
         }
-        return new DomainPushdownResult(simplifiedDomain, domain);
+        return new DomainPushdownResult(
+                simplifiedDomain,
+                (simplifiedDomain.equals(domain) && safeForCaseInsensitivePushdown) ? Domain.all(domain.getType()) : domain);
     };
+
+    static boolean isSafeForCaseInsensitivePushdown(ValueSet values)
+    {
+        for (Range range : values.getRanges().getOrderedRanges()) {
+            if (range.getLowValue().isPresent() && !isValueSafeForCaseInsensitivePushdown((Slice) range.getLowValue().get())) {
+                return false;
+            }
+            if (range.getHighValue().isPresent() && !isValueSafeForCaseInsensitivePushdown((Slice) range.getHighValue().get())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Checks that the value is safe to pushdown even if the remote database is case-insensitive.
+     * A value can be pushed down in a predicate if all characters are smaller than any letter,
+     * or bigger than any letter. This is best-effort check only. In particular, current implementation
+     * does not consider characters bigger than any letter as safe for pushdown.
+     *
+     * @implNote Checks that the value contains characters smaller than any letter.
+     */
+    static boolean isValueSafeForCaseInsensitivePushdown(Slice value)
+    {
+        for (int i = 0; i < value.length(); i++) {
+            // Process byte by byte without decoding UTF-8, as the result does not depend on this.
+            int nextByte = Byte.toUnsignedInt(value.getByte(i));
+            // 'A' is the first letter. In particular, 'A' < 'a'. Also, every byte of a codepoint encoded as multiple bytes is greater than 'A'.
+            if (nextByte >= 'A') {
+                return false;
+            }
+        }
+        return true;
+    }
 
     DomainPushdownResult apply(ConnectorSession session, Domain domain);
 

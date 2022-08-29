@@ -149,6 +149,7 @@ import static io.trino.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.getDomainCompactionThreshold;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
+import static io.trino.plugin.jdbc.PredicatePushdownController.isSafeForCaseInsensitivePushdown;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
@@ -257,12 +258,15 @@ public class PostgreSqlClient
         }
 
         Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
-        if (!simplifiedDomain.getValues().isDiscreteSet()) {
+        boolean safeForCaseInsensitivePushdown = isSafeForCaseInsensitivePushdown(simplifiedDomain.getValues());
+        if (!simplifiedDomain.getValues().isDiscreteSet() && !safeForCaseInsensitivePushdown) {
             // Domain#simplify can turn a discrete set into a range predicate
             return DISABLE_PUSHDOWN.apply(session, domain);
         }
 
-        return FULL_PUSHDOWN.apply(session, simplifiedDomain);
+        return new PredicatePushdownController.DomainPushdownResult(
+                simplifiedDomain,
+                (simplifiedDomain.equals(domain) && safeForCaseInsensitivePushdown) ? Domain.all(domain.getType()) : domain);
     };
 
     private final Type jsonType;

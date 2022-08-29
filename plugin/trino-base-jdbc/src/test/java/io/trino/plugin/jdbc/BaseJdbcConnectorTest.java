@@ -1084,6 +1084,58 @@ public abstract class BaseJdbcConnectorTest
     }
 
     @Test
+    public void testCharPreLetterPredicateFullPushdownRegardlessOfCaseSensitivity()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN));
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "varchar_pre_letter_pred",
+                "(a char(10))",
+                List.of(
+                        "'1005-09-09'",
+                        "'2005-06-06'",
+                        "'2005-09-06'",
+                        "'2005-09-09'",
+                        "'2005-09-10'",
+                        "'2005-09-20'",
+                        "'9999-09-09'"))) {
+            for (String searchedValue : List.of("2005-09-06", "2005-09-09", "2005-09-10")) {
+                for (String operator : List.of("=", "<=", "<", ">", ">=", "!=", "IS DISTINCT FROM", "IS NOT DISTINCT FROM")) {
+                    assertThat(query("SELECT a FROM %s WHERE a %s CHAR '%s'".formatted(table.getName(), operator, searchedValue)))
+                            .isFullyPushedDown();
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testVarcharPreLetterPredicateFullPushdownRegardlessOfCaseSensitivity()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN));
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "varchar_pre_letter_pred",
+                "(a varchar)",
+                List.of(
+                        "'1005-09-09'",
+                        "'2005-06-06'",
+                        "'2005-09-06'",
+                        "'2005-09-09'",
+                        "'2005-09-10'",
+                        "'2005-09-20'",
+                        "'9999-09-09'"))) {
+            for (String searchedValue : List.of("2005-09-06", "2005-09-09", "2005-09-10", "2005")) {
+                for (String operator : List.of("=", "<=", "<", ">", ">=", "!=", "IS DISTINCT FROM", "IS NOT DISTINCT FROM")) {
+                    assertThat(query("SELECT a FROM %s WHERE a %s VARCHAR '%s'".formatted(table.getName(), operator, searchedValue)))
+                            .isFullyPushedDown();
+                }
+            }
+        }
+    }
+
+    @Test
     public void testJoinPushdownDisabled()
     {
         Session noJoinPushdown = Session.builder(getSession())
