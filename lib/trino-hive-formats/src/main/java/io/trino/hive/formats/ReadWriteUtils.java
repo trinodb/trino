@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.hive.formats.rcfile;
+package io.trino.hive.formats;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
@@ -19,8 +19,6 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.hive.formats.DataOutputStream;
-import io.trino.hive.formats.DataSeekableInputStream;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -36,14 +34,12 @@ import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 // faster versions of org.apache.hadoop.io.WritableUtils methods adapted for Slice
-public final class RcFileDecoderUtils
+public final class ReadWriteUtils
 {
     // 0xFFFF_FFFF + syncFirst(long) + syncSecond(long)
     private static final int SYNC_SEQUENCE_LENGTH = SIZE_OF_INT + SIZE_OF_LONG + SIZE_OF_LONG;
 
-    private RcFileDecoderUtils()
-    {
-    }
+    private ReadWriteUtils() {}
 
     public static int decodeVIntSize(Slice slice, int offset)
     {

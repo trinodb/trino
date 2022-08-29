@@ -21,9 +21,9 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 
-import static io.trino.hive.formats.rcfile.RcFileDecoderUtils.decodeVIntSize;
-import static io.trino.hive.formats.rcfile.RcFileDecoderUtils.readVInt;
-import static io.trino.hive.formats.rcfile.RcFileDecoderUtils.writeVInt;
+import static io.trino.hive.formats.ReadWriteUtils.decodeVIntSize;
+import static io.trino.hive.formats.ReadWriteUtils.readVInt;
+import static io.trino.hive.formats.ReadWriteUtils.writeVInt;
 import static java.lang.Math.toIntExact;
 
 public class DateEncoding
