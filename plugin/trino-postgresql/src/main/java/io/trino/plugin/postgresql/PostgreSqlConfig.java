@@ -22,7 +22,7 @@ public class PostgreSqlConfig
 {
     private ArrayMapping arrayMapping = ArrayMapping.DISABLED;
     private boolean includeSystemTables;
-    private boolean enableStringPushdownWithCollate;
+    private boolean enableStringPushdownWithCollate = true;
 
     public enum ArrayMapping
     {
@@ -62,7 +62,8 @@ public class PostgreSqlConfig
         return enableStringPushdownWithCollate;
     }
 
-    @Config("postgresql.experimental.enable-string-pushdown-with-collate")
+    @Config("postgresql.enable-string-pushdown-with-collate")
+    @LegacyConfig("postgresql.experimental.enable-string-pushdown-with-collate")
     public PostgreSqlConfig setEnableStringPushdownWithCollate(boolean enableStringPushdownWithCollate)
     {
         this.enableStringPushdownWithCollate = enableStringPushdownWithCollate;
