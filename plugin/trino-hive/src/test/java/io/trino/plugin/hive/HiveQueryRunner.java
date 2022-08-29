@@ -117,6 +117,7 @@ public final class HiveQueryRunner
         private Optional<DirectoryLister> directoryLister = Optional.empty();
         private boolean tpcdsCatalogEnabled;
         private String security = SQL_STANDARD;
+        private boolean populateTpchData = true;
         private ColumnNaming tpchColumnNaming = SIMPLIFIED;
         private DecimalTypeMapping tpchDecimalTypeMapping = DOUBLE;
 
@@ -197,6 +198,12 @@ public final class HiveQueryRunner
             return self();
         }
 
+        public SELF setPopulateTpchData(boolean populateTpchData)
+        {
+            this.populateTpchData = populateTpchData;
+            return self();
+        }
+
         public SELF setTpchColumnNaming(ColumnNaming tpchColumnNaming)
         {
             this.tpchColumnNaming = requireNonNull(tpchColumnNaming, "tpchColumnNaming is null");
@@ -255,7 +262,9 @@ public final class HiveQueryRunner
                 queryRunner.createCatalog(HIVE_CATALOG, "hive", hiveProperties);
                 queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, "hive", hiveBucketedProperties);
 
-                populateData(queryRunner, metastore);
+                if (populateTpchData) {
+                    populateData(queryRunner, metastore);
+                }
 
                 return queryRunner;
             }
