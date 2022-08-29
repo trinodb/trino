@@ -44,6 +44,7 @@ import io.trino.spi.eventlistener.TableInfo;
 import io.trino.spi.ptf.Argument;
 import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.security.Identity;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
 import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
@@ -1681,6 +1682,7 @@ public class Analysis
         private final List<List<ColumnHandle>> mergeCaseColumnHandles;
         private final Set<ColumnHandle> nonNullableColumnHandles;
         private final Map<ColumnHandle, Integer> columnHandleFieldNumbers;
+        private final RowType mergeRowType;
         private final List<Integer> insertPartitioningArgumentIndexes;
         private final Optional<TableLayout> insertLayout;
         private final Optional<PartitioningHandle> updateLayout;
@@ -1695,6 +1697,7 @@ public class Analysis
                 List<List<ColumnHandle>> mergeCaseColumnHandles,
                 Set<ColumnHandle> nonNullableColumnHandles,
                 Map<ColumnHandle, Integer> columnHandleFieldNumbers,
+                RowType mergeRowType,
                 List<Integer> insertPartitioningArgumentIndexes,
                 Optional<TableLayout> insertLayout,
                 Optional<PartitioningHandle> updateLayout,
@@ -1708,6 +1711,7 @@ public class Analysis
             this.mergeCaseColumnHandles = requireNonNull(mergeCaseColumnHandles, "mergeCaseColumnHandles is null");
             this.nonNullableColumnHandles = requireNonNull(nonNullableColumnHandles, "nonNullableColumnHandles is null");
             this.columnHandleFieldNumbers = requireNonNull(columnHandleFieldNumbers, "columnHandleFieldNumbers is null");
+            this.mergeRowType = requireNonNull(mergeRowType, "mergeRowType is null");
             this.insertLayout = requireNonNull(insertLayout, "insertLayout is null");
             this.updateLayout = requireNonNull(updateLayout, "updateLayout is null");
             this.insertPartitioningArgumentIndexes = (requireNonNull(insertPartitioningArgumentIndexes, "insertPartitioningArgumentIndexes is null"));
@@ -1748,6 +1752,11 @@ public class Analysis
         public Map<ColumnHandle, Integer> getColumnHandleFieldNumbers()
         {
             return columnHandleFieldNumbers;
+        }
+
+        public RowType getMergeRowType()
+        {
+            return mergeRowType;
         }
 
         public List<Integer> getInsertPartitioningArgumentIndexes()
