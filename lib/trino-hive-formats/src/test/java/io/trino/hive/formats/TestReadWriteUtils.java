@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.hive.formats.rcfile;
+package io.trino.hive.formats;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -23,7 +23,7 @@ import java.io.IOException;
 
 import static org.testng.Assert.assertEquals;
 
-public class TestRcFileDecoderUtils
+public class TestReadWriteUtils
 {
     @Test
     public void testVInt()
@@ -58,10 +58,10 @@ public class TestRcFileDecoderUtils
         long readValueOld = WritableUtils.readVLong(oldBytes.getInput());
         assertEquals(readValueOld, value);
 
-        long readValueNew = RcFileDecoderUtils.readVInt(oldBytes, 0);
+        long readValueNew = ReadWriteUtils.readVInt(oldBytes, 0);
         assertEquals(readValueNew, value);
 
-        long readValueNewStream = RcFileDecoderUtils.readVInt(oldBytes.getInput());
+        long readValueNewStream = ReadWriteUtils.readVInt(oldBytes.getInput());
         assertEquals(readValueNewStream, value);
     }
 
@@ -73,7 +73,7 @@ public class TestRcFileDecoderUtils
         Slice vLongOld = Slices.copyOf(output.slice());
 
         output.reset();
-        RcFileDecoderUtils.writeVLong(output, value);
+        ReadWriteUtils.writeVLong(output, value);
         Slice vLongNew = Slices.copyOf(output.slice());
         assertEquals(vLongNew, vLongOld);
 
@@ -84,7 +84,7 @@ public class TestRcFileDecoderUtils
             assertEquals(vIntOld, vLongOld);
 
             output.reset();
-            RcFileDecoderUtils.writeVInt(output, (int) value);
+            ReadWriteUtils.writeVInt(output, (int) value);
             Slice vIntNew = Slices.copyOf(output.slice());
             assertEquals(vIntNew, vLongOld);
         }

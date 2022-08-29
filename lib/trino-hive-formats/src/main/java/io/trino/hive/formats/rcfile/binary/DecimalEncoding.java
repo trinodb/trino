@@ -28,9 +28,9 @@ import io.trino.spi.type.Type;
 import java.math.BigInteger;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.hive.formats.rcfile.RcFileDecoderUtils.decodeVIntSize;
-import static io.trino.hive.formats.rcfile.RcFileDecoderUtils.readVInt;
-import static io.trino.hive.formats.rcfile.RcFileDecoderUtils.writeVInt;
+import static io.trino.hive.formats.ReadWriteUtils.decodeVIntSize;
+import static io.trino.hive.formats.ReadWriteUtils.readVInt;
+import static io.trino.hive.formats.ReadWriteUtils.writeVInt;
 import static io.trino.spi.type.Decimals.rescale;
 import static java.lang.Math.toIntExact;
 

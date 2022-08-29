@@ -118,7 +118,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
-import static io.trino.hive.formats.rcfile.RcFileDecoderUtils.findFirstSyncPosition;
+import static io.trino.hive.formats.ReadWriteUtils.findFirstSyncPosition;
 import static io.trino.hive.formats.rcfile.RcFileTester.Compression.BZIP2;
 import static io.trino.hive.formats.rcfile.RcFileTester.Compression.GZIP;
 import static io.trino.hive.formats.rcfile.RcFileTester.Compression.LZ4;

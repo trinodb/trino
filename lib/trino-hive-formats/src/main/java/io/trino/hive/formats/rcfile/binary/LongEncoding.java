@@ -15,9 +15,9 @@ package io.trino.hive.formats.rcfile.binary;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.hive.formats.ReadWriteUtils;
 import io.trino.hive.formats.rcfile.ColumnData;
 import io.trino.hive.formats.rcfile.EncodeOutput;
-import io.trino.hive.formats.rcfile.RcFileDecoderUtils;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
@@ -37,7 +37,7 @@ public class LongEncoding
     {
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
-                RcFileDecoderUtils.writeVLong(output, type.getLong(block, position));
+                ReadWriteUtils.writeVLong(output, type.getLong(block, position));
             }
             encodeOutput.closeEntry();
         }
@@ -46,7 +46,7 @@ public class LongEncoding
     @Override
     public void encodeValueInto(Block block, int position, SliceOutput output)
     {
-        RcFileDecoderUtils.writeVLong(output, type.getLong(block, position));
+        ReadWriteUtils.writeVLong(output, type.getLong(block, position));
     }
 
     @Override
@@ -63,7 +63,7 @@ public class LongEncoding
                 builder.appendNull();
             }
             else {
-                type.writeLong(builder, RcFileDecoderUtils.readVInt(slice, offset, length));
+                type.writeLong(builder, ReadWriteUtils.readVInt(slice, offset, length));
             }
         }
         return builder.build();
@@ -78,12 +78,12 @@ public class LongEncoding
     @Override
     public int getValueLength(Slice slice, int offset)
     {
-        return RcFileDecoderUtils.decodeVIntSize(slice, offset);
+        return ReadWriteUtils.decodeVIntSize(slice, offset);
     }
 
     @Override
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
-        type.writeLong(builder, RcFileDecoderUtils.readVInt(slice, offset, length));
+        type.writeLong(builder, ReadWriteUtils.readVInt(slice, offset, length));
     }
 }

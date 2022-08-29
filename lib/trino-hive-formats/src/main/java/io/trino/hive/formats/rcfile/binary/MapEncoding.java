@@ -15,7 +15,7 @@ package io.trino.hive.formats.rcfile.binary;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.trino.hive.formats.rcfile.RcFileDecoderUtils;
+import io.trino.hive.formats.ReadWriteUtils;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -43,7 +43,7 @@ public class MapEncoding
         Block map = block.getObject(position, Block.class);
 
         // write entry count
-        RcFileDecoderUtils.writeVInt(output, map.getPositionCount() / 2);
+        ReadWriteUtils.writeVInt(output, map.getPositionCount() / 2);
 
         // write null bits
         int nullByte = 0b0101_0101;
@@ -84,8 +84,8 @@ public class MapEncoding
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
         // entries in list
-        int entries = toIntExact(RcFileDecoderUtils.readVInt(slice, offset));
-        offset += RcFileDecoderUtils.decodeVIntSize(slice.getByte(offset));
+        int entries = toIntExact(ReadWriteUtils.readVInt(slice, offset));
+        offset += ReadWriteUtils.decodeVIntSize(slice.getByte(offset));
 
         // null bytes
         int nullByteCur = offset;

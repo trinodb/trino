@@ -15,9 +15,9 @@ package io.trino.hive.formats.rcfile.binary;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.hive.formats.ReadWriteUtils;
 import io.trino.hive.formats.rcfile.ColumnData;
 import io.trino.hive.formats.rcfile.EncodeOutput;
-import io.trino.hive.formats.rcfile.RcFileDecoderUtils;
 import io.trino.hive.formats.rcfile.TimestampHolder;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.plugin.base.type.TrinoTimestampEncoder;
@@ -97,12 +97,12 @@ public class TimestampEncoding
     {
         int length = 4;
         if (hasNanosVInt(slice.getByte(offset))) {
-            int nanosVintLength = RcFileDecoderUtils.decodeVIntSize(slice, offset + 4);
+            int nanosVintLength = ReadWriteUtils.decodeVIntSize(slice, offset + 4);
             length += nanosVintLength;
 
             // is there extra data for "seconds"
-            if (RcFileDecoderUtils.isNegativeVInt(slice, offset + 4)) {
-                length += RcFileDecoderUtils.decodeVIntSize(slice, offset + 4 + nanosVintLength);
+            if (ReadWriteUtils.isNegativeVInt(slice, offset + 4)) {
+                length += ReadWriteUtils.decodeVIntSize(slice, offset + 4 + nanosVintLength);
             }
         }
         return length;
@@ -133,15 +133,15 @@ public class TimestampEncoding
             // this is an inline version of readVint, so it can be stitched together
             // the code to read the seconds high bits below
             byte nanosFirstByte = slice.getByte(offset);
-            int nanosLength = RcFileDecoderUtils.decodeVIntSize(nanosFirstByte);
-            nanos = (int) RcFileDecoderUtils.readVInt(slice, offset, nanosLength);
+            int nanosLength = ReadWriteUtils.decodeVIntSize(nanosFirstByte);
+            nanos = (int) ReadWriteUtils.readVInt(slice, offset, nanosLength);
             nanos = decodeNanos(nanos);
 
             // read seconds (high 32 bits)
-            if (RcFileDecoderUtils.isNegativeVInt(nanosFirstByte)) {
+            if (ReadWriteUtils.isNegativeVInt(nanosFirstByte)) {
                 // We compose the seconds field from two parts. The lowest 31 bits come from the first four
                 // bytes. The higher-order bits come from the second VInt that follows the nanos field.
-                long highBits = RcFileDecoderUtils.readVInt(slice, offset + nanosLength);
+                long highBits = ReadWriteUtils.readVInt(slice, offset + nanosLength);
                 seconds |= (highBits << 31);
             }
         }
@@ -205,12 +205,12 @@ public class TimestampEncoding
         if (hasSecondsHigh32 || nanosReversed != 0) {
             // The sign of the reversed-nanoseconds field indicates that there is a second VInt present
             int value = hasSecondsHigh32 ? ~nanosReversed : nanosReversed;
-            RcFileDecoderUtils.writeVInt(output, value);
+            ReadWriteUtils.writeVInt(output, value);
         }
 
         if (hasSecondsHigh32) {
             int secondsHigh32 = (int) (seconds >> 31);
-            RcFileDecoderUtils.writeVInt(output, secondsHigh32);
+            ReadWriteUtils.writeVInt(output, secondsHigh32);
         }
     }
 
