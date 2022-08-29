@@ -18,6 +18,8 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.TrinoInputFile;
+import io.trino.hive.formats.DataOutputStream;
 import io.trino.hive.formats.compression.Codec;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.compression.MemoryCompressedSliceOutput;
@@ -31,6 +33,7 @@ import javax.annotation.Nullable;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -69,7 +72,7 @@ public class RcFileWriter
         PRESTO_RCFILE_WRITER_VERSION = version == null ? "UNKNOWN" : version;
     }
 
-    private final SliceOutput output;
+    private final DataOutputStream output;
     private final List<Type> types;
     private final RcFileEncoding encoding;
 
@@ -91,7 +94,7 @@ public class RcFileWriter
     private final RcFileWriteValidationBuilder validationBuilder;
 
     public RcFileWriter(
-            SliceOutput output,
+            OutputStream rawOutput,
             List<Type> types,
             RcFileEncoding encoding,
             Optional<CompressionKind> compressionKind,
@@ -100,7 +103,7 @@ public class RcFileWriter
             throws IOException
     {
         this(
-                output,
+                rawOutput,
                 types,
                 encoding,
                 compressionKind,
@@ -111,7 +114,7 @@ public class RcFileWriter
     }
 
     public RcFileWriter(
-            SliceOutput output,
+            OutputStream rawOutput,
             List<Type> types,
             RcFileEncoding encoding,
             Optional<CompressionKind> compressionKind,
@@ -121,7 +124,7 @@ public class RcFileWriter
             boolean validate)
             throws IOException
     {
-        requireNonNull(output, "output is null");
+        requireNonNull(rawOutput, "rawOutput is null");
         requireNonNull(types, "types is null");
         checkArgument(!types.isEmpty(), "types is empty");
         requireNonNull(encoding, "encoding is null");
@@ -135,18 +138,20 @@ public class RcFileWriter
 
         this.validationBuilder = validate ? new RcFileWriteValidationBuilder(types) : null;
 
-        this.output = output;
+        this.output = new DataOutputStream(rawOutput);
         this.types = types;
         this.encoding = encoding;
 
         // write header
-        output.writeBytes(RCFILE_MAGIC);
+        output.write(RCFILE_MAGIC);
         output.writeByte(CURRENT_VERSION);
         recordValidation(validation -> validation.setVersion((byte) CURRENT_VERSION));
 
         // write codec information
         output.writeBoolean(compressionKind.isPresent());
-        compressionKind.map(CompressionKind::getHadoopClassName).ifPresent(name -> writeLengthPrefixedString(output, utf8Slice(name)));
+        if (compressionKind.isPresent()) {
+            writeLengthPrefixedString(output, utf8Slice(compressionKind.get().getHadoopClassName()));
+        }
         recordValidation(validation -> validation.setCodecClassName(compressionKind.map(CompressionKind::getHadoopClassName)));
 
         // write metadata
@@ -178,6 +183,7 @@ public class RcFileWriter
     }
 
     private void writeMetadataProperty(String key, String value)
+            throws IOException
     {
         writeLengthPrefixedString(output, utf8Slice(key));
         writeLengthPrefixedString(output, utf8Slice(value));
@@ -205,13 +211,13 @@ public class RcFileWriter
         }
     }
 
-    public void validate(RcFileDataSource input)
+    public void validate(TrinoInputFile inputFile)
             throws RcFileCorruptionException
     {
         checkState(validationBuilder != null, "validation is not enabled");
         validateFile(
                 validationBuilder.build(),
-                input,
+                inputFile,
                 encoding,
                 types);
     }
@@ -304,14 +310,14 @@ public class RcFileWriter
         output.writeInt(Integer.reverseBytes(keySectionOutput.size()));
         output.writeInt(Integer.reverseBytes(keySectionOutput.getCompressedSize()));
         for (Slice slice : keySectionOutput.getCompressedSlices()) {
-            output.writeBytes(slice);
+            output.write(slice);
         }
 
         // write value section
         for (ColumnEncoder columnEncoder : columnEncoders) {
             List<Slice> slices = columnEncoder.getCompressedData();
             for (Slice slice : slices) {
-                output.writeBytes(slice);
+                output.write(slice);
             }
             columnEncoder.reset();
         }

@@ -19,10 +19,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.local.LocalInputFile;
 import io.trino.hadoop.HadoopNative;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.rcfile.binary.BinaryRcFileEncoding;
@@ -116,7 +117,6 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.hive.formats.rcfile.RcFileDecoderUtils.findFirstSyncPosition;
 import static io.trino.hive.formats.rcfile.RcFileTester.Compression.BZIP2;
@@ -567,21 +567,20 @@ public class RcFileTester
         long syncFirst = sync.getLong(0);
         long syncSecond = sync.getLong(8);
         long syncPosition = 0;
-        try (RcFileDataSource dataSource = new FileRcFileDataSource(file)) {
-            while (syncPosition >= 0) {
-                syncPosition = findFirstSyncPosition(dataSource, syncPosition, file.length() - syncPosition, syncFirst, syncSecond);
-                if (syncPosition > 0) {
-                    assertEquals(findFirstSyncPosition(dataSource, syncPosition, 1, syncFirst, syncSecond), syncPosition);
-                    assertEquals(findFirstSyncPosition(dataSource, syncPosition, 2, syncFirst, syncSecond), syncPosition);
-                    assertEquals(findFirstSyncPosition(dataSource, syncPosition, 10, syncFirst, syncSecond), syncPosition);
+        TrinoInputFile inputFile = new LocalInputFile(file);
+        while (syncPosition >= 0) {
+            syncPosition = findFirstSyncPosition(inputFile, syncPosition, file.length() - syncPosition, syncFirst, syncSecond);
+            if (syncPosition > 0) {
+                assertEquals(findFirstSyncPosition(inputFile, syncPosition, 1, syncFirst, syncSecond), syncPosition);
+                assertEquals(findFirstSyncPosition(inputFile, syncPosition, 2, syncFirst, syncSecond), syncPosition);
+                assertEquals(findFirstSyncPosition(inputFile, syncPosition, 10, syncFirst, syncSecond), syncPosition);
 
-                    assertEquals(findFirstSyncPosition(dataSource, syncPosition - 1, 1, syncFirst, syncSecond), -1);
-                    assertEquals(findFirstSyncPosition(dataSource, syncPosition - 2, 2, syncFirst, syncSecond), -1);
-                    assertEquals(findFirstSyncPosition(dataSource, syncPosition + 1, 1, syncFirst, syncSecond), -1);
+                assertEquals(findFirstSyncPosition(inputFile, syncPosition - 1, 1, syncFirst, syncSecond), -1);
+                assertEquals(findFirstSyncPosition(inputFile, syncPosition - 2, 2, syncFirst, syncSecond), -1);
+                assertEquals(findFirstSyncPosition(inputFile, syncPosition + 1, 1, syncFirst, syncSecond), -1);
 
-                    syncPositions.add(syncPosition);
-                    syncPosition++;
-                }
+                syncPositions.add(syncPosition);
+                syncPosition++;
             }
         }
         return syncPositions;
@@ -590,14 +589,13 @@ public class RcFileTester
     private static RcFileReader createRcFileReader(TempFile tempFile, Type type, RcFileEncoding encoding)
             throws IOException
     {
-        RcFileDataSource rcFileDataSource = new FileRcFileDataSource(tempFile.getFile());
+        TrinoInputFile rcFileDataSource = new LocalInputFile(tempFile.getFile());
         RcFileReader rcFileReader = new RcFileReader(
                 rcFileDataSource,
                 encoding,
                 ImmutableMap.of(0, type),
                 0,
-                tempFile.getFile().length(),
-                DataSize.of(8, MEGABYTE));
+                tempFile.getFile().length());
 
         assertEquals(rcFileReader.getColumnCount(), 1);
 
@@ -607,9 +605,8 @@ public class RcFileTester
     private static DataSize writeRcFileColumnNew(File outputFile, Format format, Compression compression, Type type, Iterator<?> values, Map<String, String> metadata)
             throws Exception
     {
-        OutputStreamSliceOutput output = new OutputStreamSliceOutput(new FileOutputStream(outputFile));
         RcFileWriter writer = new RcFileWriter(
-                output,
+                new FileOutputStream(outputFile),
                 ImmutableList.of(type),
                 format.getVectorEncoding(),
                 compression.getCompressionKind(),
@@ -626,9 +623,9 @@ public class RcFileTester
         writer.write(new Page(blockBuilder.build()));
         writer.close();
 
-        writer.validate(new FileRcFileDataSource(outputFile));
+        writer.validate(new LocalInputFile(outputFile));
 
-        return DataSize.ofBytes(output.size());
+        return DataSize.ofBytes(outputFile.length());
     }
 
     private static void writeValue(Type type, BlockBuilder blockBuilder, Object value)

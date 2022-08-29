@@ -11,57 +11,65 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.hive.formats.rcfile;
+package io.trino.filesystem.memory;
 
 import io.airlift.slice.Slice;
+import io.trino.filesystem.TrinoInput;
+import io.trino.filesystem.TrinoInputFile;
 
-import static java.lang.Math.toIntExact;
+import java.io.IOException;
+
 import static java.util.Objects.requireNonNull;
 
-public class MemoryRcFileDataSource
-        implements RcFileDataSource
+public class MemoryInputFile
+        implements TrinoInputFile
 {
-    private final RcFileDataSourceId id;
+    private final String location;
     private final Slice data;
-    private long readBytes;
 
-    public MemoryRcFileDataSource(RcFileDataSourceId id, Slice data)
+    public MemoryInputFile(String location, Slice data)
     {
-        this.id = requireNonNull(id, "id is null");
+        this.location = requireNonNull(location, "location is null");
         this.data = requireNonNull(data, "data is null");
     }
 
     @Override
-    public RcFileDataSourceId getId()
+    public TrinoInput newInput()
+            throws IOException
     {
-        return id;
+        return new MemoryInput(location, data);
     }
 
     @Override
-    public long getReadBytes()
-    {
-        return readBytes;
-    }
-
-    @Override
-    public long getReadTimeNanos()
-    {
-        return 0;
-    }
-
-    @Override
-    public long getSize()
+    public long length()
+            throws IOException
     {
         return data.length();
     }
 
     @Override
-    public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
+    public long modificationTime()
+            throws IOException
     {
-        data.getBytes(toIntExact(position), buffer, bufferOffset, bufferLength);
-        readBytes += bufferLength;
+        return 0;
     }
 
     @Override
-    public void close() {}
+    public boolean exists()
+            throws IOException
+    {
+        return true;
+    }
+
+    @Override
+    public String location()
+    {
+        return location;
+    }
+
+    @Override
+    public String toString()
+    {
+        return location;
+    }
 }

@@ -11,29 +11,53 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.hive.formats.rcfile;
+package io.trino.filesystem.local;
+
+import io.trino.filesystem.TrinoInput;
+import org.apache.iceberg.Files;
+import org.apache.iceberg.io.SeekableInputStream;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
-public class FileRcFileDataSource
-        implements RcFileDataSource
+class LocalInput
+        implements TrinoInput
 {
-    private final File path;
-    private final long size;
+    private final File file;
     private final RandomAccessFile input;
-    private long readTimeNanos;
-    private long readBytes;
 
-    public FileRcFileDataSource(File path)
+    public LocalInput(File file)
             throws IOException
     {
-        this.path = requireNonNull(path, "path is null");
-        this.size = path.length();
-        this.input = new RandomAccessFile(path, "r");
+        this.file = requireNonNull(file, "file is null");
+        this.input = new RandomAccessFile(file, "r");
+    }
+
+    @Override
+    public SeekableInputStream inputStream()
+    {
+        return Files.localInput(file).newStream();
+    }
+
+    @Override
+    public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
+            throws IOException
+    {
+        input.seek(position);
+        input.readFully(buffer, bufferOffset, bufferLength);
+    }
+
+    @Override
+    public int readTail(byte[] buffer, int bufferOffset, int bufferLength)
+            throws IOException
+    {
+        int readSize = (int) min(file.length(), bufferLength);
+        readFully(file.length() - readSize, buffer, bufferOffset, readSize);
+        return readSize;
     }
 
     @Override
@@ -44,45 +68,8 @@ public class FileRcFileDataSource
     }
 
     @Override
-    public long getReadBytes()
-    {
-        return readBytes;
-    }
-
-    @Override
-    public long getReadTimeNanos()
-    {
-        return readTimeNanos;
-    }
-
-    @Override
-    public long getSize()
-    {
-        return size;
-    }
-
-    @Override
-    public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
-            throws IOException
-    {
-        long start = System.nanoTime();
-
-        input.seek(position);
-        input.readFully(buffer, bufferOffset, bufferLength);
-
-        readTimeNanos += System.nanoTime() - start;
-        readBytes += bufferLength;
-    }
-
-    @Override
-    public RcFileDataSourceId getId()
-    {
-        return new RcFileDataSourceId(path.getPath());
-    }
-
-    @Override
     public String toString()
     {
-        return path.getPath();
+        return file.getPath();
     }
 }
