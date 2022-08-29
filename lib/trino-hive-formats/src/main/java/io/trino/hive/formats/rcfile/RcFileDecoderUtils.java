@@ -17,6 +17,10 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.trino.filesystem.TrinoInput;
+import io.trino.filesystem.TrinoInputFile;
+import io.trino.hive.formats.DataOutputStream;
+import io.trino.hive.formats.DataSeekableInputStream;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -65,6 +69,23 @@ public final class RcFileDecoderUtils
     public static boolean isNegativeVInt(byte value)
     {
         return value < -120 || (value >= -112 && value < 0);
+    }
+
+    public static long readVInt(DataSeekableInputStream in)
+            throws IOException
+    {
+        byte firstByte = in.readByte();
+        int length = decodeVIntSize(firstByte);
+        if (length == 1) {
+            return firstByte;
+        }
+
+        long value = 0;
+        for (int i = 1; i < length; i++) {
+            value <<= 8;
+            value |= (in.readByte() & 0xFF);
+        }
+        return isNegativeVInt(firstByte) ? ~value : value;
     }
 
     public static long readVInt(SliceInput in)
@@ -116,13 +137,13 @@ public final class RcFileDecoderUtils
     /**
      * Find the beginning of the first full sync sequence that starts within the specified range.
      */
-    public static long findFirstSyncPosition(RcFileDataSource dataSource, long offset, long length, long syncFirst, long syncSecond)
+    public static long findFirstSyncPosition(TrinoInputFile inputFile, long offset, long length, long syncFirst, long syncSecond)
             throws IOException
     {
-        requireNonNull(dataSource, "dataSource is null");
+        requireNonNull(inputFile, "inputFile is null");
         checkArgument(offset >= 0, "offset is negative");
         checkArgument(length >= 1, "length must be at least 1");
-        checkArgument(offset + length <= dataSource.getSize(), "offset plus length is greater than data size");
+        checkArgument(offset + length <= inputFile.length(), "offset plus length is greater than data size");
 
         // The full sync sequence is "0xFFFFFFFF syncFirst syncSecond".  If
         // this sequence begins the file range, the start position is returned
@@ -138,36 +159,69 @@ public final class RcFileDecoderUtils
         // this causes a re-read of SYNC_SEQUENCE_LENGTH bytes each time, but is much simpler code
         byte[] buffer = new byte[toIntExact(min(1 << 22, length + (SYNC_SEQUENCE_LENGTH - 1)))];
         Slice bufferSlice = Slices.wrappedBuffer(buffer);
-        for (long position = 0; position < length; position += bufferSlice.length() - (SYNC_SEQUENCE_LENGTH - 1)) {
-            // either fill the buffer entirely, or read enough to allow all bytes in offset + length to be a start sequence
-            int bufferSize = toIntExact(min(buffer.length, length + (SYNC_SEQUENCE_LENGTH - 1) - position));
-            // don't read off the end of the file
-            bufferSize = toIntExact(min(bufferSize, dataSource.getSize() - offset - position));
+        try (TrinoInput input = inputFile.newInput()) {
+            for (long position = 0; position < length; position += bufferSlice.length() - (SYNC_SEQUENCE_LENGTH - 1)) {
+                // either fill the buffer entirely, or read enough to allow all bytes in offset + length to be a start sequence
+                int bufferSize = toIntExact(min(buffer.length, length + (SYNC_SEQUENCE_LENGTH - 1) - position));
+                // don't read off the end of the file
+                bufferSize = toIntExact(min(bufferSize, inputFile.length() - offset - position));
 
-            dataSource.readFully(offset + position, buffer, 0, bufferSize);
+                input.readFully(offset + position, buffer, 0, bufferSize);
 
-            // find the starting index position of the sync sequence
-            int index = bufferSlice.indexOf(sync);
-            if (index >= 0) {
-                // If the starting position is before the end of the search region, return the
-                // absolute start position of the sequence.
-                if (position + index < length) {
-                    long startOfSyncSequence = offset + position + index;
-                    return startOfSyncSequence;
+                // find the starting index position of the sync sequence
+                int index = bufferSlice.indexOf(sync);
+                if (index >= 0) {
+                    // If the starting position is before the end of the search region, return the
+                    // absolute start position of the sequence.
+                    if (position + index < length) {
+                        long startOfSyncSequence = offset + position + index;
+                        return startOfSyncSequence;
+                    }
+                    // Otherwise, this is not a match for this region
+                    // Note: this case isn't strictly needed as the loop will exit, but it is
+                    // simpler to explicitly call it out.
+                    return -1;
                 }
-                // Otherwise, this is not a match for this region
-                // Note: this case isn't strictly needed as the loop will exit, but it is
-                // simpler to explicitly call it out.
-                return -1;
             }
         }
         return -1;
     }
 
-    public static void writeLengthPrefixedString(SliceOutput out, Slice slice)
+    public static void writeLengthPrefixedString(DataOutputStream out, Slice slice)
+            throws IOException
     {
         writeVInt(out, slice.length());
-        out.writeBytes(slice);
+        out.write(slice);
+    }
+
+    public static void writeVInt(DataOutputStream out, int value)
+            throws IOException
+    {
+        if (value >= -112 && value <= 127) {
+            out.writeByte(value);
+            return;
+        }
+
+        int length = -112;
+        if (value < 0) {
+            value ^= -1; // take one's complement'
+            length = -120;
+        }
+
+        int tmp = value;
+        while (tmp != 0) {
+            tmp = tmp >> 8;
+            length--;
+        }
+
+        out.writeByte(length);
+
+        length = (length < -120) ? -(length + 120) : -(length + 112);
+
+        for (int idx = length; idx != 0; idx--) {
+            int shiftBits = (idx - 1) * 8;
+            out.writeByte((value >> shiftBits) & 0xFF);
+        }
     }
 
     public static void writeVInt(SliceOutput out, int value)

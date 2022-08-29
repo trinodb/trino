@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.benchmark;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.OutputStreamSliceOutput;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hive.formats.rcfile.RcFileEncoding;
@@ -384,7 +383,7 @@ public final class StandardFileFormats
                 throws IOException
         {
             writer = new RcFileWriter(
-                    new OutputStreamSliceOutput(new FileOutputStream(targetFile)),
+                    new FileOutputStream(targetFile),
                     types,
                     encoding,
                     compressionCodec.getHiveCompressionKind(),

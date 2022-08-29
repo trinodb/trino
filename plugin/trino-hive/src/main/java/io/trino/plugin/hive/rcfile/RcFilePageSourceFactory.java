@@ -18,12 +18,13 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
-import io.trino.hdfs.FSDataInputStreamTail;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInput;
+import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.filesystem.memory.MemoryInputFile;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hive.formats.rcfile.MemoryRcFileDataSource;
 import io.trino.hive.formats.rcfile.RcFileCorruptionException;
-import io.trino.hive.formats.rcfile.RcFileDataSource;
-import io.trino.hive.formats.rcfile.RcFileDataSourceId;
 import io.trino.hive.formats.rcfile.RcFileEncoding;
 import io.trino.hive.formats.rcfile.RcFileReader;
 import io.trino.hive.formats.rcfile.binary.BinaryRcFileEncoding;
@@ -34,6 +35,7 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.HiveTimestampPrecision;
+import io.trino.plugin.hive.MonitoredTrinoInputFile;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.acid.AcidTransaction;
@@ -45,8 +47,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
 import org.joda.time.DateTimeZone;
@@ -54,7 +54,7 @@ import org.joda.time.DateTimeZone;
 import javax.inject.Inject;
 
 import java.io.FileNotFoundException;
-import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -83,7 +83,6 @@ import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LAST_COLUMN
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_NULL_FORMAT;
 import static java.lang.Math.min;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde2.lazy.LazySerDeParameters.SERIALIZATION_EXTEND_NESTING_LEVELS;
@@ -159,24 +158,22 @@ public class RcFilePageSourceFactory
                     .collect(toImmutableList());
         }
 
-        RcFileDataSource dataSource;
+        TrinoFileSystem trinoFileSystem = new HdfsFileSystemFactory(hdfsEnvironment).create(session.getIdentity());
+        TrinoInputFile inputFile = new MonitoredTrinoInputFile(stats, trinoFileSystem.newInputFile(path.toString()));
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), path, configuration);
-            FSDataInputStream inputStream = hdfsEnvironment.doAs(session.getIdentity(), () -> fileSystem.open(path));
+            length = min(inputFile.length() - start, length);
+            if (!inputFile.exists()) {
+                throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "File does not exist");
+            }
             if (estimatedFileSize < BUFFER_SIZE.toBytes()) {
-                //  Handle potentially imprecise file lengths by reading the footer
-                try {
-                    FSDataInputStreamTail fileTail = FSDataInputStreamTail.readTail(path.toString(), estimatedFileSize, inputStream, toIntExact(BUFFER_SIZE.toBytes()));
-                    dataSource = new MemoryRcFileDataSource(new RcFileDataSourceId(path.toString()), fileTail.getTailSlice());
-                }
-                finally {
-                    inputStream.close();
+                try (TrinoInput input = inputFile.newInput(); InputStream inputStream = input.inputStream()) {
+                    byte[] data = inputStream.readAllBytes();
+                    inputFile = new MemoryInputFile(path.toString(), Slices.wrappedBuffer(data));
                 }
             }
-            else {
-                long fileSize = hdfsEnvironment.doAs(session.getIdentity(), () -> fileSystem.getFileStatus(path).getLen());
-                dataSource = new HdfsRcFileDataSource(path.toString(), inputStream, fileSize, stats);
-            }
+        }
+        catch (TrinoException e) {
+            throw e;
         }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
@@ -186,7 +183,6 @@ public class RcFilePageSourceFactory
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
         }
 
-        length = min(dataSource.getSize() - start, length);
         // Split may be empty now that the correct file size is known
         if (length <= 0) {
             return Optional.of(noProjectionAdaptation(new EmptyPageSource()));
@@ -200,22 +196,16 @@ public class RcFilePageSourceFactory
             }
 
             RcFileReader rcFileReader = new RcFileReader(
-                    dataSource,
+                    inputFile,
                     rcFileEncoding,
                     readColumns.buildOrThrow(),
                     start,
-                    length,
-                    BUFFER_SIZE);
+                    length);
 
             ConnectorPageSource pageSource = new RcFilePageSource(rcFileReader, projectedReaderColumns);
             return Optional.of(new ReaderPageSource(pageSource, readerProjections));
         }
         catch (Throwable e) {
-            try {
-                dataSource.close();
-            }
-            catch (IOException ignored) {
-            }
             if (e instanceof TrinoException) {
                 throw (TrinoException) e;
             }
