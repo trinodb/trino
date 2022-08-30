@@ -107,7 +107,7 @@ public class CachingJdbcClient
             long cacheMaximumSize)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
-        this.sessionProperties = requireNonNull(sessionPropertiesProviders, "sessionPropertiesProviders is null").stream()
+        this.sessionProperties = sessionPropertiesProviders.stream()
                 .flatMap(provider -> provider.getSessionProperties().stream())
                 .collect(toImmutableList());
         this.cacheMissing = cacheMissing;

@@ -58,8 +58,7 @@ public class SkipAggregationBuilder
             LocalMemoryContext memoryContext)
     {
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
-        this.groupedAggregators = requireNonNull(aggregatorFactories, "aggregatorFactories is null")
-                .stream()
+        this.groupedAggregators = aggregatorFactories.stream()
                 .map(AggregatorFactory::createGroupedAggregator)
                 .collect(toImmutableList());
         this.hashChannels = new int[groupByChannels.size() + (inputHashChannel.isPresent() ? 1 : 0)];

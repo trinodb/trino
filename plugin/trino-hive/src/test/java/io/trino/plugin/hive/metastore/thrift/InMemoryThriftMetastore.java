@@ -582,8 +582,8 @@ public class InMemoryThriftMetastore
 
         private PartitionName(String schemaName, String tableName, List<String> partitionValues, String partitionName)
         {
-            this.schemaName = requireNonNull(schemaName, "schemaName is null").toLowerCase(US);
-            this.tableName = requireNonNull(tableName, "tableName is null").toLowerCase(US);
+            this.schemaName = schemaName.toLowerCase(US);
+            this.tableName = tableName.toLowerCase(US);
             this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
             this.partitionName = partitionName;
         }

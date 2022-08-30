@@ -68,7 +68,7 @@ public class FixedSourcePartitionedScheduler
         requireNonNull(stageExecution, "stageExecution is null");
         requireNonNull(splitSources, "splitSources is null");
         requireNonNull(bucketNodeMap, "bucketNodeMap is null");
-        checkArgument(!requireNonNull(nodes, "nodes is null").isEmpty(), "nodes is empty");
+        checkArgument(!nodes.isEmpty(), "nodes is empty");
         requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
 
         this.stageExecution = stageExecution;

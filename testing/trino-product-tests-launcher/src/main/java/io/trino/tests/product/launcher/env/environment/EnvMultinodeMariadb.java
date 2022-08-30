@@ -44,7 +44,7 @@ public class EnvMultinodeMariadb
     public EnvMultinodeMariadb(StandardMultinode standardMultinode, DockerFiles dockerFiles, PortBinder portBinder)
     {
         super(standardMultinode);
-        this.configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/multinode-mariadb/");
+        this.configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/multinode-mariadb/");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
     }
 

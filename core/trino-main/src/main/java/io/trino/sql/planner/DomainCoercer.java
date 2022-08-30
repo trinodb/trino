@@ -81,7 +81,7 @@ public final class DomainCoercer
                 Domain domain,
                 Type coercedValueType)
         {
-            this.connectorSession = requireNonNull(session, "session is null").toConnectorSession();
+            this.connectorSession = session.toConnectorSession();
             this.functionInvoker = new InterpretedFunctionInvoker(functionManager);
             this.domain = requireNonNull(domain, "domain is null");
             this.coercedValueType = requireNonNull(coercedValueType, "coercedValueType is null");

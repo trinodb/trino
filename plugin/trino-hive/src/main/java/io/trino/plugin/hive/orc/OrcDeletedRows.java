@@ -106,7 +106,7 @@ public class OrcDeletedRows
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.acidInfo = requireNonNull(acidInfo, "acidInfo is null");
         this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
-        this.memoryUsage = requireNonNull(memoryContext, "memoryContext is null").newLocalMemoryContext(OrcDeletedRows.class.getSimpleName());
+        this.memoryUsage = memoryContext.newLocalMemoryContext(OrcDeletedRows.class.getSimpleName());
     }
 
     public MaskDeletedRowsFunction getMaskDeletedRowsFunction(Page sourcePage, OptionalLong startRowId)

@@ -73,7 +73,7 @@ public class LocalDynamicFilterConsumer
         requireNonNull(collectors, "collectors is null");
         checkArgument(!collectors.isEmpty(), "collectors is empty");
         this.collectors = ImmutableList.copyOf(collectors);
-        this.domainSizeLimitInBytes = requireNonNull(domainSizeLimit, "domainSizeLimit is null").toBytes();
+        this.domainSizeLimitInBytes = domainSizeLimit.toBytes();
     }
 
     @Override

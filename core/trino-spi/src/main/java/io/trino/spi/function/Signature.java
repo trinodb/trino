@@ -257,7 +257,7 @@ public class Signature
 
         public Builder argumentType(Type type)
         {
-            return argumentType(requireNonNull(type, "type is null").getTypeSignature());
+            return argumentType(type.getTypeSignature());
         }
 
         public Builder argumentType(TypeSignature type)

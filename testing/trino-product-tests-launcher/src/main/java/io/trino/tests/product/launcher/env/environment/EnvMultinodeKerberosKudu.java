@@ -59,7 +59,7 @@ public class EnvMultinodeKerberosKudu
     {
         super(standardMultinode, kerberos);
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
-        configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/multinode-kerberos-kudu/");
+        configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/multinode-kerberos-kudu/");
     }
 
     @Override

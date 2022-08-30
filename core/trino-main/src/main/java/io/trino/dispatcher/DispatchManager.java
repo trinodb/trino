@@ -102,7 +102,7 @@ public class DispatchManager
 
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
 
-        this.dispatchExecutor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getExecutor();
+        this.dispatchExecutor = dispatchExecutor.getExecutor();
 
         this.queryTracker = new QueryTracker<>(queryManagerConfig, dispatchExecutor.getScheduledExecutor());
     }

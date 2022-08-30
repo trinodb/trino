@@ -64,7 +64,7 @@ public final class FileBasedNetworkTopology
     FileBasedNetworkTopology(File networkTopologyFile, Duration refreshPeriod, Ticker ticker)
     {
         this.networkTopologyFile = requireNonNull(networkTopologyFile, "networkTopologyFile is null");
-        this.refreshPeriodNanos = requireNonNull(refreshPeriod, "refreshPeriodNanos is null").roundTo(NANOSECONDS);
+        this.refreshPeriodNanos = refreshPeriod.roundTo(NANOSECONDS);
         this.ticker = requireNonNull(ticker, "ticker is null");
         refreshTopology();
     }

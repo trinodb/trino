@@ -37,7 +37,7 @@ public final class NodeAssignmentStats
     public NodeAssignmentStats(NodeTaskMap nodeTaskMap, NodeMap nodeMap, List<RemoteTask> existingTasks)
     {
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
-        int nodeMapSize = requireNonNull(nodeMap, "nodeMap is null").getNodesByHostAndPort().size();
+        int nodeMapSize = nodeMap.getNodesByHostAndPort().size();
         this.nodeTotalSplitsInfo = new HashMap<>(nodeMapSize);
         this.stageQueuedSplitInfo = new HashMap<>(nodeMapSize);
 
@@ -108,7 +108,7 @@ public final class NodeAssignmentStats
 
         private PendingSplitInfo(PartitionedSplitsInfo queuedSplitsInfo, int unacknowledgedSplitCount)
         {
-            this.queuedSplitCount = requireNonNull(queuedSplitsInfo, "queuedSplitsInfo is null").getCount();
+            this.queuedSplitCount = queuedSplitsInfo.getCount();
             this.queuedSplitsWeight = queuedSplitsInfo.getWeightSum();
             this.unacknowledgedSplitCount = unacknowledgedSplitCount;
         }

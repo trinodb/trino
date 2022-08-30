@@ -59,7 +59,7 @@ public class ScaleWriterExchanger
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
         this.maxBufferedBytes = maxBufferedBytes;
         this.physicalWrittenBytesSupplier = requireNonNull(physicalWrittenBytesSupplier, "physicalWrittenBytesSupplier is null");
-        this.writerMinSize = requireNonNull(writerMinSize, "writerMinSize is null").toBytes();
+        this.writerMinSize = writerMinSize.toBytes();
         this.onPageReleased = PageReleasedListener.forLocalExchangeMemoryManager(memoryManager);
     }
 

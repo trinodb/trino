@@ -1670,7 +1670,7 @@ public class ThriftHiveMetastore
 
         builder.setDbName(table.getSchemaName());
         builder.setTableName(table.getTableName());
-        requireNonNull(partitionName, "partitionName is null").ifPresent(builder::setPartitionName);
+        partitionName.ifPresent(builder::setPartitionName);
 
         // acquire locks is called only for TransactionalTable
         builder.setIsTransactional(true);

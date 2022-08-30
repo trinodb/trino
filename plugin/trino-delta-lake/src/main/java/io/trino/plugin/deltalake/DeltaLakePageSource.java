@@ -70,7 +70,7 @@ public class DeltaLakePageSource
             long fileSize,
             long fileModifiedTime)
     {
-        int size = requireNonNull(columns, "columns is null").size();
+        int size = columns.size();
         requireNonNull(partitionKeys, "partitionKeys is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
 

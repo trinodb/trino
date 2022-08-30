@@ -61,7 +61,7 @@ public class TestPostgreSqlCaseInsensitiveMapping
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return requireNonNull(postgreSqlServer, "postgreSqlServer is null")::execute;
+        return postgreSqlServer::execute;
     }
 
     @Test

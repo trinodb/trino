@@ -63,7 +63,7 @@ public class MeasureComputation
     {
         this.projection = requireNonNull(projection, "projection is null");
         this.expectedLayout = requireNonNull(expectedLayout, "expectedLayout is null");
-        this.aggregations = requireNonNull(aggregations, "aggregations is null").toArray(new MatchAggregation[] {});
+        this.aggregations = aggregations.toArray(new MatchAggregation[] {});
         this.nulls = precomputeNulls(expectedLayout);
         this.type = requireNonNull(type, "type is null");
         this.labelNames = requireNonNull(labelNames, "labelNames is null");
