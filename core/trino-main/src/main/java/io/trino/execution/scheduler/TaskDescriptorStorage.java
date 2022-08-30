@@ -52,7 +52,7 @@ public class TaskDescriptorStorage
     @Inject
     public TaskDescriptorStorage(QueryManagerConfig config)
     {
-        this(requireNonNull(config, "config is null").getFaultTolerantExecutionTaskDescriptorStorageMaxMemory());
+        this(config.getFaultTolerantExecutionTaskDescriptorStorageMaxMemory());
     }
 
     public TaskDescriptorStorage(DataSize maxMemory)

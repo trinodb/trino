@@ -91,7 +91,6 @@ public class DeltaLakeMetadataFactory
         this.checkpointWriterManager = requireNonNull(checkpointWriterManager, "checkpointWriterManager is null");
         this.deltaLakeRedirectionsProvider = requireNonNull(deltaLakeRedirectionsProvider, "deltaLakeRedirectionsProvider is null");
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
-        requireNonNull(deltaLakeConfig, "deltaLakeConfig is null");
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
         this.unsafeWritesEnabled = deltaLakeConfig.getUnsafeWritesEnabled();
         this.checkpointWritingInterval = deltaLakeConfig.getDefaultCheckpointWritingInterval();

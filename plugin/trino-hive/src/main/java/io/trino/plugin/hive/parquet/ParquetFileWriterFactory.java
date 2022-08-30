@@ -72,7 +72,7 @@ public class ParquetFileWriterFactory
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.parquetTimeZone = requireNonNull(hiveConfig, "hiveConfig is null").getParquetDateTimeZone();
+        this.parquetTimeZone = hiveConfig.getParquetDateTimeZone();
     }
 
     @Override

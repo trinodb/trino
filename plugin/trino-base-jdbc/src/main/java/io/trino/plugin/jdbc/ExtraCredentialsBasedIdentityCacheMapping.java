@@ -43,7 +43,6 @@ public final class ExtraCredentialsBasedIdentityCacheMapping
         catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
-        requireNonNull(config, "config is null");
         userCredentialName = config.getUserCredentialName();
         passwordCredentialName = config.getPasswordCredentialName();
     }

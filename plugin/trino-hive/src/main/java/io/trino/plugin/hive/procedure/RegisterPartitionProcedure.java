@@ -74,7 +74,7 @@ public class RegisterPartitionProcedure
     @Inject
     public RegisterPartitionProcedure(HiveConfig hiveConfig, TransactionalMetadataFactory hiveMetadataFactory, HdfsEnvironment hdfsEnvironment)
     {
-        this.allowRegisterPartition = requireNonNull(hiveConfig, "hiveConfig is null").isAllowRegisterPartition();
+        this.allowRegisterPartition = hiveConfig.isAllowRegisterPartition();
         this.hiveMetadataFactory = requireNonNull(hiveMetadataFactory, "hiveMetadataFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }

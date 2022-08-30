@@ -220,13 +220,12 @@ public class IcebergPageSourceProvider
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
-        this.orcReaderOptions = requireNonNull(orcReaderConfig, "orcReaderConfig is null").toOrcReaderOptions();
-        this.parquetReaderOptions = requireNonNull(parquetReaderConfig, "parquetReaderConfig is null").toParquetReaderOptions();
+        this.orcReaderOptions = orcReaderConfig.toOrcReaderOptions();
+        this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
-        requireNonNull(icebergConfig, "icebergConfig is null");
         this.maxOpenPartitions = icebergConfig.getMaxPartitionsPerWriter();
     }
 

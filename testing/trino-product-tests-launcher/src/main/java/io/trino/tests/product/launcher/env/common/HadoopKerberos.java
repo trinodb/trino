@@ -51,8 +51,8 @@ public class HadoopKerberos
     {
         this.configDir = dockerFiles.getDockerFilesHostDirectory("common/hadoop-kerberos/");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
-        hadoopBaseImage = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopBaseImage();
-        hadoopImagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
+        hadoopBaseImage = environmentConfig.getHadoopBaseImage();
+        hadoopImagesVersion = environmentConfig.getHadoopImagesVersion();
         this.hadoop = requireNonNull(hadoop, "hadoop is null");
     }
 

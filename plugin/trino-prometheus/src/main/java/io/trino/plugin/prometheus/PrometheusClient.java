@@ -69,7 +69,6 @@ public class PrometheusClient
     @Inject
     public PrometheusClient(PrometheusConnectorConfig config, JsonCodec<Map<String, Object>> metricCodec, TypeManager typeManager)
     {
-        requireNonNull(config, "config is null");
         requireNonNull(metricCodec, "metricCodec is null");
         requireNonNull(typeManager, "typeManager is null");
 

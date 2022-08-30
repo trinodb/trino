@@ -37,6 +37,7 @@ public class TestingWarningCollector
 {
     @GuardedBy("this")
     private final Map<WarningCode, TrinoWarning> warnings = new LinkedHashMap<>();
+    @Deprecated // TODO do not keep mutable config instance on a field
     private final WarningCollectorConfig config;
 
     private final boolean addWarnings;
@@ -45,7 +46,6 @@ public class TestingWarningCollector
     public TestingWarningCollector(WarningCollectorConfig config, TestingWarningCollectorConfig testConfig)
     {
         this.config = requireNonNull(config, "config is null");
-        requireNonNull(testConfig, "testConfig is null");
         addWarnings = testConfig.getAddWarnings();
         // Start warning codes at 1
         for (int warningCode = 1; warningCode <= testConfig.getPreloadedWarnings(); warningCode++) {

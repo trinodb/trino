@@ -113,7 +113,7 @@ public class ExecutingStatementResource
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.preparedStatementEncoder = requireNonNull(preparedStatementEncoder, "preparedStatementEncoder is null");
-        this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
+        this.compressionEnabled = serverConfig.isQueryResultsCompressionEnabled();
 
         queryPurger.scheduleWithFixedDelay(
                 () -> {

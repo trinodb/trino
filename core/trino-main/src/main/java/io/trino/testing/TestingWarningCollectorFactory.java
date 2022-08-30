@@ -27,7 +27,9 @@ public class TestingWarningCollectorFactory
 
     public TestingWarningCollectorFactory(WarningCollectorConfig config, TestingWarningCollectorConfig testConfig)
     {
+        // TODO do not keep mutable config instance on a field
         this.config = requireNonNull(config, "config is null");
+        // TODO do not keep mutable config instance on a field
         this.testConfig = requireNonNull(testConfig, "testConfig is null");
     }
 

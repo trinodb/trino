@@ -61,6 +61,7 @@ public class HttpEventListener
 
     private final HttpClient client;
 
+    @Deprecated // TODO do not keep mutable config instance on a field
     private final HttpEventListenerConfig config;
 
     private final URI ingestUri;

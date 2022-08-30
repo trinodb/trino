@@ -188,7 +188,6 @@ public class SqlTaskManager
         this.connectorServicesProvider = requireNonNull(connectorServicesProvider, "connectorServicesProvider is null");
 
         requireNonNull(nodeInfo, "nodeInfo is null");
-        requireNonNull(config, "config is null");
         infoCacheTime = config.getInfoMaxAge();
         clientTimeout = config.getClientTimeout();
 

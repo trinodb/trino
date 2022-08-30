@@ -31,6 +31,7 @@ public class DefaultWarningCollector
 {
     @GuardedBy("this")
     private final Set<TrinoWarning> warnings = new LinkedHashSet<>();
+    @Deprecated // TODO do not keep mutable config instance on a field
     private final WarningCollectorConfig config;
 
     public DefaultWarningCollector(WarningCollectorConfig config)

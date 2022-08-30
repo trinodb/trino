@@ -49,7 +49,7 @@ public abstract class AbstractEnvSinglenodeLdap
         super(bases);
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
-        this.imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
+        this.imagesVersion = environmentConfig.getImagesVersion();
     }
 
     @Override

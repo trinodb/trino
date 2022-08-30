@@ -92,6 +92,7 @@ public class PlanFragmenter
     private final FunctionManager functionManager;
     private final TransactionManager transactionManager;
     private final CatalogManager catalogManager;
+    @Deprecated // TODO do not keep mutable config instance on a field
     private final QueryManagerConfig config;
 
     @Inject

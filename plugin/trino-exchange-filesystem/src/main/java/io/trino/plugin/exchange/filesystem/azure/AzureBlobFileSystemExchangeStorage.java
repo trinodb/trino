@@ -96,7 +96,6 @@ public class AzureBlobFileSystemExchangeStorage
     @Inject
     public AzureBlobFileSystemExchangeStorage(ExchangeAzureConfig config)
     {
-        requireNonNull(config, "config is null");
         this.blockSize = toIntExact(config.getAzureStorageBlockSize().toBytes());
 
         BlobServiceClientBuilder blobServiceClientBuilder = new BlobServiceClientBuilder()

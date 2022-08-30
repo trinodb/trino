@@ -133,10 +133,8 @@ public class QueuedStatementResource
         this.responseExecutor = requireNonNull(executor, "executor is null").getExecutor();
         this.timeoutExecutor = requireNonNull(executor, "executor is null").getScheduledExecutor();
         this.queryInfoUrlFactory = requireNonNull(queryInfoUrlTemplate, "queryInfoUrlTemplate is null");
-        this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
-        this.alternateHeaderName = requireNonNull(protocolConfig, "protocolConfig is null").getAlternateHeaderName();
-
-        requireNonNull(queryManagerConfig, "queryManagerConfig is null");
+        this.compressionEnabled = serverConfig.isQueryResultsCompressionEnabled();
+        this.alternateHeaderName = protocolConfig.getAlternateHeaderName();
         queryManager = new QueryManager(queryManagerConfig.getClientTimeout());
     }
 

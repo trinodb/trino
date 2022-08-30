@@ -107,8 +107,7 @@ public class TransactionLogAccess
         this.checkpointSchemaManager = requireNonNull(checkpointSchemaManager, "checkpointSchemaManager is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.parquetReaderOptions = requireNonNull(parquetReaderConfig, "parquetReaderConfig is null").toParquetReaderOptions();
-        requireNonNull(deltaLakeConfig, "deltaLakeConfig is null");
+        this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions();
         this.checkpointRowStatisticsWritingEnabled = deltaLakeConfig.isCheckpointRowStatisticsWritingEnabled();
 
         tableSnapshots = EvictableCacheBuilder.newBuilder()

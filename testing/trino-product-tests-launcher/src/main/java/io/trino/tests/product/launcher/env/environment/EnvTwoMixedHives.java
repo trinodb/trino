@@ -61,8 +61,8 @@ public final class EnvTwoMixedHives
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/two-mixed-hives");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
-        hadoopBaseImage = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopBaseImage();
-        hadoopImagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
+        hadoopBaseImage = environmentConfig.getHadoopBaseImage();
+        hadoopImagesVersion = environmentConfig.getHadoopImagesVersion();
     }
 
     @Override

@@ -141,7 +141,6 @@ import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
 
 public class OracleClient
@@ -212,7 +211,6 @@ public class OracleClient
     {
         super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
 
-        requireNonNull(oracleConfig, "oracleConfig is null");
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()

@@ -142,9 +142,7 @@ public class ClusterMemoryManager
             MemoryManagerConfig config,
             NodeMemoryConfig nodeMemoryConfig)
     {
-        requireNonNull(config, "config is null");
         requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
-        requireNonNull(serverConfig, "serverConfig is null");
         checkState(serverConfig.isCoordinator(), "ClusterMemoryManager must not be bound on worker");
 
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");

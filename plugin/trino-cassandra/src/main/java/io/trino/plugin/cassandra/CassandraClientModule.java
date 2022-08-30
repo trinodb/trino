@@ -108,7 +108,6 @@ public class CassandraClientModule
     @Provides
     public static CassandraSession createCassandraSession(CassandraTypeManager cassandraTypeManager, CassandraClientConfig config, JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec)
     {
-        requireNonNull(config, "config is null");
         requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
 
         CqlSessionBuilder cqlSessionBuilder = CqlSession.builder();

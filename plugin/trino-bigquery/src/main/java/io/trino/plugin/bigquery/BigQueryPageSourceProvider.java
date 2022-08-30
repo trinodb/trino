@@ -48,7 +48,7 @@ public class BigQueryPageSourceProvider
     {
         this.bigQueryClientFactory = requireNonNull(bigQueryClientFactory, "bigQueryClientFactory is null");
         this.bigQueryReadClientFactory = requireNonNull(bigQueryReadClientFactory, "bigQueryReadClientFactory is null");
-        this.maxReadRowsRetries = requireNonNull(config, "config is null").getMaxReadRowsRetries();
+        this.maxReadRowsRetries = config.getMaxReadRowsRetries();
     }
 
     @Override

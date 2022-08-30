@@ -33,7 +33,6 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.util.SystemProperties.setJavaSecurityKrb5Conf;
 import static io.trino.plugin.kudu.KuduAuthenticationConfig.KuduAuthenticationType.KERBEROS;
 import static io.trino.plugin.kudu.KuduAuthenticationConfig.KuduAuthenticationType.NONE;
-import static java.util.Objects.requireNonNull;
 import static org.apache.kudu.client.KuduClient.KuduClientBuilder;
 
 public class KuduSecurityModule
@@ -102,8 +101,6 @@ public class KuduSecurityModule
 
     private static KuduClientSession createKuduClientSession(KuduClientConfig config, Function<KuduClientBuilder, KuduClientWrapper> kuduClientFactory)
     {
-        requireNonNull(config, "config is null");
-
         KuduClient.KuduClientBuilder builder = new KuduClientBuilder(config.getMasterAddresses());
         builder.defaultAdminOperationTimeoutMs(config.getDefaultAdminOperationTimeout().toMillis());
         builder.defaultOperationTimeoutMs(config.getDefaultOperationTimeout().toMillis());

@@ -48,7 +48,7 @@ public class FailureInjector
     public FailureInjector(FailureInjectionConfig config)
     {
         this(
-                requireNonNull(config, "config is null").getExpirationPeriod(),
+                config.getExpirationPeriod(),
                 config.getRequestTimeout());
     }
 

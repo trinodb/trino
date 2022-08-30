@@ -103,7 +103,6 @@ public class PinotMetadata
             @ForPinot ExecutorService executor,
             PinotTypeConverter typeConverter)
     {
-        requireNonNull(pinotConfig, "pinot config");
         this.pinotClient = requireNonNull(pinotClient, "pinotClient is null");
         long metadataCacheExpiryMillis = pinotConfig.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS);
         this.typeConverter = requireNonNull(typeConverter, "typeConverter is null");

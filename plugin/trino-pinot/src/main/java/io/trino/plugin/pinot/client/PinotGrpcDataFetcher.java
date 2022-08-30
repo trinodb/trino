@@ -122,7 +122,6 @@ public class PinotGrpcDataFetcher
         public Factory(PinotHostMapper pinotHostMapper, PinotGrpcServerQueryClientConfig pinotGrpcServerQueryClientConfig, GrpcQueryClientFactory grpcQueryClientFactory)
         {
             requireNonNull(pinotHostMapper, "pinotHostMapper is null");
-            requireNonNull(pinotGrpcServerQueryClientConfig, "pinotGrpcServerQueryClientConfig is null");
             this.limitForSegmentQueries = pinotGrpcServerQueryClientConfig.getMaxRowsPerSplitForSegmentQueries();
             this.queryClient = new PinotGrpcServerQueryClient(pinotHostMapper, pinotGrpcServerQueryClientConfig, grpcQueryClientFactory, closer);
         }
@@ -192,7 +191,6 @@ public class PinotGrpcDataFetcher
         public TlsGrpcQueryClientFactory(PinotGrpcServerQueryClientConfig grpcClientConfig, PinotGrpcServerQueryClientTlsConfig tlsConfig)
         {
             requireNonNull(grpcClientConfig, "grpcClientConfig is null");
-            requireNonNull(tlsConfig, "tlsConfig is null");
 
             ImmutableMap.Builder<String, Object> tlsConfigBuilder = ImmutableMap.builder();
             if (tlsConfig.getKeystorePath().isPresent()) {

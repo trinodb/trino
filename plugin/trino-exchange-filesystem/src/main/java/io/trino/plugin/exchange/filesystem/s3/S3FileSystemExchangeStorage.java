@@ -147,7 +147,6 @@ public class S3FileSystemExchangeStorage
             throws IOException
     {
         this.stats = requireNonNull(stats, "stats is null");
-        requireNonNull(config, "config is null");
         this.region = config.getS3Region();
         this.endpoint = config.getS3Endpoint();
         this.multiUploadPartSize = toIntExact(config.getS3UploadPartSize().toBytes());
