@@ -153,6 +153,7 @@ public final class JdbcTypeHandle
                 .add("columnSize", columnSize)
                 .add("decimalDigits", decimalDigits)
                 .add("arrayDimensions", arrayDimensions.orElse(null))
+                .add("caseSensitivity", caseSensitivity.orElse(null))
                 .toString();
     }
 
