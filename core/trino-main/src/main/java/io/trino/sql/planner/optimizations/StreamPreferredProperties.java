@@ -58,7 +58,7 @@ public class StreamPreferredProperties
             boolean orderSensitive)
     {
         this.distribution = requireNonNull(distribution, "distribution is null");
-        this.partitioningColumns = requireNonNull(partitioningColumns, "partitioningColumns is null").map(ImmutableList::copyOf);
+        this.partitioningColumns = partitioningColumns.map(ImmutableList::copyOf);
         this.exactColumnOrder = exactColumnOrder;
         this.orderSensitive = orderSensitive;
 
