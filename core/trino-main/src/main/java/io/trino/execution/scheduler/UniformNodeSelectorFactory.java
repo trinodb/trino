@@ -83,11 +83,7 @@ public class UniformNodeSelectorFactory
             NodeTaskMap nodeTaskMap,
             Duration nodeMapMemoizationDuration)
     {
-        requireNonNull(nodeManager, "nodeManager is null");
-        requireNonNull(config, "config is null");
-        requireNonNull(nodeTaskMap, "nodeTaskMap is null");
-
-        this.nodeManager = nodeManager;
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.minCandidates = config.getMinCandidates();
         this.includeCoordinator = config.isIncludeCoordinator();
         this.splitsBalancingPolicy = config.getSplitsBalancingPolicy();

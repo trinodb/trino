@@ -76,7 +76,6 @@ public class SheetsClient
     @Inject
     public SheetsClient(SheetsConfig config, JsonCodec<Map<String, List<SheetsTable>>> catalogCodec)
     {
-        requireNonNull(config, "config is null");
         requireNonNull(catalogCodec, "catalogCodec is null");
 
         this.metadataSheetId = config.getMetadataSheetId();

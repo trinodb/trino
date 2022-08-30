@@ -299,6 +299,7 @@ public class LocalQueryRunner
 
     private final TaskManagerConfig taskManagerConfig;
     private final boolean alwaysRevokeMemory;
+    @Deprecated // TODO do not keep mutable config instance on a field
     private final NodeSpillConfig nodeSpillConfig;
     private final OptimizerConfig optimizerConfig;
     private final OperatorFactories operatorFactories;

@@ -52,7 +52,6 @@ public class SqlTaskExecutionFactory
         this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
         this.planner = requireNonNull(planner, "planner is null");
         this.splitMonitor = requireNonNull(splitMonitor, "splitMonitor is null");
-        requireNonNull(config, "config is null");
         this.perOperatorCpuTimerEnabled = config.isPerOperatorCpuTimerEnabled();
         this.cpuTimerEnabled = config.isTaskCpuTimerEnabled();
     }

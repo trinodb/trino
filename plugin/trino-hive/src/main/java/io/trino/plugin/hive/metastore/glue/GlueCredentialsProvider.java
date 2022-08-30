@@ -23,7 +23,6 @@ import javax.inject.Inject;
 import javax.inject.Provider;
 
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class GlueCredentialsProvider
         implements Provider<AWSCredentialsProvider>
@@ -33,7 +32,6 @@ public class GlueCredentialsProvider
     @Inject
     public GlueCredentialsProvider(GlueHiveMetastoreConfig config)
     {
-        requireNonNull(config, "config is null");
         if (config.getAwsCredentialsProvider().isPresent()) {
             this.credentialsProvider = getCustomAWSCredentialsProvider(config.getAwsCredentialsProvider().get());
         }

@@ -68,7 +68,7 @@ public final class EnvMultinodeTls
         super(ImmutableList.of(standard, hadoop));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
-        this.imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
+        this.imagesVersion = environmentConfig.getImagesVersion();
         this.jdkVersion = requireNonNull(jdkVersion, "jdkVersion is null");
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
         this.debug = debug;

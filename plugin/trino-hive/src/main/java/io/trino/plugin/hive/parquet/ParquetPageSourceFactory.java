@@ -134,10 +134,8 @@ public class ParquetPageSourceFactory
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.stats = requireNonNull(stats, "stats is null");
-        requireNonNull(config, "config is null");
-
         options = config.toParquetReaderOptions();
-        timeZone = requireNonNull(hiveConfig, "hiveConfig is null").getParquetDateTimeZone();
+        timeZone = hiveConfig.getParquetDateTimeZone();
     }
 
     @Override

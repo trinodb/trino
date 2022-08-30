@@ -64,8 +64,8 @@ public final class EnvMultinodeTlsKerberos
     {
         super(ImmutableList.of(standard, hadoopKerberos));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
-        String hadoopBaseImage = requireNonNull(config, "config is null").getHadoopBaseImage();
-        String hadoopImagesVersion = requireNonNull(config, "config is null").getHadoopImagesVersion();
+        String hadoopBaseImage = config.getHadoopBaseImage();
+        String hadoopImagesVersion = config.getHadoopImagesVersion();
         this.prestoDockerImageName = hadoopBaseImage + "-kerberized:" + hadoopImagesVersion;
         this.jdkVersion = requireNonNull(jdkVersion, "jdkVersion is null");
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");

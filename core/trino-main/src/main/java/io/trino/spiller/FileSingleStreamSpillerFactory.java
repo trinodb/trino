@@ -85,14 +85,14 @@ public class FileSingleStreamSpillerFactory
     {
         this(
                 listeningDecorator(newFixedThreadPool(
-                        requireNonNull(featuresConfig, "featuresConfig is null").getSpillerThreads(),
+                        featuresConfig.getSpillerThreads(),
                         daemonThreadsNamed("binary-spiller-%s"))),
                 requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"),
                 spillerStats,
-                requireNonNull(featuresConfig, "featuresConfig is null").getSpillerSpillPaths(),
-                requireNonNull(featuresConfig, "featuresConfig is null").getSpillMaxUsedSpaceThreshold(),
-                requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").isSpillCompressionEnabled(),
-                requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").isSpillEncryptionEnabled());
+                featuresConfig.getSpillerSpillPaths(),
+                featuresConfig.getSpillMaxUsedSpaceThreshold(),
+                nodeSpillConfig.isSpillCompressionEnabled(),
+                nodeSpillConfig.isSpillEncryptionEnabled());
     }
 
     @VisibleForTesting

@@ -46,7 +46,6 @@ import java.util.Optional;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static io.trino.plugin.base.util.SystemProperties.setJavaSecurityKrb5Conf;
 import static io.trino.server.security.UserMapping.createUserMapping;
-import static java.util.Objects.requireNonNull;
 import static javax.security.auth.login.AppConfigurationEntry.LoginModuleControlFlag.REQUIRED;
 import static org.ietf.jgss.GSSCredential.ACCEPT_ONLY;
 import static org.ietf.jgss.GSSCredential.INDEFINITE_LIFETIME;
@@ -66,7 +65,6 @@ public class KerberosAuthenticator
     @Inject
     public KerberosAuthenticator(KerberosConfig config)
     {
-        requireNonNull(config, "config is null");
         this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
 
         setJavaSecurityKrb5Conf(config.getKerberosConfig().getAbsolutePath());

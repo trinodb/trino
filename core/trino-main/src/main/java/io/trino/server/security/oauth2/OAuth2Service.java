@@ -87,8 +87,6 @@ public class OAuth2Service
             throws IOException
     {
         this.client = requireNonNull(client, "client is null");
-        requireNonNull(oauth2Config, "oauth2Config is null");
-
         this.successHtml = Resources.toString(Resources.getResource(getClass(), "/oauth2/success.html"), UTF_8);
         this.failureHtml = Resources.toString(Resources.getResource(getClass(), "/oauth2/failure.html"), UTF_8);
         verify(failureHtml.contains(FAILURE_REPLACEMENT_TEXT), "login.html does not contain the replacement text");

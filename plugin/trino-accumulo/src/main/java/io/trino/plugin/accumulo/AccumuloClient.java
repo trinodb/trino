@@ -107,7 +107,7 @@ public class AccumuloClient
             throws AccumuloException, AccumuloSecurityException
     {
         this.connector = requireNonNull(connector, "connector is null");
-        this.username = requireNonNull(config, "config is null").getUsername();
+        this.username = config.getUsername();
         this.metaManager = requireNonNull(metaManager, "metaManager is null");
         this.tableManager = requireNonNull(tableManager, "tableManager is null");
         this.indexLookup = requireNonNull(indexLookup, "indexLookup is null");

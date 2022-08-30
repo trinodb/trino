@@ -74,7 +74,7 @@ public class RcFileFileWriterFactory
             HiveConfig hiveConfig,
             FileFormatDataSourceStats stats)
     {
-        this(hdfsEnvironment, typeManager, nodeVersion, requireNonNull(hiveConfig, "hiveConfig is null").getRcfileDateTimeZone(), stats);
+        this(hdfsEnvironment, typeManager, nodeVersion, hiveConfig.getRcfileDateTimeZone(), stats);
     }
 
     public RcFileFileWriterFactory(

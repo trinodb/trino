@@ -79,7 +79,7 @@ public class EnvSinglenodeDeltaLakeOss
         super(ImmutableList.of(standard, hadoop, minio));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
-        this.hadoopImagesVersion = requireNonNull(config, "config is null").getHadoopImagesVersion();
+        this.hadoopImagesVersion = config.getHadoopImagesVersion();
         this.configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-delta-lake-oss");
     }
 

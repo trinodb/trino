@@ -129,7 +129,7 @@ public class HivePageSourceProvider
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.domainCompactionThreshold = requireNonNull(hiveConfig, "hiveConfig is null").getDomainCompactionThreshold();
+        this.domainCompactionThreshold = hiveConfig.getDomainCompactionThreshold();
         this.pageSourceFactories = ImmutableSet.copyOf(requireNonNull(pageSourceFactories, "pageSourceFactories is null"));
         this.cursorProviders = ImmutableSet.<HiveRecordCursorProvider>builder()
                 .addAll(requireNonNull(cursorProviders, "cursorProviders is null"))

@@ -45,7 +45,7 @@ public class EnvSinglenodeHdp3
     {
         super(ImmutableList.of(standard, hadoop));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
-        this.hadoopImagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
+        this.hadoopImagesVersion = environmentConfig.getHadoopImagesVersion();
     }
 
     @Override

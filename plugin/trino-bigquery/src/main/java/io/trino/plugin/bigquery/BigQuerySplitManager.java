@@ -76,8 +76,6 @@ public class BigQuerySplitManager
             BigQueryReadClientFactory bigQueryReadClientFactory,
             NodeManager nodeManager)
     {
-        requireNonNull(config, "config cannot be null");
-
         this.bigQueryClientFactory = requireNonNull(bigQueryClientFactory, "bigQueryClientFactory cannot be null");
         this.bigQueryReadClientFactory = requireNonNull(bigQueryReadClientFactory, "bigQueryReadClientFactory cannot be null");
         this.parallelism = config.getParallelism();

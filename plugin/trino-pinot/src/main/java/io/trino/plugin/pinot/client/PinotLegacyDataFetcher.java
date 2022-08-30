@@ -153,8 +153,7 @@ public class PinotLegacyDataFetcher
         public Factory(PinotHostMapper pinotHostMapper, PinotConfig pinotConfig, PinotLegacyServerQueryClientConfig pinotLegacyServerQueryClientConfig)
         {
             requireNonNull(pinotHostMapper, "pinotHostMapper is null");
-            requireNonNull(pinotConfig, "pinotConfig is null");
-            this.limitForSegmentQueries = requireNonNull(pinotLegacyServerQueryClientConfig, "pinotLegacyServerQueryClientConfig is null").getMaxRowsPerSplitForSegmentQueries();
+            this.limitForSegmentQueries = pinotLegacyServerQueryClientConfig.getMaxRowsPerSplitForSegmentQueries();
             this.queryClient = new PinotLegacyServerQueryClient(pinotHostMapper, pinotConfig);
         }
 
@@ -185,7 +184,6 @@ public class PinotLegacyDataFetcher
 
         public PinotLegacyServerQueryClient(PinotHostMapper pinotHostMapper, PinotConfig pinotConfig)
         {
-            requireNonNull(pinotConfig, "pinotConfig is null");
             trinoHostId = getDefaultTrinoId();
             this.pinotHostMapper = requireNonNull(pinotHostMapper, "pinotHostMapper is null");
             this.estimatedNonNumericColumnSize = pinotConfig.getEstimatedSizeInBytesForNonNumericColumn();

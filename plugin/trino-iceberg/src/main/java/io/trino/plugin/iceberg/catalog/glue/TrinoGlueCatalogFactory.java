@@ -66,11 +66,9 @@ public class TrinoGlueCatalogFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
         this.trinoVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
-        requireNonNull(glueConfig, "glueConfig is null");
         this.defaultSchemaLocation = glueConfig.getDefaultWarehouseDir();
         requireNonNull(credentialsProvider, "credentialsProvider is null");
         this.glueClient = createAsyncGlueClient(glueConfig, credentialsProvider, Optional.empty(), stats.newRequestMetricsCollector());
-        requireNonNull(icebergConfig, "icebergConfig is null");
         this.isUniqueTableLocation = icebergConfig.isUniqueTableLocation();
         this.stats = requireNonNull(stats, "stats is null");
     }

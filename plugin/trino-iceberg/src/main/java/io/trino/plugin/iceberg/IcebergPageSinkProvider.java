@@ -62,7 +62,6 @@ public class IcebergPageSinkProvider
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
-        requireNonNull(config, "config is null");
         this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
     }
 

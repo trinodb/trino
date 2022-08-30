@@ -68,6 +68,7 @@ public class RubixModule
     {
         private static final String RUBIX_DISTRIBUTED_FS_CLASS_NAME = CachingPrestoDistributedFileSystem.class.getName();
 
+        @Deprecated // TODO do not keep mutable config instance on a field
         private HdfsAuthenticationConfig authenticationConfig;
 
         @Inject

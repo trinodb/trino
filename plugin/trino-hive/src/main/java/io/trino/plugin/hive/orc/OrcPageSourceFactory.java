@@ -134,8 +134,8 @@ public class OrcPageSourceFactory
                 config.toOrcReaderOptions(),
                 hdfsEnvironment,
                 stats,
-                requireNonNull(hiveConfig, "hiveConfig is null").getOrcLegacyDateTimeZone(),
-                requireNonNull(hiveConfig, "hiveConfig is null").getDomainCompactionThreshold());
+                hiveConfig.getOrcLegacyDateTimeZone(),
+                hiveConfig.getDomainCompactionThreshold());
     }
 
     public OrcPageSourceFactory(

@@ -112,7 +112,7 @@ public class PageFunctionCompiler
     @Inject
     public PageFunctionCompiler(FunctionManager functionManager, CompilerConfig config)
     {
-        this(functionManager, requireNonNull(config, "config is null").getExpressionCacheSize());
+        this(functionManager, config.getExpressionCacheSize());
     }
 
     public PageFunctionCompiler(FunctionManager functionManager, int expressionCacheSize)

@@ -184,7 +184,6 @@ public class FileHiveMetastore
     public FileHiveMetastore(NodeVersion nodeVersion, HdfsEnvironment hdfsEnvironment, boolean hideDeltaLakeTables, FileHiveMetastoreConfig config)
     {
         this.currentVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
-        requireNonNull(config, "config is null");
         this.versionCompatibility = requireNonNull(config.getVersionCompatibility(), "config.getVersionCompatibility() is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.catalogDirectory = new Path(requireNonNull(config.getCatalogDirectory(), "catalogDirectory is null"));

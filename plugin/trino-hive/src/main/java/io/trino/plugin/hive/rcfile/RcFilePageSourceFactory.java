@@ -108,7 +108,7 @@ public class RcFilePageSourceFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
-        this.timeZone = requireNonNull(hiveConfig, "hiveConfig is null").getRcfileDateTimeZone();
+        this.timeZone = hiveConfig.getRcfileDateTimeZone();
     }
 
     @Override

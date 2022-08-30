@@ -58,7 +58,7 @@ public class StandardMultinode
         this.standard = requireNonNull(standard, "standard is null");
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.configDir = dockerFiles.getDockerFilesHostDirectory("common/standard-multinode");
-        this.imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
+        this.imagesVersion = environmentConfig.getImagesVersion();
         this.jdkVersion = requireNonNull(jdkVersion, "jdkVersion is null");
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
         this.debug = debug;

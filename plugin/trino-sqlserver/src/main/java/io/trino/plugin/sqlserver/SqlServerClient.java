@@ -211,7 +211,7 @@ public class SqlServerClient
     {
         super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
 
-        this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
+        this.statisticsEnabled = statisticsConfig.isEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)

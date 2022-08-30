@@ -89,7 +89,6 @@ public class HiveMetastoreRecording
             throws IOException
     {
         this.recordingCodec = recordingCodec;
-        requireNonNull(config, "config is null");
         this.recordingPath = Paths.get(requireNonNull(config.getRecordingPath(), "recordingPath is null"));
         this.replay = config.isReplay();
 

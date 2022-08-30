@@ -45,7 +45,6 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.trino.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Trino module to do all kinds of run Guice injection stuff!
@@ -98,7 +97,6 @@ public class AccumuloModule
         @Inject
         public ConnectorProvider(AccumuloConfig config)
         {
-            requireNonNull(config, "config is null");
             this.instance = config.getInstance();
             this.zooKeepers = config.getZooKeepers();
             this.username = config.getUsername();

@@ -96,7 +96,7 @@ public class DefaultCatalogFactory
         this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.schedulerIncludeCoordinator = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator();
+        this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
     }
 
     @Override

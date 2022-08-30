@@ -36,7 +36,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
-import static java.util.Objects.requireNonNull;
 
 public class PasswordAuthenticatorManager
 {
@@ -52,7 +51,6 @@ public class PasswordAuthenticatorManager
     @Inject
     public PasswordAuthenticatorManager(PasswordAuthenticatorConfig config)
     {
-        requireNonNull(config, "config is null");
         this.configFiles = ImmutableList.copyOf(config.getPasswordAuthenticatorFiles());
         checkArgument(!configFiles.isEmpty(), "password authenticator files list is empty");
     }

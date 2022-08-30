@@ -41,6 +41,7 @@ import static java.util.Objects.requireNonNull;
 public class RedisSplitManager
         implements ConnectorSplitManager
 {
+    @Deprecated // TODO do not keep mutable config instance on a field
     private final RedisConnectorConfig redisConnectorConfig;
     private final RedisJedisManager jedisManager;
 

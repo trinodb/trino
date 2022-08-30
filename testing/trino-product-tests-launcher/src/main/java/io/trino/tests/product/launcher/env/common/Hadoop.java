@@ -56,8 +56,8 @@ public final class Hadoop
     {
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
-        hadoopBaseImage = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopBaseImage();
-        hadoopImagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
+        hadoopBaseImage = environmentConfig.getHadoopBaseImage();
+        hadoopImagesVersion = environmentConfig.getHadoopImagesVersion();
     }
 
     @Override

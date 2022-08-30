@@ -120,7 +120,7 @@ public class BigQueryMetadata
     public BigQueryMetadata(BigQueryClientFactory bigQueryClientFactory, BigQueryConfig config)
     {
         this.bigQueryClientFactory = requireNonNull(bigQueryClientFactory, "bigQueryClientFactory is null");
-        this.configProjectId = requireNonNull(config, "config is null").getProjectId();
+        this.configProjectId = config.getProjectId();
     }
 
     protected String getProjectId(BigQueryClient client)

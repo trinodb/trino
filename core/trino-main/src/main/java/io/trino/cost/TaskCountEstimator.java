@@ -39,7 +39,6 @@ public class TaskCountEstimator
     @Inject
     public TaskCountEstimator(NodeSchedulerConfig nodeSchedulerConfig, InternalNodeManager nodeManager)
     {
-        requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");
         boolean schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
         requireNonNull(nodeManager, "nodeManager is null");
         this.numberOfNodes = () -> {

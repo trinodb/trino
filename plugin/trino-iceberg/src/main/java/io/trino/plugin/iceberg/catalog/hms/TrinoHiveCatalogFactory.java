@@ -63,9 +63,7 @@ public class TrinoHiveCatalogFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationProvider is null");
         this.trinoVersion = requireNonNull(nodeVersion, "trinoVersion is null").toString();
-        requireNonNull(config, "config is null");
         this.isUniqueTableLocation = config.isUniqueTableLocation();
-        requireNonNull(securityConfig, "securityConfig is null");
         this.isUsingSystemSecurity = securityConfig.getSecuritySystem() == SYSTEM;
         this.deleteSchemaLocationsFallback = config.isDeleteSchemaLocationsFallback();
     }

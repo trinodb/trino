@@ -781,7 +781,6 @@ public class SqlQueryExecution
                 TaskSourceFactory taskSourceFactory,
                 TaskDescriptorStorage taskDescriptorStorage)
         {
-            requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
             this.scheduleSplitBatchSize = config.getScheduleSplitBatchSize();
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");

@@ -54,7 +54,7 @@ public class SetViewAuthorizationTask
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
-        this.isAllowSetViewAuthorization = requireNonNull(featuresConfig, "featuresConfig is null").isAllowSetViewAuthorization();
+        this.isAllowSetViewAuthorization = featuresConfig.isAllowSetViewAuthorization();
     }
 
     @Override

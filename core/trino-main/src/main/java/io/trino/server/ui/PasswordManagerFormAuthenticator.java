@@ -45,7 +45,7 @@ public class PasswordManagerFormAuthenticator
         this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
         passwordAuthenticatorManager.setRequired();
         this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
-        this.insecureAuthenticationOverHttpAllowed = requireNonNull(securityConfig, "securityConfig is null").isInsecureAuthenticationOverHttpAllowed();
+        this.insecureAuthenticationOverHttpAllowed = securityConfig.isInsecureAuthenticationOverHttpAllowed();
     }
 
     @Override

@@ -101,7 +101,7 @@ public class OrcFileWriterFactory
                 typeManager,
                 nodeVersion,
                 readStats,
-                requireNonNull(config, "config is null").toOrcWriterOptions());
+                config.toOrcWriterOptions());
     }
 
     public OrcFileWriterFactory(

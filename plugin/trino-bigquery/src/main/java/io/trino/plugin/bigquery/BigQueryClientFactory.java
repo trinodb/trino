@@ -35,6 +35,7 @@ public class BigQueryClientFactory
 {
     private final IdentityCacheMapping identityCacheMapping;
     private final BigQueryCredentialsSupplier credentialsSupplier;
+    @Deprecated // TODO do not keep mutable config instance on a field
     private final BigQueryConfig bigQueryConfig;
     private final ViewMaterializationCache materializationCache;
     private final HeaderProvider headerProvider;

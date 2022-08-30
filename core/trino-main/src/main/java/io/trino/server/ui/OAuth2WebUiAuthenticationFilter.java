@@ -70,7 +70,6 @@ public class OAuth2WebUiAuthenticationFilter
         this.client = requireNonNull(client, "client is null");
         this.tokenPairSerializer = requireNonNull(tokenPairSerializer, "tokenPairSerializer is null");
         this.tokenExpiration = requireNonNull(tokenExpiration, "tokenExpiration is null");
-        requireNonNull(oauth2Config, "oauth2Config is null");
         this.userMapping = UserMapping.createUserMapping(oauth2Config.getUserMappingPattern(), oauth2Config.getUserMappingFile());
         this.principalField = oauth2Config.getPrincipalField();
         groupsField = requireNonNull(oauth2Config.getGroupsField(), "groupsField is null");

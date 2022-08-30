@@ -37,6 +37,7 @@ public class RedisJedisManager
 
     private final ConcurrentMap<HostAddress, JedisPool> jedisPoolCache = new ConcurrentHashMap<>();
 
+    @Deprecated // TODO do not keep mutable config instance on a field
     private final RedisConnectorConfig redisConnectorConfig;
     private final JedisPoolConfig jedisPoolConfig;
 

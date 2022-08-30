@@ -402,6 +402,7 @@ public class LocalExecutionPlanner
     private final JoinCompiler joinCompiler;
     private final OperatorFactories operatorFactories;
     private final OrderingCompiler orderingCompiler;
+    @Deprecated // TODO do not keep mutable config instance on a field
     private final DynamicFilterConfig dynamicFilterConfig;
     private final BlockTypeOperators blockTypeOperators;
     private final TableExecuteContextManager tableExecuteContextManager;
@@ -455,7 +456,7 @@ public class LocalExecutionPlanner
         this.pageFunctionCompiler = requireNonNull(pageFunctionCompiler, "pageFunctionCompiler is null");
         this.joinFilterFunctionCompiler = requireNonNull(joinFilterFunctionCompiler, "joinFilterFunctionCompiler is null");
         this.indexJoinLookupStats = requireNonNull(indexJoinLookupStats, "indexJoinLookupStats is null");
-        this.maxIndexMemorySize = requireNonNull(taskManagerConfig, "taskManagerConfig is null").getMaxIndexMemoryUsage();
+        this.maxIndexMemorySize = taskManagerConfig.getMaxIndexMemoryUsage();
         this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
         this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory is null");
         this.partitioningSpillerFactory = requireNonNull(partitioningSpillerFactory, "partitioningSpillerFactory is null");

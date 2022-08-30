@@ -64,7 +64,7 @@ public class EnvMultinodeGcs
     {
         super(ImmutableList.of(multinode, hadoop));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
-        this.hadoopImageVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
+        this.hadoopImageVersion = environmentConfig.getHadoopImagesVersion();
     }
 
     @Override
