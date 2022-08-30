@@ -346,7 +346,7 @@ public abstract class BaseJdbcClient
         return metadata.getColumns(
                 remoteTableName.getCatalogName().orElse(null),
                 escapeNamePattern(remoteTableName.getSchemaName(), metadata.getSearchStringEscape()).orElse(null),
-                escapeNamePattern(Optional.of(remoteTableName.getTableName()), metadata.getSearchStringEscape()).orElse(null),
+                escapeNamePattern(remoteTableName.getTableName(), metadata.getSearchStringEscape()),
                 null);
     }
 
