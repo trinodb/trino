@@ -174,6 +174,9 @@ this table:
   * - ``BINARY``, ``VARBINARY``, ``TINYBLOB``, ``BLOB``, ``MEDIUMBLOB``, ``LONGBLOB``
     - ``VARBINARY``
     -
+  * - ``JSON``
+    - ``JSON``
+    -
   * - ``DATE``
     - ``DATE``
     -
@@ -231,6 +234,9 @@ this table:
     -
   * - ``VARCHAR(n)``
     - ``VARCHAR(n)``
+    -
+  * - ``JSON``
+    - ``JSON``
     -
   * - ``DATE``
     - ``DATE``
