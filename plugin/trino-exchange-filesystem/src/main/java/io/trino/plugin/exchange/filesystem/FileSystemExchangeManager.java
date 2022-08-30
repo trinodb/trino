@@ -71,8 +71,6 @@ public class FileSystemExchangeManager
             FileSystemExchangeStats stats,
             FileSystemExchangeConfig fileSystemExchangeConfig)
     {
-        requireNonNull(fileSystemExchangeConfig, "fileSystemExchangeConfig is null");
-
         this.exchangeStorage = requireNonNull(exchangeStorage, "exchangeStorage is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.baseDirectories = ImmutableList.copyOf(requireNonNull(fileSystemExchangeConfig.getBaseDirectories(), "baseDirectories is null"));

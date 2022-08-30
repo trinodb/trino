@@ -112,7 +112,6 @@ public class KinesisRecordSet
     {
         this.split = requireNonNull(split, "split is null");
         this.session = requireNonNull(session, "session is null");
-        requireNonNull(kinesisConfig, "kinesisConfig is null");
         long dynamoReadCapacity = kinesisConfig.getDynamoReadCapacity();
         long dynamoWriteCapacity = kinesisConfig.getDynamoWriteCapacity();
         this.isLogBatches = kinesisConfig.isLogBatches();

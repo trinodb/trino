@@ -57,7 +57,7 @@ public class ServerInfoResource
     {
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
-        this.coordinator = requireNonNull(serverConfig, "serverConfig is null").isCoordinator();
+        this.coordinator = serverConfig.isCoordinator();
         this.shutdownHandler = requireNonNull(shutdownHandler, "shutdownHandler is null");
         this.startupStatus = requireNonNull(startupStatus, "startupStatus is null");
     }

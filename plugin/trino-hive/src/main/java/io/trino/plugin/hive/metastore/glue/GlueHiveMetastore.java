@@ -187,7 +187,6 @@ public class GlueHiveMetastore
             @ForGlueHiveMetastore Optional<RequestHandler2> requestHandler,
             @ForGlueHiveMetastore Predicate<com.amazonaws.services.glue.model.Table> tableFilter)
     {
-        requireNonNull(glueConfig, "glueConfig is null");
         requireNonNull(credentialsProvider, "credentialsProvider is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));

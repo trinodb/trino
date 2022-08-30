@@ -122,7 +122,7 @@ public class StageTaskSourceFactory
         this(
                 splitSourceFactory,
                 tableExecuteContextManager,
-                requireNonNull(queryManagerConfig, "queryManagerConfig is null").getScheduleSplitBatchSize(),
+                queryManagerConfig.getScheduleSplitBatchSize(),
                 executor,
                 nodeManager);
     }

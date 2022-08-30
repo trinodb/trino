@@ -21,8 +21,6 @@ import javax.inject.Provider;
 
 import java.util.function.Predicate;
 
-import static java.util.Objects.requireNonNull;
-
 public class DeltaLakeGlueMetastoreTableFilterProvider
         implements Provider<Predicate<Table>>
 {
@@ -31,7 +29,6 @@ public class DeltaLakeGlueMetastoreTableFilterProvider
     @Inject
     public DeltaLakeGlueMetastoreTableFilterProvider(DeltaLakeGlueMetastoreConfig config)
     {
-        requireNonNull(config, "config is null");
         this.hideNonDeltaLakeTables = config.isHideNonDeltaLakeTables();
     }
 

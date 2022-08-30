@@ -36,6 +36,7 @@ public class KinesisRecordSetProvider
         implements ConnectorRecordSetProvider
 {
     private final KinesisClientProvider clientManager;
+    @Deprecated // TODO do not keep mutable config instance on a field
     private final KinesisConfig kinesisConfig;
     private final DispatchingRowDecoderFactory decoderFactory;
 

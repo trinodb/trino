@@ -40,8 +40,6 @@ public class HeaderAuthenticator
     {
         this.authenticatorManager = requireNonNull(authenticatorManager, "authenticatorManager is null");
 
-        requireNonNull(authenticatorConfig, "config is null");
-
         this.userMapping = createUserMapping(authenticatorConfig.getUserMappingPattern(), authenticatorConfig.getUserMappingFile());
 
         this.authenticatorManager.setRequired();

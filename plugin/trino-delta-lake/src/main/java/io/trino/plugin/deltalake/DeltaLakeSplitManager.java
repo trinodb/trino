@@ -84,7 +84,6 @@ public class DeltaLakeSplitManager
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
         this.executor = requireNonNull(executor, "executor is null");
-        requireNonNull(config, "config is null");
         this.maxInitialSplits = config.getMaxInitialSplits();
         this.maxSplitsPerSecond = config.getMaxSplitsPerSecond();
         this.maxOutstandingSplits = config.getMaxOutstandingSplits();

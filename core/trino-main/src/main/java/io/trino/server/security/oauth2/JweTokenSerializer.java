@@ -76,7 +76,7 @@ public class JweTokenSerializer
             Duration tokenExpiration)
             throws KeyLengthException, NoSuchAlgorithmException
     {
-        SecretKey secretKey = createKey(requireNonNull(config, "config is null"));
+        SecretKey secretKey = createKey(config);
         this.jweEncrypter = new AESEncrypter(secretKey);
         this.jweDecrypter = new AESDecrypter(secretKey);
         this.client = requireNonNull(client, "client is null");

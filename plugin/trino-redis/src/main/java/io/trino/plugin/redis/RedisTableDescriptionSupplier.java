@@ -42,6 +42,7 @@ public class RedisTableDescriptionSupplier
 {
     private static final Logger log = Logger.get(RedisTableDescriptionSupplier.class);
 
+    @Deprecated // TODO do not keep mutable config instance on a field
     private final RedisConnectorConfig redisConnectorConfig;
     private final JsonCodec<RedisTableDescription> tableDescriptionCodec;
 

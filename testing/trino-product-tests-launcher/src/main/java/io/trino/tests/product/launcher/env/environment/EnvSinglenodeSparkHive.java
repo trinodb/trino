@@ -51,7 +51,7 @@ public class EnvSinglenodeSparkHive
         super(ImmutableList.of(standard, hadoop));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
-        this.hadoopImagesVersion = requireNonNull(config, "config is null").getHadoopImagesVersion();
+        this.hadoopImagesVersion = config.getHadoopImagesVersion();
     }
 
     @Override

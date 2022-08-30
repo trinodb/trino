@@ -109,6 +109,7 @@ public class DynamicFilterService
     private final Metadata metadata;
     private final FunctionManager functionManager;
     private final TypeOperators typeOperators;
+    @Deprecated // TODO do not keep mutable config instance on a field
     private final DynamicFilterConfig dynamicFilterConfig;
     private final Map<QueryId, DynamicFilterContext> dynamicFilterContexts = new ConcurrentHashMap<>();
 

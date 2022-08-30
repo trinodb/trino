@@ -56,7 +56,7 @@ public final class FileBasedNetworkTopology
     public FileBasedNetworkTopology(TopologyFileConfig topologyConfig)
     {
         this(
-                requireNonNull(topologyConfig, "topologyConfig is null").getNetworkTopologyFile(),
+                topologyConfig.getNetworkTopologyFile(),
                 topologyConfig.getRefreshPeriod(),
                 Ticker.systemTicker());
     }

@@ -74,7 +74,6 @@ public class AlluxioHiveMetastore
     public AlluxioHiveMetastore(TableMasterClient client, HiveMetastoreConfig hiveMetastoreConfig)
     {
         this.client = requireNonNull(client, "client is null");
-        requireNonNull(hiveMetastoreConfig, "hiveMetastoreConfig is null");
         checkArgument(!hiveMetastoreConfig.isHideDeltaLakeTables(), "Hiding Delta Lake tables is not supported"); // TODO
     }
 

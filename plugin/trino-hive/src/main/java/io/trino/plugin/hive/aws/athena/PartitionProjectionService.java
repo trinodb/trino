@@ -85,7 +85,7 @@ public final class PartitionProjectionService
             Map<ProjectionType, ProjectionFactory> projectionFactories,
             TypeManager typeManager)
     {
-        this.partitionProjectionEnabled = requireNonNull(hiveConfig, "hiveConfig is null").isPartitionProjectionEnabled();
+        this.partitionProjectionEnabled = hiveConfig.isPartitionProjectionEnabled();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.projectionFactories = ImmutableMap.copyOf(requireNonNull(projectionFactories, "projectionFactories is null"));
     }

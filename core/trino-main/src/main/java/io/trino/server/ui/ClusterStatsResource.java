@@ -46,7 +46,7 @@ public class ClusterStatsResource
     @Inject
     public ClusterStatsResource(NodeSchedulerConfig nodeSchedulerConfig, InternalNodeManager nodeManager, DispatchManager dispatchManager, ClusterMemoryManager clusterMemoryManager)
     {
-        this.isIncludeCoordinator = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator();
+        this.isIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.clusterMemoryManager = requireNonNull(clusterMemoryManager, "clusterMemoryManager is null");

@@ -62,7 +62,6 @@ public final class CachingIdentifierMapping
             @ForCachingIdentifierMapping IdentifierMapping identifierMapping,
             Provider<BaseJdbcClient> baseJdbcClient)
     {
-        requireNonNull(mappingConfig, "mappingConfig is null");
         CacheBuilder<Object, Object> remoteNamesCacheBuilder = CacheBuilder.newBuilder()
                 .expireAfterWrite(mappingConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS);
         this.remoteSchemaNames = buildNonEvictableCacheWithWeakInvalidateAll(remoteNamesCacheBuilder);

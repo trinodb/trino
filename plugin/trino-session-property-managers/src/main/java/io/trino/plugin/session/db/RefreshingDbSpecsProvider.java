@@ -55,7 +55,6 @@ public class RefreshingDbSpecsProvider
     @Inject
     public RefreshingDbSpecsProvider(DbSessionPropertyManagerConfig config, SessionPropertiesDao dao)
     {
-        requireNonNull(config, "config is null");
         this.dao = requireNonNull(dao, "dao is null");
         this.refreshPeriodMillis = config.getSpecsRefreshPeriod().toMillis();
 

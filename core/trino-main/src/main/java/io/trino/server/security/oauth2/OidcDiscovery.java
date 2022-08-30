@@ -63,9 +63,7 @@ public class OidcDiscovery
     @Inject
     public OidcDiscovery(OAuth2Config oauthConfig, OidcDiscoveryConfig oidcConfig, NimbusHttpClient httpClient)
     {
-        requireNonNull(oauthConfig, "oauthConfig is null");
         issuer = new Issuer(requireNonNull(oauthConfig.getIssuer(), "issuer is null"));
-        requireNonNull(oidcConfig, "oidcConfig is null");
         userinfoEndpointEnabled = oidcConfig.isUserinfoEndpointEnabled();
         discoveryTimeout = Duration.ofMillis(requireNonNull(oidcConfig.getDiscoveryTimeout(), "discoveryTimeout is null").toMillis());
         accessTokenIssuer = requireNonNull(oidcConfig.getAccessTokenIssuer(), "accessTokenIssuer is null");

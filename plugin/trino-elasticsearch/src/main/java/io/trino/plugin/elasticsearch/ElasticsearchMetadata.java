@@ -148,7 +148,6 @@ public class ElasticsearchMetadata
         requireNonNull(typeManager, "typeManager is null");
         this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
         this.client = requireNonNull(client, "client is null");
-        requireNonNull(config, "config is null");
         this.schemaName = config.getDefaultSchema();
     }
 

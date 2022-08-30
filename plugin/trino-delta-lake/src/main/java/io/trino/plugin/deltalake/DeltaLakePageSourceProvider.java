@@ -85,8 +85,8 @@ public class DeltaLakePageSourceProvider
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
-        this.parquetReaderOptions = requireNonNull(parquetReaderConfig, "parquetReaderConfig is null").toParquetReaderOptions();
-        this.domainCompactionThreshold = requireNonNull(deltaLakeConfig, "deltaLakeConfig is null").getDomainCompactionThreshold();
+        this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions();
+        this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
         this.parquetDateTimeZone = deltaLakeConfig.getParquetDateTimeZone();
         this.executorService = requireNonNull(executorService, "executorService is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");

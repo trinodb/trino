@@ -67,6 +67,7 @@ public class Verifier
             .add(PAGE_TRANSPORT_TIMEOUT.toErrorCode())
             .build();
 
+    @Deprecated // TODO do not keep mutable config instance on a field
     private final VerifierConfig config;
     private final Set<EventClient> eventClients;
     private final int threadCount;

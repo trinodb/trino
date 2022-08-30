@@ -32,7 +32,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 
 public class ReadOnlySystemAccessControl
         implements SystemAccessControl
@@ -53,7 +52,6 @@ public class ReadOnlySystemAccessControl
         @Override
         public SystemAccessControl create(Map<String, String> config)
         {
-            requireNonNull(config, "config is null");
             checkArgument(config.isEmpty(), "This access controller does not support any configuration properties");
             return INSTANCE;
         }

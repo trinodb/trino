@@ -79,9 +79,7 @@ public class TopologyAwareNodeSelectorFactory
     {
         requireNonNull(networkTopology, "networkTopology is null");
         requireNonNull(nodeManager, "nodeManager is null");
-        requireNonNull(schedulerConfig, "schedulerConfig is null");
         requireNonNull(nodeTaskMap, "nodeTaskMap is null");
-        requireNonNull(topologyConfig, "topologyConfig is null");
 
         this.networkTopology = networkTopology;
         this.nodeManager = nodeManager;

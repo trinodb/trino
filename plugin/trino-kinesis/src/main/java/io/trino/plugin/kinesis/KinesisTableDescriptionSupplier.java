@@ -47,6 +47,7 @@ public class KinesisTableDescriptionSupplier
 {
     private static final Logger log = Logger.get(KinesisTableDescriptionSupplier.class);
 
+    @Deprecated // TODO do not keep mutable config instance on a field
     private final KinesisConfig kinesisConfig;
     private final JsonCodec<KinesisStreamDescription> streamDescriptionCodec;
     private final S3TableConfigClient s3TableConfigClient;

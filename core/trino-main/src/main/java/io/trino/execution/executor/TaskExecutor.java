@@ -165,7 +165,8 @@ public class TaskExecutor
     @Inject
     public TaskExecutor(TaskManagerConfig config, VersionEmbedder versionEmbedder, MultilevelSplitQueue splitQueue)
     {
-        this(requireNonNull(config, "config is null").getMaxWorkerThreads(),
+        this(
+                config.getMaxWorkerThreads(),
                 config.getMinDrivers(),
                 config.getMinDriversPerTask(),
                 config.getMaxDriversPerTask(),
