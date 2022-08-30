@@ -121,6 +121,7 @@ public class Analysis
     // Temporary scaffolding til we remove the non-merge versions.  Don't set to true
     // until the connectors and tests are converted.
     public static final boolean PLAN_DELETE_USING_MERGE = false;
+    public static final boolean PLAN_UPDATE_USING_MERGE = false;
 
     @Nullable
     private final Statement root;

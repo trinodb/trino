@@ -744,13 +744,14 @@ public class LogicalPlanner
 
     private RelationPlan createUpdatePlan(Analysis analysis, Update node)
     {
-        UpdateNode updateNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of())
+        PlanNode planNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of())
                 .plan(node);
 
+        WriterTarget target = planNode instanceof UpdateNode ? ((UpdateNode) planNode).getTarget() : ((MergeWriterNode) planNode).getTarget();
         TableFinishNode commitNode = new TableFinishNode(
                 idAllocator.getNextId(),
-                updateNode,
-                updateNode.getTarget(),
+                planNode,
+                target,
                 symbolAllocator.newSymbol("rows", BIGINT),
                 Optional.empty(),
                 Optional.empty());
