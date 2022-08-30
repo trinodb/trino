@@ -13,9 +13,6 @@
  */
 package io.trino.sql.jsonpath;
 
-import io.trino.jsonpath.JsonPathBaseListener;
-import io.trino.jsonpath.JsonPathLexer;
-import io.trino.jsonpath.JsonPathParser;
 import io.trino.sql.jsonpath.tree.PathNode;
 import io.trino.sql.parser.ParsingException;
 import org.antlr.v4.runtime.BaseErrorListener;
