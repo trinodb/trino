@@ -41,6 +41,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
@@ -169,6 +170,7 @@ public class TestDeltaLakeSchemaSupport
         DeltaLakeColumnHandle arrayColumn = new DeltaLakeColumnHandle(
                 "arr",
                 new ArrayType(new ArrayType(INTEGER)),
+                OptionalInt.empty(),
                 "arr",
                 new ArrayType(new ArrayType(INTEGER)),
                 REGULAR);
@@ -180,6 +182,7 @@ public class TestDeltaLakeSchemaSupport
                         new RowType.Field(Optional.of("s2"), RowType.from(ImmutableList.of(
                                 new RowType.Field(Optional.of("i1"), INTEGER),
                                 new RowType.Field(Optional.of("d2"), DecimalType.createDecimalType(38, 0))))))),
+                OptionalInt.empty(),
                 "str",
                 RowType.from(ImmutableList.of(
                         new RowType.Field(Optional.of("s1"), VarcharType.createUnboundedVarcharType()),
@@ -195,6 +198,7 @@ public class TestDeltaLakeSchemaSupport
                         INTEGER,
                         new MapType(INTEGER, INTEGER, typeOperators),
                         typeOperators),
+                OptionalInt.empty(),
                 "m",
                 new MapType(
                         INTEGER,
@@ -220,7 +224,7 @@ public class TestDeltaLakeSchemaSupport
                 .map(DeltaLakeColumnMetadata::getColumnMetadata)
                 .collect(toImmutableList());
         List<DeltaLakeColumnHandle> columnHandles = schema.stream()
-                .map(metadata -> new DeltaLakeColumnHandle(metadata.getName(), metadata.getType(), metadata.getName(), metadata.getType(), REGULAR))
+                .map(metadata -> new DeltaLakeColumnHandle(metadata.getName(), metadata.getType(), OptionalInt.empty(), metadata.getName(), metadata.getType(), REGULAR))
                 .collect(toImmutableList());
         ObjectMapper objectMapper = new ObjectMapper();
         assertEquals(objectMapper.readTree(serializeSchemaAsJson(columnHandles, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of())), objectMapper.readTree(json));

@@ -24,6 +24,7 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Function;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -49,7 +50,7 @@ public class TestDeltaLakeCreateTableStatisticsLegacyWriter
             throws Exception
     {
         String columnName = "t_timestamp";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, TIMESTAMP_TZ_MILLIS, columnName, TIMESTAMP_TZ_MILLIS, REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, TIMESTAMP_TZ_MILLIS, OptionalInt.empty(), columnName, TIMESTAMP_TZ_MILLIS, REGULAR);
         try (TestTable table = new TestTable(
                 "test_timestamp_records_",
                 ImmutableList.of(columnName),
@@ -72,7 +73,7 @@ public class TestDeltaLakeCreateTableStatisticsLegacyWriter
             throws Exception
     {
         String columnName = "t_timestamp";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, TIMESTAMP_TZ_MILLIS, columnName, TIMESTAMP_TZ_MILLIS, REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, TIMESTAMP_TZ_MILLIS, OptionalInt.empty(), columnName, TIMESTAMP_TZ_MILLIS, REGULAR);
         try (TestTable table = new TestTable(
                 "test_timestamp_single_record_",
                 ImmutableList.of(columnName),

@@ -15,16 +15,22 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.reader.MetadataReader;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -38,22 +44,32 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeManager;
+import org.apache.parquet.hadoop.metadata.FileMetaData;
+import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.Type;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.deltalake.DeltaHiveTypeTranslator.toHiveType;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.ROW_ID_COLUMN_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnMappingMode;
 import static io.trino.plugin.hive.HiveSessionProperties.isParquetUseColumnIndex;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.PARQUET_ROW_INDEX_COLUMN;
 import static java.util.Objects.requireNonNull;
@@ -134,21 +150,31 @@ public class DeltaLakePageSourceProvider
             }
         }
 
+        TrinoInputFile inputFile = fileSystemFactory.create(session).newInputFile(split.getPath(), split.getFileSize());
+        ParquetReaderOptions options = parquetReaderOptions.withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
+                .withUseColumnIndex(isParquetUseColumnIndex(session));
+
+        ColumnMappingMode columnMappingMode = getColumnMappingMode(table.getMetadataEntry());
+        Map<Integer, String> parquetFieldIdToName = columnMappingMode == ColumnMappingMode.ID ? loadParquetIdAndNameMapping(inputFile, options) : ImmutableMap.of();
+
         List<DeltaLakeColumnHandle> regularColumns = deltaLakeColumns.stream()
                 .filter(column -> (column.getColumnType() == REGULAR) || column.getName().equals(ROW_ID_COLUMN_NAME))
                 .collect(toImmutableList());
 
-        List<HiveColumnHandle> hiveColumnHandles = regularColumns.stream()
-                .map(column -> {
-                    if (column.getName().equals(ROW_ID_COLUMN_NAME)) {
-                        return PARQUET_ROW_INDEX_COLUMN;
-                    }
-                    return column.toHiveColumnHandle();
-                })
-                .collect(toImmutableList());
+        ImmutableSet.Builder<String> missingColumnNames = ImmutableSet.builder();
+        ImmutableList.Builder<HiveColumnHandle> hiveColumnHandles = ImmutableList.builder();
+        for (DeltaLakeColumnHandle column : regularColumns) {
+            if (column.getName().equals(ROW_ID_COLUMN_NAME)) {
+                hiveColumnHandles.add(PARQUET_ROW_INDEX_COLUMN);
+                continue;
+            }
+            toHiveColumnHandle(column, columnMappingMode, parquetFieldIdToName).ifPresentOrElse(
+                    hiveColumnHandles::add,
+                    () -> missingColumnNames.add(column.getName()));
+        }
 
         HdfsContext hdfsContext = new HdfsContext(session);
-        TupleDomain<HiveColumnHandle> parquetPredicate = getParquetTupleDomain(filteredSplitPredicate.simplify(domainCompactionThreshold));
+        TupleDomain<HiveColumnHandle> parquetPredicate = getParquetTupleDomain(filteredSplitPredicate.simplify(domainCompactionThreshold), columnMappingMode, parquetFieldIdToName);
 
         if (table.getWriteType().isPresent()) {
             return new DeltaLakeUpdatablePageSource(
@@ -171,22 +197,22 @@ public class DeltaLakePageSourceProvider
         }
 
         ReaderPageSource pageSource = ParquetPageSourceFactory.createPageSource(
-                fileSystemFactory.create(session).newInputFile(split.getPath(), split.getFileSize()),
+                inputFile,
                 split.getStart(),
                 split.getLength(),
-                hiveColumnHandles,
+                hiveColumnHandles.build(),
                 parquetPredicate,
                 true,
                 parquetDateTimeZone,
                 fileFormatDataSourceStats,
-                parquetReaderOptions.withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
-                        .withUseColumnIndex(isParquetUseColumnIndex(session)),
+                options,
                 Optional.empty());
 
         verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");
 
         return new DeltaLakePageSource(
                 deltaLakeColumns,
+                missingColumnNames.build(),
                 partitionKeys,
                 partitionValues,
                 pageSource.get(),
@@ -195,7 +221,23 @@ public class DeltaLakePageSourceProvider
                 split.getFileModifiedTime());
     }
 
-    private static TupleDomain<HiveColumnHandle> getParquetTupleDomain(TupleDomain<DeltaLakeColumnHandle> effectivePredicate)
+    public Map<Integer, String> loadParquetIdAndNameMapping(TrinoInputFile inputFile, ParquetReaderOptions options)
+    {
+        try (ParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, options, fileFormatDataSourceStats)) {
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+            FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
+            MessageType fileSchema = fileMetaData.getSchema();
+
+            return fileSchema.getFields().stream()
+                    .filter(field -> field.getId() != null) // field id returns null if undefined
+                    .collect(toImmutableMap(field -> field.getId().intValue(), Type::getName));
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    public static TupleDomain<HiveColumnHandle> getParquetTupleDomain(TupleDomain<DeltaLakeColumnHandle> effectivePredicate, ColumnMappingMode columnMapping, Map<Integer, String> fieldIdToName)
     {
         if (effectivePredicate.isNone()) {
             return TupleDomain.none();
@@ -206,10 +248,37 @@ public class DeltaLakePageSourceProvider
             String baseType = columnHandle.getType().getTypeSignature().getBase();
             // skip looking up predicates for complex types as Parquet only stores stats for primitives
             if (!baseType.equals(StandardTypes.MAP) && !baseType.equals(StandardTypes.ARRAY) && !baseType.equals(StandardTypes.ROW)) {
-                HiveColumnHandle hiveColumnHandle = columnHandle.toHiveColumnHandle();
-                predicate.put(hiveColumnHandle, domain);
+                Optional<HiveColumnHandle> hiveColumnHandle = toHiveColumnHandle(columnHandle, columnMapping, fieldIdToName);
+                hiveColumnHandle.ifPresent(column -> predicate.put(column, domain));
             }
         });
         return TupleDomain.withColumnDomains(predicate.buildOrThrow());
+    }
+
+    public static Optional<HiveColumnHandle> toHiveColumnHandle(DeltaLakeColumnHandle deltaLakeColumnHandle, ColumnMappingMode columnMapping, Map<Integer, String> fieldIdToName)
+    {
+        switch (columnMapping) {
+            case ID:
+                Integer fieldId = deltaLakeColumnHandle.getFieldId().orElseThrow(() -> new IllegalArgumentException("Field ID must exist"));
+                if (!fieldIdToName.containsKey(fieldId)) {
+                    return Optional.empty();
+                }
+                String fieldName = fieldIdToName.get(fieldId);
+                return Optional.of(new HiveColumnHandle(
+                        fieldName,
+                        0,
+                        toHiveType(deltaLakeColumnHandle.getPhysicalType()),
+                        deltaLakeColumnHandle.getPhysicalType(),
+                        Optional.empty(),
+                        deltaLakeColumnHandle.getColumnType().toHiveColumnType(),
+                        Optional.empty()));
+            case NAME:
+            case NONE:
+                checkArgument(fieldIdToName.isEmpty(), "Mapping between field id and name must be empty: %s", fieldIdToName);
+                return Optional.of(deltaLakeColumnHandle.toHiveColumnHandle());
+            case UNKNOWN:
+            default:
+                throw new IllegalArgumentException("Unsupported column mapping: " + columnMapping);
+        }
     }
 }
