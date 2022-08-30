@@ -142,12 +142,14 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getMaxRecursionDepth;
+import static io.trino.SystemSessionProperties.isLegacyUpdateDeleteImplementation;
 import static io.trino.SystemSessionProperties.isSkipRedundantSort;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static io.trino.spi.StandardErrorCode.MERGE_TARGET_ROW_MULTIPLE_MATCHES;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.ConnectorMergeSink.DELETE_OPERATION_NUMBER;
+import static io.trino.spi.connector.ConnectorMergeSink.IGNORED_OPERATION_NUMBER;
 import static io.trino.spi.connector.ConnectorMergeSink.INSERT_OPERATION_NUMBER;
 import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_OPERATION_NUMBER;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -509,7 +511,104 @@ class QueryPlanner
         return result.build();
     }
 
-    public DeleteNode plan(Delete node)
+    public PlanNode plan(Delete node)
+    {
+        if (isLegacyUpdateDeleteImplementation(session)) {
+            return planDeleteUsingDeleteNode(node);
+        }
+
+        return planDeleteUsingMergeWriterNode(node);
+    }
+
+    private MergeWriterNode planDeleteUsingMergeWriterNode(Delete node)
+    {
+        Table table = node.getTable();
+        TableHandle handle = analysis.getTableHandle(table);
+
+        // create table scan
+        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
+                .process(table, null);
+
+        PlanBuilder builder = newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
+        if (node.getWhere().isPresent()) {
+            builder = filter(builder, node.getWhere().get(), node);
+        }
+
+        FieldReference reference = analysis.getRowIdField(table);
+        Symbol rowIdSymbol = builder.translate(reference);
+        List<Symbol> outputs = ImmutableList.of(
+                symbolAllocator.newSymbol("partialrows", BIGINT),
+                symbolAllocator.newSymbol("fragment", VARBINARY));
+
+        TableMetadata tableMetadata = plannerContext.getMetadata().getTableMetadata(session, handle);
+        ImmutableList.Builder<Type> typeBuilder = ImmutableList.builder();
+        ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
+        tableMetadata.getMetadata().getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .forEach(columnMetadata -> {
+                    typeBuilder.add(columnMetadata.getType());
+                    namesBuilder.add(columnMetadata.getName());
+                });
+
+        Type rowIdType = analysis.getType(analysis.getRowIdField(table));
+        MergeParadigmAndTypes paradigmAndTypes = new MergeParadigmAndTypes(Optional.empty(), typeBuilder.build(), namesBuilder.build(), rowIdType);
+        MergeAnalysis mergeAnalysis = analysis.getMergeAnalysis().orElseThrow(() -> new IllegalArgumentException("Didn't find mergeAnalysis in analysis"));
+
+        // Create a ProjectNode with the references
+        Assignments.Builder assignmentsBuilder = new Assignments.Builder();
+        ImmutableList.Builder<Symbol> columnSymbolsBuilder = ImmutableList.builder();
+        for (ColumnHandle columnHandle : mergeAnalysis.getDataColumnHandles()) {
+            int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(columnHandle), "Could not find field number for column handle");
+            Symbol symbol = relationPlan.getFieldMappings().get(fieldIndex);
+            columnSymbolsBuilder.add(symbol);
+            if (mergeAnalysis.getRedistributionColumnHandles().contains(columnHandle)) {
+                assignmentsBuilder.put(symbol, symbol.toSymbolReference());
+            }
+            else {
+                assignmentsBuilder.put(symbol, new NullLiteral());
+            }
+        }
+        List<Symbol> columnSymbols = columnSymbolsBuilder.build();
+        Symbol operationSymbol = symbolAllocator.newSymbol("operation", TINYINT);
+        Expression deleteOperationNumberExpression = new GenericLiteral("TINYINT", String.valueOf(DELETE_OPERATION_NUMBER));
+        Expression operationNumberExpression;
+        if (node.getWhere().isPresent()) {
+            Expression rewrittenWhere = builder.rewrite(node.getWhere().get());
+            operationNumberExpression = new IfExpression(rewrittenWhere, deleteOperationNumberExpression, new GenericLiteral("TINYINT", String.valueOf(IGNORED_OPERATION_NUMBER)));
+        }
+        else {
+            operationNumberExpression = deleteOperationNumberExpression;
+        }
+        assignmentsBuilder.put(operationSymbol, operationNumberExpression);
+        Symbol projectedRowIdSymbol = symbolAllocator.newSymbol(rowIdSymbol.getName(), rowIdType);
+        assignmentsBuilder.put(projectedRowIdSymbol, rowIdSymbol.toSymbolReference());
+        // 0 == FALSE
+        assignmentsBuilder.put(symbolAllocator.newSymbol("insert_from_update", TINYINT), new GenericLiteral("TINYINT", String.valueOf(0)));
+        Assignments assignments = assignmentsBuilder.build();
+        ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), builder.getRoot(), assignments);
+
+        Optional<PartitioningScheme> partitioningScheme = createMergePartitioningScheme(
+                mergeAnalysis.getInsertLayout(),
+                columnSymbols,
+                mergeAnalysis.getInsertPartitioningArgumentIndexes(),
+                mergeAnalysis.getUpdateLayout(),
+                projectedRowIdSymbol,
+                operationSymbol);
+
+        return new MergeWriterNode(
+                idAllocator.getNextId(),
+                projectNode,
+                new MergeTarget(
+                        handle,
+                        Optional.empty(),
+                        tableMetadata.getTable(),
+                        paradigmAndTypes),
+                projectNode.getOutputSymbols(),
+                partitioningScheme,
+                outputs);
+    }
+
+    private DeleteNode planDeleteUsingDeleteNode(Delete node)
     {
         Table table = node.getTable();
         TableHandle handle = analysis.getTableHandle(table);
@@ -802,12 +901,16 @@ class QueryPlanner
 
         RowChangeParadigm paradigm = metadata.getRowChangeParadigm(session, handle);
         Type rowIdType = analysis.getType(analysis.getRowIdField(table));
-        List<Type> dataColumnTypes = tableMetadata.getMetadata().getColumns().stream()
-                .filter(column -> !column.isHidden())
-                .map(ColumnMetadata::getType)
-                .collect(toImmutableList());
+        ImmutableList.Builder<Type> dataColumnTypesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<String> dataColumnNamesBuilder = ImmutableList.builder();
+        for (ColumnSchema columnSchema : mergeAnalysis.getDataColumnSchemas()) {
+            if (!columnSchema.isHidden()) {
+                dataColumnTypesBuilder.add(columnSchema.getType());
+                dataColumnNamesBuilder.add(columnSchema.getName());
+            }
+        }
 
-        MergeParadigmAndTypes mergeParadigmAndTypes = new MergeParadigmAndTypes(paradigm, dataColumnTypes, rowIdType);
+        MergeParadigmAndTypes mergeParadigmAndTypes = new MergeParadigmAndTypes(Optional.of(paradigm), dataColumnTypesBuilder.build(), dataColumnNamesBuilder.build(), rowIdType);
         MergeTarget mergeTarget = new MergeTarget(handle, Optional.empty(), tableMetadata.getTable(), mergeParadigmAndTypes);
 
         ImmutableList.Builder<Symbol> columnSymbolsBuilder = ImmutableList.builder();

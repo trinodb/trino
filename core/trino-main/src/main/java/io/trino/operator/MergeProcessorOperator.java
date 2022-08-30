@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import io.trino.spi.Page;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableWriterNode.MergeParadigmAndTypes;
 
@@ -55,7 +56,8 @@ public class MergeProcessorOperator
             List<Integer> redistributionColumnChannels,
             List<Integer> dataColumnChannels)
     {
-        return switch (merge.getParadigm()) {
+        RowChangeParadigm paradigm = merge.getParadigm().orElseThrow(() -> new IllegalArgumentException("RowChangeParadigm is empty"));
+        return switch (paradigm) {
             case DELETE_ROW_AND_INSERT_ROW -> new DeleteAndInsertMergeProcessor(
                     merge.getColumnTypes(),
                     merge.getRowIdType(),

@@ -20,6 +20,7 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static io.trino.spi.connector.ConnectorMergeSink.DELETE_OPERATION_NUMBER;
+import static io.trino.spi.connector.ConnectorMergeSink.IGNORED_OPERATION_NUMBER;
 import static io.trino.spi.connector.ConnectorMergeSink.INSERT_OPERATION_NUMBER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Math.toIntExact;
@@ -86,6 +87,8 @@ public final class MergePage
                 case INSERT_OPERATION_NUMBER:
                     insertPositions[insertPositionCount] = position;
                     insertPositionCount++;
+                    break;
+                case IGNORED_OPERATION_NUMBER:
                     break;
                 default:
                     throw new IllegalArgumentException("Invalid merge operation: " + operation);
