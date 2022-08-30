@@ -2113,6 +2113,9 @@ class StatementAnalyzer
                         }
                         yield metadata.getDeleteRowIdColumnHandle(session, tableHandle.get());
                     case UPDATE:
+                        if (!isLegacyUpdateDeleteImplementation(session)) {
+                            yield metadata.getMergeRowIdColumnHandle(session, tableHandle.get());
+                        }
                         List<ColumnSchema> updatedColumnMetadata = analysis.getUpdatedColumns()
                                 .orElseThrow(() -> new VerifyException("updated columns not set"));
                         Set<String> updatedColumnNames = updatedColumnMetadata.stream()
@@ -3130,10 +3133,15 @@ class StatementAnalyzer
                 }
             }
 
-            List<ColumnSchema> updatedColumns = allColumns.stream()
+            List<ColumnSchema> updatedColumnSchemas = allColumns.stream()
                     .filter(column -> assignmentTargets.contains(column.getName()))
                     .collect(toImmutableList());
-            analysis.setUpdatedColumns(updatedColumns);
+            analysis.setUpdatedColumns(updatedColumnSchemas);
+
+            Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, handle);
+            List<ColumnHandle> updatedColumnHandles = updatedColumnSchemas.stream()
+                    .map(columnSchema -> allColumnHandles.get(columnSchema.getName()))
+                    .collect(toImmutableList());
 
             // Analyzer checks for select permissions but UPDATE has a separate permission, so disable access checks
             StatementAnalyzer analyzer = statementAnalyzerFactory
@@ -3181,9 +3189,11 @@ class StatementAnalyzer
             analysis.setUpdateTarget(
                     tableName,
                     Optional.of(table),
-                    Optional.of(updatedColumns.stream()
+                    Optional.of(updatedColumnSchemas.stream()
                             .map(column -> new OutputColumn(new Column(column.getName(), column.getType().toString()), ImmutableSet.of()))
                             .collect(toImmutableList())));
+
+            createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(updatedColumnHandles));
 
             return createAndAssignScope(update, scope, Field.newUnqualified("rows", BIGINT));
         }
