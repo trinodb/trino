@@ -230,50 +230,38 @@ public class TypeSignatureTranslator
                 return new IntervalDayTimeDataType(Optional.empty(), IntervalDayTimeDataType.Field.YEAR, IntervalDayTimeDataType.Field.MONTH);
             case INTERVAL_DAY_TO_SECOND:
                 return new IntervalDayTimeDataType(Optional.empty(), IntervalDayTimeDataType.Field.DAY, IntervalDayTimeDataType.Field.SECOND);
-            case StandardTypes.TIMESTAMP_WITH_TIME_ZONE: {
-                if (typeSignature.getParameters().isEmpty()) {
-                    return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIMESTAMP, true, Optional.empty());
-                }
-
-                Optional<DataTypeParameter> argument = typeSignature.getParameters().stream()
-                        .map(TypeSignatureTranslator::toTypeParameter)
-                        .findAny();
-
-                return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIMESTAMP, true, argument);
-            }
-            case StandardTypes.TIMESTAMP: {
-                if (typeSignature.getParameters().isEmpty()) {
-                    return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIMESTAMP, false, Optional.empty());
-                }
-
-                Optional<DataTypeParameter> argument = typeSignature.getParameters().stream()
-                        .map(TypeSignatureTranslator::toTypeParameter)
-                        .findAny();
-
-                return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIMESTAMP, false, argument);
-            }
-            case StandardTypes.TIME_WITH_TIME_ZONE: {
-                if (typeSignature.getParameters().isEmpty()) {
-                    return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIME, true, Optional.empty());
-                }
-
-                Optional<DataTypeParameter> argument = typeSignature.getParameters().stream()
-                        .map(TypeSignatureTranslator::toTypeParameter)
-                        .findAny();
-
-                return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIME, true, argument);
-            }
-            case StandardTypes.TIME: {
-                if (typeSignature.getParameters().isEmpty()) {
-                    return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIME, false, Optional.empty());
-                }
-
-                Optional<DataTypeParameter> argument = typeSignature.getParameters().stream()
-                        .map(TypeSignatureTranslator::toTypeParameter)
-                        .findAny();
-
-                return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIME, false, argument);
-            }
+            case StandardTypes.TIMESTAMP_WITH_TIME_ZONE:
+                return new DateTimeDataType(
+                        Optional.empty(),
+                        DateTimeDataType.Type.TIMESTAMP,
+                        true,
+                        typeSignature.getParameters().stream()
+                                .findAny()
+                                .map(TypeSignatureTranslator::toTypeParameter));
+            case StandardTypes.TIMESTAMP:
+                return new DateTimeDataType(
+                        Optional.empty(),
+                        DateTimeDataType.Type.TIMESTAMP,
+                        false,
+                        typeSignature.getParameters().stream()
+                                .findAny()
+                                .map(TypeSignatureTranslator::toTypeParameter));
+            case StandardTypes.TIME_WITH_TIME_ZONE:
+                return new DateTimeDataType(
+                        Optional.empty(),
+                        DateTimeDataType.Type.TIME,
+                        true,
+                        typeSignature.getParameters().stream()
+                                .findAny()
+                                .map(TypeSignatureTranslator::toTypeParameter));
+            case StandardTypes.TIME:
+                return new DateTimeDataType(
+                        Optional.empty(),
+                        DateTimeDataType.Type.TIME,
+                        false,
+                        typeSignature.getParameters().stream()
+                                .findAny()
+                                .map(TypeSignatureTranslator::toTypeParameter));
             case StandardTypes.ROW:
                 return new RowDataType(
                         Optional.empty(),
