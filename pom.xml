@@ -651,7 +651,7 @@
             <dependency>
                 <groupId>io.trino.benchto</groupId>
                 <artifactId>benchto-driver</artifactId>
-                <version>0.18</version>
+                <version>0.19</version>
             </dependency>
 
             <dependency>
