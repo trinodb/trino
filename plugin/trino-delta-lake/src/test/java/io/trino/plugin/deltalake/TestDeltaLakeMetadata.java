@@ -72,6 +72,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 
@@ -101,15 +102,15 @@ public class TestDeltaLakeMetadata
     private static final ColumnMetadata MISSING_COLUMN = new ColumnMetadata("missing_column", BIGINT);
 
     private static final DeltaLakeColumnHandle BOOLEAN_COLUMN_HANDLE =
-            new DeltaLakeColumnHandle("boolean_column_name", BooleanType.BOOLEAN, "boolean_column_name", BooleanType.BOOLEAN, REGULAR);
+            new DeltaLakeColumnHandle("boolean_column_name", BooleanType.BOOLEAN, OptionalInt.empty(), "boolean_column_name", BooleanType.BOOLEAN, REGULAR);
     private static final DeltaLakeColumnHandle DOUBLE_COLUMN_HANDLE =
-            new DeltaLakeColumnHandle("double_column_name", DoubleType.DOUBLE, "double_column_name", DoubleType.DOUBLE, REGULAR);
+            new DeltaLakeColumnHandle("double_column_name", DoubleType.DOUBLE, OptionalInt.empty(), "double_column_name", DoubleType.DOUBLE, REGULAR);
     private static final DeltaLakeColumnHandle BOGUS_COLUMN_HANDLE =
-            new DeltaLakeColumnHandle("bogus_column_name", BogusType.BOGUS, "bogus_column_name", BogusType.BOGUS, REGULAR);
+            new DeltaLakeColumnHandle("bogus_column_name", BogusType.BOGUS, OptionalInt.empty(), "bogus_column_name", BogusType.BOGUS, REGULAR);
     private static final DeltaLakeColumnHandle VARCHAR_COLUMN_HANDLE =
-            new DeltaLakeColumnHandle("varchar_column_name", VarcharType.VARCHAR, "varchar_column_name", VarcharType.VARCHAR, REGULAR);
+            new DeltaLakeColumnHandle("varchar_column_name", VarcharType.VARCHAR, OptionalInt.empty(), "varchar_column_name", VarcharType.VARCHAR, REGULAR);
     private static final DeltaLakeColumnHandle DATE_COLUMN_HANDLE =
-            new DeltaLakeColumnHandle("date_column_name", DateType.DATE, "date_column_name", DateType.DATE, REGULAR);
+            new DeltaLakeColumnHandle("date_column_name", DateType.DATE, OptionalInt.empty(), "date_column_name", DateType.DATE, REGULAR);
 
     private static final Map<String, ColumnHandle> SYNTHETIC_COLUMN_ASSIGNMENTS = ImmutableMap.of(
             "test_synthetic_column_name_1", BOGUS_COLUMN_HANDLE,

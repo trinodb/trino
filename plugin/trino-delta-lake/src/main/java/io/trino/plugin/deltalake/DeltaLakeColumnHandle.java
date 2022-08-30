@@ -22,6 +22,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.trino.plugin.deltalake.DeltaHiveTypeTranslator.toHiveType;
@@ -57,13 +58,14 @@ public class DeltaLakeColumnHandle
 
     private final String name;
     private final Type type;
+    private final OptionalInt fieldId;
     // Hold field names in Parquet files
     // The value is same as 'name' when the column mapping mode is none
-    // The value is same as 'delta.columnMapping.physicalName' when the column mapping mode is name. e.g. col-6707cc9e-f3aa-4e6b-b8ef-1b03d3475680
+    // The value is same as 'delta.columnMapping.physicalName' when the column mapping mode is id or name. e.g. col-6707cc9e-f3aa-4e6b-b8ef-1b03d3475680
     private final String physicalName;
     // Hold type in Parquet files
     // The value is same as 'type' when the column mapping mode is none
-    // The value is same as 'delta.columnMapping.physicalName' when the column mapping mode is name. e.g. row(col-5924c8b3-04cf-4146-abb5-2c229e7ff708 integer)
+    // The value is same as 'delta.columnMapping.physicalName' when the column mapping mode is id or name. e.g. row(col-5924c8b3-04cf-4146-abb5-2c229e7ff708 integer)
     private final Type physicalType;
     private final DeltaLakeColumnType columnType;
 
@@ -71,12 +73,14 @@ public class DeltaLakeColumnHandle
     public DeltaLakeColumnHandle(
             @JsonProperty("name") String name,
             @JsonProperty("type") Type type,
+            @JsonProperty("fieldId") OptionalInt fieldId,
             @JsonProperty("physicalName") String physicalName,
             @JsonProperty("physicalType") Type physicalType,
             @JsonProperty("columnType") DeltaLakeColumnType columnType)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
+        this.fieldId = requireNonNull(fieldId, "fieldId is null");
         this.physicalName = requireNonNull(physicalName, "physicalName is null");
         this.physicalType = requireNonNull(physicalType, "physicalType is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
@@ -92,6 +96,12 @@ public class DeltaLakeColumnHandle
     public Type getType()
     {
         return type;
+    }
+
+    @JsonProperty
+    public OptionalInt getFieldId()
+    {
+        return fieldId;
     }
 
     @JsonProperty
@@ -124,6 +134,7 @@ public class DeltaLakeColumnHandle
         DeltaLakeColumnHandle other = (DeltaLakeColumnHandle) obj;
         return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.type, other.type) &&
+                Objects.equals(this.fieldId, other.fieldId) &&
                 Objects.equals(this.physicalName, other.physicalName) &&
                 Objects.equals(this.physicalType, other.physicalType) &&
                 this.columnType == other.columnType;
@@ -138,7 +149,7 @@ public class DeltaLakeColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, physicalName, physicalType, columnType);
+        return Objects.hash(name, type, fieldId, physicalName, physicalType, columnType);
     }
 
     @Override
@@ -161,16 +172,16 @@ public class DeltaLakeColumnHandle
 
     public static DeltaLakeColumnHandle pathColumnHandle()
     {
-        return new DeltaLakeColumnHandle(PATH_COLUMN_NAME, PATH_TYPE, PATH_COLUMN_NAME, PATH_TYPE, SYNTHESIZED);
+        return new DeltaLakeColumnHandle(PATH_COLUMN_NAME, PATH_TYPE, OptionalInt.empty(), PATH_COLUMN_NAME, PATH_TYPE, SYNTHESIZED);
     }
 
     public static DeltaLakeColumnHandle fileSizeColumnHandle()
     {
-        return new DeltaLakeColumnHandle(FILE_SIZE_COLUMN_NAME, FILE_SIZE_TYPE, FILE_SIZE_COLUMN_NAME, FILE_SIZE_TYPE, SYNTHESIZED);
+        return new DeltaLakeColumnHandle(FILE_SIZE_COLUMN_NAME, FILE_SIZE_TYPE, OptionalInt.empty(), FILE_SIZE_COLUMN_NAME, FILE_SIZE_TYPE, SYNTHESIZED);
     }
 
     public static DeltaLakeColumnHandle fileModifiedTimeColumnHandle()
     {
-        return new DeltaLakeColumnHandle(FILE_MODIFIED_TIME_COLUMN_NAME, FILE_MODIFIED_TIME_TYPE, FILE_MODIFIED_TIME_COLUMN_NAME, FILE_MODIFIED_TIME_TYPE, SYNTHESIZED);
+        return new DeltaLakeColumnHandle(FILE_MODIFIED_TIME_COLUMN_NAME, FILE_MODIFIED_TIME_TYPE, OptionalInt.empty(), FILE_MODIFIED_TIME_COLUMN_NAME, FILE_MODIFIED_TIME_TYPE, SYNTHESIZED);
     }
 }

@@ -62,6 +62,7 @@ import java.nio.file.Files;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
@@ -84,7 +85,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeMetastoreStatistics
 {
-    private static final ColumnHandle COLUMN_HANDLE = new DeltaLakeColumnHandle("val", DoubleType.DOUBLE, "val", DoubleType.DOUBLE, REGULAR);
+    private static final ColumnHandle COLUMN_HANDLE = new DeltaLakeColumnHandle("val", DoubleType.DOUBLE, OptionalInt.empty(), "val", DoubleType.DOUBLE, REGULAR);
 
     private DeltaLakeMetastore deltaLakeMetastore;
     private HiveMetastore hiveMetastore;
@@ -361,47 +362,47 @@ public class TestDeltaLakeMetastoreStatistics
         assertEquals(stats.getRowCount(), Estimate.of(9));
 
         Map<ColumnHandle, ColumnStatistics> statisticsMap = stats.getColumnStatistics();
-        ColumnStatistics columnStats = statisticsMap.get(new DeltaLakeColumnHandle("dec_short", DecimalType.createDecimalType(5, 1), "dec_short", DecimalType.createDecimalType(5, 1), REGULAR));
+        ColumnStatistics columnStats = statisticsMap.get(new DeltaLakeColumnHandle("dec_short", DecimalType.createDecimalType(5, 1), OptionalInt.empty(), "dec_short", DecimalType.createDecimalType(5, 1), REGULAR));
         assertEquals(columnStats.getNullsFraction(), Estimate.zero());
         assertEquals(columnStats.getRange().get().getMin(), -10.1);
         assertEquals(columnStats.getRange().get().getMax(), 10.1);
 
-        columnStats = statisticsMap.get(new DeltaLakeColumnHandle("dec_long", DecimalType.createDecimalType(25, 3), "dec_long", DecimalType.createDecimalType(25, 3), REGULAR));
+        columnStats = statisticsMap.get(new DeltaLakeColumnHandle("dec_long", DecimalType.createDecimalType(25, 3), OptionalInt.empty(), "dec_long", DecimalType.createDecimalType(25, 3), REGULAR));
         assertEquals(columnStats.getNullsFraction(), Estimate.zero());
         assertEquals(columnStats.getRange().get().getMin(), -999999999999.123);
         assertEquals(columnStats.getRange().get().getMax(), 999999999999.123);
 
-        columnStats = statisticsMap.get(new DeltaLakeColumnHandle("l", BIGINT, "l", BIGINT, REGULAR));
+        columnStats = statisticsMap.get(new DeltaLakeColumnHandle("l", BIGINT, OptionalInt.empty(), "l", BIGINT, REGULAR));
         assertEquals(columnStats.getNullsFraction(), Estimate.zero());
         assertEquals(columnStats.getRange().get().getMin(), -10000000.0);
         assertEquals(columnStats.getRange().get().getMax(), 10000000.0);
 
-        columnStats = statisticsMap.get(new DeltaLakeColumnHandle("in", INTEGER, "in", INTEGER, REGULAR));
+        columnStats = statisticsMap.get(new DeltaLakeColumnHandle("in", INTEGER, OptionalInt.empty(), "in", INTEGER, REGULAR));
         assertEquals(columnStats.getNullsFraction(), Estimate.zero());
         assertEquals(columnStats.getRange().get().getMin(), -20000000.0);
         assertEquals(columnStats.getRange().get().getMax(), 20000000.0);
 
-        columnStats = statisticsMap.get(new DeltaLakeColumnHandle("sh", SMALLINT, "sh", SMALLINT, REGULAR));
+        columnStats = statisticsMap.get(new DeltaLakeColumnHandle("sh", SMALLINT, OptionalInt.empty(), "sh", SMALLINT, REGULAR));
         assertEquals(columnStats.getNullsFraction(), Estimate.zero());
         assertEquals(columnStats.getRange().get().getMin(), -123.0);
         assertEquals(columnStats.getRange().get().getMax(), 123.0);
 
-        columnStats = statisticsMap.get(new DeltaLakeColumnHandle("byt", TINYINT, "byt", TINYINT, REGULAR));
+        columnStats = statisticsMap.get(new DeltaLakeColumnHandle("byt", TINYINT, OptionalInt.empty(), "byt", TINYINT, REGULAR));
         assertEquals(columnStats.getNullsFraction(), Estimate.zero());
         assertEquals(columnStats.getRange().get().getMin(), -42.0);
         assertEquals(columnStats.getRange().get().getMax(), 42.0);
 
-        columnStats = statisticsMap.get(new DeltaLakeColumnHandle("fl", REAL, "fl", REAL, REGULAR));
+        columnStats = statisticsMap.get(new DeltaLakeColumnHandle("fl", REAL, OptionalInt.empty(), "fl", REAL, REGULAR));
         assertEquals(columnStats.getNullsFraction(), Estimate.zero());
         assertEquals((float) columnStats.getRange().get().getMin(), -0.123f);
         assertEquals((float) columnStats.getRange().get().getMax(), 0.123f);
 
-        columnStats = statisticsMap.get(new DeltaLakeColumnHandle("dou", DOUBLE, "dou", DOUBLE, REGULAR));
+        columnStats = statisticsMap.get(new DeltaLakeColumnHandle("dou", DOUBLE, OptionalInt.empty(), "dou", DOUBLE, REGULAR));
         assertEquals(columnStats.getNullsFraction(), Estimate.zero());
         assertEquals(columnStats.getRange().get().getMin(), -0.321);
         assertEquals(columnStats.getRange().get().getMax(), 0.321);
 
-        columnStats = statisticsMap.get(new DeltaLakeColumnHandle("dat", DATE, "dat", DATE, REGULAR));
+        columnStats = statisticsMap.get(new DeltaLakeColumnHandle("dat", DATE, OptionalInt.empty(), "dat", DATE, REGULAR));
         assertEquals(columnStats.getNullsFraction(), Estimate.zero());
         assertEquals(columnStats.getRange().get().getMin(), (double) LocalDate.parse("1900-01-01").toEpochDay());
         assertEquals(columnStats.getRange().get().getMax(), (double) LocalDate.parse("5000-01-01").toEpochDay());
@@ -417,11 +418,11 @@ public class TestDeltaLakeMetastoreStatistics
         assertEquals(stats.getRowCount(), Estimate.of(9));
 
         Map<ColumnHandle, ColumnStatistics> statisticsMap = stats.getColumnStatistics();
-        ColumnStatistics columnStats = statisticsMap.get(new DeltaLakeColumnHandle("fl", REAL, "fl", REAL, REGULAR));
+        ColumnStatistics columnStats = statisticsMap.get(new DeltaLakeColumnHandle("fl", REAL, OptionalInt.empty(), "fl", REAL, REGULAR));
         assertEquals(columnStats.getNullsFraction(), Estimate.zero());
         assertThat(columnStats.getRange()).isEmpty();
 
-        columnStats = statisticsMap.get(new DeltaLakeColumnHandle("dou", DOUBLE, "dou", DOUBLE, REGULAR));
+        columnStats = statisticsMap.get(new DeltaLakeColumnHandle("dou", DOUBLE, OptionalInt.empty(), "dou", DOUBLE, REGULAR));
         assertEquals(columnStats.getNullsFraction(), Estimate.zero());
         assertThat(columnStats.getRange()).isEmpty();
     }
@@ -436,7 +437,7 @@ public class TestDeltaLakeMetastoreStatistics
         assertEquals(stats.getRowCount(), Estimate.of(9));
 
         Map<ColumnHandle, ColumnStatistics> statisticsMap = stats.getColumnStatistics();
-        ColumnStatistics columnStats = statisticsMap.get(new DeltaLakeColumnHandle("i", INTEGER, "i", INTEGER, REGULAR));
+        ColumnStatistics columnStats = statisticsMap.get(new DeltaLakeColumnHandle("i", INTEGER, OptionalInt.empty(), "i", INTEGER, REGULAR));
         assertEquals(columnStats.getNullsFraction(), Estimate.of(3.0 / 9.0));
     }
 
