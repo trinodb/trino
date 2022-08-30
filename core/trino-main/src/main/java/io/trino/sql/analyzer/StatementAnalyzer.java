@@ -346,6 +346,7 @@ import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
 import static io.trino.sql.analyzer.Analysis.PLAN_DELETE_USING_MERGE;
+import static io.trino.sql.analyzer.Analysis.PLAN_UPDATE_USING_MERGE;
 import static io.trino.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static io.trino.sql.analyzer.CanonicalizationAware.canonicalizationAwareKey;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
@@ -2114,16 +2115,21 @@ class StatementAnalyzer
                         }
                         break;
                     case UPDATE:
-                        List<ColumnSchema> updatedColumnMetadata = analysis.getUpdatedColumns()
-                                .orElseThrow(() -> new VerifyException("updated columns not set"));
-                        Set<String> updatedColumnNames = updatedColumnMetadata.stream()
-                                .map(ColumnSchema::getName)
-                                .collect(toImmutableSet());
-                        List<ColumnHandle> updatedColumns = columnHandles.entrySet().stream()
-                                .filter(entry -> updatedColumnNames.contains(entry.getKey()))
-                                .map(Map.Entry::getValue)
-                                .collect(toImmutableList());
-                        rowIdColumnHandle = metadata.getUpdateRowIdColumnHandle(session, tableHandle.get(), updatedColumns);
+                        if (PLAN_UPDATE_USING_MERGE) {
+                            rowIdColumnHandle = metadata.getMergeRowIdColumnHandle(session, tableHandle.get());
+                        }
+                        else {
+                            List<ColumnSchema> updatedColumnMetadata = analysis.getUpdatedColumns()
+                                    .orElseThrow(() -> new VerifyException("updated columns not set"));
+                            Set<String> updatedColumnNames = updatedColumnMetadata.stream()
+                                    .map(ColumnSchema::getName)
+                                    .collect(toImmutableSet());
+                            List<ColumnHandle> updatedColumns = columnHandles.entrySet().stream()
+                                    .filter(entry -> updatedColumnNames.contains(entry.getKey()))
+                                    .map(Map.Entry::getValue)
+                                    .collect(toImmutableList());
+                            rowIdColumnHandle = metadata.getUpdateRowIdColumnHandle(session, tableHandle.get(), updatedColumns);
+                        }
                         break;
                     case MERGE:
                         rowIdColumnHandle = metadata.getMergeRowIdColumnHandle(session, tableHandle.get());
@@ -3134,10 +3140,15 @@ class StatementAnalyzer
                 }
             }
 
-            List<ColumnSchema> updatedColumns = allColumns.stream()
+            List<ColumnSchema> updatedColumnSchemas = allColumns.stream()
                     .filter(column -> assignmentTargets.contains(column.getName()))
                     .collect(toImmutableList());
-            analysis.setUpdatedColumns(updatedColumns);
+            analysis.setUpdatedColumns(updatedColumnSchemas);
+
+            Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, handle);
+            List<ColumnHandle> updatedColumnHandles = updatedColumnSchemas.stream()
+                    .map(columnSchema -> allColumnHandles.get(columnSchema.getName()))
+                    .collect(toImmutableList());
 
             // Analyzer checks for select permissions but UPDATE has a separate permission, so disable access checks
             StatementAnalyzer analyzer = statementAnalyzerFactory
@@ -3185,9 +3196,11 @@ class StatementAnalyzer
             analysis.setUpdateTarget(
                     tableName,
                     Optional.of(table),
-                    Optional.of(updatedColumns.stream()
+                    Optional.of(updatedColumnSchemas.stream()
                             .map(column -> new OutputColumn(new Column(column.getName(), column.getType().toString()), ImmutableSet.of()))
                             .collect(toImmutableList())));
+
+            createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(updatedColumnHandles));
 
             return createAndAssignScope(update, scope, Field.newUnqualified("rows", BIGINT));
         }
