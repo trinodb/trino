@@ -69,6 +69,8 @@ public class FeaturesConfig
     static final String SPILL_ENABLED = "spill-enabled";
     public static final String SPILLER_SPILL_PATH = "spiller-spill-path";
 
+    private boolean legacyUpdateDeleteImplementation = true;
+
     private boolean redistributeWrites = true;
     private boolean scaleWriters = true;
     private DataSize writerMinSize = DataSize.of(32, DataSize.Unit.MEGABYTE);
@@ -113,6 +115,20 @@ public class FeaturesConfig
         ABORT,
         RETRY,
         /**/;
+    }
+
+    @Deprecated
+    public boolean isLegacyUpdateDeleteImplementation()
+    {
+        return legacyUpdateDeleteImplementation;
+    }
+
+    @Deprecated
+    @Config("deprecated.legacy-update-delete-implementation")
+    public FeaturesConfig setLegacyUpdateDeleteImplementation(boolean legacyUpdateDeleteImplementation)
+    {
+        this.legacyUpdateDeleteImplementation = legacyUpdateDeleteImplementation;
+        return this;
     }
 
     public boolean isOmitDateTimeTypePrecision()

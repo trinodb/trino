@@ -37,6 +37,7 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
@@ -121,7 +122,7 @@ public class MockConnector
 {
     private static final String DELETE_ROW_ID = "delete_row_id";
     private static final String UPDATE_ROW_ID = "update_row_id";
-    private static final String MERGE_ROW_ID = "delete_row_id";
+    private static final String MERGE_ROW_ID = "merge_row_id";
 
     private final Function<ConnectorSession, List<String>> listSchemaNames;
     private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
@@ -824,13 +825,16 @@ public class MockConnector
     }
 
     private static class MockPageSink
-            implements ConnectorPageSink
+            implements ConnectorPageSink, ConnectorMergeSink
     {
         @Override
         public CompletableFuture<?> appendPage(Page page)
         {
             return NOT_BLOCKED;
         }
+
+        @Override
+        public void storeMergedRows(Page page) {}
 
         @Override
         public CompletableFuture<Collection<Slice>> finish()
@@ -863,7 +867,7 @@ public class MockConnector
                         ImmutableList.Builder<Object> projectedRow = ImmutableList.builder();
                         for (MockConnectorColumnHandle column : projection) {
                             String columnName = column.getName();
-                            if (columnName.equals(DELETE_ROW_ID) || columnName.equals(UPDATE_ROW_ID)) {
+                            if (columnName.equals(DELETE_ROW_ID) || columnName.equals(UPDATE_ROW_ID) || columnName.equals(MERGE_ROW_ID)) {
                                 projectedRow.add(0);
                                 continue;
                             }
