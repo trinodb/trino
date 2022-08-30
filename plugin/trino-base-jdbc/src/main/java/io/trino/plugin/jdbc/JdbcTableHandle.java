@@ -94,13 +94,11 @@ public final class JdbcTableHandle
         this.relationHandle = requireNonNull(relationHandle, "relationHandle is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.constraintExpressions = ImmutableList.copyOf(requireNonNull(constraintExpressions, "constraintExpressions is null"));
-        this.sortOrder = requireNonNull(sortOrder, "sortOrder is null")
-                .map(ImmutableList::copyOf);
+        this.sortOrder = sortOrder.map(ImmutableList::copyOf);
         this.limit = requireNonNull(limit, "limit is null");
 
-        requireNonNull(columns, "columns is null");
         this.columns = columns.map(ImmutableList::copyOf);
-        this.otherReferencedTables = requireNonNull(otherReferencedTables, "otherReferencedTables is null").map(ImmutableSet::copyOf);
+        this.otherReferencedTables = otherReferencedTables.map(ImmutableSet::copyOf);
         this.nextSyntheticColumnId = nextSyntheticColumnId;
     }
 
