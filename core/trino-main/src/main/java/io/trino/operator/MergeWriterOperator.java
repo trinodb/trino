@@ -27,6 +27,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.trino.spi.connector.ConnectorMergeSink.IGNORED_OPERATION_NUMBER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.util.Objects.requireNonNull;
 
@@ -106,12 +107,15 @@ public class MergeWriterOperator
 
         // Calculate the amount to increment the rowCount
         Block insertFromUpdateColumn = page.getBlock(page.getChannelCount() - 1);
+        Block operationColumn = page.getBlock(page.getChannelCount() - 3);
         long insertsFromUpdates = 0;
+        long ignoredRows = 0;
         int positionCount = page.getPositionCount();
         for (int position = 0; position < positionCount; position++) {
             insertsFromUpdates += TINYINT.getLong(insertFromUpdateColumn, position);
+            ignoredRows += TINYINT.getLong(operationColumn, position) == IGNORED_OPERATION_NUMBER ? 1 : 0;
         }
-        rowCount += positionCount - insertsFromUpdates;
+        rowCount += positionCount - insertsFromUpdates - ignoredRows;
     }
 
     @Override

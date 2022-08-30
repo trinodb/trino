@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 
 public interface ConnectorMergeSink
 {
+    int IGNORED_OPERATION_NUMBER = 0;
     int INSERT_OPERATION_NUMBER = 1;
     int DELETE_OPERATION_NUMBER = 2;
     int UPDATE_OPERATION_NUMBER = 3;

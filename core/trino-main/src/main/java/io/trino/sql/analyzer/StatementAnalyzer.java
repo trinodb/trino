@@ -345,6 +345,7 @@ import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
+import static io.trino.sql.analyzer.Analysis.PLAN_DELETE_USING_MERGE;
 import static io.trino.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static io.trino.sql.analyzer.CanonicalizationAware.canonicalizationAwareKey;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
@@ -794,6 +795,8 @@ class StatementAnalyzer
             analysis.setUpdateType("DELETE");
             analysis.setUpdateTarget(tableName, Optional.of(table), Optional.empty());
             analyzeFiltersAndMasks(table, tableName, Optional.of(handle), analysis.getScope(table).getRelationType(), session.getIdentity().getUser());
+
+            createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of());
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -2100,9 +2103,17 @@ class StatementAnalyzer
 
             if (addRowIdColumn) {
                 // Add the row id field
-                ColumnHandle rowIdColumnHandle = switch (updateKind.get()) {
-                    case DELETE -> metadata.getDeleteRowIdColumnHandle(session, tableHandle.get());
-                    case UPDATE -> {
+                ColumnHandle rowIdColumnHandle;
+                switch (updateKind.get()) {
+                    case DELETE:
+                        if (PLAN_DELETE_USING_MERGE) {
+                            rowIdColumnHandle = metadata.getMergeRowIdColumnHandle(session, tableHandle.get());
+                        }
+                        else {
+                            rowIdColumnHandle = metadata.getDeleteRowIdColumnHandle(session, tableHandle.get());
+                        }
+                        break;
+                    case UPDATE:
                         List<ColumnSchema> updatedColumnMetadata = analysis.getUpdatedColumns()
                                 .orElseThrow(() -> new VerifyException("updated columns not set"));
                         Set<String> updatedColumnNames = updatedColumnMetadata.stream()
@@ -2112,10 +2123,14 @@ class StatementAnalyzer
                                 .filter(entry -> updatedColumnNames.contains(entry.getKey()))
                                 .map(Map.Entry::getValue)
                                 .collect(toImmutableList());
-                        yield metadata.getUpdateRowIdColumnHandle(session, tableHandle.get(), updatedColumns);
-                    }
-                    case MERGE -> metadata.getMergeRowIdColumnHandle(session, tableHandle.get());
-                };
+                        rowIdColumnHandle = metadata.getUpdateRowIdColumnHandle(session, tableHandle.get(), updatedColumns);
+                        break;
+                    case MERGE:
+                        rowIdColumnHandle = metadata.getMergeRowIdColumnHandle(session, tableHandle.get());
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Unrecognized updateKind " + updateKind.get());
+                }
 
                 Type type = metadata.getColumnMetadata(session, tableHandle.get(), rowIdColumnHandle).getType();
                 Field field = Field.newUnqualified(Optional.empty(), type);
