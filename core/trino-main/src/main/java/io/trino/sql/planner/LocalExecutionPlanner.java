@@ -3403,7 +3403,10 @@ public class LocalExecutionPlanner
             context.setDriverInstanceCount(getTaskWriterCount(session));
 
             PhysicalOperation source = node.getSource().accept(this, context);
-            OperatorFactory operatorFactory = new MergeWriterOperatorFactory(context.getNextOperatorId(), node.getId(), pageSinkManager, node.getTarget(), session);
+
+            Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(node.getSource().getOutputSymbols(), source.getLayout());
+
+            OperatorFactory operatorFactory = new MergeWriterOperatorFactory(context.getNextOperatorId(), node.getId(), pageSinkManager, node.getTarget(), session, pagePreprocessor);
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }
 
@@ -3424,6 +3427,9 @@ public class LocalExecutionPlanner
                     .map(nodeLayout::get)
                     .collect(toImmutableList());
 
+            List<Symbol> expectedLayout = node.getSource().getOutputSymbols();
+            Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(expectedLayout, source.getLayout());
+
             OperatorFactory operatorFactory = MergeProcessorOperator.createOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
@@ -3431,7 +3437,8 @@ public class LocalExecutionPlanner
                     rowIdChannel,
                     mergeRowChannel,
                     redistributionColumns,
-                    dataColumnChannels);
+                    dataColumnChannels,
+                    pagePreprocessor);
             return new PhysicalOperation(operatorFactory, nodeLayout, context, source);
         }
 
