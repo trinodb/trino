@@ -123,7 +123,7 @@ public final class JdbcTypeHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(jdbcType, jdbcTypeName, columnSize, decimalDigits, arrayDimensions);
+        return Objects.hash(jdbcType, jdbcTypeName, columnSize, decimalDigits, arrayDimensions, caseSensitivity);
     }
 
     @Override
@@ -140,7 +140,8 @@ public final class JdbcTypeHandle
                 Objects.equals(columnSize, that.columnSize) &&
                 Objects.equals(decimalDigits, that.decimalDigits) &&
                 Objects.equals(jdbcTypeName, that.jdbcTypeName) &&
-                Objects.equals(arrayDimensions, that.arrayDimensions);
+                Objects.equals(arrayDimensions, that.arrayDimensions) &&
+                Objects.equals(caseSensitivity, that.caseSensitivity);
     }
 
     @Override
