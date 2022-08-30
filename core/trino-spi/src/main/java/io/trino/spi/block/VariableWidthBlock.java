@@ -85,6 +85,23 @@ public class VariableWidthBlock
         retainedSizeInBytes = INSTANCE_SIZE + slice.getRetainedSize() + sizeOf(valueIsNull) + sizeOf(offsets);
     }
 
+    /**
+     * Gets the raw {@link Slice} that keeps the actual data bytes.
+     */
+    public Slice getRawSlice()
+    {
+        return slice;
+    }
+
+    /**
+     * Gets the offset of the value at the {@code position} in the {@link Slice} returned by {@link #getRawSlice())}.
+     */
+    public int getRawSliceOffset(int position)
+    {
+        checkReadablePosition(this, position);
+        return getPositionOffset(position);
+    }
+
     @Override
     protected final int getPositionOffset(int position)
     {
