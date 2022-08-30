@@ -752,7 +752,7 @@ public class TestingAccessControlManager
 
         public TestingPrivilege(Optional<String> actorName, String entityName, TestingPrivilegeType type)
         {
-            this(actorName, requireNonNull(entityName, "entitName is null")::equals, type);
+            this(actorName, entityName::equals, type);
         }
 
         public TestingPrivilege(Optional<String> actorName, Predicate<String> entityPredicate, TestingPrivilegeType type)

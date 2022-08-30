@@ -26,7 +26,6 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
@@ -199,7 +198,7 @@ public class MemoryManagerConfig
 
         public static LowMemoryQueryKillerPolicy fromString(String value)
         {
-            switch (requireNonNull(value, "value is null").toLowerCase(ENGLISH)) {
+            switch (value.toLowerCase(ENGLISH)) {
                 case "none":
                     return NONE;
                 case "total-reservation":
@@ -221,7 +220,7 @@ public class MemoryManagerConfig
 
         public static LowMemoryTaskKillerPolicy fromString(String value)
         {
-            switch (requireNonNull(value, "value is null").toLowerCase(ENGLISH)) {
+            switch (value.toLowerCase(ENGLISH)) {
                 case "none":
                     return NONE;
                 case "total-reservation-on-blocked-nodes":

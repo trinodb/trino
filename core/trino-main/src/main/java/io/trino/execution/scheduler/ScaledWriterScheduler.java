@@ -64,7 +64,7 @@ public class ScaledWriterScheduler
         this.writerTasksProvider = requireNonNull(writerTasksProvider, "writerTasksProvider is null");
         this.nodeSelector = requireNonNull(nodeSelector, "nodeSelector is null");
         this.executor = requireNonNull(executor, "executor is null");
-        this.writerMinSizeBytes = requireNonNull(writerMinSize, "writerMinSize is null").toBytes();
+        this.writerMinSizeBytes = writerMinSize.toBytes();
         this.maxTaskWriterCount = maxTaskWriterCount;
     }
 

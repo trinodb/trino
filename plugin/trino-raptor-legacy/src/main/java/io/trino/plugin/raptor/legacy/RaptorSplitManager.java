@@ -74,7 +74,7 @@ public class RaptorSplitManager
     @Inject
     public RaptorSplitManager(CatalogName catalogName, NodeSupplier nodeSupplier, ShardManager shardManager, BackupService backupService)
     {
-        this(catalogName, nodeSupplier, shardManager, requireNonNull(backupService, "backupService is null").isBackupAvailable());
+        this(catalogName, nodeSupplier, shardManager, backupService.isBackupAvailable());
     }
 
     public RaptorSplitManager(CatalogName catalogName, NodeSupplier nodeSupplier, ShardManager shardManager, boolean backupAvailable)

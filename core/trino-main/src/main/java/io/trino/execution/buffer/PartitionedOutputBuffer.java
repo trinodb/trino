@@ -67,7 +67,7 @@ public class PartitionedOutputBuffer
         checkArgument(outputBuffers.isNoMoreBufferIds(), "Expected a final output buffer descriptor");
         this.outputBuffers = outputBuffers;
         this.memoryManager = new OutputBufferMemoryManager(
-                requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes(),
+                maxBufferSize.toBytes(),
                 requireNonNull(memoryContextSupplier, "memoryContextSupplier is null"),
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
         this.onPagesReleased = PagesReleasedListener.forOutputBufferMemoryManager(memoryManager);

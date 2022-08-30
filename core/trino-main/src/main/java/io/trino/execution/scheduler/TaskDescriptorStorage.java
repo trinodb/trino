@@ -57,7 +57,7 @@ public class TaskDescriptorStorage
 
     public TaskDescriptorStorage(DataSize maxMemory)
     {
-        this.maxMemoryInBytes = requireNonNull(maxMemory, "maxMemory is null").toBytes();
+        this.maxMemoryInBytes = maxMemory.toBytes();
     }
 
     /**

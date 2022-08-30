@@ -697,8 +697,7 @@ public final class StreamPropertyDerivations
         {
             this.distribution = requireNonNull(distribution, "distribution is null");
 
-            this.partitioningColumns = requireNonNull(partitioningColumns, "partitioningColumns is null")
-                    .map(ImmutableList::copyOf);
+            this.partitioningColumns = partitioningColumns.map(ImmutableList::copyOf);
 
             checkArgument(distribution != SINGLE || this.partitioningColumns.equals(Optional.of(ImmutableList.of())),
                     "Single stream must be partitioned on empty set");

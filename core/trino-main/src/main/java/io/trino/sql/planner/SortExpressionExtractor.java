@@ -35,7 +35,6 @@ import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQ
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static java.util.Collections.singletonList;
 import static java.util.Comparator.comparing;
-import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
@@ -164,7 +163,7 @@ public final class SortExpressionExtractor
 
         public BuildSymbolReferenceFinder(Set<Symbol> buildSymbols)
         {
-            this.buildSymbols = requireNonNull(buildSymbols, "buildSymbols is null").stream()
+            this.buildSymbols = buildSymbols.stream()
                     .map(Symbol::getName)
                     .collect(toImmutableSet());
         }

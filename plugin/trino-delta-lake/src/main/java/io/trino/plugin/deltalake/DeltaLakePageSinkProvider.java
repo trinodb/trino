@@ -71,7 +71,7 @@ public class DeltaLakePageSinkProvider
         this.maxPartitionsPerWriter = deltaLakeConfig.getMaxPartitionsPerWriter();
         this.parquetDateTimeZone = deltaLakeConfig.getParquetDateTimeZone();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.trinoVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
+        this.trinoVersion = nodeVersion.toString();
     }
 
     @Override

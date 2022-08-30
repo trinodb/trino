@@ -53,7 +53,7 @@ public class DictionaryBlock
 
     public DictionaryBlock(Block dictionary, int[] ids)
     {
-        this(requireNonNull(ids, "ids is null").length, dictionary, ids);
+        this(ids.length, dictionary, ids);
     }
 
     public DictionaryBlock(int positionCount, Block dictionary, int[] ids)

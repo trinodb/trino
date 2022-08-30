@@ -73,7 +73,7 @@ public class MergeFileWriter
                 typeManager,
                 hiveRowType,
                 AcidOperation.MERGE);
-        this.partitionName = requireNonNull(partitionName, "partitionName is null").orElse("");
+        this.partitionName = partitionName.orElse("");
         this.inputColumns = requireNonNull(inputColumns, "inputColumns is null");
     }
 

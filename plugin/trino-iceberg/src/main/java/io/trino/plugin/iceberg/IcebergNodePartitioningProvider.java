@@ -29,7 +29,6 @@ import java.util.List;
 
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
-import static java.util.Objects.requireNonNull;
 
 public class IcebergNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
@@ -39,7 +38,7 @@ public class IcebergNodePartitioningProvider
     @Inject
     public IcebergNodePartitioningProvider(TypeManager typeManager)
     {
-        this.typeOperators = requireNonNull(typeManager, "typeManager is null").getTypeOperators();
+        this.typeOperators = typeManager.getTypeOperators();
     }
 
     @Override

@@ -47,7 +47,7 @@ final class CoalescingCounter
     CoalescingCounter(Clock clock, Duration coalescingDuration)
     {
         this.clock = requireNonNull(clock, "clock is null");
-        coalescingDurationMillis = requireNonNull(coalescingDuration, "coalescingDuration is null").toMillis();
+        coalescingDurationMillis = coalescingDuration.toMillis();
     }
 
     private synchronized void increment()

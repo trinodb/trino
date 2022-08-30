@@ -114,12 +114,12 @@ public class QueryContext
             SpillSpaceTracker spillSpaceTracker)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
-        this.maxUserMemory = requireNonNull(maxUserMemory, "maxUserMemory is null").toBytes();
+        this.maxUserMemory = maxUserMemory.toBytes();
         this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
         this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
-        this.maxSpill = requireNonNull(maxSpill, "maxSpill is null").toBytes();
+        this.maxSpill = maxSpill.toBytes();
         this.spillSpaceTracker = requireNonNull(spillSpaceTracker, "spillSpaceTracker is null");
         this.guaranteedMemory = guaranteedMemory;
     }

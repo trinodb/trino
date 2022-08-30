@@ -26,8 +26,6 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static java.util.Objects.requireNonNull;
-
 public class DeltaLakeNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
 {
@@ -36,7 +34,7 @@ public class DeltaLakeNodePartitioningProvider
     @Inject
     public DeltaLakeNodePartitioningProvider(TypeManager typeManager)
     {
-        this.typeOperators = requireNonNull(typeManager, "typeManager is null").getTypeOperators();
+        this.typeOperators = typeManager.getTypeOperators();
     }
 
     @Override

@@ -44,7 +44,7 @@ class BlackHolePageSource
         checkArgument(count >= 0, "count is negative");
         this.pagesLeft = count;
         this.executorService = requireNonNull(executorService, "executorService is null");
-        this.pageProcessingDelayInMillis = requireNonNull(pageProcessingDelay, "pageProcessingDelay is null").toMillis();
+        this.pageProcessingDelayInMillis = pageProcessingDelay.toMillis();
         this.memoryUsageBytes = page.getSizeInBytes();
     }
 

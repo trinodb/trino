@@ -44,8 +44,8 @@ public final class JoinHash
     public JoinHash(PagesHash pagesHash, Optional<JoinFilterFunction> filterFunction, Optional<PositionLinks> positionLinks)
     {
         this.pagesHash = requireNonNull(pagesHash, "pagesHash is null");
-        this.filterFunction = requireNonNull(filterFunction, "filterFunction cannot be null").orElse(null);
-        this.positionLinks = requireNonNull(positionLinks, "positionLinks is null").orElse(null);
+        this.filterFunction = filterFunction.orElse(null);
+        this.positionLinks = positionLinks.orElse(null);
     }
 
     @Override

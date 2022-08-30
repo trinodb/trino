@@ -204,7 +204,7 @@ public class RaptorStorageManager
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.storageService = requireNonNull(storageService, "storageService is null");
         this.backupStore = requireNonNull(backupStore, "backupStore is null");
-        this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null")
+        this.orcReaderOptions = orcReaderOptions
                 .withMaxReadBlockSize(HUGE_MAX_READ_BLOCK_SIZE);
 
         backupManager = requireNonNull(backgroundBackupManager, "backgroundBackupManager is null");

@@ -34,7 +34,7 @@ class TypedPositionsAppender
     {
         this(
                 type,
-                requireNonNull(type, "type is null").createBlockBuilder(null, expectedPositions));
+                type.createBlockBuilder(null, expectedPositions));
     }
 
     TypedPositionsAppender(Type type, BlockBuilder blockBuilder)

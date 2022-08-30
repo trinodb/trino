@@ -509,7 +509,7 @@ public class DeduplicatingDirectExchangeBuffer
             this.queryId = requireNonNull(queryId, "queryId is null");
             this.exchangeId = requireNonNull(exchangeId, "exchangeId is null");
             this.executor = requireNonNull(executor, "executor is null");
-            this.pageBufferCapacityInBytes = requireNonNull(pageBufferCapacity, "pageBufferCapacity is null").toBytes();
+            this.pageBufferCapacityInBytes = pageBufferCapacity.toBytes();
         }
 
         public synchronized void addPages(TaskId taskId, List<Slice> pages)

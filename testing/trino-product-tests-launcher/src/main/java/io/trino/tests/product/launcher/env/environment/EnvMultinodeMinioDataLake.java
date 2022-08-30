@@ -24,7 +24,6 @@ import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
-import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 /**
@@ -40,7 +39,7 @@ public class EnvMultinodeMinioDataLake
     public EnvMultinodeMinioDataLake(StandardMultinode standardMultinode, Hadoop hadoop, Minio minio, DockerFiles dockerFiles)
     {
         super(standardMultinode, hadoop, minio);
-        this.configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/multinode-minio-data-lake");
+        this.configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/multinode-minio-data-lake");
     }
 
     @Override

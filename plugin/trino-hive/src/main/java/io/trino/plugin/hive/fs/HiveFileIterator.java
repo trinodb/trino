@@ -64,7 +64,7 @@ public class HiveFileIterator
             NestedDirectoryPolicy nestedDirectoryPolicy,
             boolean ignoreAbsentPartitions)
     {
-        this.pathPrefix = requireNonNull(path, "path is null").toUri().getPath();
+        this.pathPrefix = path.toUri().getPath();
         this.table = requireNonNull(table, "table is null");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");

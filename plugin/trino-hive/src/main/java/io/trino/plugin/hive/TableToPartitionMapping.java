@@ -57,8 +57,7 @@ public class TableToPartitionMapping
             this.tableToPartitionColumns = Optional.empty();
         }
         else {
-            this.tableToPartitionColumns = requireNonNull(tableToPartitionColumns, "tableToPartitionColumns is null")
-                    .map(ImmutableMap::copyOf);
+            this.tableToPartitionColumns = tableToPartitionColumns.map(ImmutableMap::copyOf);
         }
         this.partitionColumnCoercions = ImmutableMap.copyOf(requireNonNull(partitionColumnCoercions, "partitionColumnCoercions is null"));
     }

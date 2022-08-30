@@ -35,7 +35,6 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 
 @DefunctConfig("hive.s3.use-instance-credentials")
 public class HiveS3Config
@@ -539,9 +538,7 @@ public class HiveS3Config
     @Config("hive.s3.proxy.protocol")
     public HiveS3Config setS3ProxyProtocol(String s3ProxyProtocol)
     {
-        this.s3ProxyProtocol = TrinoS3Protocol.valueOf(
-                requireNonNull(s3ProxyProtocol, "s3ProxyProtocol is null")
-                        .toUpperCase(ENGLISH));
+        this.s3ProxyProtocol = TrinoS3Protocol.valueOf(s3ProxyProtocol.toUpperCase(ENGLISH));
         return this;
     }
 
