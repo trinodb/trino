@@ -55,7 +55,7 @@ public class MergeProcessorOperator
             List<Integer> redistributionColumnChannels,
             List<Integer> dataColumnChannels)
     {
-        return switch (merge.getParadigm()) {
+        return switch (merge.getParadigm().orElseThrow()) {
             case DELETE_ROW_AND_INSERT_ROW -> new DeleteAndInsertMergeProcessor(
                     merge.getColumnTypes(),
                     merge.getRowIdType(),

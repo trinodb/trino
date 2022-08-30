@@ -275,6 +275,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getMaxGroupingSets;
+import static io.trino.SystemSessionProperties.isLegacyUpdateDeleteImplementation;
 import static io.trino.metadata.FunctionResolver.toPath;
 import static io.trino.metadata.MetadataManager.toQualifiedFunctionName;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -797,6 +798,8 @@ class StatementAnalyzer
             analysis.setUpdateType("DELETE");
             analysis.setUpdateTarget(tableName, Optional.of(table), Optional.empty());
             analyzeFiltersAndMasks(table, tableName, Optional.of(handle), analysis.getScope(table).getRelationType(), session.getIdentity().getUser());
+
+            createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of());
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -2104,8 +2107,12 @@ class StatementAnalyzer
             if (addRowIdColumn) {
                 // Add the row id field
                 ColumnHandle rowIdColumnHandle = switch (updateKind.get()) {
-                    case DELETE -> metadata.getDeleteRowIdColumnHandle(session, tableHandle.get());
-                    case UPDATE -> {
+                    case DELETE:
+                        if (!isLegacyUpdateDeleteImplementation(session)) {
+                            yield metadata.getMergeRowIdColumnHandle(session, tableHandle.get());
+                        }
+                        yield metadata.getDeleteRowIdColumnHandle(session, tableHandle.get());
+                    case UPDATE:
                         List<ColumnSchema> updatedColumnMetadata = analysis.getUpdatedColumns()
                                 .orElseThrow(() -> new VerifyException("updated columns not set"));
                         Set<String> updatedColumnNames = updatedColumnMetadata.stream()
@@ -2116,8 +2123,8 @@ class StatementAnalyzer
                                 .map(Map.Entry::getValue)
                                 .collect(toImmutableList());
                         yield metadata.getUpdateRowIdColumnHandle(session, tableHandle.get(), updatedColumns);
-                    }
-                    case MERGE -> metadata.getMergeRowIdColumnHandle(session, tableHandle.get());
+                    case MERGE:
+                        yield metadata.getMergeRowIdColumnHandle(session, tableHandle.get());
                 };
 
                 Type type = metadata.getColumnMetadata(session, tableHandle.get(), rowIdColumnHandle).getType();
