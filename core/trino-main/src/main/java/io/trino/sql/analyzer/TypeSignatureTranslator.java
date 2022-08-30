@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowFieldName;
-import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
@@ -48,6 +47,12 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
 import static io.trino.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
+import static io.trino.spi.type.StandardTypes.ROW;
+import static io.trino.spi.type.StandardTypes.TIME;
+import static io.trino.spi.type.StandardTypes.TIMESTAMP;
+import static io.trino.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
+import static io.trino.spi.type.StandardTypes.VARCHAR;
 import static io.trino.spi.type.TypeSignatureParameter.namedTypeParameter;
 import static io.trino.spi.type.TypeSignatureParameter.numericParameter;
 import static io.trino.spi.type.TypeSignatureParameter.typeParameter;
@@ -103,7 +108,7 @@ public class TypeSignatureTranslator
     {
         ImmutableList.Builder<TypeSignatureParameter> parameters = ImmutableList.builder();
 
-        if (type.getName().getValue().equalsIgnoreCase(StandardTypes.VARCHAR) && type.getArguments().isEmpty()) {
+        if (type.getName().getValue().equalsIgnoreCase(VARCHAR) && type.getArguments().isEmpty()) {
             // We treat VARCHAR specially because currently, the unbounded VARCHAR type is modeled in the system as a VARCHAR(n) with a "magic" length
             // TODO: Eventually, we should split the types into VARCHAR and VARCHAR(n)
             return VarcharType.VARCHAR.getTypeSignature();
@@ -148,7 +153,7 @@ public class TypeSignatureTranslator
                         toTypeSignature(field.getType(), typeVariables))))
                 .collect(toImmutableList());
 
-        return new TypeSignature(StandardTypes.ROW, parameters);
+        return new TypeSignature(ROW, parameters);
     }
 
     private static TypeSignature toTypeSignature(IntervalDayTimeDataType type)
@@ -172,18 +177,18 @@ public class TypeSignatureTranslator
         switch (type.getType()) {
             case TIMESTAMP:
                 if (withTimeZone) {
-                    base = StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
+                    base = TIMESTAMP_WITH_TIME_ZONE;
                 }
                 else {
-                    base = StandardTypes.TIMESTAMP;
+                    base = TIMESTAMP;
                 }
                 break;
             case TIME:
                 if (withTimeZone) {
-                    base = StandardTypes.TIME_WITH_TIME_ZONE;
+                    base = TIME_WITH_TIME_ZONE;
                 }
                 else {
-                    base = StandardTypes.TIME;
+                    base = TIME;
                 }
                 break;
             default:
@@ -230,7 +235,7 @@ public class TypeSignatureTranslator
                 return new IntervalDayTimeDataType(Optional.empty(), IntervalDayTimeDataType.Field.YEAR, IntervalDayTimeDataType.Field.MONTH);
             case INTERVAL_DAY_TO_SECOND:
                 return new IntervalDayTimeDataType(Optional.empty(), IntervalDayTimeDataType.Field.DAY, IntervalDayTimeDataType.Field.SECOND);
-            case StandardTypes.TIMESTAMP_WITH_TIME_ZONE:
+            case TIMESTAMP_WITH_TIME_ZONE:
                 return new DateTimeDataType(
                         Optional.empty(),
                         DateTimeDataType.Type.TIMESTAMP,
@@ -238,7 +243,7 @@ public class TypeSignatureTranslator
                         typeSignature.getParameters().stream()
                                 .findAny()
                                 .map(TypeSignatureTranslator::toTypeParameter));
-            case StandardTypes.TIMESTAMP:
+            case TIMESTAMP:
                 return new DateTimeDataType(
                         Optional.empty(),
                         DateTimeDataType.Type.TIMESTAMP,
@@ -246,7 +251,7 @@ public class TypeSignatureTranslator
                         typeSignature.getParameters().stream()
                                 .findAny()
                                 .map(TypeSignatureTranslator::toTypeParameter));
-            case StandardTypes.TIME_WITH_TIME_ZONE:
+            case TIME_WITH_TIME_ZONE:
                 return new DateTimeDataType(
                         Optional.empty(),
                         DateTimeDataType.Type.TIME,
@@ -254,7 +259,7 @@ public class TypeSignatureTranslator
                         typeSignature.getParameters().stream()
                                 .findAny()
                                 .map(TypeSignatureTranslator::toTypeParameter));
-            case StandardTypes.TIME:
+            case TIME:
                 return new DateTimeDataType(
                         Optional.empty(),
                         DateTimeDataType.Type.TIME,
@@ -262,7 +267,7 @@ public class TypeSignatureTranslator
                         typeSignature.getParameters().stream()
                                 .findAny()
                                 .map(TypeSignatureTranslator::toTypeParameter));
-            case StandardTypes.ROW:
+            case ROW:
                 return new RowDataType(
                         Optional.empty(),
                         typeSignature.getParameters().stream()
@@ -271,7 +276,7 @@ public class TypeSignatureTranslator
                                         parameter.getNamedTypeSignature().getFieldName().map(fieldName -> new Identifier(fieldName.getName(), requiresDelimiting(fieldName.getName()))),
                                         toDataType(parameter.getNamedTypeSignature().getTypeSignature())))
                                 .collect(toImmutableList()));
-            case StandardTypes.VARCHAR:
+            case VARCHAR:
                 return new GenericDataType(
                         Optional.empty(),
                         new Identifier(typeSignature.getBase(), false),
