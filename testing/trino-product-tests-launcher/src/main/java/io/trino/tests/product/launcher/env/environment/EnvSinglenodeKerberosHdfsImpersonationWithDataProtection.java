@@ -27,7 +27,6 @@ import javax.inject.Inject;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
-import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
@@ -40,7 +39,7 @@ public final class EnvSinglenodeKerberosHdfsImpersonationWithDataProtection
     public EnvSinglenodeKerberosHdfsImpersonationWithDataProtection(DockerFiles dockerFiles, Standard standard, HadoopKerberos hadoopKerberos)
     {
         super(ImmutableList.of(standard, hadoopKerberos));
-        configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/singlenode-kerberos-hdfs-impersonation-with-data-protection");
+        configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-kerberos-hdfs-impersonation-with-data-protection");
     }
 
     @Override

@@ -473,7 +473,7 @@ public class OrcWriteValidation
 
         private WriteChecksumBuilder(List<Type> types)
         {
-            this.validationHashes = requireNonNull(types, "types is null").stream()
+            this.validationHashes = types.stream()
                     .map(ValidationHash::createValidationHash)
                     .collect(toImmutableList());
 

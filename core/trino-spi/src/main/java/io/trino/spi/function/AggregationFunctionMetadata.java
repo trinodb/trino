@@ -79,7 +79,7 @@ public class AggregationFunctionMetadata
 
         public AggregationFunctionMetadataBuilder intermediateType(Type type)
         {
-            this.intermediateTypes.add(requireNonNull(type, "type is null").getTypeSignature());
+            this.intermediateTypes.add(type.getTypeSignature());
             return this;
         }
 

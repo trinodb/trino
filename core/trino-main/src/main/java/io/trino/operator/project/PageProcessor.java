@@ -72,14 +72,13 @@ public class PageProcessor
     @VisibleForTesting
     public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections, OptionalInt initialBatchSize, ExpressionProfiler expressionProfiler)
     {
-        this.filter = requireNonNull(filter, "filter is null")
-                .map(pageFilter -> {
-                    if (pageFilter.getInputChannels().size() == 1 && pageFilter.isDeterministic()) {
-                        return new DictionaryAwarePageFilter(pageFilter);
-                    }
-                    return pageFilter;
-                });
-        this.projections = requireNonNull(projections, "projections is null").stream()
+        this.filter = filter.map(pageFilter -> {
+            if (pageFilter.getInputChannels().size() == 1 && pageFilter.isDeterministic()) {
+                return new DictionaryAwarePageFilter(pageFilter);
+            }
+            return pageFilter;
+        });
+        this.projections = projections.stream()
                 .map(projection -> {
                     if (projection.getInputChannels().size() == 1 && projection.isDeterministic()) {
                         return new DictionaryAwarePageProjection(projection, dictionarySourceIdFunction, projection instanceof InputPageProjection);

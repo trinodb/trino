@@ -18,7 +18,6 @@ import io.trino.plugin.hive.HiveSplitWeightProvider;
 import io.trino.spi.SplitWeight;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
 
 public class SizeBasedSplitWeightProvider
         implements HiveSplitWeightProvider
@@ -30,7 +29,7 @@ public class SizeBasedSplitWeightProvider
     {
         checkArgument(Double.isFinite(minimumWeight) && minimumWeight > 0 && minimumWeight <= 1, "minimumWeight must be > 0 and <= 1, found: %s", minimumWeight);
         this.minimumWeight = minimumWeight;
-        long targetSizeInBytes = requireNonNull(targetSplitSize, "targetSplitSize is null").toBytes();
+        long targetSizeInBytes = targetSplitSize.toBytes();
         checkArgument(targetSizeInBytes > 0, "targetSplitSize must be > 0, found: %s", targetSplitSize);
         this.targetSplitSizeInBytes = (double) targetSizeInBytes;
     }

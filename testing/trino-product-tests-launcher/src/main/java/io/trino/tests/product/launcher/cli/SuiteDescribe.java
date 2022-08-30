@@ -67,8 +67,8 @@ public class SuiteDescribe
 
     public SuiteDescribe(Extensions extensions)
     {
-        this.additionalSuites = requireNonNull(extensions, "extensions is null").getAdditionalSuites();
-        this.additionalEnvironments = requireNonNull(extensions, "extensions is null").getAdditionalEnvironments();
+        this.additionalSuites = extensions.getAdditionalSuites();
+        this.additionalEnvironments = extensions.getAdditionalEnvironments();
     }
 
     @Override

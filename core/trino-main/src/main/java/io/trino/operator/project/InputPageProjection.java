@@ -56,7 +56,7 @@ public class InputPageProjection
     @Override
     public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
     {
-        Block block = requireNonNull(page, "page is null").getBlock(0);
+        Block block = page.getBlock(0);
         requireNonNull(selectedPositions, "selectedPositions is null");
 
         // TODO: make it lazy when MergePages have better merging heuristics for small lazy pages

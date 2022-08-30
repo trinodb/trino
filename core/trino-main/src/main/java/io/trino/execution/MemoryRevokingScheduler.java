@@ -72,8 +72,8 @@ public class MemoryRevokingScheduler
     {
         this(
                 localMemoryManager.getMemoryPool(),
-                requireNonNull(sqlTaskManager, "sqlTaskManager cannot be null")::getAllTasks,
-                requireNonNull(taskManagementExecutor, "taskManagementExecutor cannot be null").getExecutor(),
+                sqlTaskManager::getAllTasks,
+                taskManagementExecutor.getExecutor(),
                 config.getMemoryRevokingThreshold(),
                 config.getMemoryRevokingTarget());
     }

@@ -111,7 +111,7 @@ public class ScanFilterAndProjectOperator
                         columns,
                         dynamicFilter,
                         types,
-                        requireNonNull(memoryTrackingContext, "memoryTrackingContext is null").aggregateUserMemoryContext(),
+                        memoryTrackingContext.aggregateUserMemoryContext(),
                         minOutputPageSize,
                         minOutputPageRowCount,
                         avoidPageMaterialization));

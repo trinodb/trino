@@ -89,7 +89,7 @@ public class BroadcastOutputBuffer
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.memoryManager = new OutputBufferMemoryManager(
-                requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes(),
+                maxBufferSize.toBytes(),
                 requireNonNull(memoryContextSupplier, "memoryContextSupplier is null"),
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
         this.onPagesReleased = (releasedPageCount, releasedMemorySizeInBytes) -> {

@@ -65,7 +65,7 @@ public class EnvMultinodeClickhouse
     {
         super(standardMultinode);
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
-        this.configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/multinode-clickhouse/");
+        this.configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/multinode-clickhouse/");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
     }
 

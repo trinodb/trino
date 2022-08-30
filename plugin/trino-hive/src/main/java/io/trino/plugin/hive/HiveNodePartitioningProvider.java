@@ -46,7 +46,7 @@ public class HiveNodePartitioningProvider
     public HiveNodePartitioningProvider(NodeManager nodeManager, TypeManager typeManager)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.typeOperators = requireNonNull(typeManager, "typeManager is null").getTypeOperators();
+        this.typeOperators = typeManager.getTypeOperators();
     }
 
     @Override

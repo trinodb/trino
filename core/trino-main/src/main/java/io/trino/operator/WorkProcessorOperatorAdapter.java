@@ -134,8 +134,7 @@ public class WorkProcessorOperatorAdapter
                 operatorContext.aggregateUserMemoryContext(),
                 operatorContext.aggregateRevocableMemoryContext());
         memoryTrackingContext.initializeLocalMemoryContexts(workProcessorOperatorFactory.getOperatorType());
-        this.workProcessorOperator = requireNonNull(workProcessorOperatorFactory, "workProcessorOperatorFactory is null")
-                .createAdapterOperator(new ProcessorContext(operatorContext.getSession(), memoryTrackingContext, operatorContext));
+        this.workProcessorOperator = workProcessorOperatorFactory.createAdapterOperator(new ProcessorContext(operatorContext.getSession(), memoryTrackingContext, operatorContext));
         this.pages = workProcessorOperator.getOutputPages();
         operatorContext.setInfoSupplier(() -> workProcessorOperator.getOperatorInfo().orElse(null));
     }

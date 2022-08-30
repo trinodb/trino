@@ -254,7 +254,7 @@ public class FunctionMetadata
                 functionId = FunctionId.toFunctionId(signature);
             }
             if (canonicalName == null) {
-                canonicalName = requireNonNull(signature, "signature is null").getName();
+                canonicalName = signature.getName();
             }
             if (argumentNullability == null) {
                 argumentNullability = Collections.nCopies(signature.getArgumentTypes().size(), kind == WINDOW);

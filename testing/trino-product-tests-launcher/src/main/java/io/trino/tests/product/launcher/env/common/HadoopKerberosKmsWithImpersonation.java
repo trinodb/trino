@@ -35,7 +35,7 @@ public class HadoopKerberosKmsWithImpersonation
     @Inject
     public HadoopKerberosKmsWithImpersonation(DockerFiles dockerFiles, HadoopKerberosKms hadoopKerberosKms)
     {
-        configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("common/hadoop-kerberos-kms-with-impersonation");
+        configDir = dockerFiles.getDockerFilesHostDirectory("common/hadoop-kerberos-kms-with-impersonation");
         this.hadoopKerberosKms = requireNonNull(hadoopKerberosKms, "hadoopKerberosKms is null");
     }
 

@@ -499,7 +499,7 @@ public final class Environment
         {
             requireNonNull(logicalName, "logicalName is null");
             checkState(containers.containsKey(logicalName), "Container with name %s is not registered", logicalName);
-            requireNonNull(configurer, "configurer is null").accept(containers.get(logicalName));
+            configurer.accept(containers.get(logicalName));
             return this;
         }
 

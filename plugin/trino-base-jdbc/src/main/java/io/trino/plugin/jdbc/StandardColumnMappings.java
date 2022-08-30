@@ -194,7 +194,7 @@ public final class StandardColumnMappings
     public static LongReadFunction shortDecimalReadFunction(DecimalType decimalType, RoundingMode roundingMode)
     {
         // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
-        int scale = requireNonNull(decimalType, "decimalType is null").getScale();
+        int scale = decimalType.getScale();
         requireNonNull(roundingMode, "roundingMode is null");
         return (resultSet, columnIndex) -> encodeShortScaledValue(resultSet.getBigDecimal(columnIndex), scale, roundingMode);
     }
@@ -219,7 +219,7 @@ public final class StandardColumnMappings
     public static ObjectReadFunction longDecimalReadFunction(DecimalType decimalType, RoundingMode roundingMode)
     {
         // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
-        int scale = requireNonNull(decimalType, "decimalType is null").getScale();
+        int scale = decimalType.getScale();
         requireNonNull(roundingMode, "roundingMode is null");
         return ObjectReadFunction.of(
                 Int128.class,

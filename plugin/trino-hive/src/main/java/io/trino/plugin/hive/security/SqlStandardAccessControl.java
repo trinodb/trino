@@ -120,7 +120,7 @@ public class SqlStandardAccessControl
             CatalogName catalogName,
             SqlStandardAccessControlMetastore metastore)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null").toString();
+        this.catalogName = catalogName.toString();
         this.metastore = requireNonNull(metastore, "metastore is null");
     }
 

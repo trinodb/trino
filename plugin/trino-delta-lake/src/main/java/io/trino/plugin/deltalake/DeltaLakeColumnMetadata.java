@@ -31,7 +31,7 @@ public class DeltaLakeColumnMetadata
     public DeltaLakeColumnMetadata(ColumnMetadata columnMetadata, String physicalName, Type physicalColumnType)
     {
         this.columnMetadata = requireNonNull(columnMetadata, "columnMetadata is null");
-        this.physicalName = requireNonNull(physicalName, "physicalName is null").toLowerCase(ENGLISH);
+        this.physicalName = physicalName.toLowerCase(ENGLISH);
         this.physicalColumnType = requireNonNull(physicalColumnType, "physicalColumnType is null");
     }
 

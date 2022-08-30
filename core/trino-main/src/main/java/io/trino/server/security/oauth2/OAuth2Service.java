@@ -104,7 +104,7 @@ public class OAuth2Service
         this.tokenPairSerializer = requireNonNull(tokenPairSerializer, "tokenPairSerializer is null");
 
         this.tokenExpiration = requireNonNull(tokenExpiration, "tokenExpiration is null");
-        this.webUiOAuthEnabled = requireNonNull(webUiOAuthEnabled, "webUiOAuthEnabled is null").isPresent();
+        this.webUiOAuthEnabled = webUiOAuthEnabled.isPresent();
     }
 
     public Response startOAuth2Challenge(URI callbackUri, Optional<String> handlerState)

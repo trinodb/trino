@@ -143,12 +143,11 @@ public class CheckpointEntryIterator
             ParquetReaderOptions parquetReaderOptions,
             boolean checkpointRowStatisticsWritingEnabled)
     {
-        this.checkpointPath = requireNonNull(checkpoint, "checkpoint is null").location();
+        this.checkpointPath = checkpoint.location();
         this.session = requireNonNull(session, "session is null");
-        this.stringList = (ArrayType) requireNonNull(typeManager, "typeManager is null").getType(TypeSignature.arrayType(VarcharType.VARCHAR.getTypeSignature()));
+        this.stringList = (ArrayType) typeManager.getType(TypeSignature.arrayType(VarcharType.VARCHAR.getTypeSignature()));
         this.stringMap = (MapType) typeManager.getType(TypeSignature.mapType(VarcharType.VARCHAR.getTypeSignature(), VarcharType.VARCHAR.getTypeSignature()));
         this.checkpointRowStatisticsWritingEnabled = checkpointRowStatisticsWritingEnabled;
-        requireNonNull(fields);
         checkArgument(fields.size() > 0, "fields is empty");
         Map<EntryType, CheckPointFieldExtractor> extractors = ImmutableMap.<EntryType, CheckPointFieldExtractor>builder()
                 .put(TRANSACTION, this::buildTxnEntry)

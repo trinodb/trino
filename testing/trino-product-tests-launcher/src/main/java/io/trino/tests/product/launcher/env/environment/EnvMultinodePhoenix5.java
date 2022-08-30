@@ -48,7 +48,7 @@ public final class EnvMultinodePhoenix5
     public EnvMultinodePhoenix5(StandardMultinode standardMultinode, DockerFiles dockerFiles, PortBinder portBinder)
     {
         super(standardMultinode);
-        this.configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/multinode-phoenix5/");
+        this.configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/multinode-phoenix5/");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
     }
 

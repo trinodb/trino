@@ -24,7 +24,6 @@ import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 
-import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
@@ -37,7 +36,7 @@ public final class EnvSinglenodeKerberosKmsHdfsNoImpersonationWithCredentialCach
     public EnvSinglenodeKerberosKmsHdfsNoImpersonationWithCredentialCache(DockerFiles dockerFiles, Standard standard, HadoopKerberosKms hadoopKerberosKms)
     {
         super(ImmutableList.of(standard, hadoopKerberosKms));
-        configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/singlenode-kerberos-kms-hdfs-no-impersonation-with-credential-cache");
+        configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-kerberos-kms-hdfs-no-impersonation-with-credential-cache");
     }
 
     @Override

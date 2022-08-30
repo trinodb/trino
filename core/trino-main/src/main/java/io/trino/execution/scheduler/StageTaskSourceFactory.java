@@ -297,7 +297,7 @@ public class StageTaskSourceFactory
             this.partitionedExchangeSourceHandles = ImmutableListMultimap.copyOf(requireNonNull(partitionedExchangeSourceHandles, "partitionedExchangeSourceHandles is null"));
             this.replicatedExchangeSourceHandles = ImmutableListMultimap.copyOf(requireNonNull(replicatedExchangeSourceHandles, "replicatedExchangeSourceHandles is null"));
             this.taskMemory = requireNonNull(taskMemory, "taskMemory is null");
-            this.targetPartitionSizeInBytes = requireNonNull(targetPartitionSize, "targetPartitionSize is null").toBytes();
+            this.targetPartitionSizeInBytes = targetPartitionSize.toBytes();
         }
 
         @Override
@@ -460,7 +460,7 @@ public class StageTaskSourceFactory
             this.taskMemory = requireNonNull(taskMemory, "taskMemory is null");
             checkArgument(bucketNodeMap.isPresent() || splitSources.isEmpty(), "bucketNodeMap is expected to be set when the fragment reads partitioned sources (tables)");
             this.catalogRequirement = requireNonNull(catalogRequirement, "catalogRequirement is null");
-            this.targetPartitionSourceSizeInBytes = requireNonNull(targetPartitionSourceSize, "targetPartitionSourceSize is null").toBytes();
+            this.targetPartitionSourceSizeInBytes = targetPartitionSourceSize.toBytes();
             this.targetPartitionSplitWeight = targetPartitionSplitWeight;
             this.executor = requireNonNull(executor, "executor is null");
         }
