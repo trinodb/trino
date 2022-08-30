@@ -43,7 +43,7 @@ public final class Output
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
-        this.columns = requireNonNull(columns, "columns is null").map(ImmutableList::copyOf);
+        this.columns = columns.map(ImmutableList::copyOf);
     }
 
     @JsonProperty

@@ -1047,7 +1047,7 @@ public class TestStageTaskSourceFactory
         {
             this.id = id;
             this.bucket = requireNonNull(bucket, "bucket is null");
-            this.addresses = requireNonNull(addresses, "addresses is null").map(ImmutableList::copyOf);
+            this.addresses = addresses.map(ImmutableList::copyOf);
             this.weight = SplitWeight.fromRawValue(weight);
         }
 

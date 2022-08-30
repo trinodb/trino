@@ -1987,7 +1987,7 @@ public class Analysis
         {
             this.name = requireNonNull(name, "name is null");
             this.table = requireNonNull(table, "table is null");
-            this.columns = requireNonNull(columns, "columns is null").map(ImmutableList::copyOf);
+            this.columns = columns.map(ImmutableList::copyOf);
         }
 
         public QualifiedObjectName getName()

@@ -52,7 +52,7 @@ public class HivePartitionResult
             Optional<HiveBucketFilter> bucketFilter)
     {
         this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
-        this.partitionNames = requireNonNull(partitionNames, "partitionNames is null").map(ImmutableList::copyOf);
+        this.partitionNames = partitionNames.map(ImmutableList::copyOf);
         this.partitions = requireNonNull(partitions, "partitions is null");
         this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
         this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
