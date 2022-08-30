@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -63,6 +64,7 @@ public class DeltaLakePageSource
 
     public DeltaLakePageSource(
             List<DeltaLakeColumnHandle> columns,
+            Set<String> missingColumnNames,
             Map<String, Optional<String>> partitionKeys,
             List<String> partitionValues,
             ConnectorPageSource delegate,
@@ -110,6 +112,10 @@ public class DeltaLakePageSource
                 partitionsBlock = Utils.nativeValueToBlock(VARCHAR, wrappedBuffer(PARTITIONS_CODEC.toJsonBytes(partitionValues)));
                 delegateIndexes[outputIndex] = delegateIndex;
                 delegateIndex++;
+            }
+            else if (missingColumnNames.contains(column.getName())) {
+                prefilledBlocks[outputIndex] = Utils.nativeValueToBlock(column.getType(), null);
+                delegateIndexes[outputIndex] = -1;
             }
             else {
                 delegateIndexes[outputIndex] = delegateIndex;

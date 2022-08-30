@@ -249,6 +249,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
                 .map(columnMeta -> new DeltaLakeColumnHandle(
                         columnMeta.getName(),
                         columnMeta.getType(),
+                        columnMeta.getFieldId(),
                         columnMeta.getPhysicalName(),
                         columnMeta.getPhysicalColumnType(),
                         metadata.getCanonicalPartitionColumns().contains(columnMeta.getName()) ? PARTITION_KEY : REGULAR))
