@@ -23,7 +23,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
@@ -165,6 +164,6 @@ public final class JdbcTypeHandle
                 + sizeOf(columnSize, SizeOf::sizeOf)
                 + sizeOf(decimalDigits, SizeOf::sizeOf)
                 + sizeOf(arrayDimensions, SizeOf::sizeOf)
-                + sizeOf(caseSensitivity, ignored -> SIZE_OF_INT);
+                + sizeOf(caseSensitivity, ignored -> 0);
     }
 }
