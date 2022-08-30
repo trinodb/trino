@@ -21,6 +21,7 @@ import io.trino.split.PageSinkManager;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 
+import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -39,15 +40,18 @@ public class MergeWriterOperator
         private final PageSinkManager pageSinkManager;
         private final MergeTarget target;
         private final Session session;
+        private final Function<Page, Page> pagePreprocessor;
+
         private boolean closed;
 
-        public MergeWriterOperatorFactory(int operatorId, PlanNodeId planNodeId, PageSinkManager pageSinkManager, MergeTarget target, Session session)
+        public MergeWriterOperatorFactory(int operatorId, PlanNodeId planNodeId, PageSinkManager pageSinkManager, MergeTarget target, Session session, Function<Page, Page> pagePreprocessor)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
             this.target = requireNonNull(target, "target is null");
             this.session = requireNonNull(session, "session is null");
+            this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
         }
 
         @Override
@@ -55,8 +59,8 @@ public class MergeWriterOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, MergeWriterOperator.class.getSimpleName());
-            ConnectorMergeSink mergeSink = pageSinkManager.createMergeSink(session, target.getMergeHandle().get());
-            return new MergeWriterOperator(context, mergeSink);
+            ConnectorMergeSink mergeSink = pageSinkManager.createMergeSink(session, target.getMergeHandle().orElseThrow());
+            return new MergeWriterOperator(context, mergeSink, pagePreprocessor);
         }
 
         @Override
@@ -68,22 +72,26 @@ public class MergeWriterOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new MergeWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, session);
+            return new MergeWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, session, pagePreprocessor);
         }
     }
 
     private final ConnectorMergeSink mergeSink;
 
-    public MergeWriterOperator(OperatorContext operatorContext, ConnectorMergeSink mergeSink)
+    private final Function<Page, Page> pagePreprocessor;
+
+    public MergeWriterOperator(OperatorContext operatorContext, ConnectorMergeSink mergeSink, Function<Page, Page> pagePreprocessor)
     {
         super(operatorContext);
         this.mergeSink = requireNonNull(mergeSink, "mergeSink is null");
+        this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
     }
 
     @Override
-    public void addInput(Page page)
+    public void addInput(Page suppliedPage)
     {
-        requireNonNull(page, "page is null");
+        requireNonNull(suppliedPage, "suppliedPage is null");
+        Page page = pagePreprocessor.apply(suppliedPage);
         checkState(state == State.RUNNING, "Operator is %s", state);
 
         // Copy all but the last block to a new page.
