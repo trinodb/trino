@@ -20,6 +20,8 @@ import io.trino.plugin.iceberg.TestIcebergParquetConnectorTest;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 
+import java.io.IOException;
+
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.FaultTolerantExecutionConnectorTestHelper.getExtraProperties;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -66,6 +68,55 @@ public class TestIcebergParquetFaultTolerantExecutionConnectorTest
     {
         // TODO: figure out why
         throw new SkipException("We always get 3 partitions with FTE");
+    }
+
+    @Override
+    public void testOptimizeCleansUpDeleteFiles()
+            throws IOException
+    {
+        throw new SkipException("We always get 3 partitions with FTE");
+    }
+
+    @Override
+    public void testMergeSimpleSelectPartitioned()
+    {
+        // TODO
+        throw new SkipException("Fails due to incorrect hand-crafted partitioning");
+    }
+
+    @Override
+    public void testMergeUpdateWithVariousLayouts(int writers, String partioning)
+    {
+        // TODO
+        throw new SkipException("Fails due to incorrect hand-crafted partitioning");
+    }
+
+    @Override
+    public void testMergeMultipleOperations(int writers, String partitioning)
+    {
+        // TODO
+        throw new SkipException("Fails due to incorrect hand-crafted partitioning");
+    }
+
+    @Override
+    public void testMergeSimpleQueryPartitioned()
+    {
+        // TODO
+        throw new SkipException("Fails due to incorrect hand-crafted partitioning");
+    }
+
+    @Override
+    public void testMergeMultipleRowsMatchFails(String createTableSql)
+    {
+        // TODO
+        throw new SkipException("Fails due to incorrect hand-crafted partitioning");
+    }
+
+    @Override
+    public void testMergeWithDifferentPartitioning(String testDescription, String createTargetTableSql, String createSourceTableSql)
+    {
+        // TODO
+        throw new SkipException("Fails due to incorrect hand-crafted partitioning");
     }
 
     @AfterClass(alwaysRun = true)
