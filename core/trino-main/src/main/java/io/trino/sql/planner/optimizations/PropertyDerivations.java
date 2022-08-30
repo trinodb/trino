@@ -542,8 +542,6 @@ public final class PropertyDerivations
                             .unordered(unordered)
                             .build();
                 case RIGHT:
-                    buildProperties = buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column));
-
                     return ActualProperties.builderFrom(buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
                             .local(ImmutableList.of())
                             .unordered(true)
