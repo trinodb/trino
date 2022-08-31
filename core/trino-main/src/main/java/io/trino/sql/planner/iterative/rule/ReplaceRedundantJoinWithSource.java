@@ -65,8 +65,8 @@ public class ReplaceRedundantJoinWithSource
         boolean leftSourceScalarWithNoOutputs = node.getLeft().getOutputSymbols().isEmpty() && isScalar(node.getLeft(), context.getLookup());
         boolean rightSourceScalarWithNoOutputs = node.getRight().getOutputSymbols().isEmpty() && isScalar(node.getRight(), context.getLookup());
 
-        switch (node.getType()) {
-            case INNER:
+        return switch (node.getType()) {
+            case INNER -> {
                 PlanNode source;
                 List<Symbol> sourceOutputs;
                 if (leftSourceScalarWithNoOutputs) {
@@ -78,37 +78,32 @@ public class ReplaceRedundantJoinWithSource
                     sourceOutputs = node.getLeftOutputSymbols();
                 }
                 else {
-                    return Result.empty();
+                    yield Result.empty();
                 }
-
                 if (node.getFilter().isPresent()) {
                     source = new FilterNode(context.getIdAllocator().getNextId(), source, node.getFilter().get());
                 }
-
-                return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), source, ImmutableSet.copyOf(sourceOutputs)).orElse(source));
-            case LEFT:
-                if (rightSourceScalarWithNoOutputs) {
-                    return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), node.getLeft(), ImmutableSet.copyOf(node.getLeftOutputSymbols()))
-                            .orElse(node.getLeft()));
-                }
-                break;
-            case RIGHT:
-                if (leftSourceScalarWithNoOutputs) {
-                    return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), node.getRight(), ImmutableSet.copyOf(node.getRightOutputSymbols()))
-                            .orElse(node.getRight()));
-                }
-                break;
-            case FULL:
+                yield Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), source, ImmutableSet.copyOf(sourceOutputs)).orElse(source));
+            }
+            case LEFT -> rightSourceScalarWithNoOutputs ?
+                    Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), node.getLeft(), ImmutableSet.copyOf(node.getLeftOutputSymbols()))
+                            .orElse(node.getLeft())) :
+                    Result.empty();
+            case RIGHT -> leftSourceScalarWithNoOutputs ?
+                    Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), node.getRight(), ImmutableSet.copyOf(node.getRightOutputSymbols()))
+                            .orElse(node.getRight())) :
+                    Result.empty();
+            case FULL -> {
                 if (leftSourceScalarWithNoOutputs && isAtLeastScalar(node.getRight(), context.getLookup())) {
-                    return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), node.getRight(), ImmutableSet.copyOf(node.getRightOutputSymbols()))
+                    yield Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), node.getRight(), ImmutableSet.copyOf(node.getRightOutputSymbols()))
                             .orElse(node.getRight()));
                 }
                 if (rightSourceScalarWithNoOutputs && isAtLeastScalar(node.getLeft(), context.getLookup())) {
-                    return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), node.getLeft(), ImmutableSet.copyOf(node.getLeftOutputSymbols()))
+                    yield Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), node.getLeft(), ImmutableSet.copyOf(node.getLeftOutputSymbols()))
                             .orElse(node.getLeft()));
                 }
-        }
-
-        return Result.empty();
+                yield Result.empty();
+            }
+        };
     }
 }

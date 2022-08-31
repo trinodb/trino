@@ -727,23 +727,20 @@ public class ExpressionInterpreter
             }
             if (value instanceof Expression) {
                 Expression valueExpression = toExpression(value, type(node.getValue()));
-                switch (node.getSign()) {
-                    case PLUS:
-                        return valueExpression;
-                    case MINUS:
+                return switch (node.getSign()) {
+                    case PLUS -> valueExpression;
+                    case MINUS -> {
                         if (valueExpression instanceof ArithmeticUnaryExpression && ((ArithmeticUnaryExpression) valueExpression).getSign().equals(MINUS)) {
-                            return ((ArithmeticUnaryExpression) valueExpression).getValue();
+                            yield ((ArithmeticUnaryExpression) valueExpression).getValue();
                         }
-                        return new ArithmeticUnaryExpression(MINUS, valueExpression);
-                    default:
-                        throw new UnsupportedOperationException("Unsupported unary operator: " + node.getSign());
-                }
+                        yield new ArithmeticUnaryExpression(MINUS, valueExpression);
+                    }
+                };
             }
 
-            switch (node.getSign()) {
-                case PLUS:
-                    return value;
-                case MINUS:
+            return switch (node.getSign()) {
+                case PLUS -> value;
+                case MINUS -> {
                     ResolvedFunction resolvedOperator = metadata.resolveOperator(session, OperatorType.NEGATION, types(node.getValue()));
                     InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(NEVER_NULL), FAIL_ON_NULL, true, false);
                     MethodHandle handle = plannerContext.getFunctionManager().getScalarFunctionInvoker(resolvedOperator, invocationConvention).getMethodHandle();
@@ -752,16 +749,15 @@ public class ExpressionInterpreter
                         handle = handle.bindTo(connectorSession);
                     }
                     try {
-                        return handle.invokeWithArguments(value);
+                        yield handle.invokeWithArguments(value);
                     }
                     catch (Throwable throwable) {
                         throwIfInstanceOf(throwable, RuntimeException.class);
                         throwIfInstanceOf(throwable, Error.class);
                         throw new RuntimeException(throwable.getMessage(), throwable);
                     }
-            }
-
-            throw new UnsupportedOperationException("Unsupported unary operator: " + node.getSign());
+                }
+            };
         }
 
         @Override
@@ -859,23 +855,15 @@ public class ExpressionInterpreter
         // TODO define method contract or split into separate methods, as flip(EQUAL) is a negation, while flip(LESS_THAN) is just flipping sides
         private ComparisonExpression flipComparison(ComparisonExpression comparisonExpression)
         {
-            switch (comparisonExpression.getOperator()) {
-                case EQUAL:
-                    return new ComparisonExpression(Operator.NOT_EQUAL, comparisonExpression.getLeft(), comparisonExpression.getRight());
-                case NOT_EQUAL:
-                    return new ComparisonExpression(Operator.EQUAL, comparisonExpression.getLeft(), comparisonExpression.getRight());
-                case LESS_THAN:
-                    return new ComparisonExpression(Operator.GREATER_THAN, comparisonExpression.getRight(), comparisonExpression.getLeft());
-                case LESS_THAN_OR_EQUAL:
-                    return new ComparisonExpression(Operator.GREATER_THAN_OR_EQUAL, comparisonExpression.getRight(), comparisonExpression.getLeft());
-                case GREATER_THAN:
-                    return new ComparisonExpression(Operator.LESS_THAN, comparisonExpression.getRight(), comparisonExpression.getLeft());
-                case GREATER_THAN_OR_EQUAL:
-                    return new ComparisonExpression(Operator.LESS_THAN_OR_EQUAL, comparisonExpression.getRight(), comparisonExpression.getLeft());
-                case IS_DISTINCT_FROM:
-                    // not expected here
-            }
-            throw new IllegalArgumentException("Unsupported comparison type: " + comparisonExpression.getOperator());
+            return switch (comparisonExpression.getOperator()) {
+                case EQUAL -> new ComparisonExpression(Operator.NOT_EQUAL, comparisonExpression.getLeft(), comparisonExpression.getRight());
+                case NOT_EQUAL -> new ComparisonExpression(Operator.EQUAL, comparisonExpression.getLeft(), comparisonExpression.getRight());
+                case LESS_THAN -> new ComparisonExpression(Operator.GREATER_THAN, comparisonExpression.getRight(), comparisonExpression.getLeft());
+                case LESS_THAN_OR_EQUAL -> new ComparisonExpression(Operator.GREATER_THAN_OR_EQUAL, comparisonExpression.getRight(), comparisonExpression.getLeft());
+                case GREATER_THAN -> new ComparisonExpression(Operator.LESS_THAN, comparisonExpression.getRight(), comparisonExpression.getLeft());
+                case GREATER_THAN_OR_EQUAL -> new ComparisonExpression(Operator.LESS_THAN_OR_EQUAL, comparisonExpression.getRight(), comparisonExpression.getLeft());
+                default -> throw new IllegalStateException("Unexpected value: " + comparisonExpression.getOperator());
+            };
         }
 
         @Override
@@ -976,39 +964,32 @@ public class ExpressionInterpreter
                 Object processed = processWithExceptionHandling(term, context);
 
                 switch (node.getOperator()) {
-                    case AND:
+                    case AND -> {
                         if (Boolean.FALSE.equals(processed)) {
                             return false;
                         }
-
                         if (!Boolean.TRUE.equals(processed)) {
                             terms.add(processed);
                             types.add(type(term));
                         }
-
-                        break;
-                    case OR:
+                    }
+                    case OR -> {
                         if (Boolean.TRUE.equals(processed)) {
                             return true;
                         }
-
                         if (!Boolean.FALSE.equals(processed)) {
                             terms.add(processed);
                             types.add(type(term));
                         }
-                        break;
+                    }
                 }
             }
 
             if (terms.isEmpty()) {
-                switch (node.getOperator()) {
-                    case AND:
-                        // terms are true
-                        return true;
-                    case OR:
-                        // all terms are false
-                        return false;
-                }
+                return switch (node.getOperator()) {
+                    case AND -> true; // terms are true
+                    case OR -> false; // all terms are false
+                };
             }
 
             if (terms.size() == 1) {

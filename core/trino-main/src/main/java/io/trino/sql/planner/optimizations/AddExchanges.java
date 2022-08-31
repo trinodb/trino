@@ -119,7 +119,6 @@ import static io.trino.sql.planner.plan.ExchangeNode.mergingExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.replicatedExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.roundRobinExchange;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -449,19 +448,18 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitTopN(TopNNode node, PreferredProperties preferredProperties)
         {
-            PlanWithProperties child;
-            switch (node.getStep()) {
-                case SINGLE:
-                case FINAL:
-                    child = planChild(node, PreferredProperties.undistributed());
+            return switch (node.getStep()) {
+                case SINGLE, FINAL -> {
+                    PlanWithProperties child = planChild(node, PreferredProperties.undistributed());
                     if (!child.getProperties().isSingleNode()) {
                         child = withDerivedProperties(
                                 gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
                                 child.getProperties());
                     }
-                    return rebaseAndDeriveProperties(node, child);
-                case PARTIAL:
-                    child = planChild(node, PreferredProperties.any());
+                    yield rebaseAndDeriveProperties(node, child);
+                }
+                case PARTIAL -> {
+                    PlanWithProperties child = planChild(node, PreferredProperties.any());
                     // If source is pre-sorted, partial topN can be replaced with partial limit N.
                     // We record the pre-sorted symbols in LimitNode to avoid pushdown of such replaced LimitNode
                     // through the source which was producing ordered input.
@@ -469,7 +467,7 @@ public class AddExchanges
                     boolean sortingSatisfied = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).stream()
                             .allMatch(Optional::isEmpty);
                     if (sortingSatisfied) {
-                        return withDerivedProperties(
+                        yield withDerivedProperties(
                                 new LimitNode(
                                         node.getId(),
                                         child.getNode(),
@@ -479,9 +477,9 @@ public class AddExchanges
                                         node.getOrderingScheme().getOrderBy()),
                                 child.getProperties());
                     }
-                    return rebaseAndDeriveProperties(node, child);
-            }
-            throw new UnsupportedOperationException(format("Unsupported step for TopN [%s]", node.getStep()));
+                    yield rebaseAndDeriveProperties(node, child);
+                }
+            };
         }
 
         @Override

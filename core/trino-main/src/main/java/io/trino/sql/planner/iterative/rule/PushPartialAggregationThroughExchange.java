@@ -133,16 +133,11 @@ public class PushPartialAggregationThroughExchange
             return Result.empty();
         }
 
-        switch (aggregationNode.getStep()) {
-            case SINGLE:
-                // Split it into a FINAL on top of a PARTIAL and
-                return Result.ofPlanNode(split(aggregationNode, context));
-            case PARTIAL:
-                // Push it underneath each branch of the exchange
-                return Result.ofPlanNode(pushPartial(aggregationNode, exchangeNode, context));
-            default:
-                return Result.empty();
-        }
+        return switch (aggregationNode.getStep()) {
+            case SINGLE -> Result.ofPlanNode(split(aggregationNode, context)); // Split it into a FINAL on top of a PARTIAL and
+            case PARTIAL -> Result.ofPlanNode(pushPartial(aggregationNode, exchangeNode, context)); // Push it underneath each branch of the exchange
+            default -> Result.empty();
+        };
     }
 
     private PlanNode pushPartial(AggregationNode aggregation, ExchangeNode exchange, Context context)

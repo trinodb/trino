@@ -1000,33 +1000,23 @@ public class PlanPrinter
 
         private String formatRowsPerMatch(RowsPerMatch rowsPerMatch)
         {
-            switch (rowsPerMatch) {
-                case ONE:
-                    return "ONE ROW PER MATCH";
-                case ALL_SHOW_EMPTY:
-                    return "ALL ROWS PER MATCH SHOW EMPTY MATCHES";
-                case ALL_OMIT_EMPTY:
-                    return "ALL ROWS PER MATCH OMIT EMPTY MATCHES";
-                case ALL_WITH_UNMATCHED:
-                    return "ALL ROWS PER MATCH WITH UNMATCHED ROWS";
-                default:
-                    throw new IllegalArgumentException("unexpected rowsPer match value: " + rowsPerMatch.name());
-            }
+            return switch (rowsPerMatch) {
+                case ONE -> "ONE ROW PER MATCH";
+                case ALL_SHOW_EMPTY -> "ALL ROWS PER MATCH SHOW EMPTY MATCHES";
+                case ALL_OMIT_EMPTY -> "ALL ROWS PER MATCH OMIT EMPTY MATCHES";
+                case ALL_WITH_UNMATCHED -> "ALL ROWS PER MATCH WITH UNMATCHED ROWS";
+                default -> throw new IllegalArgumentException("unexpected rowsPer match value: " + rowsPerMatch.name());
+            };
         }
 
         private String formatSkipTo(Position position, Optional<IrLabel> label)
         {
-            switch (position) {
-                case PAST_LAST:
-                    return "AFTER MATCH SKIP PAST LAST ROW";
-                case NEXT:
-                    return "AFTER MATCH SKIP TO NEXT ROW";
-                case FIRST:
-                    return "AFTER MATCH SKIP TO FIRST " + label.get().getName();
-                case LAST:
-                    return "AFTER MATCH SKIP TO LAST " + label.get().getName();
-            }
-            throw new UnsupportedOperationException("unsupported SKIP TO option");
+            return switch (position) {
+                case PAST_LAST -> "AFTER MATCH SKIP PAST LAST ROW";
+                case NEXT -> "AFTER MATCH SKIP TO NEXT ROW";
+                case FIRST -> "AFTER MATCH SKIP TO FIRST " + label.get().getName();
+                case LAST -> "AFTER MATCH SKIP TO LAST " + label.get().getName();
+            };
         }
 
         @Override
