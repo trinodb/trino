@@ -13,13 +13,10 @@
  */
 package io.trino.sql;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.ParsingOptions;
-import io.trino.sql.parser.SqlBaseLexer;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.Identifier;
-import org.antlr.v4.runtime.Vocabulary;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -32,13 +29,12 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.sql.parser.SqlKeywords.sqlKeywords;
 import static java.lang.String.format;
 
 public final class ReservedIdentifiers
 {
-    private static final Pattern IDENTIFIER = Pattern.compile("'([A-Z_]+)'");
     private static final Pattern TABLE_ROW = Pattern.compile("\\| `([A-Z_]+)`.*");
     private static final String TABLE_START = "| ------------------- |";
     private static final String TABLE_ROW_START = "|";
@@ -120,20 +116,6 @@ public final class ReservedIdentifiers
                 .filter(ReservedIdentifiers::reserved)
                 .sorted()
                 .collect(toImmutableSet());
-    }
-
-    public static Set<String> sqlKeywords()
-    {
-        ImmutableSet.Builder<String> names = ImmutableSet.builder();
-        Vocabulary vocabulary = SqlBaseLexer.VOCABULARY;
-        for (int i = 0; i <= vocabulary.getMaxTokenType(); i++) {
-            String name = nullToEmpty(vocabulary.getLiteralName(i));
-            Matcher matcher = IDENTIFIER.matcher(name);
-            if (matcher.matches()) {
-                names.add(matcher.group(1));
-            }
-        }
-        return names.build();
     }
 
     public static boolean reserved(String name)
