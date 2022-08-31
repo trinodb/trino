@@ -145,7 +145,6 @@ public final class HttpRemoteTask
     // The keys of this map represent all plan nodes that have "no more splits".
     // The boolean value of each entry represents whether the "no more splits" notification is pending delivery to workers.
     private final Map<PlanNodeId, Boolean> noMoreSplits = new HashMap<>();
-    @GuardedBy("this")
     private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
     private final FutureStateChange<Void> whenSplitQueueHasSpace = new FutureStateChange<>();
     @GuardedBy("this")
@@ -414,14 +413,21 @@ public final class HttpRemoteTask
     }
 
     @Override
-    public synchronized void setOutputBuffers(OutputBuffers newOutputBuffers)
+    public void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
         if (getTaskStatus().getState().isDone()) {
             return;
         }
 
-        if (newOutputBuffers.getVersion() > outputBuffers.get().getVersion()) {
-            outputBuffers.set(newOutputBuffers);
+        long previousVersion = outputBuffers.getAndUpdate(previousOutputBuffers -> {
+            if (newOutputBuffers.getVersion() > previousOutputBuffers.getVersion()) {
+                return newOutputBuffers;
+            }
+
+            return previousOutputBuffers;
+        }).getVersion();
+
+        if (newOutputBuffers.getVersion() > previousVersion) {
             triggerUpdate();
         }
     }
