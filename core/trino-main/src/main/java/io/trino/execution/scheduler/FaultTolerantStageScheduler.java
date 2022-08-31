@@ -275,7 +275,6 @@ public class FaultTolerantStageScheduler
             taskSource = taskSourceFactory.create(
                     session,
                     stage.getFragment(),
-                    sourceExchanges,
                     exchangeSources,
                     stage::recordGetSplitTime,
                     sourceBucketToPartitionMap,

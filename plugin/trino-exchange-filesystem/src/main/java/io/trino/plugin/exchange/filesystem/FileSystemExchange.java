@@ -25,7 +25,6 @@ import io.trino.spi.exchange.ExchangeContext;
 import io.trino.spi.exchange.ExchangeSinkHandle;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
-import io.trino.spi.exchange.ExchangeSourceSplitter;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.crypto.SecretKey;
@@ -36,9 +35,9 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.security.Key;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -60,7 +59,6 @@ import static io.trino.plugin.exchange.filesystem.FileSystemExchangeSink.COMMITT
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeSink.DATA_FILE_SUFFIX;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class FileSystemExchange
         implements Exchange
@@ -77,6 +75,7 @@ public class FileSystemExchange
     private final boolean preserveOrderWithinPartition;
     private final int fileListingParallelism;
     private final Optional<SecretKey> secretKey;
+    private final long exchangeSourceHandleTargetDataSizeInBytes;
     private final ExecutorService executor;
 
     private final Map<Integer, String> randomizedPrefixes = new ConcurrentHashMap<>();
@@ -101,6 +100,7 @@ public class FileSystemExchange
             boolean preserveOrderWithinPartition,
             int fileListingParallelism,
             Optional<SecretKey> secretKey,
+            long exchangeSourceHandleTargetDataSizeInBytes,
             ExecutorService executor)
     {
         List<URI> directories = new ArrayList<>(requireNonNull(baseDirectories, "baseDirectories is null"));
@@ -115,6 +115,7 @@ public class FileSystemExchange
 
         this.fileListingParallelism = fileListingParallelism;
         this.secretKey = requireNonNull(secretKey, "secretKey is null");
+        this.exchangeSourceHandleTargetDataSizeInBytes = exchangeSourceHandleTargetDataSizeInBytes;
         this.executor = requireNonNull(executor, "executor is null");
     }
 
@@ -211,7 +212,21 @@ public class FileSystemExchange
                     partitionsList.forEach(partitions -> partitions.forEach(partitionFiles::put));
                     ImmutableList.Builder<ExchangeSourceHandle> result = ImmutableList.builder();
                     for (Integer partitionId : partitionFiles.keySet()) {
-                        result.add(new FileSystemExchangeSourceHandle(partitionId, ImmutableList.copyOf(partitionFiles.get(partitionId)), secretKey.map(SecretKey::getEncoded)));
+                        Collection<FileStatus> files = partitionFiles.get(partitionId);
+                        long currentExchangeHandleDataSizeInBytes = 0;
+                        ImmutableList.Builder<FileStatus> currentExchangeHandleFiles = ImmutableList.builder();
+                        for (FileStatus file : files) {
+                            if (currentExchangeHandleDataSizeInBytes > 0 && currentExchangeHandleDataSizeInBytes + file.getFileSize() > exchangeSourceHandleTargetDataSizeInBytes) {
+                                result.add(new FileSystemExchangeSourceHandle(partitionId, currentExchangeHandleFiles.build(), secretKey.map(SecretKey::getEncoded)));
+                                currentExchangeHandleDataSizeInBytes = 0;
+                                currentExchangeHandleFiles = ImmutableList.builder();
+                            }
+                            currentExchangeHandleDataSizeInBytes += file.getFileSize();
+                            currentExchangeHandleFiles.add(file);
+                        }
+                        if (currentExchangeHandleDataSizeInBytes > 0) {
+                            result.add(new FileSystemExchangeSourceHandle(partitionId, currentExchangeHandleFiles.build(), secretKey.map(SecretKey::getEncoded)));
+                        }
                     }
                     return result.build();
                 },
@@ -267,36 +282,6 @@ public class FileSystemExchange
     public CompletableFuture<List<ExchangeSourceHandle>> getSourceHandles()
     {
         return exchangeSourceHandlesFuture;
-    }
-
-    @Override
-    public ExchangeSourceSplitter split(ExchangeSourceHandle handle, long targetSizeInBytes)
-    {
-        // Currently we only split at the file level, and external logic groups sources that are not large enough
-        FileSystemExchangeSourceHandle sourceHandle = (FileSystemExchangeSourceHandle) handle;
-        Iterator<FileStatus> filesIterator = sourceHandle.getFiles().iterator();
-        return new ExchangeSourceSplitter()
-        {
-            @Override
-            public CompletableFuture<Void> isBlocked()
-            {
-                return completedFuture(null);
-            }
-
-            @Override
-            public Optional<ExchangeSourceHandle> getNext()
-            {
-                if (filesIterator.hasNext()) {
-                    return Optional.of(new FileSystemExchangeSourceHandle(sourceHandle.getPartitionId(), ImmutableList.of(filesIterator.next()), secretKey.map(SecretKey::getEncoded)));
-                }
-                return Optional.empty();
-            }
-
-            @Override
-            public void close()
-            {
-            }
-        };
     }
 
     @Override

@@ -15,6 +15,7 @@ package io.trino.plugin.exchange.filesystem;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -36,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -210,10 +212,10 @@ public abstract class AbstractTestExchangeManager
         exchange.sinkFinished(sinkInstanceHandle);
 
         List<ExchangeSourceHandle> partitionHandles = exchange.getSourceHandles().get();
-        assertThat(partitionHandles).hasSize(3);
+        assertThat(partitionHandles).hasSize(10);
 
-        Map<Integer, ExchangeSourceHandle> partitions = partitionHandles.stream()
-                .collect(toImmutableMap(ExchangeSourceHandle::getPartitionId, Function.identity()));
+        ListMultimap<Integer, ExchangeSourceHandle> partitions = partitionHandles.stream()
+                .collect(toImmutableListMultimap(ExchangeSourceHandle::getPartitionId, Function.identity()));
 
         assertThat(readData(partitions.get(0)))
                 .containsExactlyInAnyOrder(smallPage, mediumPage, largePage, maxPage);
