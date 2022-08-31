@@ -188,10 +188,8 @@ public class PinotGrpcDataFetcher
         private final GrpcQueryClient.Config config;
 
         @Inject
-        public TlsGrpcQueryClientFactory(PinotGrpcServerQueryClientConfig grpcClientConfig, PinotGrpcServerQueryClientTlsConfig tlsConfig)
+        public TlsGrpcQueryClientFactory(PinotGrpcServerQueryClientTlsConfig tlsConfig)
         {
-            requireNonNull(grpcClientConfig, "grpcClientConfig is null");
-
             ImmutableMap.Builder<String, Object> tlsConfigBuilder = ImmutableMap.builder();
             if (tlsConfig.getKeystorePath().isPresent()) {
                 tlsConfigBuilder.put(KEYSTORE_TYPE, tlsConfig.getKeystoreType());
