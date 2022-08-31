@@ -2303,43 +2303,37 @@ public class LocalExecutionPlanner
 
             OperatorFactory lookupJoinOperatorFactory;
             OptionalInt totalOperatorsCount = context.getDriverInstanceCount();
-            switch (node.getType()) {
-                case INNER:
-                    lookupJoinOperatorFactory = operatorFactories.innerJoin(
-                            context.getNextOperatorId(),
-                            node.getId(),
-                            lookupSourceFactoryManager,
-                            false,
-                            false,
-                            false,
-                            true, // Non-spilling operator does not support index lookup sources
-                            probeSource.getTypes(),
-                            probeChannels,
-                            probeHashChannel,
-                            Optional.empty(),
-                            totalOperatorsCount,
-                            unsupportedPartitioningSpillerFactory(),
-                            blockTypeOperators);
-                    break;
-                case SOURCE_OUTER:
-                    lookupJoinOperatorFactory = operatorFactories.probeOuterJoin(
-                            context.getNextOperatorId(),
-                            node.getId(),
-                            lookupSourceFactoryManager,
-                            false,
-                            false,
-                            true, // Non-spilling operator does not support index lookup sources
-                            probeSource.getTypes(),
-                            probeChannels,
-                            probeHashChannel,
-                            Optional.empty(),
-                            totalOperatorsCount,
-                            unsupportedPartitioningSpillerFactory(),
-                            blockTypeOperators);
-                    break;
-                default:
-                    throw new AssertionError("Unknown type: " + node.getType());
-            }
+            lookupJoinOperatorFactory = switch (node.getType()) {
+                case INNER -> operatorFactories.innerJoin(
+                        context.getNextOperatorId(),
+                        node.getId(),
+                        lookupSourceFactoryManager,
+                        false,
+                        false,
+                        false,
+                        true, // Non-spilling operator does not support index lookup sources
+                        probeSource.getTypes(),
+                        probeChannels,
+                        probeHashChannel,
+                        Optional.empty(),
+                        totalOperatorsCount,
+                        unsupportedPartitioningSpillerFactory(),
+                        blockTypeOperators);
+                case SOURCE_OUTER -> operatorFactories.probeOuterJoin(
+                        context.getNextOperatorId(),
+                        node.getId(),
+                        lookupSourceFactoryManager,
+                        false,
+                        false,
+                        true, // Non-spilling operator does not support index lookup sources
+                        probeSource.getTypes(),
+                        probeChannels,
+                        probeHashChannel,
+                        Optional.empty(),
+                        totalOperatorsCount,
+                        unsupportedPartitioningSpillerFactory(),
+                        blockTypeOperators);
+            };
             return new PhysicalOperation(lookupJoinOperatorFactory, outputMappings.buildOrThrow(), context, probeSource);
         }
 
@@ -2362,14 +2356,10 @@ public class LocalExecutionPlanner
             List<Symbol> leftSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft);
             List<Symbol> rightSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getRight);
 
-            switch (node.getType()) {
-                case INNER:
-                case LEFT:
-                case RIGHT:
-                case FULL:
-                    return createLookupJoin(node, node.getLeft(), leftSymbols, node.getLeftHashSymbol(), node.getRight(), rightSymbols, node.getRightHashSymbol(), localDynamicFilters, context);
-            }
-            throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+            return switch (node.getType()) {
+                case INNER, LEFT, RIGHT, FULL ->
+                        createLookupJoin(node, node.getLeft(), leftSymbols, node.getLeftHashSymbol(), node.getRight(), rightSymbols, node.getRightHashSymbol(), localDynamicFilters, context);
+            };
         }
 
         @Override
@@ -3000,69 +2990,64 @@ public class LocalExecutionPlanner
             // Wait for build side to be collected before local dynamic filters are
             // consumed by table scan. This way table scan can filter data more efficiently.
             boolean waitForBuild = consumedLocalDynamicFilters;
-            switch (node.getType()) {
-                case INNER:
-                    return operatorFactories.innerJoin(
-                            context.getNextOperatorId(),
-                            node.getId(),
-                            lookupSourceFactoryManager,
-                            outputSingleMatch,
-                            waitForBuild,
-                            node.getFilter().isPresent(),
-                            useSpillingJoinOperator(spillEnabled, session),
-                            probeTypes,
-                            probeJoinChannels,
-                            probeHashChannel,
-                            Optional.of(probeOutputChannels),
-                            totalOperatorsCount,
-                            partitioningSpillerFactory,
-                            blockTypeOperators);
-                case LEFT:
-                    return operatorFactories.probeOuterJoin(
-                            context.getNextOperatorId(),
-                            node.getId(),
-                            lookupSourceFactoryManager,
-                            outputSingleMatch,
-                            node.getFilter().isPresent(),
-                            useSpillingJoinOperator(spillEnabled, session),
-                            probeTypes,
-                            probeJoinChannels,
-                            probeHashChannel,
-                            Optional.of(probeOutputChannels),
-                            totalOperatorsCount,
-                            partitioningSpillerFactory,
-                            blockTypeOperators);
-                case RIGHT:
-                    return operatorFactories.lookupOuterJoin(
-                            context.getNextOperatorId(),
-                            node.getId(),
-                            lookupSourceFactoryManager,
-                            waitForBuild,
-                            node.getFilter().isPresent(),
-                            useSpillingJoinOperator(spillEnabled, session),
-                            probeTypes,
-                            probeJoinChannels,
-                            probeHashChannel,
-                            Optional.of(probeOutputChannels),
-                            totalOperatorsCount,
-                            partitioningSpillerFactory,
-                            blockTypeOperators);
-                case FULL:
-                    return operatorFactories.fullOuterJoin(
-                            context.getNextOperatorId(),
-                            node.getId(),
-                            lookupSourceFactoryManager,
-                            node.getFilter().isPresent(),
-                            useSpillingJoinOperator(spillEnabled, session),
-                            probeTypes,
-                            probeJoinChannels,
-                            probeHashChannel,
-                            Optional.of(probeOutputChannels),
-                            totalOperatorsCount,
-                            partitioningSpillerFactory,
-                            blockTypeOperators);
-            }
-            throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+            return switch (node.getType()) {
+                case INNER -> operatorFactories.innerJoin(
+                        context.getNextOperatorId(),
+                        node.getId(),
+                        lookupSourceFactoryManager,
+                        outputSingleMatch,
+                        waitForBuild,
+                        node.getFilter().isPresent(),
+                        useSpillingJoinOperator(spillEnabled, session),
+                        probeTypes,
+                        probeJoinChannels,
+                        probeHashChannel,
+                        Optional.of(probeOutputChannels),
+                        totalOperatorsCount,
+                        partitioningSpillerFactory,
+                        blockTypeOperators);
+                case LEFT -> operatorFactories.probeOuterJoin(
+                        context.getNextOperatorId(),
+                        node.getId(),
+                        lookupSourceFactoryManager,
+                        outputSingleMatch,
+                        node.getFilter().isPresent(),
+                        useSpillingJoinOperator(spillEnabled, session),
+                        probeTypes,
+                        probeJoinChannels,
+                        probeHashChannel,
+                        Optional.of(probeOutputChannels),
+                        totalOperatorsCount,
+                        partitioningSpillerFactory,
+                        blockTypeOperators);
+                case RIGHT -> operatorFactories.lookupOuterJoin(
+                        context.getNextOperatorId(),
+                        node.getId(),
+                        lookupSourceFactoryManager,
+                        waitForBuild,
+                        node.getFilter().isPresent(),
+                        useSpillingJoinOperator(spillEnabled, session),
+                        probeTypes,
+                        probeJoinChannels,
+                        probeHashChannel,
+                        Optional.of(probeOutputChannels),
+                        totalOperatorsCount,
+                        partitioningSpillerFactory,
+                        blockTypeOperators);
+                case FULL -> operatorFactories.fullOuterJoin(
+                        context.getNextOperatorId(),
+                        node.getId(),
+                        lookupSourceFactoryManager,
+                        node.getFilter().isPresent(),
+                        useSpillingJoinOperator(spillEnabled, session),
+                        probeTypes,
+                        probeJoinChannels,
+                        probeHashChannel,
+                        Optional.of(probeOutputChannels),
+                        totalOperatorsCount,
+                        partitioningSpillerFactory,
+                        blockTypeOperators);
+            };
         }
 
         private Map<Symbol, Integer> createJoinSourcesLayout(Map<Symbol, Integer> lookupSourceLayout, Map<Symbol, Integer> probeSourceLayout)

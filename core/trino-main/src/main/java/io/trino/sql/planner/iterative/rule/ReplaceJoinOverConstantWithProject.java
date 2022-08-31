@@ -97,41 +97,44 @@ public class ReplaceJoinOverConstantWithProject
         boolean canInlineLeftSource = canInlineJoinSource(left);
         boolean canInlineRightSource = canInlineJoinSource(right);
 
-        switch (node.getType()) {
-            case INNER:
+        return switch (node.getType()) {
+            case INNER -> {
                 if (canInlineLeftSource) {
-                    return Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
+                    yield Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
                 }
                 if (canInlineRightSource) {
-                    return Result.ofPlanNode(appendProjection(left, node.getLeftOutputSymbols(), right, node.getRightOutputSymbols(), context.getIdAllocator()));
+                    yield Result.ofPlanNode(appendProjection(left, node.getLeftOutputSymbols(), right, node.getRightOutputSymbols(), context.getIdAllocator()));
                 }
-                break;
-            case LEFT:
+                yield Result.empty();
+            }
+            case LEFT -> {
                 if (canInlineLeftSource && isAtLeastScalar(right, context.getLookup())) {
-                    return Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
+                    yield Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
                 }
                 if (canInlineRightSource) {
-                    return Result.ofPlanNode(appendProjection(left, node.getLeftOutputSymbols(), right, node.getRightOutputSymbols(), context.getIdAllocator()));
+                    yield Result.ofPlanNode(appendProjection(left, node.getLeftOutputSymbols(), right, node.getRightOutputSymbols(), context.getIdAllocator()));
                 }
-                break;
-            case RIGHT:
+                yield Result.empty();
+            }
+            case RIGHT -> {
                 if (canInlineLeftSource) {
-                    return Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
+                    yield Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
                 }
                 if (canInlineRightSource && isAtLeastScalar(left, context.getLookup())) {
-                    return Result.ofPlanNode(appendProjection(left, node.getLeftOutputSymbols(), right, node.getRightOutputSymbols(), context.getIdAllocator()));
+                    yield Result.ofPlanNode(appendProjection(left, node.getLeftOutputSymbols(), right, node.getRightOutputSymbols(), context.getIdAllocator()));
                 }
-                break;
-            case FULL:
+                yield Result.empty();
+            }
+            case FULL -> {
                 if (canInlineLeftSource && isAtLeastScalar(right, context.getLookup())) {
-                    return Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
+                    yield Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
                 }
                 if (canInlineRightSource && isAtLeastScalar(left, context.getLookup())) {
-                    return Result.ofPlanNode(appendProjection(left, node.getLeftOutputSymbols(), right, node.getRightOutputSymbols(), context.getIdAllocator()));
+                    yield Result.ofPlanNode(appendProjection(left, node.getLeftOutputSymbols(), right, node.getRightOutputSymbols(), context.getIdAllocator()));
                 }
-        }
-
-        return Result.empty();
+                yield Result.empty();
+            }
+        };
     }
 
     private static boolean isUnconditional(JoinNode joinNode)

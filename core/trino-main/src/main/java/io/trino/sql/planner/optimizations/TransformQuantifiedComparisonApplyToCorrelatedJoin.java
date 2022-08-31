@@ -243,34 +243,18 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
 
         private static boolean shouldCompareValueWithLowerBound(QuantifiedComparisonExpression quantifiedComparison)
         {
-            switch (quantifiedComparison.getQuantifier()) {
-                case ALL:
-                    switch (quantifiedComparison.getOperator()) {
-                        case LESS_THAN:
-                        case LESS_THAN_OR_EQUAL:
-                            return true;
-                        case GREATER_THAN:
-                        case GREATER_THAN_OR_EQUAL:
-                            return false;
-                        default:
-                            // Caller guarantees no other cases need to be handled here
-                    }
-                    break;
-                case ANY:
-                case SOME:
-                    switch (quantifiedComparison.getOperator()) {
-                        case LESS_THAN:
-                        case LESS_THAN_OR_EQUAL:
-                            return false;
-                        case GREATER_THAN:
-                        case GREATER_THAN_OR_EQUAL:
-                            return true;
-                        default:
-                            // Caller guarantees no other cases need to be handled here
-                    }
-                    break;
-            }
-            throw new IllegalArgumentException("Unexpected quantifier: " + quantifiedComparison.getQuantifier());
+            return switch (quantifiedComparison.getQuantifier()) {
+                case ALL -> switch (quantifiedComparison.getOperator()) {
+                    case LESS_THAN, LESS_THAN_OR_EQUAL -> true;
+                    case GREATER_THAN, GREATER_THAN_OR_EQUAL -> false;
+                    default -> throw new IllegalArgumentException("Unexpected value: " + quantifiedComparison.getOperator());
+                };
+                case ANY, SOME -> switch (quantifiedComparison.getOperator()) {
+                    case LESS_THAN, LESS_THAN_OR_EQUAL -> false;
+                    case GREATER_THAN, GREATER_THAN_OR_EQUAL -> true;
+                    default -> throw new IllegalArgumentException("Unexpected value: " + quantifiedComparison.getOperator());
+                };
+            };
         }
 
         private ProjectNode projectExpressions(PlanNode input, Assignments subqueryAssignments)

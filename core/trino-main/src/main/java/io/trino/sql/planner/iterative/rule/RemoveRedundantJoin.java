@@ -54,17 +54,11 @@ public class RemoveRedundantJoin
 
     private boolean canRemoveJoin(Type joinType, boolean isLeftSourceEmpty, boolean isRightSourceEmpty)
     {
-        switch (joinType) {
-            case INNER:
-                return isLeftSourceEmpty || isRightSourceEmpty;
-            case LEFT:
-                return isLeftSourceEmpty;
-            case RIGHT:
-                return isRightSourceEmpty;
-            case FULL:
-                return isLeftSourceEmpty && isRightSourceEmpty;
-        }
-
-        return false;
+        return switch (joinType) {
+            case INNER -> isLeftSourceEmpty || isRightSourceEmpty;
+            case LEFT -> isLeftSourceEmpty;
+            case RIGHT -> isRightSourceEmpty;
+            case FULL -> isLeftSourceEmpty && isRightSourceEmpty;
+        };
     }
 }

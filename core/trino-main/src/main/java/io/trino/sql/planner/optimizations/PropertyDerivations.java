@@ -514,8 +514,8 @@ public final class PropertyDerivations
 
             boolean unordered = spillPossible(session, node.getType());
 
-            switch (node.getType()) {
-                case INNER:
+            return switch (node.getType()) {
+                case INNER -> {
                     probeProperties = probeProperties.translate(column -> filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column));
                     buildProperties = buildProperties.translate(column -> filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column));
 
@@ -526,36 +526,32 @@ public final class PropertyDerivations
                     if (node.isCrossJoin()) {
                         // Cross join preserves only constants from probe and build sides.
                         // Cross join doesn't preserve sorting or grouping local properties on either side.
-                        return ActualProperties.builder()
+                        yield ActualProperties.builder()
                                 .global(probeProperties)
                                 .local(ImmutableList.of())
                                 .constants(constants)
                                 .build();
                     }
 
-                    return ActualProperties.builderFrom(probeProperties)
+                    yield ActualProperties.builderFrom(probeProperties)
                             .constants(constants)
                             .unordered(unordered)
                             .build();
-                case LEFT:
-                    return ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
-                            .unordered(unordered)
-                            .build();
-                case RIGHT:
-                    buildProperties = buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column));
-
-                    return ActualProperties.builderFrom(buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
-                            .local(ImmutableList.of())
-                            .unordered(true)
-                            .build();
-                case FULL:
+                }
+                case LEFT -> ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
+                        .unordered(unordered)
+                        .build();
+                case RIGHT -> ActualProperties.builderFrom(buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
+                        .local(ImmutableList.of())
+                        .unordered(true)
+                        .build();
+                case FULL ->
                     // We can't say anything about the partitioning scheme because any partition of
                     // a hash-partitioned join can produce nulls in case of a lack of matches
-                    return ActualProperties.builder()
-                            .global(probeProperties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
-                            .build();
-            }
-            throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+                        ActualProperties.builder()
+                                .global(probeProperties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
+                                .build();
+            };
         }
 
         @Override
@@ -570,8 +566,8 @@ public final class PropertyDerivations
             ActualProperties probeProperties = inputProperties.get(0);
             ActualProperties buildProperties = inputProperties.get(1);
 
-            switch (node.getType()) {
-                case INNER:
+            return switch (node.getType()) {
+                case INNER -> {
                     probeProperties = probeProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column));
                     buildProperties = buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column));
 
@@ -579,14 +575,13 @@ public final class PropertyDerivations
                     constants.putAll(probeProperties.getConstants());
                     constants.putAll(buildProperties.getConstants());
 
-                    return ActualProperties.builderFrom(probeProperties)
+                    yield ActualProperties.builderFrom(probeProperties)
                             .constants(constants)
                             .build();
-                case LEFT:
-                    return ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
-                            .build();
-            }
-            throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
+                }
+                case LEFT -> ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
+                        .build();
+            };
         }
 
         @Override
@@ -596,20 +591,17 @@ public final class PropertyDerivations
             ActualProperties probeProperties = inputProperties.get(0);
             ActualProperties indexProperties = inputProperties.get(1);
 
-            switch (node.getType()) {
-                case INNER:
-                    return ActualProperties.builderFrom(probeProperties)
-                            .constants(ImmutableMap.<Symbol, NullableValue>builder()
-                                    .putAll(probeProperties.getConstants())
-                                    .putAll(indexProperties.getConstants())
-                                    .buildOrThrow())
-                            .build();
-                case SOURCE_OUTER:
-                    return ActualProperties.builderFrom(probeProperties)
-                            .constants(probeProperties.getConstants())
-                            .build();
-            }
-            throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+            return switch (node.getType()) {
+                case INNER -> ActualProperties.builderFrom(probeProperties)
+                        .constants(ImmutableMap.<Symbol, NullableValue>builder()
+                                .putAll(probeProperties.getConstants())
+                                .putAll(indexProperties.getConstants())
+                                .buildOrThrow())
+                        .build();
+                case SOURCE_OUTER -> ActualProperties.builderFrom(probeProperties)
+                        .constants(probeProperties.getConstants())
+                        .build();
+            };
         }
 
         @Override
@@ -698,31 +690,26 @@ public final class PropertyDerivations
                 return builder.build();
             }
 
-            switch (node.getType()) {
-                case GATHER:
-                    boolean coordinatorOnly = node.getPartitioningScheme().getPartitioning().getHandle().isCoordinatorOnly();
-                    return ActualProperties.builder()
-                            .global(coordinatorOnly ? coordinatorSingleStreamPartition() : singleStreamPartition())
-                            .local(localProperties.build())
-                            .constants(constants)
-                            .build();
-                case REPARTITION:
-                    return ActualProperties.builder()
-                            .global(partitionedOn(
-                                    node.getPartitioningScheme().getPartitioning(),
-                                    Optional.of(node.getPartitioningScheme().getPartitioning()))
-                                    .withReplicatedNulls(node.getPartitioningScheme().isReplicateNullsAndAny()))
-                            .constants(constants)
-                            .build();
-                case REPLICATE:
+            return switch (node.getType()) {
+                case GATHER -> ActualProperties.builder()
+                        .global(node.getPartitioningScheme().getPartitioning().getHandle().isCoordinatorOnly() ? coordinatorSingleStreamPartition() : singleStreamPartition())
+                        .local(localProperties.build())
+                        .constants(constants)
+                        .build();
+                case REPARTITION -> ActualProperties.builder()
+                        .global(partitionedOn(
+                                node.getPartitioningScheme().getPartitioning(),
+                                Optional.of(node.getPartitioningScheme().getPartitioning()))
+                                .withReplicatedNulls(node.getPartitioningScheme().isReplicateNullsAndAny()))
+                        .constants(constants)
+                        .build();
+                case REPLICATE ->
                     // TODO: this should have the same global properties as the stream taking the replicated data
-                    return ActualProperties.builder()
-                            .global(arbitraryPartition())
-                            .constants(constants)
-                            .build();
-            }
-
-            throw new UnsupportedOperationException("not yet implemented");
+                        ActualProperties.builder()
+                                .global(arbitraryPartition())
+                                .constants(constants)
+                                .build();
+            };
         }
 
         @Override
@@ -832,17 +819,12 @@ public final class PropertyDerivations
                 return Optional.empty();
             });
 
-            switch (node.getJoinType()) {
-                case INNER:
-                case LEFT:
-                    return translatedProperties;
-                case RIGHT:
-                case FULL:
-                    return ActualProperties.builderFrom(translatedProperties)
-                            .local(ImmutableList.of())
-                            .build();
-            }
-            throw new UnsupportedOperationException("Unknown UNNEST join type: " + node.getJoinType());
+            return switch (node.getJoinType()) {
+                case INNER, LEFT -> translatedProperties;
+                case RIGHT, FULL -> ActualProperties.builderFrom(translatedProperties)
+                        .local(ImmutableList.of())
+                        .build();
+            };
         }
 
         @Override
@@ -949,18 +931,12 @@ public final class PropertyDerivations
         if (!SystemSessionProperties.isSpillEnabled(session)) {
             return false;
         }
-        switch (joinType) {
-            case INNER:
-            case LEFT:
-                // Even though join might not have "spillable" property set yet
-                // it might still be set as spillable later on by AddLocalExchanges.
-                return true;
-            case RIGHT:
-            case FULL:
-                // Currently there is no spill support for outer on the build side.
-                return false;
-        }
-        throw new IllegalStateException("Unknown join type: " + joinType);
+        return switch (joinType) {
+            case INNER, LEFT -> true;
+            // Even though join might not have "spillable" property set yet
+            // it might still be set as spillable later on by AddLocalExchanges.
+            case RIGHT, FULL -> false; // Currently there is no spill support for outer on the build side.
+        };
     }
 
     public static Optional<Symbol> filterIfMissing(Collection<Symbol> columns, Symbol column)
