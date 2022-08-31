@@ -30,7 +30,6 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -133,12 +132,10 @@ public class CommentTask
 
     private void commentOnColumn(Comment statement, Session session)
     {
-        Optional<QualifiedName> prefix = statement.getName().getPrefix();
-        if (prefix.isEmpty()) {
-            throw semanticException(MISSING_TABLE, statement, "Table must be specified");
-        }
+        QualifiedName prefix = statement.getName().getPrefix()
+                .orElseThrow(() -> semanticException(MISSING_TABLE, statement, "Table must be specified"));
 
-        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, prefix.get());
+        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, prefix);
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, originalTableName);
         if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
             throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: " + originalTableName);

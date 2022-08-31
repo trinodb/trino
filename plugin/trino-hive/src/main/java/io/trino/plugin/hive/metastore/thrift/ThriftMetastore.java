@@ -120,16 +120,14 @@ public interface ThriftMetastore
 
     default Optional<List<FieldSchema>> getFields(String databaseName, String tableName)
     {
-        Optional<Table> table = getTable(databaseName, tableName);
-        if (table.isEmpty()) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-        }
+        Table table = getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
 
-        if (table.get().getSd() == null) {
+        if (table.getSd() == null) {
             throw new TrinoException(HIVE_INVALID_METADATA, "Table is missing storage descriptor");
         }
 
-        return Optional.of(table.get().getSd().getCols());
+        return Optional.of(table.getSd().getCols());
     }
 
     default long openTransaction(AcidTransactionOwner transactionOwner)

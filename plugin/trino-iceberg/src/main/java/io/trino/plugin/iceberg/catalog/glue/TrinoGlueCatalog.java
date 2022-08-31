@@ -338,11 +338,9 @@ public class TrinoGlueCatalog
     {
         boolean newTableCreated = false;
         try {
-            Optional<com.amazonaws.services.glue.model.Table> table = getTable(from);
-            if (table.isEmpty()) {
-                throw new TableNotFoundException(from);
-            }
-            TableInput tableInput = getTableInput(to.getTableName(), Optional.ofNullable(table.get().getOwner()), table.get().getParameters());
+            com.amazonaws.services.glue.model.Table table = getTable(from)
+                    .orElseThrow(() -> new TableNotFoundException(from));
+            TableInput tableInput = getTableInput(to.getTableName(), Optional.ofNullable(table.getOwner()), table.getParameters());
             CreateTableRequest createTableRequest = new CreateTableRequest()
                     .withDatabaseName(to.getSchemaName())
                     .withTableInput(tableInput);
@@ -478,15 +476,13 @@ public class TrinoGlueCatalog
     {
         boolean newTableCreated = false;
         try {
-            Optional<com.amazonaws.services.glue.model.Table> existingView = getTable(source);
-            if (existingView.isEmpty()) {
-                throw new TableNotFoundException(source);
-            }
+            com.amazonaws.services.glue.model.Table existingView = getTable(source)
+                    .orElseThrow(() -> new TableNotFoundException(source));
 
             TableInput viewTableInput = getViewTableInput(
                     target.getTableName(),
-                    existingView.get().getViewOriginalText(),
-                    existingView.get().getOwner(),
+                    existingView.getViewOriginalText(),
+                    existingView.getOwner(),
                     createViewProperties(session));
             CreateTableRequest createTableRequest = new CreateTableRequest()
                     .withDatabaseName(target.getSchemaName())
@@ -770,11 +766,8 @@ public class TrinoGlueCatalog
     {
         boolean newTableCreated = false;
         try {
-            Optional<com.amazonaws.services.glue.model.Table> table = getTable(source);
-            if (table.isEmpty()) {
-                throw new TableNotFoundException(source);
-            }
-            com.amazonaws.services.glue.model.Table glueTable = table.get();
+            com.amazonaws.services.glue.model.Table glueTable = getTable(source)
+                    .orElseThrow(() -> new TableNotFoundException(source));
             if (!isTrinoMaterializedView(glueTable.getTableType(), glueTable.getParameters())) {
                 throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Not a Materialized View: " + source);
             }

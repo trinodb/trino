@@ -391,15 +391,13 @@ public class QueuedStatementResource
                         DispatchInfo.queued(NO_DURATION, NO_DURATION));
             }
 
-            Optional<DispatchInfo> dispatchInfo = dispatchManager.getDispatchInfo(queryId);
-            if (dispatchInfo.isEmpty()) {
-                // query should always be found, but it may have just been determined to be abandoned
-                throw new WebApplicationException(Response
-                        .status(NOT_FOUND)
-                        .build());
-            }
+            DispatchInfo dispatchInfo = dispatchManager.getDispatchInfo(queryId)
+                    // query should always be found, but it may have just been determined to be abandoned
+                    .orElseThrow(() -> new WebApplicationException(Response
+                            .status(NOT_FOUND)
+                            .build()));
 
-            return createQueryResults(token + 1, uriInfo, dispatchInfo.get());
+            return createQueryResults(token + 1, uriInfo, dispatchInfo);
         }
 
         public void cancel()

@@ -479,11 +479,9 @@ public class SignatureBinder
 
         ImmutableList.Builder<TypeSignature> formalTypeParameterTypeSignatures = ImmutableList.builder();
         for (TypeSignatureParameter formalTypeParameter : formalTypeSignature.getParameters()) {
-            Optional<TypeSignature> typeSignature = formalTypeParameter.getTypeSignatureOrNamedTypeSignature();
-            if (typeSignature.isEmpty()) {
-                throw new UnsupportedOperationException("Types with both type parameters and literal parameters at the same time are not supported");
-            }
-            formalTypeParameterTypeSignatures.add(typeSignature.get());
+            TypeSignature typeSignature = formalTypeParameter.getTypeSignatureOrNamedTypeSignature()
+                    .orElseThrow(() -> new UnsupportedOperationException("Types with both type parameters and literal parameters at the same time are not supported"));
+            formalTypeParameterTypeSignatures.add(typeSignature);
         }
 
         return appendConstraintSolvers(

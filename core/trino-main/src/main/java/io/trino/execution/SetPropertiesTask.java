@@ -118,13 +118,11 @@ public class SetPropertiesTask
             throw semanticException(NOT_SUPPORTED, statement, "Cannot set properties to a view in ALTER TABLE");
         }
 
-        Optional<TableHandle> tableHandle = plannerContext.getMetadata().getTableHandle(session, tableName);
-        if (tableHandle.isEmpty()) {
-            throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: %s", tableName);
-        }
+        TableHandle tableHandle = plannerContext.getMetadata().getTableHandle(session, tableName)
+                .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: %s", tableName));
 
         accessControl.checkCanSetTableProperties(session.toSecurityContext(), tableName, properties);
-        plannerContext.getMetadata().setTableProperties(session, tableHandle.get(), properties);
+        plannerContext.getMetadata().setTableProperties(session, tableHandle, properties);
     }
 
     private void setMaterializedViewProperties(

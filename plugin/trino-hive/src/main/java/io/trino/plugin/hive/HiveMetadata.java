@@ -2715,12 +2715,10 @@ public class HiveMetadata
     {
         HiveTableHandle handle = (HiveTableHandle) deleteHandle;
 
-        Optional<Table> table = metastore.getTable(handle.getSchemaName(), handle.getTableName());
-        if (table.isEmpty()) {
-            throw new TableNotFoundException(handle.getSchemaTableName());
-        }
+        Table table = metastore.getTable(handle.getSchemaName(), handle.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
 
-        if (table.get().getPartitionColumns().isEmpty()) {
+        if (table.getPartitionColumns().isEmpty()) {
             metastore.truncateUnpartitionedTable(session, handle.getSchemaName(), handle.getTableName());
         }
         else {
