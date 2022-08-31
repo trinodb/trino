@@ -25,6 +25,7 @@ import io.trino.spi.exchange.ExchangeContext;
 import io.trino.spi.exchange.ExchangeSinkHandle;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
+import io.trino.spi.exchange.ExchangeSourceHandleSource;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.crypto.SecretKey;
@@ -277,9 +278,19 @@ public class FileSystemExchange
     }
 
     @Override
-    public CompletableFuture<List<ExchangeSourceHandle>> getSourceHandles()
+    public ExchangeSourceHandleSource getSourceHandles()
     {
-        return exchangeSourceHandlesFuture;
+        return new ExchangeSourceHandleSource()
+        {
+            @Override
+            public CompletableFuture<ExchangeSourceHandleBatch> getNextBatch()
+            {
+                return exchangeSourceHandlesFuture.thenApply(handles -> new ExchangeSourceHandleBatch(handles, true));
+            }
+
+            @Override
+            public void close() {}
+        };
     }
 
     @Override
