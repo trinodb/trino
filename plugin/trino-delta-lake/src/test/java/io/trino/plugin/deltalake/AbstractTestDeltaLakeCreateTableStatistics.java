@@ -433,36 +433,6 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
     }
 
     @Test
-    public void testMultiFileTable()
-            throws Exception
-    {
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle("name", createUnboundedVarcharType(), "name", createUnboundedVarcharType(), REGULAR);
-        Session session = testSessionBuilder()
-                .setCatalog(DELTA_CATALOG)
-                .setSystemProperty("scale_writers", "false")
-                .setSchema(SCHEMA)
-                .build();
-        try (TestTable table = new TestTable(
-                "test_partitioned_table_",
-                ImmutableList.of(),
-                ImmutableList.of(),
-                "SELECT name FROM tpch.tiny.nation UNION select name from tpch.tiny.customer",
-                session)) {
-            List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
-            assertThat(addFileEntries.size()).isGreaterThan(1);
-
-            List<DeltaLakeFileStatistics> statistics = addFileEntries.stream().map(entry -> entry.getStats().get()).collect(toImmutableList());
-
-            List<Object> minValues = statistics.stream().map(stat -> stat.getMinColumnValue(columnHandle).get()).collect(toImmutableList());
-            List<Object> maxValues = statistics.stream().map(stat -> stat.getMaxColumnValue(columnHandle).get()).collect(toImmutableList());
-
-            // All values in the table are distinct, so the min and max values should all be different
-            assertEquals(minValues.size(), minValues.stream().distinct().count());
-            assertEquals(maxValues.size(), maxValues.stream().distinct().count());
-        }
-    }
-
-    @Test
     public void testMultiFileTableWithNaNValue()
             throws Exception
     {
