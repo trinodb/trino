@@ -920,10 +920,10 @@ public final class HttpRemoteTask
                     sentDynamicFiltersVersion.set(currentRequestDynamicFiltersVersion);
                     // Remove dynamic filters which were successfully sent to free up memory
                     outboundDynamicFiltersCollector.acknowledge(currentRequestDynamicFiltersVersion);
+                    sendPlan.set(value.isNeedsPlan());
                     long currentRequestStartNanos;
                     synchronized (HttpRemoteTask.this) {
                         currentRequest = null;
-                        sendPlan.set(value.isNeedsPlan());
                         currentRequestStartNanos = HttpRemoteTask.this.currentRequestStartNanos;
                     }
                     updateStats(currentRequestStartNanos);
