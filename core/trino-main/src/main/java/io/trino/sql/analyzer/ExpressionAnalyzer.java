@@ -722,8 +722,7 @@ public class ExpressionAnalyzer
                             throw semanticException(COLUMN_NOT_FOUND, node, "Column %s prefixed with label %s cannot be resolved", unlabeledName, label);
                         }
                         Identifier unlabeled = qualifiedName.getOriginalParts().get(1);
-                        Optional<ResolvedField> resolvedField = context.getContext().getScope().tryResolveField(node, unlabeledName);
-                        if (resolvedField.isEmpty()) {
+                        if (context.getContext().getScope().tryResolveField(node, unlabeledName).isEmpty()) {
                             throw semanticException(COLUMN_NOT_FOUND, node, "Column %s prefixed with label %s cannot be resolved", unlabeledName, label);
                         }
                         // Correlation is not allowed in pattern recognition context. Visitor's context for pattern recognition has CorrelationSupport.DISALLOWED,
@@ -901,13 +900,8 @@ public class ExpressionAnalyzer
                 Type whenOperandType = process(whenOperand, context);
                 whenOperandTypes.add(whenOperandType);
 
-                Optional<Type> operandCommonType = typeCoercion.getCommonSuperType(commonType, whenOperandType);
-
-                if (operandCommonType.isEmpty()) {
-                    throw semanticException(TYPE_MISMATCH, whenOperand, "CASE operand type does not match WHEN clause operand type: %s vs %s", operandType, whenOperandType);
-                }
-
-                commonType = operandCommonType.get();
+                commonType = typeCoercion.getCommonSuperType(commonType, whenOperandType)
+                        .orElseThrow(() -> semanticException(TYPE_MISMATCH, whenOperand, "CASE operand type does not match WHEN clause operand type: %s vs %s", operandType, whenOperandType));
             }
 
             if (commonType != operandType) {
@@ -1505,10 +1499,8 @@ public class ExpressionAnalyzer
 
         private void analyzeFrameRangeOffset(Expression offsetValue, FrameBound.Type boundType, StackableAstVisitorContext<Context> context, ResolvedWindow window, Node originalNode)
         {
-            if (window.getOrderBy().isEmpty()) {
-                throw semanticException(MISSING_ORDER_BY, originalNode, "Window frame of type RANGE PRECEDING or FOLLOWING requires ORDER BY");
-            }
-            OrderBy orderBy = window.getOrderBy().get();
+            OrderBy orderBy = window.getOrderBy()
+                    .orElseThrow(() -> semanticException(MISSING_ORDER_BY, originalNode, "Window frame of type RANGE PRECEDING or FOLLOWING requires ORDER BY"));
             if (orderBy.getSortItems().size() != 1) {
                 throw semanticException(INVALID_ORDER_BY, orderBy, "Window frame of type RANGE PRECEDING or FOLLOWING requires single sort item in ORDER BY (actual: %s)", orderBy.getSortItems().size());
             }

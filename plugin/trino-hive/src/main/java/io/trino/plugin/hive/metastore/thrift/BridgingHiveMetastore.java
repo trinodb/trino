@@ -216,11 +216,8 @@ public class BridgingHiveMetastore
     @Override
     public void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName)
     {
-        Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(databaseName, tableName);
-        if (source.isEmpty()) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-        }
-        org.apache.hadoop.hive.metastore.api.Table table = source.get();
+        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         table.setDbName(newDatabaseName);
         table.setTableName(newTableName);
         alterTable(databaseName, tableName, table);
@@ -229,11 +226,8 @@ public class BridgingHiveMetastore
     @Override
     public void commentTable(String databaseName, String tableName, Optional<String> comment)
     {
-        Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(databaseName, tableName);
-        if (source.isEmpty()) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-        }
-        org.apache.hadoop.hive.metastore.api.Table table = source.get();
+        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
 
         Map<String, String> parameters = table.getParameters().entrySet().stream()
                 .filter(entry -> !entry.getKey().equals(TABLE_COMMENT))
@@ -265,11 +259,8 @@ public class BridgingHiveMetastore
     @Override
     public void commentColumn(String databaseName, String tableName, String columnName, Optional<String> comment)
     {
-        Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(databaseName, tableName);
-        if (source.isEmpty()) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-        }
-        org.apache.hadoop.hive.metastore.api.Table table = source.get();
+        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
 
         for (FieldSchema fieldSchema : table.getSd().getCols()) {
             if (fieldSchema.getName().equals(columnName)) {
@@ -288,11 +279,8 @@ public class BridgingHiveMetastore
     @Override
     public void addColumn(String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
-        Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(databaseName, tableName);
-        if (source.isEmpty()) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-        }
-        org.apache.hadoop.hive.metastore.api.Table table = source.get();
+        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         table.getSd().getCols().add(
                 new FieldSchema(columnName, columnType.getHiveTypeName().toString(), columnComment));
         alterTable(databaseName, tableName, table);
@@ -301,11 +289,8 @@ public class BridgingHiveMetastore
     @Override
     public void renameColumn(String databaseName, String tableName, String oldColumnName, String newColumnName)
     {
-        Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(databaseName, tableName);
-        if (source.isEmpty()) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-        }
-        org.apache.hadoop.hive.metastore.api.Table table = source.get();
+        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         for (FieldSchema fieldSchema : table.getPartitionKeys()) {
             if (fieldSchema.getName().equals(oldColumnName)) {
                 throw new TrinoException(NOT_SUPPORTED, "Renaming partition columns is not supported");

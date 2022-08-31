@@ -262,11 +262,8 @@ public class HiveWriterFactory
             writePath = writeInfo.getWritePath();
         }
         else {
-            Optional<Table> table = pageSinkMetadataProvider.getTable();
-            if (table.isEmpty()) {
-                throw new TrinoException(HIVE_INVALID_METADATA, format("Table '%s.%s' was dropped during insert", schemaName, tableName));
-            }
-            this.table = table.get();
+            this.table = pageSinkMetadataProvider.getTable()
+                    .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, format("Table '%s.%s' was dropped during insert", schemaName, tableName)));
             writePath = locationService.getQueryWriteInfo(locationHandle).getWritePath();
         }
 

@@ -417,11 +417,9 @@ public class CassandraMetadata
     public OptionalLong executeDelete(ConnectorSession session, ConnectorTableHandle deleteHandle)
     {
         CassandraTableHandle handle = (CassandraTableHandle) deleteHandle;
-        Optional<List<CassandraPartition>> partitions = handle.getPartitions();
+        List<CassandraPartition> partitions = handle.getPartitions()
+                .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Deleting without partition key is not supported"));
         if (partitions.isEmpty()) {
-            throw new TrinoException(NOT_SUPPORTED, "Deleting without partition key is not supported");
-        }
-        if (partitions.get().isEmpty()) {
             // there are no records of a given partition key
             return OptionalLong.empty();
         }

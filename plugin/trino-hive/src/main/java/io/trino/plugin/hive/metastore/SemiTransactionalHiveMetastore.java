@@ -702,19 +702,17 @@ public class SemiTransactionalHiveMetastore
     public synchronized void truncateUnpartitionedTable(ConnectorSession session, String databaseName, String tableName)
     {
         checkReadable();
-        Optional<Table> table = getTable(databaseName, tableName);
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
-        if (table.isEmpty()) {
-            throw new TableNotFoundException(schemaTableName);
-        }
-        if (!table.get().getTableType().equals(MANAGED_TABLE.toString())) {
+        Table table = getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(schemaTableName));
+        if (!table.getTableType().equals(MANAGED_TABLE.toString())) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot delete from non-managed Hive table");
         }
-        if (!table.get().getPartitionColumns().isEmpty()) {
+        if (!table.getPartitionColumns().isEmpty()) {
             throw new IllegalArgumentException("Table is partitioned");
         }
 
-        Path path = new Path(table.get().getStorage().getLocation());
+        Path path = new Path(table.getStorage().getLocation());
         HdfsContext context = new HdfsContext(session);
         setExclusive((delegate, hdfsEnvironment) -> {
             RecursiveDeleteResult recursiveDeleteResult = recursiveDeleteFiles(hdfsEnvironment, context, path, ImmutableSet.of(""), false);
@@ -926,11 +924,8 @@ public class SemiTransactionalHiveMetastore
                 partitionNames = ImmutableList.of();
                 break;
             case PRE_EXISTING_TABLE:
-                Optional<List<String>> partitionNameResult = delegate.getPartitionNamesByFilter(databaseName, tableName, columnNames, partitionKeysFilter);
-                if (partitionNameResult.isEmpty()) {
-                    throw new TrinoException(TRANSACTION_CONFLICT, format("Table '%s.%s' was dropped by another transaction", databaseName, tableName));
-                }
-                partitionNames = partitionNameResult.get();
+                partitionNames = delegate.getPartitionNamesByFilter(databaseName, tableName, columnNames, partitionKeysFilter)
+                        .orElseThrow(() -> new TrinoException(TRANSACTION_CONFLICT, format("Table '%s.%s' was dropped by another transaction", databaseName, tableName)));
                 break;
             default:
                 throw new UnsupportedOperationException("Unknown table source");
@@ -2025,15 +2020,13 @@ public class SemiTransactionalHiveMetastore
             Partition partition = partitionAndMore.getPartition();
             partitionsToInvalidate.add(partition);
             String targetLocation = partition.getStorage().getLocation();
-            Optional<Partition> oldPartition = delegate.getPartition(partition.getDatabaseName(), partition.getTableName(), partition.getValues());
-            if (oldPartition.isEmpty()) {
-                throw new TrinoException(
-                        TRANSACTION_CONFLICT,
-                        format("The partition that this transaction modified was deleted in another transaction. %s %s", partition.getTableName(), partition.getValues()));
-            }
+            Partition oldPartition = delegate.getPartition(partition.getDatabaseName(), partition.getTableName(), partition.getValues())
+                    .orElseThrow(() -> new TrinoException(
+                            TRANSACTION_CONFLICT,
+                            format("The partition that this transaction modified was deleted in another transaction. %s %s", partition.getTableName(), partition.getValues())));
             String partitionName = getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues());
             PartitionStatistics oldPartitionStatistics = getExistingPartitionStatistics(partition, partitionName);
-            String oldPartitionLocation = oldPartition.get().getStorage().getLocation();
+            String oldPartitionLocation = oldPartition.getStorage().getLocation();
             Path oldPartitionPath = new Path(oldPartitionLocation);
 
             cleanExtraOutputFiles(hdfsContext, queryId, partitionAndMore);
@@ -2077,7 +2070,7 @@ public class SemiTransactionalHiveMetastore
             // because metadata might change: e.g. storage format, column types, etc
             alterPartitionOperations.add(new AlterPartitionOperation(
                     new PartitionWithStatistics(partition, partitionName, partitionAndMore.getStatisticsUpdate()),
-                    new PartitionWithStatistics(oldPartition.get(), partitionName, oldPartitionStatistics)));
+                    new PartitionWithStatistics(oldPartition, partitionName, oldPartitionStatistics)));
         }
 
         private void cleanExtraOutputFiles(HdfsContext hdfsContext, String queryId, PartitionAndMore partitionAndMore)
