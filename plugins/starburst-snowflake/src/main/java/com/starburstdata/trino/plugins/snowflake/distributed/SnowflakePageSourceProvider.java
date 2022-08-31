@@ -9,6 +9,7 @@
  */
 package com.starburstdata.trino.plugins.snowflake.distributed;
 
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
@@ -60,14 +61,16 @@ import static java.util.function.Function.identity;
 public class SnowflakePageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final FileFormatDataSourceStats stats;
     private final ParquetReaderConfig parquetReaderConfig;
     // TODO should there be a config for this
     private final DateTimeZone parquetTimeZone = DateTimeZone.forID("UTC");
 
     @Inject
-    public SnowflakePageSourceProvider(FileFormatDataSourceStats stats, SnowflakeDistributedConfig config)
+    public SnowflakePageSourceProvider(TrinoFileSystemFactory fileSystemFactory, FileFormatDataSourceStats stats, SnowflakeDistributedConfig config)
     {
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.parquetReaderConfig = new ParquetReaderConfig().setMaxReadBlockSize(config.getParquetMaxReadBlockSize())
                 .setUseColumnIndex(config.isUseColumnIndex());
@@ -135,16 +138,12 @@ public class SnowflakePageSourceProvider
         }
 
         ReaderPageSource pageSource = ParquetPageSourceFactory.createPageSource(
-                path,
+                fileSystemFactory.create(session).newInputFile(snowflakeSplit.getPath(), unpaddedFileSize),
                 snowflakeSplit.getStart(),
                 snowflakeSplit.getLength(),
-                unpaddedFileSize,
                 transformedColumns,
                 filePredicate,
                 true,
-                hdfsEnvironment,
-                configuration,
-                session.getIdentity(),
                 parquetTimeZone,
                 stats,
                 parquetReaderConfig.toParquetReaderOptions()
