@@ -29,6 +29,8 @@ import io.trino.spi.connector.JoinApplicationResult;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.expression.Call;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
@@ -51,6 +53,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.expression.StandardFunctions.MULTIPLY_FUNCTION_NAME;
 import static io.trino.spi.predicate.Domain.onlyNull;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -143,7 +146,7 @@ public class TestPushJoinIntoTableScan
                     false));
         });
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
-            ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getMetadata()))
+            ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getPlannerContext(), ruleTester.getTypeAnalyzer()))
                     .on(p -> {
                         Symbol columnA1Symbol = p.symbol(COLUMN_A1);
                         Symbol columnA2Symbol = p.symbol(COLUMN_A2);
@@ -221,15 +224,33 @@ public class TestPushJoinIntoTableScan
         };
     }
 
+    /**
+     * Test a scenario where join condition cannot be represented with simple comparisons.
+     */
     @Test
-    public void testPushJoinIntoTableScanDoesNotTriggerWithUnsupportedFilter()
+    public void testPushJoinIntoTableScanWithComplexFilter()
     {
         MockConnectorFactory connectorFactory = createMockConnectorFactory(
                 (session, applyJoinType, left, right, joinConditions, leftAssignments, rightAssignments) -> {
-                    throw new IllegalStateException("applyJoin should not be called!");
+                    assertThat(joinConditions).as("joinConditions")
+                            .isEqualTo(List.of(
+                                    new JoinCondition(
+                                            JoinCondition.Operator.GREATER_THAN,
+                                            new Call(
+                                                    BIGINT,
+                                                    MULTIPLY_FUNCTION_NAME,
+                                                    List.of(
+                                                            new Constant(44L, BIGINT),
+                                                            new Variable("columna1", BIGINT))),
+                                            new Variable("columnb1", BIGINT))));
+                    return Optional.of(new JoinApplicationResult<>(
+                            JOIN_CONNECTOR_TABLE_HANDLE,
+                            JOIN_TABLE_A_COLUMN_MAPPING,
+                            JOIN_TABLE_B_COLUMN_MAPPING,
+                            false));
                 });
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
-            ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getMetadata()))
+            ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getPlannerContext(), ruleTester.getTypeAnalyzer()))
                     .on(p -> {
                         Symbol columnA1Symbol = p.symbol(COLUMN_A1);
                         Symbol columnA2Symbol = p.symbol(COLUMN_A2);
@@ -255,7 +276,9 @@ public class TestPushJoinIntoTableScan
                                         columnB1Symbol.toSymbolReference()));
                     })
                     .withSession(MOCK_SESSION)
-                    .doesNotFire();
+                    .matches(
+                            project(
+                                    tableScan(JOIN_PUSHDOWN_SCHEMA_TABLE_NAME.getTableName())));
         }
     }
 
@@ -270,7 +293,7 @@ public class TestPushJoinIntoTableScan
             ruleTester.getQueryRunner().createCatalog("another_catalog", "mock", ImmutableMap.of());
             TableHandle tableBHandleAnotherCatalog = createTableHandle(new MockConnectorTableHandle(new SchemaTableName(SCHEMA, TABLE_B)), createTestCatalogHandle("another_catalog"));
 
-            ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getMetadata()))
+            ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getPlannerContext(), ruleTester.getTypeAnalyzer()))
                     .on(p -> {
                         Symbol columnA1Symbol = p.symbol(COLUMN_A1);
                         Symbol columnA2Symbol = p.symbol(COLUMN_A2);
@@ -309,7 +332,7 @@ public class TestPushJoinIntoTableScan
                     throw new IllegalStateException("applyJoin should not be called!");
                 });
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
-            ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getMetadata()))
+            ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getPlannerContext(), ruleTester.getTypeAnalyzer()))
                     .on(p -> {
                         Symbol columnA1Symbol = p.symbol(COLUMN_A1);
                         Symbol columnA2Symbol = p.symbol(COLUMN_A2);
@@ -348,7 +371,7 @@ public class TestPushJoinIntoTableScan
                     throw new IllegalStateException("applyJoin should not be called!");
                 });
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
-            ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getMetadata()))
+            ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getPlannerContext(), ruleTester.getTypeAnalyzer()))
                     .on(p -> {
                         Symbol columnA1Symbol = p.symbol(COLUMN_A1);
                         Symbol columnA2Symbol = p.symbol(COLUMN_A2);
@@ -384,7 +407,7 @@ public class TestPushJoinIntoTableScan
                 JOIN_TABLE_B_COLUMN_MAPPING,
                 false)));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
-            ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getMetadata()))
+            ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getPlannerContext(), ruleTester.getTypeAnalyzer()))
                     .on(p -> {
                         Symbol columnA1Symbol = p.symbol(COLUMN_A1);
                         Symbol columnA2Symbol = p.symbol(COLUMN_A2);
@@ -485,7 +508,7 @@ public class TestPushJoinIntoTableScan
                     throw new IllegalStateException("applyJoin should not be called!");
                 });
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
-            ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getMetadata()))
+            ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getPlannerContext(), ruleTester.getTypeAnalyzer()))
                     .on(p -> {
                         Symbol columnA1Symbol = p.symbol(COLUMN_A1);
                         Symbol columnA2Symbol = p.symbol(COLUMN_A2);
@@ -524,7 +547,7 @@ public class TestPushJoinIntoTableScan
                 false)));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
             assertThatThrownBy(() -> {
-                ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getMetadata()))
+                ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getPlannerContext(), ruleTester.getTypeAnalyzer()))
                         .on(p -> {
                             Symbol columnA1Symbol = p.symbol(COLUMN_A1);
                             Symbol columnA2Symbol = p.symbol(COLUMN_A2);
