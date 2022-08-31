@@ -126,9 +126,8 @@ public final class HttpRemoteTask
     private final DynamicFiltersFetcher dynamicFiltersFetcher;
 
     private final DynamicFiltersCollector outboundDynamicFiltersCollector;
-    @GuardedBy("this")
     // The version of dynamic filters that has been successfully sent to the worker
-    private long sentDynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
+    private final AtomicLong sentDynamicFiltersVersion = new AtomicLong(INITIAL_DYNAMIC_FILTERS_VERSION);
 
     @GuardedBy("this")
     private Future<?> currentRequest;
@@ -607,7 +606,7 @@ public final class HttpRemoteTask
             }
 
             List<SplitAssignment> splitAssignments = getSplitAssignments();
-            VersionedDynamicFilterDomains dynamicFilterDomains = outboundDynamicFiltersCollector.acknowledgeAndGetNewDomains(sentDynamicFiltersVersion);
+            VersionedDynamicFilterDomains dynamicFilterDomains = outboundDynamicFiltersCollector.acknowledgeAndGetNewDomains(sentDynamicFiltersVersion.get());
 
             // Workers don't need the embedded JSON representation when the fragment is sent
             Optional<PlanFragment> fragment = sendPlan.get() ? Optional.of(planFragment.withoutEmbeddedJsonRepresentation()) : Optional.empty();
@@ -918,15 +917,15 @@ public final class HttpRemoteTask
         {
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 try {
+                    sentDynamicFiltersVersion.set(currentRequestDynamicFiltersVersion);
+                    // Remove dynamic filters which were successfully sent to free up memory
+                    outboundDynamicFiltersCollector.acknowledge(currentRequestDynamicFiltersVersion);
                     long currentRequestStartNanos;
                     synchronized (HttpRemoteTask.this) {
                         currentRequest = null;
                         sendPlan.set(value.isNeedsPlan());
                         currentRequestStartNanos = HttpRemoteTask.this.currentRequestStartNanos;
-                        sentDynamicFiltersVersion = currentRequestDynamicFiltersVersion;
                     }
-                    // Remove dynamic filters which were successfully sent to free up memory
-                    outboundDynamicFiltersCollector.acknowledge(currentRequestDynamicFiltersVersion);
                     updateStats(currentRequestStartNanos);
                     processTaskUpdate(value, splitAssignments);
                     updateErrorTracker.requestSucceeded();
