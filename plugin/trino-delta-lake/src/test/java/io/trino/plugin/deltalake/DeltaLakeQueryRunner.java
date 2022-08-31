@@ -103,7 +103,7 @@ public final class DeltaLakeQueryRunner
 
                 queryRunner.installPlugin(new TestingDeltaLakePlugin());
                 Map<String, String> deltaProperties = new HashMap<>(this.deltaProperties.buildOrThrow());
-                if (!deltaProperties.containsKey("hive.metastore.uri")) {
+                if (!deltaProperties.containsKey("hive.metastore") && !deltaProperties.containsKey("hive.metastore.uri")) {
                     Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve(DELTA_CATALOG);
                     deltaProperties.put("hive.metastore", "file");
                     deltaProperties.put("hive.metastore.catalog.dir", dataDir.toUri().toString());
@@ -135,7 +135,7 @@ public final class DeltaLakeQueryRunner
                 .setDeltaProperties(connectorProperties)
                 .build();
 
-        queryRunner.execute("CREATE SCHEMA tpch");
+        queryRunner.execute("CREATE SCHEMA IF NOT EXISTS tpch");
 
         return queryRunner;
     }
@@ -299,6 +299,24 @@ public final class DeltaLakeQueryRunner
 
             Thread.sleep(10);
             Logger log = Logger.get(DeltaLakeQueryRunner.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
+    public static class DeltaLakeGlueQueryRunnerMain
+    {
+        public static void main(String[] args)
+                throws Exception
+        {
+            // Requires AWS credentials, which can be provided any way supported by the DefaultProviderChain
+            // See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
+            DistributedQueryRunner queryRunner = createDeltaLakeQueryRunner(
+                    DELTA_CATALOG,
+                    ImmutableMap.of("http-server.http.port", "8080"),
+                    ImmutableMap.of("hive.metastore", "glue"));
+
+            Logger log = Logger.get(DeltaLakeGlueQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
