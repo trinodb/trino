@@ -134,41 +134,27 @@ public final class ConnectorExpressionTranslator
     @VisibleForTesting
     static FunctionName functionNameForComparisonOperator(ComparisonExpression.Operator operator)
     {
-        switch (operator) {
-            case EQUAL:
-                return EQUAL_OPERATOR_FUNCTION_NAME;
-            case NOT_EQUAL:
-                return NOT_EQUAL_OPERATOR_FUNCTION_NAME;
-            case LESS_THAN:
-                return LESS_THAN_OPERATOR_FUNCTION_NAME;
-            case LESS_THAN_OR_EQUAL:
-                return LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
-            case GREATER_THAN:
-                return GREATER_THAN_OPERATOR_FUNCTION_NAME;
-            case GREATER_THAN_OR_EQUAL:
-                return GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
-            case IS_DISTINCT_FROM:
-                return IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME;
-        }
-        throw new UnsupportedOperationException("Unsupported operator: " + operator);
+        return switch (operator) {
+            case EQUAL -> EQUAL_OPERATOR_FUNCTION_NAME;
+            case NOT_EQUAL -> NOT_EQUAL_OPERATOR_FUNCTION_NAME;
+            case LESS_THAN -> LESS_THAN_OPERATOR_FUNCTION_NAME;
+            case LESS_THAN_OR_EQUAL -> LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
+            case GREATER_THAN -> GREATER_THAN_OPERATOR_FUNCTION_NAME;
+            case GREATER_THAN_OR_EQUAL -> GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
+            case IS_DISTINCT_FROM -> IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME;
+        };
     }
 
     @VisibleForTesting
     static FunctionName functionNameForArithmeticBinaryOperator(ArithmeticBinaryExpression.Operator operator)
     {
-        switch (operator) {
-            case ADD:
-                return ADD_FUNCTION_NAME;
-            case SUBTRACT:
-                return SUBTRACT_FUNCTION_NAME;
-            case MULTIPLY:
-                return MULTIPLY_FUNCTION_NAME;
-            case DIVIDE:
-                return DIVIDE_FUNCTION_NAME;
-            case MODULUS:
-                return MODULUS_FUNCTION_NAME;
-        }
-        throw new UnsupportedOperationException("Unsupported operator: " + operator);
+        return switch (operator) {
+            case ADD -> ADD_FUNCTION_NAME;
+            case SUBTRACT -> SUBTRACT_FUNCTION_NAME;
+            case MULTIPLY -> MULTIPLY_FUNCTION_NAME;
+            case DIVIDE -> DIVIDE_FUNCTION_NAME;
+            case MODULUS -> MODULUS_FUNCTION_NAME;
+        };
     }
 
     private static class ConnectorToSqlExpressionTranslator
@@ -267,14 +253,11 @@ public final class ConnectorExpressionTranslator
             }
 
             if (LIKE_PATTERN_FUNCTION_NAME.equals(call.getFunctionName())) {
-                switch (call.getArguments().size()) {
-                    case 2:
-                        return translateLike(call.getArguments().get(0), call.getArguments().get(1), Optional.empty());
-                    case 3:
-                        return translateLike(call.getArguments().get(0), call.getArguments().get(1), Optional.of(call.getArguments().get(2)));
-                    default:
-                        return Optional.empty();
-                }
+                return switch (call.getArguments().size()) {
+                    case 2 -> translateLike(call.getArguments().get(0), call.getArguments().get(1), Optional.empty());
+                    case 3 -> translateLike(call.getArguments().get(0), call.getArguments().get(1), Optional.of(call.getArguments().get(2)));
+                    default -> Optional.empty();
+                };
             }
 
             if (IN_PREDICATE_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 2) {
@@ -582,13 +565,10 @@ public final class ConnectorExpressionTranslator
                 }
                 arguments.add(translated.get());
             }
-            switch (node.getOperator()) {
-                case AND:
-                    return Optional.of(new Call(BOOLEAN, AND_FUNCTION_NAME, arguments.build()));
-                case OR:
-                    return Optional.of(new Call(BOOLEAN, OR_FUNCTION_NAME, arguments.build()));
-            }
-            throw new UnsupportedOperationException("Unsupported operator: " + node.getOperator());
+            return switch (node.getOperator()) {
+                case AND -> Optional.of(new Call(BOOLEAN, AND_FUNCTION_NAME, arguments.build()));
+                case OR -> Optional.of(new Call(BOOLEAN, OR_FUNCTION_NAME, arguments.build()));
+            };
         }
 
         @Override
@@ -635,13 +615,10 @@ public final class ConnectorExpressionTranslator
             if (!isComplexExpressionPushdown(session)) {
                 return Optional.empty();
             }
-            switch (node.getSign()) {
-                case PLUS:
-                    return process(node.getValue());
-                case MINUS:
-                    return process(node.getValue()).map(value -> new Call(typeOf(node), NEGATE_FUNCTION_NAME, ImmutableList.of(value)));
-            }
-            throw new UnsupportedOperationException("Unsupported sign: " + node.getSign());
+            return switch (node.getSign()) {
+                case PLUS -> process(node.getValue());
+                case MINUS -> process(node.getValue()).map(value -> new Call(typeOf(node), NEGATE_FUNCTION_NAME, ImmutableList.of(value)));
+            };
         }
 
         @Override

@@ -325,37 +325,24 @@ public class PushJoinIntoTableScan
 
     private JoinCondition.Operator joinConditionOperator(ComparisonExpression.Operator operator)
     {
-        switch (operator) {
-            case EQUAL:
-                return JoinCondition.Operator.EQUAL;
-            case NOT_EQUAL:
-                return JoinCondition.Operator.NOT_EQUAL;
-            case LESS_THAN:
-                return JoinCondition.Operator.LESS_THAN;
-            case LESS_THAN_OR_EQUAL:
-                return JoinCondition.Operator.LESS_THAN_OR_EQUAL;
-            case GREATER_THAN:
-                return JoinCondition.Operator.GREATER_THAN;
-            case GREATER_THAN_OR_EQUAL:
-                return JoinCondition.Operator.GREATER_THAN_OR_EQUAL;
-            case IS_DISTINCT_FROM:
-                return JoinCondition.Operator.IS_DISTINCT_FROM;
-        }
-        throw new IllegalArgumentException("Unknown operator: " + operator);
+        return switch (operator) {
+            case EQUAL -> JoinCondition.Operator.EQUAL;
+            case NOT_EQUAL -> JoinCondition.Operator.NOT_EQUAL;
+            case LESS_THAN -> JoinCondition.Operator.LESS_THAN;
+            case LESS_THAN_OR_EQUAL -> JoinCondition.Operator.LESS_THAN_OR_EQUAL;
+            case GREATER_THAN -> JoinCondition.Operator.GREATER_THAN;
+            case GREATER_THAN_OR_EQUAL -> JoinCondition.Operator.GREATER_THAN_OR_EQUAL;
+            case IS_DISTINCT_FROM -> JoinCondition.Operator.IS_DISTINCT_FROM;
+        };
     }
 
     private JoinType getJoinType(JoinNode joinNode)
     {
-        switch (joinNode.getType()) {
-            case INNER:
-                return JoinType.INNER;
-            case LEFT:
-                return JoinType.LEFT_OUTER;
-            case RIGHT:
-                return JoinType.RIGHT_OUTER;
-            case FULL:
-                return JoinType.FULL_OUTER;
-        }
-        throw new IllegalArgumentException("Unknown join type: " + joinNode.getType());
+        return switch (joinNode.getType()) {
+            case INNER -> JoinType.INNER;
+            case LEFT -> JoinType.LEFT_OUTER;
+            case RIGHT -> JoinType.RIGHT_OUTER;
+            case FULL -> JoinType.FULL_OUTER;
+        };
     }
 }

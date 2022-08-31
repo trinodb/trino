@@ -261,21 +261,20 @@ public class SplitSourceFactory
         @Override
         public Map<PlanNodeId, SplitSource> visitSample(SampleNode node, Void context)
         {
-            switch (node.getSampleType()) {
-                case BERNOULLI:
-                    return node.getSource().accept(this, context);
-                case SYSTEM:
+            return switch (node.getSampleType()) {
+                case BERNOULLI -> node.getSource().accept(this, context);
+                case SYSTEM -> {
                     Map<PlanNodeId, SplitSource> nodeSplits = node.getSource().accept(this, context);
                     // TODO: when this happens we should switch to either BERNOULLI or page sampling
                     if (nodeSplits.size() == 1) {
                         PlanNodeId planNodeId = getOnlyElement(nodeSplits.keySet());
                         SplitSource sampledSplitSource = new SampledSplitSource(nodeSplits.get(planNodeId), node.getSampleRatio());
-                        return ImmutableMap.of(planNodeId, sampledSplitSource);
+                        yield ImmutableMap.of(planNodeId, sampledSplitSource);
                     }
                     // table sampling on a sub query without splits is meaningless
-                    return nodeSplits;
-            }
-            throw new UnsupportedOperationException("Sampling is not supported for type " + node.getSampleType());
+                    yield nodeSplits;
+                }
+            };
         }
 
         @Override

@@ -1842,12 +1842,9 @@ class StatementAnalyzer
 
             if (addRowIdColumn) {
                 // Add the row id field
-                ColumnHandle rowIdColumnHandle;
-                switch (updateKind.get()) {
-                    case DELETE:
-                        rowIdColumnHandle = metadata.getDeleteRowIdColumnHandle(session, tableHandle.get());
-                        break;
-                    case UPDATE:
+                ColumnHandle rowIdColumnHandle = switch (updateKind.get()) {
+                    case DELETE -> metadata.getDeleteRowIdColumnHandle(session, tableHandle.get());
+                    case UPDATE -> {
                         List<ColumnSchema> updatedColumnMetadata = analysis.getUpdatedColumns()
                                 .orElseThrow(() -> new VerifyException("updated columns not set"));
                         Set<String> updatedColumnNames = updatedColumnMetadata.stream()
@@ -1857,14 +1854,10 @@ class StatementAnalyzer
                                 .filter(entry -> updatedColumnNames.contains(entry.getKey()))
                                 .map(Map.Entry::getValue)
                                 .collect(toImmutableList());
-                        rowIdColumnHandle = metadata.getUpdateRowIdColumnHandle(session, tableHandle.get(), updatedColumns);
-                        break;
-                    case MERGE:
-                        rowIdColumnHandle = metadata.getMergeRowIdColumnHandle(session, tableHandle.get());
-                        break;
-                    default:
-                        throw new UnsupportedOperationException("Unknown UpdateKind " + updateKind.get());
-                }
+                        yield metadata.getUpdateRowIdColumnHandle(session, tableHandle.get(), updatedColumns);
+                    }
+                    case MERGE -> metadata.getMergeRowIdColumnHandle(session, tableHandle.get());
+                };
 
                 Type type = metadata.getColumnMetadata(session, tableHandle.get(), rowIdColumnHandle).getType();
                 Field field = Field.newUnqualified(Optional.empty(), type);
@@ -4903,13 +4896,10 @@ class StatementAnalyzer
 
         private PointerType toPointerType(QueryPeriod.RangeType type)
         {
-            switch (type) {
-                case TIMESTAMP:
-                    return PointerType.TEMPORAL;
-                case VERSION:
-                    return PointerType.TARGET_ID;
-            }
-            throw new UnsupportedOperationException("Unsupported range type: " + type);
+            return switch (type) {
+                case TIMESTAMP -> PointerType.TEMPORAL;
+                case VERSION -> PointerType.TARGET_ID;
+            };
         }
 
         private Object coerce(Type sourceType, Object value, Type targetType)

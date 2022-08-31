@@ -618,29 +618,31 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitCurrentTime(CurrentTime node, StackableAstVisitorContext<Context> context)
         {
-            switch (node.getFunction()) {
-                case DATE:
+            return switch (node.getFunction()) {
+                case DATE -> {
                     checkArgument(node.getPrecision() == null);
-                    return setExpressionType(node, DATE);
-                case TIME:
+                    yield setExpressionType(node, DATE);
+                }
+                case TIME -> {
                     if (node.getPrecision() != null) {
-                        return setExpressionType(node, createTimeWithTimeZoneType(node.getPrecision()));
+                        yield setExpressionType(node, createTimeWithTimeZoneType(node.getPrecision()));
                     }
-                    return setExpressionType(node, TIME_WITH_TIME_ZONE);
-                case LOCALTIME:
+                    yield setExpressionType(node, TIME_WITH_TIME_ZONE);
+                }
+                case LOCALTIME -> {
                     if (node.getPrecision() != null) {
-                        return setExpressionType(node, createTimeType(node.getPrecision()));
+                        yield setExpressionType(node, createTimeType(node.getPrecision()));
                     }
-                    return setExpressionType(node, TIME);
-                case TIMESTAMP:
-                    return setExpressionType(node, createTimestampWithTimeZoneType(firstNonNull(node.getPrecision(), TimestampWithTimeZoneType.DEFAULT_PRECISION)));
-                case LOCALTIMESTAMP:
+                    yield setExpressionType(node, TIME);
+                }
+                case TIMESTAMP -> setExpressionType(node, createTimestampWithTimeZoneType(firstNonNull(node.getPrecision(), TimestampWithTimeZoneType.DEFAULT_PRECISION)));
+                case LOCALTIMESTAMP -> {
                     if (node.getPrecision() != null) {
-                        return setExpressionType(node, createTimestampType(node.getPrecision()));
+                        yield setExpressionType(node, createTimestampType(node.getPrecision()));
                     }
-                    return setExpressionType(node, TIMESTAMP_MILLIS);
-            }
-            throw semanticException(NOT_SUPPORTED, node, "%s not yet supported", node.getFunction().getName());
+                    yield setExpressionType(node, TIMESTAMP_MILLIS);
+                }
+            };
         }
 
         @Override
@@ -793,26 +795,13 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitComparisonExpression(ComparisonExpression node, StackableAstVisitorContext<Context> context)
         {
-            OperatorType operatorType;
-            switch (node.getOperator()) {
-                case EQUAL:
-                case NOT_EQUAL:
-                    operatorType = OperatorType.EQUAL;
-                    break;
-                case LESS_THAN:
-                case GREATER_THAN:
-                    operatorType = OperatorType.LESS_THAN;
-                    break;
-                case LESS_THAN_OR_EQUAL:
-                case GREATER_THAN_OR_EQUAL:
-                    operatorType = OperatorType.LESS_THAN_OR_EQUAL;
-                    break;
-                case IS_DISTINCT_FROM:
-                    operatorType = OperatorType.IS_DISTINCT_FROM;
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unsupported comparison operator: " + node.getOperator());
-            }
+            OperatorType operatorType = switch (node.getOperator()) {
+                case EQUAL, NOT_EQUAL -> OperatorType.EQUAL;
+                case LESS_THAN, GREATER_THAN -> OperatorType.LESS_THAN;
+                case LESS_THAN_OR_EQUAL, GREATER_THAN_OR_EQUAL -> OperatorType.LESS_THAN_OR_EQUAL;
+                case IS_DISTINCT_FROM -> OperatorType.IS_DISTINCT_FROM;
+            };
+
             return getOperator(context, node, operatorType, node.getLeft(), node.getRight());
         }
 
@@ -955,8 +944,8 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitArithmeticUnary(ArithmeticUnaryExpression node, StackableAstVisitorContext<Context> context)
         {
-            switch (node.getSign()) {
-                case PLUS:
+            return switch (node.getSign()) {
+                case PLUS -> {
                     Type type = process(node.getValue(), context);
 
                     if (!type.equals(DOUBLE) && !type.equals(REAL) && !type.equals(BIGINT) && !type.equals(INTEGER) && !type.equals(SMALLINT) && !type.equals(TINYINT)) {
@@ -964,12 +953,10 @@ public class ExpressionAnalyzer
                         // that types can chose to implement, or piggyback on the existence of the negation operator
                         throw semanticException(TYPE_MISMATCH, node, "Unary '+' operator cannot by applied to %s type", type);
                     }
-                    return setExpressionType(node, type);
-                case MINUS:
-                    return getOperator(context, node, OperatorType.NEGATION, node.getValue());
-            }
-
-            throw new UnsupportedOperationException("Unsupported unary operator: " + node.getSign());
+                    yield setExpressionType(node, type);
+                }
+                case MINUS -> getOperator(context, node, OperatorType.NEGATION, node.getValue());
+            };
         }
 
         @Override
@@ -1693,11 +1680,8 @@ public class ExpressionAnalyzer
 
             patternRecognitionFunctions.add(NodeRef.of(node));
 
-            switch (name.toUpperCase(ENGLISH)) {
-                case "FIRST":
-                case "LAST":
-                case "PREV":
-                case "NEXT":
+            return switch (name.toUpperCase(ENGLISH)) {
+                case "FIRST", "LAST", "PREV", "NEXT" -> {
                     if (node.getArguments().size() != 1 && node.getArguments().size() != 2) {
                         throw semanticException(INVALID_FUNCTION_ARGUMENT, node, "%s pattern recognition function requires 1 or 2 arguments", node.getName());
                     }
@@ -1721,13 +1705,15 @@ public class ExpressionAnalyzer
 
                     // must run after the argument is processed and labels in the argument are recorded
                     validateNavigationLabelConsistency(node);
-                    return setExpressionType(node, resultType);
-                case "MATCH_NUMBER":
+                    yield setExpressionType(node, resultType);
+                }
+                case "MATCH_NUMBER" -> {
                     if (!node.getArguments().isEmpty()) {
                         throw semanticException(INVALID_FUNCTION_ARGUMENT, node, "MATCH_NUMBER pattern recognition function takes no arguments");
                     }
-                    return setExpressionType(node, BIGINT);
-                case "CLASSIFIER":
+                    yield setExpressionType(node, BIGINT);
+                }
+                case "CLASSIFIER" -> {
                     if (node.getArguments().size() > 1) {
                         throw semanticException(INVALID_FUNCTION_ARGUMENT, node, "CLASSIFIER pattern recognition function takes no arguments or 1 argument");
                     }
@@ -1742,10 +1728,10 @@ public class ExpressionAnalyzer
                             throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "%s is not a primary pattern variable or subset name", identifier.getValue());
                         }
                     }
-                    return setExpressionType(node, VARCHAR);
-                default:
-                    throw new IllegalStateException("unexpected pattern recognition function " + node.getName());
-            }
+                    yield setExpressionType(node, VARCHAR);
+                }
+                default -> throw new IllegalStateException("unexpected pattern recognition function " + node.getName());
+            };
         }
 
         private void validateNavigationNesting(FunctionCall node)
@@ -1822,8 +1808,8 @@ public class ExpressionAnalyzer
             String name = node.getName().getSuffix();
 
             List<Expression> unlabeledInputColumns = Streams.concat(
-                    extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), Identifier.class).stream(),
-                    extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), DereferenceExpression.class).stream())
+                            extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), Identifier.class).stream(),
+                            extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), DereferenceExpression.class).stream())
                     .filter(expression -> columnReferences.containsKey(NodeRef.of(expression)))
                     .collect(toImmutableList());
             List<Expression> labeledInputColumns = extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), DereferenceExpression.class).stream()
@@ -2113,8 +2099,7 @@ public class ExpressionAnalyzer
             Extract.Field field = node.getField();
 
             switch (field) {
-                case YEAR:
-                case MONTH:
+                case YEAR, MONTH:
                     if (!(type instanceof DateType) &&
                             !(type instanceof TimestampType) &&
                             !(type instanceof TimestampWithTimeZoneType) &&
@@ -2130,24 +2115,14 @@ public class ExpressionAnalyzer
                         throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
                     }
                     break;
-                case QUARTER:
-                case WEEK:
-                case DAY_OF_MONTH:
-                case DAY_OF_WEEK:
-                case DOW:
-                case DAY_OF_YEAR:
-                case DOY:
-                case YEAR_OF_WEEK:
-                case YOW:
+                case QUARTER, WEEK, DAY_OF_MONTH, DAY_OF_WEEK, DOW, DAY_OF_YEAR, DOY, YEAR_OF_WEEK, YOW:
                     if (!(type instanceof DateType) &&
                             !(type instanceof TimestampType) &&
                             !(type instanceof TimestampWithTimeZoneType)) {
                         throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
                     }
                     break;
-                case HOUR:
-                case MINUTE:
-                case SECOND:
+                case HOUR, MINUTE, SECOND:
                     if (!(type instanceof TimestampType) &&
                             !(type instanceof TimestampWithTimeZoneType) &&
                             !(type instanceof TimeType) &&
@@ -2156,8 +2131,7 @@ public class ExpressionAnalyzer
                         throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
                     }
                     break;
-                case TIMEZONE_MINUTE:
-                case TIMEZONE_HOUR:
+                case TIMEZONE_MINUTE, TIMEZONE_HOUR:
                     if (!(type instanceof TimestampWithTimeZoneType) && !(type instanceof TimeWithTimeZoneType)) {
                         throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
                     }
@@ -2419,16 +2393,12 @@ public class ExpressionAnalyzer
             Type comparisonType = analyzePredicateWithSubquery(node, declaredValueType, (SubqueryExpression) node.getSubquery(), context);
 
             switch (node.getOperator()) {
-                case LESS_THAN:
-                case LESS_THAN_OR_EQUAL:
-                case GREATER_THAN:
-                case GREATER_THAN_OR_EQUAL:
+                case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL:
                     if (!comparisonType.isOrderable()) {
                         throw semanticException(TYPE_MISMATCH, node, "Type [%s] must be orderable in order to be used in quantified comparison", comparisonType);
                     }
                     break;
-                case EQUAL:
-                case NOT_EQUAL:
+                case EQUAL, NOT_EQUAL:
                     if (!comparisonType.isComparable()) {
                         throw semanticException(TYPE_MISMATCH, node, "Type [%s] must be comparable in order to be used in quantified comparison", comparisonType);
                     }
@@ -2840,31 +2810,23 @@ public class ExpressionAnalyzer
 
         private ResolvedFunction getInputFunction(Type type, JsonFormat format, Node node)
         {
-            QualifiedName name;
-            switch (format) {
-                case JSON:
+            QualifiedName name = switch (format) {
+                case JSON -> {
                     if (UNKNOWN.equals(type) || isCharacterStringType(type)) {
-                        name = QualifiedName.of(VARCHAR_TO_JSON);
+                        yield QualifiedName.of(VARCHAR_TO_JSON);
                     }
                     else if (isStringType(type)) {
-                        name = QualifiedName.of(VARBINARY_TO_JSON);
+                        yield QualifiedName.of(VARBINARY_TO_JSON);
                     }
                     else {
                         throw semanticException(TYPE_MISMATCH, node, format("Cannot read input of type %s as JSON using formatting %s", type, format));
                     }
-                    break;
-                case UTF8:
-                    name = QualifiedName.of(VARBINARY_UTF8_TO_JSON);
-                    break;
-                case UTF16:
-                    name = QualifiedName.of(VARBINARY_UTF16_TO_JSON);
-                    break;
-                case UTF32:
-                    name = QualifiedName.of(VARBINARY_UTF32_TO_JSON);
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unexpected format: " + format);
-            }
+                }
+                case UTF8 -> QualifiedName.of(VARBINARY_UTF8_TO_JSON);
+                case UTF16 -> QualifiedName.of(VARBINARY_UTF16_TO_JSON);
+                case UTF32 -> QualifiedName.of(VARBINARY_UTF32_TO_JSON);
+            };
+
             try {
                 return plannerContext.getMetadata().resolveFunction(session, name, fromTypes(type, BOOLEAN));
             }
@@ -2875,40 +2837,38 @@ public class ExpressionAnalyzer
 
         private ResolvedFunction getOutputFunction(Type type, JsonFormat format, Node node)
         {
-            QualifiedName name;
-            switch (format) {
-                case JSON:
+            QualifiedName name = switch (format) {
+                case JSON -> {
                     if (isCharacterStringType(type)) {
-                        name = QualifiedName.of(JSON_TO_VARCHAR);
+                        yield QualifiedName.of(JSON_TO_VARCHAR);
                     }
                     else if (isStringType(type)) {
-                        name = QualifiedName.of(JSON_TO_VARBINARY);
+                        yield QualifiedName.of(JSON_TO_VARBINARY);
                     }
                     else {
                         throw semanticException(TYPE_MISMATCH, node, format("Cannot output JSON value as %s using formatting %s", type, format));
                     }
-                    break;
-                case UTF8:
+                }
+                case UTF8 -> {
                     if (!VARBINARY.equals(type)) {
                         throw semanticException(TYPE_MISMATCH, node, format("Cannot output JSON value as %s using formatting %s", type, format));
                     }
-                    name = QualifiedName.of(JSON_TO_VARBINARY_UTF8);
-                    break;
-                case UTF16:
+                    yield QualifiedName.of(JSON_TO_VARBINARY_UTF8);
+                }
+                case UTF16 -> {
                     if (!VARBINARY.equals(type)) {
                         throw semanticException(TYPE_MISMATCH, node, format("Cannot output JSON value as %s using formatting %s", type, format));
                     }
-                    name = QualifiedName.of(JSON_TO_VARBINARY_UTF16);
-                    break;
-                case UTF32:
+                    yield QualifiedName.of(JSON_TO_VARBINARY_UTF16);
+                }
+                case UTF32 -> {
                     if (!VARBINARY.equals(type)) {
                         throw semanticException(TYPE_MISMATCH, node, format("Cannot output JSON value as %s using formatting %s", type, format));
                     }
-                    name = QualifiedName.of(JSON_TO_VARBINARY_UTF32);
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unexpected format: " + format);
-            }
+                    yield QualifiedName.of(JSON_TO_VARBINARY_UTF32);
+                }
+            };
+
             try {
                 return plannerContext.getMetadata().resolveFunction(session, name, fromTypes(JSON_2016, TINYINT, BOOLEAN));
             }

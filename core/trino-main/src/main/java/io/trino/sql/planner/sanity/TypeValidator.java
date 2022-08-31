@@ -86,16 +86,14 @@ public final class TypeValidator
                 Symbol symbol = entry.getKey();
                 Aggregation aggregation = entry.getValue();
                 switch (step) {
-                    case SINGLE:
+                    case SINGLE -> {
                         checkSignature(symbol, aggregation.getResolvedFunction().getSignature());
                         checkCall(symbol, aggregation.getResolvedFunction().getSignature(), aggregation.getArguments());
-                        break;
-                    case FINAL:
-                        checkSignature(symbol, aggregation.getResolvedFunction().getSignature());
-                        break;
-                    case PARTIAL:
-                    case INTERMEDIATE:
+                    }
+                    case FINAL -> checkSignature(symbol, aggregation.getResolvedFunction().getSignature());
+                    case PARTIAL, INTERMEDIATE -> {
                         // TODO
+                    }
                 }
             }
 

@@ -172,15 +172,11 @@ public final class MergePartitioningHandle
         {
             Block operationBlock = page.getBlock(0);
             int operation = toIntExact(TINYINT.getLong(operationBlock, position));
-            switch (operation) {
-                case INSERT_OPERATION_NUMBER:
-                    return insertFunction.getPartition(page.getColumns(insertColumns), position);
-                case UPDATE_OPERATION_NUMBER:
-                case DELETE_OPERATION_NUMBER:
-                    return updateFunction.getPartition(page.getColumns(updateColumns), position);
-                default:
-                    throw new VerifyException("Invalid merge operation number: " + operation);
-            }
+            return switch (operation) {
+                case INSERT_OPERATION_NUMBER -> insertFunction.getPartition(page.getColumns(insertColumns), position);
+                case UPDATE_OPERATION_NUMBER, DELETE_OPERATION_NUMBER -> updateFunction.getPartition(page.getColumns(updateColumns), position);
+                default -> throw new VerifyException("Invalid merge operation number: " + operation);
+            };
         }
     }
 }

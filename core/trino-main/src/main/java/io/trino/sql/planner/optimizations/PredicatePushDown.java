@@ -435,7 +435,7 @@ public class PredicatePushDown
             Expression newJoinPredicate;
 
             switch (node.getType()) {
-                case INNER:
+                case INNER -> {
                     InnerJoinPushDownResult innerJoinPushDownResult = processInnerJoin(
                             inheritedPredicate,
                             leftEffectivePredicate,
@@ -447,8 +447,8 @@ public class PredicatePushDown
                     rightPredicate = innerJoinPushDownResult.getRightPredicate();
                     postJoinPredicate = innerJoinPushDownResult.getPostJoinPredicate();
                     newJoinPredicate = innerJoinPushDownResult.getJoinPredicate();
-                    break;
-                case LEFT:
+                }
+                case LEFT -> {
                     OuterJoinPushDownResult leftOuterJoinPushDownResult = processLimitedOuterJoin(
                             inheritedPredicate,
                             leftEffectivePredicate,
@@ -460,8 +460,8 @@ public class PredicatePushDown
                     rightPredicate = leftOuterJoinPushDownResult.getInnerJoinPredicate();
                     postJoinPredicate = leftOuterJoinPushDownResult.getPostJoinPredicate();
                     newJoinPredicate = leftOuterJoinPushDownResult.getJoinPredicate();
-                    break;
-                case RIGHT:
+                }
+                case RIGHT -> {
                     OuterJoinPushDownResult rightOuterJoinPushDownResult = processLimitedOuterJoin(
                             inheritedPredicate,
                             rightEffectivePredicate,
@@ -473,15 +473,14 @@ public class PredicatePushDown
                     rightPredicate = rightOuterJoinPushDownResult.getOuterJoinPredicate();
                     postJoinPredicate = rightOuterJoinPushDownResult.getPostJoinPredicate();
                     newJoinPredicate = rightOuterJoinPushDownResult.getJoinPredicate();
-                    break;
-                case FULL:
+                }
+                case FULL -> {
                     leftPredicate = TRUE_LITERAL;
                     rightPredicate = TRUE_LITERAL;
                     postJoinPredicate = inheritedPredicate;
                     newJoinPredicate = joinPredicate;
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+                }
+                default -> throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
 
             newJoinPredicate = simplifyExpression(newJoinPredicate);
@@ -757,7 +756,7 @@ public class PredicatePushDown
             Expression newJoinPredicate;
 
             switch (node.getType()) {
-                case INNER:
+                case INNER -> {
                     InnerJoinPushDownResult innerJoinPushDownResult = processInnerJoin(
                             inheritedPredicate,
                             leftEffectivePredicate,
@@ -769,8 +768,8 @@ public class PredicatePushDown
                     rightPredicate = innerJoinPushDownResult.getRightPredicate();
                     postJoinPredicate = innerJoinPushDownResult.getPostJoinPredicate();
                     newJoinPredicate = innerJoinPushDownResult.getJoinPredicate();
-                    break;
-                case LEFT:
+                }
+                case LEFT -> {
                     OuterJoinPushDownResult leftOuterJoinPushDownResult = processLimitedOuterJoin(
                             inheritedPredicate,
                             leftEffectivePredicate,
@@ -782,9 +781,8 @@ public class PredicatePushDown
                     rightPredicate = leftOuterJoinPushDownResult.getInnerJoinPredicate();
                     postJoinPredicate = leftOuterJoinPushDownResult.getPostJoinPredicate();
                     newJoinPredicate = leftOuterJoinPushDownResult.getJoinPredicate();
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
+                }
+                default -> throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
             }
 
             newJoinPredicate = simplifyExpression(newJoinPredicate);

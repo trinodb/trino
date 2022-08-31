@@ -751,48 +751,34 @@ public final class DomainTranslator
 
             // Handle orderable types which do not have NaN.
             if (!(type instanceof DoubleType) && !(type instanceof RealType)) {
-                switch (comparisonOperator) {
-                    case EQUAL:
-                        return Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.equal(type, value)), complement), false));
-                    case GREATER_THAN:
-                        return Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.greaterThan(type, value)), complement), false));
-                    case GREATER_THAN_OR_EQUAL:
-                        return Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.greaterThanOrEqual(type, value)), complement), false));
-                    case LESS_THAN:
-                        return Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThan(type, value)), complement), false));
-                    case LESS_THAN_OR_EQUAL:
-                        return Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThanOrEqual(type, value)), complement), false));
-                    case NOT_EQUAL:
-                        return Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThan(type, value), Range.greaterThan(type, value)), complement), false));
-                    case IS_DISTINCT_FROM:
+                return switch (comparisonOperator) {
+                    case EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.equal(type, value)), complement), false));
+                    case GREATER_THAN -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.greaterThan(type, value)), complement), false));
+                    case GREATER_THAN_OR_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.greaterThanOrEqual(type, value)), complement), false));
+                    case LESS_THAN -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThan(type, value)), complement), false));
+                    case LESS_THAN_OR_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThanOrEqual(type, value)), complement), false));
+                    case NOT_EQUAL ->
+                            Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThan(type, value), Range.greaterThan(type, value)), complement), false));
+                    case IS_DISTINCT_FROM ->
                         // Need to potential complement the whole domain for IS_DISTINCT_FROM since it is null-aware
-                        return Optional.of(complementIfNecessary(Domain.create(ValueSet.ofRanges(Range.lessThan(type, value), Range.greaterThan(type, value)), true), complement));
-                }
-                throw new AssertionError("Unhandled operator: " + comparisonOperator);
+                            Optional.of(complementIfNecessary(Domain.create(ValueSet.ofRanges(Range.lessThan(type, value), Range.greaterThan(type, value)), true), complement));
+                };
             }
 
             // Handle comparisons against NaN
             if (isFloatingPointNaN(type, value)) {
-                switch (comparisonOperator) {
-                    case EQUAL:
-                    case GREATER_THAN:
-                    case GREATER_THAN_OR_EQUAL:
-                    case LESS_THAN:
-                    case LESS_THAN_OR_EQUAL:
-                        return Optional.of(Domain.create(complementIfNecessary(ValueSet.none(type), complement), false));
-
-                    case NOT_EQUAL:
-                        return Optional.of(Domain.create(complementIfNecessary(ValueSet.all(type), complement), false));
-
-                    case IS_DISTINCT_FROM:
+                return switch (comparisonOperator) {
+                    case EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL ->
+                            Optional.of(Domain.create(complementIfNecessary(ValueSet.none(type), complement), false));
+                    case NOT_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.all(type), complement), false));
+                    case IS_DISTINCT_FROM ->
                         // The Domain should be "all but NaN". It is currently not supported.
-                        return Optional.empty();
-                }
-                throw new AssertionError("Unhandled operator: " + comparisonOperator);
+                            Optional.empty();
+                };
             }
 
             // Handle comparisons against a non-NaN value when the compared value might be NaN
-            switch (comparisonOperator) {
+            return switch (comparisonOperator) {
                 /*
                  For comparison operators: EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL,
                  the Domain should not contain NaN, but complemented Domain should contain NaN. It is currently not supported.
@@ -802,62 +788,36 @@ public final class DomainTranslator
                  the Domain should consist of ranges (which do not sum to the whole ValueSet), and NaN.
                  Currently, NaN is only included when ValueSet.isAll().
                   */
-                case EQUAL:
-                    if (complement) {
-                        return Optional.empty();
-                    }
-                    return Optional.of(Domain.create(ValueSet.ofRanges(Range.equal(type, value)), false));
-                case GREATER_THAN:
-                    if (complement) {
-                        return Optional.empty();
-                    }
-                    return Optional.of(Domain.create(ValueSet.ofRanges(Range.greaterThan(type, value)), false));
-                case GREATER_THAN_OR_EQUAL:
-                    if (complement) {
-                        return Optional.empty();
-                    }
-                    return Optional.of(Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(type, value)), false));
-                case LESS_THAN:
-                    if (complement) {
-                        return Optional.empty();
-                    }
-                    return Optional.of(Domain.create(ValueSet.ofRanges(Range.lessThan(type, value)), false));
-                case LESS_THAN_OR_EQUAL:
-                    if (complement) {
-                        return Optional.empty();
-                    }
-                    return Optional.of(Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(type, value)), false));
-                case NOT_EQUAL:
-                case IS_DISTINCT_FROM:
-                    if (complement) {
-                        return Optional.of(Domain.create(ValueSet.ofRanges(Range.equal(type, value)), false));
-                    }
-                    return Optional.empty();
-            }
-            throw new AssertionError("Unhandled operator: " + comparisonOperator);
+                case EQUAL -> complement ?
+                        Optional.empty() :
+                        Optional.of(Domain.create(ValueSet.ofRanges(Range.equal(type, value)), false));
+                case GREATER_THAN -> complement ?
+                        Optional.empty() :
+                        Optional.of(Domain.create(ValueSet.ofRanges(Range.greaterThan(type, value)), false));
+                case GREATER_THAN_OR_EQUAL -> complement ?
+                        Optional.empty() :
+                        Optional.of(Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(type, value)), false));
+                case LESS_THAN -> complement ?
+                        Optional.empty() :
+                        Optional.of(Domain.create(ValueSet.ofRanges(Range.lessThan(type, value)), false));
+                case LESS_THAN_OR_EQUAL -> complement ?
+                        Optional.empty() :
+                        Optional.of(Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(type, value)), false));
+                case NOT_EQUAL, IS_DISTINCT_FROM -> complement ?
+                        Optional.of(Domain.create(ValueSet.ofRanges(Range.equal(type, value)), false)) :
+                        Optional.empty();
+            };
         }
 
         private static Domain extractEquatableDomain(ComparisonExpression.Operator comparisonOperator, Type type, Object value, boolean complement)
         {
             checkArgument(value != null);
-            switch (comparisonOperator) {
-                case EQUAL:
-                    return Domain.create(complementIfNecessary(ValueSet.of(type, value), complement), false);
-                case NOT_EQUAL:
-                    return Domain.create(complementIfNecessary(ValueSet.of(type, value).complement(), complement), false);
-
-                case IS_DISTINCT_FROM:
-                    // Need to potential complement the whole domain for IS_DISTINCT_FROM since it is null-aware
-                    return complementIfNecessary(Domain.create(ValueSet.of(type, value).complement(), true), complement);
-
-                case LESS_THAN:
-                case LESS_THAN_OR_EQUAL:
-                case GREATER_THAN:
-                case GREATER_THAN_OR_EQUAL:
-                    // not applicable to equatable types
-                    break;
-            }
-            throw new AssertionError("Unhandled operator: " + comparisonOperator);
+            return switch (comparisonOperator) {
+                case EQUAL -> Domain.create(complementIfNecessary(ValueSet.of(type, value), complement), false);
+                case NOT_EQUAL -> Domain.create(complementIfNecessary(ValueSet.of(type, value).complement(), complement), false);
+                case IS_DISTINCT_FROM -> complementIfNecessary(Domain.create(ValueSet.of(type, value).complement(), true), complement); // Need to potential complement the whole domain for IS_DISTINCT_FROM since it is null-aware
+                default -> throw new IllegalArgumentException("Unhandled operator: " + comparisonOperator);
+            };
         }
 
         private Optional<Expression> coerceComparisonWithRounding(
@@ -890,54 +850,51 @@ public final class DomainTranslator
             boolean coercedValueIsGreaterThanOriginal = originalComparedToCoerced < 0;
             Expression coercedLiteral = literalEncoder.toExpression(session, coercedValue, symbolExpressionType);
 
-            switch (comparisonOperator) {
-                case GREATER_THAN_OR_EQUAL:
-                case GREATER_THAN:
+            return switch (comparisonOperator) {
+                case GREATER_THAN_OR_EQUAL, GREATER_THAN -> {
                     if (coercedValueIsGreaterThanOriginal) {
-                        return new ComparisonExpression(GREATER_THAN_OR_EQUAL, symbolExpression, coercedLiteral);
+                        yield new ComparisonExpression(GREATER_THAN_OR_EQUAL, symbolExpression, coercedLiteral);
                     }
                     if (coercedValueIsEqualToOriginal) {
-                        return new ComparisonExpression(comparisonOperator, symbolExpression, coercedLiteral);
+                        yield new ComparisonExpression(comparisonOperator, symbolExpression, coercedLiteral);
                     }
                     if (coercedValueIsLessThanOriginal) {
-                        return new ComparisonExpression(GREATER_THAN, symbolExpression, coercedLiteral);
+                        yield new ComparisonExpression(GREATER_THAN, symbolExpression, coercedLiteral);
                     }
                     throw new AssertionError("Unreachable");
-                case LESS_THAN_OR_EQUAL:
-                case LESS_THAN:
+                }
+                case LESS_THAN_OR_EQUAL, LESS_THAN -> {
                     if (coercedValueIsLessThanOriginal) {
-                        return new ComparisonExpression(LESS_THAN_OR_EQUAL, symbolExpression, coercedLiteral);
+                        yield new ComparisonExpression(LESS_THAN_OR_EQUAL, symbolExpression, coercedLiteral);
                     }
                     if (coercedValueIsEqualToOriginal) {
-                        return new ComparisonExpression(comparisonOperator, symbolExpression, coercedLiteral);
+                        yield new ComparisonExpression(comparisonOperator, symbolExpression, coercedLiteral);
                     }
                     if (coercedValueIsGreaterThanOriginal) {
-                        return new ComparisonExpression(LESS_THAN, symbolExpression, coercedLiteral);
+                        yield new ComparisonExpression(LESS_THAN, symbolExpression, coercedLiteral);
                     }
                     throw new AssertionError("Unreachable");
-                case EQUAL:
+                }
+                case EQUAL -> {
                     if (coercedValueIsEqualToOriginal) {
-                        return new ComparisonExpression(EQUAL, symbolExpression, coercedLiteral);
+                        yield new ComparisonExpression(EQUAL, symbolExpression, coercedLiteral);
                     }
                     // Return something that is false for all non-null values
-                    return and(new ComparisonExpression(GREATER_THAN, symbolExpression, coercedLiteral),
+                    yield and(new ComparisonExpression(GREATER_THAN, symbolExpression, coercedLiteral),
                             new ComparisonExpression(LESS_THAN, symbolExpression, coercedLiteral));
-                case NOT_EQUAL:
+                }
+                case NOT_EQUAL -> {
                     if (coercedValueIsEqualToOriginal) {
-                        return new ComparisonExpression(comparisonOperator, symbolExpression, coercedLiteral);
+                        yield new ComparisonExpression(comparisonOperator, symbolExpression, coercedLiteral);
                     }
                     // Return something that is true for all non-null values
-                    return or(new ComparisonExpression(EQUAL, symbolExpression, coercedLiteral),
+                    yield or(new ComparisonExpression(EQUAL, symbolExpression, coercedLiteral),
                             new ComparisonExpression(NOT_EQUAL, symbolExpression, coercedLiteral));
-                case IS_DISTINCT_FROM: {
-                    if (coercedValueIsEqualToOriginal) {
-                        return new ComparisonExpression(comparisonOperator, symbolExpression, coercedLiteral);
-                    }
-                    return TRUE_LITERAL;
                 }
-            }
-
-            throw new IllegalArgumentException("Unhandled operator: " + comparisonOperator);
+                case IS_DISTINCT_FROM -> coercedValueIsEqualToOriginal ?
+                        new ComparisonExpression(comparisonOperator, symbolExpression, coercedLiteral) :
+                        TRUE_LITERAL;
+            };
         }
 
         private Optional<Object> floorValue(Type fromType, Type toType, Object value)

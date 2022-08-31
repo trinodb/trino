@@ -430,18 +430,14 @@ public class ReorderJoins
                 return getPossibleJoinNodes(joinNode, REPLICATED);
             }
 
-            switch (distributionType) {
-                case PARTITIONED:
-                    return getPossibleJoinNodes(joinNode, PARTITIONED);
-                case BROADCAST:
-                    return getPossibleJoinNodes(joinNode, REPLICATED);
-                case AUTOMATIC:
-                    ImmutableList.Builder<JoinEnumerationResult> result = ImmutableList.builder();
-                    result.addAll(getPossibleJoinNodes(joinNode, PARTITIONED));
-                    result.addAll(getPossibleJoinNodes(joinNode, REPLICATED, node -> canReplicate(node, context)));
-                    return result.build();
-            }
-            throw new IllegalArgumentException("unexpected join distribution type: " + distributionType);
+            return switch (distributionType) {
+                case PARTITIONED -> getPossibleJoinNodes(joinNode, PARTITIONED);
+                case BROADCAST -> getPossibleJoinNodes(joinNode, REPLICATED);
+                case AUTOMATIC -> ImmutableList.<JoinEnumerationResult>builder()
+                        .addAll(getPossibleJoinNodes(joinNode, PARTITIONED))
+                        .addAll(getPossibleJoinNodes(joinNode, REPLICATED, node -> canReplicate(node, context)))
+                        .build();
+            };
         }
 
         private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType)

@@ -110,26 +110,18 @@ public class StatisticsAggregationPlanner
 
     private ColumnStatisticsAggregation createColumnAggregation(ColumnStatisticType statisticType, Symbol input, Type inputType)
     {
-        switch (statisticType) {
-            case MIN_VALUE:
-                return createAggregation(QualifiedName.of("min"), input.toSymbolReference(), inputType, inputType);
-            case MAX_VALUE:
-                return createAggregation(QualifiedName.of("max"), input.toSymbolReference(), inputType, inputType);
-            case NUMBER_OF_DISTINCT_VALUES:
-                return createAggregation(QualifiedName.of("approx_distinct"), input.toSymbolReference(), inputType, BIGINT);
-            case NUMBER_OF_DISTINCT_VALUES_SUMMARY:
+        return switch (statisticType) {
+            case MIN_VALUE -> createAggregation(QualifiedName.of("min"), input.toSymbolReference(), inputType, inputType);
+            case MAX_VALUE -> createAggregation(QualifiedName.of("max"), input.toSymbolReference(), inputType, inputType);
+            case NUMBER_OF_DISTINCT_VALUES -> createAggregation(QualifiedName.of("approx_distinct"), input.toSymbolReference(), inputType, BIGINT);
+            case NUMBER_OF_DISTINCT_VALUES_SUMMARY ->
                 // we use $approx_set here and not approx_set because latter is not defined for all types supported by Trino
-                return createAggregation(QualifiedName.of("$approx_set"), input.toSymbolReference(), inputType, HYPER_LOG_LOG);
-            case NUMBER_OF_NON_NULL_VALUES:
-                return createAggregation(QualifiedName.of("count"), input.toSymbolReference(), inputType, BIGINT);
-            case NUMBER_OF_TRUE_VALUES:
-                return createAggregation(QualifiedName.of("count_if"), input.toSymbolReference(), BOOLEAN, BIGINT);
-            case TOTAL_SIZE_IN_BYTES:
-                return createAggregation(QualifiedName.of(SumDataSizeForStats.NAME), input.toSymbolReference(), inputType, BIGINT);
-            case MAX_VALUE_SIZE_IN_BYTES:
-                return createAggregation(QualifiedName.of(MaxDataSizeForStats.NAME), input.toSymbolReference(), inputType, BIGINT);
-        }
-        throw new IllegalArgumentException("Unsupported statistic type: " + statisticType);
+                    createAggregation(QualifiedName.of("$approx_set"), input.toSymbolReference(), inputType, HYPER_LOG_LOG);
+            case NUMBER_OF_NON_NULL_VALUES -> createAggregation(QualifiedName.of("count"), input.toSymbolReference(), inputType, BIGINT);
+            case NUMBER_OF_TRUE_VALUES -> createAggregation(QualifiedName.of("count_if"), input.toSymbolReference(), BOOLEAN, BIGINT);
+            case TOTAL_SIZE_IN_BYTES -> createAggregation(QualifiedName.of(SumDataSizeForStats.NAME), input.toSymbolReference(), inputType, BIGINT);
+            case MAX_VALUE_SIZE_IN_BYTES -> createAggregation(QualifiedName.of(MaxDataSizeForStats.NAME), input.toSymbolReference(), inputType, BIGINT);
+        };
     }
 
     private ColumnStatisticsAggregation createAggregation(QualifiedName functionName, SymbolReference input, Type inputType, Type outputType)
