@@ -28,7 +28,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.cli.Console.STATEMENT_DELIMITERS;
-import static io.trino.sql.ReservedIdentifiers.sqlKeywords;
+import static io.trino.sql.parser.SqlKeywords.sqlKeywords;
 import static java.util.Locale.ENGLISH;
 import static org.jline.utils.AttributedStyle.BOLD;
 import static org.jline.utils.AttributedStyle.BRIGHT;
