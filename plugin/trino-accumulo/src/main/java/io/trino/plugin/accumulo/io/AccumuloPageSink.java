@@ -92,16 +92,11 @@ public class AccumuloPageSink
         this.columns = table.getColumns();
 
         // Fetch the row ID ordinal, throwing an exception if not found for safety
-        Optional<Integer> ordinal = columns.stream()
+        this.rowIdOrdinal = columns.stream()
                 .filter(columnHandle -> columnHandle.getName().equals(table.getRowId()))
                 .map(AccumuloColumnHandle::getOrdinal)
-                .findAny();
-
-        if (ordinal.isEmpty()) {
-            throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Row ID ordinal not found");
-        }
-
-        this.rowIdOrdinal = ordinal.get();
+                .findAny()
+                .orElseThrow(() -> new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Row ID ordinal not found"));
         this.serializer = table.getSerializerInstance();
 
         try {

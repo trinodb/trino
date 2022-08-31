@@ -344,17 +344,15 @@ public class HiveSplitManager
                 TableToPartitionMapping tableToPartitionMapping = getTableToPartitionMapping(session, storageFormat, tableName, partName, tableColumns, partitionColumns);
 
                 if (bucketProperty.isPresent()) {
-                    Optional<HiveBucketProperty> partitionBucketProperty = partition.getStorage().getBucketProperty();
-                    if (partitionBucketProperty.isEmpty()) {
-                        throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
-                                "Hive table (%s) is bucketed but partition (%s) is not bucketed",
-                                hivePartition.getTableName(),
-                                hivePartition.getPartitionId()));
-                    }
+                    HiveBucketProperty partitionBucketProperty = partition.getStorage().getBucketProperty()
+                            .orElseThrow(() -> new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
+                                    "Hive table (%s) is bucketed but partition (%s) is not bucketed",
+                                    hivePartition.getTableName(),
+                                    hivePartition.getPartitionId())));
                     int tableBucketCount = bucketProperty.get().getBucketCount();
-                    int partitionBucketCount = partitionBucketProperty.get().getBucketCount();
+                    int partitionBucketCount = partitionBucketProperty.getBucketCount();
                     List<String> tableBucketColumns = bucketProperty.get().getBucketedBy();
-                    List<String> partitionBucketColumns = partitionBucketProperty.get().getBucketedBy();
+                    List<String> partitionBucketColumns = partitionBucketProperty.getBucketedBy();
                     if (!tableBucketColumns.equals(partitionBucketColumns) || !isBucketCountCompatible(tableBucketCount, partitionBucketCount)) {
                         throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
                                 "Hive table (%s) bucketing (columns=%s, buckets=%s) is not compatible with partition (%s) bucketing (columns=%s, buckets=%s)",
@@ -367,7 +365,7 @@ public class HiveSplitManager
                     }
                     if (isPropagateTableScanSortingProperties(session)) {
                         List<SortingColumn> tableSortedColumns = bucketProperty.get().getSortedBy();
-                        List<SortingColumn> partitionSortedColumns = partitionBucketProperty.get().getSortedBy();
+                        List<SortingColumn> partitionSortedColumns = partitionBucketProperty.getSortedBy();
                         if (!isSortingCompatible(tableSortedColumns, partitionSortedColumns)) {
                             throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
                                     "Hive table (%s) sorting by %s is not compatible with partition (%s) sorting by %s. This restriction can be avoided by disabling propagate_table_scan_sorting_properties.",

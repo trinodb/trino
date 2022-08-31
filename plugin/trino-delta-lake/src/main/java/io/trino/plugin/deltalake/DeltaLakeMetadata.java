@@ -668,15 +668,13 @@ public class DeltaLakeMetadata
         boolean external = true;
         String location = getLocation(tableMetadata.getProperties());
         if (location == null) {
-            Optional<String> schemaLocation = getSchemaLocation(schema);
-            if (schemaLocation.isEmpty()) {
-                throw new TrinoException(NOT_SUPPORTED, "The 'location' property must be specified either for the table or the schema");
-            }
+            String schemaLocation = getSchemaLocation(schema)
+                    .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "The 'location' property must be specified either for the table or the schema"));
             String tableNameForLocation = tableName;
             if (useUniqueTableLocation) {
                 tableNameForLocation += "-" + randomUUID().toString().replace("-", "");
             }
-            location = new Path(schemaLocation.get(), tableNameForLocation).toString();
+            location = new Path(schemaLocation, tableNameForLocation).toString();
             checkPathContainsNoFiles(session, new Path(location));
             external = false;
         }
@@ -802,15 +800,13 @@ public class DeltaLakeMetadata
         boolean external = true;
         String location = getLocation(tableMetadata.getProperties());
         if (location == null) {
-            Optional<String> schemaLocation = getSchemaLocation(schema);
-            if (schemaLocation.isEmpty()) {
-                throw new TrinoException(NOT_SUPPORTED, "The 'location' property must be specified either for the table or the schema");
-            }
+            String schemaLocation = getSchemaLocation(schema)
+                    .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "The 'location' property must be specified either for the table or the schema"));
             String tableNameForLocation = tableName;
             if (useUniqueTableLocation) {
                 tableNameForLocation += "-" + randomUUID().toString().replace("-", "");
             }
-            location = new Path(schemaLocation.get(), tableNameForLocation).toString();
+            location = new Path(schemaLocation, tableNameForLocation).toString();
             external = false;
         }
         Path targetPath = new Path(location);
@@ -1984,12 +1980,10 @@ public class DeltaLakeMetadata
     {
         DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
 
-        Optional<Table> table = metastore.getTable(handle.getSchemaName(), handle.getTableName());
-        if (table.isEmpty()) {
-            throw new TableNotFoundException(handle.getSchemaTableName());
-        }
+        Table table = metastore.getTable(handle.getSchemaName(), handle.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
 
-        metastore.dropTable(session, handle.getSchemaName(), handle.getTableName(), table.get().getTableType().equals(EXTERNAL_TABLE.toString()));
+        metastore.dropTable(session, handle.getSchemaName(), handle.getTableName(), table.getTableType().equals(EXTERNAL_TABLE.toString()));
     }
 
     @Override

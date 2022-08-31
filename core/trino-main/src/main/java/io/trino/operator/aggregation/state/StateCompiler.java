@@ -1151,10 +1151,7 @@ public final class StateCompiler
 
         Type getSqlType()
         {
-            if (sqlType.isEmpty()) {
-                throw new IllegalArgumentException("Unsupported type: " + type);
-            }
-            return sqlType.get();
+            return sqlType.orElseThrow(() -> new IllegalArgumentException("Unsupported type: " + type));
         }
 
         boolean isPrimitiveType()

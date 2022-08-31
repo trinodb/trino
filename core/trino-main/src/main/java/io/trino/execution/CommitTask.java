@@ -54,10 +54,7 @@ public class CommitTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        if (session.getTransactionId().isEmpty()) {
-            throw new TrinoException(NOT_IN_TRANSACTION, "No transaction in progress");
-        }
-        TransactionId transactionId = session.getTransactionId().get();
+        TransactionId transactionId = session.getTransactionId().orElseThrow(() -> new TrinoException(NOT_IN_TRANSACTION, "No transaction in progress"));
 
         stateMachine.clearTransactionId();
         return transactionManager.asyncCommit(transactionId);
