@@ -10,6 +10,7 @@
 package com.starburstdata.trino.plugins.snowflake.distributed;
 
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
@@ -61,16 +62,14 @@ import static java.util.function.Function.identity;
 public class SnowflakePageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final TrinoFileSystemFactory fileSystemFactory;
     private final FileFormatDataSourceStats stats;
     private final ParquetReaderConfig parquetReaderConfig;
     // TODO should there be a config for this
     private final DateTimeZone parquetTimeZone = DateTimeZone.forID("UTC");
 
     @Inject
-    public SnowflakePageSourceProvider(TrinoFileSystemFactory fileSystemFactory, FileFormatDataSourceStats stats, SnowflakeDistributedConfig config)
+    public SnowflakePageSourceProvider(FileFormatDataSourceStats stats, SnowflakeDistributedConfig config)
     {
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.parquetReaderConfig = new ParquetReaderConfig().setMaxReadBlockSize(config.getParquetMaxReadBlockSize())
                 .setUseColumnIndex(config.isUseColumnIndex());
@@ -88,6 +87,7 @@ public class SnowflakePageSourceProvider
         SnowflakeSplit snowflakeSplit = (SnowflakeSplit) split;
         validateStageType(snowflakeSplit.getStageAccessInfo().getStageType());
         HdfsEnvironment hdfsEnvironment = getHdfsEnvironment(snowflakeSplit);
+        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment);
 
         Path path = new Path(snowflakeSplit.getPath());
         Configuration configuration = hdfsEnvironment.getConfiguration(
