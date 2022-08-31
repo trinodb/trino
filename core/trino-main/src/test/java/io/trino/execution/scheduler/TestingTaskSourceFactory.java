@@ -24,7 +24,6 @@ import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.metadata.Split;
-import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
@@ -34,7 +33,6 @@ import io.trino.sql.planner.plan.RemoteSourceNode;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.LongConsumer;
@@ -71,7 +69,6 @@ public class TestingTaskSourceFactory
     public TaskSource create(
             Session session,
             PlanFragment fragment,
-            Map<PlanFragmentId, Exchange> sourceExchanges,
             Multimap<PlanFragmentId, ExchangeSourceHandle> exchangeSourceHandles,
             LongConsumer getSplitTimeRecorder,
             Optional<int[]> bucketToPartitionMap,

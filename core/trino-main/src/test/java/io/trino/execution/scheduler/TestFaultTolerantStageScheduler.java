@@ -174,10 +174,10 @@ public class TestFaultTolerantStageScheduler
                 NODE_3, ImmutableList.of(TEST_CATALOG_HANDLE)));
         setupNodeAllocatorService(nodeSupplier);
 
-        TestingExchange sinkExchange = new TestingExchange(false);
+        TestingExchange sinkExchange = new TestingExchange();
 
-        TestingExchange sourceExchange1 = new TestingExchange(false);
-        TestingExchange sourceExchange2 = new TestingExchange(false);
+        TestingExchange sourceExchange1 = new TestingExchange();
+        TestingExchange sourceExchange2 = new TestingExchange();
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
             FaultTolerantStageScheduler scheduler = createFaultTolerantTaskScheduler(
@@ -325,9 +325,9 @@ public class TestFaultTolerantStageScheduler
                 NODE_3, ImmutableList.of(TEST_CATALOG_HANDLE)));
         setupNodeAllocatorService(nodeSupplier);
 
-        TestingExchange sinkExchange = new TestingExchange(false);
-        TestingExchange sourceExchange1 = new TestingExchange(false);
-        TestingExchange sourceExchange2 = new TestingExchange(false);
+        TestingExchange sinkExchange = new TestingExchange();
+        TestingExchange sourceExchange1 = new TestingExchange();
+        TestingExchange sourceExchange2 = new TestingExchange();
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
             FaultTolerantStageScheduler scheduler = createFaultTolerantTaskScheduler(
                     remoteTaskFactory,
@@ -403,15 +403,15 @@ public class TestFaultTolerantStageScheduler
                 NODE_2, ImmutableList.of(TEST_CATALOG_HANDLE)));
         setupNodeAllocatorService(nodeSupplier);
 
-        TestingExchange sourceExchange1 = new TestingExchange(false);
-        TestingExchange sourceExchange2 = new TestingExchange(false);
+        TestingExchange sourceExchange1 = new TestingExchange();
+        TestingExchange sourceExchange2 = new TestingExchange();
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
             FaultTolerantStageScheduler scheduler = createFaultTolerantTaskScheduler(
                     remoteTaskFactory,
                     taskSourceFactory,
                     nodeAllocator,
-                    new TestingExchange(false),
+                    new TestingExchange(),
                     ImmutableMap.of(SOURCE_FRAGMENT_ID_1, sourceExchange1, SOURCE_FRAGMENT_ID_2, sourceExchange2),
                     0,
                     1);
@@ -455,8 +455,8 @@ public class TestFaultTolerantStageScheduler
                 NODE_3, ImmutableList.of(TEST_CATALOG_HANDLE)));
         setupNodeAllocatorService(nodeSupplier);
 
-        TestingExchange sourceExchange1 = new TestingExchange(false);
-        TestingExchange sourceExchange2 = new TestingExchange(false);
+        TestingExchange sourceExchange1 = new TestingExchange();
+        TestingExchange sourceExchange2 = new TestingExchange();
 
         Session session = testSessionBuilder()
                 .setQueryId(QUERY_ID)
@@ -471,7 +471,7 @@ public class TestFaultTolerantStageScheduler
                     remoteTaskFactory,
                     taskSourceFactory,
                     nodeAllocator,
-                    new TestingExchange(false),
+                    new TestingExchange(),
                     ImmutableMap.of(SOURCE_FRAGMENT_ID_1, sourceExchange1, SOURCE_FRAGMENT_ID_2, sourceExchange2),
                     6,
                     1);
@@ -738,15 +738,15 @@ public class TestFaultTolerantStageScheduler
                 NODE_2, ImmutableList.of(TEST_CATALOG_HANDLE)));
         setupNodeAllocatorService(nodeSupplier);
 
-        TestingExchange sourceExchange1 = new TestingExchange(false);
-        TestingExchange sourceExchange2 = new TestingExchange(false);
+        TestingExchange sourceExchange1 = new TestingExchange();
+        TestingExchange sourceExchange2 = new TestingExchange();
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
             FaultTolerantStageScheduler scheduler = createFaultTolerantTaskScheduler(
                     remoteTaskFactory,
                     taskSourceFactory,
                     nodeAllocator,
-                    new TestingExchange(false),
+                    new TestingExchange(),
                     ImmutableMap.of(SOURCE_FRAGMENT_ID_1, sourceExchange1, SOURCE_FRAGMENT_ID_2, sourceExchange2),
                     0,
                     1);
@@ -794,15 +794,15 @@ public class TestFaultTolerantStageScheduler
                 NODE_2, ImmutableList.of(TEST_CATALOG_HANDLE)));
         setupNodeAllocatorService(nodeSupplier);
 
-        TestingExchange sourceExchange1 = new TestingExchange(false);
-        TestingExchange sourceExchange2 = new TestingExchange(false);
+        TestingExchange sourceExchange1 = new TestingExchange();
+        TestingExchange sourceExchange2 = new TestingExchange();
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
             FaultTolerantStageScheduler scheduler = createFaultTolerantTaskScheduler(
                     remoteTaskFactory,
                     taskSourceFactory,
                     nodeAllocator,
-                    new TestingExchange(false),
+                    new TestingExchange(),
                     ImmutableMap.of(SOURCE_FRAGMENT_ID_1, sourceExchange1, SOURCE_FRAGMENT_ID_2, sourceExchange2),
                     2,
                     1);
@@ -858,12 +858,12 @@ public class TestFaultTolerantStageScheduler
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
             FaultTolerantStageScheduler scheduler = createFaultTolerantTaskScheduler(
                     remoteTaskFactory,
-                    (session, fragment, sourceExchanges, exchangeSourceHandles, getSplitTimeRecorder, bucketToPartitionMap, bucketNodeMap) -> {
+                    (session, fragment, exchangeSourceHandles, getSplitTimeRecorder, bucketToPartitionMap, bucketNodeMap) -> {
                         taskSourceCreated.set(true);
                         return taskSource;
                     },
                     nodeAllocator,
-                    new TestingExchange(false),
+                    new TestingExchange(),
                     ImmutableMap.of(),
                     1,
                     1);
