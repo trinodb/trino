@@ -90,7 +90,6 @@ import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
-import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -118,6 +117,7 @@ public class TestCreateMaterializedViewTask
     private AnalyzerFactory analyzerFactory;
     private MaterializedViewPropertyManager materializedViewPropertyManager;
     private LocalQueryRunner queryRunner;
+    private CatalogHandle testCatlogHandle;
 
     @BeforeMethod
     public void setUp()
@@ -136,6 +136,7 @@ public class TestCreateMaterializedViewTask
                                 .build())
                         .build(),
                 ImmutableMap.of());
+        testCatlogHandle = queryRunner.getCatalogHandle(TEST_CATALOG_NAME);
 
         materializedViewPropertyManager = queryRunner.getMaterializedViewPropertyManager();
 
@@ -301,7 +302,7 @@ public class TestCreateMaterializedViewTask
                 new NodeVersion("test"));
     }
 
-    private static class MockMetadata
+    private class MockMetadata
             extends AbstractMockMetadata
     {
         private final Map<SchemaTableName, MaterializedViewDefinition> materializedViews = new ConcurrentHashMap<>();
@@ -319,7 +320,7 @@ public class TestCreateMaterializedViewTask
         public Optional<CatalogHandle> getCatalogHandle(Session session, String catalogName)
         {
             if (TEST_CATALOG_NAME.equals(catalogName)) {
-                return Optional.of(TEST_CATALOG_HANDLE);
+                return Optional.of(testCatlogHandle);
             }
             return Optional.empty();
         }
@@ -336,7 +337,7 @@ public class TestCreateMaterializedViewTask
             if (tableName.asSchemaTableName().equals(MOCK_TABLE.getTable())) {
                 return Optional.of(
                         new TableHandle(
-                                TEST_CATALOG_HANDLE,
+                                testCatlogHandle,
                                 new TestingTableHandle(tableName.asSchemaTableName()),
                                 TestingConnectorTransactionHandle.INSTANCE));
             }
