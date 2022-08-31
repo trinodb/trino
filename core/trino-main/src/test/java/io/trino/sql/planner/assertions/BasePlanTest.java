@@ -99,6 +99,11 @@ public class BasePlanTest
         return queryRunner.inTransaction(transactionSession -> queryRunner.getMetadata().getCatalogHandle(transactionSession, transactionSession.getCatalog().get())).get();
     }
 
+    protected CatalogHandle getCatalogHandle(String catalogName)
+    {
+        return queryRunner.inTransaction(transactionSession -> queryRunner.getMetadata().getCatalogHandle(transactionSession, catalogName)).get();
+    }
+
     protected LocalQueryRunner getQueryRunner()
     {
         return queryRunner;

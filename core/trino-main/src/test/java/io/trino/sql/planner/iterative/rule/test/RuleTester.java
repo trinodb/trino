@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.security.AccessControl;
 import io.trino.spi.Plugin;
@@ -121,7 +122,12 @@ public class RuleTester
 
     public CatalogHandle getCurrentCatalogHandle()
     {
-        return queryRunner.inTransaction(transactionSession -> metadata.getCatalogHandle(transactionSession, session.getCatalog().get())).get();
+        return queryRunner.getCatalogHandle(session.getCatalog().orElseThrow());
+    }
+
+    public TableHandle getCurrentCatalogTableHandle(String schemaName, String tableName)
+    {
+        return queryRunner.getTableHandle(session.getCatalog().orElseThrow(), schemaName, tableName);
     }
 
     public LocalQueryRunner getQueryRunner()
