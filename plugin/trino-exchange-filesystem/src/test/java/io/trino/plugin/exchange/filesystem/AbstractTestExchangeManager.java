@@ -29,6 +29,7 @@ import io.trino.spi.exchange.ExchangeSinkHandle;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSource;
 import io.trino.spi.exchange.ExchangeSourceHandle;
+import io.trino.spi.exchange.ExchangeSourceHandleSource.ExchangeSourceHandleBatch;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -48,6 +49,7 @@ import static io.trino.spi.exchange.ExchangeId.createRandomExchangeId;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestExchangeManager
 {
@@ -148,7 +150,9 @@ public abstract class AbstractTestExchangeManager
                 true);
         exchange.sinkFinished(sinkInstanceHandle);
 
-        List<ExchangeSourceHandle> partitionHandles = exchange.getSourceHandles().get();
+        ExchangeSourceHandleBatch sourceHandleBatch = exchange.getSourceHandles().getNextBatch().get();
+        assertTrue(sourceHandleBatch.lastBatch());
+        List<ExchangeSourceHandle> partitionHandles = sourceHandleBatch.handles();
         assertThat(partitionHandles).hasSize(2);
 
         Map<Integer, ExchangeSourceHandle> partitions = partitionHandles.stream()
@@ -211,7 +215,9 @@ public abstract class AbstractTestExchangeManager
                 true);
         exchange.sinkFinished(sinkInstanceHandle);
 
-        List<ExchangeSourceHandle> partitionHandles = exchange.getSourceHandles().get();
+        ExchangeSourceHandleBatch sourceHandleBatch = exchange.getSourceHandles().getNextBatch().get();
+        assertTrue(sourceHandleBatch.lastBatch());
+        List<ExchangeSourceHandle> partitionHandles = sourceHandleBatch.handles();
         assertThat(partitionHandles).hasSize(10);
 
         ListMultimap<Integer, ExchangeSourceHandle> partitions = partitionHandles.stream()

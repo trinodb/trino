@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.concurrent.MoreFutures;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
@@ -285,7 +284,7 @@ public class FaultTolerantQueryScheduler
                 verify(!outputStages.isEmpty(), "coordinatorConsumedExchanges is empty");
                 List<ListenableFuture<List<ExchangeSourceHandle>>> futures = outputStages.stream()
                         .map(Exchange::getSourceHandles)
-                        .map(MoreFutures::toListenableFuture)
+                        .map(Exchanges::getAllSourceHandles)
                         .collect(toImmutableList());
                 addSuccessCallback(Futures.allAsList(futures), result -> {
                     List<ExchangeSourceHandle> handles = result.stream()

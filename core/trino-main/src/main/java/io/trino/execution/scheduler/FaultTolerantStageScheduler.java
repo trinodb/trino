@@ -81,12 +81,12 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.SystemSessionProperties.getRetryDelayScaleFactor;
 import static io.trino.SystemSessionProperties.getRetryInitialDelay;
 import static io.trino.SystemSessionProperties.getRetryMaxDelay;
 import static io.trino.execution.buffer.OutputBuffers.createSpoolingExchangeOutputBuffers;
 import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
+import static io.trino.execution.scheduler.Exchanges.getAllSourceHandles;
 import static io.trino.failuredetector.FailureDetector.State.GONE;
 import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.spi.ErrorType.EXTERNAL;
@@ -258,7 +258,7 @@ public class FaultTolerantStageScheduler
 
         if (taskSource == null) {
             Map<PlanFragmentId, ListenableFuture<List<ExchangeSourceHandle>>> sourceHandles = sourceExchanges.entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getKey, entry -> toListenableFuture(entry.getValue().getSourceHandles())));
+                    .collect(toImmutableMap(Map.Entry::getKey, entry -> getAllSourceHandles(entry.getValue().getSourceHandles())));
 
             List<ListenableFuture<List<ExchangeSourceHandle>>> blockedFutures = sourceHandles.values().stream()
                     .filter(future -> !future.isDone())
