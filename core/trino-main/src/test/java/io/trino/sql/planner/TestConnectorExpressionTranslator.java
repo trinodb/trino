@@ -470,7 +470,7 @@ public class TestConnectorExpressionTranslator
 
     private void assertTranslationToConnectorExpression(Session session, Expression expression, Optional<ConnectorExpression> connectorExpression)
     {
-        Optional<ConnectorExpression> translation = translate(session, expression, TYPE_ANALYZER, TYPE_PROVIDER, PLANNER_CONTEXT);
+        Optional<ConnectorExpression> translation = translate(session, expression, TYPE_PROVIDER, PLANNER_CONTEXT, TYPE_ANALYZER);
         assertEquals(connectorExpression.isPresent(), translation.isPresent());
         translation.ifPresent(value -> assertEquals(value, connectorExpression.get()));
     }
