@@ -58,6 +58,14 @@ public class FileSystemExchangeSourceHandle
     }
 
     @Override
+    public long getDataSizeInBytes()
+    {
+        return files.stream()
+                .mapToLong(FileStatus::getFileSize)
+                .sum();
+    }
+
+    @Override
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE
