@@ -380,6 +380,12 @@ public class DenyAllAccessControl
     }
 
     @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, Identity grantee, boolean grantOption)
+    {
+        denyGrantExecuteFunctionPrivilege(functionName.toString(), context.getIdentity(), grantee);
+    }
+
+    @Override
     public void checkCanGrantSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal grantee, boolean grantOption)
     {
         denyGrantSchemaPrivilege(privilege.name(), schemaName.toString());
