@@ -826,7 +826,7 @@ public class TestFaultTolerantStageScheduler
         }
     }
 
-    @Test(invocationCount = 1000)
+    @Test
     public void testIsFinished()
             throws Exception
     {
