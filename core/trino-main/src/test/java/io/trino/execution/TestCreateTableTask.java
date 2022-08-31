@@ -80,7 +80,6 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
-import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.Collections.emptyList;
@@ -95,7 +94,6 @@ import static org.testng.Assert.assertTrue;
 public class TestCreateTableTask
 {
     private static final String OTHER_CATALOG_NAME = "other_catalog";
-    private static final CatalogHandle OTHER_CATALOG_HANDLE = createTestCatalogHandle("other_catalog");
     private static final ConnectorTableMetadata PARENT_TABLE = new ConnectorTableMetadata(
             new SchemaTableName("schema", "parent_table"),
             List.of(new ColumnMetadata("a", SMALLINT), new ColumnMetadata("b", BIGINT)),
@@ -108,6 +106,8 @@ public class TestCreateTableTask
     private TransactionManager transactionManager;
     private ColumnPropertyManager columnPropertyManager;
     private TablePropertyManager tablePropertyManager;
+    private CatalogHandle testCatalogHandle;
+    private CatalogHandle otherCatalogHandle;
 
     @BeforeMethod
     public void setUp()
@@ -122,10 +122,12 @@ public class TestCreateTableTask
                         .withTableProperties(() -> ImmutableList.of(stringProperty("baz", "test property", null, false)))
                         .build(),
                 ImmutableMap.of());
+        testCatalogHandle = queryRunner.getCatalogHandle(TEST_CATALOG_NAME);
         queryRunner.createCatalog(
                 OTHER_CATALOG_NAME,
                 MockConnectorFactory.builder().withName("other_mock").build(),
                 ImmutableMap.of());
+        otherCatalogHandle = queryRunner.getCatalogHandle(OTHER_CATALOG_NAME);
 
         tablePropertyManager = queryRunner.getTablePropertyManager();
         columnPropertyManager = queryRunner.getColumnPropertyManager();
@@ -344,7 +346,7 @@ public class TestCreateTableTask
                 Optional.empty());
     }
 
-    private static class MockMetadata
+    private class MockMetadata
             extends AbstractMockMetadata
     {
         private final List<ConnectorTableMetadata> tables = new CopyOnWriteArrayList<>();
@@ -363,10 +365,10 @@ public class TestCreateTableTask
         public Optional<CatalogHandle> getCatalogHandle(Session session, String catalogName)
         {
             if (catalogName.equals(TEST_CATALOG_NAME)) {
-                return Optional.of(TEST_CATALOG_HANDLE);
+                return Optional.of(testCatalogHandle);
             }
             if (catalogName.equals(OTHER_CATALOG_NAME)) {
-                return Optional.of(OTHER_CATALOG_HANDLE);
+                return Optional.of(otherCatalogHandle);
             }
             return Optional.empty();
         }

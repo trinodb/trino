@@ -26,6 +26,7 @@ import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogFactory;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProviderModule;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.connector.CoordinatorDynamicCatalogManager;
@@ -764,6 +765,20 @@ public class LocalQueryRunner
     {
         printPlan = true;
         return this;
+    }
+
+    public CatalogHandle getCatalogHandle(String catalogName)
+    {
+        return inTransaction(transactionSession -> getMetadata().getCatalogHandle(transactionSession, catalogName)).orElseThrow();
+    }
+
+    public TableHandle getTableHandle(String catalogName, String schemaName, String tableName)
+    {
+        return inTransaction(transactionSession ->
+                getMetadata().getTableHandle(
+                        transactionSession,
+                        new QualifiedObjectName(catalogName, schemaName, tableName))
+                .orElseThrow());
     }
 
     @Override

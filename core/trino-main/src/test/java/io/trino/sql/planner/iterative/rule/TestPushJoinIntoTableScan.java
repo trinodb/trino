@@ -78,9 +78,6 @@ public class TestPushJoinIntoTableScan
     private static final SchemaTableName TABLE_A_SCHEMA_TABLE_NAME = new SchemaTableName(SCHEMA, TABLE_A);
     private static final SchemaTableName TABLE_B_SCHEMA_TABLE_NAME = new SchemaTableName(SCHEMA, TABLE_B);
 
-    private static final TableHandle TABLE_A_HANDLE = createTableHandle(new MockConnectorTableHandle(new SchemaTableName(SCHEMA, TABLE_A)));
-    private static final TableHandle TABLE_B_HANDLE = createTableHandle(new MockConnectorTableHandle(new SchemaTableName(SCHEMA, TABLE_B)));
-
     private static final Session MOCK_SESSION = testSessionBuilder()
             .setCatalog(TEST_CATALOG_NAME)
             .setSchema(SCHEMA)
@@ -152,13 +149,13 @@ public class TestPushJoinIntoTableScan
                         Symbol columnA2Symbol = p.symbol(COLUMN_A2);
                         Symbol columnB1Symbol = p.symbol(COLUMN_B1);
                         TableScanNode left = p.tableScan(
-                                TABLE_A_HANDLE,
+                                ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_A),
                                 ImmutableList.of(columnA1Symbol, columnA2Symbol),
                                 ImmutableMap.of(
                                         columnA1Symbol, COLUMN_A1_HANDLE,
                                         columnA2Symbol, COLUMN_A2_HANDLE));
                         TableScanNode right = p.tableScan(
-                                TABLE_B_HANDLE,
+                                ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_B),
                                 ImmutableList.of(columnB1Symbol),
                                 ImmutableMap.of(columnB1Symbol, COLUMN_B1_HANDLE));
 
@@ -256,13 +253,13 @@ public class TestPushJoinIntoTableScan
                         Symbol columnA2Symbol = p.symbol(COLUMN_A2);
                         Symbol columnB1Symbol = p.symbol(COLUMN_B1);
                         TableScanNode left = p.tableScan(
-                                TABLE_A_HANDLE,
+                                ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_A),
                                 ImmutableList.of(columnA1Symbol, columnA2Symbol),
                                 ImmutableMap.of(
                                         columnA1Symbol, COLUMN_A1_HANDLE,
                                         columnA2Symbol, COLUMN_A2_HANDLE));
                         TableScanNode right = p.tableScan(
-                                TABLE_B_HANDLE,
+                                ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_B),
                                 ImmutableList.of(columnB1Symbol),
                                 ImmutableMap.of(columnB1Symbol, COLUMN_B1_HANDLE));
 
@@ -299,7 +296,7 @@ public class TestPushJoinIntoTableScan
                         Symbol columnA2Symbol = p.symbol(COLUMN_A2);
                         Symbol columnB1Symbol = p.symbol(COLUMN_B1);
                         TableScanNode left = p.tableScan(
-                                TABLE_A_HANDLE,
+                                ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_A),
                                 ImmutableList.of(columnA1Symbol, columnA2Symbol),
                                 ImmutableMap.of(
                                         columnA1Symbol, COLUMN_A1_HANDLE,
@@ -338,13 +335,13 @@ public class TestPushJoinIntoTableScan
                         Symbol columnA2Symbol = p.symbol(COLUMN_A2);
                         Symbol columnB1Symbol = p.symbol(COLUMN_B1);
                         TableScanNode left = p.tableScan(
-                                TABLE_A_HANDLE,
+                                ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_A),
                                 ImmutableList.of(columnA1Symbol, columnA2Symbol),
                                 ImmutableMap.of(
                                         columnA1Symbol, COLUMN_A1_HANDLE,
                                         columnA2Symbol, COLUMN_A2_HANDLE));
                         TableScanNode right = p.tableScan(
-                                TABLE_B_HANDLE,
+                                ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_B),
                                 ImmutableList.of(columnB1Symbol),
                                 ImmutableMap.of(columnB1Symbol, COLUMN_B1_HANDLE));
 
@@ -377,13 +374,13 @@ public class TestPushJoinIntoTableScan
                         Symbol columnA2Symbol = p.symbol(COLUMN_A2);
                         Symbol columnB1Symbol = p.symbol(COLUMN_B1);
                         TableScanNode left = p.tableScan(
-                                TABLE_A_HANDLE,
+                                ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_A),
                                 ImmutableList.of(columnA1Symbol, columnA2Symbol),
                                 ImmutableMap.of(
                                         columnA1Symbol, COLUMN_A1_HANDLE,
                                         columnA2Symbol, COLUMN_A2_HANDLE));
                         TableScanNode right = p.tableScan(
-                                TABLE_B_HANDLE,
+                                ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_B),
                                 ImmutableList.of(columnB1Symbol),
                                 ImmutableMap.of(columnB1Symbol, COLUMN_B1_HANDLE));
 
@@ -414,14 +411,14 @@ public class TestPushJoinIntoTableScan
                         Symbol columnB1Symbol = p.symbol(COLUMN_B1);
 
                         TableScanNode left = p.tableScan(
-                                TABLE_A_HANDLE,
+                                ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_A),
                                 ImmutableList.of(columnA1Symbol, columnA2Symbol),
                                 ImmutableMap.of(
                                         columnA1Symbol, COLUMN_A1_HANDLE,
                                         columnA2Symbol, COLUMN_A2_HANDLE),
                                 leftConstraint);
                         TableScanNode right = p.tableScan(
-                                TABLE_B_HANDLE,
+                                ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_B),
                                 ImmutableList.of(columnB1Symbol),
                                 ImmutableMap.of(columnB1Symbol, COLUMN_B1_HANDLE),
                                 rightConstraint);
@@ -515,13 +512,13 @@ public class TestPushJoinIntoTableScan
                         Symbol columnB1Symbol = p.symbol(COLUMN_B1);
 
                         TableScanNode left = p.tableScan(
-                                TABLE_A_HANDLE,
+                                ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_A),
                                 ImmutableList.of(columnA1Symbol, columnA2Symbol),
                                 ImmutableMap.of(
                                         columnA1Symbol, COLUMN_A1_HANDLE,
                                         columnA2Symbol, COLUMN_A2_HANDLE));
                         TableScanNode right = p.tableScan(
-                                TABLE_B_HANDLE,
+                                ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_B),
                                 ImmutableList.of(columnB1Symbol),
                                 ImmutableMap.of(columnB1Symbol, COLUMN_B1_HANDLE));
 
@@ -559,14 +556,14 @@ public class TestPushJoinIntoTableScan
                                     TupleDomain.fromFixedValues(ImmutableMap.of(COLUMN_B1_HANDLE, NullableValue.of(BIGINT, 45L)));
 
                             TableScanNode left = p.tableScan(
-                                    TABLE_A_HANDLE,
+                                    ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_A),
                                     ImmutableList.of(columnA1Symbol, columnA2Symbol),
                                     ImmutableMap.of(
                                             columnA1Symbol, COLUMN_A1_HANDLE,
                                             columnA2Symbol, COLUMN_A2_HANDLE),
                                     leftContraint);
                             TableScanNode right = p.tableScan(
-                                    TABLE_B_HANDLE,
+                                    ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_B),
                                     ImmutableList.of(columnB1Symbol),
                                     ImmutableMap.of(columnB1Symbol, COLUMN_B1_HANDLE),
                                     rightConstraint);

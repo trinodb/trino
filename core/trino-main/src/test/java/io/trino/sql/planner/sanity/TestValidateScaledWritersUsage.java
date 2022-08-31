@@ -50,6 +50,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_D
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -336,7 +337,7 @@ public class TestValidateScaledWritersUsage
                 {SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION},
                 {SCALED_WRITER_HASH_DISTRIBUTION},
                 {new PartitioningHandle(
-                        Optional.of(CatalogHandle.fromId("test")),
+                        Optional.of(TEST_CATALOG_HANDLE),
                         Optional.of(new ConnectorTransactionHandle() {}),
                         new ConnectorPartitioningHandle() {},
                         true)}
