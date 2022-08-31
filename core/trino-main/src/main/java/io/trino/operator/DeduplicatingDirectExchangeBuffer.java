@@ -73,6 +73,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.trino.execution.scheduler.Exchanges.getAllSourceHandles;
 import static io.trino.operator.RetryPolicy.NONE;
 import static io.trino.operator.RetryPolicy.QUERY;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
@@ -641,7 +642,7 @@ public class DeduplicatingDirectExchangeBuffer
                             exchangeSink = null;
                             sinkInstanceHandle = null;
                         }
-                        return toListenableFuture(exchange.getSourceHandles());
+                        return getAllSourceHandles(exchange.getSourceHandles());
                     }, executor)
                     .transform(exchangeManager::createSource, executor);
             return new ExchangeOutputSource(selectedTasks, queryId, exchangeSourceFuture);

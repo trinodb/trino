@@ -19,6 +19,7 @@ import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeSinkHandle;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
+import io.trino.spi.exchange.ExchangeSourceHandleSource;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
@@ -76,9 +77,19 @@ public class TestingExchange
     }
 
     @Override
-    public CompletableFuture<List<ExchangeSourceHandle>> getSourceHandles()
+    public ExchangeSourceHandleSource getSourceHandles()
     {
-        return sourceHandles;
+        return new ExchangeSourceHandleSource()
+        {
+            @Override
+            public CompletableFuture<ExchangeSourceHandleBatch> getNextBatch()
+            {
+                return sourceHandles.thenApply(handles -> new ExchangeSourceHandleBatch(handles, true));
+            }
+
+            @Override
+            public void close() {}
+        };
     }
 
     public void setSourceHandles(List<ExchangeSourceHandle> handles)

@@ -81,7 +81,7 @@ public interface ExchangeManager
      * list may contain more than a single element.
      *
      * @param handles list of {@link ExchangeSourceHandle}'s describing what exchange data to
-     * read. The full list of handles is returned by {@link Exchange#getSourceHandles}.
+     * read. The full list of handles is returned by {@link ExchangeSourceHandleSource}.
      * The coordinator decides what items from that list should be handled by what task and creates
      * sub-lists that are further getting sent to a worker to be read.
      * The <code>handles</code> list may contain {@link ExchangeSourceHandle}'s created by more than

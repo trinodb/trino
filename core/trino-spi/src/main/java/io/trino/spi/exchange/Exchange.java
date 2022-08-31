@@ -19,7 +19,6 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 @ThreadSafe
 @Experimental(eta = "2023-01-01")
@@ -68,14 +67,12 @@ public interface Exchange
     void sinkFinished(ExchangeSinkInstanceHandle handle);
 
     /**
-     * Returns a future containing handles to be used to read data from an exchange.
-     * <p>
-     * Future must be resolved when the data is available to be read.
+     * Returns an {@link ExchangeSourceHandleSource} instance to be used to enumerate {@link ExchangeSourceHandle}s.
      *
      * @return Future containing a list of {@link ExchangeSourceHandle} to be sent to a
      * worker that is needed to create an {@link ExchangeSource} using {@link ExchangeManager#createSource(List)}
      */
-    CompletableFuture<List<ExchangeSourceHandle>> getSourceHandles();
+    ExchangeSourceHandleSource getSourceHandles();
 
     @Override
     void close();
