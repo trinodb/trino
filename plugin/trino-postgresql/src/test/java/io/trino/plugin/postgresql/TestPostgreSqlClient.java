@@ -446,10 +446,10 @@ public class TestPostgreSqlClient
         return ConnectorExpressionTranslator.translate(
                         TEST_SESSION,
                         expression,
-                        createTestingTypeAnalyzer(PLANNER_CONTEXT),
                         TypeProvider.viewOf(symbolTypes.entrySet().stream()
                                 .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Entry::getValue))),
-                        PLANNER_CONTEXT)
+                        PLANNER_CONTEXT,
+                        createTestingTypeAnalyzer(PLANNER_CONTEXT))
                 .orElseThrow();
     }
 }

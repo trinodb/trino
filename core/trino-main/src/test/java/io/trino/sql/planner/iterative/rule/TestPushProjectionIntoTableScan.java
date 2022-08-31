@@ -154,7 +154,7 @@ public class TestPushProjectionIntoTableScan
             TransactionId transactionId = ruleTester.getQueryRunner().getTransactionManager().beginTransaction(false);
             Session session = MOCK_SESSION.beginTransactionId(transactionId, ruleTester.getQueryRunner().getTransactionManager(), ruleTester.getQueryRunner().getAccessControl());
             ImmutableMap<Symbol, String> connectorNames = inputProjections.entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getKey, e -> translate(session, e.getValue(), typeAnalyzer, viewOf(types), ruleTester.getPlannerContext()).get().toString()));
+                    .collect(toImmutableMap(Map.Entry::getKey, e -> translate(session, e.getValue(), viewOf(types), ruleTester.getPlannerContext(), typeAnalyzer).get().toString()));
             ImmutableMap<Symbol, String> newNames = ImmutableMap.of(
                     identity, "projected_variable_" + connectorNames.get(identity),
                     dereference, "projected_dereference_" + connectorNames.get(dereference),
