@@ -129,9 +129,9 @@ public final class HttpRemoteTask
     // The version of dynamic filters that has been successfully sent to the worker
     private final AtomicLong sentDynamicFiltersVersion = new AtomicLong(INITIAL_DYNAMIC_FILTERS_VERSION);
 
-    @GuardedBy("this")
+    @GuardedBy("httpClient")
     private Future<?> currentRequest;
-    @GuardedBy("this")
+    @GuardedBy("httpClient")
     private long currentRequestStartNanos;
 
     @GuardedBy("this")
@@ -584,9 +584,9 @@ public final class HttpRemoteTask
         }
     }
 
-    private synchronized void sendUpdate()
+    private void sendUpdate()
     {
-        synchronized (this) {
+        synchronized (httpClient) {
             TaskStatus taskStatus = getTaskStatus();
             // don't update if the task hasn't been started yet or if it is already finished
             if (!started.get() || taskStatus.getState().isDone()) {
@@ -692,26 +692,30 @@ public final class HttpRemoteTask
         }
     }
 
-    private synchronized void cleanUpTask()
+    private void cleanUpTask()
     {
         checkState(getTaskStatus().getState().isDone(), "attempt to clean up a task that is not done yet");
 
         // clear pending splits to free memory
-        pendingSplits.clear();
-        pendingSourceSplitCount = 0;
-        pendingSourceSplitsWeight = 0;
-        partitionedSplitCountTracker.setPartitionedSplits(PartitionedSplitsInfo.forZeroSplits());
-        splitQueueHasSpace = true;
-        whenSplitQueueHasSpace.complete(null, executor);
+        synchronized (this) {
+            pendingSplits.clear();
+            pendingSourceSplitCount = 0;
+            pendingSourceSplitsWeight = 0;
+            partitionedSplitCountTracker.setPartitionedSplits(PartitionedSplitsInfo.forZeroSplits());
+            splitQueueHasSpace = true;
+            whenSplitQueueHasSpace.complete(null, executor);
+        }
 
         // clear pending outbound dynamic filters to free memory
         outboundDynamicFiltersCollector.acknowledge(Long.MAX_VALUE);
 
         // cancel pending request
-        if (currentRequest != null) {
-            currentRequest.cancel(true);
-            currentRequest = null;
-            currentRequestStartNanos = 0;
+        synchronized (httpClient) {
+            if (currentRequest != null) {
+                currentRequest.cancel(true);
+                currentRequest = null;
+                currentRequestStartNanos = 0;
+            }
         }
 
         taskStatusFetcher.stop();
@@ -928,7 +932,7 @@ public final class HttpRemoteTask
                     outboundDynamicFiltersCollector.acknowledge(currentRequestDynamicFiltersVersion);
                     sendPlan.set(value.isNeedsPlan());
                     long currentRequestStartNanos;
-                    synchronized (HttpRemoteTask.this) {
+                    synchronized (httpClient) {
                         currentRequest = null;
                         currentRequestStartNanos = HttpRemoteTask.this.currentRequestStartNanos;
                     }
@@ -948,7 +952,7 @@ public final class HttpRemoteTask
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 try {
                     long currentRequestStartNanos;
-                    synchronized (HttpRemoteTask.this) {
+                    synchronized (httpClient) {
                         currentRequest = null;
                         currentRequestStartNanos = HttpRemoteTask.this.currentRequestStartNanos;
                     }
