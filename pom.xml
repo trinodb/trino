@@ -95,6 +95,7 @@
         <module>client/trino-jdbc</module>
         <module>core/trino-main</module>
         <module>core/trino-parser</module>
+        <module>core/trino-parser-base</module>
         <module>core/trino-server</module>
         <module>core/trino-server-main</module>
         <module>core/trino-server-rpm</module>
@@ -450,6 +451,12 @@
                 <groupId>io.trino</groupId>
                 <artifactId>trino-parser</artifactId>
                 <type>test-jar</type>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-parser-base</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

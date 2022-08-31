@@ -27,7 +27,7 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-parser</artifactId>
+            <artifactId>trino-parser-base</artifactId>
         </dependency>
 
         <dependency>
