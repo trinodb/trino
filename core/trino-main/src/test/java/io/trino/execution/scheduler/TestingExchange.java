@@ -20,7 +20,6 @@ import io.trino.spi.exchange.ExchangeSinkHandle;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.spi.exchange.ExchangeSourceSplitter;
-import io.trino.spi.exchange.ExchangeSourceStatistics;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Iterator;
@@ -152,12 +151,6 @@ public class TestingExchange
     }
 
     @Override
-    public ExchangeSourceStatistics getExchangeSourceStatistics(ExchangeSourceHandle handle)
-    {
-        return new ExchangeSourceStatistics(((TestingExchangeSourceHandle) handle).getSizeInBytes());
-    }
-
-    @Override
     public void close()
     {
     }
@@ -203,6 +196,12 @@ public class TestingExchange
         public int getPartitionId()
         {
             return partitionId;
+        }
+
+        @Override
+        public long getDataSizeInBytes()
+        {
+            return sizeInBytes;
         }
 
         @Override

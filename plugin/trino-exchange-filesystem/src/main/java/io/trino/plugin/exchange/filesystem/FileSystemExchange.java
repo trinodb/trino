@@ -26,7 +26,6 @@ import io.trino.spi.exchange.ExchangeSinkHandle;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.spi.exchange.ExchangeSourceSplitter;
-import io.trino.spi.exchange.ExchangeSourceStatistics;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.crypto.SecretKey;
@@ -298,14 +297,6 @@ public class FileSystemExchange
             {
             }
         };
-    }
-
-    @Override
-    public ExchangeSourceStatistics getExchangeSourceStatistics(ExchangeSourceHandle handle)
-    {
-        FileSystemExchangeSourceHandle sourceHandle = (FileSystemExchangeSourceHandle) handle;
-        long sizeInBytes = sourceHandle.getFiles().stream().mapToLong(FileStatus::getFileSize).sum();
-        return new ExchangeSourceStatistics(sizeInBytes);
     }
 
     @Override

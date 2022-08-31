@@ -633,15 +633,8 @@ public class TestStageTaskSourceFactory
             long targetPartitionSplitWeight,
             DataSize targetPartitionSourceSize)
     {
-        // Craft exchangeSoureHandle -> Exchange map. Any TestingExchange instance can do - we need it only for getExchangeSourceStatistics
-        TestingExchange exchage = new TestingExchange(false);
-        IdentityHashMap<ExchangeSourceHandle, Exchange> exchangeForHandleMap = new IdentityHashMap<>();
-        partitionedExchangeSources.values().forEach(handle -> exchangeForHandleMap.put(handle, exchage));
-        replicatedExchangeSources.values().forEach(handle -> exchangeForHandleMap.put(handle, exchage));
-
         return new HashDistributionTaskSource(
                 splitSources,
-                exchangeForHandleMap,
                 partitionedExchangeSources,
                 replicatedExchangeSources,
                 splitBatchSize,

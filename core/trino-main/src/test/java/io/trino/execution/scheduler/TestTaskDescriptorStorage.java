@@ -237,6 +237,12 @@ public class TestTaskDescriptorStorage
         }
 
         @Override
+        public long getDataSizeInBytes()
+        {
+            return 0;
+        }
+
+        @Override
         public long getRetainedSizeInBytes()
         {
             return retainedSizeInBytes;
