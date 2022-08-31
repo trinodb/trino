@@ -23,6 +23,8 @@ public interface ExchangeSourceHandle
 {
     int getPartitionId();
 
+    long getDataSizeInBytes();
+
     long getRetainedSizeInBytes();
 
     @Override

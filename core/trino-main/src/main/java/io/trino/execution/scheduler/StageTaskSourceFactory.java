@@ -48,7 +48,6 @@ import io.trino.spi.SplitWeight;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.spi.exchange.ExchangeSourceSplitter;
-import io.trino.spi.exchange.ExchangeSourceStatistics;
 import io.trino.split.SplitSource;
 import io.trino.split.SplitSource.SplitBatch;
 import io.trino.sql.planner.PartitioningHandle;
@@ -174,7 +173,6 @@ public class StageTaskSourceFactory
                     session,
                     fragment,
                     splitSourceFactory,
-                    sourceExchanges,
                     exchangeSourceHandles,
                     splitBatchSize,
                     getSplitTimeRecorder,
@@ -357,8 +355,7 @@ public class StageTaskSourceFactory
                 }
 
                 for (ExchangeSourceHandle handle : sourceHandles.build()) {
-                    ExchangeSourceStatistics statistics = sourceExchange.getExchangeSourceStatistics(handle);
-                    if (assignedExchangeDataSize != 0 && assignedExchangeDataSize + statistics.getSizeInBytes() > targetPartitionSizeInBytes) {
+                    if (assignedExchangeDataSize != 0 && assignedExchangeDataSize + handle.getDataSizeInBytes() > targetPartitionSizeInBytes) {
                         assignedExchangeSourceHandles.putAll(replicatedExchangeSourceHandles);
                         result.add(new TaskDescriptor(currentPartitionId++, ImmutableListMultimap.of(), assignedExchangeSourceHandles.build(), nodeRequirements));
                         assignedExchangeSourceHandles = ImmutableListMultimap.builder();
@@ -367,7 +364,7 @@ public class StageTaskSourceFactory
                     }
 
                     assignedExchangeSourceHandles.put(remoteSourcePlanNodeId, handle);
-                    assignedExchangeDataSize += statistics.getSizeInBytes();
+                    assignedExchangeDataSize += handle.getDataSizeInBytes();
                     assignedExchangeSourceHandleCount++;
                 }
             }
@@ -397,7 +394,6 @@ public class StageTaskSourceFactory
             implements TaskSource
     {
         private final Map<PlanNodeId, SplitSource> splitSources;
-        private final IdentityHashMap<ExchangeSourceHandle, Exchange> exchangeForHandle;
         private final Multimap<PlanNodeId, ExchangeSourceHandle> partitionedExchangeSourceHandles;
         private final Multimap<PlanNodeId, ExchangeSourceHandle> replicatedExchangeSourceHandles;
 
@@ -422,7 +418,6 @@ public class StageTaskSourceFactory
                 Session session,
                 PlanFragment fragment,
                 SplitSourceFactory splitSourceFactory,
-                Map<PlanFragmentId, Exchange> sourceExchanges,
                 Multimap<PlanFragmentId, ExchangeSourceHandle> exchangeSourceHandles,
                 int splitBatchSize,
                 LongConsumer getSplitTimeRecorder,
@@ -438,7 +433,6 @@ public class StageTaskSourceFactory
 
             return new HashDistributionTaskSource(
                     splitSources,
-                    getExchangeForHandleMap(sourceExchanges, exchangeSourceHandles),
                     getPartitionedExchangeSourceHandles(fragment, exchangeSourceHandles),
                     getReplicatedExchangeSourceHandles(fragment, exchangeSourceHandles),
                     splitBatchSize,
@@ -480,7 +474,6 @@ public class StageTaskSourceFactory
         @VisibleForTesting
         HashDistributionTaskSource(
                 Map<PlanNodeId, SplitSource> splitSources,
-                IdentityHashMap<ExchangeSourceHandle, Exchange> exchangeForHandle,
                 Multimap<PlanNodeId, ExchangeSourceHandle> partitionedExchangeSourceHandles,
                 Multimap<PlanNodeId, ExchangeSourceHandle> replicatedExchangeSourceHandles,
                 int splitBatchSize,
@@ -494,8 +487,6 @@ public class StageTaskSourceFactory
                 Executor executor)
         {
             this.splitSources = ImmutableMap.copyOf(requireNonNull(splitSources, "splitSources is null"));
-            this.exchangeForHandle = new IdentityHashMap<>();
-            this.exchangeForHandle.putAll(exchangeForHandle);
             this.partitionedExchangeSourceHandles = ImmutableListMultimap.copyOf(requireNonNull(partitionedExchangeSourceHandles, "partitionedExchangeSourceHandles is null"));
             this.replicatedExchangeSourceHandles = ImmutableListMultimap.copyOf(requireNonNull(replicatedExchangeSourceHandles, "replicatedExchangeSourceHandles is null"));
             this.splitBatchSize = splitBatchSize;
@@ -614,7 +605,7 @@ public class StageTaskSourceFactory
         {
             ListMultimap<NodeRequirements, TaskDescriptor> taskGroups = groupCompatibleTasks(tasks);
             ImmutableList.Builder<TaskDescriptor> joinedTasks = ImmutableList.builder();
-            long replicatedExchangeSourcesSize = replicatedExchangeSourceHandles.values().stream().mapToLong(this::sourceHandleSize).sum();
+            long replicatedExchangeSourcesSize = replicatedExchangeSourceHandles.values().stream().mapToLong(ExchangeSourceHandle::getDataSizeInBytes).sum();
             int taskPartitionId = 0;
             for (Map.Entry<NodeRequirements, Collection<TaskDescriptor>> taskGroup : taskGroups.asMap().entrySet()) {
                 NodeRequirements groupNodeRequirements = taskGroup.getKey();
@@ -629,7 +620,7 @@ public class StageTaskSourceFactory
                     ListMultimap<PlanNodeId, Split> taskSplits = task.getSplits();
                     ListMultimap<PlanNodeId, ExchangeSourceHandle> taskExchangeSources = task.getExchangeSourceHandles();
                     long taskSplitWeight = taskSplits.values().stream().mapToLong(split -> split.getSplitWeight().getRawValue()).sum();
-                    long taskExchangeSourcesSize = taskExchangeSources.values().stream().mapToLong(this::sourceHandleSize).sum();
+                    long taskExchangeSourcesSize = taskExchangeSources.values().stream().mapToLong(ExchangeSourceHandle::getDataSizeInBytes).sum();
 
                     if ((splitsWeight > 0 || exchangeSourcesSize > 0)
                             && ((splitsWeight + taskSplitWeight) > targetPartitionSplitWeight || (exchangeSourcesSize + taskExchangeSourcesSize + replicatedExchangeSourcesSize) > targetPartitionSourceSizeInBytes)) {
@@ -658,13 +649,6 @@ public class StageTaskSourceFactory
                 }
             }
             return joinedTasks.build();
-        }
-
-        private long sourceHandleSize(ExchangeSourceHandle handle)
-        {
-            Exchange exchange = exchangeForHandle.get(handle);
-            ExchangeSourceStatistics exchangeSourceStatistics = exchange.getExchangeSourceStatistics(handle);
-            return exchangeSourceStatistics.getSizeInBytes();
         }
 
         private ListMultimap<NodeRequirements, TaskDescriptor> groupCompatibleTasks(List<TaskDescriptor> tasks)

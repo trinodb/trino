@@ -96,14 +96,6 @@ public interface Exchange
      */
     ExchangeSourceSplitter split(ExchangeSourceHandle handle, long targetSizeInBytes);
 
-    /**
-     * Returns statistics (such as size in bytes) for a partition represented by a {@link ExchangeSourceHandle}
-     *
-     * @param handle returned by the {@link #getSourceHandles()} or {@link ExchangeSourceSplitter#getNext()}
-     * @return object containing statistics for a given {@link ExchangeSourceHandle}
-     */
-    ExchangeSourceStatistics getExchangeSourceStatistics(ExchangeSourceHandle handle);
-
     @Override
     void close();
 }
