@@ -76,6 +76,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -90,8 +91,6 @@ import static org.testng.Assert.fail;
 public class TestEventDrivenTaskSource
 {
     private static final int INVOCATION_COUNT = 20;
-
-    private static final CatalogHandle TESTING_CATALOG_HANDLE = CatalogHandle.createRootCatalogHandle("testing");
 
     private static final PlanNodeId PLAN_NODE_1 = new PlanNodeId("plan-node-1");
     private static final PlanNodeId PLAN_NODE_2 = new PlanNodeId("plan-node-2");
@@ -573,7 +572,7 @@ public class TestEventDrivenTaskSource
         @Override
         public CatalogHandle getCatalogHandle()
         {
-            return TESTING_CATALOG_HANDLE;
+            return TEST_CATALOG_HANDLE;
         }
 
         @Override
@@ -600,7 +599,7 @@ public class TestEventDrivenTaskSource
                 future = currentFuture;
                 ConnectorSplit split = remainingSplits.poll();
                 boolean lastBatch = remainingSplits.isEmpty();
-                batch = new SplitBatch(split == null ? ImmutableList.of() : ImmutableList.of(new Split(TESTING_CATALOG_HANDLE, split)), lastBatch);
+                batch = new SplitBatch(split == null ? ImmutableList.of() : ImmutableList.of(new Split(TEST_CATALOG_HANDLE, split)), lastBatch);
                 if (lastBatch) {
                     finished = true;
                 }

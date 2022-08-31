@@ -16,7 +16,6 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.connector.CatalogHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.connector.MockConnectorTransactionHandle;
@@ -150,7 +149,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
     {
         String catalogName = "mock_report_written_bytes_without_multiple_writer_per_partition";
         PartitioningHandle partitioningHandle = new PartitioningHandle(
-                Optional.of(CatalogHandle.fromId(catalogName)),
+                Optional.of(getCatalogHandle(catalogName)),
                 Optional.of(MockConnectorTransactionHandle.INSTANCE),
                 CONNECTOR_PARTITIONING_HANDLE);
 
@@ -196,7 +195,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
     {
         String catalogName = "mock_dont_report_written_bytes";
         PartitioningHandle partitioningHandle = new PartitioningHandle(
-                Optional.of(CatalogHandle.fromId(catalogName)),
+                Optional.of(getCatalogHandle(catalogName)),
                 Optional.of(MockConnectorTransactionHandle.INSTANCE),
                 CONNECTOR_PARTITIONING_HANDLE);
 
@@ -286,11 +285,11 @@ public class TestAddLocalExchangesForTaskScaleWriters
     {
         String catalogName = "mock_report_written_bytes_with_multiple_writer_per_partition";
         PartitioningHandle partitioningHandle = new PartitioningHandle(
-                Optional.of(CatalogHandle.fromId(catalogName)),
+                Optional.of(getCatalogHandle(catalogName)),
                 Optional.of(MockConnectorTransactionHandle.INSTANCE),
                 CONNECTOR_PARTITIONING_HANDLE);
         PartitioningHandle scaledPartitioningHandle = new PartitioningHandle(
-                Optional.of(CatalogHandle.fromId(catalogName)),
+                Optional.of(getCatalogHandle(catalogName)),
                 Optional.of(MockConnectorTransactionHandle.INSTANCE),
                 CONNECTOR_PARTITIONING_HANDLE,
                 true);
