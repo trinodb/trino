@@ -21,6 +21,7 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
@@ -71,6 +72,7 @@ import io.trino.type.JoniRegexp;
 import io.trino.type.Re2JRegexp;
 import io.trino.type.Re2JRegexpType;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -105,6 +107,8 @@ import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.SUBTRACT_FUNCTION_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.ExpressionUtils.combineConjuncts;
+import static io.trino.sql.ExpressionUtils.extractConjuncts;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
@@ -131,6 +135,36 @@ public final class ConnectorExpressionTranslator
                 .process(expression);
     }
 
+    public static ConnectorExpressionTranslation translateConjuncts(
+            Session session,
+            Expression expression,
+            TypeProvider types,
+            PlannerContext plannerContext,
+            TypeAnalyzer typeAnalyzer)
+    {
+        Map<NodeRef<Expression>, Type> remainingExpressionTypes = typeAnalyzer.getTypes(session, types, expression);
+        ConnectorExpressionTranslator.SqlToConnectorExpressionTranslator translator = new ConnectorExpressionTranslator.SqlToConnectorExpressionTranslator(
+                session,
+                remainingExpressionTypes,
+                plannerContext);
+
+        List<Expression> conjuncts = extractConjuncts(expression);
+        List<Expression> remaining = new ArrayList<>();
+        List<ConnectorExpression> converted = new ArrayList<>(conjuncts.size());
+        for (Expression conjunct : conjuncts) {
+            Optional<ConnectorExpression> connectorExpression = translator.process(conjunct);
+            if (connectorExpression.isPresent()) {
+                converted.add(connectorExpression.get());
+            }
+            else {
+                remaining.add(conjunct);
+            }
+        }
+        return new ConnectorExpressionTranslation(
+                ConnectorExpressions.and(converted),
+                combineConjuncts(plannerContext.getMetadata(), remaining));
+    }
+
     @VisibleForTesting
     static FunctionName functionNameForComparisonOperator(ComparisonExpression.Operator operator)
     {
@@ -155,6 +189,15 @@ public final class ConnectorExpressionTranslator
             case DIVIDE -> DIVIDE_FUNCTION_NAME;
             case MODULUS -> MODULUS_FUNCTION_NAME;
         };
+    }
+
+    public record ConnectorExpressionTranslation(ConnectorExpression connectorExpression, Expression remainingExpression)
+    {
+        public ConnectorExpressionTranslation
+        {
+            requireNonNull(connectorExpression, "connectorExpression is null");
+            requireNonNull(remainingExpression, "remainingExpression is null");
+        }
     }
 
     private static class ConnectorToSqlExpressionTranslator
