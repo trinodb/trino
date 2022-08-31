@@ -23,6 +23,7 @@ import io.trino.security.SecurityContext;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
@@ -605,6 +606,17 @@ public class TestingAccessControlManager
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanGrantExecuteFunctionPrivilege(context, functionName, grantee, grantOption);
+        }
+    }
+
+    @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, Identity grantee, boolean grantOption)
+    {
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName.toString(), GRANT_EXECUTE_FUNCTION)) {
+            denyGrantExecuteFunctionPrivilege(functionName.toString(), context.getIdentity(), grantee);
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanGrantExecuteFunctionPrivilege(context, functionName.toString(), grantee, grantOption);
         }
     }
 

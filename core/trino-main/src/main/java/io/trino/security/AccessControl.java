@@ -380,6 +380,13 @@ public interface AccessControl
     void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption);
 
     /**
+     * Check if identity is allowed to create a view that executes the function.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, Identity grantee, boolean grantOption);
+
+    /**
      * Check if identity is allowed to grant a privilege to the grantee on the specified schema.
      *
      * @throws AccessDeniedException if not allowed
