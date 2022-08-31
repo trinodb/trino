@@ -62,7 +62,6 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.JoinApplicationResult;
-import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
@@ -1619,7 +1618,7 @@ public final class MetadataManager
             JoinType joinType,
             TableHandle left,
             TableHandle right,
-            List<JoinCondition> joinConditions,
+            ConnectorExpression joinCondition,
             Map<String, ColumnHandle> leftAssignments,
             Map<String, ColumnHandle> rightAssignments,
             JoinStatistics statistics)
@@ -1640,7 +1639,7 @@ public final class MetadataManager
                         joinType,
                         left.getConnectorHandle(),
                         right.getConnectorHandle(),
-                        joinConditions,
+                        joinCondition,
                         leftAssignments,
                         rightAssignments,
                         statistics);
