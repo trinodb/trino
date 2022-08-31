@@ -73,9 +73,8 @@ public interface ExchangeManager
      * Called by a worker to create an {@link ExchangeSource} to read data corresponding to
      * a given list of exchange source handles.
      * <p>
-     * Usually a single {@link ExchangeSourceHandle} corresponds to a single output partition
-     * (see {@link ExchangeSink#add(int, Slice)}) unless a partition got split by calling
-     * {@link Exchange#split(ExchangeSourceHandle, long)}.
+     * A single {@link ExchangeSourceHandle} corresponds to a single output partition
+     * (see {@link ExchangeSink#add(int, Slice)}).
      * <p>
      * Based on the partition statistic (such as partition size) coordinator may also decide
      * to process several partitions by the same task. In such scenarios the <code>handles</code>

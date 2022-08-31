@@ -44,6 +44,7 @@ public class FileSystemExchangeConfig
     private int exchangeSourceConcurrentReaders = 4;
     private int maxOutputPartitionCount = 50;
     private int exchangeFileListingParallelism = 50;
+    private DataSize exchangeSourceHandleTargetDataSize = DataSize.of(256, MEGABYTE);
 
     @NotNull
     @NotEmpty(message = "At least one base directory needs to be configured")
@@ -174,6 +175,20 @@ public class FileSystemExchangeConfig
     public FileSystemExchangeConfig setExchangeFileListingParallelism(int exchangeFileListingParallelism)
     {
         this.exchangeFileListingParallelism = exchangeFileListingParallelism;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getExchangeSourceHandleTargetDataSize()
+    {
+        return exchangeSourceHandleTargetDataSize;
+    }
+
+    @Config("exchange.source-handle-target-data-size")
+    @ConfigDescription("Target size of the data referenced by a single source handle")
+    public FileSystemExchangeConfig setExchangeSourceHandleTargetDataSize(DataSize exchangeSourceHandleTargetDataSize)
+    {
+        this.exchangeSourceHandleTargetDataSize = exchangeSourceHandleTargetDataSize;
         return this;
     }
 }

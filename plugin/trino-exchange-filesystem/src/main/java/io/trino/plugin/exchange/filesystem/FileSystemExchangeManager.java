@@ -62,6 +62,7 @@ public class FileSystemExchangeManager
     private final int exchangeSourceConcurrentReaders;
     private final int maxOutputPartitionCount;
     private final int exchangeFileListingParallelism;
+    private final long exchangeSourceHandleTargetDataSizeInBytes;
     private final ExecutorService executor;
 
     @Inject
@@ -83,6 +84,7 @@ public class FileSystemExchangeManager
         this.exchangeSourceConcurrentReaders = fileSystemExchangeConfig.getExchangeSourceConcurrentReaders();
         this.maxOutputPartitionCount = fileSystemExchangeConfig.getMaxOutputPartitionCount();
         this.exchangeFileListingParallelism = fileSystemExchangeConfig.getExchangeFileListingParallelism();
+        this.exchangeSourceHandleTargetDataSizeInBytes = fileSystemExchangeConfig.getExchangeSourceHandleTargetDataSize().toBytes();
         this.executor = newCachedThreadPool(daemonThreadsNamed("exchange-source-handles-creation-%s"));
     }
 
@@ -115,6 +117,7 @@ public class FileSystemExchangeManager
                 preserveOrderWithinPartition,
                 exchangeFileListingParallelism,
                 secretKey,
+                exchangeSourceHandleTargetDataSizeInBytes,
                 executor);
     }
 

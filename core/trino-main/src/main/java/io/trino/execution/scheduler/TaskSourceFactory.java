@@ -15,12 +15,10 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.Multimap;
 import io.trino.Session;
-import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.LongConsumer;
 
@@ -29,7 +27,6 @@ public interface TaskSourceFactory
     TaskSource create(
             Session session,
             PlanFragment fragment,
-            Map<PlanFragmentId, Exchange> sourceExchanges,
             Multimap<PlanFragmentId, ExchangeSourceHandle> exchangeSourceHandles,
             LongConsumer getSplitTimeRecorder,
             Optional<int[]> bucketToPartitionMap,

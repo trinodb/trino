@@ -19,40 +19,25 @@ import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeSinkHandle;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
-import io.trino.spi.exchange.ExchangeSourceSplitter;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterators.cycle;
-import static com.google.common.collect.Iterators.limit;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class TestingExchange
         implements Exchange
 {
-    private final boolean splitPartitionsEnabled;
-
     private final Set<TestingExchangeSinkHandle> finishedSinks = newConcurrentHashSet();
     private final Set<TestingExchangeSinkHandle> allSinks = newConcurrentHashSet();
     private final AtomicBoolean noMoreSinks = new AtomicBoolean();
     private final CompletableFuture<List<ExchangeSourceHandle>> sourceHandles = new CompletableFuture<>();
-
-    public TestingExchange(boolean splitPartitionsEnabled)
-    {
-        this.splitPartitionsEnabled = splitPartitionsEnabled;
-    }
 
     @Override
     public ExchangeSinkHandle addSink(int taskPartitionId)
@@ -99,55 +84,6 @@ public class TestingExchange
     public void setSourceHandles(List<ExchangeSourceHandle> handles)
     {
         sourceHandles.complete(ImmutableList.copyOf(handles));
-    }
-
-    @Override
-    public ExchangeSourceSplitter split(ExchangeSourceHandle handle, long targetSizeInBytes)
-    {
-        List<ExchangeSourceHandle> splitHandles = splitIntoList(handle, targetSizeInBytes);
-        Iterator<ExchangeSourceHandle> iterator = splitHandles.iterator();
-        return new ExchangeSourceSplitter()
-        {
-            @Override
-            public CompletableFuture<Void> isBlocked()
-            {
-                return completedFuture(null);
-            }
-
-            @Override
-            public Optional<ExchangeSourceHandle> getNext()
-            {
-                if (iterator.hasNext()) {
-                    return Optional.of(iterator.next());
-                }
-                return Optional.empty();
-            }
-
-            @Override
-            public void close()
-            {
-            }
-        };
-    }
-
-    private List<ExchangeSourceHandle> splitIntoList(ExchangeSourceHandle handle, long targetSizeInBytes)
-    {
-        if (!splitPartitionsEnabled) {
-            return ImmutableList.of(handle);
-        }
-        checkArgument(targetSizeInBytes > 0, "targetSizeInBytes must be positive: %s", targetSizeInBytes);
-        TestingExchangeSourceHandle testingExchangeSourceHandle = (TestingExchangeSourceHandle) handle;
-        long currentSize = testingExchangeSourceHandle.getSizeInBytes();
-        int fullPartitions = toIntExact(currentSize / targetSizeInBytes);
-        long remainder = currentSize % targetSizeInBytes;
-        ImmutableList.Builder<ExchangeSourceHandle> result = ImmutableList.builder();
-        if (fullPartitions > 0) {
-            result.addAll(limit(cycle(new TestingExchangeSourceHandle(testingExchangeSourceHandle.getPartitionId(), targetSizeInBytes)), fullPartitions));
-        }
-        if (remainder > 0) {
-            result.add(new TestingExchangeSourceHandle(testingExchangeSourceHandle.getPartitionId(), remainder));
-        }
-        return result.build();
     }
 
     @Override
