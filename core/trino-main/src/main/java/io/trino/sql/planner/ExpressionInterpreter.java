@@ -40,16 +40,22 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Scope;
+import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AstVisitor;
+import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BindExpression;
 import io.trino.sql.tree.BooleanLiteral;
@@ -130,6 +136,8 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.type.Chars.trimTrailingSpaces;
+import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -229,9 +237,6 @@ public class ExpressionInterpreter
         // redo the analysis since above expression rewriter might create new expressions which do not have entries in the type map
         ExpressionAnalyzer analyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, WarningCollector.NOOP);
         analyzer.analyze(rewrite, Scope.create());
-
-        // remove syntax sugar
-        rewrite = DesugarAtTimeZoneRewriter.rewrite(rewrite, analyzer.getExpressionTypes(), plannerContext.getMetadata(), session);
 
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary
@@ -1312,6 +1317,69 @@ public class ExpressionInterpreter
                     .build();
 
             return visitFunctionCall(function, context);
+        }
+
+        @Override
+        protected Object visitAtTimeZone(AtTimeZone node, Object context)
+        {
+            Object value = processWithExceptionHandling(node.getValue(), context);
+            if (value == null) {
+                return null;
+            }
+
+            Object timeZone = processWithExceptionHandling(node.getTimeZone(), context);
+            if (timeZone == null) {
+                return null;
+            }
+
+            Type valueType = type(node.getValue());
+            Type timeZoneType = type(node.getTimeZone());
+
+            if (value instanceof Expression || timeZone instanceof Expression) {
+                return new AtTimeZone(toExpression(value, valueType), toExpression(timeZone, timeZoneType));
+            }
+
+            if (valueType instanceof TimeType type) {
+                // <time> AT TIME ZONE <tz> gets desugared as $at_timezone(cast(<time> AS TIME(p) WITH TIME ZONE, <tz>)
+                TimeWithTimeZoneType timeWithTimeZoneType = createTimeWithTimeZoneType(type.getPrecision());
+
+                ResolvedFunction function = plannerContext.getMetadata()
+                        .resolveFunction(session, QualifiedName.of("$at_timezone"), TypeSignatureProvider.fromTypes(timeWithTimeZoneType, timeZoneType));
+
+                ResolvedFunction cast = metadata.getCoercion(session, valueType, timeWithTimeZoneType);
+                return functionInvoker.invoke(function, connectorSession, ImmutableList.of(
+                        functionInvoker.invoke(cast, connectorSession, ImmutableList.of(value)),
+                        timeZone));
+            }
+
+            if (valueType instanceof TimeWithTimeZoneType) {
+                ResolvedFunction function = plannerContext.getMetadata()
+                        .resolveFunction(session, QualifiedName.of("$at_timezone"), TypeSignatureProvider.fromTypes(valueType, timeZoneType));
+
+                return functionInvoker.invoke(function, connectorSession, ImmutableList.of(value, timeZone));
+            }
+
+            if (valueType instanceof TimestampType type) {
+                // <timestamp> AT TIME ZONE <tz> gets desugared as at_timezone(cast(<timestamp> AS TIMESTAMP(p) WITH TIME ZONE, <tz>)
+                TimestampWithTimeZoneType timestampWithTimeZoneType = createTimestampWithTimeZoneType(type.getPrecision());
+
+                ResolvedFunction function = plannerContext.getMetadata()
+                        .resolveFunction(session, QualifiedName.of("at_timezone"), TypeSignatureProvider.fromTypes(timestampWithTimeZoneType, timeZoneType));
+
+                ResolvedFunction cast = metadata.getCoercion(session, valueType, timestampWithTimeZoneType);
+                return functionInvoker.invoke(function, connectorSession, ImmutableList.of(
+                        functionInvoker.invoke(cast, connectorSession, ImmutableList.of(value)),
+                        timeZone));
+            }
+
+            if (valueType instanceof TimestampWithTimeZoneType) {
+                ResolvedFunction function = plannerContext.getMetadata()
+                        .resolveFunction(session, QualifiedName.of("at_timezone"), TypeSignatureProvider.fromTypes(valueType, timeZoneType));
+
+                return functionInvoker.invoke(function, connectorSession, ImmutableList.of(value, timeZone));
+            }
+
+            throw new IllegalArgumentException("Unexpected type: " + valueType);
         }
 
         @Override
