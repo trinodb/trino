@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -77,14 +76,12 @@ public final class CanonicalizeExpressionRewriter
     {
         private final Session session;
         private final PlannerContext plannerContext;
-        private final Metadata metadata;
         private final Map<NodeRef<Expression>, Type> expressionTypes;
 
         public Visitor(Session session, PlannerContext plannerContext, Map<NodeRef<Expression>, Type> expressionTypes)
         {
             this.session = session;
             this.plannerContext = plannerContext;
-            this.metadata = plannerContext.getMetadata();
             this.expressionTypes = expressionTypes;
         }
 
