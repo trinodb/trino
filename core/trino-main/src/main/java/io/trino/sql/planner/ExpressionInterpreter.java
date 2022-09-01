@@ -66,6 +66,7 @@ import io.trino.sql.tree.ComparisonExpression.Operator;
 import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentPath;
 import io.trino.sql.tree.CurrentSchema;
+import io.trino.sql.tree.CurrentTime;
 import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.ExistsPredicate;
@@ -159,6 +160,7 @@ import static io.trino.type.LikeFunctions.isLikePattern;
 import static io.trino.type.LikeFunctions.unescapeLiteralLikePattern;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
+import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -1380,6 +1382,38 @@ public class ExpressionInterpreter
             }
 
             throw new IllegalArgumentException("Unexpected type: " + valueType);
+        }
+
+        @Override
+        protected Object visitCurrentTime(CurrentTime node, Object context)
+        {
+            return switch (node.getFunction()) {
+                case DATE -> functionInvoker.invoke(
+                        plannerContext.getMetadata()
+                                .resolveFunction(session, QualifiedName.of("current_date"), ImmutableList.of()),
+                        connectorSession,
+                        ImmutableList.of());
+                case TIME -> functionInvoker.invoke(
+                        plannerContext.getMetadata()
+                                .resolveFunction(session, QualifiedName.of("$current_time"), TypeSignatureProvider.fromTypes(type(node))),
+                        connectorSession,
+                        singletonList(null));
+                case LOCALTIME -> functionInvoker.invoke(
+                        plannerContext.getMetadata()
+                                .resolveFunction(session, QualifiedName.of("$localtime"), TypeSignatureProvider.fromTypes(type(node))),
+                        connectorSession,
+                        singletonList(null));
+                case TIMESTAMP -> functionInvoker.invoke(
+                        plannerContext.getMetadata()
+                                .resolveFunction(session, QualifiedName.of("$current_timestamp"), TypeSignatureProvider.fromTypes(type(node))),
+                        connectorSession,
+                        singletonList(null));
+                case LOCALTIMESTAMP -> functionInvoker.invoke(
+                        plannerContext.getMetadata()
+                                .resolveFunction(session, QualifiedName.of("$localtimestamp"), TypeSignatureProvider.fromTypes(type(node))),
+                        connectorSession,
+                        singletonList(null));
+            };
         }
 
         @Override
