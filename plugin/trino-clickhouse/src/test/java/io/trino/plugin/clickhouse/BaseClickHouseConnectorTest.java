@@ -21,6 +21,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TemporaryRelation;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
@@ -505,7 +506,7 @@ public abstract class BaseClickHouseConnectorTest
     public void testNumericAggregationPushdown()
     {
         String schemaName = getSession().getSchema().orElseThrow();
-        try (TestTable testTable = createAggregationTestTable(schemaName + ".test_aggregation_pushdown",
+        try (TemporaryRelation testTable = createAggregationTestTable(schemaName + ".test_aggregation_pushdown",
                 ImmutableList.of("100.000, 100000000.000000000, 100.000, 100000000", "123.321, 123456789.987654321, 123.321, 123456789"))) {
             assertThat(query("SELECT min(short_decimal), min(long_decimal), min(a_bigint), min(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT max(short_decimal), max(long_decimal), max(a_bigint), max(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -516,9 +517,9 @@ public abstract class BaseClickHouseConnectorTest
     }
 
     @Override
-    protected TestTable createAggregationTestTable(String name, List<String> rows)
+    protected TemporaryRelation createAggregationTestTable(String name, List<String> rows)
     {
-        return new TestTable(onRemoteDatabase(), name, "(short_decimal Nullable(Decimal(9, 3)), long_decimal Nullable(Decimal(30, 10)), t_double Nullable(Float64), a_bigint Nullable(Int64)) Engine=Log", rows);
+        return new TestTable(onRemoteDatabase(), format("%s.%s", getSession().getSchema().orElseThrow(), name), "(short_decimal Nullable(Decimal(9, 3)), long_decimal Nullable(Decimal(30, 10)), t_double Nullable(Float64), a_bigint Nullable(Int64)) Engine=Log", rows);
     }
 
     @Override

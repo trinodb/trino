@@ -17,6 +17,7 @@ import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.sql.TemporaryRelation;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
@@ -305,7 +306,7 @@ public abstract class BaseMariaDbConnectorTest
         // This is unusual, because other connectors don't produce a ResultSet metadata for INSERT at all.
         // The query fails because there are no columns, but even if columns were not required, the query would fail
         // to execute in MariaDB because the connector wraps it in additional syntax, which causes syntax error.
-        try (TestTable testTable = simpleTable()) {
+        try (TemporaryRelation testTable = simpleTable()) {
             assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
                     .hasMessageContaining("descriptor has no fields");
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");

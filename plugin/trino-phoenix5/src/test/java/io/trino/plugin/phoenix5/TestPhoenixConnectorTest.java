@@ -23,6 +23,7 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TemporaryRelation;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -598,7 +599,7 @@ public class TestPhoenixConnectorTest
     public void testNativeQuerySelectFromTestTable()
     {
         // not implemented
-        try (TestTable testTable = simpleTable()) {
+        try (TemporaryRelation testTable = simpleTable()) {
             assertQueryFails(
                     format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName()),
                     "line 1:21: Table function system.query not registered");
@@ -628,7 +629,7 @@ public class TestPhoenixConnectorTest
     public void testNativeQueryInsertStatementTableExists()
     {
         // not implemented
-        try (TestTable testTable = simpleTable()) {
+        try (TemporaryRelation testTable = simpleTable()) {
             assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
                     .hasMessage("line 1:21: Table function system.query not registered");
             assertThat(query("SELECT * FROM " + testTable.getName()))
@@ -645,16 +646,16 @@ public class TestPhoenixConnectorTest
     }
 
     @Override
-    protected TestTable simpleTable()
+    protected TemporaryRelation simpleTable()
     {
         // override because Phoenix requires primary key specification
         return new PhoenixTestTable(onRemoteDatabase(), "tpch.simple_table", "(col BIGINT PRIMARY KEY)", ImmutableList.of("1", "2"));
     }
 
     @Override
-    protected TestTable createTableWithDoubleAndRealColumns(String name, List<String> rows)
+    protected TemporaryRelation createTableWithDoubleAndRealColumns(String name, List<String> rows)
     {
-        return new TestTable(onRemoteDatabase(), name, "(t_double double primary key, u_double double, v_real float, w_real float)", rows);
+        return new TestTable(onRemoteDatabase(), format("%s.%s", getSession().getSchema().orElseThrow(), name), "(t_double double primary key, u_double double, v_real float, w_real float)", rows);
     }
 
     @Override

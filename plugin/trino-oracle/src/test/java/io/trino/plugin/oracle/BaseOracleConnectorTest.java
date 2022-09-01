@@ -21,6 +21,7 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.sql.TemporaryRelation;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import org.testng.annotations.Test;
@@ -309,9 +310,9 @@ public abstract class BaseOracleConnectorTest
     }
 
     @Override
-    protected TestTable createAggregationTestTable(String name, List<String> rows)
+    protected TemporaryRelation createAggregationTestTable(String name, List<String> rows)
     {
-        return new TestTable(onRemoteDatabase(), name, "(short_decimal number(9, 3), long_decimal number(30, 10), a_bigint number(19), t_double binary_double)", rows);
+        return new TestTable(onRemoteDatabase(), format("%s.%s", getSession().getSchema().orElseThrow(), name), "(short_decimal number(9, 3), long_decimal number(30, 10), a_bigint number(19), t_double binary_double)", rows);
     }
 
     @Override

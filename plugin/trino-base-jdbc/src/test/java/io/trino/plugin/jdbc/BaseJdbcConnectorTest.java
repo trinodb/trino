@@ -37,6 +37,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TemporaryRelation;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import org.intellij.lang.annotations.Language;
@@ -144,7 +145,7 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testInsertInPresenceOfNotSupportedColumn()
     {
-        try (TestTable testTable = createTableWithUnsupportedColumn()) {
+        try (TemporaryRelation testTable = createTableWithUnsupportedColumn()) {
             String unqualifiedTableName = testTable.getName().replaceAll("^\\w+\\.", "");
             // Check that column 'two' is not supported.
             assertQuery("SELECT column_name FROM information_schema.columns WHERE table_name = '" + unqualifiedTableName + "'", "VALUES 'one', 'three'");
@@ -157,7 +158,7 @@ public abstract class BaseJdbcConnectorTest
      * Creates a table with columns {@code one, two, three} where the middle one is of an unsupported (unmapped) type.
      * The first column should be numeric, and third should be varchar.
      */
-    protected TestTable createTableWithUnsupportedColumn()
+    protected TemporaryRelation createTableWithUnsupportedColumn()
     {
         // TODO throw new UnsupportedOperationException();
         throw new SkipException("Not implemented");
@@ -195,7 +196,7 @@ public abstract class BaseJdbcConnectorTest
         assertThat(query("SELECT count(1) FROM nation")).isFullyPushedDown();
         assertThat(query("SELECT count() FROM nation")).isFullyPushedDown();
         assertThat(query("SELECT regionkey, count(1) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        try (TestTable emptyTable = createAggregationTestTable(getSession().getSchema().orElseThrow() + ".empty_table", ImmutableList.of())) {
+        try (TemporaryRelation emptyTable = createAggregationTestTable("empty_table", ImmutableList.of())) {
             assertThat(query("SELECT count(*) FROM " + emptyTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT count(a_bigint) FROM " + emptyTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT count(1) FROM " + emptyTable.getName())).isFullyPushedDown();
@@ -208,7 +209,7 @@ public abstract class BaseJdbcConnectorTest
         assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
         assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        try (TestTable emptyTable = createAggregationTestTable(getSession().getSchema().orElseThrow() + ".empty_table", ImmutableList.of())) {
+        try (TemporaryRelation emptyTable = createAggregationTestTable("empty_table", ImmutableList.of())) {
             assertThat(query("SELECT t_double, min(a_bigint) FROM " + emptyTable.getName() + " GROUP BY t_double")).isFullyPushedDown();
             assertThat(query("SELECT t_double, max(a_bigint) FROM " + emptyTable.getName() + " GROUP BY t_double")).isFullyPushedDown();
             assertThat(query("SELECT t_double, sum(a_bigint) FROM " + emptyTable.getName() + " GROUP BY t_double")).isFullyPushedDown();
@@ -423,7 +424,7 @@ public abstract class BaseJdbcConnectorTest
         assertThat(query("SELECT DISTINCT regionkey FROM nation")).isFullyPushedDown();
         assertThat(query("SELECT min(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
         assertThat(query("SELECT DISTINCT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        try (TestTable emptyTable = createAggregationTestTable(getSession().getSchema().orElseThrow() + ".empty_table", ImmutableList.of())) {
+        try (TemporaryRelation emptyTable = createAggregationTestTable("empty_table", ImmutableList.of())) {
             assertThat(query("SELECT DISTINCT a_bigint FROM " + emptyTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT min(DISTINCT a_bigint) FROM " + emptyTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT DISTINCT t_double, min(a_bigint) FROM " + emptyTable.getName() + " GROUP BY t_double")).isFullyPushedDown();
@@ -493,16 +494,15 @@ public abstract class BaseJdbcConnectorTest
             return;
         }
 
-        String schemaName = getSession().getSchema().orElseThrow();
         // empty table
-        try (TestTable emptyTable = createAggregationTestTable(schemaName + ".test_num_agg_pd", ImmutableList.of())) {
+        try (TemporaryRelation emptyTable = createAggregationTestTable("test_num_agg_pd", ImmutableList.of())) {
             assertThat(query("SELECT min(short_decimal), min(long_decimal), min(a_bigint), min(t_double) FROM " + emptyTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT max(short_decimal), max(long_decimal), max(a_bigint), max(t_double) FROM " + emptyTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT sum(short_decimal), sum(long_decimal), sum(a_bigint), sum(t_double) FROM " + emptyTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT avg(short_decimal), avg(long_decimal), avg(a_bigint), avg(t_double) FROM " + emptyTable.getName())).isFullyPushedDown();
         }
 
-        try (TestTable testTable = createAggregationTestTable(schemaName + ".test_num_agg_pd",
+        try (TemporaryRelation testTable = createAggregationTestTable("test_num_agg_pd",
                 ImmutableList.of("100.000, 100000000.000000000, 100.000, 100000000", "123.321, 123456789.987654321, 123.321, 123456789"))) {
             assertThat(query("SELECT min(short_decimal), min(long_decimal), min(a_bigint), min(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT max(short_decimal), max(long_decimal), max(a_bigint), max(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -584,21 +584,20 @@ public abstract class BaseJdbcConnectorTest
      * Creates a table with columns {@code short_decimal decimal(9, 3), long_decimal decimal(30, 10), t_double double, a_bigint bigint} populated
      * with the provided rows.
      */
-    protected TestTable createAggregationTestTable(String name, List<String> rows)
+    protected TemporaryRelation createAggregationTestTable(String name, List<String> rows)
     {
-        return new TestTable(onRemoteDatabase(), name, "(short_decimal decimal(9, 3), long_decimal decimal(30, 10), t_double double precision, a_bigint bigint)", rows);
+        return new TestTable(onRemoteDatabase(), format("%s.%s", getSession().getSchema().orElseThrow(), name), "(short_decimal decimal(9, 3), long_decimal decimal(30, 10), t_double double precision, a_bigint bigint)", rows);
     }
 
     @Test
     public void testStddevAggregationPushdown()
     {
-        String schemaName = getSession().getSchema().orElseThrow();
         if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV)) {
             if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
                 throw new SkipException("Unable to CREATE TABLE to test aggregation pushdown");
             }
 
-            try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_stddev_pushdown", ImmutableList.of())) {
+            try (TemporaryRelation testTable = createTableWithDoubleAndRealColumns("test_stddev_pushdown", ImmutableList.of())) {
                 assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
@@ -606,7 +605,7 @@ public abstract class BaseJdbcConnectorTest
             }
         }
 
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_stddev_pushdown", ImmutableList.of())) {
+        try (TemporaryRelation testTable = createTableWithDoubleAndRealColumns("test_stddev_pushdown", ImmutableList.of())) {
             assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -631,7 +630,7 @@ public abstract class BaseJdbcConnectorTest
             assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_stddev_pushdown",
+        try (TemporaryRelation testTable = createTableWithDoubleAndRealColumns("test_stddev_pushdown",
                 ImmutableList.of("1, 1, 1, 1", "2, 2, 2, 2", "4, 4, 4, 4", "5, 5, 5, 5"))) {
             // Test non-whole number results
             assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -643,13 +642,12 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testVarianceAggregationPushdown()
     {
-        String schemaName = getSession().getSchema().orElseThrow();
         if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE)) {
             if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
                 throw new SkipException("Unable to CREATE TABLE to test aggregation pushdown");
             }
 
-            try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_var_pushdown", ImmutableList.of())) {
+            try (TemporaryRelation testTable = createTableWithDoubleAndRealColumns("test_var_pushdown", ImmutableList.of())) {
                 assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
@@ -657,7 +655,7 @@ public abstract class BaseJdbcConnectorTest
             }
         }
 
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_var_pushdown", ImmutableList.of())) {
+        try (TemporaryRelation testTable = createTableWithDoubleAndRealColumns("test_var_pushdown", ImmutableList.of())) {
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -675,7 +673,7 @@ public abstract class BaseJdbcConnectorTest
             assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_var_pushdown",
+        try (TemporaryRelation testTable = createTableWithDoubleAndRealColumns("test_var_pushdown",
                 ImmutableList.of("1, 1, 1, 1", "2, 2, 2, 2", "4, 4, 4, 4", "5, 5, 5, 5"))) {
             // Test non-whole number results
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -687,13 +685,12 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testCovarianceAggregationPushdown()
     {
-        String schemaName = getSession().getSchema().orElseThrow();
         if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE)) {
             if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
                 throw new SkipException("Unable to CREATE TABLE to test aggregation pushdown");
             }
 
-            try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_covar_pushdown", ImmutableList.of())) {
+            try (TemporaryRelation testTable = createTableWithDoubleAndRealColumns("test_covar_pushdown", ImmutableList.of())) {
                 assertThat(query("SELECT covar_pop(t_double, u_double), covar_pop(v_real, w_real) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 assertThat(query("SELECT covar_samp(t_double, u_double), covar_samp(v_real, w_real) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 return;
@@ -701,20 +698,20 @@ public abstract class BaseJdbcConnectorTest
         }
 
         // empty table
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_covar_pushdown", ImmutableList.of())) {
+        try (TemporaryRelation testTable = createTableWithDoubleAndRealColumns("test_covar_pushdown", ImmutableList.of())) {
             assertThat(query("SELECT covar_pop(t_double, u_double), covar_pop(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT covar_samp(t_double, u_double), covar_samp(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
         // test some values for which the aggregate functions return whole numbers
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_covar_pushdown",
+        try (TemporaryRelation testTable = createTableWithDoubleAndRealColumns("test_covar_pushdown",
                 ImmutableList.of("2, 2, 2, 2", "4, 4, 4, 4"))) {
             assertThat(query("SELECT covar_pop(t_double, u_double), covar_pop(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT covar_samp(t_double, u_double), covar_samp(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
         // non-whole number results
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_covar_pushdown",
+        try (TemporaryRelation testTable = createTableWithDoubleAndRealColumns("test_covar_pushdown",
                 ImmutableList.of("1, 2, 1, 2", "100000000.123456, 4, 100000000.123456, 4", "123456789.987654, 8, 123456789.987654, 8"))) {
             assertThat(query("SELECT covar_pop(t_double, u_double), covar_pop(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT covar_samp(t_double, u_double), covar_samp(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
@@ -724,31 +721,30 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testCorrAggregationPushdown()
     {
-        String schemaName = getSession().getSchema().orElseThrow();
         if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION)) {
             if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
                 throw new SkipException("Unable to CREATE TABLE to test aggregation pushdown");
             }
 
-            try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_corr_pushdown", ImmutableList.of())) {
+            try (TemporaryRelation testTable = createTableWithDoubleAndRealColumns("test_corr_pushdown", ImmutableList.of())) {
                 assertThat(query("SELECT corr(t_double, u_double), corr(v_real, w_real) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 return;
             }
         }
 
         // empty table
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_corr_pushdown", ImmutableList.of())) {
+        try (TemporaryRelation testTable = createTableWithDoubleAndRealColumns("test_corr_pushdown", ImmutableList.of())) {
             assertThat(query("SELECT corr(t_double, u_double), corr(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
         // test some values for which the aggregate functions return whole numbers
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_corr_pushdown",
+        try (TemporaryRelation testTable = createTableWithDoubleAndRealColumns("test_corr_pushdown",
                 ImmutableList.of("2, 2, 2, 2", "4, 4, 4, 4"))) {
             assertThat(query("SELECT corr(t_double, u_double), corr(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
         // non-whole number results
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_corr_pushdown",
+        try (TemporaryRelation testTable = createTableWithDoubleAndRealColumns("test_corr_pushdown",
                 ImmutableList.of("1, 2, 1, 2", "100000000.123456, 4, 100000000.123456, 4", "123456789.987654, 8, 123456789.987654, 8"))) {
             assertThat(query("SELECT corr(t_double, u_double), corr(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
         }
@@ -757,13 +753,12 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testRegrAggregationPushdown()
     {
-        String schemaName = getSession().getSchema().orElseThrow();
         if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION)) {
             if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
                 throw new SkipException("Unable to CREATE TABLE to test aggregation pushdown");
             }
 
-            try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_regr_pushdown", ImmutableList.of())) {
+            try (TemporaryRelation testTable = createTableWithDoubleAndRealColumns("test_regr_pushdown", ImmutableList.of())) {
                 assertThat(query("SELECT regr_intercept(t_double, u_double), regr_intercept(v_real, w_real) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 assertThat(query("SELECT regr_slope(t_double, u_double), regr_slope(v_real, w_real) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 return;
@@ -771,20 +766,20 @@ public abstract class BaseJdbcConnectorTest
         }
 
         // empty table
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_regr_pushdown", ImmutableList.of())) {
+        try (TemporaryRelation testTable = createTableWithDoubleAndRealColumns("test_regr_pushdown", ImmutableList.of())) {
             assertThat(query("SELECT regr_intercept(t_double, u_double), regr_intercept(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT regr_slope(t_double, u_double), regr_slope(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
         // test some values for which the aggregate functions return whole numbers
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_regr_pushdown",
+        try (TemporaryRelation testTable = createTableWithDoubleAndRealColumns("test_regr_pushdown",
                 ImmutableList.of("2, 2, 2, 2", "4, 4, 4, 4"))) {
             assertThat(query("SELECT regr_intercept(t_double, u_double), regr_intercept(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT regr_slope(t_double, u_double), regr_slope(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
         // non-whole number results
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_regr_pushdown",
+        try (TemporaryRelation testTable = createTableWithDoubleAndRealColumns("test_regr_pushdown",
                 ImmutableList.of("1, 2, 1, 2", "100000000.123456, 4, 100000000.123456, 4", "123456789.987654, 8, 123456789.987654, 8"))) {
             assertThat(query("SELECT regr_intercept(t_double, u_double), regr_intercept(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT regr_slope(t_double, u_double), regr_slope(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
@@ -794,9 +789,9 @@ public abstract class BaseJdbcConnectorTest
     /**
      * Creates a table with columns {@code t_double double, u_double double, v_real real, w_real real} populated with the provided rows.
      */
-    protected TestTable createTableWithDoubleAndRealColumns(String name, List<String> rows)
+    protected TemporaryRelation createTableWithDoubleAndRealColumns(String name, List<String> rows)
     {
-        return new TestTable(onRemoteDatabase(), name, "(t_double double precision, u_double double precision, v_real real, w_real real)", rows);
+        return new TestTable(onRemoteDatabase(), format("%s.%s", getSession().getSchema().orElseThrow(), name), "(t_double double precision, u_double double precision, v_real real, w_real real)", rows);
     }
 
     @Test
@@ -1637,7 +1632,7 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testNativeQuerySelectFromTestTable()
     {
-        try (TestTable testTable = simpleTable()) {
+        try (TemporaryRelation testTable = simpleTable()) {
             assertQuery(
                     format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName()),
                     "VALUES 1, 2");
@@ -1647,7 +1642,7 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testNativeQuerySelectUnsupportedType()
     {
-        try (TestTable testTable = createTableWithUnsupportedColumn()) {
+        try (TemporaryRelation testTable = createTableWithUnsupportedColumn()) {
             String unqualifiedTableName = testTable.getName().replaceAll("^\\w+\\.", "");
             // Check that column 'two' is not supported.
             assertQuery("SELECT column_name FROM information_schema.columns WHERE table_name = '" + unqualifiedTableName + "'", "VALUES 'one', 'three'");
@@ -1677,7 +1672,7 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testNativeQueryInsertStatementTableExists()
     {
-        try (TestTable testTable = simpleTable()) {
+        try (TemporaryRelation testTable = simpleTable()) {
             assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
                     .hasMessageContaining(format("Query not supported: ResultSetMetaData not available for query: INSERT INTO %s VALUES (3)", testTable.getName()));
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
@@ -1691,7 +1686,7 @@ public abstract class BaseJdbcConnectorTest
                 .hasMessageContaining("Failed to get table handle for prepared query");
     }
 
-    protected TestTable simpleTable()
+    protected TemporaryRelation simpleTable()
     {
         return new TestTable(onRemoteDatabase(), format("%s.simple_table", getSession().getSchema().orElseThrow()), "(col BIGINT)", ImmutableList.of("1", "2"));
     }
