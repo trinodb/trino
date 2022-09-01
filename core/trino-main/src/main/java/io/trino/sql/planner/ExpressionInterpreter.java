@@ -145,7 +145,6 @@ import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.FunctionCallBuilder.resolve;
 import static io.trino.sql.planner.ResolvedFunctionCallRewriter.rewriteResolvedFunctions;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
-import static io.trino.sql.planner.iterative.rule.DesugarCurrentSchema.desugarCurrentSchema;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.tree.DereferenceExpression.isQualifiedAllFieldsReference;
 import static io.trino.type.LikeFunctions.isLikePattern;
@@ -1288,7 +1287,11 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCurrentSchema(CurrentSchema node, Object context)
         {
-            return visitFunctionCall(desugarCurrentSchema(session, node, metadata), context);
+            FunctionCall function = resolve(session, metadata)
+                    .setName(QualifiedName.of("$current_schema"))
+                    .build();
+
+            return visitFunctionCall(function, context);
         }
 
         @Override
