@@ -29,6 +29,7 @@ import io.trino.sql.analyzer.Scope;
 import io.trino.sql.analyzer.TypeSignatureTranslator;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
@@ -53,6 +54,7 @@ import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SubscriptExpression;
@@ -340,6 +342,21 @@ class TranslationMap
                         new SubscriptExpression(
                                 treeRewriter.rewrite(node.getBase(), context),
                                 new LongLiteral(Long.toString(index + 1))));
+            }
+
+            @Override
+            public Expression rewriteCurrentCatalog(CurrentCatalog node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                return coerceIfNecessary(node, new FunctionCall(
+                        plannerContext.getMetadata()
+                                .resolveFunction(session, QualifiedName.of("$current_catalog"), ImmutableList.of())
+                                .toQualifiedName(),
+                        ImmutableList.of()));
             }
 
             @Override
