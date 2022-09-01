@@ -201,7 +201,7 @@ class TranslationMap
             @Override
             protected Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<SymbolReference> mapped = tryGetMapping(node);
                 if (mapped.isPresent()) {
                     return coerceIfNecessary(node, mapped.get());
                 }
@@ -213,7 +213,7 @@ class TranslationMap
             @Override
             public Expression rewriteFieldReference(FieldReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<SymbolReference> mapped = tryGetMapping(node);
                 if (mapped.isPresent()) {
                     return coerceIfNecessary(node, mapped.get());
                 }
@@ -226,7 +226,7 @@ class TranslationMap
             @Override
             public Expression rewriteIdentifier(Identifier node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<SymbolReference> mapped = tryGetMapping(node);
                 if (mapped.isPresent()) {
                     return coerceIfNecessary(node, mapped.get());
                 }
@@ -271,7 +271,7 @@ class TranslationMap
                 // Do not use the mapping for aggregate functions in pattern recognition context. They have different semantics
                 // than aggregate functions outside pattern recognition.
                 if (!analysis.isPatternAggregation(node)) {
-                    Optional<Expression> mapped = tryGetMapping(node);
+                    Optional<SymbolReference> mapped = tryGetMapping(node);
                     if (mapped.isPresent()) {
                         return coerceIfNecessary(node, mapped.get());
                     }
@@ -307,7 +307,7 @@ class TranslationMap
                     return new LabelDereference(labelDereference.getLabel());
                 }
 
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<SymbolReference> mapped = tryGetMapping(node);
                 if (mapped.isPresent()) {
                     return coerceIfNecessary(node, mapped.get());
                 }
@@ -345,7 +345,7 @@ class TranslationMap
             @Override
             public Expression rewriteTrim(Trim node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<SymbolReference> mapped = tryGetMapping(node);
                 if (mapped.isPresent()) {
                     return coerceIfNecessary(node, mapped.get());
                 }
@@ -366,7 +366,7 @@ class TranslationMap
             @Override
             public Expression rewriteSubscriptExpression(SubscriptExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<SymbolReference> mapped = tryGetMapping(node);
                 if (mapped.isPresent()) {
                     return coerceIfNecessary(node, mapped.get());
                 }
@@ -399,7 +399,7 @@ class TranslationMap
             @Override
             public Expression rewriteParameter(Parameter node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<SymbolReference> mapped = tryGetMapping(node);
                 if (mapped.isPresent()) {
                     return coerceIfNecessary(node, mapped.get());
                 }
@@ -425,7 +425,7 @@ class TranslationMap
             @Override
             public Expression rewriteJsonExists(JsonExists node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<SymbolReference> mapped = tryGetMapping(node);
                 if (mapped.isPresent()) {
                     return coerceIfNecessary(node, mapped.get());
                 }
@@ -467,7 +467,7 @@ class TranslationMap
             @Override
             public Expression rewriteJsonValue(JsonValue node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<SymbolReference> mapped = tryGetMapping(node);
                 if (mapped.isPresent()) {
                     return coerceIfNecessary(node, mapped.get());
                 }
@@ -512,7 +512,7 @@ class TranslationMap
             @Override
             public Expression rewriteJsonQuery(JsonQuery node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<SymbolReference> mapped = tryGetMapping(node);
                 if (mapped.isPresent()) {
                     return coerceIfNecessary(node, mapped.get());
                 }
@@ -607,7 +607,7 @@ class TranslationMap
             @Override
             public Expression rewriteJsonObject(JsonObject node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<SymbolReference> mapped = tryGetMapping(node);
                 if (mapped.isPresent()) {
                     return coerceIfNecessary(node, mapped.get());
                 }
@@ -681,7 +681,7 @@ class TranslationMap
             @Override
             public Expression rewriteJsonArray(JsonArray node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<Expression> mapped = tryGetMapping(node);
+                Optional<SymbolReference> mapped = tryGetMapping(node);
                 if (mapped.isPresent()) {
                     return coerceIfNecessary(node, mapped.get());
                 }
@@ -752,7 +752,7 @@ class TranslationMap
         }, expression, null);
     }
 
-    private Optional<Expression> tryGetMapping(Expression expression)
+    private Optional<SymbolReference> tryGetMapping(Expression expression)
     {
         return Optional.ofNullable(astToSymbols.get(scopeAwareKey(expression, analysis, scope)))
                 .map(Symbol::toSymbolReference);
