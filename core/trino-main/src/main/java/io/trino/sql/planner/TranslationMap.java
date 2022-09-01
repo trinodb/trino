@@ -31,6 +31,7 @@ import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentPath;
+import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
@@ -371,6 +372,21 @@ class TranslationMap
                 return coerceIfNecessary(node, new FunctionCall(
                         plannerContext.getMetadata()
                                 .resolveFunction(session, QualifiedName.of("$current_path"), ImmutableList.of())
+                                .toQualifiedName(),
+                        ImmutableList.of()));
+            }
+
+            @Override
+            public Expression rewriteCurrentUser(CurrentUser node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                return coerceIfNecessary(node, new FunctionCall(
+                        plannerContext.getMetadata()
+                                .resolveFunction(session, QualifiedName.of("$current_user"), ImmutableList.of())
                                 .toQualifiedName(),
                         ImmutableList.of()));
             }
