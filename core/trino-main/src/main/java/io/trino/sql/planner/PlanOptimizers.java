@@ -45,7 +45,6 @@ import io.trino.sql.planner.iterative.rule.DecorrelateLeftUnnestWithGlobalAggreg
 import io.trino.sql.planner.iterative.rule.DecorrelateUnnest;
 import io.trino.sql.planner.iterative.rule.DesugarArrayConstructor;
 import io.trino.sql.planner.iterative.rule.DesugarAtTimeZone;
-import io.trino.sql.planner.iterative.rule.DesugarCurrentPath;
 import io.trino.sql.planner.iterative.rule.DesugarCurrentSchema;
 import io.trino.sql.planner.iterative.rule.DesugarCurrentUser;
 import io.trino.sql.planner.iterative.rule.DesugarLambdaExpression;
@@ -407,7 +406,6 @@ public class PlanOptimizers
                                 .addAll(new DesugarAtTimeZone(metadata, typeAnalyzer).rules())
                                 .addAll(new DesugarCurrentSchema(metadata).rules())
                                 .addAll(new DesugarCurrentUser(metadata).rules())
-                                .addAll(new DesugarCurrentPath(metadata).rules())
                                 .addAll(new DesugarTryExpression(metadata, typeAnalyzer).rules())
                                 .build()),
                 new IterativeOptimizer(

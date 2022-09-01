@@ -46,7 +46,6 @@ import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Scope;
-import io.trino.sql.planner.iterative.rule.DesugarCurrentPath;
 import io.trino.sql.planner.iterative.rule.DesugarCurrentUser;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
@@ -1302,7 +1301,11 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCurrentPath(CurrentPath node, Object context)
         {
-            return visitFunctionCall(DesugarCurrentPath.getCall(node, metadata, session), context);
+            FunctionCall function = resolve(session, metadata)
+                    .setName(QualifiedName.of("$current_path"))
+                    .build();
+
+            return visitFunctionCall(function, context);
         }
 
         @Override
