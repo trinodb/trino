@@ -30,7 +30,6 @@ import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.CurrentTime;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
@@ -42,7 +41,6 @@ import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
@@ -53,7 +51,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -143,35 +140,6 @@ public final class CanonicalizeExpressionRewriter
             Optional<Expression> falseValue = node.getFalseValue().map(value -> treeRewriter.rewrite(value, context));
 
             return new SearchedCaseExpression(ImmutableList.of(new WhenClause(condition, trueValue)), falseValue);
-        }
-
-        @Override
-        public Expression rewriteCurrentTime(CurrentTime node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-        {
-            return switch (node.getFunction()) {
-                case DATE -> {
-                    checkArgument(node.getPrecision() == null);
-                    yield FunctionCallBuilder.resolve(session, metadata)
-                            .setName(QualifiedName.of("current_date"))
-                            .build();
-                }
-                case TIME -> FunctionCallBuilder.resolve(session, metadata)
-                        .setName(QualifiedName.of("$current_time"))
-                        .setArguments(ImmutableList.of(expressionTypes.get(NodeRef.of(node))), ImmutableList.of(new NullLiteral()))
-                        .build();
-                case LOCALTIME -> FunctionCallBuilder.resolve(session, metadata)
-                        .setName(QualifiedName.of("$localtime"))
-                        .setArguments(ImmutableList.of(expressionTypes.get(NodeRef.of(node))), ImmutableList.of(new NullLiteral()))
-                        .build();
-                case TIMESTAMP -> FunctionCallBuilder.resolve(session, metadata)
-                        .setName(QualifiedName.of("$current_timestamp"))
-                        .setArguments(ImmutableList.of(expressionTypes.get(NodeRef.of(node))), ImmutableList.of(new NullLiteral()))
-                        .build();
-                case LOCALTIMESTAMP -> FunctionCallBuilder.resolve(session, metadata)
-                        .setName(QualifiedName.of("$localtimestamp"))
-                        .setArguments(ImmutableList.of(expressionTypes.get(NodeRef.of(node))), ImmutableList.of(new NullLiteral()))
-                        .build();
-            };
         }
 
         @Override
