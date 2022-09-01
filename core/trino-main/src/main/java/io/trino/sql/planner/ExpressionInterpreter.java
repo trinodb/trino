@@ -26,6 +26,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.operator.scalar.ArraySubscriptOperator;
+import io.trino.operator.scalar.FormatFunction;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -72,6 +73,7 @@ import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FieldReference;
+import io.trino.sql.tree.Format;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfExpression;
@@ -137,10 +139,12 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.type.Chars.trimTrailingSpaces;
+import static io.trino.spi.type.RowType.anonymous;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
@@ -1438,6 +1442,49 @@ public class ExpressionInterpreter
             }
             blockBuilder.closeEntry();
             return rowType.getObject(blockBuilder, 0);
+        }
+
+        @Override
+        protected Object visitFormat(Format node, Object context)
+        {
+            Object format = processWithExceptionHandling(node.getArguments().get(0), context);
+            if (format == null) {
+                return null;
+            }
+
+            // FORMAT(a, b, c, d, ...) gets desugared into $format(a, row(b, c, d, ...))
+            List<Expression> arguments = node.getArguments().subList(1, node.getArguments().size());
+            List<Type> argumentTypes = arguments.stream()
+                    .map(this::type)
+                    .collect(toImmutableList());
+
+            List<Object> processedArguments = arguments.stream()
+                    .map(argument -> processWithExceptionHandling(argument, context))
+                    .collect(toList());
+
+            if (format instanceof Expression || hasUnresolvedValue(processedArguments)) {
+                return new Format(ImmutableList.<Expression>builder()
+                        .add(toExpression(format, type(node)))
+                        .addAll(toExpressions(processedArguments, argumentTypes))
+                        .build());
+            }
+
+            RowType rowType = anonymous(argumentTypes);
+            ResolvedFunction function = plannerContext.getMetadata()
+                    .resolveFunction(session, QualifiedName.of(FormatFunction.NAME), TypeSignatureProvider.fromTypes(VARCHAR, rowType));
+
+            // Construct a row with arguments [1..n] and invoke the underlying function
+            BlockBuilder rowBuilder = new RowBlockBuilder(argumentTypes, null, 1);
+            BlockBuilder singleRowBlockWriter = rowBuilder.beginBlockEntry();
+            for (int i = 0; i < arguments.size(); ++i) {
+                writeNativeValue(argumentTypes.get(i), singleRowBlockWriter, processedArguments.get(i));
+            }
+            rowBuilder.closeEntry();
+
+            return functionInvoker.invoke(
+                    function,
+                    connectorSession,
+                    ImmutableList.of(format, rowType.getObject(rowBuilder, 0)));
         }
 
         @Override

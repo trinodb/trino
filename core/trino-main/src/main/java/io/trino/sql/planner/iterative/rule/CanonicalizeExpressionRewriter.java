@@ -16,9 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
-import io.trino.operator.scalar.FormatFunction;
 import io.trino.spi.type.DateType;
-import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
@@ -34,7 +32,6 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.Extract;
-import io.trino.sql.tree.Format;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.IsNotNullPredicate;
@@ -42,18 +39,14 @@ import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.WhenClause;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
@@ -220,24 +213,6 @@ public final class CanonicalizeExpressionRewriter
             }
 
             return treeRewriter.defaultRewrite(node, context);
-        }
-
-        @Override
-        public Expression rewriteFormat(Format node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-        {
-            List<Expression> arguments = node.getArguments().stream()
-                    .map(value -> treeRewriter.rewrite(value, context))
-                    .collect(toImmutableList());
-            List<Type> argumentTypes = node.getArguments().stream()
-                    .map(NodeRef::of)
-                    .map(expressionTypes::get)
-                    .collect(toImmutableList());
-
-            return FunctionCallBuilder.resolve(session, metadata)
-                    .setName(QualifiedName.of(FormatFunction.NAME))
-                    .addArgument(VARCHAR, arguments.get(0))
-                    .addArgument(RowType.anonymous(argumentTypes.subList(1, arguments.size())), new Row(arguments.subList(1, arguments.size())))
-                    .build();
         }
 
         private boolean isConstant(Expression expression)
