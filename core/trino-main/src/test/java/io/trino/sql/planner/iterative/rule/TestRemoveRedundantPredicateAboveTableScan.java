@@ -275,7 +275,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
         ColumnHandle textColumnHandle = new TpchColumnHandle("name", VARCHAR);
         ColumnHandle nationKeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(removeRedundantPredicateAboveTableScan)
-                .on(p -> p.filter(expression("name LIKE 'LARGE PLATED %' AND nationkey = BIGINT '44'"),
+                .on(p -> p.filter(expression("if(name = 'x', true, false) AND nationkey = BIGINT '44'"),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(
@@ -289,7 +289,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                         nationKeyColumnHandle, NullableValue.of(BIGINT, (long) 44))))))
                 .matches(
                         filter(
-                                expression("name LIKE 'LARGE PLATED %'"),
+                                expression("if(name = 'x', true, false)"),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
                                         ImmutableMap.of(
