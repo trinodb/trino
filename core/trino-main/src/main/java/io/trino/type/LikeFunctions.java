@@ -73,7 +73,7 @@ public final class LikeFunctions
     public static LikeMatcher likePattern(@SqlType("varchar(x)") Slice pattern, @SqlType("varchar(y)") Slice escape)
     {
         try {
-            return LikeMatcher.compile(pattern.toStringUtf8(), getEscapeChar(escape));
+            return LikeMatcher.compile(pattern.toStringUtf8(), getEscapeCharacter(Optional.of(escape)));
         }
         catch (RuntimeException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
@@ -146,27 +146,18 @@ public final class LikeFunctions
         if (escape.isEmpty()) {
             return Optional.empty();
         }
-        String stringEscape = escape.get().toStringUtf8();
-        // non-BMP escape is not supported
-        checkCondition(stringEscape.length() == 1, INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
-        return Optional.of(stringEscape.charAt(0));
+
+        String escapeString = escape.get().toStringUtf8();
+        if (escapeString.length() != 1) {
+            // non-BMP escape is not supported
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
+        }
+
+        return Optional.of(escapeString.charAt(0));
     }
 
     private static void checkEscape(boolean condition)
     {
         checkCondition(condition, INVALID_FUNCTION_ARGUMENT, "Escape character must be followed by '%%', '_' or the escape character itself");
-    }
-
-    private static Optional<Character> getEscapeChar(Slice escape)
-    {
-        String escapeString = escape.toStringUtf8();
-        if (escapeString.isEmpty()) {
-            // escaping disabled
-            return Optional.empty(); // invalid character
-        }
-        if (escapeString.length() == 1) {
-            return Optional.of(escapeString.charAt(0));
-        }
-        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
     }
 }
