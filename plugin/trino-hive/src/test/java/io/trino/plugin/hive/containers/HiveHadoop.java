@@ -88,6 +88,11 @@ public class HiveHadoop
         return executeInContainerFailOnError("beeline", "-u", "jdbc:hive2://localhost:10000/default", "-n", "hive", "-e", query);
     }
 
+    public String runOnMetastore(String query)
+    {
+        return executeInContainerFailOnError("mysql", "-D", "metastore", "-uroot", "-proot", "--batch", "--column-names=false", "-e", query);
+    }
+
     public HostAndPort getHiveMetastoreEndpoint()
     {
         return getMappedHostAndPortForExposedPort(HIVE_METASTORE_PORT);
