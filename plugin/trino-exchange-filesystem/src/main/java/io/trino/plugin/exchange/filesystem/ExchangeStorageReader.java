@@ -25,7 +25,8 @@ import java.io.IOException;
 public interface ExchangeStorageReader
         extends Closeable
 {
-    Slice read() throws IOException;
+    Slice read()
+            throws IOException;
 
     ListenableFuture<Void> isBlocked();
 

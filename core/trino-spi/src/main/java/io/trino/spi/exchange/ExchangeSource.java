@@ -20,6 +20,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @ThreadSafe
@@ -28,6 +29,24 @@ public interface ExchangeSource
         extends Closeable
 {
     CompletableFuture<Void> NOT_BLOCKED = CompletableFuture.completedFuture(null);
+
+    /**
+     * Add more {@link ExchangeSourceHandle}'s to be read by the {@link ExchangeSource}.
+     *
+     * @param handles list of {@link ExchangeSourceHandle}'s describing what exchange data to
+     * read. The full list of handles is returned by {@link ExchangeSourceHandleSource}.
+     * The coordinator decides what items from that list should be handled by what task and creates
+     * sub-lists that are further getting sent to a worker to be read.
+     * The <code>handles</code> list may contain {@link ExchangeSourceHandle}'s created by more than
+     * a single {@link Exchange}.
+     */
+    void addSourceHandles(List<ExchangeSourceHandle> handles);
+
+    /**
+     * Notify {@link ExchangeSource} that no more {@link ExchangeSourceHandle}'s will be added with the
+     * {@link #addSourceHandles(List)} method.
+     */
+    void noMoreSourceHandles();
 
     /**
      * Returns a future that will be completed when the exchange source becomes

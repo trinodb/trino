@@ -21,7 +21,6 @@ import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeSink;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSource;
-import io.trino.spi.exchange.ExchangeSourceHandle;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
@@ -30,12 +29,10 @@ import javax.inject.Inject;
 
 import java.net.URI;
 import java.security.NoSuchAlgorithmException;
-import java.util.AbstractMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeErrorCode.MAX_OUTPUT_PARTITION_COUNT_EXCEEDED;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -137,24 +134,11 @@ public class FileSystemExchangeManager
     }
 
     @Override
-    public ExchangeSource createSource(List<ExchangeSourceHandle> handles)
+    public ExchangeSource createSource()
     {
-        List<ExchangeSourceFile> sourceFiles = handles.stream()
-                .map(FileSystemExchangeSourceHandle.class::cast)
-                .map(handle -> {
-                    Optional<SecretKey> secretKey = handle.getSecretKey().map(key -> new SecretKeySpec(key, 0, key.length, "AES"));
-                    return new AbstractMap.SimpleEntry<>(handle, secretKey);
-                })
-                .flatMap(entry -> entry.getKey().getFiles().stream().map(fileStatus ->
-                        new ExchangeSourceFile(
-                                URI.create(fileStatus.getFilePath()),
-                                entry.getValue(),
-                                fileStatus.getFileSize())))
-                .collect(toImmutableList());
         return new FileSystemExchangeSource(
                 exchangeStorage,
                 stats,
-                sourceFiles,
                 maxPageStorageSizeInBytes,
                 exchangeSourceConcurrentReaders);
     }
