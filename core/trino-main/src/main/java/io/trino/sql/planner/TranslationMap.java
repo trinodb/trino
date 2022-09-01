@@ -45,6 +45,7 @@ import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
+import io.trino.sql.tree.Extract;
 import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.Format;
 import io.trino.sql.tree.FunctionCall;
@@ -447,6 +448,75 @@ class TranslationMap
                     case LOCALTIMESTAMP -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                             .setName(QualifiedName.of("$localtimestamp"))
                             .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new NullLiteral()))
+                            .build();
+                };
+
+                return coerceIfNecessary(node, call);
+            }
+
+            @Override
+            public Expression rewriteExtract(Extract node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                Expression value = treeRewriter.rewrite(node.getExpression(), context);
+                Type type = analysis.getType(node.getExpression());
+
+                FunctionCall call = switch (node.getField()) {
+                    case YEAR -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("year"))
+                            .addArgument(type, value)
+                            .build();
+                    case QUARTER -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("quarter"))
+                            .addArgument(type, value)
+                            .build();
+                    case MONTH -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("month"))
+                            .addArgument(type, value)
+                            .build();
+                    case WEEK -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("week"))
+                            .addArgument(type, value)
+                            .build();
+                    case DAY, DAY_OF_MONTH -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("day"))
+                            .addArgument(type, value)
+                            .build();
+                    case DAY_OF_WEEK, DOW -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("day_of_week"))
+                            .addArgument(type, value)
+                            .build();
+                    case DAY_OF_YEAR, DOY -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("day_of_year"))
+                            .addArgument(type, value)
+                            .build();
+                    case YEAR_OF_WEEK, YOW -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("year_of_week"))
+                            .addArgument(type, value)
+                            .build();
+                    case HOUR -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("hour"))
+                            .addArgument(type, value)
+                            .build();
+                    case MINUTE -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("minute"))
+                            .addArgument(type, value)
+                            .build();
+                    case SECOND -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("second"))
+                            .addArgument(type, value)
+                            .build();
+                    case TIMEZONE_MINUTE -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("timezone_minute"))
+                            .addArgument(type, value)
+                            .build();
+                    case TIMEZONE_HOUR -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("timezone_hour"))
+                            .addArgument(type, value)
                             .build();
                 };
 
