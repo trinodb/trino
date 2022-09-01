@@ -783,6 +783,27 @@ public abstract class BaseSnowflakeConnectorTest
     }
 
     @Override
+    @Test
+    public void testCreateTableWithLongColumnName()
+    {
+        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9733");
+    }
+
+    @Override
+    @Test
+    public void testAlterTableAddLongColumnName()
+    {
+        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9733");
+    }
+
+    @Override
+    @Test
+    public void testAlterTableRenameColumnToLongName()
+    {
+        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9733");
+    }
+
+    @Override
     protected OptionalInt maxSchemaNameLength()
     {
         return OptionalInt.of(255);

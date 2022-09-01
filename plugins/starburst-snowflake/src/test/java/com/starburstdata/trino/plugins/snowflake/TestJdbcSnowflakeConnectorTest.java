@@ -119,25 +119,4 @@ public class TestJdbcSnowflakeConnectorTest
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
         }
     }
-
-    @Override
-    @Test
-    public void testCreateTableWithLongColumnName()
-    {
-        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9733");
-    }
-
-    @Override
-    @Test
-    public void testAlterTableAddLongColumnName()
-    {
-        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9733");
-    }
-
-    @Override
-    @Test
-    public void testAlterTableRenameColumnToLongName()
-    {
-        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9733");
-    }
 }
