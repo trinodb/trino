@@ -94,7 +94,7 @@ import static io.trino.spi.expression.StandardFunctions.IS_DISTINCT_FROM_OPERATO
 import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
-import static io.trino.spi.expression.StandardFunctions.LIKE_PATTERN_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.MODULUS_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.MULTIPLY_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NEGATE_FUNCTION_NAME;
@@ -252,7 +252,7 @@ public final class ConnectorExpressionTranslator
                 return translate(getOnlyElement(call.getArguments())).map(argument -> new ArithmeticUnaryExpression(ArithmeticUnaryExpression.Sign.MINUS, argument));
             }
 
-            if (LIKE_PATTERN_FUNCTION_NAME.equals(call.getFunctionName())) {
+            if (LIKE_FUNCTION_NAME.equals(call.getFunctionName())) {
                 return switch (call.getArguments().size()) {
                     case 2 -> translateLike(call.getArguments().get(0), call.getArguments().get(1), Optional.empty());
                     case 3 -> translateLike(call.getArguments().get(0), call.getArguments().get(1), Optional.of(call.getArguments().get(2)));
@@ -742,12 +742,12 @@ public final class ConnectorExpressionTranslator
             Optional<ConnectorExpression> pattern = process(node.getPattern());
             if (value.isPresent() && pattern.isPresent()) {
                 if (node.getEscape().isEmpty()) {
-                    return Optional.of(new Call(typeOf(node), LIKE_PATTERN_FUNCTION_NAME, List.of(value.get(), pattern.get())));
+                    return Optional.of(new Call(typeOf(node), LIKE_FUNCTION_NAME, List.of(value.get(), pattern.get())));
                 }
 
                 Optional<ConnectorExpression> escape = process(node.getEscape().get());
                 if (escape.isPresent()) {
-                    return Optional.of(new Call(typeOf(node), LIKE_PATTERN_FUNCTION_NAME, List.of(value.get(), pattern.get(), escape.get())));
+                    return Optional.of(new Call(typeOf(node), LIKE_FUNCTION_NAME, List.of(value.get(), pattern.get(), escape.get())));
                 }
             }
             return Optional.empty();
