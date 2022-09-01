@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.operator.scalar.TryFunction;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
@@ -68,7 +69,9 @@ import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.Trim;
+import io.trino.sql.tree.TryExpression;
 import io.trino.sql.util.AstUtils;
+import io.trino.type.FunctionType;
 import io.trino.type.JsonPath2016Type;
 
 import java.util.Arrays;
@@ -460,6 +463,25 @@ class TranslationMap
                 else {
                     throw new IllegalArgumentException("Unexpected type: " + valueType);
                 }
+
+                return coerceIfNecessary(node, call);
+            }
+
+            @Override
+            public Expression rewriteTryExpression(TryExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                Type type = analysis.getType(node);
+                Expression expression = treeRewriter.rewrite(node.getInnerExpression(), context);
+
+                FunctionCall call = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                        .setName(QualifiedName.of(TryFunction.NAME))
+                        .addArgument(new FunctionType(ImmutableList.of(), type), new LambdaExpression(ImmutableList.of(), expression))
+                        .build();
 
                 return coerceIfNecessary(node, call);
             }
