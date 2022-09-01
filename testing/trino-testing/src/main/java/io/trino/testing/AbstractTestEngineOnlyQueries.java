@@ -1670,7 +1670,7 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testArrayShuffle()
     {
-        List<Integer> expected = IntStream.rangeClosed(1, 500).boxed().collect(toList());
+        List<Integer> expected = IntStream.rangeClosed(1, 200).boxed().collect(toList());
         Set<List<Integer>> distinctResults = new HashSet<>();
 
         distinctResults.add(expected);

@@ -43,7 +43,6 @@ import io.trino.sql.planner.iterative.rule.CreatePartialTopN;
 import io.trino.sql.planner.iterative.rule.DecorrelateInnerUnnestWithGlobalAggregation;
 import io.trino.sql.planner.iterative.rule.DecorrelateLeftUnnestWithGlobalAggregation;
 import io.trino.sql.planner.iterative.rule.DecorrelateUnnest;
-import io.trino.sql.planner.iterative.rule.DesugarArrayConstructor;
 import io.trino.sql.planner.iterative.rule.DesugarLambdaExpression;
 import io.trino.sql.planner.iterative.rule.DesugarLike;
 import io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType;
@@ -968,7 +967,6 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(new DesugarLike(metadata, typeAnalyzer).rules())
-                        .addAll(new DesugarArrayConstructor(metadata, typeAnalyzer).rules())
                         .build()));
 
         // Precomputed hashes - this assumes that partitioning will not change
