@@ -38,6 +38,7 @@ import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentPath;
 import io.trino.sql.tree.CurrentSchema;
+import io.trino.sql.tree.CurrentTime;
 import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
@@ -415,6 +416,39 @@ class TranslationMap
                                 .resolveFunction(session, QualifiedName.of("$current_user"), ImmutableList.of())
                                 .toQualifiedName(),
                         ImmutableList.of()));
+            }
+
+            @Override
+            public Expression rewriteCurrentTime(CurrentTime node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                FunctionCall call = switch (node.getFunction()) {
+                    case DATE -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("current_date"))
+                            .build();
+                    case TIME -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("$current_time"))
+                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new NullLiteral()))
+                            .build();
+                    case LOCALTIME -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("$localtime"))
+                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new NullLiteral()))
+                            .build();
+                    case TIMESTAMP -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("$current_timestamp"))
+                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new NullLiteral()))
+                            .build();
+                    case LOCALTIMESTAMP -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("$localtimestamp"))
+                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new NullLiteral()))
+                            .build();
+                };
+
+                return coerceIfNecessary(node, call);
             }
 
             @Override
