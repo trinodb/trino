@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.operator.scalar.FormatFunction;
 import io.trino.operator.scalar.TryFunction;
 import io.trino.spi.type.RowType;
@@ -33,6 +34,7 @@ import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
 import io.trino.sql.analyzer.ResolvedField;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.analyzer.TypeSignatureTranslator;
+import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
@@ -89,6 +91,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -99,6 +102,7 @@ import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.KEEP;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.OMIT;
+import static io.trino.util.Failures.checkCondition;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -359,6 +363,32 @@ class TranslationMap
                         new SubscriptExpression(
                                 treeRewriter.rewrite(node.getBase(), context),
                                 new LongLiteral(Long.toString(index + 1))));
+            }
+
+            @Override
+            public Expression rewriteArray(Array node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                checkCondition(node.getValues().size() <= 254, TOO_MANY_ARGUMENTS, "Too many arguments for array constructor");
+
+                List<Type> types = node.getValues().stream()
+                        .map(analysis::getType)
+                        .collect(toImmutableList());
+
+                List<Expression> values = node.getValues().stream()
+                        .map(element -> treeRewriter.rewrite(element, context))
+                        .collect(toImmutableList());
+
+                FunctionCall call = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                        .setName(QualifiedName.of(ArrayConstructor.NAME))
+                        .setArguments(types, values)
+                        .build();
+
+                return coerceIfNecessary(node, call);
             }
 
             @Override
