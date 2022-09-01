@@ -586,17 +586,6 @@ public final class FunctionAssertions
         Object recordValue = selectSingleValue(scanProjectOperatorFactory, expectedType, createRecordSetSplit(), session);
         results.add(recordValue);
 
-        //
-        // If the projection does not need bound values, execute query using full engine
-        if (!needsBoundValue(projectionExpression)) {
-            MaterializedResult result = runner.execute("SELECT " + projection);
-            assertType(result.getTypes(), expectedType);
-            assertEquals(result.getTypes().size(), 1);
-            assertEquals(result.getMaterializedRows().size(), 1);
-            Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
-            results.add(queryResult);
-        }
-
         // validate type at end since some tests expect failure and for those UNKNOWN is used instead of actual type
         assertEquals(projectionRowExpression.getType(), expectedType);
         return results;
