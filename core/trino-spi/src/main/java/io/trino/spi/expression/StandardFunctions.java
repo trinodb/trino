@@ -81,7 +81,7 @@ public final class StandardFunctions
      */
     public static final FunctionName NEGATE_FUNCTION_NAME = new FunctionName("$negate");
 
-    public static final FunctionName LIKE_PATTERN_FUNCTION_NAME = new FunctionName("$like_pattern");
+    public static final FunctionName LIKE_FUNCTION_NAME = new FunctionName("$like");
 
     /**
      * {@code $in(value, array)} returns {@code true} when value is equal to an element of the array,
