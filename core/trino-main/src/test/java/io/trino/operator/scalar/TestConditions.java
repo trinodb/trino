@@ -42,9 +42,6 @@ public class TestConditions
 
         assertFunction("'_monkey_' like '\\_monkey\\_'", BOOLEAN, false);
         assertFunction("'_monkey_' like 'X_monkeyX_' escape 'X'", BOOLEAN, true);
-        assertFunction("'_monkey_' like '_monkey_' escape ''", BOOLEAN, true);
-
-        assertFunction("'*?.(){}+|^$,\\' like '*?.(){}+|^$,\\' escape ''", BOOLEAN, true);
 
         assertFunction("null like 'monkey'", BOOLEAN, null);
         assertFunction("'monkey' like null", BOOLEAN, null);
@@ -62,9 +59,6 @@ public class TestConditions
 
         assertFunction("'_monkey_' not like '\\_monkey\\_'", BOOLEAN, true);
         assertFunction("'_monkey_' not like 'X_monkeyX_' escape 'X'", BOOLEAN, false);
-        assertFunction("'_monkey_' not like '_monkey_' escape ''", BOOLEAN, false);
-
-        assertFunction("'*?.(){}+|^$,\\' not like '*?.(){}+|^$,\\' escape ''", BOOLEAN, false);
 
         assertFunction("null not like 'monkey'", BOOLEAN, null);
         assertFunction("'monkey' not like null", BOOLEAN, null);
