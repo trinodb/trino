@@ -22,7 +22,6 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
@@ -31,14 +30,12 @@ import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.Extract;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.WhenClause;
@@ -133,68 +130,6 @@ public final class CanonicalizeExpressionRewriter
             Optional<Expression> falseValue = node.getFalseValue().map(value -> treeRewriter.rewrite(value, context));
 
             return new SearchedCaseExpression(ImmutableList.of(new WhenClause(condition, trueValue)), falseValue);
-        }
-
-        @Override
-        public Expression rewriteExtract(Extract node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-        {
-            Expression value = treeRewriter.rewrite(node.getExpression(), context);
-            Type type = expressionTypes.get(NodeRef.of(node.getExpression()));
-
-            return switch (node.getField()) {
-                case YEAR -> FunctionCallBuilder.resolve(session, metadata)
-                        .setName(QualifiedName.of("year"))
-                        .addArgument(type, value)
-                        .build();
-                case QUARTER -> FunctionCallBuilder.resolve(session, metadata)
-                        .setName(QualifiedName.of("quarter"))
-                        .addArgument(type, value)
-                        .build();
-                case MONTH -> FunctionCallBuilder.resolve(session, metadata)
-                        .setName(QualifiedName.of("month"))
-                        .addArgument(type, value)
-                        .build();
-                case WEEK -> FunctionCallBuilder.resolve(session, metadata)
-                        .setName(QualifiedName.of("week"))
-                        .addArgument(type, value)
-                        .build();
-                case DAY, DAY_OF_MONTH -> FunctionCallBuilder.resolve(session, metadata)
-                        .setName(QualifiedName.of("day"))
-                        .addArgument(type, value)
-                        .build();
-                case DAY_OF_WEEK, DOW -> FunctionCallBuilder.resolve(session, metadata)
-                        .setName(QualifiedName.of("day_of_week"))
-                        .addArgument(type, value)
-                        .build();
-                case DAY_OF_YEAR, DOY -> FunctionCallBuilder.resolve(session, metadata)
-                        .setName(QualifiedName.of("day_of_year"))
-                        .addArgument(type, value)
-                        .build();
-                case YEAR_OF_WEEK, YOW -> FunctionCallBuilder.resolve(session, metadata)
-                        .setName(QualifiedName.of("year_of_week"))
-                        .addArgument(type, value)
-                        .build();
-                case HOUR -> FunctionCallBuilder.resolve(session, metadata)
-                        .setName(QualifiedName.of("hour"))
-                        .addArgument(type, value)
-                        .build();
-                case MINUTE -> FunctionCallBuilder.resolve(session, metadata)
-                        .setName(QualifiedName.of("minute"))
-                        .addArgument(type, value)
-                        .build();
-                case SECOND -> FunctionCallBuilder.resolve(session, metadata)
-                        .setName(QualifiedName.of("second"))
-                        .addArgument(type, value)
-                        .build();
-                case TIMEZONE_MINUTE -> FunctionCallBuilder.resolve(session, metadata)
-                        .setName(QualifiedName.of("timezone_minute"))
-                        .addArgument(type, value)
-                        .build();
-                case TIMEZONE_HOUR -> FunctionCallBuilder.resolve(session, metadata)
-                        .setName(QualifiedName.of("timezone_hour"))
-                        .addArgument(type, value)
-                        .build();
-            };
         }
 
         @Override

@@ -72,6 +72,7 @@ import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Extract;
 import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.Format;
 import io.trino.sql.tree.FunctionCall;
@@ -1519,6 +1520,41 @@ public class ExpressionInterpreter
 
             // Subscript on Array or Map is interpreted using operator.
             return invokeOperator(OperatorType.SUBSCRIPT, types(node.getBase(), node.getIndex()), ImmutableList.of(base, index));
+        }
+
+        @Override
+        protected Object visitExtract(Extract node, Object context)
+        {
+            Object value = processWithExceptionHandling(node.getExpression(), context);
+            if (value == null) {
+                return null;
+            }
+
+            if (value instanceof Expression) {
+                return new Extract(toExpression(value, type(node)), node.getField());
+            }
+
+            String name = switch (node.getField()) {
+                case YEAR -> "year";
+                case QUARTER -> "quarter";
+                case MONTH -> "month";
+                case WEEK -> "week";
+                case DAY, DAY_OF_MONTH -> "day";
+                case DAY_OF_WEEK, DOW -> "day_of_week";
+                case DAY_OF_YEAR, DOY -> "day_of_year";
+                case YEAR_OF_WEEK, YOW -> "year_of_week";
+                case HOUR -> "hour";
+                case MINUTE -> "minute";
+                case SECOND -> "second";
+                case TIMEZONE_MINUTE -> "timezone_minute";
+                case TIMEZONE_HOUR -> "timezone_hour";
+            };
+
+            return functionInvoker.invoke(
+                    plannerContext.getMetadata()
+                            .resolveFunction(session, QualifiedName.of(name), TypeSignatureProvider.fromTypes(type(node.getExpression()))),
+                    connectorSession,
+                    ImmutableList.of(value));
         }
 
         @Override
