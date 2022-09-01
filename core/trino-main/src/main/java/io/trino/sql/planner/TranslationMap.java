@@ -19,6 +19,10 @@ import io.trino.Session;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.sql.PlannerContext;
@@ -27,6 +31,7 @@ import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
 import io.trino.sql.analyzer.ResolvedField;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.analyzer.TypeSignatureTranslator;
+import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CurrentCatalog;
@@ -77,6 +82,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
@@ -405,6 +412,56 @@ class TranslationMap
                                 .resolveFunction(session, QualifiedName.of("$current_user"), ImmutableList.of())
                                 .toQualifiedName(),
                         ImmutableList.of()));
+            }
+
+            @Override
+            public Expression rewriteAtTimeZone(AtTimeZone node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                Type valueType = analysis.getType(node.getValue());
+                Expression value = treeRewriter.rewrite(node.getValue(), context);
+
+                Type timeZoneType = analysis.getType(node.getTimeZone());
+                Expression timeZone = treeRewriter.rewrite(node.getTimeZone(), context);
+
+                FunctionCall call;
+                if (valueType instanceof TimeType type) {
+                    call = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("$at_timezone"))
+                            .addArgument(createTimeWithTimeZoneType(type.getPrecision()), new Cast(value, toSqlType(createTimeWithTimeZoneType(((TimeType) valueType).getPrecision()))))
+                            .addArgument(timeZoneType, timeZone)
+                            .build();
+                }
+                else if (valueType instanceof TimeWithTimeZoneType) {
+                    call = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("$at_timezone"))
+                            .addArgument(valueType, value)
+                            .addArgument(timeZoneType, timeZone)
+                            .build();
+                }
+                else if (valueType instanceof TimestampType type) {
+                    call = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("at_timezone"))
+                            .addArgument(createTimestampWithTimeZoneType(type.getPrecision()), new Cast(value, toSqlType(createTimestampWithTimeZoneType(((TimestampType) valueType).getPrecision()))))
+                            .addArgument(timeZoneType, timeZone)
+                            .build();
+                }
+                else if (valueType instanceof TimestampWithTimeZoneType) {
+                    call = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("at_timezone"))
+                            .addArgument(valueType, value)
+                            .addArgument(timeZoneType, timeZone)
+                            .build();
+                }
+                else {
+                    throw new IllegalArgumentException("Unexpected type: " + valueType);
+                }
+
+                return coerceIfNecessary(node, call);
             }
 
             @Override
