@@ -1250,7 +1250,7 @@
             <dependency>
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
-                <version>10.2.0.jre11</version>
+                <version>11.2.1.jre17</version>
             </dependency>
 
             <dependency>
