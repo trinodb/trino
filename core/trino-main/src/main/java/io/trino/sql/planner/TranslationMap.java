@@ -65,6 +65,7 @@ import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LabelDereference;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
+import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
@@ -102,6 +103,9 @@ import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.KEEP;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.OMIT;
+import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
+import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
+import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -641,6 +645,42 @@ class TranslationMap
                 FunctionCall call = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                         .setName(QualifiedName.of(TryFunction.NAME))
                         .addArgument(new FunctionType(ImmutableList.of(), type), new LambdaExpression(ImmutableList.of(), expression))
+                        .build();
+
+                return coerceIfNecessary(node, call);
+            }
+
+            @Override
+            public Expression rewriteLikePredicate(LikePredicate node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                Expression value = treeRewriter.rewrite(node.getValue(), context);
+                Expression pattern = treeRewriter.rewrite(node.getPattern(), context);
+                Optional<Expression> escape = node.getEscape().map(e -> treeRewriter.rewrite(e, context));
+
+                FunctionCall patternCall;
+                if (escape.isPresent()) {
+                    patternCall = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of(LIKE_PATTERN_FUNCTION_NAME))
+                            .addArgument(analysis.getType(node.getPattern()), pattern)
+                            .addArgument(analysis.getType(node.getEscape().get()), escape.get())
+                            .build();
+                }
+                else {
+                    patternCall = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of(LIKE_PATTERN_FUNCTION_NAME))
+                            .addArgument(analysis.getType(node.getPattern()), pattern)
+                            .build();
+                }
+
+                FunctionCall call = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                        .setName(QualifiedName.of(LIKE_FUNCTION_NAME))
+                        .addArgument(analysis.getType(node.getValue()), value)
+                        .addArgument(LIKE_PATTERN, patternCall)
                         .build();
 
                 return coerceIfNecessary(node, call);

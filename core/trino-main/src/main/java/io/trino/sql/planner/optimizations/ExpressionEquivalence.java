@@ -22,7 +22,6 @@ import io.trino.Session;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
-import io.trino.sql.planner.DesugarLikeRewriter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -91,8 +90,6 @@ public class ExpressionEquivalence
 
     private RowExpression toRowExpression(Session session, Expression expression, Map<Symbol, Integer> symbolInput, TypeProvider types)
     {
-        expression = DesugarLikeRewriter.rewrite(expression, session, metadata, typeAnalyzer, types);
-
         return translate(
                 expression,
                 typeAnalyzer.getTypes(session, types, expression),
