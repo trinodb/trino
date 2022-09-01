@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.operator.scalar.FormatFunction;
 import io.trino.operator.scalar.TryFunction;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
@@ -45,6 +46,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.FieldReference;
+import io.trino.sql.tree.Format;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.GenericLiteral;
@@ -497,6 +499,30 @@ class TranslationMap
                 else {
                     throw new IllegalArgumentException("Unexpected type: " + valueType);
                 }
+
+                return coerceIfNecessary(node, call);
+            }
+
+            @Override
+            public Expression rewriteFormat(Format node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                List<Expression> arguments = node.getArguments().stream()
+                        .map(value -> treeRewriter.rewrite(value, context))
+                        .collect(toImmutableList());
+                List<Type> argumentTypes = node.getArguments().stream()
+                        .map(analysis::getType)
+                        .collect(toImmutableList());
+
+                FunctionCall call = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                        .setName(QualifiedName.of(FormatFunction.NAME))
+                        .addArgument(VARCHAR, arguments.get(0))
+                        .addArgument(RowType.anonymous(argumentTypes.subList(1, arguments.size())), new Row(arguments.subList(1, arguments.size())))
+                        .build();
 
                 return coerceIfNecessary(node, call);
             }

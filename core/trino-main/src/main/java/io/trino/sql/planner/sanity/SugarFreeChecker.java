@@ -33,6 +33,7 @@ import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Extract;
+import io.trino.sql.tree.Format;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.TryExpression;
@@ -108,6 +109,12 @@ public final class SugarFreeChecker
 
         @Override
         protected Void visitLikePredicate(LikePredicate node, Builder<Symbol> context)
+        {
+            throw createIllegalNodeException(node);
+        }
+
+        @Override
+        protected Void visitFormat(Format node, Builder<Symbol> context)
         {
             throw createIllegalNodeException(node);
         }
