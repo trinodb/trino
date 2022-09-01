@@ -168,8 +168,8 @@ functionality:
 Configuration
 -------------
 
-Create ``etc/catalog/hive.properties`` with the following contents
-to mount the ``hive`` connector as the ``hive`` catalog,
+Create ``etc/catalog/example.properties`` with the following contents
+to mount the ``hive`` connector as the ``example`` catalog,
 replacing ``example.net:9083`` with the correct host and port
 for your Hive metastore Thrift service:
 

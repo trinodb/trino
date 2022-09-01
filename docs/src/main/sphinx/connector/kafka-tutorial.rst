@@ -91,7 +91,7 @@ Step 3: Make the Kafka topics known to Trino
 ---------------------------------------------
 
 In your Trino installation, add a catalog properties file
-``etc/catalog/kafka.properties`` for the Kafka connector.
+``etc/catalog/example.properties`` for the Kafka connector.
 This file lists the Kafka nodes and topics:
 
 .. code-block:: text
@@ -109,7 +109,7 @@ Now start Trino:
 
 Because the Kafka tables all have the ``tpch.`` prefix in the configuration,
 the tables are in the ``tpch`` schema. The connector is mounted into the
-``kafka`` catalog, because the properties file is named ``kafka.properties``.
+``kafka`` catalog, because the properties file is named ``example.properties``.
 
 Start the :doc:`Trino CLI </client/cli>`:
 
@@ -409,7 +409,7 @@ Setup a live Twitter feed
 Create a tweets table on Trino
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Add the tweets table to the ``etc/catalog/kafka.properties`` file:
+Add the tweets table to the ``etc/catalog/example.properties`` file:
 
 .. code-block:: text
 

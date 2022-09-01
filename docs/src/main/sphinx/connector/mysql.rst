@@ -23,8 +23,8 @@ Configuration
 -------------
 
 To configure the MySQL connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``mysql.properties``, to
-mount the MySQL connector as the ``mysql`` catalog.
+in ``etc/catalog`` named, for example, ``example.properties``, to
+mount the MySQL connector as the ``example`` catalog.
 Create the file with the following contents, replacing the
 connection properties as appropriate for your setup:
 
@@ -292,7 +292,7 @@ Finally, you can access the ``clicks`` table in the ``web`` database::
     SELECT * FROM mysql.web.clicks;
 
 If you used a different name for your catalog properties file, use
-that catalog name instead of ``mysql`` in the above examples.
+that catalog name instead of ``example`` in the above examples.
 
 .. _mysql-sql-support:
 

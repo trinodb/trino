@@ -23,8 +23,8 @@ Configuration
 -------------
 
 To configure the Redshift connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``redshift.properties``, to
-mount the Redshift connector as the ``redshift`` catalog.
+in ``etc/catalog`` named, for example, ``example.properties``, to
+mount the Redshift connector as the ``example`` catalog.
 Create the file with the following contents, replacing the
 connection properties as appropriate for your setup:
 

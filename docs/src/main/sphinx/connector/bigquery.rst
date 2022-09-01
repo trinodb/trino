@@ -65,8 +65,8 @@ Configuration
 -------------
 
 To configure the BigQuery connector, create a catalog properties file in
-``etc/catalog`` named, for example, ``bigquery.properties``, to mount the
-BigQuery connector as the ``bigquery`` catalog. Create the file with the
+``etc/catalog`` named, for example, ``example.properties``, to mount the
+BigQuery connector as the ``example`` catalog. Create the file with the
 following contents, replacing the connection properties as appropriate for
 your setup:
 

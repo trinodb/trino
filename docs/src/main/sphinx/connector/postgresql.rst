@@ -27,8 +27,8 @@ The connector can query a database on a PostgreSQL server. Create a catalog
 properties file that specifies the PostgreSQL connector by setting the
 ``connector.name`` to ``postgresql``.
 
-For example, to access a database as the ``postgresql`` catalog, create the
-file ``etc/catalog/postgresql.properties``. Replace the connection properties
+For example, to access a database as the ``example`` catalog, create the
+file ``etc/catalog/example.properties``. Replace the connection properties
 as appropriate for your setup:
 
 .. code-block:: text
@@ -310,7 +310,7 @@ Finally, you can access the ``clicks`` table in the ``web`` schema::
     SELECT * FROM postgresql.web.clicks;
 
 If you used a different name for your catalog properties file, use
-that catalog name instead of ``postgresql`` in the above examples.
+that catalog name instead of ``example`` in the above examples.
 
 .. _postgresql-sql-support:
 

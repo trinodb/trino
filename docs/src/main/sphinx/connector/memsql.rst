@@ -24,8 +24,8 @@ Configuration
 -------------
 
 To configure the SingleStore connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``singlestore.properties``, to
-mount the SingleStore connector as the ``singlestore`` catalog.
+in ``etc/catalog`` named, for example, ``example.properties``, to
+mount the SingleStore connector as the ``example`` catalog.
 Create the file with the following contents, replacing the
 connection properties as appropriate for your setup:
 

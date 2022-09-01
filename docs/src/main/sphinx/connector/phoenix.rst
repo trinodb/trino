@@ -23,7 +23,7 @@ Configuration
 -------------
 
 To configure the Phoenix connector, create a catalog properties file
-``etc/catalog/phoenix.properties`` with the following contents,
+``etc/catalog/example.properties`` with the following contents,
 replacing ``host1,host2,host3`` with a comma-separated list of the ZooKeeper
 nodes used for discovery of the HBase cluster:
 
@@ -87,7 +87,7 @@ Finally, you can access the ``clicks`` table in the ``web`` schema::
     SELECT * FROM phoenix.web.clicks;
 
 If you used a different name for your catalog properties file, use
-that catalog name instead of ``phoenix`` in the above examples.
+that catalog name instead of ``example`` in the above examples.
 
 .. _phoenix-type-mapping:
 

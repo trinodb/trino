@@ -22,7 +22,7 @@ Configuration
 -------------
 
 To configure the Cassandra connector, create a catalog properties file
-``etc/catalog/cassandra.properties`` with the following contents,
+``etc/catalog/example.properties`` with the following contents,
 replacing ``host1,host2`` with a comma-separated list of the Cassandra
 nodes, used to discovery the cluster topology:
 

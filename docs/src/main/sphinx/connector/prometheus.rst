@@ -28,8 +28,8 @@ To query Prometheus, you need:
 Configuration
 -------------
 
-Create ``etc/catalog/prometheus.properties``
-to mount the Prometheus connector as the ``prometheus`` catalog,
+Create ``etc/catalog/example.properties``
+to mount the Prometheus connector as the ``example`` catalog,
 replacing the properties as appropriate:
 
 .. code-block:: text

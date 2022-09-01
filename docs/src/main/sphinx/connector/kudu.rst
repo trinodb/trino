@@ -23,7 +23,7 @@ Configuration
 -------------
 
 To configure the Kudu connector, create a catalog properties file
-``etc/catalog/kudu.properties`` with the following contents,
+``etc/catalog/example.properties`` with the following contents,
 replacing the properties as appropriate:
 
 .. code-block:: properties
@@ -149,7 +149,7 @@ Example
 Behavior with schema emulation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If schema emulation has been enabled in the connector properties, i.e. ``etc/catalog/kudu.properties``,
+If schema emulation has been enabled in the connector properties, i.e. ``etc/catalog/example.properties``,
 tables are mapped to schemas depending on some conventions.
 
 * With ``kudu.schema-emulation.enabled=true`` and ``kudu.schema-emulation.prefix=``,

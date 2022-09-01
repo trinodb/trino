@@ -39,13 +39,13 @@ Configuration
 -------------
 
 To configure the Kafka connector, create a catalog properties file
-``etc/catalog/kafka.properties`` with the following contents,
+``etc/catalog/example.properties`` with the following contents,
 replacing the properties as appropriate.
 
 In some cases, such as when using specialized authentication methods, it is necessary to specify
 additional Kafka client properties in order to access your Kafka cluster. To do so,
 add the ``kafka.config.resources`` property to reference your Kafka config files. Note that configs
-can be overwritten if defined explicitly in ``kafka.properties``:
+can be overwritten if defined explicitly in ``example.properties``:
 
 .. code-block:: text
 

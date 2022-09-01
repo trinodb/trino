@@ -27,8 +27,8 @@ The connector can query a single database on an SQL server instance. Create a
 catalog properties file that specifies the SQL server connector by setting the
 ``connector.name`` to ``sqlserver``.
 
-For example, to access a database as ``sqlserver``, create the file
-``etc/catalog/sqlserver.properties``. Replace the connection properties as
+For example, to access a database as ``example``, create the file
+``etc/catalog/example.properties``. Replace the connection properties as
 appropriate for your setup:
 
 .. code-block:: properties
@@ -133,7 +133,7 @@ Finally, you can query the ``clicks`` table in the ``web`` schema::
     SELECT * FROM sqlserver.web.clicks;
 
 If you used a different name for your catalog properties file, use
-that catalog name instead of ``sqlserver`` in the above examples.
+that catalog name instead of ``example`` in the above examples.
 
 .. _sqlserver-type-mapping:
 

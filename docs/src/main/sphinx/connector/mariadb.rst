@@ -22,8 +22,8 @@ Configuration
 -------------
 
 To configure the MariaDB connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``mariadb.properties``, to
-mount the MariaDB connector as the ``mariadb`` catalog.
+in ``etc/catalog`` named, for example, ``example.properties``, to
+mount the MariaDB connector as the ``example`` catalog.
 Create the file with the following contents, replacing the
 connection properties as appropriate for your setup:
 
@@ -64,7 +64,7 @@ Finally, you can access the ``clicks`` table in the ``web`` database::
     SELECT * FROM mariadb.web.clicks;
 
 If you used a different name for your catalog properties file, use
-that catalog name instead of ``mariadb`` in the above examples.
+that catalog name instead of ``example`` in the above examples.
 
 .. mariadb-type-mapping:
 

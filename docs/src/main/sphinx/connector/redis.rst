@@ -29,7 +29,7 @@ Configuration
 -------------
 
 To configure the Redis connector, create a catalog properties file
-``etc/catalog/redis.properties`` with the following content,
+``etc/catalog/example.properties`` with the following content,
 replacing the properties as appropriate:
 
 .. code-block:: text

@@ -27,8 +27,8 @@ The connector can query a ClickHouse server. Create a catalog properties file
 that specifies the ClickHouse connector by setting the ``connector.name`` to
 ``clickhouse``.
 
-For example, to access a server as ``clickhouse``, create the file
-``etc/catalog/clickhouse.properties``. Replace the connection properties as
+For example, to access a server as ``example``, create the file
+``etc/catalog/example.properties``. Replace the connection properties as
 appropriate for your setup:
 
 .. code-block:: none

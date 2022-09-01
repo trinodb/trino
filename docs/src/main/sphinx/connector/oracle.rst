@@ -22,8 +22,8 @@ To connect to Oracle, you need:
 Configuration
 -------------
 
-To configure the Oracle connector as the ``oracle`` catalog, create a file named
-``oracle.properties`` in ``etc/catalog``. Include the following connection
+To configure the Oracle connector as the ``example`` catalog, create a file named
+``example.properties`` in ``etc/catalog``. Include the following connection
 properties in the file:
 
 .. code-block:: text
@@ -101,7 +101,7 @@ Run ``SHOW SCHEMAS`` to see the available Oracle databases::
     SHOW SCHEMAS FROM oracle;
 
 If you used a different name for your catalog properties file, use that catalog
-name instead of ``oracle``.
+name instead of ``example``.
 
 .. note::
     The Oracle user must have access to the table in order to access it from Trino.

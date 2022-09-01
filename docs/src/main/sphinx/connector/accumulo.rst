@@ -37,8 +37,8 @@ To connect to Accumulo, you need:
 Connector configuration
 -----------------------
 
-Create ``etc/catalog/accumulo.properties``
-to mount the ``accumulo`` connector as the ``accumulo`` catalog,
+Create ``etc/catalog/example.properties``
+to mount the ``accumulo`` connector as the ``example`` catalog,
 replacing the ``accumulo.xxx`` properties as required:
 
 .. code-block:: text
@@ -470,7 +470,7 @@ Session properties
 You can change the default value of a session property by using :doc:`/sql/set-session`.
 Note that session properties are prefixed with the catalog name::
 
-    SET SESSION accumulo.column_filter_optimizations_enabled = false;
+    SET SESSION example.column_filter_optimizations_enabled = false;
 
 ============================================= ============= =======================================================================================================
 Property name                                 Default value Description
