@@ -644,7 +644,25 @@ public class DeduplicatingDirectExchangeBuffer
                         }
                         return getAllSourceHandles(exchange.getSourceHandles());
                     }, executor)
-                    .transform(exchangeManager::createSource, executor);
+                    .transform(handles -> {
+                        ExchangeSource source = exchangeManager.createSource();
+                        try {
+                            source.addSourceHandles(handles);
+                            source.noMoreSourceHandles();
+                            return source;
+                        }
+                        catch (Throwable t) {
+                            try {
+                                source.close();
+                            }
+                            catch (Throwable closeFailure) {
+                                if (closeFailure != t) {
+                                    t.addSuppressed(closeFailure);
+                                }
+                            }
+                            throw t;
+                        }
+                    }, executor);
             return new ExchangeOutputSource(selectedTasks, queryId, exchangeSourceFuture);
         }
 

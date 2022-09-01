@@ -25,10 +25,7 @@ import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeManager;
-import io.trino.spi.exchange.ExchangeSource;
-import io.trino.spi.exchange.ExchangeSourceHandle;
 
-import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -116,19 +113,14 @@ public class LazyExchangeDataSource
                 return;
             }
             ExchangeDataSource dataSource = delegate.get();
-            boolean inputAdded = false;
             if (dataSource == null) {
                 if (input instanceof DirectExchangeInput) {
                     DirectExchangeClient client = directExchangeClientSupplier.get(queryId, exchangeId, systemMemoryContext, taskFailureListener, retryPolicy);
                     dataSource = new DirectExchangeDataSource(client);
                 }
                 else if (input instanceof SpoolingExchangeInput) {
-                    SpoolingExchangeInput spoolingExchangeInput = (SpoolingExchangeInput) input;
                     ExchangeManager exchangeManager = exchangeManagerRegistry.getExchangeManager();
-                    List<ExchangeSourceHandle> sourceHandles = spoolingExchangeInput.getExchangeSourceHandles();
-                    ExchangeSource exchangeSource = exchangeManager.createSource(sourceHandles);
-                    dataSource = new SpoolingExchangeDataSource(exchangeSource, systemMemoryContext);
-                    inputAdded = true;
+                    dataSource = new SpoolingExchangeDataSource(exchangeManager.createSource(), systemMemoryContext);
                 }
                 else {
                     throw new IllegalArgumentException("Unexpected input: " + input);
@@ -136,9 +128,7 @@ public class LazyExchangeDataSource
                 delegate.set(dataSource);
                 initialized = true;
             }
-            if (!inputAdded) {
-                dataSource.addInput(input);
-            }
+            dataSource.addInput(input);
         }
 
         if (initialized) {

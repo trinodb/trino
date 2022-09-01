@@ -90,6 +90,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -208,9 +209,9 @@ public class S3FileSystemExchangeStorage
     }
 
     @Override
-    public ExchangeStorageReader createExchangeStorageReader(Queue<ExchangeSourceFile> sourceFiles, int maxPageStorageSize)
+    public ExchangeStorageReader createExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, int maxPageStorageSize)
     {
-        return new S3ExchangeStorageReader(stats, s3AsyncClient, sourceFiles, multiUploadPartSize, maxPageStorageSize);
+        return new S3ExchangeStorageReader(stats, s3AsyncClient, multiUploadPartSize, sourceFiles, maxPageStorageSize);
     }
 
     @Override
@@ -477,10 +478,11 @@ public class S3FileSystemExchangeStorage
 
         private final S3FileSystemExchangeStorageStats stats;
         private final S3AsyncClient s3AsyncClient;
-        private final Queue<ExchangeSourceFile> sourceFiles;
         private final int partSize;
         private final int bufferSize;
 
+        @GuardedBy("this")
+        private final Queue<ExchangeSourceFile> sourceFiles;
         @GuardedBy("this")
         private ExchangeSourceFile currentFile;
         @GuardedBy("this")
@@ -496,14 +498,14 @@ public class S3FileSystemExchangeStorage
         public S3ExchangeStorageReader(
                 S3FileSystemExchangeStorageStats stats,
                 S3AsyncClient s3AsyncClient,
-                Queue<ExchangeSourceFile> sourceFiles,
                 int partSize,
+                List<ExchangeSourceFile> sourceFiles,
                 int maxPageStorageSize)
         {
             this.stats = requireNonNull(stats, "stats is null");
             this.s3AsyncClient = requireNonNull(s3AsyncClient, "s3AsyncClient is null");
-            this.sourceFiles = requireNonNull(sourceFiles, "sourceFiles is null");
             this.partSize = partSize;
+            this.sourceFiles = new ArrayDeque<>(requireNonNull(sourceFiles, "sourceFiles is null"));
             // Make sure buffer can accommodate at least one complete Slice, and keep reads aligned to part boundaries
             this.bufferSize = maxPageStorageSize + partSize;
 

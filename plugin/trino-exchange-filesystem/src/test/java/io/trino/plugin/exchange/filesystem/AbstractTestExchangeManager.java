@@ -34,8 +34,10 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
@@ -265,11 +267,19 @@ public abstract class AbstractTestExchangeManager
     private List<String> readData(List<ExchangeSourceHandle> handles)
     {
         ImmutableList.Builder<String> result = ImmutableList.builder();
-        try (ExchangeSource source = exchangeManager.createSource(handles)) {
+        try (ExchangeSource source = exchangeManager.createSource()) {
+            Queue<ExchangeSourceHandle> remainingHandles = new ArrayDeque<>(handles);
             while (!source.isFinished()) {
                 Slice data = source.read();
                 if (data != null) {
                     result.add(data.toStringUtf8());
+                }
+                ExchangeSourceHandle handle = remainingHandles.poll();
+                if (handle != null) {
+                    source.addSourceHandles(ImmutableList.of(handle));
+                }
+                else {
+                    source.noMoreSourceHandles();
                 }
             }
         }
