@@ -61,6 +61,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -119,7 +120,7 @@ public class AzureBlobFileSystemExchangeStorage
     }
 
     @Override
-    public ExchangeStorageReader createExchangeStorageReader(Queue<ExchangeSourceFile> sourceFiles, int maxPageStorageSize)
+    public ExchangeStorageReader createExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, int maxPageStorageSize)
     {
         return new AzureExchangeStorageReader(blobServiceAsyncClient, sourceFiles, blockSize, maxPageStorageSize);
     }
@@ -273,6 +274,7 @@ public class AzureBlobFileSystemExchangeStorage
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(AzureExchangeStorageReader.class).instanceSize();
 
         private final BlobServiceAsyncClient blobServiceAsyncClient;
+        @GuardedBy("this")
         private final Queue<ExchangeSourceFile> sourceFiles;
         private final int blockSize;
         private final int bufferSize;
@@ -291,12 +293,12 @@ public class AzureBlobFileSystemExchangeStorage
 
         public AzureExchangeStorageReader(
                 BlobServiceAsyncClient blobServiceAsyncClient,
-                Queue<ExchangeSourceFile> sourceFiles,
+                List<ExchangeSourceFile> sourceFiles,
                 int blockSize,
                 int maxPageStorageSize)
         {
             this.blobServiceAsyncClient = requireNonNull(blobServiceAsyncClient, "blobServiceAsyncClient is null");
-            this.sourceFiles = requireNonNull(sourceFiles, "sourceFiles is null");
+            this.sourceFiles = new ArrayDeque<>(requireNonNull(sourceFiles, "sourceFiles is null"));
             this.blockSize = blockSize;
             // Make sure buffer can accommodate at least one complete Slice, and keep reads aligned to block boundaries
             this.bufferSize = maxPageStorageSize + blockSize;
@@ -373,6 +375,7 @@ public class AzureBlobFileSystemExchangeStorage
             inProgressReadFuture = immediateVoidFuture(); // such that we don't retain reference to the buffer
         }
 
+        @GuardedBy("this")
         private void fillBuffer()
         {
             if (currentFile == null || fileOffset == currentFile.getFileSize()) {

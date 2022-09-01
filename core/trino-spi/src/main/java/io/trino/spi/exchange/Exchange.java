@@ -18,7 +18,6 @@ import io.trino.spi.Experimental;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
-import java.util.List;
 
 @ThreadSafe
 @Experimental(eta = "2023-01-01")
@@ -70,7 +69,7 @@ public interface Exchange
      * Returns an {@link ExchangeSourceHandleSource} instance to be used to enumerate {@link ExchangeSourceHandle}s.
      *
      * @return Future containing a list of {@link ExchangeSourceHandle} to be sent to a
-     * worker that is needed to create an {@link ExchangeSource} using {@link ExchangeManager#createSource(List)}
+     * worker that is needed to create an {@link ExchangeSource} using {@link ExchangeManager#createSource()}
      */
     ExchangeSourceHandleSource getSourceHandles();
 

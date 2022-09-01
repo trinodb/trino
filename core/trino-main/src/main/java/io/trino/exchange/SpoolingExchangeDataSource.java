@@ -86,14 +86,22 @@ public class SpoolingExchangeDataSource
     @Override
     public void addInput(ExchangeInput input)
     {
-        throw new UnsupportedOperationException("only a single input is expected");
+        SpoolingExchangeInput spoolingExchangeInput = (SpoolingExchangeInput) input;
+        ExchangeSource exchangeSource = this.exchangeSource;
+        if (exchangeSource == null) {
+            return;
+        }
+        exchangeSource.addSourceHandles(spoolingExchangeInput.getExchangeSourceHandles());
     }
 
     @Override
     public void noMoreInputs()
     {
-        // Only a single input is expected when the spooling exchange is used.
-        // Thus the assumption of "noMoreSplit" is made on construction.
+        ExchangeSource exchangeSource = this.exchangeSource;
+        if (exchangeSource == null) {
+            return;
+        }
+        exchangeSource.noMoreSourceHandles();
     }
 
     @Override
