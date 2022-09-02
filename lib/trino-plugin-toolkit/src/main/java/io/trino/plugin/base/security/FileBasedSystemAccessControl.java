@@ -61,7 +61,6 @@ import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivileg
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.UPDATE;
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
-import static io.trino.spi.function.FunctionKind.TABLE;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
@@ -953,9 +952,13 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
     {
-        if (functionKind == TABLE) {
-            denyExecuteFunction(functionName.toString());
+        switch (functionKind) {
+            case SCALAR, AGGREGATE, WINDOW:
+                return;
+            case TABLE:
+                denyExecuteFunction(functionName.toString());
         }
+        throw new UnsupportedOperationException("Unsupported function kind: " + functionKind);
     }
 
     @Override
