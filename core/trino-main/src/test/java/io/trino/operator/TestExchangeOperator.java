@@ -272,6 +272,7 @@ public class TestExchangeOperator
 
         SourceOperator operator = operatorFactory.createOperator(driverContext);
         assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), 0);
+        operatorFactory.noMoreOperators();
         return operator;
     }
 
