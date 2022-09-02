@@ -21,6 +21,7 @@ import io.trino.spi.block.AbstractArrayBlock;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 
 import javax.annotation.Nullable;
@@ -144,12 +145,18 @@ public final class TrinoThriftBigintArray
 
     public static TrinoThriftBlock fromBlock(Block block)
     {
-        checkArgument(block instanceof AbstractArrayBlock, "block is not of an array type");
-        AbstractArrayBlock arrayBlock = (AbstractArrayBlock) block;
-        int positions = arrayBlock.getPositionCount();
+        int positions = block.getPositionCount();
         if (positions == 0) {
             return bigintArrayData(new TrinoThriftBigintArray(null, null, null));
         }
+        if (block instanceof RunLengthEncodedBlock && block.isNull(0)) {
+            boolean[] nulls = new boolean[positions];
+            Arrays.fill(nulls, true);
+            return bigintArrayData(new TrinoThriftBigintArray(nulls, null, null));
+        }
+        checkArgument(block instanceof AbstractArrayBlock, "block is not of an array type");
+        AbstractArrayBlock arrayBlock = (AbstractArrayBlock) block;
+
         boolean[] nulls = null;
         int[] sizes = null;
         for (int position = 0; position < positions; position++) {
