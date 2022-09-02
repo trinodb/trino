@@ -14,16 +14,13 @@
 package io.trino.type;
 
 import io.trino.operator.scalar.AbstractTestFunctions;
-import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
-import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public class TestIntervalYearMonth
@@ -42,40 +39,6 @@ public class TestIntervalYearMonth
 
         assertEquals(new SqlIntervalYearMonth(-MAX_SHORT, 0), new SqlIntervalYearMonth(-393_204));
         assertEquals(new SqlIntervalYearMonth(-MAX_SHORT, -MAX_SHORT), new SqlIntervalYearMonth(-425_971));
-    }
-
-    @Test
-    public void testLiteral()
-    {
-        assertLiteral("INTERVAL '124-30' YEAR TO MONTH", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(124, 30));
-        assertLiteral("INTERVAL '124' YEAR TO MONTH", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(124, 0));
-
-        assertLiteral("INTERVAL '124' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(124, 0));
-
-        assertLiteral("INTERVAL '30' MONTH", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(0, 30));
-
-        assertLiteral(format("INTERVAL '%s' YEAR", MAX_SHORT), INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(MAX_SHORT, 0));
-        assertLiteral(format("INTERVAL '%s' MONTH", MAX_SHORT), INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(0, MAX_SHORT));
-        assertLiteral(format("INTERVAL '%s-%s' YEAR TO MONTH", MAX_SHORT, MAX_SHORT), INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(MAX_SHORT, MAX_SHORT));
-    }
-
-    private void assertLiteral(String projection, Type expectedType, SqlIntervalYearMonth expectedValue)
-    {
-        assertFunction(projection, expectedType, expectedValue);
-
-        projection = projection.replace("INTERVAL '", "INTERVAL '-");
-        expectedValue = new SqlIntervalYearMonth(-expectedValue.getMonths());
-        assertFunction(projection, expectedType, expectedValue);
-    }
-
-    @Test
-    public void testInvalidLiteral()
-    {
-        assertInvalidFunction("INTERVAL '124X' YEAR", INVALID_LITERAL, "line 1:1: '124X' is not a valid interval literal");
-        assertInvalidFunction("INTERVAL '124-30' YEAR", INVALID_LITERAL, "line 1:1: '124-30' is not a valid interval literal");
-        assertInvalidFunction("INTERVAL '124-X' YEAR TO MONTH", INVALID_LITERAL, "line 1:1: '124-X' is not a valid interval literal");
-        assertInvalidFunction("INTERVAL '124--30' YEAR TO MONTH", INVALID_LITERAL, "line 1:1: '124--30' is not a valid interval literal");
-        assertInvalidFunction("INTERVAL '--124--30' YEAR TO MONTH", INVALID_LITERAL, "line 1:1: '--124--30' is not a valid interval literal");
     }
 
     @Test
