@@ -55,7 +55,6 @@ import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isRoleEn
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listApplicableRoles;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledPrincipals;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.function.FunctionKind.TABLE;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
@@ -583,9 +582,16 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
     {
-        if (functionKind == TABLE && !isAdmin(context)) {
-            denyExecuteFunction(function.toString());
+        switch (functionKind) {
+            case SCALAR, AGGREGATE, WINDOW:
+                return;
+            case TABLE:
+                if (isAdmin(context)) {
+                    return;
+                }
+                denyExecuteFunction(function.toString());
         }
+        throw new UnsupportedOperationException("Unsupported function kind: " + functionKind);
     }
 
     @Override
