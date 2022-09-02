@@ -45,6 +45,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static java.util.Objects.requireNonNull;
@@ -155,10 +156,7 @@ public class DirectExchangeClient
             return;
         }
 
-        // ignore duplicate locations
-        if (allClients.containsKey(location)) {
-            return;
-        }
+        checkArgument(!allClients.containsKey(location), "location already exist: %s", location);
 
         checkState(!noMoreLocations, "No more locations already set");
         buffer.addTask(taskId);

@@ -20,9 +20,7 @@ import io.airlift.slice.SizeOf;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -83,28 +81,6 @@ public class FileSystemExchangeSourceHandle
     public Optional<byte[]> getSecretKey()
     {
         return secretKey;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        FileSystemExchangeSourceHandle that = (FileSystemExchangeSourceHandle) o;
-        if (secretKey.isPresent() && that.secretKey.isPresent()) {
-            return partitionId == that.getPartitionId() && Arrays.equals(secretKey.get(), that.secretKey.get());
-        }
-        return partitionId == that.getPartitionId() && secretKey.isEmpty() && that.secretKey.isEmpty();
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(partitionId, files, secretKey);
     }
 
     @Override
