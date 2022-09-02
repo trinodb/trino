@@ -116,6 +116,7 @@ public class LazyExchangeDataSource
                 return;
             }
             ExchangeDataSource dataSource = delegate.get();
+            boolean inputAdded = false;
             if (dataSource == null) {
                 if (input instanceof DirectExchangeInput) {
                     DirectExchangeClient client = directExchangeClientSupplier.get(queryId, exchangeId, systemMemoryContext, taskFailureListener, retryPolicy);
@@ -126,7 +127,8 @@ public class LazyExchangeDataSource
                     ExchangeManager exchangeManager = exchangeManagerRegistry.getExchangeManager();
                     List<ExchangeSourceHandle> sourceHandles = spoolingExchangeInput.getExchangeSourceHandles();
                     ExchangeSource exchangeSource = exchangeManager.createSource(sourceHandles);
-                    dataSource = new SpoolingExchangeDataSource(exchangeSource, sourceHandles, systemMemoryContext);
+                    dataSource = new SpoolingExchangeDataSource(exchangeSource, systemMemoryContext);
+                    inputAdded = true;
                 }
                 else {
                     throw new IllegalArgumentException("Unexpected input: " + input);
@@ -134,7 +136,9 @@ public class LazyExchangeDataSource
                 delegate.set(dataSource);
                 initialized = true;
             }
-            dataSource.addInput(input);
+            if (!inputAdded) {
+                dataSource.addInput(input);
+            }
         }
 
         if (initialized) {
