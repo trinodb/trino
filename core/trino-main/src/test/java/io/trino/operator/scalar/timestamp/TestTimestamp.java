@@ -134,13 +134,13 @@ public class TestTimestamp
                 .hasType(createTimestampType(12))
                 .isEqualTo(timestamp(12, 2020, 5, 1, 12, 34, 56, 123_456_789_012L));
 
-        assertThatThrownBy(() -> assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567890123'"))
+        assertThatThrownBy(() -> assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567890123'").evaluate())
                 .hasMessage("line 1:8: TIMESTAMP precision must be in range [0, 12]: 13");
 
-        assertThatThrownBy(() -> assertions.expression("TIMESTAMP '2020-13-01'"))
+        assertThatThrownBy(() -> assertions.expression("TIMESTAMP '2020-13-01'").evaluate())
                 .hasMessage("line 1:8: '2020-13-01' is not a valid timestamp literal");
 
-        assertThatThrownBy(() -> assertions.expression("TIMESTAMP 'xxx'"))
+        assertThatThrownBy(() -> assertions.expression("TIMESTAMP 'xxx'").evaluate())
                 .hasMessage("line 1:8: 'xxx' is not a valid timestamp literal");
 
         // negative epoch
@@ -1464,9 +1464,9 @@ public class TestTimestamp
         assertThat(assertions.expression("CAST(TIMESTAMP '-12001-05-01 12:34:56' AS TIMESTAMP(0) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56 Pacific/Apia'");
 
         // Overflow
-        assertThatThrownBy(() -> assertions.expression("CAST(TIMESTAMP '123001-05-01 12:34:56' AS TIMESTAMP WITH TIME ZONE)"))
+        assertThatThrownBy(() -> assertions.expression("CAST(TIMESTAMP '123001-05-01 12:34:56' AS TIMESTAMP WITH TIME ZONE)").evaluate())
                 .hasMessage("Out of range for timestamp with time zone: 3819379822496000");
-        assertThatThrownBy(() -> assertions.expression("CAST(TIMESTAMP '-123001-05-01 12:34:56' AS TIMESTAMP WITH TIME ZONE)"))
+        assertThatThrownBy(() -> assertions.expression("CAST(TIMESTAMP '-123001-05-01 12:34:56' AS TIMESTAMP WITH TIME ZONE)").evaluate())
                 .hasMessage("Out of range for timestamp with time zone: -3943693439888000");
     }
 
@@ -2674,30 +2674,30 @@ public class TestTimestamp
     @Test
     public void testCastInvalidTimestamp()
     {
-        assertThatThrownBy(() -> assertions.expression("CAST('ABC' AS TIMESTAMP)"))
+        assertThatThrownBy(() -> assertions.expression("CAST('ABC' AS TIMESTAMP)").evaluate())
                 .hasMessage("Value cannot be cast to timestamp: ABC");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-00 00:00:00' AS TIMESTAMP)"))
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-00 00:00:00' AS TIMESTAMP)").evaluate())
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-00 00:00:00");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-00-01 00:00:00' AS TIMESTAMP)"))
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-00-01 00:00:00' AS TIMESTAMP)").evaluate())
                 .hasMessage("Value cannot be cast to timestamp: 2022-00-01 00:00:00");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 25:00:00' AS TIMESTAMP)"))
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 25:00:00' AS TIMESTAMP)").evaluate())
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-01 25:00:00");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:61:00' AS TIMESTAMP)"))
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:61:00' AS TIMESTAMP)").evaluate())
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:61:00");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:00:61' AS TIMESTAMP)"))
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:00:61' AS TIMESTAMP)").evaluate())
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:00:61");
 
-        assertThatThrownBy(() -> assertions.expression("CAST('ABC' AS TIMESTAMP(12))"))
+        assertThatThrownBy(() -> assertions.expression("CAST('ABC' AS TIMESTAMP(12))").evaluate())
                 .hasMessage("Value cannot be cast to timestamp: ABC");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-00 00:00:00' AS TIMESTAMP(12))"))
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-00 00:00:00' AS TIMESTAMP(12))").evaluate())
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-00 00:00:00");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-00-01 00:00:00' AS TIMESTAMP(12))"))
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-00-01 00:00:00' AS TIMESTAMP(12))").evaluate())
                 .hasMessage("Value cannot be cast to timestamp: 2022-00-01 00:00:00");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 25:00:00' AS TIMESTAMP(12))"))
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 25:00:00' AS TIMESTAMP(12))").evaluate())
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-01 25:00:00");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:61:00' AS TIMESTAMP(12))"))
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:61:00' AS TIMESTAMP(12))").evaluate())
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:61:00");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:00:61' AS TIMESTAMP(12))"))
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:00:61' AS TIMESTAMP(12))").evaluate())
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:00:61");
     }
 

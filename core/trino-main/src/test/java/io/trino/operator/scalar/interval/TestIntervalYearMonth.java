@@ -60,19 +60,19 @@ public class TestIntervalYearMonth
         assertThat(assertions.expression("INTERVAL '32767-32767' YEAR TO MONTH"))
                 .isEqualTo(interval(32767, 32767));
 
-        assertThatThrownBy(() -> assertions.expression("INTERVAL '124X' YEAR"))
+        assertThatThrownBy(() -> assertions.expression("INTERVAL '124X' YEAR").evaluate())
                 .hasMessage("line 1:8: '124X' is not a valid interval literal");
 
-        assertThatThrownBy(() -> assertions.expression("INTERVAL '124-30' YEAR"))
+        assertThatThrownBy(() -> assertions.expression("INTERVAL '124-30' YEAR").evaluate())
                 .hasMessage("line 1:8: '124-30' is not a valid interval literal");
 
-        assertThatThrownBy(() -> assertions.expression("INTERVAL '124-X' YEAR TO MONTH"))
+        assertThatThrownBy(() -> assertions.expression("INTERVAL '124-X' YEAR TO MONTH").evaluate())
                 .hasMessage("line 1:8: '124-X' is not a valid interval literal");
 
-        assertThatThrownBy(() -> assertions.expression("INTERVAL '124--30' YEAR TO MONTH"))
+        assertThatThrownBy(() -> assertions.expression("INTERVAL '124--30' YEAR TO MONTH").evaluate())
                 .hasMessage("line 1:8: '124--30' is not a valid interval literal");
 
-        assertThatThrownBy(() -> assertions.expression("INTERVAL '--124--30' YEAR TO MONTH"))
+        assertThatThrownBy(() -> assertions.expression("INTERVAL '--124--30' YEAR TO MONTH").evaluate())
                 .hasMessage("line 1:8: '--124--30' is not a valid interval literal");
     }
 

@@ -132,19 +132,19 @@ public class TestIntervalDayTime
         assertThat(assertions.expression("INTERVAL '32' SECOND"))
                 .isEqualTo(interval(0, 0, 0, 32, 0));
 
-        assertThatThrownBy(() -> assertions.expression("INTERVAL '12X' DAY"))
+        assertThatThrownBy(() -> assertions.expression("INTERVAL '12X' DAY").evaluate())
                 .hasMessage("line 1:8: '12X' is not a valid interval literal");
 
-        assertThatThrownBy(() -> assertions.expression("INTERVAL '12 10' DAY"))
+        assertThatThrownBy(() -> assertions.expression("INTERVAL '12 10' DAY").evaluate())
                 .hasMessage("line 1:8: '12 10' is not a valid interval literal");
 
-        assertThatThrownBy(() -> assertions.expression("INTERVAL '12 X' DAY TO HOUR"))
+        assertThatThrownBy(() -> assertions.expression("INTERVAL '12 X' DAY TO HOUR").evaluate())
                 .hasMessage("line 1:8: '12 X' is not a valid interval literal");
 
-        assertThatThrownBy(() -> assertions.expression("INTERVAL '12 -10' DAY TO HOUR"))
+        assertThatThrownBy(() -> assertions.expression("INTERVAL '12 -10' DAY TO HOUR").evaluate())
                 .hasMessage("line 1:8: '12 -10' is not a valid interval literal");
 
-        assertThatThrownBy(() -> assertions.expression("INTERVAL '--12 -10' DAY TO HOUR"))
+        assertThatThrownBy(() -> assertions.expression("INTERVAL '--12 -10' DAY TO HOUR").evaluate())
                 .hasMessage("line 1:8: '--12 -10' is not a valid interval literal");
     }
 
