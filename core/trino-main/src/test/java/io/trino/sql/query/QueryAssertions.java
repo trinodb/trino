@@ -54,7 +54,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.cost.StatsCalculator.noopStatsCalculator;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
-import static io.trino.sql.query.QueryAssertions.ExpressionAssert.newExpressionAssert;
 import static io.trino.sql.query.QueryAssertions.QueryAssert.newQueryAssert;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -114,14 +113,14 @@ public class QueryAssertions
         return newQueryAssert(query, runner, session);
     }
 
-    public AssertProvider<ExpressionAssert> expression(@Language("SQL") String expression)
+    public ExpressionAssertProvider expression(@Language("SQL") String expression)
     {
         return expression(expression, runner.getDefaultSession());
     }
 
-    public AssertProvider<ExpressionAssert> expression(@Language("SQL") String expression, Session session)
+    public ExpressionAssertProvider expression(@Language("SQL") String expression, Session session)
     {
-        return newExpressionAssert(expression, runner, session);
+        return new ExpressionAssertProvider(runner, session, expression);
     }
 
     public void assertQueryAndPlan(
@@ -527,6 +526,37 @@ public class QueryAssertions
         }
     }
 
+    public static class ExpressionAssertProvider
+        implements AssertProvider<ExpressionAssert>
+    {
+        private final QueryRunner runner;
+        private final String expression;
+        private final Session session;
+
+        public ExpressionAssertProvider(QueryRunner runner, Session session, String expression)
+        {
+            this.runner = runner;
+            this.session = session;
+            this.expression = expression;
+        }
+
+        public Result evaluate()
+        {
+            MaterializedResult result = runner.execute(session, "VALUES " + expression);
+            return new Result(result.getTypes().get(0), result.getOnlyColumnAsSet().iterator().next());
+        }
+
+        @Override
+        public ExpressionAssert assertThat()
+        {
+            Result result = evaluate();
+            return new ExpressionAssert(runner, session, result.value(), result.type())
+                    .withRepresentation(ExpressionAssert.TYPE_RENDERER);
+        }
+
+        record Result(Type type, Object value) {}
+    }
+
     public static class ExpressionAssert
             extends AbstractAssert<ExpressionAssert, Object>
     {
@@ -574,15 +604,6 @@ public class QueryAssertions
         private final QueryRunner runner;
         private final Session session;
         private final Type actualType;
-
-        static AssertProvider<ExpressionAssert> newExpressionAssert(String expression, QueryRunner runner, Session session)
-        {
-            MaterializedResult result = runner.execute(session, "VALUES " + expression);
-            Type type = result.getTypes().get(0);
-            Object value = result.getOnlyColumnAsSet().iterator().next();
-            return () -> new ExpressionAssert(runner, session, value, type)
-                    .withRepresentation(TYPE_RENDERER);
-        }
 
         public ExpressionAssert(QueryRunner runner, Session session, Object actual, Type actualType)
         {
