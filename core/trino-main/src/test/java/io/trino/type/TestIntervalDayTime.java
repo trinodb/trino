@@ -14,11 +14,9 @@
 package io.trino.type;
 
 import io.trino.operator.scalar.AbstractTestFunctions;
-import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -40,69 +38,6 @@ public class TestIntervalDayTime
 
         assertEquals(new SqlIntervalDayTime(90, 0, 0, 0, 0), new SqlIntervalDayTime(DAYS.toMillis(90)));
         assertEquals(new SqlIntervalDayTime(-90, 0, 0, 0, 0), new SqlIntervalDayTime(-DAYS.toMillis(90)));
-    }
-
-    @Test
-    public void testLiteral()
-    {
-        assertLiteral("INTERVAL '12 10:45:32.123' DAY TO SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12, 10, 45, 32, 123));
-        assertLiteral("INTERVAL '12 10:45:32.12' DAY TO SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12, 10, 45, 32, 120));
-        assertLiteral("INTERVAL '12 10:45:32' DAY TO SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12, 10, 45, 32, 0));
-        assertLiteral("INTERVAL '12 10:45' DAY TO SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12, 10, 45, 0, 0));
-        assertLiteral("INTERVAL '12 10' DAY TO SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12, 10, 0, 0, 0));
-        assertLiteral("INTERVAL '12' DAY TO SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12, 0, 0, 0, 0));
-
-        assertLiteral("INTERVAL '12 10:45' DAY TO MINUTE", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12, 10, 45, 0, 0));
-        assertLiteral("INTERVAL '12 10' DAY TO MINUTE", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12, 10, 0, 0, 0));
-        assertLiteral("INTERVAL '12' DAY TO MINUTE", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12, 0, 0, 0, 0));
-
-        assertLiteral("INTERVAL '12 10' DAY TO HOUR", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12, 10, 0, 0, 0));
-        assertLiteral("INTERVAL '12' DAY TO HOUR", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12, 0, 0, 0, 0));
-
-        assertLiteral("INTERVAL '12' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12, 0, 0, 0, 0));
-        assertLiteral("INTERVAL '30' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime(30, 0, 0, 0, 0));
-        assertLiteral("INTERVAL '90' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime(90, 0, 0, 0, 0));
-
-        assertLiteral("INTERVAL '10:45:32.123' HOUR TO SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 10, 45, 32, 123));
-        assertLiteral("INTERVAL '10:45:32.12' HOUR TO SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 10, 45, 32, 120));
-        assertLiteral("INTERVAL '10:45:32' HOUR TO SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 10, 45, 32, 0));
-        assertLiteral("INTERVAL '10:45' HOUR TO SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 10, 45, 0, 0));
-        assertLiteral("INTERVAL '10' HOUR TO SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 10, 0, 0, 0));
-
-        assertLiteral("INTERVAL '10:45' HOUR TO MINUTE", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 10, 45, 0, 0));
-        assertLiteral("INTERVAL '10' HOUR TO MINUTE", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 10, 0, 0, 0));
-
-        assertLiteral("INTERVAL '10' HOUR", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 10, 0, 0, 0));
-
-        assertLiteral("INTERVAL '45:32.123' MINUTE TO SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 45, 32, 123));
-        assertLiteral("INTERVAL '45:32.12' MINUTE TO SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 45, 32, 120));
-        assertLiteral("INTERVAL '45:32' MINUTE TO SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 45, 32, 0));
-        assertLiteral("INTERVAL '45' MINUTE TO SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 45, 0, 0));
-
-        assertLiteral("INTERVAL '45' MINUTE", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 45, 0, 0));
-
-        assertLiteral("INTERVAL '32.123' SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 0, 32, 123));
-        assertLiteral("INTERVAL '32.12' SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 0, 32, 120));
-        assertLiteral("INTERVAL '32' SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 0, 32, 0));
-    }
-
-    private void assertLiteral(String projection, Type expectedType, SqlIntervalDayTime expectedValue)
-    {
-        assertFunction(projection, expectedType, expectedValue);
-
-        projection = projection.replace("INTERVAL '", "INTERVAL '-");
-        expectedValue = new SqlIntervalDayTime(-expectedValue.getMillis());
-        assertFunction(projection, expectedType, expectedValue);
-    }
-
-    @Test
-    public void testInvalidLiteral()
-    {
-        assertInvalidFunction("INTERVAL '12X' DAY", INVALID_LITERAL, "line 1:1: '12X' is not a valid interval literal");
-        assertInvalidFunction("INTERVAL '12 10' DAY", INVALID_LITERAL, "line 1:1: '12 10' is not a valid interval literal");
-        assertInvalidFunction("INTERVAL '12 X' DAY TO HOUR", INVALID_LITERAL, "line 1:1: '12 X' is not a valid interval literal");
-        assertInvalidFunction("INTERVAL '12 -10' DAY TO HOUR", INVALID_LITERAL, "line 1:1: '12 -10' is not a valid interval literal");
-        assertInvalidFunction("INTERVAL '--12 -10' DAY TO HOUR", INVALID_LITERAL, "line 1:1: '--12 -10' is not a valid interval literal");
     }
 
     @Test
