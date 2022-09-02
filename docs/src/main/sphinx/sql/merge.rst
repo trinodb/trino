@@ -93,5 +93,7 @@ table row::
 Limitations
 -----------
 
-Some connectors have limited or no support for ``MERGE``.
-See connector documentation for more details.
+Any connector can be used as a source table for a ``MERGE`` statement.
+Only connectors which support the ``MERGE`` statement can be the target of a
+merge operation. See the :doc:`connector documentation </connector>` for more
+information.
