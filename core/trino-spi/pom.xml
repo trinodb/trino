@@ -193,6 +193,10 @@
                                     <code>java.field.removed</code>
                                     <old>field io.trino.spi.expression.StandardFunctions.LIKE_PATTERN_FUNCTION_NAME</old>
                                 </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <new>method io.trino.spi.block.Block io.trino.spi.block.ArrayBlockBuilder::build()</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
