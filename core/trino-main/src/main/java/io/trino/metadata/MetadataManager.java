@@ -117,6 +117,7 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
+import io.trino.type.TypeCoercion;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -160,6 +161,7 @@ import static io.trino.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.metadata.RedirectionAwareTableHandle.withRedirectionTo;
 import static io.trino.metadata.SignatureBinder.applyBoundVariables;
+import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
@@ -192,6 +194,7 @@ public final class MetadataManager
     private final SystemSecurityMetadata systemSecurityMetadata;
     private final TransactionManager transactionManager;
     private final TypeManager typeManager;
+    private final TypeCoercion typeCoercion;
 
     private final ConcurrentMap<QueryId, QueryCatalogs> catalogsByQueryId = new ConcurrentHashMap<>();
 
@@ -210,6 +213,7 @@ public final class MetadataManager
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         functions = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
         functionResolver = new FunctionResolver(this, typeManager);
+        this.typeCoercion = new TypeCoercion(typeManager::getType);
 
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -1005,6 +1009,20 @@ public final class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
         return metadata.getNewTableLayout(connectorSession, tableMetadata)
                 .map(layout -> new TableLayout(catalogHandle, transactionHandle, layout));
+    }
+
+    @Override
+    public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Type type)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogHandle);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+        return metadata.getSupportedType(session.toConnectorSession(catalogHandle), type)
+                .map(newType -> {
+                    if (!typeCoercion.isCompatible(newType, type)) {
+                        throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, format("Type '%s' is not compatible with the supplied type '%s' in getSupportedType", type, newType));
+                    }
+                    return newType;
+                });
     }
 
     @Override

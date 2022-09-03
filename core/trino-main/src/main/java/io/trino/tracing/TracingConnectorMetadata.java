@@ -546,6 +546,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    {
+        Span span = startSpan("getSupportedType");
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getSupportedType(session, type);
+        }
+    }
+
+    @Override
     public Optional<ConnectorTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         Span span = startSpan("getInsertLayout", tableHandle);
