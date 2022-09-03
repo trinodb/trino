@@ -36,6 +36,8 @@ import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.trino.plugin.jdbc.credential.CredentialProviderType.FILE;
 import static io.trino.plugin.jdbc.credential.CredentialProviderType.INLINE;
 import static io.trino.plugin.jdbc.credential.CredentialProviderType.KEYSTORE;
+import static io.trino.plugin.jdbc.credential.AdditionalCredentialProviderType.EXTRA;
+import static io.trino.plugin.jdbc.credential.AdditionalCredentialProviderType.IMPERSONATION;
 import static io.trino.plugin.jdbc.credential.keystore.KeyStoreUtils.loadKeyStore;
 import static io.trino.plugin.jdbc.credential.keystore.KeyStoreUtils.readEntity;
 
@@ -50,7 +52,8 @@ public class CredentialProviderModule
         bindCredentialProviderModule(KEYSTORE, new KeyStoreBasedCredentialProviderModule());
 
         configBinder(binder).bindConfig(ExtraCredentialConfig.class);
-        binder.bind(CredentialProvider.class).to(ExtraCredentialProvider.class).in(SINGLETON);
+        bindAdditionalCredentialProvider(IMPERSONATION, ImpersonationCredentialProvider.class);
+        bindAdditionalCredentialProvider(EXTRA, ExtraCredentialProvider.class);
     }
 
     private void bindCredentialProviderModule(CredentialProviderType name, Module module)
@@ -59,6 +62,17 @@ public class CredentialProviderModule
                 CredentialProviderTypeConfig.class,
                 config -> name == config.getCredentialProviderType(),
                 module));
+    }
+
+    private void bindAdditionalCredentialProvider(AdditionalCredentialProviderType name, Class<? extends CredentialProvider> clazz)
+    {
+        install(conditionalModule(
+                CredentialProviderTypeConfig.class,
+                config -> name == config.getAdditionalCredentialProviderType(),
+                binder -> binder
+                        .bind(CredentialProvider.class)
+                        .to(clazz)
+                        .in(SINGLETON)));
     }
 
     private static class InlineCredentialProviderModule

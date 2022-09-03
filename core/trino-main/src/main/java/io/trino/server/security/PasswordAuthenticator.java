@@ -16,6 +16,7 @@ package io.trino.server.security;
 import io.trino.client.ProtocolDetectionException;
 import io.trino.server.ProtocolConfig;
 import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.GlobalSecurityConfig;
 import io.trino.spi.security.Identity;
 
 import javax.inject.Inject;
@@ -67,9 +68,12 @@ public class PasswordAuthenticator
 
                 // rewrite the original "unmapped" user header to the mapped user (see method Javadoc for more details)
                 rewriteUserHeaderToMappedUser(basicAuthCredentials, request.getHeaders(), authenticatedUser);
-                return Identity.forUser(authenticatedUser)
+                Identity identity = Identity.forUser(authenticatedUser)
                         .withPrincipal(principal)
+                        //将代理密码放进去，方便后端connector以代理方式透传,代理用户即为identity user
+                        .setExtraCredentials(GlobalSecurityConfig.connectorImpersonatingPasswordKey, password)
                         .build();
+                return identity;
             }
             catch (UserMappingException | AccessDeniedException e) {
                 if (exception == null) {

@@ -282,6 +282,12 @@ public class Identity
             return this;
         }
 
+        public Builder setExtraCredentials(String key, String value)
+        {
+            this.extraCredentials.putIfAbsent(key, value);
+            return this;
+        }
+
         public Builder withAdditionalExtraCredentials(Map<String, String> extraCredentials)
         {
             this.extraCredentials.putAll(requireNonNull(extraCredentials, "extraCredentials is null"));

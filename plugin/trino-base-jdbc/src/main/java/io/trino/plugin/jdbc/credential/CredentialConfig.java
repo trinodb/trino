@@ -23,6 +23,7 @@ public class CredentialConfig
 {
     private String connectionUser;
     private String connectionPassword;
+    private boolean jdbcImpersonationEnabled;
 
     public Optional<String> getConnectionUser()
     {
@@ -48,6 +49,19 @@ public class CredentialConfig
     public CredentialConfig setConnectionPassword(String connectionPassword)
     {
         this.connectionPassword = connectionPassword;
+        return this;
+    }
+
+    public boolean isJdbcImpersonationEnabled()
+    {
+        return jdbcImpersonationEnabled;
+    }
+
+    @Config("jdbc-connection.impersonation.enabled")
+    @ConfigDescription("whether jdbc connection impersonation is required")
+    public CredentialConfig setJdbcImpersonationEnabled(boolean jdbcImpersonationEnabled)
+    {
+        this.jdbcImpersonationEnabled = jdbcImpersonationEnabled;
         return this;
     }
 }
