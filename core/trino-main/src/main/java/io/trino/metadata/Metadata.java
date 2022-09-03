@@ -302,6 +302,11 @@ public interface Metadata
     Optional<TableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
 
     /**
+     * Return the effective {@link io.trino.spi.type.Type} that is supported by the connector for the given type, if {@link Optional#empty()} is returned, the type will be used as is during table creation which may or may not be supported by the connector.
+     */
+    Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Type type);
+
+    /**
      * Begin the atomic creation of a table with data.
      */
     OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<TableLayout> layout);

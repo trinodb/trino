@@ -553,6 +553,15 @@ public class TracingMetadata
     }
 
     @Override
+    public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Type type)
+    {
+        Span span = startSpan("getSupportedType", catalogHandle.getCatalogName());
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getSupportedType(session, catalogHandle, type);
+        }
+    }
+
+    @Override
     public OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<TableLayout> layout)
     {
         Span span = startSpan("beginCreateTable", catalogName, tableMetadata);

@@ -639,6 +639,16 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Return the effective {@link io.trino.spi.type.Type} that is supported by the connector for the given type.
+     * If {@link Optional#empty()} is returned, the type will be used as is during table creation which may or may not be supported by the connector.
+     * The effective type shall be a type that is cast-compatible with the input type.
+     */
+    default Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    {
+        return Optional.empty();
+    }
+
+    /**
      * Get the physical layout for inserting into an existing table.
      */
     default Optional<ConnectorTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)

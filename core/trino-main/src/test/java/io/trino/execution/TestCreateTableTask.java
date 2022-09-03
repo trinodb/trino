@@ -35,6 +35,8 @@ import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
 import io.trino.sql.tree.ColumnDefinition;
@@ -69,6 +71,8 @@ import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
@@ -99,6 +103,10 @@ public class TestCreateTableTask
             new SchemaTableName("schema", "parent_table"),
             List.of(new ColumnMetadata("a", SMALLINT), new ColumnMetadata("b", BIGINT)),
             Map.of("baz", "property_value"));
+
+    private static final ConnectorTableMetadata PARENT_TABLE_WITH_COERCED_TYPE = new ConnectorTableMetadata(
+            new SchemaTableName("schema", "parent_table_with_coerced_type"),
+            List.of(new ColumnMetadata("a", TIMESTAMP_NANOS)));
 
     private LocalQueryRunner queryRunner;
     private Session testSession;
@@ -349,6 +357,47 @@ public class TestCreateTableTask
                 .hasMessage("Column name 'a.b' must not be qualified");
     }
 
+    @Test
+    public void testCreateTableWithCoercedType()
+    {
+        CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
+                ImmutableList.of(
+                        new ColumnDefinition(
+                                QualifiedName.of("a"),
+                                toSqlType(TIMESTAMP_NANOS),
+                                true,
+                                emptyList(),
+                                Optional.empty())),
+                IGNORE,
+                ImmutableList.of(),
+                Optional.empty());
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
+        getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {}));
+        assertThat(metadata.getReceivedTableMetadata().get(0).getColumns().get(0).getType()).isEqualTo(TIMESTAMP_MILLIS);
+    }
+
+    @Test
+    public void testCreateTableLikeWithCoercedType()
+    {
+        CreateTable statement = new CreateTable(
+                QualifiedName.of("test_table"),
+                List.of(
+                        new LikeClause(
+                                QualifiedName.of(PARENT_TABLE_WITH_COERCED_TYPE.getTable().getTableName()),
+                                Optional.of(INCLUDING))),
+                IGNORE,
+                ImmutableList.of(),
+                Optional.empty());
+
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
+        getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {}));
+        assertEquals(metadata.getCreateTableCallCount(), 1);
+
+        assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
+                .isEqualTo(ImmutableList.of(new ColumnMetadata("a", TIMESTAMP_MILLIS)));
+        assertThat(metadata.getReceivedTableMetadata().get(0).getProperties()).isEmpty();
+    }
+
     private static CreateTable getCreateLikeStatement(boolean includingProperties)
     {
         return getCreateLikeStatement(QualifiedName.of("test_table"), includingProperties);
@@ -401,6 +450,22 @@ public class TestCreateTableTask
                                 new TestingTableHandle(tableName.asSchemaTableName()),
                                 TestingConnectorTransactionHandle.INSTANCE));
             }
+            if (tableName.asSchemaTableName().equals(PARENT_TABLE_WITH_COERCED_TYPE.getTable())) {
+                return Optional.of(
+                        new TableHandle(
+                                TEST_CATALOG_HANDLE,
+                                new TestingTableHandle(tableName.asSchemaTableName()),
+                                TestingConnectorTransactionHandle.INSTANCE));
+            }
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Type type)
+        {
+            if (type instanceof TimestampType) {
+                return Optional.of(TIMESTAMP_MILLIS);
+            }
             return Optional.empty();
         }
 
@@ -410,6 +475,9 @@ public class TestCreateTableTask
             if ((tableHandle.getConnectorHandle() instanceof TestingTableHandle)) {
                 if (((TestingTableHandle) tableHandle.getConnectorHandle()).getTableName().equals(PARENT_TABLE.getTable())) {
                     return new TableMetadata(TEST_CATALOG_NAME, PARENT_TABLE);
+                }
+                if (((TestingTableHandle) tableHandle.getConnectorHandle()).getTableName().equals(PARENT_TABLE_WITH_COERCED_TYPE.getTable())) {
+                    return new TableMetadata(TEST_CATALOG_NAME, PARENT_TABLE_WITH_COERCED_TYPE);
                 }
             }
 
