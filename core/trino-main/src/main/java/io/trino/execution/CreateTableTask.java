@@ -194,7 +194,7 @@ public class CreateTableTask
 
                 columns.put(name.getValue().toLowerCase(ENGLISH), ColumnMetadata.builder()
                         .setName(name.getValue().toLowerCase(ENGLISH))
-                        .setType(type)
+                        .setType(getSupportedType(session, catalogHandle, type))
                         .setNullable(column.isNullable())
                         .setComment(column.getComment())
                         .setProperties(columnProperties)
@@ -263,7 +263,11 @@ public class CreateTableTask
                             if (columns.containsKey(column.getName().toLowerCase(Locale.ENGLISH))) {
                                 throw semanticException(DUPLICATE_COLUMN_NAME, element, "Column name '%s' specified more than once", column.getName());
                             }
-                            columns.put(column.getName().toLowerCase(Locale.ENGLISH), column);
+                            columns.put(
+                                    column.getName().toLowerCase(Locale.ENGLISH),
+                                    ColumnMetadata.builderFrom(column)
+                                            .setType(getSupportedType(session, catalogHandle, column.getType()))
+                                            .build());
                         });
             }
             else {
@@ -310,6 +314,13 @@ public class CreateTableTask
                         .map(column -> new OutputColumn(new Column(column.getName(), column.getType().toString()), ImmutableSet.of()))
                         .collect(toImmutableList()))));
         return immediateVoidFuture();
+    }
+
+    private Type getSupportedType(Session session, CatalogHandle catalogHandle, Type type)
+    {
+        return plannerContext.getMetadata()
+                .getSupportedType(session, catalogHandle, type)
+                .orElse(type);
     }
 
     private static Map<String, Object> combineProperties(Set<String> specifiedPropertyKeys, Map<String, Object> defaultProperties, Map<String, Object> inheritedProperties)
