@@ -13,6 +13,7 @@
  */
 package io.trino.sql.query;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
@@ -42,7 +43,9 @@ import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -527,11 +530,13 @@ public class QueryAssertions
     }
 
     public static class ExpressionAssertProvider
-        implements AssertProvider<ExpressionAssert>
+            implements AssertProvider<ExpressionAssert>
     {
         private final QueryRunner runner;
         private final String expression;
         private final Session session;
+
+        private final Map<String, String> bindings = new HashMap<>();
 
         public ExpressionAssertProvider(QueryRunner runner, Session session, String expression)
         {
@@ -540,9 +545,73 @@ public class QueryAssertions
             this.expression = expression;
         }
 
+        public ExpressionAssertProvider binding(String variable, @Language("SQL") String value)
+        {
+            String previous = bindings.put(variable, value);
+            if (previous != null) {
+                fail("%s already bound to: %s".formatted(variable, value));
+            }
+            return this;
+        }
+
         public Result evaluate()
         {
-            MaterializedResult result = runner.execute(session, "VALUES " + expression);
+            if (bindings.isEmpty()) {
+                return run("VALUES %s".formatted(expression));
+            }
+            else {
+                List<Map.Entry<String, String>> entries = ImmutableList.copyOf(bindings.entrySet());
+
+                List<String> columns = entries.stream()
+                        .map(Map.Entry::getKey)
+                        .collect(toList());
+
+                List<String> values = entries.stream()
+                        .map(Map.Entry::getValue)
+                        .collect(toList());
+
+                // Evaluate the expression using two modes:
+                //  1. Avoid constant folding -> exercises the compiler and evaluation engine
+                //  2. Force constant folding -> exercises the interpreter
+
+                Result full = run("""
+                        SELECT %s
+                        FROM (
+                            VALUES (%s)
+                        ) t(%s)
+                        WHERE rand() >= 0
+                        """
+                        .formatted(
+                                expression,
+                                Joiner.on(",").join(values),
+                                Joiner.on(",").join(columns)));
+
+                Result withConstantFolding = run("""
+                        SELECT %s
+                        FROM (
+                            VALUES (%s)
+                        ) t(%s)
+                        """
+                        .formatted(
+                                expression,
+                                Joiner.on(",").join(values),
+                                Joiner.on(",").join(columns)));
+
+                if (!full.type().equals(withConstantFolding.type())) {
+                    fail("Mismatched types between interpreter and evaluation engine: %s vs %s".formatted(full.type(), withConstantFolding.type()));
+                }
+
+                if (!Objects.equals(full.value(), withConstantFolding.value())) {
+                    fail("Mismatched results between interpreter and evaluation engine: %s vs %s".formatted(full.value(), withConstantFolding.value()));
+                }
+
+                return new Result(full.type(), full.value);
+            }
+        }
+
+        private Result run(String query)
+        {
+            MaterializedResult result = runner.execute(session, query);
             return new Result(result.getTypes().get(0), result.getOnlyColumnAsSet().iterator().next());
         }
 
