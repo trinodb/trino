@@ -148,10 +148,8 @@ public class FixedSourcePartitionedScheduler
         if (blockedReason != null) {
             return new ScheduleResult(sourceSchedulers.isEmpty(), newTasks, blocked, blockedReason, splitsScheduled);
         }
-        else {
-            checkState(blocked.isDone(), "blockedReason not provided when scheduler is blocked");
-            return new ScheduleResult(sourceSchedulers.isEmpty(), newTasks, splitsScheduled);
-        }
+        checkState(blocked.isDone(), "blockedReason not provided when scheduler is blocked");
+        return new ScheduleResult(sourceSchedulers.isEmpty(), newTasks, splitsScheduled);
     }
 
     @Override

@@ -54,9 +54,7 @@ public final class LikeFunctions
         if (value.hasByteArray()) {
             return matcher.match(value.byteArray(), value.byteArrayOffset(), value.length());
         }
-        else {
-            return matcher.match(value.getBytes(), 0, value.length());
-        }
+        return matcher.match(value.getBytes(), 0, value.length());
     }
 
     @ScalarFunction(value = LIKE_PATTERN_FUNCTION_NAME, hidden = true)

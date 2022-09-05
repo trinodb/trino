@@ -97,9 +97,7 @@ public class OidcDiscovery
             if (statusCode < 400 || statusCode >= 500 || statusCode == REQUEST_TIMEOUT.code() || statusCode == TOO_MANY_REQUESTS.code()) {
                 throw new RuntimeException("Invalid response from OpenID Metadata endpoint: " + statusCode);
             }
-            else {
-                throw new IllegalStateException(format("Invalid response from OpenID Metadata endpoint. Expected response code to be %s, but was %s", OK.code(), statusCode));
-            }
+            throw new IllegalStateException(format("Invalid response from OpenID Metadata endpoint. Expected response code to be %s, but was %s", OK.code(), statusCode));
         }
         return readConfiguration(response.getContent());
     }

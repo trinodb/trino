@@ -103,9 +103,7 @@ public class DictionaryBuilder
         if (block.isNull(position)) {
             return containsNullElement;
         }
-        else {
-            return blockPositionByHash.get(getHashPositionOfElement(block, position)) != EMPTY_SLOT;
-        }
+        return blockPositionByHash.get(getHashPositionOfElement(block, position)) != EMPTY_SLOT;
     }
 
     public int putIfAbsent(Block block, int position)

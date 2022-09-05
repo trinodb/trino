@@ -272,10 +272,8 @@ public class ScanFilterAndProjectOperator
                 cursor = ((RecordPageSource) source).getCursor();
                 return ofResult(processColumnSource());
             }
-            else {
-                pageSource = source;
-                return ofResult(processPageSource());
-            }
+            pageSource = source;
+            return ofResult(processPageSource());
         }
 
         WorkProcessor<Page> processColumnSource()
@@ -356,14 +354,12 @@ public class ScanFilterAndProjectOperator
                 outputMemoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
                 return ProcessState.ofResult(page);
             }
-            else if (finished) {
+            if (finished) {
                 checkState(pageBuilder.isEmpty());
                 return ProcessState.finished();
             }
-            else {
-                outputMemoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
-                return ProcessState.yielded();
-            }
+            outputMemoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
+            return ProcessState.yielded();
         }
     }
 
@@ -396,9 +392,7 @@ public class ScanFilterAndProjectOperator
                 if (pageSource.isFinished()) {
                     return ProcessState.finished();
                 }
-                else {
-                    return ProcessState.yielded();
-                }
+                return ProcessState.yielded();
             }
 
             recordMaterializedBytes(page, sizeInBytes -> processedBytes += sizeInBytes);

@@ -609,16 +609,14 @@ public interface AccumuloRowSerializer
             Type elementType = Types.getElementType(type);
             return getArrayFromBlock(elementType, block.getObject(position, Block.class));
         }
-        else if (Types.isMapType(type)) {
+        if (Types.isMapType(type)) {
             return getMapFromBlock(type, block.getObject(position, Block.class));
         }
-        else {
-            if (type.getJavaType() == Slice.class) {
-                Slice slice = (Slice) TypeUtils.readNativeValue(type, block, position);
-                return type.equals(VarcharType.VARCHAR) ? slice.toStringUtf8() : slice.getBytes();
-            }
-
-            return TypeUtils.readNativeValue(type, block, position);
+        if (type.getJavaType() == Slice.class) {
+            Slice slice = (Slice) TypeUtils.readNativeValue(type, block, position);
+            return type.equals(VarcharType.VARCHAR) ? slice.toStringUtf8() : slice.getBytes();
         }
+
+        return TypeUtils.readNativeValue(type, block, position);
     }
 }

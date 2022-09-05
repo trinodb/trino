@@ -313,7 +313,7 @@ public class MongoPageSource
                 output.closeEntry();
                 return;
             }
-            else if (value instanceof Map) {
+            if (value instanceof Map) {
                 BlockBuilder builder = output.beginBlockEntry();
                 Map<?, ?> document = (Map<?, ?>) value;
                 for (Map.Entry<?, ?> entry : document.entrySet()) {
@@ -341,7 +341,7 @@ public class MongoPageSource
                 output.closeEntry();
                 return;
             }
-            else if (value instanceof DBRef) {
+            if (value instanceof DBRef) {
                 DBRef dbRefValue = (DBRef) value;
                 BlockBuilder builder = output.beginBlockEntry();
 
@@ -353,7 +353,7 @@ public class MongoPageSource
                 output.closeEntry();
                 return;
             }
-            else if (value instanceof List<?>) {
+            if (value instanceof List<?>) {
                 List<?> listValue = (List<?>) value;
                 BlockBuilder builder = output.beginBlockEntry();
                 for (int index = 0; index < type.getTypeParameters().size(); index++) {

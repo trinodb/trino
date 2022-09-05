@@ -99,7 +99,7 @@ public class ReduceAggregationFunction
                     .lambdaInterfaces(BinaryFunctionInterface.class, BinaryFunctionInterface.class)
                     .build();
         }
-        else if (stateType.getJavaType() == double.class) {
+        if (stateType.getJavaType() == double.class) {
             return AggregationImplementation.builder()
                     .inputFunction(normalizeInputMethod(boundSignature, inputType, DOUBLE_STATE_INPUT_FUNCTION))
                     .combineFunction(DOUBLE_STATE_COMBINE_FUNCTION)
@@ -111,7 +111,7 @@ public class ReduceAggregationFunction
                     .lambdaInterfaces(BinaryFunctionInterface.class, BinaryFunctionInterface.class)
                     .build();
         }
-        else if (stateType.getJavaType() == boolean.class) {
+        if (stateType.getJavaType() == boolean.class) {
             return AggregationImplementation.builder()
                     .inputFunction(normalizeInputMethod(boundSignature, inputType, BOOLEAN_STATE_INPUT_FUNCTION))
                     .combineFunction(BOOLEAN_STATE_COMBINE_FUNCTION)
@@ -123,12 +123,10 @@ public class ReduceAggregationFunction
                     .lambdaInterfaces(BinaryFunctionInterface.class, BinaryFunctionInterface.class)
                     .build();
         }
-        else {
-            // State with Slice or Block as native container type is intentionally not supported yet,
-            // as it may result in excessive JVM memory usage of remembered set.
-            // See JDK-8017163.
-            throw new TrinoException(NOT_SUPPORTED, format("State type not supported for %s: %s", NAME, stateType.getDisplayName()));
-        }
+        // State with Slice or Block as native container type is intentionally not supported yet,
+        // as it may result in excessive JVM memory usage of remembered set.
+        // See JDK-8017163.
+        throw new TrinoException(NOT_SUPPORTED, format("State type not supported for %s: %s", NAME, stateType.getDisplayName()));
     }
 
     private static MethodHandle normalizeInputMethod(BoundSignature boundSignature, Type inputType, MethodHandle inputMethodHandle)

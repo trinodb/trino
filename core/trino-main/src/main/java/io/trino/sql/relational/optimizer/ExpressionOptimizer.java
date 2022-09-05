@@ -130,9 +130,7 @@ public class ExpressionOptimizer
                             return specialForm.getArguments().get(1).accept(this, context);
                         }
                         // FALSE and NULL
-                        else {
-                            return specialForm.getArguments().get(2).accept(this, context);
-                        }
+                        return specialForm.getArguments().get(2).accept(this, context);
                     }
                     List<RowExpression> arguments = specialForm.getArguments().stream()
                             .map(argument -> argument.accept(this, null))

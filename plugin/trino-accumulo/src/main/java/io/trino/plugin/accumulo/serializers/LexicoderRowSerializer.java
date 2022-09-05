@@ -382,19 +382,17 @@ public class LexicoderRowSerializer
         if (Types.isArrayType(type)) {
             return getListLexicoder(type);
         }
-        else if (Types.isMapType(type)) {
+        if (Types.isMapType(type)) {
             return getMapLexicoder(type);
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return LEXICODER_MAP.get(VARCHAR);
         }
-        else {
-            Lexicoder lexicoder = LEXICODER_MAP.get(type);
-            if (lexicoder == null) {
-                throw new TrinoException(NOT_SUPPORTED, "No lexicoder for type " + type);
-            }
-            return lexicoder;
+        Lexicoder lexicoder = LEXICODER_MAP.get(type);
+        if (lexicoder == null) {
+            throw new TrinoException(NOT_SUPPORTED, "No lexicoder for type " + type);
         }
+        return lexicoder;
     }
 
     private static ListLexicoder getListLexicoder(Type elementType)

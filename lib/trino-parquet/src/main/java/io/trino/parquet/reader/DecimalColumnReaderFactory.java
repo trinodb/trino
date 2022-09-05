@@ -25,8 +25,6 @@ public final class DecimalColumnReaderFactory
         if (parquetDecimalType.isShort()) {
             return new ShortDecimalColumnReader(field, parquetDecimalType);
         }
-        else {
-            return new LongDecimalColumnReader(field, parquetDecimalType);
-        }
+        return new LongDecimalColumnReader(field, parquetDecimalType);
     }
 }

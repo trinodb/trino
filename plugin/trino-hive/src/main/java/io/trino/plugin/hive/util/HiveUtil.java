@@ -556,12 +556,10 @@ public final class HiveUtil
                 }
                 return NullableValue.of(decimalType, shortDecimalPartitionKey(value, decimalType, partitionName));
             }
-            else {
-                if (value.isEmpty()) {
-                    return NullableValue.of(decimalType, Int128.ZERO);
-                }
-                return NullableValue.of(decimalType, longDecimalPartitionKey(value, decimalType, partitionName));
+            if (value.isEmpty()) {
+                return NullableValue.of(decimalType, Int128.ZERO);
             }
+            return NullableValue.of(decimalType, longDecimalPartitionKey(value, decimalType, partitionName));
         }
 
         if (BOOLEAN.equals(type)) {
@@ -685,9 +683,7 @@ public final class HiveUtil
             int scale = parseInt(matcher.group(DECIMAL_SCALE_GROUP));
             return Optional.of(createDecimalType(precision, scale));
         }
-        else {
-            return Optional.empty();
-        }
+        return Optional.empty();
     }
 
     public static boolean isArrayType(Type type)
@@ -988,50 +984,50 @@ public final class HiveUtil
         if (isHiveNull(bytes)) {
             return NullableValue.asNull(type);
         }
-        else if (type.equals(BOOLEAN)) {
+        if (type.equals(BOOLEAN)) {
             return NullableValue.of(type, booleanPartitionKey(columnValue, name));
         }
-        else if (type.equals(BIGINT)) {
+        if (type.equals(BIGINT)) {
             return NullableValue.of(type, bigintPartitionKey(columnValue, name));
         }
-        else if (type.equals(INTEGER)) {
+        if (type.equals(INTEGER)) {
             return NullableValue.of(type, integerPartitionKey(columnValue, name));
         }
-        else if (type.equals(SMALLINT)) {
+        if (type.equals(SMALLINT)) {
             return NullableValue.of(type, smallintPartitionKey(columnValue, name));
         }
-        else if (type.equals(TINYINT)) {
+        if (type.equals(TINYINT)) {
             return NullableValue.of(type, tinyintPartitionKey(columnValue, name));
         }
-        else if (type.equals(REAL)) {
+        if (type.equals(REAL)) {
             return NullableValue.of(type, floatPartitionKey(columnValue, name));
         }
-        else if (type.equals(DOUBLE)) {
+        if (type.equals(DOUBLE)) {
             return NullableValue.of(type, doublePartitionKey(columnValue, name));
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return NullableValue.of(type, varcharPartitionKey(columnValue, name, type));
         }
-        else if (type instanceof CharType) {
+        if (type instanceof CharType) {
             return NullableValue.of(type, charPartitionKey(columnValue, name, type));
         }
-        else if (type.equals(DATE)) {
+        if (type.equals(DATE)) {
             return NullableValue.of(type, datePartitionKey(columnValue, name));
         }
-        else if (type.equals(TIMESTAMP_MILLIS)) {
+        if (type.equals(TIMESTAMP_MILLIS)) {
             return NullableValue.of(type, timestampPartitionKey(columnValue, name));
         }
-        else if (type.equals(TIMESTAMP_TZ_MILLIS)) {
+        if (type.equals(TIMESTAMP_TZ_MILLIS)) {
             // used for $file_modified_time
             return NullableValue.of(type, packDateTimeWithZone(floorDiv(timestampPartitionKey(columnValue, name), MICROSECONDS_PER_MILLISECOND), DateTimeZone.getDefault().getID()));
         }
-        else if (isShortDecimal(type)) {
+        if (isShortDecimal(type)) {
             return NullableValue.of(type, shortDecimalPartitionKey(columnValue, (DecimalType) type, name));
         }
-        else if (isLongDecimal(type)) {
+        if (isLongDecimal(type)) {
             return NullableValue.of(type, longDecimalPartitionKey(columnValue, (DecimalType) type, name));
         }
-        else if (type.equals(VarbinaryType.VARBINARY)) {
+        if (type.equals(VarbinaryType.VARBINARY)) {
             return NullableValue.of(type, utf8Slice(columnValue));
         }
 

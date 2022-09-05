@@ -111,10 +111,8 @@ public class ReadSessionCreator
             // get it from the view
             return client.getCachedTable(viewExpiration, remoteTable, requiredColumns);
         }
-        else {
-            // not regular table or a view
-            throw new TrinoException(NOT_SUPPORTED, format("Table type '%s' of table '%s.%s' is not supported",
-                    tableType, remoteTable.getTableId().getDataset(), remoteTable.getTableId().getTable()));
-        }
+        // not regular table or a view
+        throw new TrinoException(NOT_SUPPORTED, format("Table type '%s' of table '%s.%s' is not supported",
+                tableType, remoteTable.getTableId().getDataset(), remoteTable.getTableId().getTable()));
     }
 }

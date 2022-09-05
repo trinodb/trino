@@ -146,9 +146,7 @@ public final class Domain
         if (nullAllowed) {
             return values.isNone();
         }
-        else {
-            return values.isSingleValue();
-        }
+        return values.isSingleValue();
     }
 
     public boolean isOnlyNull()
@@ -173,9 +171,7 @@ public final class Domain
         if (nullAllowed) {
             return null;
         }
-        else {
-            return values.getSingleValue();
-        }
+        return values.getSingleValue();
     }
 
     public boolean includesNullableValue(Object value)

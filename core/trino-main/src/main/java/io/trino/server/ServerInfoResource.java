@@ -108,9 +108,7 @@ public class ServerInfoResource
         if (shutdownHandler.isShutdownRequested()) {
             return SHUTTING_DOWN;
         }
-        else {
-            return ACTIVE;
-        }
+        return ACTIVE;
     }
 
     @ResourceSecurity(PUBLIC)

@@ -1813,9 +1813,7 @@ public class TestPostgreSqlTypeMapping
         if (insertWithTrino) {
             return trinoTimestampWithTimeZoneDataType(precision);
         }
-        else {
-            return postgreSqlTimestampWithTimeZoneDataType(precision);
-        }
+        return postgreSqlTimestampWithTimeZoneDataType(precision);
     }
 
     public static DataType<ZonedDateTime> trinoTimestampWithTimeZoneDataType(int precision)
@@ -1848,9 +1846,7 @@ public class TestPostgreSqlTypeMapping
         if (insertWithTrino) {
             return arrayDataType(trinoTimestampWithTimeZoneDataType(precision));
         }
-        else {
-            return arrayDataType(postgreSqlTimestampWithTimeZoneDataType(precision), format("timestamptz(%d)[]", precision));
-        }
+        return arrayDataType(postgreSqlTimestampWithTimeZoneDataType(precision), format("timestamptz(%d)[]", precision));
     }
 
     private Session sessionWithArrayAsArray()

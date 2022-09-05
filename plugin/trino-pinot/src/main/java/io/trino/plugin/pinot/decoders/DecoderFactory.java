@@ -43,33 +43,29 @@ public class DecoderFactory
             if (type instanceof DoubleType) {
                 return new DoubleDecoder();
             }
-            else if (type instanceof RealType) {
+            if (type instanceof RealType) {
                 return new RealDecoder();
             }
-            else if (type instanceof BigintType) {
+            if (type instanceof BigintType) {
                 return new BigintDecoder();
             }
-            else if (type instanceof IntegerType) {
+            if (type instanceof IntegerType) {
                 return new IntegerDecoder();
             }
-            else if (type instanceof BooleanType) {
+            if (type instanceof BooleanType) {
                 return new BooleanDecoder();
             }
-            else {
-                throw new PinotException(PINOT_UNSUPPORTED_COLUMN_TYPE, Optional.empty(), "type '" + type + "' not supported");
-            }
+            throw new PinotException(PINOT_UNSUPPORTED_COLUMN_TYPE, Optional.empty(), "type '" + type + "' not supported");
         }
-        else if (type instanceof ArrayType) {
+        if (type instanceof ArrayType) {
             return new ArrayDecoder(type);
         }
-        else if (type instanceof VarbinaryType) {
+        if (type instanceof VarbinaryType) {
             return new VarbinaryDecoder();
         }
-        else if (type.getTypeSignature().getBase().equals(JSON)) {
+        if (type.getTypeSignature().getBase().equals(JSON)) {
             return new JsonDecoder();
         }
-        else {
-            return new VarcharDecoder();
-        }
+        return new VarcharDecoder();
     }
 }

@@ -78,27 +78,25 @@ class PageReader
                         dataPageV1.getDefinitionLevelEncoding(),
                         dataPageV1.getValueEncoding());
             }
-            else {
-                DataPageV2 dataPageV2 = (DataPageV2) compressedPage;
-                if (!dataPageV2.isCompressed()) {
-                    return dataPageV2;
-                }
-                int uncompressedSize = dataPageV2.getUncompressedSize()
-                        - dataPageV2.getDefinitionLevels().length()
-                        - dataPageV2.getRepetitionLevels().length();
-                return new DataPageV2(
-                        dataPageV2.getRowCount(),
-                        dataPageV2.getNullCount(),
-                        dataPageV2.getValueCount(),
-                        dataPageV2.getRepetitionLevels(),
-                        dataPageV2.getDefinitionLevels(),
-                        dataPageV2.getDataEncoding(),
-                        decompress(codec, dataPageV2.getSlice(), uncompressedSize),
-                        dataPageV2.getUncompressedSize(),
-                        firstRowIndex,
-                        dataPageV2.getStatistics(),
-                        false);
+            DataPageV2 dataPageV2 = (DataPageV2) compressedPage;
+            if (!dataPageV2.isCompressed()) {
+                return dataPageV2;
             }
+            int uncompressedSize = dataPageV2.getUncompressedSize()
+                    - dataPageV2.getDefinitionLevels().length()
+                    - dataPageV2.getRepetitionLevels().length();
+            return new DataPageV2(
+                    dataPageV2.getRowCount(),
+                    dataPageV2.getNullCount(),
+                    dataPageV2.getValueCount(),
+                    dataPageV2.getRepetitionLevels(),
+                    dataPageV2.getDefinitionLevels(),
+                    dataPageV2.getDataEncoding(),
+                    decompress(codec, dataPageV2.getSlice(), uncompressedSize),
+                    dataPageV2.getUncompressedSize(),
+                    firstRowIndex,
+                    dataPageV2.getStatistics(),
+                    false);
         }
         catch (IOException e) {
             throw new RuntimeException("Could not decompress page", e);

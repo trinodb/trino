@@ -291,9 +291,7 @@ public class TableScanWorkProcessorOperator
                 if (pageSource.isFinished()) {
                     return ProcessState.finished();
                 }
-                else {
-                    return ProcessState.yielded();
-                }
+                return ProcessState.yielded();
             }
 
             return ProcessState.ofResult(page);

@@ -127,9 +127,7 @@ public class CachingDirectoryLister
         if (cacheKey.isRecursiveFilesOnly()) {
             return fs.listFiles(cacheKey.getPath(), true);
         }
-        else {
-            return fs.listLocatedStatus(cacheKey.getPath());
-        }
+        return fs.listLocatedStatus(cacheKey.getPath());
     }
 
     @Override

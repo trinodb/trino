@@ -133,9 +133,7 @@ public final class JsonUtil
         if (json.length() <= MAX_JSON_LENGTH_IN_ERROR_MESSAGE) {
             return json.toStringUtf8();
         }
-        else {
-            return json.slice(0, MAX_JSON_LENGTH_IN_ERROR_MESSAGE).toStringUtf8() + "...(truncated)";
-        }
+        return json.slice(0, MAX_JSON_LENGTH_IN_ERROR_MESSAGE).toStringUtf8() + "...(truncated)";
     }
 
     public static boolean canCastToJson(Type type)

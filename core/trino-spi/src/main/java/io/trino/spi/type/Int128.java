@@ -66,7 +66,7 @@ public class Int128
 
             return Int128.valueOf(high, low);
         }
-        else if (bytes.length > 8) {
+        if (bytes.length > 8) {
             // read the last 8 bytes into low
             int offset = bytes.length - Long.BYTES;
             long low = (long) BIG_ENDIAN_LONG_VIEW.get(bytes, offset);
@@ -80,21 +80,19 @@ public class Int128
 
             return Int128.valueOf(high, low);
         }
-        else if (bytes.length == 8) {
+        if (bytes.length == 8) {
             long low = (long) BIG_ENDIAN_LONG_VIEW.get(bytes, 0);
             long high = (low >> 63);
 
             return Int128.valueOf(high, low);
         }
-        else {
-            long high = (bytes[0] >> 7);
-            long low = high;
-            for (int i = 0; i < bytes.length; i++) {
-                low = (low << 8) | (bytes[i] & 0xFF);
-            }
-
-            return Int128.valueOf(high, low);
+        long high = (bytes[0] >> 7);
+        long low = high;
+        for (int i = 0; i < bytes.length; i++) {
+            low = (low << 8) | (bytes[i] & 0xFF);
         }
+
+        return Int128.valueOf(high, low);
     }
 
     public static Int128 valueOf(long[] value)

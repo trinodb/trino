@@ -1816,9 +1816,7 @@ public class ExpressionAnalyzer
                 if (labelRequired) {
                     throw semanticException(INVALID_ARGUMENTS, node, "Pattern navigation function %s must contain at least one column reference or CLASSIFIER()", name);
                 }
-                else {
-                    return ArgumentLabel.noLabel();
-                }
+                return ArgumentLabel.noLabel();
             }
 
             // Label consistency rules:
@@ -1876,12 +1874,12 @@ public class ExpressionAnalyzer
             if (!inputColumnLabels.isEmpty()) {
                 return ArgumentLabel.explicitLabel(getOnlyElement(inputColumnLabels));
             }
-            else if (!classifierLabels.isEmpty()) {
+            if (!classifierLabels.isEmpty()) {
                 return getOnlyElement(classifierLabels)
                         .map(ArgumentLabel::explicitLabel)
                         .orElse(ArgumentLabel.universalLabel());
             }
-            else if (!unlabeledInputColumns.isEmpty()) {
+            if (!unlabeledInputColumns.isEmpty()) {
                 return ArgumentLabel.universalLabel();
             }
             return ArgumentLabel.noLabel();
@@ -2508,9 +2506,7 @@ public class ExpressionAnalyzer
             if (node.getGroupingColumns().size() <= MAX_NUMBER_GROUPING_ARGUMENTS_INTEGER) {
                 return setExpressionType(node, INTEGER);
             }
-            else {
-                return setExpressionType(node, BIGINT);
-            }
+            return setExpressionType(node, BIGINT);
         }
 
         @Override
@@ -2807,12 +2803,10 @@ public class ExpressionAnalyzer
                     if (UNKNOWN.equals(type) || isCharacterStringType(type)) {
                         yield QualifiedName.of(VARCHAR_TO_JSON);
                     }
-                    else if (isStringType(type)) {
+                    if (isStringType(type)) {
                         yield QualifiedName.of(VARBINARY_TO_JSON);
                     }
-                    else {
-                        throw semanticException(TYPE_MISMATCH, node, format("Cannot read input of type %s as JSON using formatting %s", type, format));
-                    }
+                    throw semanticException(TYPE_MISMATCH, node, format("Cannot read input of type %s as JSON using formatting %s", type, format));
                 }
                 case UTF8 -> QualifiedName.of(VARBINARY_UTF8_TO_JSON);
                 case UTF16 -> QualifiedName.of(VARBINARY_UTF16_TO_JSON);
@@ -2834,12 +2828,10 @@ public class ExpressionAnalyzer
                     if (isCharacterStringType(type)) {
                         yield QualifiedName.of(JSON_TO_VARCHAR);
                     }
-                    else if (isStringType(type)) {
+                    if (isStringType(type)) {
                         yield QualifiedName.of(JSON_TO_VARBINARY);
                     }
-                    else {
-                        throw semanticException(TYPE_MISMATCH, node, format("Cannot output JSON value as %s using formatting %s", type, format));
-                    }
+                    throw semanticException(TYPE_MISMATCH, node, format("Cannot output JSON value as %s using formatting %s", type, format));
                 }
                 case UTF8 -> {
                     if (!VARBINARY.equals(type)) {

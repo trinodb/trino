@@ -399,18 +399,12 @@ public class ParametricAggregationImplementation
                 if (isNullable) {
                     return NULLABLE_BLOCK_INPUT_CHANNEL;
                 }
-                else {
-                    return BLOCK_INPUT_CHANNEL;
-                }
+                return BLOCK_INPUT_CHANNEL;
             }
-            else {
-                if (isNullable) {
-                    throw new IllegalArgumentException(methodName + " contains a parameter with @NullablePosition that is not @BlockPosition");
-                }
-                else {
-                    return INPUT_CHANNEL;
-                }
+            if (isNullable) {
+                throw new IllegalArgumentException(methodName + " contains a parameter with @NullablePosition that is not @BlockPosition");
             }
+            return INPUT_CHANNEL;
         }
 
         private static Annotation baseTypeAnnotation(Annotation[] annotations, String methodName)

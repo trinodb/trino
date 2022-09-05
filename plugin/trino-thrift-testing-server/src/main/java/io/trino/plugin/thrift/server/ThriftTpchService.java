@@ -310,12 +310,10 @@ public class ThriftTpchService
         if (schemaNameOrNull == null) {
             return SCHEMAS;
         }
-        else if (SCHEMAS.contains(schemaNameOrNull)) {
+        if (SCHEMAS.contains(schemaNameOrNull)) {
             return ImmutableList.of(schemaNameOrNull);
         }
-        else {
-            return ImmutableList.of();
-        }
+        return ImmutableList.of();
     }
 
     private static String getTypeString(TpchColumn<?> column)

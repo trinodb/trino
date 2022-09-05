@@ -74,10 +74,8 @@ public final class ConcatWsFunction
                             if (elements.isNull(i)) {
                                 return null;
                             }
-                            else {
-                                int sliceLength = elements.getSliceLength(i);
-                                return elements.getSlice(i, 0, sliceLength);
-                            }
+                            int sliceLength = elements.getSliceLength(i);
+                            return elements.getSlice(i, 0, sliceLength);
                         }
 
                         @Override

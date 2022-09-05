@@ -97,9 +97,7 @@ public class PushdownFilterIntoRowNumber
             if (needRewriteSource) {
                 return Result.ofPlanNode(new FilterNode(node.getId(), source, node.getPredicate()));
             }
-            else {
-                return Result.empty();
-            }
+            return Result.empty();
         }
 
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rowNumberSymbol));

@@ -117,10 +117,8 @@ public class S3SelectRecordCursorProvider
             RecordCursor cursor = new S3SelectRecordCursor<>(configuration, path, recordReader.get(), length, schema, readerColumns);
             return Optional.of(new ReaderRecordCursorWithProjections(cursor, projectedReaderColumns));
         }
-        else {
-            // unsupported serdes
-            return Optional.empty();
-        }
+        // unsupported serdes
+        return Optional.empty();
     }
 
     private static boolean hasFilters(

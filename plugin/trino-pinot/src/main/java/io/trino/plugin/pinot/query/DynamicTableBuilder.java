@@ -268,9 +268,7 @@ public final class DynamicTableBuilder
         if (queryContext.getOffset() > 0) {
             return OptionalLong.of(queryContext.getOffset());
         }
-        else {
-            return OptionalLong.empty();
-        }
+        return OptionalLong.empty();
     }
 
     private static String stripSuffix(String tableName)
@@ -279,12 +277,10 @@ public final class DynamicTableBuilder
         if (tableName.toUpperCase(ENGLISH).endsWith(OFFLINE_SUFFIX)) {
             return tableName.substring(0, tableName.length() - OFFLINE_SUFFIX.length());
         }
-        else if (tableName.toUpperCase(ENGLISH).endsWith(REALTIME_SUFFIX)) {
+        if (tableName.toUpperCase(ENGLISH).endsWith(REALTIME_SUFFIX)) {
             return tableName.substring(0, tableName.length() - REALTIME_SUFFIX.length());
         }
-        else {
-            return tableName;
-        }
+        return tableName;
     }
 
     private static Optional<String> getSuffix(String tableName)
@@ -293,12 +289,10 @@ public final class DynamicTableBuilder
         if (tableName.toUpperCase(ENGLISH).endsWith(OFFLINE_SUFFIX)) {
             return Optional.of(OFFLINE_SUFFIX);
         }
-        else if (tableName.toUpperCase(ENGLISH).endsWith(REALTIME_SUFFIX)) {
+        if (tableName.toUpperCase(ENGLISH).endsWith(REALTIME_SUFFIX)) {
             return Optional.of(REALTIME_SUFFIX);
         }
-        else {
-            return Optional.empty();
-        }
+        return Optional.empty();
     }
 
     private static class PinotColumnNameAndTrinoType

@@ -181,7 +181,7 @@ public class PinotPatterns
             if (predicate.getType() == Predicate.Type.IN) {
                 return Optional.of(((InPredicate) predicate).getValues());
             }
-            else if (predicate.getType() == Predicate.Type.NOT_IN) {
+            if (predicate.getType() == Predicate.Type.NOT_IN) {
                 return Optional.of(((NotInPredicate) predicate).getValues());
             }
             return Optional.empty();
