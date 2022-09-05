@@ -830,7 +830,8 @@ public abstract class BaseSnowflakeConnectorTest
     @Override
     protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
     {
-        assertThat(e)
-                .hasMessageMatching(".* Non-nullable column '.*' cannot be added to non-empty table '.*' unless it has a non-null default value.");
+        assertThat(e).hasMessageMatching(
+                "SQL compilation error: Non-nullable column 'C_VARCHAR' cannot be added to non-empty table " +
+                        "'TEST_ADD_NOTNULL_.*' unless it has a non-null default value\\.");
     }
 }
