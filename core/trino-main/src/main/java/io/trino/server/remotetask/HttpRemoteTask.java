@@ -131,8 +131,6 @@ public final class HttpRemoteTask
 
     @GuardedBy("pendingRequestsCounter")
     private Future<?> currentRequest;
-    @GuardedBy("pendingRequestsCounter")
-    private long currentRequestStartNanos;
 
     @GuardedBy("this")
     private final SetMultimap<PlanNodeId, ScheduledSplit> pendingSplits = HashMultimap.create();
@@ -642,7 +640,6 @@ public final class HttpRemoteTask
 
             ListenableFuture<JsonResponse<TaskInfo>> future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
             currentRequest = future;
-            currentRequestStartNanos = System.nanoTime();
 
             // if pendingRequestsCounter is still non-zero (e.g. because triggerUpdate was called in the meantime)
             // then the request Future callback will send a new update via sendUpdate method call
@@ -650,7 +647,7 @@ public final class HttpRemoteTask
 
             Futures.addCallback(
                     future,
-                    new SimpleHttpResponseHandler<>(new UpdateResponseHandler(splitAssignments, dynamicFilterDomains.getVersion()), request.getUri(), stats),
+                    new SimpleHttpResponseHandler<>(new UpdateResponseHandler(splitAssignments, dynamicFilterDomains.getVersion(), System.nanoTime()), request.getUri(), stats),
                     executor);
         }
     }
@@ -714,7 +711,6 @@ public final class HttpRemoteTask
             if (currentRequest != null) {
                 currentRequest.cancel(true);
                 currentRequest = null;
-                currentRequestStartNanos = 0;
             }
         }
 
@@ -915,11 +911,13 @@ public final class HttpRemoteTask
     {
         private final List<SplitAssignment> splitAssignments;
         private final long currentRequestDynamicFiltersVersion;
+        private final long currentRequestStartNanos;
 
-        private UpdateResponseHandler(List<SplitAssignment> splitAssignments, long currentRequestDynamicFiltersVersion)
+        private UpdateResponseHandler(List<SplitAssignment> splitAssignments, long currentRequestDynamicFiltersVersion, long currentRequestStartNanos)
         {
             this.splitAssignments = ImmutableList.copyOf(requireNonNull(splitAssignments, "splitAssignments is null"));
             this.currentRequestDynamicFiltersVersion = currentRequestDynamicFiltersVersion;
+            this.currentRequestStartNanos = currentRequestStartNanos;
         }
 
         @Override
@@ -931,12 +929,10 @@ public final class HttpRemoteTask
                     // Remove dynamic filters which were successfully sent to free up memory
                     outboundDynamicFiltersCollector.acknowledge(currentRequestDynamicFiltersVersion);
                     sendPlan.set(value.isNeedsPlan());
-                    long currentRequestStartNanos;
                     synchronized (pendingRequestsCounter) {
                         currentRequest = null;
-                        currentRequestStartNanos = HttpRemoteTask.this.currentRequestStartNanos;
                     }
-                    updateStats(currentRequestStartNanos);
+                    updateStats();
                     processTaskUpdate(value, splitAssignments);
                     updateErrorTracker.requestSucceeded();
                 }
@@ -951,12 +947,10 @@ public final class HttpRemoteTask
         {
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 try {
-                    long currentRequestStartNanos;
                     synchronized (pendingRequestsCounter) {
                         currentRequest = null;
-                        currentRequestStartNanos = HttpRemoteTask.this.currentRequestStartNanos;
                     }
-                    updateStats(currentRequestStartNanos);
+                    updateStats();
 
                     // on failure assume we need to update again
                     pendingRequestsCounter.incrementAndGet();
@@ -988,7 +982,7 @@ public final class HttpRemoteTask
             }
         }
 
-        private void updateStats(long currentRequestStartNanos)
+        private void updateStats()
         {
             Duration requestRoundTrip = Duration.nanosSince(currentRequestStartNanos);
             stats.updateRoundTripMillis(requestRoundTrip.toMillis());
