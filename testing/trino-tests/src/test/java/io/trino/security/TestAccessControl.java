@@ -16,15 +16,20 @@ package io.trino.security;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Key;
+import com.google.inject.Scopes;
 import io.airlift.testing.Assertions;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
+import io.trino.metadata.SystemSecurityMetadata;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.jdbc.JdbcPlugin;
 import io.trino.plugin.jdbc.TestingH2JdbcModule;
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.server.testing.TestingSystemSecurityMetadata;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
@@ -42,7 +47,9 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
@@ -89,6 +96,12 @@ public class TestAccessControl
                 .setSchema("default")
                 .build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+                .setAdditionalModule(binder -> {
+                    newOptionalBinder(binder, SystemSecurityMetadata.class)
+                            .setBinding()
+                            .to(TestingSystemSecurityMetadata.class)
+                            .in(Scopes.SINGLETON);
+                })
                 .setNodeCount(1)
                 .build();
         queryRunner.installPlugin(new BlackHolePlugin());
@@ -285,6 +298,60 @@ public class TestAccessControl
         assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW " + nestedViewName);
         assertAccessAllowed(viewOwnerSession, "DROP VIEW " + columnAccessViewName);
         assertAccessAllowed(viewOwnerSession, "DROP VIEW " + invokerViewName);
+    }
+
+    @Test
+    public void testViewOwnersRoleGrants()
+    {
+        TestingSystemSecurityMetadata systemSecurityMetadata = (TestingSystemSecurityMetadata) getDistributedQueryRunner().getCoordinator().getInstance(Key.get(SystemSecurityMetadata.class));
+        Session viewOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.forUser("test_view_access_owner")
+                        .withEnabledRoles(Set.of("ownerrole"))
+                        .build())
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+
+        String columnAccessViewName = "test_view_column_access_" + randomTableSuffix();
+
+        systemSecurityMetadata.grantRoles(getSession(), Set.of("ownerrole"), Set.of(new TrinoPrincipal(USER, "test_view_access_owner")), false, Optional.empty());
+        systemSecurityMetadata.setViewOwner(
+                getSession(),
+                new CatalogSchemaTableName("blackhole", "default", columnAccessViewName),
+                new TrinoPrincipal(USER, viewOwnerSession.getUser()));
+
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW " + columnAccessViewName + " AS SELECT * FROM orders",
+                privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        // verify that role permissions are taken for the view owner's role grants
+        // even if executed by the owner with different roles enabled
+        executeExclusively(() -> {
+            systemSecurityMetadata.grantRoles(getSession(), Set.of("deniedrole"), Set.of(new TrinoPrincipal(USER, "test_view_access_owner")), false, Optional.empty());
+            try {
+                getQueryRunner().getAccessControl().denyIdentityTable((identity, table) -> !identity.getEnabledRoles().contains("deniedrole") || !"orders".equals(table));
+                // TestingAccessControlManager works by denying accesses, so:
+                // * viewOwnerSession does not have deniedrole enabled
+                // * the owner has a role grant to deniedrole
+                // we deny access to deniedrole, so:
+                // * even though viewOwnerSession would be allowed,
+                // * the session created for view owner will be denied
+                assertThatThrownBy(() -> getQueryRunner().execute(viewOwnerSession, "SELECT * FROM " + columnAccessViewName))
+                        .hasMessageMatching("Access Denied: Cannot select from columns \\[.*] in table or view \\w+\\.\\w+\\.orders");
+
+                // verify view can be queried when the role grant is revoked
+                systemSecurityMetadata.revokeRoles(getSession(), Set.of("deniedrole"), Set.of(new TrinoPrincipal(USER, "test_view_access_owner")), false, Optional.empty());
+                getQueryRunner().execute(viewOwnerSession, "SELECT * FROM " + columnAccessViewName);
+            }
+            finally {
+                getQueryRunner().getAccessControl().reset();
+            }
+        });
+
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW " + columnAccessViewName);
+
+        systemSecurityMetadata.revokeRoles(getSession(), Set.of("ownerrole"), Set.of(new TrinoPrincipal(USER, "test_view_access_owner")), false, Optional.empty());
     }
 
     @Test
