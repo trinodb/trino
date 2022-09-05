@@ -393,6 +393,18 @@ public abstract class BaseSapHanaConnectorTest
     }
 
     @Override
+    protected OptionalInt maxColumnNameLength()
+    {
+        return OptionalInt.of(127);
+    }
+
+    @Override
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("Maximum length is 127");
+    }
+
+    @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
         return "SAP DBTech JDBC: Cannot convert data -0001-01-01 to type java.sql.Date.";
