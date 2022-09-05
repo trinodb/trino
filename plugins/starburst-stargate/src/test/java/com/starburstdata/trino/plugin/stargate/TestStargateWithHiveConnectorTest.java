@@ -490,4 +490,12 @@ public class TestStargateWithHiveConnectorTest
     {
         assertThat(e).hasMessageContaining("Schema name must be shorter than or equal to '128' characters but got '129'");
     }
+
+    @Override
+    public void testAlterTableRenameColumnToLongName()
+    {
+        assertThatThrownBy(super::testAlterTableRenameColumnToLongName)
+                .hasMessageMatching("This connector does not support creating tables with data");
+        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9739");
+    }
 }
