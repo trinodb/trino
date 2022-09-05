@@ -221,9 +221,7 @@ public class HostAddress
         if (port < 0) {
             return fromString(host);
         }
-        else {
-            return fromParts(host, port);
-        }
+        return fromParts(host, port);
     }
 
     /**

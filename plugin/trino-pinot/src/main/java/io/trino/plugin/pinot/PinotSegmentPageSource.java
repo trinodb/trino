@@ -266,9 +266,7 @@ public class PinotSegmentPageSource
         if (dataType.equals(ColumnDataType.FLOAT)) {
             return currentDataTable.getDataTable().getFloat(rowIndex, columnIndex);
         }
-        else {
-            return currentDataTable.getDataTable().getDouble(rowIndex, columnIndex);
-        }
+        return currentDataTable.getDataTable().getDouble(rowIndex, columnIndex);
     }
 
     private Block getArrayBlock(int rowIndex, int columnIndex)
@@ -327,10 +325,10 @@ public class PinotSegmentPageSource
             String field = currentDataTable.getDataTable().getString(rowIndex, columnIndex);
             return getUtf8Slice(field);
         }
-        else if (trinoType instanceof VarbinaryType) {
+        if (trinoType instanceof VarbinaryType) {
             return Slices.wrappedBuffer(toBytes(currentDataTable.getDataTable().getString(rowIndex, columnIndex)));
         }
-        else if (trinoType.getTypeSignature().getBase() == StandardTypes.JSON) {
+        if (trinoType.getTypeSignature().getBase() == StandardTypes.JSON) {
             String field = currentDataTable.getDataTable().getString(rowIndex, columnIndex);
             return jsonParse(getUtf8Slice(field));
         }

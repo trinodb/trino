@@ -690,13 +690,11 @@ public class SignatureBinder
                 }
                 return true;
             }
-            else if (toType instanceof JsonType) {
+            if (toType instanceof JsonType) {
                 return fromType.getTypeParameters().stream()
                         .allMatch(fromTypeParameter -> canCast(fromTypeParameter, toType));
             }
-            else {
-                return false;
-            }
+            return false;
         }
         if (fromType instanceof JsonType) {
             if (toType instanceof RowType) {

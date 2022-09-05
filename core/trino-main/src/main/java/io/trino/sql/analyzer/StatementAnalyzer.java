@@ -913,10 +913,8 @@ class StatementAnalyzer
                     if (layout.getLayout().getPartitioning().isPresent()) {
                         throw new TrinoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
                     }
-                    else {
-                        // created table does not contain all columns required by preferred layout
-                        newTableLayout = Optional.empty();
-                    }
+                    // created table does not contain all columns required by preferred layout
+                    newTableLayout = Optional.empty();
                 }
             }
 
@@ -1792,10 +1790,8 @@ class StatementAnalyzer
                             .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Storage table '%s' does not exist", storageTableName));
                     return createScopeForMaterializedView(table, name, scope, optionalMaterializedView.get(), Optional.of(tableHandle));
                 }
-                else {
-                    // This is a stale materialized view and should be expanded like a logical view
-                    return createScopeForMaterializedView(table, name, scope, optionalMaterializedView.get(), Optional.empty());
-                }
+                // This is a stale materialized view and should be expanded like a logical view
+                return createScopeForMaterializedView(table, name, scope, optionalMaterializedView.get(), Optional.empty());
             }
 
             // This could be a reference to a logical view or a table
@@ -4659,9 +4655,7 @@ class StatementAnalyzer
             if (node instanceof FetchFirst) {
                 return analyzeLimit((FetchFirst) node, scope);
             }
-            else {
-                return analyzeLimit((Limit) node, scope);
-            }
+            return analyzeLimit((Limit) node, scope);
         }
 
         private boolean analyzeLimit(FetchFirst node, Scope scope)
@@ -4719,28 +4713,26 @@ class StatementAnalyzer
                 analysis.addCoercion(parameter, BIGINT, false);
                 return OptionalLong.empty();
             }
-            else {
-                // validate parameter index
-                analyzeExpression(parameter, scope);
-                Expression providedValue = analysis.getParameters().get(NodeRef.of(parameter));
-                Object value;
-                try {
-                    value = evaluateConstantExpression(
-                            providedValue,
-                            BIGINT,
-                            plannerContext,
-                            session,
-                            accessControl,
-                            analysis.getParameters());
-                }
-                catch (VerifyException e) {
-                    throw semanticException(INVALID_ARGUMENTS, parameter, "Non constant parameter value for %s: %s", context, providedValue);
-                }
-                if (value == null) {
-                    throw semanticException(INVALID_ARGUMENTS, parameter, "Parameter value provided for %s is NULL: %s", context, providedValue);
-                }
-                return OptionalLong.of((long) value);
+            // validate parameter index
+            analyzeExpression(parameter, scope);
+            Expression providedValue = analysis.getParameters().get(NodeRef.of(parameter));
+            Object value;
+            try {
+                value = evaluateConstantExpression(
+                        providedValue,
+                        BIGINT,
+                        plannerContext,
+                        session,
+                        accessControl,
+                        analysis.getParameters());
             }
+            catch (VerifyException e) {
+                throw semanticException(INVALID_ARGUMENTS, parameter, "Non constant parameter value for %s: %s", context, providedValue);
+            }
+            if (value == null) {
+                throw semanticException(INVALID_ARGUMENTS, parameter, "Parameter value provided for %s is NULL: %s", context, providedValue);
+            }
+            return OptionalLong.of((long) value);
         }
 
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope)

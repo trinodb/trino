@@ -780,9 +780,7 @@ public class AddExchanges
 
                 return planReplicatedJoin(node, left);
             }
-            else {
-                return planPartitionedJoin(node, leftSymbols, rightSymbols);
-            }
+            return planPartitionedJoin(node, leftSymbols, rightSymbols);
         }
 
         private PlanWithProperties planPartitionedJoin(JoinNode node, List<Symbol> leftSymbols, List<Symbol> rightSymbols)
@@ -1272,19 +1270,17 @@ public class AddExchanges
                 // instead of "arbitraryPartition".
                 return new PlanWithProperties(node.replaceChildren(partitionedChildren));
             }
-            else {
-                // Trino currently cannot execute stage that has multiple table scans, so in that case
-                // we have to insert REMOTE exchange with FIXED_ARBITRARY_DISTRIBUTION instead of local exchange
-                return new PlanWithProperties(
-                        new ExchangeNode(
-                                idAllocator.getNextId(),
-                                REPARTITION,
-                                REMOTE,
-                                new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
-                                partitionedChildren,
-                                partitionedOutputLayouts,
-                                Optional.empty()));
-            }
+            // Trino currently cannot execute stage that has multiple table scans, so in that case
+            // we have to insert REMOTE exchange with FIXED_ARBITRARY_DISTRIBUTION instead of local exchange
+            return new PlanWithProperties(
+                    new ExchangeNode(
+                            idAllocator.getNextId(),
+                            REPARTITION,
+                            REMOTE,
+                            new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
+                            partitionedChildren,
+                            partitionedOutputLayouts,
+                            Optional.empty()));
         }
 
         @Override

@@ -239,9 +239,7 @@ public class BenchmarkScanFilterAndProjectOperator
             if (dictionary) {
                 return SequencePageBuilder.createSequencePageWithDictionaryBlocks(types, positions);
             }
-            else {
-                return SequencePageBuilder.createSequencePage(types, positions);
-            }
+            return SequencePageBuilder.createSequencePage(types, positions);
         }
     }
 

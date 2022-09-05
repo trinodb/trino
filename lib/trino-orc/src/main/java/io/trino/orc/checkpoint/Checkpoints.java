@@ -144,7 +144,7 @@ public final class Checkpoints
             if (columnEncoding == DICTIONARY_V2) {
                 return new LongStreamV2Checkpoint(0, createInputStreamCheckpoint(0, 0));
             }
-            else if (columnEncoding == DICTIONARY) {
+            if (columnEncoding == DICTIONARY) {
                 return new LongStreamV1Checkpoint(0, createInputStreamCheckpoint(0, 0));
             }
         }

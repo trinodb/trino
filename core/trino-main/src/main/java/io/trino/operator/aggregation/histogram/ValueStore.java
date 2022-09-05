@@ -98,15 +98,13 @@ public class ValueStore
 
                 return valuePointer;
             }
-            else if (equalOperator.equal(block, position, values, valuePointer)) {
+            if (equalOperator.equal(block, position, values, valuePointer)) {
                 // value at position
                 return valuePointer;
             }
-            else {
-                int probe = nextProbe(probeCount);
-                bucketId = nextBucketId(originalBucketId, mask, probe);
-                probeCount++;
-            }
+            int probe = nextProbe(probeCount);
+            bucketId = nextBucketId(originalBucketId, mask, probe);
+            probeCount++;
         }
     }
 

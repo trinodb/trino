@@ -253,9 +253,7 @@ public class TypedSet
         if (block.isNull(position)) {
             return containsNullElement;
         }
-        else {
-            return blockPositionByHash.getInt(getHashPositionOfElement(block, position)) != EMPTY_SLOT;
-        }
+        return blockPositionByHash.getInt(getHashPositionOfElement(block, position)) != EMPTY_SLOT;
     }
 
     /**

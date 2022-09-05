@@ -117,9 +117,7 @@ public class DictionaryAwarePageProjection
             if (produceLazyBlock) {
                 return true;
             }
-            else {
-                return processInternal();
-            }
+            return processInternal();
         }
 
         private boolean processInternal()
@@ -200,10 +198,8 @@ public class DictionaryAwarePageProjection
                     return result.getLoadedBlock();
                 });
             }
-            else {
-                checkState(result != null, "result has not been generated");
-                return result;
-            }
+            checkState(result != null, "result has not been generated");
+            return result;
         }
 
         private void setupDictionaryBlockProjection()

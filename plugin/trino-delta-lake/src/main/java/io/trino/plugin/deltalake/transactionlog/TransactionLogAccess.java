@@ -209,7 +209,7 @@ public class TransactionLogAccess
                 log.warn("Query run with outdated Transaction Log Snapshot, retrieved stale table entries for table: %s and query %s", tableSnapshot.getTable(), session.getQueryId());
                 return loadActiveFiles(tableSnapshot, session);
             }
-            else if (cachedTable.getVersion() < tableSnapshot.getVersion()) {
+            if (cachedTable.getVersion() < tableSnapshot.getVersion()) {
                 DeltaLakeDataFileCacheEntry updatedCacheEntry;
                 try {
                     List<DeltaLakeTransactionLogEntry> newEntries = getJsonEntries(

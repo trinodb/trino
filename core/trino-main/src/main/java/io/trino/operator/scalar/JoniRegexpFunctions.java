@@ -74,14 +74,10 @@ public final class JoniRegexpFunctions
             if (matcher.getBegin() < source.length()) {
                 return matcher.getEnd() + lengthOfCodePointFromStartByte(source.getByte(matcher.getBegin()));
             }
-            else {
-                // last match is empty and we matched end of source, move past the source length to terminate the loop
-                return matcher.getEnd() + 1;
-            }
+            // last match is empty and we matched end of source, move past the source length to terminate the loop
+            return matcher.getEnd() + 1;
         }
-        else {
-            return matcher.getEnd();
-        }
+        return matcher.getEnd();
     }
 
     @Description("Removes substrings matching a regular expression")

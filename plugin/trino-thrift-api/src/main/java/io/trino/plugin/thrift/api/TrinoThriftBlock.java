@@ -300,9 +300,7 @@ public final class TrinoThriftBlock
             if (BigintType.BIGINT.equals(elementType)) {
                 return TrinoThriftBigintArray.fromBlock(block);
             }
-            else {
-                throw new IllegalArgumentException("Unsupported array block type: " + type);
-            }
+            throw new IllegalArgumentException("Unsupported array block type: " + type);
         }
         if (type.getBaseName().equals(JSON)) {
             return TrinoThriftJson.fromBlock(block, type);

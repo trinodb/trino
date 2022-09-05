@@ -216,9 +216,7 @@ public class SingleRowBlockWriter
         if (!fieldBlockBuilderReturned) {
             return format("SingleRowBlockWriter{numFields=%d, fieldBlockBuilderReturned=false, positionCount=%d}", fieldBlockBuilders.length, getPositionCount());
         }
-        else {
-            return format("SingleRowBlockWriter{numFields=%d, fieldBlockBuilderReturned=true}", fieldBlockBuilders.length);
-        }
+        return format("SingleRowBlockWriter{numFields=%d, fieldBlockBuilderReturned=true}", fieldBlockBuilders.length);
     }
 
     void setRowIndex(int rowIndex)

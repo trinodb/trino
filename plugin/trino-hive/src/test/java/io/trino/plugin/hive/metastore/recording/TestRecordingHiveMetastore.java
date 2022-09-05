@@ -311,7 +311,7 @@ public class TestRecordingHiveMetastore
                 if (partitionValues.equals(ImmutableList.of("value"))) {
                     return Optional.of(PARTITION);
                 }
-                else if (partitionValues.equals(ImmutableList.of("other_value"))) {
+                if (partitionValues.equals(ImmutableList.of("other_value"))) {
                     return Optional.of(OTHER_PARTITION);
                 }
             }

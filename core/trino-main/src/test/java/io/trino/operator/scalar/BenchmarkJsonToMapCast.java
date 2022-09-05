@@ -147,10 +147,10 @@ public class BenchmarkJsonToMapCast
             if (valueType == BIGINT) {
                 return Long.toString(ThreadLocalRandom.current().nextLong());
             }
-            else if (valueType == DOUBLE) {
+            if (valueType == DOUBLE) {
                 return Double.toString(ThreadLocalRandom.current().nextDouble());
             }
-            else if (valueType == VARCHAR) {
+            if (valueType == VARCHAR) {
                 String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
 
                 int length = ThreadLocalRandom.current().nextInt(10) + 1;
@@ -162,9 +162,7 @@ public class BenchmarkJsonToMapCast
                 builder.append('"');
                 return builder.toString();
             }
-            else {
-                throw new UnsupportedOperationException();
-            }
+            throw new UnsupportedOperationException();
         }
 
         public PageProcessor getPageProcessor()

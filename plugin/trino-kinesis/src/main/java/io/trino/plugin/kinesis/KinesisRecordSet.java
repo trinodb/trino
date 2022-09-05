@@ -241,15 +241,13 @@ public class KinesisRecordSet
             if (listIterator.hasNext()) {
                 return nextRow();
             }
-            else {
-                log.debug("(%s:%s) Read all of the records from the shard:  %d batches and %d messages and %d total bytes.",
-                        split.getStreamName(),
-                        split.getShardId(),
-                        batchesRead,
-                        totalMessages,
-                        totalBytes);
-                return false;
-            }
+            log.debug("(%s:%s) Read all of the records from the shard:  %d batches and %d messages and %d total bytes.",
+                    split.getStreamName(),
+                    split.getShardId(),
+                    batchesRead,
+                    totalMessages,
+                    totalBytes);
+            return false;
         }
 
         private boolean shouldGetMoreRecords()

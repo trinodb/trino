@@ -84,16 +84,14 @@ public final class SortedPositionLinks
                 positionLinks.computeIfAbsent(to, key -> new IntArrayList()).add(from);
                 return to;
             }
-            else {
-                // _to_ is larger so, move the chain to _from_
-                IntArrayList links = positionLinks.remove(to);
-                if (links == null) {
-                    links = new IntArrayList();
-                }
-                links.add(to);
-                checkState(positionLinks.put(from, links) == null, "sorted links is corrupted");
-                return from;
+            // _to_ is larger so, move the chain to _from_
+            IntArrayList links = positionLinks.remove(to);
+            if (links == null) {
+                links = new IntArrayList();
             }
+            links.add(to);
+            checkState(positionLinks.put(from, links) == null, "sorted links is corrupted");
+            return from;
         }
 
         private boolean isNull(int position)

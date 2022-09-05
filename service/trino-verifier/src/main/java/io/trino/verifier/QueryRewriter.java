@@ -110,7 +110,7 @@ public class QueryRewriter
             if (statement instanceof CreateTableAsSelect) {
                 return rewriteCreateTableAsSelect(connection, query, (CreateTableAsSelect) statement);
             }
-            else if (statement instanceof Insert) {
+            if (statement instanceof Insert) {
                 return rewriteInsertQuery(connection, query, (Insert) statement);
             }
         }

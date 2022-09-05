@@ -1239,9 +1239,7 @@ public class TestSignatureBinder
             if (returnType == null) {
                 return signatureBinder.bindVariables(argumentTypes);
             }
-            else {
-                return signatureBinder.bindVariables(argumentTypes, returnType.getTypeSignature());
-            }
+            return signatureBinder.bindVariables(argumentTypes, returnType.getTypeSignature());
         }
     }
 }

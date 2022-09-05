@@ -107,9 +107,7 @@ public class TransactionScopeCachingDirectoryLister
         if (cacheKey.isRecursiveFilesOnly()) {
             return delegate.listFilesRecursively(fs, table, cacheKey.getPath());
         }
-        else {
-            return delegate.list(fs, table, cacheKey.getPath());
-        }
+        return delegate.list(fs, table, cacheKey.getPath());
     }
 
     @Override

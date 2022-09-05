@@ -364,12 +364,10 @@ public class PinotClient
                     if (matcher.matches() && matcher.groupCount() == 2) {
                         return pinotHostMapper.getBrokerHost(matcher.group(1), matcher.group(2));
                     }
-                    else {
-                        throw new PinotException(
-                                PINOT_UNABLE_TO_FIND_BROKER,
-                                Optional.empty(),
-                                format("Cannot parse %s in the broker instance", brokerToParse));
-                    }
+                    throw new PinotException(
+                            PINOT_UNABLE_TO_FIND_BROKER,
+                            Optional.empty(),
+                            format("Cannot parse %s in the broker instance", brokerToParse));
                 })
                 .collect(Collectors.toCollection(ArrayList::new));
         Collections.shuffle(brokers);
@@ -390,9 +388,7 @@ public class PinotClient
             if (throwable instanceof PinotException) {
                 throw (PinotException) throwable;
             }
-            else {
-                throw new PinotException(PINOT_UNABLE_TO_FIND_BROKER, Optional.empty(), "Error when getting brokers for table " + table, throwable);
-            }
+            throw new PinotException(PINOT_UNABLE_TO_FIND_BROKER, Optional.empty(), "Error when getting brokers for table " + table, throwable);
         }
     }
 

@@ -161,9 +161,7 @@ public class ThriftMetadata
         if (tableMetadata.containsIndexableColumns(indexableColumns)) {
             return Optional.of(new ConnectorResolvedIndex(new ThriftIndexHandle(tableMetadata.getSchemaTableName(), tupleDomain, session), tupleDomain));
         }
-        else {
-            return Optional.empty();
-        }
+        return Optional.empty();
     }
 
     @Override

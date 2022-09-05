@@ -43,25 +43,23 @@ public class StatisticsEstimator
         if (columnValuesRestrictions.isEmpty()) {
             return tableStatisticsDataRepository.load(schemaName, tpchTable, Optional.empty(), Optional.empty());
         }
-        else if (columnValuesRestrictions.values().stream().allMatch(List::isEmpty)) {
+        if (columnValuesRestrictions.values().stream().allMatch(List::isEmpty)) {
             return Optional.of(zeroStatistics(tpchTable));
         }
-        else {
-            checkArgument(columnValuesRestrictions.size() <= 1, "Can only estimate stats when at most one column has value restrictions");
-            TpchColumn<?> partitionColumn = getOnlyElement(columnValuesRestrictions.keySet());
-            List<Object> partitionValues = columnValuesRestrictions.get(partitionColumn);
-            TableStatisticsData result = zeroStatistics(tpchTable);
-            for (Object partitionValue : partitionValues) {
-                Slice value = checkType(partitionValue, Slice.class, "Only string (Slice) partition values supported for now");
-                Optional<TableStatisticsData> tableStatisticsData = tableStatisticsDataRepository
-                        .load(schemaName, tpchTable, Optional.of(partitionColumn), Optional.of(value.toStringUtf8()));
-                if (tableStatisticsData.isEmpty()) {
-                    return Optional.empty();
-                }
-                result = addPartitionStats(result, tableStatisticsData.get(), partitionColumn);
+        checkArgument(columnValuesRestrictions.size() <= 1, "Can only estimate stats when at most one column has value restrictions");
+        TpchColumn<?> partitionColumn = getOnlyElement(columnValuesRestrictions.keySet());
+        List<Object> partitionValues = columnValuesRestrictions.get(partitionColumn);
+        TableStatisticsData result = zeroStatistics(tpchTable);
+        for (Object partitionValue : partitionValues) {
+            Slice value = checkType(partitionValue, Slice.class, "Only string (Slice) partition values supported for now");
+            Optional<TableStatisticsData> tableStatisticsData = tableStatisticsDataRepository
+                    .load(schemaName, tpchTable, Optional.of(partitionColumn), Optional.of(value.toStringUtf8()));
+            if (tableStatisticsData.isEmpty()) {
+                return Optional.empty();
             }
-            return Optional.of(result);
+            result = addPartitionStats(result, tableStatisticsData.get(), partitionColumn);
         }
+        return Optional.of(result);
     }
 
     private TableStatisticsData addPartitionStats(TableStatisticsData left, TableStatisticsData right, TpchColumn<?> partitionColumn)

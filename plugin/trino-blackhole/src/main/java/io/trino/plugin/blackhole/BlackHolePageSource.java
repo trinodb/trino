@@ -67,10 +67,8 @@ class BlackHolePageSource
         if (pageProcessingDelayInMillis == 0) {
             return page;
         }
-        else {
-            currentPage = toCompletableFuture(executorService.schedule(() -> page, pageProcessingDelayInMillis, MILLISECONDS));
-            return null;
-        }
+        currentPage = toCompletableFuture(executorService.schedule(() -> page, pageProcessingDelayInMillis, MILLISECONDS));
+        return null;
     }
 
     @Override

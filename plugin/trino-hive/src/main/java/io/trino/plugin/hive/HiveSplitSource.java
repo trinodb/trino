@@ -362,9 +362,7 @@ class HiveSplitSource
                 //              But an extra invocation likely doesn't matter.
                 return new ConnectorSplitBatch(splits, splits.isEmpty() && queues.isFinished());
             }
-            else {
-                return new ConnectorSplitBatch(splits, false);
-            }
+            return new ConnectorSplitBatch(splits, false);
         });
     }
 

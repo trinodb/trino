@@ -373,13 +373,11 @@ public final class ShowQueriesRewrite
                         .collect(toList());
                 return singleColumnValues(rows, "Role");
             }
-            else {
-                accessControl.checkCanShowRoles(session.toSecurityContext(), catalog);
-                List<Expression> rows = metadata.listRoles(session, catalog).stream()
-                        .map(role -> row(new StringLiteral(role)))
-                        .collect(toList());
-                return singleColumnValues(rows, "Role");
-            }
+            accessControl.checkCanShowRoles(session.toSecurityContext(), catalog);
+            List<Expression> rows = metadata.listRoles(session, catalog).stream()
+                    .map(role -> row(new StringLiteral(role)))
+                    .collect(toList());
+            return singleColumnValues(rows, "Role");
         }
 
         @Override

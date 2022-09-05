@@ -375,9 +375,7 @@ public class InMemoryTransactionManager
                     // Should not happen normally
                     throw new IllegalStateException("Current transaction already committed");
                 }
-                else {
-                    throw new TrinoException(TRANSACTION_ALREADY_ABORTED, "Current transaction is aborted, commands ignored until end of transaction block");
-                }
+                throw new TrinoException(TRANSACTION_ALREADY_ABORTED, "Current transaction is aborted, commands ignored until end of transaction block");
             }
         }
 

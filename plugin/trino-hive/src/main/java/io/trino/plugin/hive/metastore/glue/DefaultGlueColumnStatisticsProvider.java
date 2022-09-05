@@ -200,15 +200,15 @@ public class DefaultGlueColumnStatisticsProvider
             DateColumnStatisticsData data = statisticsData.getDateColumnStatisticsData();
             return data.getMaximumValue() != null && data.getMinimumValue() != null;
         }
-        else if (columnType.equals(ColumnStatisticsType.DECIMAL.toString())) {
+        if (columnType.equals(ColumnStatisticsType.DECIMAL.toString())) {
             DecimalColumnStatisticsData data = statisticsData.getDecimalColumnStatisticsData();
             return data.getMaximumValue() != null && data.getMinimumValue() != null;
         }
-        else if (columnType.equals(ColumnStatisticsType.DOUBLE.toString())) {
+        if (columnType.equals(ColumnStatisticsType.DOUBLE.toString())) {
             DoubleColumnStatisticsData data = statisticsData.getDoubleColumnStatisticsData();
             return data.getMaximumValue() != null && data.getMinimumValue() != null;
         }
-        else if (columnType.equals(ColumnStatisticsType.LONG.toString())) {
+        if (columnType.equals(ColumnStatisticsType.LONG.toString())) {
             LongColumnStatisticsData data = statisticsData.getLongColumnStatisticsData();
             return data.getMaximumValue() != null && data.getMinimumValue() != null;
         }

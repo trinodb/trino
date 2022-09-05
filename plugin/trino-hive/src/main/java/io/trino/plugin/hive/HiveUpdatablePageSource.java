@@ -257,9 +257,7 @@ public class HiveUpdatablePageSource
             List<Integer> channels = dependencyChannels.orElseThrow(() -> new IllegalArgumentException("dependencyChannels not present"));
             return updateProcessor.removeNonDependencyColumns(page, channels);
         }
-        else {
-            return page;
-        }
+        return page;
     }
 
     @Override

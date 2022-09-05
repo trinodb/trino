@@ -288,21 +288,19 @@ public class TpchMetadata
         if (constraintSummary.isAll()) {
             return emptyMap();
         }
-        else if (constraintSummary.isNone()) {
+        if (constraintSummary.isNone()) {
             Set<TpchColumn<?>> columns = ImmutableSet.copyOf(tpchTable.getColumns());
             return asMap(columns, key -> emptyList());
         }
-        else {
-            Map<ColumnHandle, Domain> domains = constraintSummary.getDomains().orElseThrow();
-            Optional<Domain> orderStatusDomain = Optional.ofNullable(domains.get(toColumnHandle(OrderColumn.ORDER_STATUS)));
-            Optional<Map<TpchColumn<?>, List<Object>>> allowedColumnValues = orderStatusDomain.map(domain -> {
-                List<Object> allowedValues = ORDER_STATUS_VALUES.stream()
-                        .filter(domain::includesNullableValue)
-                        .collect(toList());
-                return avoidTrivialOrderStatusRestriction(allowedValues);
-            });
-            return allowedColumnValues.orElse(emptyMap());
-        }
+        Map<ColumnHandle, Domain> domains = constraintSummary.getDomains().orElseThrow();
+        Optional<Domain> orderStatusDomain = Optional.ofNullable(domains.get(toColumnHandle(OrderColumn.ORDER_STATUS)));
+        Optional<Map<TpchColumn<?>, List<Object>>> allowedColumnValues = orderStatusDomain.map(domain -> {
+            List<Object> allowedValues = ORDER_STATUS_VALUES.stream()
+                    .filter(domain::includesNullableValue)
+                    .collect(toList());
+            return avoidTrivialOrderStatusRestriction(allowedValues);
+        });
+        return allowedColumnValues.orElse(emptyMap());
     }
 
     private static Map<TpchColumn<?>, List<Object>> avoidTrivialOrderStatusRestriction(List<Object> allowedValues)
@@ -310,9 +308,7 @@ public class TpchMetadata
         if (allowedValues.containsAll(ORDER_STATUS_VALUES)) {
             return emptyMap();
         }
-        else {
-            return ImmutableMap.of(OrderColumn.ORDER_STATUS, allowedValues);
-        }
+        return ImmutableMap.of(OrderColumn.ORDER_STATUS, allowedValues);
     }
 
     private TableStatistics toTableStatistics(TableStatisticsData tableStatisticsData, TpchTableHandle tpchTableHandle, Map<String, ColumnHandle> columnHandles)

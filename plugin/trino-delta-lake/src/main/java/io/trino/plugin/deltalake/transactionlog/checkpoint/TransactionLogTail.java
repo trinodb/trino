@@ -84,9 +84,7 @@ public class TransactionLogTail
                 if (endVersion.isPresent()) {
                     throw new MissingTransactionLogException(path);
                 }
-                else {
-                    endOfTail = true;
-                }
+                endOfTail = true;
             }
 
             if (endVersion.isPresent() && version == endVersion.get()) {
@@ -157,12 +155,10 @@ public class TransactionLogTail
         if (e instanceof FileNotFoundException) {
             return true;
         }
-        else if (e.getMessage().contains("The specified key does not exist")) {
+        if (e.getMessage().contains("The specified key does not exist")) {
             return true;
         }
-        else {
-            return false;
-        }
+        return false;
     }
 
     public List<DeltaLakeTransactionLogEntry> getFileEntries()

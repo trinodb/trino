@@ -225,22 +225,22 @@ public class CounterBasedAnonymizer
         if (target instanceof CreateTarget) {
             return anonymize((CreateTarget) target);
         }
-        else if (target instanceof InsertTarget) {
+        if (target instanceof InsertTarget) {
             return anonymize((InsertTarget) target);
         }
-        else if (target instanceof MergeTarget) {
+        if (target instanceof MergeTarget) {
             return anonymize((MergeTarget) target);
         }
-        else if (target instanceof RefreshMaterializedViewTarget) {
+        if (target instanceof RefreshMaterializedViewTarget) {
             return anonymize((RefreshMaterializedViewTarget) target);
         }
-        else if (target instanceof DeleteTarget) {
+        if (target instanceof DeleteTarget) {
             return anonymize((DeleteTarget) target);
         }
-        else if (target instanceof UpdateTarget) {
+        if (target instanceof UpdateTarget) {
             return anonymize((UpdateTarget) target);
         }
-        else if (target instanceof TableExecuteTarget) {
+        if (target instanceof TableExecuteTarget) {
             return anonymize((TableExecuteTarget) target);
         }
         throw new UnsupportedOperationException("Anonymization is not supported for WriterTarget type: " + target.getClass().getSimpleName());

@@ -120,9 +120,7 @@ public final class PinotQueryBuilder
         if (!conjuncts.isEmpty()) {
             return Optional.of(Joiner.on(" AND ").join(conjuncts));
         }
-        else {
-            return Optional.empty();
-        }
+        return Optional.empty();
     }
 
     private static String toPredicate(PinotColumnHandle pinotColumnHandle, Domain domain)
@@ -163,10 +161,10 @@ public final class PinotQueryBuilder
         if (type instanceof RealType) {
             return intBitsToFloat(toIntExact((Long) value));
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return ((Slice) value).toStringUtf8();
         }
-        else if (type instanceof VarbinaryType) {
+        if (type instanceof VarbinaryType) {
             return Hex.encodeHexString(((Slice) value).getBytes());
         }
         return value;

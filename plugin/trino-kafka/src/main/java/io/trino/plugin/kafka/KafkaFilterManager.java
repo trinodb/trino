@@ -248,27 +248,23 @@ public class KafkaFilterManager
             long singleValue = (long) domain.getSingleValue();
             return sourceValues.stream().filter(sourceValue -> sourceValue == singleValue).collect(toImmutableSet());
         }
-        else {
-            ValueSet valueSet = domain.getValues();
-            if (valueSet instanceof SortedRangeSet) {
-                Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
-                List<io.trino.spi.predicate.Range> rangeList = ranges.getOrderedRanges();
-                if (rangeList.stream().allMatch(io.trino.spi.predicate.Range::isSingleValue)) {
-                    return rangeList.stream()
-                            .map(range -> (Long) range.getSingleValue())
-                            .filter(sourceValues::contains)
-                            .collect(toImmutableSet());
-                }
-                else {
-                    // still return values for range case like (_partition_id > 1)
-                    io.trino.spi.predicate.Range span = ranges.getSpan();
-                    long low = getLowIncludedValue(span).orElse(0L);
-                    long high = getHighIncludedValue(span).orElse(Long.MAX_VALUE);
-                    return sourceValues.stream()
-                            .filter(item -> item >= low && item <= high)
-                            .collect(toImmutableSet());
-                }
+        ValueSet valueSet = domain.getValues();
+        if (valueSet instanceof SortedRangeSet) {
+            Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
+            List<io.trino.spi.predicate.Range> rangeList = ranges.getOrderedRanges();
+            if (rangeList.stream().allMatch(io.trino.spi.predicate.Range::isSingleValue)) {
+                return rangeList.stream()
+                        .map(range -> (Long) range.getSingleValue())
+                        .filter(sourceValues::contains)
+                        .collect(toImmutableSet());
             }
+            // still return values for range case like (_partition_id > 1)
+            io.trino.spi.predicate.Range span = ranges.getSpan();
+            long low = getLowIncludedValue(span).orElse(0L);
+            long high = getHighIncludedValue(span).orElse(Long.MAX_VALUE);
+            return sourceValues.stream()
+                    .filter(item -> item >= low && item <= high)
+                    .collect(toImmutableSet());
         }
         return sourceValues;
     }

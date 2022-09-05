@@ -107,17 +107,11 @@ public class CassandraSplit
             if (splitCondition != null) {
                 return " WHERE " + splitCondition;
             }
-            else {
-                return "";
-            }
+            return "";
         }
-        else {
-            if (splitCondition != null) {
-                return " WHERE " + partitionId + " AND " + splitCondition;
-            }
-            else {
-                return " WHERE " + partitionId;
-            }
+        if (splitCondition != null) {
+            return " WHERE " + partitionId + " AND " + splitCondition;
         }
+        return " WHERE " + partitionId;
     }
 }

@@ -211,9 +211,7 @@ public final class DomainCoercer
             if (originalComparedToCoerced == 0) {
                 return Optional.of(coercedFloorValue);
             }
-            else {
-                return Optional.empty();
-            }
+            return Optional.empty();
         }
 
         private int compareOriginalValueToCoerced(ResolvedFunction castToOriginalTypeOperator, MethodHandle comparisonOperator, Object originalValue, Object coercedValue)

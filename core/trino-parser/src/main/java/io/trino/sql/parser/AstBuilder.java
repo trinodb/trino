@@ -3674,15 +3674,13 @@ class AstBuilder
         if (context instanceof SqlBaseParser.SpecifiedPrincipalContext) {
             return new GrantorSpecification(GrantorSpecification.Type.PRINCIPAL, Optional.of(getPrincipalSpecification(((SqlBaseParser.SpecifiedPrincipalContext) context).principal())));
         }
-        else if (context instanceof SqlBaseParser.CurrentUserGrantorContext) {
+        if (context instanceof SqlBaseParser.CurrentUserGrantorContext) {
             return new GrantorSpecification(GrantorSpecification.Type.CURRENT_USER, Optional.empty());
         }
-        else if (context instanceof SqlBaseParser.CurrentRoleGrantorContext) {
+        if (context instanceof SqlBaseParser.CurrentRoleGrantorContext) {
             return new GrantorSpecification(GrantorSpecification.Type.CURRENT_ROLE, Optional.empty());
         }
-        else {
-            throw new IllegalArgumentException("Unsupported grantor: " + context);
-        }
+        throw new IllegalArgumentException("Unsupported grantor: " + context);
     }
 
     private PrincipalSpecification getPrincipalSpecification(SqlBaseParser.PrincipalContext context)
@@ -3690,15 +3688,13 @@ class AstBuilder
         if (context instanceof SqlBaseParser.UnspecifiedPrincipalContext) {
             return new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, (Identifier) visit(((SqlBaseParser.UnspecifiedPrincipalContext) context).identifier()));
         }
-        else if (context instanceof SqlBaseParser.UserPrincipalContext) {
+        if (context instanceof SqlBaseParser.UserPrincipalContext) {
             return new PrincipalSpecification(PrincipalSpecification.Type.USER, (Identifier) visit(((SqlBaseParser.UserPrincipalContext) context).identifier()));
         }
-        else if (context instanceof SqlBaseParser.RolePrincipalContext) {
+        if (context instanceof SqlBaseParser.RolePrincipalContext) {
             return new PrincipalSpecification(PrincipalSpecification.Type.ROLE, (Identifier) visit(((SqlBaseParser.RolePrincipalContext) context).identifier()));
         }
-        else {
-            throw new IllegalArgumentException("Unsupported principal: " + context);
-        }
+        throw new IllegalArgumentException("Unsupported principal: " + context);
     }
 
     private static void check(boolean condition, String message, ParserRuleContext context)

@@ -46,9 +46,7 @@ public final class CharacterStringCasts
         if (x > y) {
             return truncateToLength(slice, y.intValue());
         }
-        else {
-            return slice;
-        }
+        return slice;
     }
 
     @ScalarOperator(OperatorType.CAST)
@@ -59,9 +57,7 @@ public final class CharacterStringCasts
         if (x > y) {
             return truncateToLength(slice, y.intValue());
         }
-        else {
-            return slice;
-        }
+        return slice;
     }
 
     @ScalarOperator(OperatorType.CAST)
