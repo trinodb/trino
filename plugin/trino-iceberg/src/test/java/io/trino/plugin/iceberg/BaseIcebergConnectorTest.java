@@ -5705,6 +5705,48 @@ public abstract class BaseIcebergConnectorTest
         };
     }
 
+    @Test
+    public void testOverwritePartitioned()
+    {
+        String targetTable = "test_overwrite_partitioned_" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (p VARCHAR, v INT) WITH (partitioning = ARRAY['p'])", targetTable));
+
+        assertUpdate(format("INSERT INTO %s (p, v) VALUES ('p1', 1), ('p1', 2), ('p1', 3), ('p2', 1)", targetTable), 4);
+
+        assertQuery("SELECT * FROM " + targetTable, "VALUES ('p1', 1), ('p1', 2), ('p1', 3), ('p2', 1)");
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "insert_existing_partitions_behavior", "OVERWRITE")
+                .build();
+
+        assertUpdate(session, format("INSERT INTO %s (p, v) VALUES ('p1', 4), ('p3', 1)", targetTable), 2);
+
+        assertQuery("SELECT * FROM " + targetTable, "VALUES ('p1', 4), ('p2', 1), ('p3', 1)");
+
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
+    @Test
+    public void testOverwriteUnpartitioned()
+    {
+        String targetTable = "test_overwrite_unpartitioned_" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (p VARCHAR, v INT)", targetTable));
+
+        assertUpdate(format("INSERT INTO %s (p, v) VALUES ('p1', 1), ('p1', 2), ('p1', 3), ('p2', 1)", targetTable), 4);
+
+        assertQuery("SELECT * FROM " + targetTable, "VALUES ('p1', 1), ('p1', 2), ('p1', 3), ('p2', 1)");
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "insert_existing_partitions_behavior", "OVERWRITE")
+                .build();
+
+        assertUpdate(session, format("INSERT INTO %s (p, v) VALUES ('p1', 4), ('p3', 1)", targetTable), 2);
+
+        assertQuery("SELECT * FROM " + targetTable, "VALUES ('p1', 4), ('p3', 1)");
+
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
     @Override
     protected OptionalInt maxSchemaNameLength()
     {

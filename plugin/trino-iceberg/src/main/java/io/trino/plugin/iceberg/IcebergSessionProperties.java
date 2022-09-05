@@ -42,6 +42,7 @@ import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 
 public final class IcebergSessionProperties
@@ -77,8 +78,15 @@ public final class IcebergSessionProperties
     public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "expire_snapshots_min_retention";
     public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "remove_orphan_files_min_retention";
     private static final String ALLOW_LEGACY_SNAPSHOT_SYNTAX = "allow_legacy_snapshot_syntax";
+    private static final String INSERT_EXISTING_PARTITIONS_BEHAVIOR = "insert_existing_partitions_behavior";
 
     private final List<PropertyMetadata<?>> sessionProperties;
+
+    public enum InsertExistingPartitionsBehavior
+    {
+        APPEND,
+        OVERWRITE,
+    }
 
     @Inject
     public IcebergSessionProperties(
@@ -251,6 +259,15 @@ public final class IcebergSessionProperties
                         "Allow snapshot access based on timestamp and snapshotid",
                         icebergConfig.isAllowLegacySnapshotSyntax(),
                         false))
+                .add(new PropertyMetadata<>(
+                        INSERT_EXISTING_PARTITIONS_BEHAVIOR,
+                        "Behavior on insert existing partitions",
+                        VARCHAR,
+                        InsertExistingPartitionsBehavior.class,
+                        icebergConfig.getInsertExistingPartitionsBehavior(),
+                        false,
+                        value -> InsertExistingPartitionsBehavior.valueOf((String) value),
+                        InsertExistingPartitionsBehavior::toString))
                 .build();
     }
 
@@ -415,5 +432,10 @@ public final class IcebergSessionProperties
     public static boolean isAllowLegacySnapshotSyntax(ConnectorSession session)
     {
         return session.getProperty(ALLOW_LEGACY_SNAPSHOT_SYNTAX, Boolean.class);
+    }
+
+    public static InsertExistingPartitionsBehavior getInsertExistingPartitionsBehavior(ConnectorSession session)
+    {
+        return session.getProperty(INSERT_EXISTING_PARTITIONS_BEHAVIOR, InsertExistingPartitionsBehavior.class);
     }
 }
