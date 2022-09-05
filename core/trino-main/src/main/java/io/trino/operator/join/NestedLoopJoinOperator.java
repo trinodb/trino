@@ -267,15 +267,13 @@ public class NestedLoopJoinOperator
             Page outputPage = new Page(max(probePositions, buildPositions));
             return new PageRepeatingIterator(outputPage, min(probePositions, buildPositions));
         }
-        else if (probeChannels.length == 0 && probePage.getPositionCount() <= buildPage.getPositionCount()) {
+        if (probeChannels.length == 0 && probePage.getPositionCount() <= buildPage.getPositionCount()) {
             return new PageRepeatingIterator(buildPage.getColumns(buildChannels), probePage.getPositionCount());
         }
-        else if (buildChannels.length == 0 && buildPage.getPositionCount() <= probePage.getPositionCount()) {
+        if (buildChannels.length == 0 && buildPage.getPositionCount() <= probePage.getPositionCount()) {
             return new PageRepeatingIterator(probePage.getColumns(probeChannels), buildPage.getPositionCount());
         }
-        else {
-            return new NestedLoopPageBuilder(probePage, buildPage, probeChannels, buildChannels);
-        }
+        return new NestedLoopPageBuilder(probePage, buildPage, probeChannels, buildChannels);
     }
 
     // bi-morphic parent class for the two implementations allowed. Adding a third implementation will make getOutput megamorphic and

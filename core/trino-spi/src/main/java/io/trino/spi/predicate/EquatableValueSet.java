@@ -243,15 +243,13 @@ public class EquatableValueSet
         if (inclusive && otherValueSet.inclusive()) {
             return new EquatableValueSet(type, true, intersect(entries, otherValueSet.entries));
         }
-        else if (inclusive) {
+        if (inclusive) {
             return new EquatableValueSet(type, true, subtract(entries, otherValueSet.entries));
         }
-        else if (otherValueSet.inclusive()) {
+        if (otherValueSet.inclusive()) {
             return new EquatableValueSet(type, true, subtract(otherValueSet.entries, entries));
         }
-        else {
-            return new EquatableValueSet(type, false, union(otherValueSet.entries, entries));
-        }
+        return new EquatableValueSet(type, false, union(otherValueSet.entries, entries));
     }
 
     @Override
@@ -262,15 +260,13 @@ public class EquatableValueSet
         if (inclusive && otherValueSet.inclusive()) {
             return setsOverlap(entries, otherValueSet.entries);
         }
-        else if (inclusive) {
+        if (inclusive) {
             return !otherValueSet.entries.containsAll(entries);
         }
-        else if (otherValueSet.inclusive()) {
+        if (otherValueSet.inclusive()) {
             return !entries.containsAll(otherValueSet.entries);
         }
-        else {
-            return true;
-        }
+        return true;
     }
 
     @Override
@@ -281,15 +277,13 @@ public class EquatableValueSet
         if (inclusive && otherValueSet.inclusive()) {
             return new EquatableValueSet(type, true, union(entries, otherValueSet.entries));
         }
-        else if (inclusive) {
+        if (inclusive) {
             return new EquatableValueSet(type, false, subtract(otherValueSet.entries, entries));
         }
-        else if (otherValueSet.inclusive()) {
+        if (otherValueSet.inclusive()) {
             return new EquatableValueSet(type, false, subtract(entries, otherValueSet.entries));
         }
-        else {
-            return new EquatableValueSet(type, false, intersect(otherValueSet.entries, entries));
-        }
+        return new EquatableValueSet(type, false, intersect(otherValueSet.entries, entries));
     }
 
     @Override

@@ -113,9 +113,7 @@ public class LiteralFunction
             if (type instanceof VarcharType) {
                 return type;
             }
-            else {
-                return VARBINARY;
-            }
+            return VARBINARY;
         }
         if (clazz == boolean.class) {
             return BOOLEAN;

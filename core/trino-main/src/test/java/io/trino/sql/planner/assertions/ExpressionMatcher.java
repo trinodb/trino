@@ -96,13 +96,11 @@ public class ExpressionMatcher
             ProjectNode projectNode = (ProjectNode) node;
             return projectNode.getAssignments().getMap();
         }
-        else if (node instanceof ApplyNode) {
+        if (node instanceof ApplyNode) {
             ApplyNode applyNode = (ApplyNode) node;
             return applyNode.getSubqueryAssignments().getMap();
         }
-        else {
-            return null;
-        }
+        return null;
     }
 
     @Override

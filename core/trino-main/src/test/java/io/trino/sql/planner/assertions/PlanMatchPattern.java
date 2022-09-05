@@ -1389,19 +1389,13 @@ public final class PlanMatchPattern
                 if (nullOrdering == FIRST) {
                     return ASC_NULLS_FIRST;
                 }
-                else {
-                    return ASC_NULLS_LAST;
-                }
+                return ASC_NULLS_LAST;
             }
-            else {
-                checkState(ordering == DESCENDING);
-                if (nullOrdering == FIRST) {
-                    return DESC_NULLS_FIRST;
-                }
-                else {
-                    return DESC_NULLS_LAST;
-                }
+            checkState(ordering == DESCENDING);
+            if (nullOrdering == FIRST) {
+                return DESC_NULLS_FIRST;
             }
+            return DESC_NULLS_LAST;
         }
 
         @Override

@@ -312,20 +312,18 @@ public class ScalarStatsCalculator
             if (left.getNullsFraction() == 0) {
                 return left;
             }
-            else if (left.getNullsFraction() == 1.0) {
+            if (left.getNullsFraction() == 1.0) {
                 return right;
             }
-            else {
-                return SymbolStatsEstimate.builder()
-                        .setLowValue(min(left.getLowValue(), right.getLowValue()))
-                        .setHighValue(max(left.getHighValue(), right.getHighValue()))
-                        .setDistinctValuesCount(left.getDistinctValuesCount() +
-                                min(right.getDistinctValuesCount(), input.getOutputRowCount() * left.getNullsFraction()))
-                        .setNullsFraction(left.getNullsFraction() * right.getNullsFraction())
-                        // TODO check if dataSize estimation method is correct
-                        .setAverageRowSize(max(left.getAverageRowSize(), right.getAverageRowSize()))
-                        .build();
-            }
+            return SymbolStatsEstimate.builder()
+                    .setLowValue(min(left.getLowValue(), right.getLowValue()))
+                    .setHighValue(max(left.getHighValue(), right.getHighValue()))
+                    .setDistinctValuesCount(left.getDistinctValuesCount() +
+                            min(right.getDistinctValuesCount(), input.getOutputRowCount() * left.getNullsFraction()))
+                    .setNullsFraction(left.getNullsFraction() * right.getNullsFraction())
+                    // TODO check if dataSize estimation method is correct
+                    .setAverageRowSize(max(left.getAverageRowSize(), right.getAverageRowSize()))
+                    .build();
         }
     }
 

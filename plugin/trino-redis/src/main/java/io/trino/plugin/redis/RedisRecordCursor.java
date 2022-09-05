@@ -379,19 +379,17 @@ public class RedisRecordCursor
                     log.debug("Set pushdown keys %s with single value", keys.toString());
                     return;
                 }
-                else {
-                    ValueSet valueSet = domain.getValues();
-                    if (valueSet instanceof SortedRangeSet) {
-                        Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
-                        List<Range> rangeList = ranges.getOrderedRanges();
-                        if (rangeList.stream().allMatch(Range::isSingleValue)) {
-                            keys = rangeList.stream()
-                                    .map(range -> ((Slice) range.getSingleValue()).toStringUtf8())
-                                    .filter(str -> keyStringPrefix.isEmpty() || str.contains(keyStringPrefix))
-                                    .collect(toList());
-                            log.debug("Set pushdown keys %s with sorted range values", keys.toString());
-                            return;
-                        }
+                ValueSet valueSet = domain.getValues();
+                if (valueSet instanceof SortedRangeSet) {
+                    Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
+                    List<Range> rangeList = ranges.getOrderedRanges();
+                    if (rangeList.stream().allMatch(Range::isSingleValue)) {
+                        keys = rangeList.stream()
+                                .map(range -> ((Slice) range.getSingleValue()).toStringUtf8())
+                                .filter(str -> keyStringPrefix.isEmpty() || str.contains(keyStringPrefix))
+                                .collect(toList());
+                        log.debug("Set pushdown keys %s with sorted range values", keys.toString());
+                        return;
                     }
                 }
             }

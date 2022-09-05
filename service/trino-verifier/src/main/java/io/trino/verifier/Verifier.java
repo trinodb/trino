@@ -220,9 +220,7 @@ public class Verifier
             // If so disable correctness checking
             return false;
         }
-        else {
-            return config.isCheckCorrectnessEnabled();
-        }
+        return config.isCheckCorrectnessEnabled();
     }
 
     private VerifierQueryEvent buildEvent(Validator validator)

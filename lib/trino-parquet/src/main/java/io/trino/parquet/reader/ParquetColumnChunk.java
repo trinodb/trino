@@ -123,9 +123,7 @@ public class ParquetColumnChunk
         if (offsetIndex == null) {
             return valuesCountReadSoFar < descriptor.getColumnChunkMetaData().getValueCount();
         }
-        else {
-            return dataPageCountReadSoFar < offsetIndex.getPageCount();
-        }
+        return dataPageCountReadSoFar < offsetIndex.getPageCount();
     }
 
     private Slice getSlice(int size)

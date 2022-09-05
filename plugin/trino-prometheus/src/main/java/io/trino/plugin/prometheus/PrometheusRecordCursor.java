@@ -143,9 +143,7 @@ public class PrometheusRecordCursor
             int offsetMinutes = dateTime.atZone(ZoneId.systemDefault()).getOffset().getTotalSeconds() / 60;
             return packDateTimeWithZone(dateTime.toEpochMilli(), offsetMinutes);
         }
-        else {
-            throw new TrinoException(NOT_SUPPORTED, "Unsupported type " + getType(field));
-        }
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported type " + getType(field));
     }
 
     @Override
@@ -264,17 +262,15 @@ public class PrometheusRecordCursor
             Type elementType = ((ArrayType) type).getElementType();
             return getArrayFromBlock(elementType, block.getObject(position, Block.class));
         }
-        else if (type instanceof MapType) {
+        if (type instanceof MapType) {
             return getMapFromBlock(type, block.getObject(position, Block.class));
         }
-        else {
-            if (type.getJavaType() == Slice.class) {
-                Slice slice = (Slice) requireNonNull(TypeUtils.readNativeValue(type, block, position));
-                return (type instanceof VarcharType) ? slice.toStringUtf8() : slice.getBytes();
-            }
-
-            return TypeUtils.readNativeValue(type, block, position);
+        if (type.getJavaType() == Slice.class) {
+            Slice slice = (Slice) requireNonNull(TypeUtils.readNativeValue(type, block, position));
+            return (type instanceof VarcharType) ? slice.toStringUtf8() : slice.getBytes();
         }
+
+        return TypeUtils.readNativeValue(type, block, position);
     }
 
     private static List<Object> getArrayFromBlock(Type elementType, Block block)

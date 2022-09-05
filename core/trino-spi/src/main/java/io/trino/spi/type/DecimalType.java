@@ -43,9 +43,7 @@ public abstract class DecimalType
         if (precision <= MAX_SHORT_PRECISION) {
             return new ShortDecimalType(precision, scale);
         }
-        else {
-            return new LongDecimalType(precision, scale);
-        }
+        return new LongDecimalType(precision, scale);
     }
 
     public static DecimalType createDecimalType(int precision)

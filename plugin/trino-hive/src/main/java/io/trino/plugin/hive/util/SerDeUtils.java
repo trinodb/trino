@@ -199,10 +199,8 @@ public final class SerDeUtils
             builder.closeEntry();
             return null;
         }
-        else {
-            Block resultBlock = currentBuilder.build();
-            return resultBlock;
-        }
+        Block resultBlock = currentBuilder.build();
+        return resultBlock;
     }
 
     private static Block serializeMap(Type type, BlockBuilder builder, Object object, MapObjectInspector inspector, boolean filterNullMapKeys)
@@ -240,9 +238,7 @@ public final class SerDeUtils
         if (builderSynthesized) {
             return (Block) type.getObject(builder, 0);
         }
-        else {
-            return null;
-        }
+        return null;
     }
 
     private static Block serializeStruct(Type type, BlockBuilder builder, Object object, StructObjectInspector inspector)
@@ -273,9 +269,7 @@ public final class SerDeUtils
         if (builderSynthesized) {
             return (Block) type.getObject(builder, 0);
         }
-        else {
-            return null;
-        }
+        return null;
     }
 
     // Use row blocks to represent union objects when reading

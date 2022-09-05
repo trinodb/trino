@@ -404,9 +404,7 @@ public abstract class AbstractTestBlock
             // dictionary blocks might become unwrapped when copyRegion is called on a block that is already compact
             return ((DictionaryBlock) block).compact().getSizeInBytes();
         }
-        else {
-            return copyBlockViaCopyRegion(block).getSizeInBytes();
-        }
+        return copyBlockViaCopyRegion(block).getSizeInBytes();
     }
 
     private static Block copyBlockViaCopyRegion(Block block)

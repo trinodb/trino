@@ -72,10 +72,8 @@ public class DecimalOutputStream
                     buffer.write((byte) lowBits);
                     return;
                 }
-                else {
-                    buffer.write((byte) (0x80 | (lowBits & 0x7f)));
-                    lowBits >>>= 7;
-                }
+                buffer.write((byte) (0x80 | (lowBits & 0x7f)));
+                lowBits >>>= 7;
             }
             value = value.shiftRight(63);
         }

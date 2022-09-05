@@ -271,9 +271,7 @@ public class TestingPinotCluster
                     if (statusCode >= 500) {
                         return false;
                     }
-                    else {
-                        throw e;
-                    }
+                    throw e;
                 }
             });
         }

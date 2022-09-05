@@ -98,10 +98,8 @@ public class RowReferencePageManager
             checkState(currentCursor != null, "No active cursor");
             return currentCursor.getPage();
         }
-        else {
-            int pageId = rowIdBuffer.getPageId(rowId);
-            return pages.get(pageId).getPage();
-        }
+        int pageId = rowIdBuffer.getPageId(rowId);
+        return pages.get(pageId).getPage();
     }
 
     public int getPosition(long rowId)
@@ -111,9 +109,7 @@ public class RowReferencePageManager
             // rowId for cursors only reference the single current position
             return currentCursor.getCurrentPosition();
         }
-        else {
-            return rowIdBuffer.getPosition(rowId);
-        }
+        return rowIdBuffer.getPosition(rowId);
     }
 
     private static boolean isCursorRowId(long rowId)

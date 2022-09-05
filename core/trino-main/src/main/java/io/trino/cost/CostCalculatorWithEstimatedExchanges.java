@@ -280,12 +280,10 @@ public class CostCalculatorWithEstimatedExchanges
             LocalCostEstimate localRepartitionCost = calculateLocalRepartitionCost(buildSizeInBytes);
             return addPartialComponents(replicateCost, localRepartitionCost);
         }
-        else {
-            LocalCostEstimate probeCost = calculateRemoteRepartitionCost(probeSizeInBytes);
-            LocalCostEstimate buildRemoteRepartitionCost = calculateRemoteRepartitionCost(buildSizeInBytes);
-            LocalCostEstimate buildLocalRepartitionCost = calculateLocalRepartitionCost(buildSizeInBytes);
-            return addPartialComponents(probeCost, buildRemoteRepartitionCost, buildLocalRepartitionCost);
-        }
+        LocalCostEstimate probeCost = calculateRemoteRepartitionCost(probeSizeInBytes);
+        LocalCostEstimate buildRemoteRepartitionCost = calculateRemoteRepartitionCost(buildSizeInBytes);
+        LocalCostEstimate buildLocalRepartitionCost = calculateLocalRepartitionCost(buildSizeInBytes);
+        return addPartialComponents(probeCost, buildRemoteRepartitionCost, buildLocalRepartitionCost);
     }
 
     public static LocalCostEstimate calculateJoinInputCost(

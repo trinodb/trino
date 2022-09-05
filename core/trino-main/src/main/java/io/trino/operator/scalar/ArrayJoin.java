@@ -166,27 +166,25 @@ public final class ArrayJoin
                     methodHandle.bindTo(null),
                     Optional.of(STATE_FACTORY));
         }
-        else {
-            try {
-                InvocationConvention convention = new InvocationConvention(ImmutableList.of(BLOCK_POSITION), NULLABLE_RETURN, true, false);
-                MethodHandle cast = functionDependencies.getCastImplementation(type, VARCHAR, convention).getMethodHandle();
+        try {
+            InvocationConvention convention = new InvocationConvention(ImmutableList.of(BLOCK_POSITION), NULLABLE_RETURN, true, false);
+            MethodHandle cast = functionDependencies.getCastImplementation(type, VARCHAR, convention).getMethodHandle();
 
-                // if the cast doesn't take a ConnectorSession, create an adapter that drops the provided session
-                if (cast.type().parameterArray()[0] != ConnectorSession.class) {
-                    cast = MethodHandles.dropArguments(cast, 0, ConnectorSession.class);
-                }
+            // if the cast doesn't take a ConnectorSession, create an adapter that drops the provided session
+            if (cast.type().parameterArray()[0] != ConnectorSession.class) {
+                cast = MethodHandles.dropArguments(cast, 0, ConnectorSession.class);
+            }
 
-                MethodHandle target = MethodHandles.insertArguments(methodHandle, 0, cast);
-                return new ChoicesSpecializedSqlScalarFunction(
-                        boundSignature,
-                        FAIL_ON_NULL,
-                        argumentConventions,
-                        target,
-                        Optional.of(STATE_FACTORY));
-            }
-            catch (TrinoException e) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Input type %s not supported", type), e);
-            }
+            MethodHandle target = MethodHandles.insertArguments(methodHandle, 0, cast);
+            return new ChoicesSpecializedSqlScalarFunction(
+                    boundSignature,
+                    FAIL_ON_NULL,
+                    argumentConventions,
+                    target,
+                    Optional.of(STATE_FACTORY));
+        }
+        catch (TrinoException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Input type %s not supported", type), e);
         }
     }
 

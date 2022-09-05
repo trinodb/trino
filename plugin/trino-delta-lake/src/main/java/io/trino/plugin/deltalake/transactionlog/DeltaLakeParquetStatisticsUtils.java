@@ -110,7 +110,7 @@ public class DeltaLakeParquetStatisticsUtils
                 Instant ts = Instant.ofEpochMilli(((LongStatistics) statistics).genericGetMin());
                 return Optional.of(ISO_INSTANT.format(ZonedDateTime.ofInstant(ts, UTC)));
             }
-            else if (statistics instanceof BinaryStatistics) {
+            if (statistics instanceof BinaryStatistics) {
                 DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(((BinaryStatistics) statistics).genericGetMin());
                 Instant ts = Instant.ofEpochSecond(decodedTimestamp.getEpochSeconds(), decodedTimestamp.getNanosOfSecond());
                 return Optional.of(ISO_INSTANT.format(ZonedDateTime.ofInstant(ts, UTC).truncatedTo(MILLIS)));
@@ -145,11 +145,11 @@ public class DeltaLakeParquetStatisticsUtils
                 min = BigDecimal.valueOf(((IntStatistics) statistics).getMin()).movePointLeft(scale);
                 return Optional.of(min.toPlainString());
             }
-            else if (statistics instanceof LongStatistics) {
+            if (statistics instanceof LongStatistics) {
                 min = BigDecimal.valueOf(((LongStatistics) statistics).getMin()).movePointLeft(scale);
                 return Optional.of(min.toPlainString());
             }
-            else if (statistics instanceof BinaryStatistics) {
+            if (statistics instanceof BinaryStatistics) {
                 BigInteger base = new BigInteger(((BinaryStatistics) statistics).genericGetMin().getBytes());
                 min = new BigDecimal(base, scale);
                 return Optional.of(min.toPlainString());
@@ -187,7 +187,7 @@ public class DeltaLakeParquetStatisticsUtils
                 Instant ts = Instant.ofEpochMilli(((LongStatistics) statistics).genericGetMax());
                 return Optional.of(ISO_INSTANT.format(ZonedDateTime.ofInstant(ts, UTC)));
             }
-            else if (statistics instanceof BinaryStatistics) {
+            if (statistics instanceof BinaryStatistics) {
                 DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(((BinaryStatistics) statistics).genericGetMax());
                 Instant ts = Instant.ofEpochSecond(decodedTimestamp.getEpochSeconds(), decodedTimestamp.getNanosOfSecond());
                 ZonedDateTime zonedDateTime = ZonedDateTime.ofInstant(ts, UTC);
@@ -225,11 +225,11 @@ public class DeltaLakeParquetStatisticsUtils
                 max = BigDecimal.valueOf(((IntStatistics) statistics).getMax()).movePointLeft(scale);
                 return Optional.of(max.toPlainString());
             }
-            else if (statistics instanceof LongStatistics) {
+            if (statistics instanceof LongStatistics) {
                 max = BigDecimal.valueOf(((LongStatistics) statistics).getMax()).movePointLeft(scale);
                 return Optional.of(max.toPlainString());
             }
-            else if (statistics instanceof BinaryStatistics) {
+            if (statistics instanceof BinaryStatistics) {
                 BigInteger base = new BigInteger(((BinaryStatistics) statistics).genericGetMax().getBytes());
                 max = new BigDecimal(base, scale);
                 return Optional.of(max.toPlainString());

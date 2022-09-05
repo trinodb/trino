@@ -69,9 +69,7 @@ public class HiveLocationService
             Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath);
             return new LocationHandle(targetPath, writePath, false, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }
-        else {
-            return new LocationHandle(targetPath, targetPath, false, DIRECT_TO_TARGET_NEW_DIRECTORY);
-        }
+        return new LocationHandle(targetPath, targetPath, false, DIRECT_TO_TARGET_NEW_DIRECTORY);
     }
 
     @Override
@@ -84,9 +82,7 @@ public class HiveLocationService
             Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath);
             return new LocationHandle(targetPath, writePath, true, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }
-        else {
-            return new LocationHandle(targetPath, targetPath, true, DIRECT_TO_TARGET_EXISTING_DIRECTORY);
-        }
+        return new LocationHandle(targetPath, targetPath, true, DIRECT_TO_TARGET_EXISTING_DIRECTORY);
     }
 
     @Override
@@ -133,13 +129,11 @@ public class HiveLocationService
             Path writePath = getPartitionWritePath(locationHandle, partitionName, writeMode, targetPath);
             return new WriteInfo(targetPath, writePath, writeMode);
         }
-        else {
-            // new partition
-            return new WriteInfo(
-                    new Path(locationHandle.getTargetPath(), partitionName),
-                    new Path(locationHandle.getWritePath(), partitionName),
-                    locationHandle.getWriteMode());
-        }
+        // new partition
+        return new WriteInfo(
+                new Path(locationHandle.getTargetPath(), partitionName),
+                new Path(locationHandle.getWritePath(), partitionName),
+                locationHandle.getWriteMode());
     }
 
     private Path getPartitionWritePath(LocationHandle locationHandle, String partitionName, WriteMode writeMode, Path targetPath)

@@ -82,7 +82,7 @@ public class ReplaceRedundantJoinWithProject
                             context.getIdAllocator(),
                             context.getSymbolAllocator()));
                 }
-                else if (!leftSourceEmpty && rightSourceEmpty) {
+                if (!leftSourceEmpty && rightSourceEmpty) {
                     yield Result.ofPlanNode(appendNulls(
                             node.getLeft(),
                             node.getLeftOutputSymbols(),

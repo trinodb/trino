@@ -783,21 +783,19 @@ public final class FunctionAssertions
             if (javaType == boolean.class) {
                 return type.getBoolean(block, position);
             }
-            else if (javaType == long.class) {
+            if (javaType == long.class) {
                 return type.getLong(block, position);
             }
-            else if (javaType == double.class) {
+            if (javaType == double.class) {
                 return type.getDouble(block, position);
             }
-            else if (javaType == Slice.class) {
+            if (javaType == Slice.class) {
                 return type.getSlice(block, position);
             }
-            else if (javaType == Block.class || javaType == Int128.class) {
+            if (javaType == Block.class || javaType == Int128.class) {
                 return type.getObject(block, position);
             }
-            else {
-                throw new UnsupportedOperationException("not yet implemented");
-            }
+            throw new UnsupportedOperationException("not yet implemented");
         });
 
         // convert result from stack type to Type ObjectValue
@@ -953,9 +951,7 @@ public final class FunctionAssertions
                         .build();
                 return new RecordPageSource(records);
             }
-            else {
-                return new FixedPageSource(ImmutableList.of(SOURCE_PAGE));
-            }
+            return new FixedPageSource(ImmutableList.of(SOURCE_PAGE));
         }
     }
 

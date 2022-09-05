@@ -1944,19 +1944,17 @@ public class LocalExecutionPlanner
 
                     return new PhysicalOperation(operatorFactory, outputMappings, context);
                 }
-                else {
-                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(translatedFilter, translatedProjections, Optional.of(context.getStageId() + "_" + planNodeId));
+                Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(translatedFilter, translatedProjections, Optional.of(context.getStageId() + "_" + planNodeId));
 
-                    OperatorFactory operatorFactory = FilterAndProjectOperator.createOperatorFactory(
-                            context.getNextOperatorId(),
-                            planNodeId,
-                            pageProcessor,
-                            getTypes(projections, expressionTypes),
-                            getFilterAndProjectMinOutputPageSize(session),
-                            getFilterAndProjectMinOutputPageRowCount(session));
+                OperatorFactory operatorFactory = FilterAndProjectOperator.createOperatorFactory(
+                        context.getNextOperatorId(),
+                        planNodeId,
+                        pageProcessor,
+                        getTypes(projections, expressionTypes),
+                        getFilterAndProjectMinOutputPageSize(session),
+                        getFilterAndProjectMinOutputPageRowCount(session));
 
-                    return new PhysicalOperation(operatorFactory, outputMappings, context, source);
-                }
+                return new PhysicalOperation(operatorFactory, outputMappings, context, source);
             }
             catch (TrinoException e) {
                 throw e;
@@ -3935,28 +3933,26 @@ public class LocalExecutionPlanner
                         aggregatorFactories,
                         joinCompiler);
             }
-            else {
-                Optional<Integer> hashChannel = hashSymbol.map(channelGetter(source));
-                return new HashAggregationOperatorFactory(
-                        context.getNextOperatorId(),
-                        planNodeId,
-                        groupByTypes,
-                        groupByChannels,
-                        ImmutableList.copyOf(globalGroupingSets),
-                        step,
-                        hasDefaultOutput,
-                        aggregatorFactories,
-                        hashChannel,
-                        groupIdChannel,
-                        expectedGroups,
-                        maxPartialAggregationMemorySize,
-                        spillEnabled,
-                        unspillMemoryLimit,
-                        spillerFactory,
-                        joinCompiler,
-                        blockTypeOperators,
-                        createPartialAggregationController(step, session));
-            }
+            Optional<Integer> hashChannel = hashSymbol.map(channelGetter(source));
+            return new HashAggregationOperatorFactory(
+                    context.getNextOperatorId(),
+                    planNodeId,
+                    groupByTypes,
+                    groupByChannels,
+                    ImmutableList.copyOf(globalGroupingSets),
+                    step,
+                    hasDefaultOutput,
+                    aggregatorFactories,
+                    hashChannel,
+                    groupIdChannel,
+                    expectedGroups,
+                    maxPartialAggregationMemorySize,
+                    spillEnabled,
+                    unspillMemoryLimit,
+                    spillerFactory,
+                    joinCompiler,
+                    blockTypeOperators,
+                    createPartialAggregationController(step, session));
         }
     }
 
@@ -3980,17 +3976,15 @@ public class LocalExecutionPlanner
                     buildOuter,
                     blockTypeOperators);
         }
-        else {
-            return new io.trino.operator.join.unspilled.PartitionedLookupSourceFactory(
-                    buildTypes,
-                    buildOutputTypes,
-                    buildChannels.stream()
-                            .map(buildTypes::get)
-                            .collect(toImmutableList()),
-                    partitionCount,
-                    buildOuter,
-                    blockTypeOperators);
-        }
+        return new io.trino.operator.join.unspilled.PartitionedLookupSourceFactory(
+                buildTypes,
+                buildOutputTypes,
+                buildChannels.stream()
+                        .map(buildTypes::get)
+                        .collect(toImmutableList()),
+                partitionCount,
+                buildOuter,
+                blockTypeOperators);
     }
 
     private static Optional<PartialAggregationController> createPartialAggregationController(AggregationNode.Step step, Session session)
@@ -4073,10 +4067,10 @@ public class LocalExecutionPlanner
             if (target instanceof CreateTarget) {
                 return metadata.finishCreateTable(session, ((CreateTarget) target).getHandle(), fragments, statistics);
             }
-            else if (target instanceof InsertTarget) {
+            if (target instanceof InsertTarget) {
                 return metadata.finishInsert(session, ((InsertTarget) target).getHandle(), fragments, statistics);
             }
-            else if (target instanceof TableWriterNode.RefreshMaterializedViewTarget) {
+            if (target instanceof TableWriterNode.RefreshMaterializedViewTarget) {
                 TableWriterNode.RefreshMaterializedViewTarget refreshTarget = (TableWriterNode.RefreshMaterializedViewTarget) target;
                 return metadata.finishRefreshMaterializedView(
                         session,
@@ -4086,27 +4080,25 @@ public class LocalExecutionPlanner
                         statistics,
                         refreshTarget.getSourceTableHandles());
             }
-            else if (target instanceof DeleteTarget) {
+            if (target instanceof DeleteTarget) {
                 metadata.finishDelete(session, ((DeleteTarget) target).getHandleOrElseThrow(), fragments);
                 return Optional.empty();
             }
-            else if (target instanceof UpdateTarget) {
+            if (target instanceof UpdateTarget) {
                 metadata.finishUpdate(session, ((UpdateTarget) target).getHandleOrElseThrow(), fragments);
                 return Optional.empty();
             }
-            else if (target instanceof TableExecuteTarget) {
+            if (target instanceof TableExecuteTarget) {
                 TableExecuteHandle tableExecuteHandle = ((TableExecuteTarget) target).getExecuteHandle();
                 metadata.finishTableExecute(session, tableExecuteHandle, fragments, tableExecuteContext.getSplitsInfo());
                 return Optional.empty();
             }
-            else if (target instanceof MergeTarget mergeTarget) {
+            if (target instanceof MergeTarget mergeTarget) {
                 MergeHandle mergeHandle = mergeTarget.getMergeHandle().orElseThrow(() -> new IllegalArgumentException("mergeHandle not present"));
                 metadata.finishMerge(session, mergeHandle, fragments, statistics);
                 return Optional.empty();
             }
-            else {
-                throw new AssertionError("Unhandled target type: " + target.getClass().getName());
-            }
+            throw new AssertionError("Unhandled target type: " + target.getClass().getName());
         };
     }
 

@@ -229,9 +229,7 @@ public class LocalFileSystemExchangeStorage
                     throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to create CipherInputStream: " + e.getMessage(), e);
                 }
             }
-            else {
-                return new InputStreamSliceInput(new FileInputStream(file), BUFFER_SIZE_IN_BYTES);
-            }
+            return new InputStreamSliceInput(new FileInputStream(file), BUFFER_SIZE_IN_BYTES);
         }
     }
 

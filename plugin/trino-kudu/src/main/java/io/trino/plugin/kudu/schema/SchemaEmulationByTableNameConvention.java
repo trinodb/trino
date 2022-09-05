@@ -59,16 +59,14 @@ public class SchemaEmulationByTableNameConvention
         if (DEFAULT_SCHEMA.equals(schemaName)) {
             throw new SchemaAlreadyExistsException(schemaName);
         }
-        else {
-            try (KuduOperationApplier operationApplier = KuduOperationApplier.fromKuduClientWrapper(client)) {
-                KuduTable schemasTable = getSchemasTable(client);
-                Upsert upsert = schemasTable.newUpsert();
-                upsert.getRow().addString(0, schemaName);
-                operationApplier.applyOperationAsync(upsert);
-            }
-            catch (KuduException e) {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
-            }
+        try (KuduOperationApplier operationApplier = KuduOperationApplier.fromKuduClientWrapper(client)) {
+            KuduTable schemasTable = getSchemasTable(client);
+            Upsert upsert = schemasTable.newUpsert();
+            upsert.getRow().addString(0, schemaName);
+            operationApplier.applyOperationAsync(upsert);
+        }
+        catch (KuduException e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 
@@ -78,10 +76,8 @@ public class SchemaEmulationByTableNameConvention
         if (DEFAULT_SCHEMA.equals(schemaName)) {
             return true;
         }
-        else {
-            List<String> schemas = listSchemaNames(client);
-            return schemas.contains(schemaName);
-        }
+        List<String> schemas = listSchemaNames(client);
+        return schemas.contains(schemaName);
     }
 
     @Override
@@ -90,21 +86,19 @@ public class SchemaEmulationByTableNameConvention
         if (DEFAULT_SCHEMA.equals(schemaName)) {
             throw new TrinoException(GENERIC_USER_ERROR, "Deleting default schema not allowed.");
         }
-        else {
-            try (KuduOperationApplier operationApplier = KuduOperationApplier.fromKuduClientWrapper(client)) {
-                String prefix = getPrefixForTablesOfSchema(schemaName);
-                for (String name : client.getTablesList(prefix).getTablesList()) {
-                    client.deleteTable(name);
-                }
+        try (KuduOperationApplier operationApplier = KuduOperationApplier.fromKuduClientWrapper(client)) {
+            String prefix = getPrefixForTablesOfSchema(schemaName);
+            for (String name : client.getTablesList(prefix).getTablesList()) {
+                client.deleteTable(name);
+            }
 
-                KuduTable schemasTable = getSchemasTable(client);
-                Delete delete = schemasTable.newDelete();
-                delete.getRow().addString(0, schemaName);
-                operationApplier.applyOperationAsync(delete);
-            }
-            catch (KuduException e) {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
-            }
+            KuduTable schemasTable = getSchemasTable(client);
+            Delete delete = schemasTable.newDelete();
+            delete.getRow().addString(0, schemaName);
+            operationApplier.applyOperationAsync(delete);
+        }
+        catch (KuduException e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 
@@ -217,9 +211,7 @@ public class SchemaEmulationByTableNameConvention
         if (DEFAULT_SCHEMA.equals(schemaTableName.getSchemaName())) {
             return schemaTableName.getTableName();
         }
-        else {
-            return commonPrefix + schemaTableName.getSchemaName() + "." + schemaTableName.getTableName();
-        }
+        return commonPrefix + schemaTableName.getSchemaName() + "." + schemaTableName.getTableName();
     }
 
     @Override
@@ -256,9 +248,7 @@ public class SchemaEmulationByTableNameConvention
         if (DEFAULT_SCHEMA.equals(schemaName)) {
             return "";
         }
-        else {
-            return commonPrefix + schemaName + ".";
-        }
+        return commonPrefix + schemaName + ".";
     }
 
     @Override

@@ -557,17 +557,15 @@ public class MongoSession
             if (!collectionExists(db, tableName)) {
                 throw new TableNotFoundException(new SchemaTableName(schemaName, tableName), format("Table '%s.%s' not found", schemaName, tableName), null);
             }
-            else {
-                Document metadata = new Document(TABLE_NAME_KEY, tableName);
-                metadata.append(FIELDS_KEY, guessTableFields(schemaName, tableName));
-                if (!indexExists(schema)) {
-                    schema.createIndex(new Document(TABLE_NAME_KEY, 1), new IndexOptions().unique(true));
-                }
-
-                schema.insertOne(metadata);
-
-                return metadata;
+            Document metadata = new Document(TABLE_NAME_KEY, tableName);
+            metadata.append(FIELDS_KEY, guessTableFields(schemaName, tableName));
+            if (!indexExists(schema)) {
+                schema.createIndex(new Document(TABLE_NAME_KEY, 1), new IndexOptions().unique(true));
             }
+
+            schema.insertOne(metadata);
+
+            return metadata;
         }
 
         return doc;

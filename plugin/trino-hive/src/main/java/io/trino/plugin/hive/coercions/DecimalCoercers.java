@@ -49,18 +49,12 @@ public final class DecimalCoercers
             if (toType.isShort()) {
                 return new ShortDecimalToShortDecimalCoercer(fromType, toType);
             }
-            else {
-                return new ShortDecimalToLongDecimalCoercer(fromType, toType);
-            }
+            return new ShortDecimalToLongDecimalCoercer(fromType, toType);
         }
-        else {
-            if (toType.isShort()) {
-                return new LongDecimalToShortDecimalCoercer(fromType, toType);
-            }
-            else {
-                return new LongDecimalToLongDecimalCoercer(fromType, toType);
-            }
+        if (toType.isShort()) {
+            return new LongDecimalToShortDecimalCoercer(fromType, toType);
         }
+        return new LongDecimalToLongDecimalCoercer(fromType, toType);
     }
 
     private static class ShortDecimalToShortDecimalCoercer
@@ -153,9 +147,7 @@ public final class DecimalCoercers
         if (fromType.isShort()) {
             return new ShortDecimalToDoubleCoercer(fromType);
         }
-        else {
-            return new LongDecimalToDoubleCoercer(fromType);
-        }
+        return new LongDecimalToDoubleCoercer(fromType);
     }
 
     private static class ShortDecimalToDoubleCoercer
@@ -198,9 +190,7 @@ public final class DecimalCoercers
         if (fromType.isShort()) {
             return new ShortDecimalToRealCoercer(fromType);
         }
-        else {
-            return new LongDecimalToRealCoercer(fromType);
-        }
+        return new LongDecimalToRealCoercer(fromType);
     }
 
     private static class ShortDecimalToRealCoercer
@@ -243,9 +233,7 @@ public final class DecimalCoercers
         if (toType.isShort()) {
             return new DoubleToShortDecimalCoercer(toType);
         }
-        else {
-            return new DoubleToLongDecimalCoercer(toType);
-        }
+        return new DoubleToLongDecimalCoercer(toType);
     }
 
     private static class DoubleToShortDecimalCoercer
@@ -285,9 +273,7 @@ public final class DecimalCoercers
         if (toType.isShort()) {
             return new RealToShortDecimalCoercer(toType);
         }
-        else {
-            return new RealToLongDecimalCoercer(toType);
-        }
+        return new RealToLongDecimalCoercer(toType);
     }
 
     private static class RealToShortDecimalCoercer

@@ -118,27 +118,25 @@ public class Row
         if (block.isNull(position)) {
             return null;
         }
-        else if (type.getJavaType() == boolean.class) {
+        if (type.getJavaType() == boolean.class) {
             return type.getBoolean(block, position);
         }
-        else if (type.getJavaType() == long.class) {
+        if (type.getJavaType() == long.class) {
             return type.getLong(block, position);
         }
-        else if (type.getJavaType() == double.class) {
+        if (type.getJavaType() == double.class) {
             return type.getDouble(block, position);
         }
-        else if (type.getJavaType() == Slice.class) {
+        if (type.getJavaType() == Slice.class) {
             return type.getSlice(block, position);
         }
-        else if (type.getJavaType() == Block.class) {
+        if (type.getJavaType() == Block.class) {
             return type.getObject(block, position);
         }
-        else if (type.getJavaType() == Int128.class) {
+        if (type.getJavaType() == Int128.class) {
             return type.getObject(block, position);
         }
-        else {
-            throw new AssertionError("Unimplemented type: " + type);
-        }
+        throw new AssertionError("Unimplemented type: " + type);
     }
 
     private static Object nativeContainerToOrcValue(Type type, Object nativeValue)

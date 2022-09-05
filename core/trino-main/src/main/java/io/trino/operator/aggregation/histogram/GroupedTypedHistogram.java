@@ -436,10 +436,8 @@ public class GroupedTypedHistogram
                 addNewGroup(groupId, block, position, count);
                 return true;
             }
-            else {
-                valueNode.add(count);
-                return false;
-            }
+            valueNode.add(count);
+            return false;
         }
 
         private void addNewGroup(long groupId, Block block, int position, long count)
@@ -488,16 +486,14 @@ public class GroupedTypedHistogram
                 if (nodePointer == EMPTY_BUCKET) {
                     return new BucketDataNode(bucketId, new ValueNode(nextNodePointer), valueHash, valueAndGroupHash, nextNodePointer, true);
                 }
-                else if (groupAndValueMatches(groupId, block, position, nodePointer, valuePositions.get(nodePointer))) {
+                if (groupAndValueMatches(groupId, block, position, nodePointer, valuePositions.get(nodePointer))) {
                     // value match
                     return new BucketDataNode(bucketId, new ValueNode(nodePointer), valueHash, valueAndGroupHash, nodePointer, false);
                 }
-                else {
-                    // keep looking
-                    int probe = nextProbe(probeCount);
-                    bucketId = nextBucketId(originalBucketId, mask, probe);
-                    probeCount++;
-                }
+                // keep looking
+                int probe = nextProbe(probeCount);
+                bucketId = nextBucketId(originalBucketId, mask, probe);
+                probeCount++;
             }
         }
 

@@ -292,9 +292,7 @@ public class TestExchangeOperator
                 greaterThanZero = true;
                 break;
             }
-            else {
-                Thread.sleep(10);
-            }
+            Thread.sleep(10);
         }
         assertTrue(greaterThanZero);
 

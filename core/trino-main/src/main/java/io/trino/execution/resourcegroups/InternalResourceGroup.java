@@ -234,12 +234,10 @@ public class InternalResourceGroup
             if (canRunMore()) {
                 return CAN_RUN;
             }
-            else if (canQueueMore()) {
+            if (canQueueMore()) {
                 return CAN_QUEUE;
             }
-            else {
-                return FULL;
-            }
+            return FULL;
         }
     }
 
@@ -877,9 +875,7 @@ public class InternalResourceGroup
         if (policy == QUERY_PRIORITY) {
             return group.getHighestQueryPriority();
         }
-        else {
-            return group.computeSchedulingWeight();
-        }
+        return group.computeSchedulingWeight();
     }
 
     private long computeSchedulingWeight()

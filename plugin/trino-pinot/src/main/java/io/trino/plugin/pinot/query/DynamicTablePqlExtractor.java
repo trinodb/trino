@@ -93,15 +93,13 @@ public final class DynamicTablePqlExtractor
         if (tupleFilter.isPresent() && filter.isPresent()) {
             return Optional.of(format("%s AND %s", encloseInParentheses(tupleFilter.get()), encloseInParentheses(filter.get())));
         }
-        else if (filter.isPresent()) {
+        if (filter.isPresent()) {
             return filter;
         }
-        else if (tupleFilter.isPresent()) {
+        if (tupleFilter.isPresent()) {
             return tupleFilter;
         }
-        else {
-            return Optional.empty();
-        }
+        return Optional.empty();
     }
 
     private static String convertOrderByExpressionToPql(OrderByExpression orderByExpression)

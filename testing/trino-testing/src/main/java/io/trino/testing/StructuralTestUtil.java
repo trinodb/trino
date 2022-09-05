@@ -132,10 +132,8 @@ public final class StructuralTestUtil
             long longDecimal = decimal.unscaledValue().longValue();
             return arrayBlockOf(type, longDecimal);
         }
-        else {
-            Int128 sliceDecimal = Int128.valueOf(decimal.unscaledValue());
-            return arrayBlockOf(type, sliceDecimal);
-        }
+        Int128 sliceDecimal = Int128.valueOf(decimal.unscaledValue());
+        return arrayBlockOf(type, sliceDecimal);
     }
 
     public static Block decimalMapBlockOf(DecimalType type, BigDecimal decimal)
@@ -144,10 +142,8 @@ public final class StructuralTestUtil
             long longDecimal = decimal.unscaledValue().longValue();
             return mapBlockOf(type, type, longDecimal, longDecimal);
         }
-        else {
-            Int128 sliceDecimal = Int128.valueOf(decimal.unscaledValue());
-            return mapBlockOf(type, type, sliceDecimal, sliceDecimal);
-        }
+        Int128 sliceDecimal = Int128.valueOf(decimal.unscaledValue());
+        return mapBlockOf(type, type, sliceDecimal, sliceDecimal);
     }
 
     public static MapType mapType(Type keyType, Type valueType)

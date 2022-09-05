@@ -98,9 +98,7 @@ public class FileSystemExchangeSourceHandle
         if (secretKey.isPresent() && that.secretKey.isPresent()) {
             return partitionId == that.getPartitionId() && Arrays.equals(secretKey.get(), that.secretKey.get());
         }
-        else {
-            return partitionId == that.getPartitionId() && secretKey.isEmpty() && that.secretKey.isEmpty();
-        }
+        return partitionId == that.getPartitionId() && secretKey.isEmpty() && that.secretKey.isEmpty();
     }
 
     @Override

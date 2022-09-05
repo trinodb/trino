@@ -852,20 +852,18 @@ public class AccumuloClient
                         location = Optional.of(entry.getValue().toString());
                         break;
                     }
-                    else {
-                        // Chop off some magic nonsense
-                        scannedCompareKey.set(keyBytes, 3, keyBytes.length - 3);
+                    // Chop off some magic nonsense
+                    scannedCompareKey.set(keyBytes, 3, keyBytes.length - 3);
 
-                        // Compare the keys, moving along the tablets until the location is found
-                        if (scannedCompareKey.getLength() > 0) {
-                            int compareTo = splitCompareKey.compareTo(scannedCompareKey);
-                            if (compareTo <= 0) {
-                                location = Optional.of(entry.getValue().toString());
-                            }
-                            else {
-                                // all future tablets will be greater than this key
-                                break;
-                            }
+                    // Compare the keys, moving along the tablets until the location is found
+                    if (scannedCompareKey.getLength() > 0) {
+                        int compareTo = splitCompareKey.compareTo(scannedCompareKey);
+                        if (compareTo <= 0) {
+                            location = Optional.of(entry.getValue().toString());
+                        }
+                        else {
+                            // all future tablets will be greater than this key
+                            break;
                         }
                     }
                 }

@@ -1307,9 +1307,7 @@ public abstract class BaseJdbcConnectorTest
         if (condition) {
             return queryAssert.isFullyPushedDown();
         }
-        else {
-            return queryAssert.isNotFullyPushedDown(otherwiseExpected);
-        }
+        return queryAssert.isNotFullyPushedDown(otherwiseExpected);
     }
 
     protected void assertConditionallyOrderedPushedDown(

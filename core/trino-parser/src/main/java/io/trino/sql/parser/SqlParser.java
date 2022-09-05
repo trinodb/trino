@@ -124,9 +124,7 @@ public class SqlParser
                     if (nextTokensContext == null) {
                         throw new InputMismatchException(recognizer);
                     }
-                    else {
-                        throw new InputMismatchException(recognizer, nextTokensState, nextTokensContext);
-                    }
+                    throw new InputMismatchException(recognizer, nextTokensState, nextTokensContext);
                 }
             });
 

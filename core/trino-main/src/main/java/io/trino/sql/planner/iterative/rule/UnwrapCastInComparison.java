@@ -227,10 +227,8 @@ public class UnwrapCastInComparison
                         if (!typeHasNaN(sourceType)) {
                             return TRUE_LITERAL;
                         }
-                        else {
-                            // NaN on the right of comparison will be cast to source type later
-                            break;
-                        }
+                        // NaN on the right of comparison will be cast to source type later
+                        break;
                     default:
                         throw new UnsupportedOperationException("Not yet implemented: " + operator);
                 }
@@ -404,13 +402,11 @@ public class UnwrapCastInComparison
                             Double.isNaN(doubleValue) ||
                             (doubleValue > -1L << 53 && doubleValue < 1L << 53); // in (-2^53, 2^53), bigint follows an injective implicit coercion w.r.t double
                 }
-                else {
-                    float realValue = intBitsToFloat(toIntExact((long) value));
-                    return (source.equals(BIGINT) && (realValue > Long.MAX_VALUE || realValue < Long.MIN_VALUE)) ||
-                            (source.equals(INTEGER) && (realValue > Integer.MAX_VALUE || realValue < Integer.MIN_VALUE)) ||
-                            Float.isNaN(realValue) ||
-                            (realValue > -1L << 23 && realValue < 1L << 23); // in (-2^23, 2^23), bigint (and integer) follows an injective implicit coercion w.r.t real
-                }
+                float realValue = intBitsToFloat(toIntExact((long) value));
+                return (source.equals(BIGINT) && (realValue > Long.MAX_VALUE || realValue < Long.MIN_VALUE)) ||
+                        (source.equals(INTEGER) && (realValue > Integer.MAX_VALUE || realValue < Integer.MIN_VALUE)) ||
+                        Float.isNaN(realValue) ||
+                        (realValue > -1L << 23 && realValue < 1L << 23); // in (-2^23, 2^23), bigint (and integer) follows an injective implicit coercion w.r.t real
             }
 
             if (source instanceof DecimalType) {

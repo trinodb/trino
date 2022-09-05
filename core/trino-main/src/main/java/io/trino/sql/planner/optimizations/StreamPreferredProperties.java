@@ -183,10 +183,10 @@ public class StreamPreferredProperties
             if (distribution.get() == SINGLE && actualDistribution != SINGLE) {
                 return false;
             }
-            else if (distribution.get() == FIXED && actualDistribution != FIXED) {
+            if (distribution.get() == FIXED && actualDistribution != FIXED) {
                 return false;
             }
-            else if (distribution.get() == MULTIPLE && actualDistribution != FIXED && actualDistribution != MULTIPLE) {
+            if (distribution.get() == MULTIPLE && actualDistribution != FIXED && actualDistribution != MULTIPLE) {
                 return false;
             }
         }
