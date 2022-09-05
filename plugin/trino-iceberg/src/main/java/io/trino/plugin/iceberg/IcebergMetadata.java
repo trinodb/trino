@@ -1358,7 +1358,10 @@ public class IcebergMetadata
     @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
-        // TODO https://github.com/trinodb/trino/issues/13587 Allow NOT NULL constraint when the table is empty
+        // Spark doesn't support adding a NOT NULL column to Iceberg tables
+        // Also, Spark throws an exception when reading the table if we add such columns and execute a rollback procedure
+        // because they keep returning the latest table definition even after the rollback https://github.com/apache/iceberg/issues/5591
+        // Even when a table is empty, this connector doesn't support adding not null columns to avoid the above Spark failure
         if (!column.isNullable()) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding not null columns");
         }
