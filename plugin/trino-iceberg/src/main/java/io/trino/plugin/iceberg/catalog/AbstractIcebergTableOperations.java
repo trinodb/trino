@@ -51,6 +51,7 @@ import static org.apache.iceberg.TableMetadataParser.getFileExtension;
 import static org.apache.iceberg.TableProperties.METADATA_COMPRESSION;
 import static org.apache.iceberg.TableProperties.METADATA_COMPRESSION_DEFAULT;
 import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
+import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 
 @NotThreadSafe
 public abstract class AbstractIcebergTableOperations
@@ -173,14 +174,14 @@ public abstract class AbstractIcebergTableOperations
         if (metadata != null) {
             String writeLocation = metadata.properties().get(WRITE_METADATA_LOCATION);
             if (writeLocation != null) {
-                return format("%s/%s", writeLocation, filename);
+                return format("%s/%s", stripTrailingSlash(writeLocation), filename);
             }
             location = metadata.location();
         }
         else {
             location = this.location.orElseThrow(() -> new IllegalStateException("Location not set"));
         }
-        return format("%s/%s/%s", location, METADATA_FOLDER_NAME, filename);
+        return format("%s/%s/%s", stripTrailingSlash(location), METADATA_FOLDER_NAME, filename);
     }
 
     @Override
@@ -244,9 +245,9 @@ public abstract class AbstractIcebergTableOperations
     {
         String location = metadata.properties().get(WRITE_METADATA_LOCATION);
         if (location != null) {
-            return format("%s/%s", location, filename);
+            return format("%s/%s", stripTrailingSlash(location), filename);
         }
-        return format("%s/%s/%s", metadata.location(), METADATA_FOLDER_NAME, filename);
+        return format("%s/%s/%s", stripTrailingSlash(metadata.location()), METADATA_FOLDER_NAME, filename);
     }
 
     protected static int parseVersion(String metadataLocation)
