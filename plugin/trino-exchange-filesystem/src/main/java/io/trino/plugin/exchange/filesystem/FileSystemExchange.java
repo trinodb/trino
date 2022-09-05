@@ -78,7 +78,7 @@ public class FileSystemExchange
     private final long exchangeSourceHandleTargetDataSizeInBytes;
     private final ExecutorService executor;
 
-    private final Map<Integer, String> randomizedPrefixes = new ConcurrentHashMap<>();
+    private final Map<Integer, URI> outputDirectories = new ConcurrentHashMap<>();
 
     @GuardedBy("this")
     private final Set<Integer> allSinks = new HashSet<>();
@@ -270,12 +270,10 @@ public class FileSystemExchange
 
     private URI getTaskOutputDirectory(int taskPartitionId)
     {
-        URI baseDirectory = baseDirectories.get(taskPartitionId % baseDirectories.size());
-        String randomizedHexPrefix = randomizedPrefixes.computeIfAbsent(taskPartitionId, ignored -> generateRandomizedHexPrefix());
-
         // Add a randomized prefix to evenly distribute data into different S3 shards
         // Data output file path format: {randomizedHexPrefix}.{queryId}.{stageId}.{sinkPartitionId}/{attemptId}/{sourcePartitionId}_{splitId}.data
-        return baseDirectory.resolve(randomizedHexPrefix + "." + exchangeContext.getQueryId() + "." + exchangeContext.getExchangeId() + "." + taskPartitionId + PATH_SEPARATOR);
+        return outputDirectories.computeIfAbsent(taskPartitionId, ignored -> baseDirectories.get(ThreadLocalRandom.current().nextInt(baseDirectories.size()))
+                .resolve(generateRandomizedHexPrefix() + "." + exchangeContext.getQueryId() + "." + exchangeContext.getExchangeId() + "." + taskPartitionId + PATH_SEPARATOR));
     }
 
     @Override
