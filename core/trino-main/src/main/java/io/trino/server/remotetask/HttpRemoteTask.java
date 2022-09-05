@@ -129,9 +129,9 @@ public final class HttpRemoteTask
     // The version of dynamic filters that has been successfully sent to the worker
     private final AtomicLong sentDynamicFiltersVersion = new AtomicLong(INITIAL_DYNAMIC_FILTERS_VERSION);
 
-    @GuardedBy("httpClient")
+    @GuardedBy("pendingRequestsCounter")
     private Future<?> currentRequest;
-    @GuardedBy("httpClient")
+    @GuardedBy("pendingRequestsCounter")
     private long currentRequestStartNanos;
 
     @GuardedBy("this")
@@ -586,7 +586,7 @@ public final class HttpRemoteTask
 
     private void sendUpdate()
     {
-        synchronized (httpClient) {
+        synchronized (pendingRequestsCounter) {
             TaskStatus taskStatus = getTaskStatus();
             // don't update if the task hasn't been started yet or if it is already finished
             if (!started.get() || taskStatus.getState().isDone()) {
@@ -710,7 +710,7 @@ public final class HttpRemoteTask
         outboundDynamicFiltersCollector.acknowledge(Long.MAX_VALUE);
 
         // cancel pending request
-        synchronized (httpClient) {
+        synchronized (pendingRequestsCounter) {
             if (currentRequest != null) {
                 currentRequest.cancel(true);
                 currentRequest = null;
@@ -932,7 +932,7 @@ public final class HttpRemoteTask
                     outboundDynamicFiltersCollector.acknowledge(currentRequestDynamicFiltersVersion);
                     sendPlan.set(value.isNeedsPlan());
                     long currentRequestStartNanos;
-                    synchronized (httpClient) {
+                    synchronized (pendingRequestsCounter) {
                         currentRequest = null;
                         currentRequestStartNanos = HttpRemoteTask.this.currentRequestStartNanos;
                     }
@@ -952,7 +952,7 @@ public final class HttpRemoteTask
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 try {
                     long currentRequestStartNanos;
-                    synchronized (httpClient) {
+                    synchronized (pendingRequestsCounter) {
                         currentRequest = null;
                         currentRequestStartNanos = HttpRemoteTask.this.currentRequestStartNanos;
                     }
