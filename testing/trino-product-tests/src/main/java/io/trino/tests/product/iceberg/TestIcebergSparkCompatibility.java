@@ -1999,6 +1999,25 @@ public class TestIcebergSparkCompatibility
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testAddNotNullColumn()
+    {
+        String baseTableName = "test_add_not_null_column_" + randomTableSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onTrino().executeQuery("CREATE TABLE " + trinoTableName + " AS SELECT 1 col");
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(1));
+
+        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + trinoTableName + " ADD COLUMN new_col INT NOT NULL"))
+                .hasMessageMatching(".*This connector does not support adding not null columns");
+        assertQueryFailure(() -> onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ADD COLUMN new_col INT NOT NULL"))
+                .hasMessageMatching("(?s).*Unsupported table change: Incompatible change: cannot add required column.*");
+
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(1));
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
     public void testHandlingPartitionSchemaEvolutionInPartitionMetadata()
     {
         String baseTableName = "test_handling_partition_schema_evolution_" + randomTableSuffix();
