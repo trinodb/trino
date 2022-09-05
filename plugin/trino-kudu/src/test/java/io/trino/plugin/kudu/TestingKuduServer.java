@@ -42,7 +42,7 @@ public class TestingKuduServer
     private static final Integer KUDU_TSERVER_PORT = 7050;
     private static final Integer NUMBER_OF_REPLICA = 3;
 
-    private static final String TOXIPROXY_IMAGE = "shopify/toxiproxy:2.1.4";
+    private static final String TOXIPROXY_IMAGE = "ghcr.io/shopify/toxiproxy:2.4.0";
     private static final String TOXIPROXY_NETWORK_ALIAS = "toxiproxy";
 
     private final Network network;
