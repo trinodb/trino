@@ -86,6 +86,12 @@ public class StarburstSynapseModule
                 .to(Key.get(ConnectionFactory.class, DefaultSynapseBinding.class))
                 .in(Scopes.SINGLETON);
 
+        setupTableFunctions(binder);
+    }
+
+    @SuppressWarnings("TrinoExperimentalSpi") // Allowed, as it was introduced before disallowing experimental SPIs usage
+    private static void setupTableFunctions(Binder binder)
+    {
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 

@@ -54,6 +54,7 @@ public class SnowflakeDistributedConnector
     private final JdbcTransactionManager transactionManager;
     private final Optional<ConnectorAccessControl> accessControl;
     private final Set<Procedure> procedures;
+    @SuppressWarnings("TrinoExperimentalSpi") // Allowed, as it was introduced before disallowing experimental SPIs usage
     private final Set<ConnectorTableFunction> tableFunctions;
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -66,7 +67,8 @@ public class SnowflakeDistributedConnector
             JdbcTransactionManager transactionManager,
             Optional<ConnectorAccessControl> accessControl,
             Set<Procedure> procedures,
-            Set<ConnectorTableFunction> tableFunctions,
+            // Allowed, as it was introduced before disallowing experimental SPIs usage
+            @SuppressWarnings("TrinoExperimentalSpi") Set<ConnectorTableFunction> tableFunctions,
             Set<SessionPropertiesProvider> sessionPropertiesProviders)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -137,6 +139,7 @@ public class SnowflakeDistributedConnector
         return procedures;
     }
 
+    @SuppressWarnings("TrinoExperimentalSpi") // Allowed, as it was introduced before disallowing experimental SPIs usage
     @Override
     public Set<ConnectorTableFunction> getTableFunctions()
     {

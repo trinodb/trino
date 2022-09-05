@@ -102,6 +102,13 @@ public class SnowflakeJdbcClientModule
                 .in(Scopes.SINGLETON);
 
         binder.bind(IdentityCacheMapping.class).annotatedWith(ForWarehouseAware.class).to(SingletonIdentityCacheMapping.class).in(SINGLETON);
+
+        setupTableFunctions(binder);
+    }
+
+    @SuppressWarnings("TrinoExperimentalSpi") // Allowed, as it was introduced before disallowing experimental SPIs usage
+    private static void setupTableFunctions(Binder binder)
+    {
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
