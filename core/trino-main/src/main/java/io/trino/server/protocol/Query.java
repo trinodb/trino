@@ -582,7 +582,7 @@ class Query
             types = outputInfo.getColumnTypes();
         }
 
-        outputInfo.getInputs().forEach(exchangeDataSource::addInput);
+        outputInfo.drainInputs(exchangeDataSource::addInput);
         if (outputInfo.isNoMoreInputs()) {
             exchangeDataSource.noMoreInputs();
         }
