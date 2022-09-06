@@ -5315,6 +5315,24 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testInsertIntoBucketedColumnWhenTaskWriterCountIsGreaterThanOrEqualToNodeCount()
+    {
+        int taskWriterCount = 4;
+        assertThat(taskWriterCount).isGreaterThanOrEqualTo(getQueryRunner().getNodeCount());
+        Session session = Session.builder(getSession())
+                .setSystemProperty("task_writer_count", String.valueOf(taskWriterCount))
+                .build();
+
+        String tableName = "test_inserting_into_bucketed_column_when_task_writer_count_is_greater_than_or_equal_to_node_count_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (bucketed_col INT) WITH (partitioning = ARRAY['bucket(bucketed_col, 10)'])");
+
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1)", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testReadFromVersionedTableWithSchemaEvolution()
     {
         String tableName = "test_versioned_table_schema_evolution_" + randomTableSuffix();

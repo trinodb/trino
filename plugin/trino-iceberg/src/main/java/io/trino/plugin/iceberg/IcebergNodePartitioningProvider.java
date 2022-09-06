@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.spi.NodeManager;
 import io.trino.spi.connector.BucketFunction;
+import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -26,20 +28,34 @@ import org.apache.iceberg.Schema;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
+import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
 {
+    private final NodeManager nodeManager;
     private final TypeOperators typeOperators;
 
     @Inject
-    public IcebergNodePartitioningProvider(TypeManager typeManager)
+    public IcebergNodePartitioningProvider(NodeManager nodeManager, TypeManager typeManager)
     {
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.typeOperators = requireNonNull(typeManager, "typeManager is null").getTypeOperators();
+    }
+
+    @Override
+    public Optional<ConnectorBucketNodeMap> getBucketNodeMapping(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    {
+        if (partitioningHandle instanceof IcebergUpdateHandle) {
+            return Optional.empty();
+        }
+
+        return Optional.of(createBucketNodeMap(nodeManager.getRequiredWorkerNodes().size()));
     }
 
     @Override
