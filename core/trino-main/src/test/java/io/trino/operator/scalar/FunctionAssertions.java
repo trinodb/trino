@@ -291,6 +291,10 @@ public final class FunctionAssertions
         runner.installPlugin(plugin);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#function(String, String...)}
+     */
+    @Deprecated
     public void assertFunction(String projection, Type expectedType, Object expected)
     {
         if (expected instanceof Slice) {
@@ -301,17 +305,29 @@ public final class FunctionAssertions
         assertEquals(actual, expected);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#function(String, String...)}
+     */
+    @Deprecated
     public void assertFunctionString(String projection, Type expectedType, String expected)
     {
         Object actual = selectSingleValue(projection, expectedType, runner.getExpressionCompiler());
         assertEquals(actual.toString(), expected);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#expression(String)}
+     */
+    @Deprecated
     public void tryEvaluate(String expression, Type expectedType)
     {
         tryEvaluate(expression, expectedType, session);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#expression(String)}
+     */
+    @Deprecated
     public void tryEvaluate(String expression, Type expectedType, Session session)
     {
         selectUniqueValue(expression, expectedType, session, runner.getExpressionCompiler());
@@ -322,6 +338,10 @@ public final class FunctionAssertions
         tryEvaluateWithAll(expression, expectedType, session);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#expression(String)}
+     */
+    @Deprecated
     public void tryEvaluateWithAll(String expression, Type expectedType, Session session)
     {
         executeProjectionWithAll(expression, expectedType, session, runner.getExpressionCompiler());
