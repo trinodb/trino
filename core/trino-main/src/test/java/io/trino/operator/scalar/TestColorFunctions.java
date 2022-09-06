@@ -13,6 +13,7 @@
  */
 package io.trino.operator.scalar;
 
+import io.trino.sql.query.QueryAssertions;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -25,12 +26,11 @@ import static io.trino.operator.scalar.ColorFunctions.parseRgb;
 import static io.trino.operator.scalar.ColorFunctions.render;
 import static io.trino.operator.scalar.ColorFunctions.rgb;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestColorFunctions
-        extends AbstractTestFunctions
 {
     @Test
     public void testParseRgb()
@@ -156,7 +156,12 @@ public class TestColorFunctions
     @Test
     public void testIndeterminate()
     {
-        assertOperator(INDETERMINATE, "color(null)", BOOLEAN, true);
-        assertOperator(INDETERMINATE, "color('black')", BOOLEAN, false);
+        try (QueryAssertions assertions = new QueryAssertions()) {
+            assertThat(assertions.operator(INDETERMINATE, "color(null)"))
+                    .isEqualTo(true);
+
+            assertThat(assertions.operator(INDETERMINATE, "color('black')"))
+                    .isEqualTo(false);
+        }
     }
 }
