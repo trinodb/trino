@@ -164,6 +164,11 @@ public class IcebergConfig
         return this;
     }
 
+    public boolean isTableStatisticsEnabled()
+    {
+        return tableStatisticsEnabled;
+    }
+
     // In case of some queries / tables, retrieving table statistics from Iceberg
     // can take 20+ seconds. This config allows the user / operator the option
     // to opt out of retrieving table statistics in those cases to speed up query planning.
@@ -173,11 +178,6 @@ public class IcebergConfig
     {
         this.tableStatisticsEnabled = tableStatisticsEnabled;
         return this;
-    }
-
-    public boolean isTableStatisticsEnabled()
-    {
-        return tableStatisticsEnabled;
     }
 
     public boolean isProjectionPushdownEnabled()
