@@ -179,8 +179,6 @@ public class MockRemoteTaskFactory
 
         private final PartitionedSplitCountTracker partitionedSplitCountTracker;
 
-        private boolean isOutputBufferOverUtilized;
-
         public MockRemoteTask(
                 TaskId taskId,
                 PlanFragment fragment,
@@ -256,7 +254,7 @@ public class MockRemoteTaskFactory
                             failures,
                             0,
                             0,
-                            isOutputBufferOverUtilized,
+                            outputBuffer.getStatus(),
                             DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
@@ -289,7 +287,7 @@ public class MockRemoteTaskFactory
                     ImmutableList.of(),
                     queuedSplitsInfo.getCount(),
                     combinedSplitsInfo.getCount() - queuedSplitsInfo.getCount(),
-                    isOutputBufferOverUtilized,
+                    outputBuffer.getStatus(),
                     stats.getPhysicalWrittenDataSize(),
                     stats.getUserMemoryReservation(),
                     stats.getPeakUserMemoryReservation(),
@@ -356,11 +354,6 @@ public class MockRemoteTaskFactory
             runningDrivers = splits.size();
             runningDrivers = Math.min(runningDrivers, maxRunning);
             updateSplitQueueSpace();
-        }
-
-        public synchronized void setOutputBufferOverUtilized(boolean isOutputBufferOverUtilized)
-        {
-            this.isOutputBufferOverUtilized = isOutputBufferOverUtilized;
         }
 
         @Override

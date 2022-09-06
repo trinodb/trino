@@ -41,9 +41,9 @@ public interface OutputBuffer
     double getUtilization();
 
     /**
-     * Check if the buffer is blocking producers.
+     * Get buffer status
      */
-    boolean isOverutilized();
+    OutputBufferStatus getStatus();
 
     /**
      * Add a listener which fires anytime the buffer state changes.

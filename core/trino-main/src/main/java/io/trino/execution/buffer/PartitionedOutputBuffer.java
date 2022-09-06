@@ -96,9 +96,11 @@ public class PartitionedOutputBuffer
     }
 
     @Override
-    public boolean isOverutilized()
+    public OutputBufferStatus getStatus()
     {
-        return memoryManager.isOverutilized();
+        return OutputBufferStatus.builder(outputBuffers.getVersion())
+                .setOverutilized(memoryManager.isOverutilized())
+                .build();
     }
 
     @Override

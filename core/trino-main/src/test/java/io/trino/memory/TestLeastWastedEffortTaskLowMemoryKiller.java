@@ -26,6 +26,7 @@ import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.BufferState;
 import io.trino.execution.buffer.OutputBufferInfo;
+import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.operator.TaskStats;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import org.joda.time.DateTime;
@@ -229,7 +230,7 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         ImmutableList.of(),
                         0,
                         0,
-                        false,
+                        OutputBufferStatus.initial(),
                         DataSize.of(1, DataSize.Unit.MEGABYTE),
                         DataSize.of(1, DataSize.Unit.MEGABYTE),
                         DataSize.of(1, DataSize.Unit.MEGABYTE),
