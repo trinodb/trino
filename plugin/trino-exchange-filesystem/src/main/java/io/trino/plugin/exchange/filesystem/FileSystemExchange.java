@@ -154,6 +154,13 @@ public class FileSystemExchange
     }
 
     @Override
+    public ExchangeSinkInstanceHandle updateSinkInstanceHandle(ExchangeSinkHandle sinkHandle, int taskAttemptId)
+    {
+        // this implementation never requests an update
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void sinkFinished(ExchangeSinkHandle handle, int taskAttemptId)
     {
         synchronized (this) {

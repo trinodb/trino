@@ -23,6 +23,7 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.exchange.ExchangeSink;
+import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -108,6 +109,19 @@ public class FileSystemExchangeSink
         this.maxFileSizeInBytes = maxFileSizeInBytes;
         // buffer pooling to overlap computation and I/O
         this.bufferPool = new BufferPool(stats, max(outputPartitionCount * exchangeSinkBuffersPerPartition, exchangeSinkBufferPoolMinSize), exchangeStorage.getWriteBufferSize());
+    }
+
+    @Override
+    public boolean isHandleUpdateRequired()
+    {
+        return false;
+    }
+
+    @Override
+    public void updateHandle(ExchangeSinkInstanceHandle handle)
+    {
+        // this implementation never requests an update
+        throw new UnsupportedOperationException();
     }
 
     // The future returned by {@link #isBlocked()} should only be considered as a best-effort hint.

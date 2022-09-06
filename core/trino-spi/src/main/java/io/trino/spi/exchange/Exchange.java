@@ -59,6 +59,16 @@ public interface Exchange
     ExchangeSinkInstanceHandle instantiateSink(ExchangeSinkHandle sinkHandle, int taskAttemptId);
 
     /**
+     * Update {@link ExchangeSinkInstanceHandle}. Update is requested by {@link ExchangeSink}.
+     * The updated {@link ExchangeSinkInstanceHandle} is expected to be set by {@link ExchangeSink#updateHandle(ExchangeSinkInstanceHandle)}.
+     *
+     * @param sinkHandle - handle returned by <code>addSink</code>
+     * @param taskAttemptId - attempt id
+     * @return updated handle
+     */
+    ExchangeSinkInstanceHandle updateSinkInstanceHandle(ExchangeSinkHandle sinkHandle, int taskAttemptId);
+
+    /**
      * Called by the engine when an attempt finishes successfully.
      * <p>
      * This method is expected to be lightweight. An implementation shouldn't perform any long running blocking operations within this method.

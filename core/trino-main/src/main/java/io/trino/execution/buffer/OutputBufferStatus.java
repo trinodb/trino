@@ -22,18 +22,21 @@ import static java.util.Objects.requireNonNull;
 
 public class OutputBufferStatus
 {
-    private static final OutputBufferStatus INITIAL = new OutputBufferStatus(OptionalLong.empty(), false);
+    private static final OutputBufferStatus INITIAL = new OutputBufferStatus(OptionalLong.empty(), false, false);
 
     private final OptionalLong outputBuffersVersion;
     private final boolean overutilized;
+    private final boolean exchangeSinkInstanceHandleUpdateRequired;
 
     @JsonCreator
     public OutputBufferStatus(
             @JsonProperty("outputBuffersVersion") OptionalLong outputBuffersVersion,
-            @JsonProperty("overutilized") boolean overutilized)
+            @JsonProperty("overutilized") boolean overutilized,
+            @JsonProperty("exchangeSinkInstanceHandleUpdateRequired") boolean exchangeSinkInstanceHandleUpdateRequired)
     {
         this.outputBuffersVersion = requireNonNull(outputBuffersVersion, "outputBuffersVersion is null");
         this.overutilized = overutilized;
+        this.exchangeSinkInstanceHandleUpdateRequired = exchangeSinkInstanceHandleUpdateRequired;
     }
 
     @JsonProperty
@@ -46,6 +49,12 @@ public class OutputBufferStatus
     public boolean isOverutilized()
     {
         return overutilized;
+    }
+
+    @JsonProperty
+    public boolean isExchangeSinkInstanceHandleUpdateRequired()
+    {
+        return exchangeSinkInstanceHandleUpdateRequired;
     }
 
     public static OutputBufferStatus initial()
@@ -62,6 +71,7 @@ public class OutputBufferStatus
     {
         private final OptionalLong outputBuffersVersion;
         private boolean overutilized;
+        private boolean exchangeSinkInstanceHandleUpdateRequired;
 
         public Builder(long outputBuffersVersion)
         {
@@ -74,9 +84,15 @@ public class OutputBufferStatus
             return this;
         }
 
+        public Builder setExchangeSinkInstanceHandleUpdateRequired(boolean exchangeSinkInstanceHandleUpdateRequired)
+        {
+            this.exchangeSinkInstanceHandleUpdateRequired = exchangeSinkInstanceHandleUpdateRequired;
+            return this;
+        }
+
         public OutputBufferStatus build()
         {
-            return new OutputBufferStatus(outputBuffersVersion, overutilized);
+            return new OutputBufferStatus(outputBuffersVersion, overutilized, exchangeSinkInstanceHandleUpdateRequired);
         }
     }
 }

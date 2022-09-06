@@ -55,7 +55,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeoutException;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -65,7 +67,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Multimaps.asMap;
 import static com.google.common.util.concurrent.Futures.addCallback;
-import static com.google.common.util.concurrent.Futures.getUnchecked;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -79,6 +80,7 @@ import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class DeduplicatingDirectExchangeBuffer
         implements DirectExchangeBuffer
@@ -574,7 +576,22 @@ public class DeduplicatingDirectExchangeBuffer
             verify(writeBuffer != null, "writeBuffer is expected to be initialized");
             for (Slice page : pages) {
                 // wait for the sink to unblock
-                getUnchecked(exchangeSink.isBlocked());
+                while (true) {
+                    try {
+                        exchangeSink.isBlocked().get(1, SECONDS);
+                        break;
+                    }
+                    catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException(e);
+                    }
+                    catch (ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                    catch (TimeoutException e) {
+                        updateSinkInstanceHandleIfNecessary();
+                    }
+                }
                 writeBuffer.writeInt(taskId.getStageId().getId());
                 writeBuffer.writeInt(taskId.getPartitionId());
                 writeBuffer.writeInt(taskId.getAttemptId());
@@ -583,6 +600,18 @@ public class DeduplicatingDirectExchangeBuffer
                 writeBuffer.reset();
                 spilledBytes += page.length();
                 spilledPageCount++;
+            }
+        }
+
+        private void updateSinkInstanceHandleIfNecessary()
+        {
+            verify(Thread.holdsLock(this), "this method is expected to be called under a lock");
+            verify(exchange != null, "exchange is null");
+            verify(exchangeSink != null, "exchangeSink is null");
+            verify(sinkHandle != null, "sinkHandle is null");
+
+            if (exchangeSink.isHandleUpdateRequired()) {
+                exchangeSink.updateHandle(exchange.updateSinkInstanceHandle(sinkHandle, 0));
             }
         }
 
