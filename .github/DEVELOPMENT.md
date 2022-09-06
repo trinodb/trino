@@ -239,3 +239,23 @@ re-compiles when changes to source files are detected:
 To iterate quickly, simply re-build the project in IntelliJ after packaging is
 complete. Project resources will be hot-reloaded and changes are reflected on
 browser refresh.
+
+## Releases
+
+Trino aims for frequent releases, generally once per week. This is a goal but
+not a guarantee, as critical bugs may lead to a release being pushed back or
+require an extra emergency release to patch the issue.
+
+At the start of each release cycle, a GitHub issue is filed and pinned to track
+all necessary release notes. For example, see [the issue for Trino 395](https://github.com/trinodb/trino/issues/13913).
+In addition, a release notes pull request is updated and maintained throughout
+the week, tracking all merged commits to ensure every change is properly
+documented and noted. This uses the [release note template](../docs/release-template.md),
+with changes in each section arranged to have new features first, performance
+improvements second, and bugfixes third. See [the release notes for 395](https://github.com/trinodb/trino/pull/13975)
+as an example.
+
+Once it is time to release, the release process is kicked off. A code freeze is
+announced on the Trino Slack in the #releases channel, and then a maintainer
+utilizes the [release scripts](https://github.com/trinodb/release-scripts) to
+update Trino to the next version.
