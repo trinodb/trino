@@ -66,6 +66,12 @@ public class TestingExchange
     }
 
     @Override
+    public ExchangeSinkInstanceHandle updateSinkInstanceHandle(ExchangeSinkHandle sinkHandle, int taskAttemptId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void sinkFinished(ExchangeSinkHandle sinkHandle, int taskAttemptId)
     {
         finishedSinks.add((TestingExchangeSinkHandle) sinkHandle);

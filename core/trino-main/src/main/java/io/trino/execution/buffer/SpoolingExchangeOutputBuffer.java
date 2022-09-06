@@ -21,6 +21,7 @@ import io.airlift.units.DataSize;
 import io.trino.execution.StateMachine;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.exchange.ExchangeSink;
+import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -44,7 +45,7 @@ public class SpoolingExchangeOutputBuffer
     private static final Logger log = Logger.get(SpoolingExchangeOutputBuffer.class);
 
     private final OutputBufferStateMachine stateMachine;
-    private final OutputBuffers outputBuffers;
+    private volatile OutputBuffers outputBuffers;
     // This field is not final to allow releasing the memory retained by the ExchangeSink instance.
     // It is modified (assigned to null) when the OutputBuffer is destroyed (either finished or aborted).
     // It doesn't have to be declared as volatile as the nullification of this variable doesn't have to be immediately visible to other threads.
@@ -105,8 +106,13 @@ public class SpoolingExchangeOutputBuffer
     @Override
     public OutputBufferStatus getStatus()
     {
-        return OutputBufferStatus.builder(outputBuffers.getVersion())
-                .build();
+        // do not grab lock to acquire outputBuffers to avoid delaying TaskStatus response
+        OutputBufferStatus.Builder result = OutputBufferStatus.builder(outputBuffers.getVersion());
+        ExchangeSink sink = exchangeSink;
+        if (sink != null) {
+            result.setExchangeSinkInstanceHandleUpdateRequired(sink.isHandleUpdateRequired());
+        }
+        return result.build();
     }
 
     @Override
@@ -116,7 +122,7 @@ public class SpoolingExchangeOutputBuffer
     }
 
     @Override
-    public void setOutputBuffers(OutputBuffers newOutputBuffers)
+    public synchronized void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
         requireNonNull(newOutputBuffers, "newOutputBuffers is null");
 
@@ -128,6 +134,16 @@ public class SpoolingExchangeOutputBuffer
 
         // no more buffers can be added but verify this is valid state change
         outputBuffers.checkValidTransition(newOutputBuffers);
+
+        ExchangeSink sink = exchangeSink;
+        if (sink != null) {
+            ExchangeSinkInstanceHandle exchangeSinkInstanceHandle = newOutputBuffers.getExchangeSinkInstanceHandle()
+                    .orElseThrow(() -> new IllegalArgumentException("exchange sink handle is expected to be present"));
+            sink.updateHandle(exchangeSinkInstanceHandle);
+        }
+
+        // assign output buffers only after updating the sink to avoid triggering an extra update
+        outputBuffers = newOutputBuffers;
     }
 
     @Override

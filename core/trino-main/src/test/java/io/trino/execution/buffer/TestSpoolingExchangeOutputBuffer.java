@@ -312,6 +312,18 @@ public class TestSpoolingExchangeOutputBuffer
         private boolean abortCalled;
 
         @Override
+        public boolean isHandleUpdateRequired()
+        {
+            return false;
+        }
+
+        @Override
+        public void updateHandle(ExchangeSinkInstanceHandle handle)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public CompletableFuture<Void> isBlocked()
         {
             return blocked;

@@ -27,6 +27,19 @@ public interface ExchangeSink
     CompletableFuture<Void> NOT_BLOCKED = CompletableFuture.completedFuture(null);
 
     /**
+     * Returns {@code true} when {@link ExchangeSinkInstanceHandle} needs to be updated
+     * through {@link #updateHandle(ExchangeSinkInstanceHandle)} to make further progress
+     */
+    boolean isHandleUpdateRequired();
+
+    /**
+     * Update {@link ExchangeSinkInstanceHandle}. Done by the engine upon request initiated by the {@link ExchangeSink}
+     *
+     * @param handle updated handle
+     */
+    void updateHandle(ExchangeSinkInstanceHandle handle);
+
+    /**
      * Returns a future that will be completed when the exchange sink becomes
      * unblocked.  If the exchange sink is not blocked, this method should return
      * {@code NOT_BLOCKED}
