@@ -247,7 +247,7 @@ public final class CanonicalizeExpressionRewriter
                         || argumentType instanceof TimestampWithTimeZoneType
                         || argumentType instanceof VarcharType) {
                     // prefer `CAST(x as DATE)` to `date(x)`
-                    return new Cast(argument, toSqlType(DateType.DATE));
+                    return new Cast(treeRewriter.rewrite(argument, context), toSqlType(DateType.DATE));
                 }
             }
 
