@@ -103,9 +103,10 @@ public class SpoolingExchangeOutputBuffer
     }
 
     @Override
-    public boolean isOverutilized()
+    public OutputBufferStatus getStatus()
     {
-        return false;
+        return OutputBufferStatus.builder(outputBuffers.getVersion())
+                .build();
     }
 
     @Override

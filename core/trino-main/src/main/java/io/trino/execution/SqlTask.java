@@ -204,11 +204,6 @@ public class SqlTask
         });
     }
 
-    public boolean isOutputBufferOverutilized()
-    {
-        return outputBuffer.isOverutilized();
-    }
-
     public SqlTaskIoStats getIoStats()
     {
         return taskHolderReference.get().getIoStats();
@@ -322,7 +317,8 @@ public class SqlTask
             dynamicFiltersVersion = taskContext.getDynamicFiltersVersion();
         }
 
-        return new TaskStatus(taskStateMachine.getTaskId(),
+        return new TaskStatus(
+                taskStateMachine.getTaskId(),
                 taskInstanceId,
                 versionNumber,
                 state,
@@ -331,7 +327,7 @@ public class SqlTask
                 failures,
                 queuedPartitionedDrivers,
                 runningPartitionedDrivers,
-                isOutputBufferOverutilized(),
+                outputBuffer.getStatus(),
                 physicalWrittenDataSize,
                 userMemoryReservation,
                 peakUserMemoryReservation,

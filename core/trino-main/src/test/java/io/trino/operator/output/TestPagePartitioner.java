@@ -24,6 +24,7 @@ import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.BufferState;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.OutputBufferInfo;
+import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
@@ -683,9 +684,9 @@ public class TestPagePartitioner
         }
 
         @Override
-        public boolean isOverutilized()
+        public OutputBufferStatus getStatus()
         {
-            return false;
+            return OutputBufferStatus.initial();
         }
 
         @Override
