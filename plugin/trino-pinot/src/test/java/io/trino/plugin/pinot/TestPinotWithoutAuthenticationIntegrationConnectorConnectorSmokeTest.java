@@ -13,25 +13,11 @@
  */
 package io.trino.plugin.pinot;
 
-import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
-
-public class TestPinotWithoutAuthenticationIntegrationSmokeTestLatestVersionNoGrpc
-        extends AbstractPinotIntegrationSmokeTest
+public class TestPinotWithoutAuthenticationIntegrationConnectorConnectorSmokeTest
+        extends BasePinotIntegrationConnectorSmokeTest
 {
     @Override
     protected boolean isSecured()
-    {
-        return false;
-    }
-
-    @Override
-    protected String getPinotImageName()
-    {
-        return PINOT_LATEST_IMAGE_NAME;
-    }
-
-    @Override
-    protected boolean isGrpcEnabled()
     {
         return false;
     }
