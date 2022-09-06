@@ -1524,6 +1524,22 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT * FROM test_day_transform_date WHERE d >= TIMESTAMP '2015-01-13 00:00:00.000001'"))
                 .isFullyPushedDown();
 
+        // date()
+        assertThat(query("SELECT * FROM test_day_transform_date WHERE date(d) = DATE '2015-01-13'"))
+                .isFullyPushedDown();
+
+        // year()
+        assertThat(query("SELECT * FROM test_day_transform_date WHERE year(d) = 2015"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+
+        // date_trunc
+        assertThat(query("SELECT * FROM test_day_transform_date WHERE date_trunc('day', d) = DATE '2015-01-13'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO trivial
+        assertThat(query("SELECT * FROM test_day_transform_date WHERE date_trunc('month', d) = DATE '2015-01-01'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+        assertThat(query("SELECT * FROM test_day_transform_date WHERE date_trunc('year', d) = DATE '2015-01-01'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+
         dropTable("test_day_transform_date");
     }
 
@@ -1619,6 +1635,22 @@ public abstract class BaseIcebergConnectorTest
                 .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE d >= TIMESTAMP '2015-05-15 00:00:00.000001'"))
                 .isNotFullyPushedDown(FilterNode.class);
+
+        // date()
+        assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE date(d) = DATE '2015-05-15'"))
+                .isFullyPushedDown();
+
+        // year()
+        assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE year(d) = 2015"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+
+        // date_trunc
+        assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE date_trunc('day', d) = DATE '2015-05-15'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+        assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE date_trunc('month', d) = DATE '2015-05-01'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+        assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE date_trunc('year', d) = DATE '2015-01-01'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
 
         dropTable("test_day_transform_timestamp");
     }
@@ -1718,6 +1750,22 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE d >= TIMESTAMP '2015-05-15 00:00:00.000001 UTC'"))
                 .isNotFullyPushedDown(FilterNode.class);
 
+        // date()
+        assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE date(d) = DATE '2015-05-15'"))
+                .isFullyPushedDown();
+
+        // year()
+        assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE year(d) = 2015"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+
+        // date_trunc
+        assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE date_trunc('day', d) = TIMESTAMP '2015-05-15 00:00:00.000000 UTC'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+        assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE date_trunc('month', d) = TIMESTAMP '2015-05-01 00:00:00.000000 UTC'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+        assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE date_trunc('year', d) = TIMESTAMP '2015-01-01 00:00:00.000000 UTC'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+
         assertUpdate("DROP TABLE test_day_transform_timestamptz");
     }
 
@@ -1811,6 +1859,16 @@ public abstract class BaseIcebergConnectorTest
                 .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_month_transform_date WHERE d >= TIMESTAMP '2015-05-01 00:00:00.000001'"))
                 .isNotFullyPushedDown(FilterNode.class);
+
+        // year()
+        assertThat(query("SELECT * FROM test_month_transform_date WHERE year(d) = 2015"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+
+        // date_trunc
+        assertThat(query("SELECT * FROM test_month_transform_date WHERE date_trunc('month', d) = DATE '2015-01-01'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+        assertThat(query("SELECT * FROM test_month_transform_date WHERE date_trunc('year', d) = DATE '2015-01-01'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
 
         if (format == ORC || format == PARQUET) {
             assertThat(query("SHOW STATS FOR test_month_transform_date"))
@@ -1926,6 +1984,16 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT * FROM test_month_transform_timestamp WHERE d >= TIMESTAMP '2015-05-01 00:00:00.000001'"))
                 .isNotFullyPushedDown(FilterNode.class);
 
+        // year()
+        assertThat(query("SELECT * FROM test_month_transform_timestamp WHERE year(d) = 2015"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+
+        // date_trunc
+        assertThat(query("SELECT * FROM test_month_transform_timestamp WHERE date_trunc('month', d) = DATE '2015-05-01'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+        assertThat(query("SELECT * FROM test_month_transform_timestamp WHERE date_trunc('year', d) = DATE '2015-01-01'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+
         dropTable("test_month_transform_timestamp");
     }
 
@@ -2025,6 +2093,16 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT * FROM test_month_transform_timestamptz WHERE d >= TIMESTAMP '2015-05-01 00:00:00.000001 UTC'"))
                 .isNotFullyPushedDown(FilterNode.class);
 
+        // year()
+        assertThat(query("SELECT * FROM test_month_transform_timestamptz WHERE year(d) = 2015"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+
+        // date_trunc
+        assertThat(query("SELECT * FROM test_month_transform_timestamptz WHERE date_trunc('month', d) = TIMESTAMP '2015-05-01 00:00:00.000000 UTC'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+        assertThat(query("SELECT * FROM test_month_transform_timestamptz WHERE date_trunc('year', d) = TIMESTAMP '2015-01-01 00:00:00.000000 UTC'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+
         assertUpdate("DROP TABLE test_month_transform_timestamptz");
     }
 
@@ -2116,6 +2194,14 @@ public abstract class BaseIcebergConnectorTest
                 .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_year_transform_date WHERE d >= TIMESTAMP '2015-01-01 00:00:00.000001'"))
                 .isNotFullyPushedDown(FilterNode.class);
+
+        // year()
+        assertThat(query("SELECT * FROM test_year_transform_date WHERE year(d) = 2015"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+
+        // date_trunc
+        assertThat(query("SELECT * FROM test_year_transform_date WHERE date_trunc('year', d) = DATE '2015-01-01'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
 
         if (format == ORC || format == PARQUET) {
             assertThat(query("SHOW STATS FOR test_year_transform_date"))
@@ -2228,6 +2314,14 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT * FROM test_year_transform_timestamp WHERE d >= TIMESTAMP '2015-01-01 00:00:00.000001'"))
                 .isNotFullyPushedDown(FilterNode.class);
 
+        // year()
+        assertThat(query("SELECT * FROM test_year_transform_timestamp WHERE year(d) = 2015"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+
+        // date_trunc
+        assertThat(query("SELECT * FROM test_year_transform_timestamp WHERE date_trunc('year', d) = DATE '2015-01-01'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+
         dropTable("test_year_transform_timestamp");
     }
 
@@ -2323,6 +2417,14 @@ public abstract class BaseIcebergConnectorTest
                 .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE d >= TIMESTAMP '2015-01-01 00:00:00.000001 UTC'"))
                 .isNotFullyPushedDown(FilterNode.class);
+
+        // year()
+        assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE year(d) = 2015"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+
+        // date_trunc
+        assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE date_trunc('year', d) = TIMESTAMP '2015-01-01 00:00:00.000000 UTC'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
 
         assertUpdate("DROP TABLE test_year_transform_timestamptz");
     }
