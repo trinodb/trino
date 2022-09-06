@@ -16,6 +16,7 @@ package io.trino.plugin.mysql;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.TestingConnectorBehavior;
@@ -29,7 +30,10 @@ import java.util.OptionalInt;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
@@ -283,20 +287,31 @@ public abstract class BaseMySqlConnectorTest
     @Test
     public void testPredicatePushdown()
     {
+        boolean supportVarcharPushdown = hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY) && hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY);
+
         // varchar equality
-        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'ROMANIA'"))
-                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
-                .isNotFullyPushedDown(FilterNode.class);
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT regionkey, nationkey, name FROM nation WHERE name = 'ROMANIA'",
+                supportVarcharPushdown,
+                node(FilterNode.class, node(TableScanNode.class)))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))");
 
         // varchar range
-        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name BETWEEN 'POLAND' AND 'RPA'"))
-                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
-                .isNotFullyPushedDown(FilterNode.class);
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT regionkey, nationkey, name FROM nation WHERE name BETWEEN 'POLAND' AND 'RPA'",
+                supportVarcharPushdown,
+                node(FilterNode.class, node(TableScanNode.class)))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))");
 
         // varchar different case
-        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'romania'"))
-                .returnsEmptyResult()
-                .isNotFullyPushedDown(FilterNode.class);
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT regionkey, nationkey, name FROM nation WHERE name = 'romania'",
+                supportVarcharPushdown,
+                node(FilterNode.class, node(TableScanNode.class)))
+                .returnsEmptyResult();
 
         // bigint equality
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey = 19"))
@@ -426,5 +441,12 @@ public abstract class BaseMySqlConnectorTest
                 // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
                 .build();
+    }
+
+    @Test
+    public void testCaseSensitiveInPredicate()
+    {
+        assertQuery("SELECT * FROM nation WHERE name IN ('CANADA', 'india')");
+        assertQuery("SELECT * FROM nation WHERE name NOT IN ('CANADA', 'india')");
     }
 }

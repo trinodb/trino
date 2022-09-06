@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.mysql;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -27,15 +28,21 @@ import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.ptf.ConnectorTableFunction;
 
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Properties;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.lang.String.format;
 
 public class MySqlClientModule
         extends AbstractConfigurationAwareModule
@@ -47,6 +54,7 @@ public class MySqlClientModule
         configBinder(binder).bindConfig(MySqlJdbcConfig.class);
         configBinder(binder).bindConfig(MySqlConfig.class);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
+        newOptionalBinder(binder, QueryBuilder.class).setBinding().to(CollationAwareQueryBuilder.class).in(Scopes.SINGLETON);
         install(new DecimalModule());
         install(new JdbcJoinPushdownSupportModule());
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
@@ -58,10 +66,13 @@ public class MySqlClientModule
     public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, MySqlConfig mySqlConfig)
             throws SQLException
     {
+        String connectionUrl = config.getConnectionUrl();
+        Properties connectionProperties = getConnectionProperties(mySqlConfig);
+        validateConnectionUrl(connectionUrl, connectionProperties);
         return new DriverConnectionFactory(
                 new Driver(),
-                config.getConnectionUrl(),
-                getConnectionProperties(mySqlConfig),
+                connectionUrl,
+                connectionProperties,
                 credentialProvider);
     }
 
@@ -71,6 +82,9 @@ public class MySqlClientModule
         connectionProperties.setProperty("useInformationSchema", Boolean.toString(mySqlConfig.isDriverUseInformationSchema()));
         connectionProperties.setProperty("useUnicode", "true");
         connectionProperties.setProperty("characterEncoding", "utf8");
+        if (mySqlConfig.isEnableStringPushdownWithCollate()) {
+            connectionProperties.setProperty("character_set_server", "utf8mb4");
+        }
         connectionProperties.setProperty("tinyInt1isBit", "false");
         connectionProperties.setProperty("rewriteBatchedStatements", "true");
         if (mySqlConfig.isAutoReconnect()) {
@@ -81,5 +95,15 @@ public class MySqlClientModule
             connectionProperties.setProperty("connectTimeout", String.valueOf(mySqlConfig.getConnectionTimeout().toMillis()));
         }
         return connectionProperties;
+    }
+
+    @VisibleForTesting
+    static void validateConnectionUrl(String connectionUrl, Properties connectionProperties)
+    {
+        List<String> restrictedSettings = connectionProperties.keySet().stream()
+                .map(Object::toString)
+                .filter(connectionUrl::contains)
+                .collect(toImmutableList());
+        checkArgument(restrictedSettings.isEmpty(), format("%s not allowed to be set in connectionUrl", String.join(", ", restrictedSettings)));
     }
 }

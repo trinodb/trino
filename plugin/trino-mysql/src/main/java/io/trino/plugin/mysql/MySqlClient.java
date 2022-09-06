@@ -197,11 +197,13 @@ public class MySqlClient
     private final boolean statisticsEnabled;
     private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
+    private final boolean enableStringPushdownWithCollate;
 
     @Inject
     public MySqlClient(
             BaseJdbcConfig config,
             JdbcStatisticsConfig statisticsConfig,
+            MySqlConfig mySqlConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
             TypeManager typeManager,
@@ -231,6 +233,7 @@ public class MySqlClient
                         .add(new ImplementVarianceSamp())
                         .add(new ImplementVariancePop())
                         .build());
+        this.enableStringPushdownWithCollate = mySqlConfig.isEnableStringPushdownWithCollate();
     }
 
     @Override
@@ -426,14 +429,14 @@ public class MySqlClient
                 return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
 
             case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), enableStringPushdownWithCollate));
 
             // TODO not all these type constants are necessarily used by the JDBC driver
             case Types.VARCHAR:
             case Types.NVARCHAR:
             case Types.LONGVARCHAR:
             case Types.LONGNVARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), enableStringPushdownWithCollate));
 
             case Types.BINARY:
             case Types.VARBINARY:

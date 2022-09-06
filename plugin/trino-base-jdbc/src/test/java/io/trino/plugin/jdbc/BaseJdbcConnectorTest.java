@@ -79,6 +79,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUS
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_WITH_VARCHAR;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CANCELLATION;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
@@ -309,7 +310,7 @@ public abstract class BaseJdbcConnectorTest
             return;
         }
 
-        boolean supportsPushdownWithVarcharInequality = hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY);
+        boolean supportsPushdownWithVarcharInequality = hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_WITH_VARCHAR);
         boolean supportsCountDistinctPushdown = hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT);
 
         PlanMatchPattern aggregationOverTableScan = node(AggregationNode.class, node(TableScanNode.class));
@@ -440,7 +441,7 @@ public abstract class BaseJdbcConnectorTest
         assertConditionallyPushedDown(
                 withMarkDistinct,
                 "SELECT count(DISTINCT comment) FROM nation",
-                hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY),
+                hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_WITH_VARCHAR),
                 node(AggregationNode.class, node(ProjectNode.class, node(TableScanNode.class))));
         // two distinct aggregations
         assertConditionallyPushedDown(
@@ -466,7 +467,7 @@ public abstract class BaseJdbcConnectorTest
         assertConditionallyPushedDown(
                 withoutMarkDistinct,
                 "SELECT count(DISTINCT comment) FROM nation",
-                hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY),
+                hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_WITH_VARCHAR),
                 node(AggregationNode.class, node(ProjectNode.class, node(TableScanNode.class))));
         // two distinct aggregations
         assertConditionallyPushedDown(
@@ -537,7 +538,7 @@ public abstract class BaseJdbcConnectorTest
                 .collect(toImmutableList());
 
         try (TestTable testTable = new TestTable(getQueryRunner()::execute, "distinct_strings", "(t_char CHAR(5), t_varchar VARCHAR(5))", rows)) {
-            if (!(hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN) && hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY))) {
+            if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_WITH_VARCHAR)) {
                 // disabling hash generation to prevent extra projections in the plan which make it hard to write matchers for isNotFullyPushedDown
                 Session optimizeHashGenerationDisabled = Session.builder(getSession())
                         .setSystemProperty("optimize_hash_generation", "false")

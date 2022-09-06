@@ -41,6 +41,7 @@ public enum TestingConnectorBehavior
     SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION(false),
     SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION(false),
     SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT(false),
+    SUPPORTS_AGGREGATION_PUSHDOWN_WITH_VARCHAR(fallback -> fallback.test(SUPPORTS_AGGREGATION_PUSHDOWN) && fallback.test(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)),
 
     SUPPORTS_JOIN_PUSHDOWN(
             // Currently no connector supports Join pushdown by default. JDBC connectors may support Join pushdown and BaseJdbcConnectorTest

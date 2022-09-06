@@ -33,7 +33,8 @@ public class TestMySqlConfig
                 .setAutoReconnect(true)
                 .setMaxReconnects(3)
                 .setConnectionTimeout(new Duration(10, TimeUnit.SECONDS))
-                .setDriverUseInformationSchema(true));
+                .setDriverUseInformationSchema(true)
+                .setEnableStringPushdownWithCollate(false));
     }
 
     @Test
@@ -44,13 +45,15 @@ public class TestMySqlConfig
                 .put("mysql.max-reconnects", "4")
                 .put("mysql.connection-timeout", "4s")
                 .put("mysql.jdbc.use-information-schema", "false")
+                .put("mysql.experimental.enable-string-pushdown-with-collate", "true")
                 .buildOrThrow();
 
         MySqlConfig expected = new MySqlConfig()
                 .setAutoReconnect(false)
                 .setMaxReconnects(4)
                 .setConnectionTimeout(new Duration(4, TimeUnit.SECONDS))
-                .setDriverUseInformationSchema(false);
+                .setDriverUseInformationSchema(false)
+                .setEnableStringPushdownWithCollate(true);
 
         assertFullMapping(properties, expected);
     }

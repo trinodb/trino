@@ -31,6 +31,7 @@ public class MySqlConfig
     // implementation, which throw SQL exception when a table disappears during listing.
     // Using `useInformationSchema=false` may provide more diagnostic information (see https://github.com/trinodb/trino/issues/1597)
     private boolean driverUseInformationSchema = true;
+    private boolean enableStringPushdownWithCollate;
 
     public boolean isAutoReconnect()
     {
@@ -79,6 +80,20 @@ public class MySqlConfig
     public MySqlConfig setDriverUseInformationSchema(boolean driverUseInformationSchema)
     {
         this.driverUseInformationSchema = driverUseInformationSchema;
+        return this;
+    }
+
+    public boolean isEnableStringPushdownWithCollate()
+    {
+        return enableStringPushdownWithCollate;
+    }
+
+    // before enabling this config, make sure mysql server version is 8.0.17+ as we use collation
+    // utf8mb4_0900_bin which is only supported after that version
+    @Config("mysql.experimental.enable-string-pushdown-with-collate")
+    public MySqlConfig setEnableStringPushdownWithCollate(boolean enableStringPushdownWithCollate)
+    {
+        this.enableStringPushdownWithCollate = enableStringPushdownWithCollate;
         return this;
     }
 }
