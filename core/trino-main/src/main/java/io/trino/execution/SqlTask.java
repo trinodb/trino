@@ -451,10 +451,8 @@ public class SqlTask
                 }
             }
 
-            if (taskExecution != null) {
-                taskExecution.addSplitAssignments(splitAssignments);
-                taskExecution.getTaskContext().addDynamicFilter(dynamicFilterDomains);
-            }
+            taskExecution.addSplitAssignments(splitAssignments);
+            taskExecution.getTaskContext().addDynamicFilter(dynamicFilterDomains);
         }
         catch (Error e) {
             failed(e);
