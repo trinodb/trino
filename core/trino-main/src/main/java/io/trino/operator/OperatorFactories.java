@@ -61,7 +61,7 @@ public interface OperatorFactories
             PartitioningSpillerFactory partitioningSpillerFactory,
             BlockTypeOperators blockTypeOperators);
 
-    public static class JoinOperatorType
+    class JoinOperatorType
     {
         private final JoinType type;
         private final boolean outputSingleMatch;
