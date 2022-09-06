@@ -1532,7 +1532,7 @@ public abstract class BaseIcebergConnectorTest
 
         // date_trunc
         assertThat(query("SELECT * FROM test_day_transform_date WHERE date_trunc('day', d) = DATE '2015-01-13'"))
-                .isNotFullyPushedDown(FilterNode.class); // TODO trivial
+                .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_day_transform_date WHERE date_trunc('month', d) = DATE '2015-01-01'"))
                 .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
         assertThat(query("SELECT * FROM test_day_transform_date WHERE date_trunc('year', d) = DATE '2015-01-01'"))
