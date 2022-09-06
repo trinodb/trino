@@ -41,7 +41,7 @@ public interface QueryExecution
 
     void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener);
 
-    void addOutputInfoListener(Consumer<QueryOutputInfo> listener);
+    void setOutputInfoListener(Consumer<QueryOutputInfo> listener);
 
     void outputTaskFailed(TaskId taskId, Throwable failure);
 

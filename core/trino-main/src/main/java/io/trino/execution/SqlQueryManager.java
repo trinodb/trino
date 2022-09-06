@@ -148,11 +148,11 @@ public class SqlQueryManager
     }
 
     @Override
-    public void addOutputInfoListener(QueryId queryId, Consumer<QueryOutputInfo> listener)
+    public void setOutputInfoListener(QueryId queryId, Consumer<QueryOutputInfo> listener)
     {
         requireNonNull(listener, "listener is null");
 
-        queryTracker.getQuery(queryId).addOutputInfoListener(listener);
+        queryTracker.getQuery(queryId).setOutputInfoListener(listener);
     }
 
     @Override

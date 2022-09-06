@@ -598,9 +598,9 @@ public class SqlQueryExecution
     }
 
     @Override
-    public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
+    public void setOutputInfoListener(Consumer<QueryOutputInfo> listener)
     {
-        stateMachine.addOutputInfoListener(listener);
+        stateMachine.setOutputInfoListener(listener);
     }
 
     @Override
