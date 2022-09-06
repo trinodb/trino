@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionBundle;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
@@ -56,6 +57,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.cost.StatsCalculator.noopStatsCalculator;
+import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.trino.sql.query.QueryAssertions.QueryAssert.newQueryAssert;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
@@ -119,6 +121,30 @@ public class QueryAssertions
     public ExpressionAssertProvider expression(@Language("SQL") String expression)
     {
         return expression(expression, runner.getDefaultSession());
+    }
+
+    public ExpressionAssertProvider operator(OperatorType operator, @Language("SQL") String... arguments)
+    {
+        return function(mangleOperatorName(operator), arguments);
+    }
+
+    public ExpressionAssertProvider function(String name, @Language("SQL") String... arguments)
+    {
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        for (int i = 0; i < arguments.length; i++) {
+            builder.add("a" + i);
+        }
+
+        List<String> names = builder.build();
+        ExpressionAssertProvider assertion = expression("\"%s\"(%s)".formatted(
+                name,
+                String.join(",", names)));
+
+        for (int i = 0; i < arguments.length; i++) {
+            assertion.binding(names.get(i), arguments[i]);
+        }
+
+        return assertion;
     }
 
     public ExpressionAssertProvider expression(@Language("SQL") String expression, Session session)
