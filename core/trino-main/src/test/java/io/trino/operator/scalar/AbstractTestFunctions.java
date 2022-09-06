@@ -85,11 +85,19 @@ public abstract class AbstractTestFunctions
         functionAssertions = null;
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#function(String, String...)}
+     */
+    @Deprecated
     protected void assertFunction(@Language("SQL") String projection, Type expectedType, Object expected)
     {
         functionAssertions.assertFunction(projection, expectedType, expected);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#operator(OperatorType, String...)}
+     */
+    @Deprecated
     protected void assertOperator(OperatorType operator, String value, Type expectedType, Object expected)
     {
         functionAssertions.assertFunction(format("\"%s\"(%s)", mangleOperatorName(operator), value), expectedType, expected);
