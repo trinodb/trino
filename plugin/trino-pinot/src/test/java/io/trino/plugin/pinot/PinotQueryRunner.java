@@ -43,7 +43,6 @@ public class PinotQueryRunner
             throws Exception
     {
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession("default"))
-                .setNodeCount(2)
                 .setExtraProperties(extraProperties)
                 .build();
         queryRunner.installPlugin(new PinotPlugin(extension));
