@@ -66,9 +66,9 @@ public class TestingExchange
     }
 
     @Override
-    public void sinkFinished(ExchangeSinkInstanceHandle handle)
+    public void sinkFinished(ExchangeSinkHandle sinkHandle, int taskAttemptId)
     {
-        finishedSinks.add(((TestingExchangeSinkInstanceHandle) handle).getSinkHandle());
+        finishedSinks.add((TestingExchangeSinkHandle) sinkHandle);
     }
 
     public Set<TestingExchangeSinkHandle> getFinishedSinkHandles()
