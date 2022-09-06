@@ -142,6 +142,30 @@ public abstract class AbstractPinotIntegrationSmokeTest
         TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), isSecured(), getPinotImageName()));
         pinot.start();
 
+        createAndPopulateAllTypesTopic(kafka, pinot);
+        createAndPopulateMixedCaseTableAndTopic(kafka, pinot);
+        createAndPopulateMixedCaseDistinctTableAndTopic(kafka, pinot);
+        createAndPopulateTooManyRowsTable(kafka, pinot);
+        createAndPopulateTooManyBrokerRowsTableAndTopic(kafka, pinot);
+        createTheDuplicateTablesAndTopics(kafka, pinot);
+        createAndPopulateDateTimeFieldsTableAndTopic(kafka, pinot);
+        createAndPopulateJsonTypeTable(kafka, pinot);
+        createAndPopulateJsonTable(kafka, pinot);
+        createAndPopulateMixedCaseHybridTablesAndTopic(kafka, pinot);
+        createAndPopulateTableHavingReservedKeywordColumnNames(kafka, pinot);
+        createAndPopulateHavingQuotesInColumnNames(kafka, pinot);
+        createAndPopulateHavingMultipleColumnsWithDuplicateValues(kafka, pinot);
+
+        return PinotQueryRunner.createPinotQueryRunner(
+                ImmutableMap.of(),
+                pinotProperties(pinot),
+                Optional.of(binder -> newOptionalBinder(binder, PinotHostMapper.class).setBinding()
+                        .toInstance(new TestingPinotHostMapper(pinot.getBrokerHostAndPort(), pinot.getServerHostAndPort(), pinot.getServerGrpcHostAndPort()))));
+    }
+
+    private void createAndPopulateAllTypesTopic(TestingKafka kafka, TestingPinotCluster pinot)
+            throws Exception
+    {
         // Create and populate the all_types topic and table
         kafka.createTopic(ALL_TYPES_TABLE);
 
@@ -165,7 +189,11 @@ public abstract class AbstractPinotIntegrationSmokeTest
 
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("alltypes_schema.json"), ALL_TYPES_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("alltypes_realtimeSpec.json"), ALL_TYPES_TABLE);
+    }
 
+    private void createAndPopulateMixedCaseTableAndTopic(TestingKafka kafka, TestingPinotCluster pinot)
+            throws Exception
+    {
         // Create and populate mixed case table and topic
         kafka.createTopic(MIXED_CASE_COLUMN_NAMES_TABLE);
         Schema mixedCaseAvroSchema = SchemaBuilder.record(MIXED_CASE_COLUMN_NAMES_TABLE).fields()
@@ -200,7 +228,11 @@ public abstract class AbstractPinotIntegrationSmokeTest
         kafka.sendMessages(mixedCaseProducerRecords.stream(), schemaRegistryAwareProducer(kafka));
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("mixed_case_schema.json"), MIXED_CASE_COLUMN_NAMES_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("mixed_case_realtimeSpec.json"), MIXED_CASE_COLUMN_NAMES_TABLE);
+    }
 
+    private void createAndPopulateMixedCaseDistinctTableAndTopic(TestingKafka kafka, TestingPinotCluster pinot)
+            throws Exception
+    {
         // Create and populate mixed case distinct table and topic
         kafka.createTopic(MIXED_CASE_DISTINCT_TABLE);
         Schema mixedCaseDistinctAvroSchema = SchemaBuilder.record(MIXED_CASE_DISTINCT_TABLE).fields()
@@ -234,7 +266,11 @@ public abstract class AbstractPinotIntegrationSmokeTest
         // Create mixed case table name, populated from the mixed case topic
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("mixed_case_table_name_schema.json"), MIXED_CASE_TABLE_NAME);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("mixed_case_table_name_realtimeSpec.json"), MIXED_CASE_TABLE_NAME);
+    }
 
+    private void createAndPopulateTooManyRowsTable(TestingKafka kafka, TestingPinotCluster pinot)
+            throws Exception
+    {
         // Create and populate too many rows table and topic
         kafka.createTopic(TOO_MANY_ROWS_TABLE);
         Schema tooManyRowsAvroSchema = SchemaBuilder.record(TOO_MANY_ROWS_TABLE).fields()
@@ -255,7 +291,11 @@ public abstract class AbstractPinotIntegrationSmokeTest
         kafka.sendMessages(tooManyRowsRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("too_many_rows_schema.json"), TOO_MANY_ROWS_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("too_many_rows_realtimeSpec.json"), TOO_MANY_ROWS_TABLE);
+    }
 
+    private void createAndPopulateTooManyBrokerRowsTableAndTopic(TestingKafka kafka, TestingPinotCluster pinot)
+            throws Exception
+    {
         // Create and populate too many broker rows table and topic
         kafka.createTopic(TOO_MANY_BROKER_ROWS_TABLE);
         Schema tooManyBrokerRowsAvroSchema = SchemaBuilder.record(TOO_MANY_BROKER_ROWS_TABLE).fields()
@@ -273,7 +313,11 @@ public abstract class AbstractPinotIntegrationSmokeTest
         kafka.sendMessages(tooManyBrokerRowsRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("too_many_broker_rows_schema.json"), TOO_MANY_BROKER_ROWS_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("too_many_broker_rows_realtimeSpec.json"), TOO_MANY_BROKER_ROWS_TABLE);
+    }
 
+    private void createTheDuplicateTablesAndTopics(TestingKafka kafka, TestingPinotCluster pinot)
+            throws Exception
+    {
         // Create the duplicate tables and topics
         kafka.createTopic(DUPLICATE_TABLE_LOWERCASE);
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("dup_table_lower_case_schema.json"), DUPLICATE_TABLE_LOWERCASE);
@@ -282,7 +326,11 @@ public abstract class AbstractPinotIntegrationSmokeTest
         kafka.createTopic(DUPLICATE_TABLE_MIXED_CASE);
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("dup_table_mixed_case_schema.json"), DUPLICATE_TABLE_MIXED_CASE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("dup_table_mixed_case_realtimeSpec.json"), DUPLICATE_TABLE_MIXED_CASE);
+    }
 
+    private void createAndPopulateDateTimeFieldsTableAndTopic(TestingKafka kafka, TestingPinotCluster pinot)
+            throws Exception
+    {
         // Create and populate date time fields table and topic
         kafka.createTopic(DATE_TIME_FIELDS_TABLE);
         Schema dateTimeFieldsAvroSchema = SchemaBuilder.record(DATE_TIME_FIELDS_TABLE).fields()
@@ -310,7 +358,11 @@ public abstract class AbstractPinotIntegrationSmokeTest
         kafka.sendMessages(dateTimeFieldsProducerRecords.stream(), schemaRegistryAwareProducer(kafka));
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("date_time_fields_schema.json"), DATE_TIME_FIELDS_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("date_time_fields_realtimeSpec.json"), DATE_TIME_FIELDS_TABLE);
+    }
 
+    private void createAndPopulateJsonTypeTable(TestingKafka kafka, TestingPinotCluster pinot)
+            throws Exception
+    {
         // Create json type table
         kafka.createTopic(JSON_TYPE_TABLE);
 
@@ -332,7 +384,11 @@ public abstract class AbstractPinotIntegrationSmokeTest
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("json_schema.json"), JSON_TYPE_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("json_realtimeSpec.json"), JSON_TYPE_TABLE);
         pinot.addOfflineTable(getClass().getClassLoader().getResourceAsStream("json_offlineSpec.json"), JSON_TYPE_TABLE);
+    }
 
+    private void createAndPopulateJsonTable(TestingKafka kafka, TestingPinotCluster pinot)
+            throws Exception
+    {
         // Create json table
         kafka.createTopic(JSON_TABLE);
         long key = 0L;
@@ -347,7 +403,11 @@ public abstract class AbstractPinotIntegrationSmokeTest
 
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("schema.json"), JSON_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("realtimeSpec.json"), JSON_TABLE);
+    }
 
+    private void createAndPopulateMixedCaseHybridTablesAndTopic(TestingKafka kafka, TestingPinotCluster pinot)
+            throws Exception
+    {
         // Create and populate mixed case table and topic
         kafka.createTopic(HYBRID_TABLE_NAME);
         Schema hybridAvroSchema = SchemaBuilder.record(HYBRID_TABLE_NAME).fields()
@@ -433,7 +493,11 @@ public abstract class AbstractPinotIntegrationSmokeTest
         }
 
         kafka.sendMessages(hybridProducerRecords.stream(), schemaRegistryAwareProducer(kafka));
+    }
 
+    private void createAndPopulateTableHavingReservedKeywordColumnNames(TestingKafka kafka, TestingPinotCluster pinot)
+            throws Exception
+    {
         // Create a table having reserved keyword column names
         kafka.createTopic(RESERVED_KEYWORD_TABLE);
         Schema reservedKeywordAvroSchema = SchemaBuilder.record(RESERVED_KEYWORD_TABLE).fields()
@@ -447,7 +511,11 @@ public abstract class AbstractPinotIntegrationSmokeTest
         kafka.sendMessages(reservedKeywordRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("reserved_keyword_schema.json"), RESERVED_KEYWORD_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("reserved_keyword_realtimeSpec.json"), RESERVED_KEYWORD_TABLE);
+    }
 
+    private void createAndPopulateHavingQuotesInColumnNames(TestingKafka kafka, TestingPinotCluster pinot)
+            throws Exception
+    {
         // Create a table having quotes in column names
         kafka.createTopic(QUOTES_IN_COLUMN_NAME_TABLE);
         Schema quotesInColumnNameAvroSchema = SchemaBuilder.record(QUOTES_IN_COLUMN_NAME_TABLE).fields()
@@ -460,7 +528,11 @@ public abstract class AbstractPinotIntegrationSmokeTest
         kafka.sendMessages(quotesInColumnNameRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("quotes_in_column_name_schema.json"), QUOTES_IN_COLUMN_NAME_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("quotes_in_column_name_realtimeSpec.json"), QUOTES_IN_COLUMN_NAME_TABLE);
+    }
 
+    private void createAndPopulateHavingMultipleColumnsWithDuplicateValues(TestingKafka kafka, TestingPinotCluster pinot)
+            throws Exception
+    {
         // Create a table having multiple columns with duplicate values
         kafka.createTopic(DUPLICATE_VALUES_IN_COLUMNS_TABLE);
         Schema duplicateValuesInColumnsAvroSchema = SchemaBuilder.record(DUPLICATE_VALUES_IN_COLUMNS_TABLE).fields()
@@ -523,12 +595,6 @@ public abstract class AbstractPinotIntegrationSmokeTest
         kafka.sendMessages(duplicateValuesInColumnsRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("duplicate_values_in_columns_schema.json"), DUPLICATE_VALUES_IN_COLUMNS_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("duplicate_values_in_columns_realtimeSpec.json"), DUPLICATE_VALUES_IN_COLUMNS_TABLE);
-
-        return PinotQueryRunner.createPinotQueryRunner(
-                ImmutableMap.of(),
-                pinotProperties(pinot),
-                Optional.of(binder -> newOptionalBinder(binder, PinotHostMapper.class).setBinding()
-                        .toInstance(new TestingPinotHostMapper(pinot.getBrokerHostAndPort(), pinot.getServerHostAndPort(), pinot.getServerGrpcHostAndPort()))));
     }
 
     private Map<String, String> pinotProperties(TestingPinotCluster pinot)
