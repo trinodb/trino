@@ -44,16 +44,14 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -94,14 +92,9 @@ public class SqlTaskExecution
 
     private final SplitMonitor splitMonitor;
 
-    private final List<WeakReference<Driver>> drivers = new CopyOnWriteArrayList<>();
-
     private final Map<PlanNodeId, DriverSplitRunnerFactory> driverRunnerFactoriesWithSplitLifeCycle;
     private final List<DriverSplitRunnerFactory> driverRunnerFactoriesWithTaskLifeCycle;
-
-    // guarded for update only
-    @GuardedBy("this")
-    private final ConcurrentMap<PlanNodeId, SplitAssignment> unpartitionedSplitAssignments = new ConcurrentHashMap<>();
+    private final Map<PlanNodeId, DriverSplitRunnerFactory> driverRunnerFactoriesWithRemoteSource;
 
     @GuardedBy("this")
     private long maxAcknowledgedSplit = Long.MIN_VALUE;
@@ -141,17 +134,21 @@ public class SqlTaskExecution
             Set<PlanNodeId> partitionedSources = ImmutableSet.copyOf(localExecutionPlan.getPartitionedSourceOrder());
             ImmutableMap.Builder<PlanNodeId, DriverSplitRunnerFactory> driverRunnerFactoriesWithSplitLifeCycle = ImmutableMap.builder();
             ImmutableList.Builder<DriverSplitRunnerFactory> driverRunnerFactoriesWithTaskLifeCycle = ImmutableList.builder();
+            ImmutableMap.Builder<PlanNodeId, DriverSplitRunnerFactory> driverRunnerFactoriesWithRemoteSource = ImmutableMap.builder();
             for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
                 Optional<PlanNodeId> sourceId = driverFactory.getSourceId();
                 if (sourceId.isPresent() && partitionedSources.contains(sourceId.get())) {
                     driverRunnerFactoriesWithSplitLifeCycle.put(sourceId.get(), new DriverSplitRunnerFactory(driverFactory, true));
                 }
                 else {
-                    driverRunnerFactoriesWithTaskLifeCycle.add(new DriverSplitRunnerFactory(driverFactory, false));
+                    DriverSplitRunnerFactory runnerFactory = new DriverSplitRunnerFactory(driverFactory, false);
+                    sourceId.ifPresent(planNodeId -> driverRunnerFactoriesWithRemoteSource.put(planNodeId, runnerFactory));
+                    driverRunnerFactoriesWithTaskLifeCycle.add(runnerFactory);
                 }
             }
             this.driverRunnerFactoriesWithSplitLifeCycle = driverRunnerFactoriesWithSplitLifeCycle.buildOrThrow();
             this.driverRunnerFactoriesWithTaskLifeCycle = driverRunnerFactoriesWithTaskLifeCycle.build();
+            this.driverRunnerFactoriesWithRemoteSource = driverRunnerFactoriesWithRemoteSource.buildOrThrow();
 
             this.pendingSplitsByPlanNode = this.driverRunnerFactoriesWithSplitLifeCycle.keySet().stream()
                     .collect(toImmutableMap(identity(), ignore -> new PendingSplitsForPlanNode()));
@@ -223,39 +220,20 @@ public class SqlTaskExecution
 
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             // update our record of split assignments and schedule drivers for new partitioned splits
-            Map<PlanNodeId, SplitAssignment> updatedUnpartitionedSources = updateSplitAssignments(splitAssignments);
-
-            // tell existing drivers about the new splits; it is safe to update drivers
-            // multiple times and out of order because split assignments contain full record of
-            // the unpartitioned splits
-            for (WeakReference<Driver> driverReference : drivers) {
-                Driver driver = driverReference.get();
-                // the driver can be GCed due to a failure or a limit
-                if (driver == null) {
-                    // remove the weak reference from the list to avoid a memory leak
-                    // NOTE: this is a concurrent safe operation on a CopyOnWriteArrayList
-                    drivers.remove(driverReference);
-                    continue;
-                }
-                Optional<PlanNodeId> sourceId = driver.getSourceId();
-                if (sourceId.isEmpty()) {
-                    continue;
-                }
-                SplitAssignment splitAssignmentUpdate = updatedUnpartitionedSources.get(sourceId.get());
-                if (splitAssignmentUpdate == null) {
-                    continue;
-                }
-                driver.updateSplitAssignment(splitAssignmentUpdate);
+            Set<PlanNodeId> updatedUnpartitionedSources = updateSplitAssignments(splitAssignments);
+            for (PlanNodeId planNodeId : updatedUnpartitionedSources) {
+                DriverSplitRunnerFactory factory = driverRunnerFactoriesWithRemoteSource.get(planNodeId);
+                // schedule splits outside the lock
+                factory.scheduleSplits();
             }
-
             // we may have transitioned to no more splits, so check for completion
             checkTaskCompletion();
         }
     }
 
-    private synchronized Map<PlanNodeId, SplitAssignment> updateSplitAssignments(List<SplitAssignment> splitAssignments)
+    private synchronized Set<PlanNodeId> updateSplitAssignments(List<SplitAssignment> splitAssignments)
     {
-        Map<PlanNodeId, SplitAssignment> updatedUnpartitionedSplitAssignments = new HashMap<>();
+        ImmutableSet.Builder<PlanNodeId> updatedUnpartitionedSources = ImmutableSet.builder();
 
         // first remove any split that was already acknowledged
         long currentMaxAcknowledgedSplit = this.maxAcknowledgedSplit;
@@ -274,7 +252,10 @@ public class SqlTaskExecution
                 schedulePartitionedSource(assignment);
             }
             else {
-                scheduleUnpartitionedSource(assignment, updatedUnpartitionedSplitAssignments);
+                // tell existing drivers about the new splits
+                DriverSplitRunnerFactory factory = driverRunnerFactoriesWithRemoteSource.get(assignment.getPlanNodeId());
+                factory.enqueueSplits(assignment.getSplits(), assignment.isNoMoreSplits());
+                updatedUnpartitionedSources.add(assignment.getPlanNodeId());
             }
         }
 
@@ -284,7 +265,7 @@ public class SqlTaskExecution
                 .mapToLong(ScheduledSplit::getSequenceId)
                 .max()
                 .orElse(maxAcknowledgedSplit);
-        return updatedUnpartitionedSplitAssignments;
+        return updatedUnpartitionedSources.build();
     }
 
     @GuardedBy("this")
@@ -332,25 +313,6 @@ public class SqlTaskExecution
             pendingSplits.markAsCleanedUp();
 
             schedulingPlanNodeOrdinal++;
-        }
-    }
-
-    private synchronized void scheduleUnpartitionedSource(SplitAssignment splitAssignmentUpdate, Map<PlanNodeId, SplitAssignment> updatedUnpartitionedSources)
-    {
-        // create new source
-        SplitAssignment newSplitAssignment;
-        SplitAssignment currentSplitAssignment = unpartitionedSplitAssignments.get(splitAssignmentUpdate.getPlanNodeId());
-        if (currentSplitAssignment == null) {
-            newSplitAssignment = splitAssignmentUpdate;
-        }
-        else {
-            newSplitAssignment = currentSplitAssignment.update(splitAssignmentUpdate);
-        }
-
-        // only record new source if something changed
-        if (newSplitAssignment != currentSplitAssignment) {
-            unpartitionedSplitAssignments.put(splitAssignmentUpdate.getPlanNodeId(), newSplitAssignment);
-            updatedUnpartitionedSources.put(splitAssignmentUpdate.getPlanNodeId(), newSplitAssignment);
         }
     }
 
@@ -436,14 +398,14 @@ public class SqlTaskExecution
     public synchronized Set<PlanNodeId> getNoMoreSplits()
     {
         ImmutableSet.Builder<PlanNodeId> noMoreSplits = ImmutableSet.builder();
-        for (Entry<PlanNodeId, DriverSplitRunnerFactory> entry : driverRunnerFactoriesWithSplitLifeCycle.entrySet()) {
+        for (Map.Entry<PlanNodeId, DriverSplitRunnerFactory> entry : driverRunnerFactoriesWithSplitLifeCycle.entrySet()) {
             if (entry.getValue().isNoMoreDriverRunner()) {
                 noMoreSplits.add(entry.getKey());
             }
         }
-        for (SplitAssignment splitAssignment : unpartitionedSplitAssignments.values()) {
-            if (splitAssignment.isNoMoreSplits()) {
-                noMoreSplits.add(splitAssignment.getPlanNodeId());
+        for (Map.Entry<PlanNodeId, DriverSplitRunnerFactory> entry : driverRunnerFactoriesWithRemoteSource.entrySet()) {
+            if (entry.getValue().isNoMoreSplits()) {
+                noMoreSplits.add(entry.getKey());
             }
         }
         return noMoreSplits.build();
@@ -499,7 +461,6 @@ public class SqlTaskExecution
         return toStringHelper(this)
                 .add("taskId", taskId)
                 .add("remainingDrivers", remainingDrivers.get())
-                .add("unpartitionedSplitAssignments", unpartitionedSplitAssignments)
                 .toString();
     }
 
@@ -579,6 +540,11 @@ public class SqlTaskExecution
         // true if no more DriverSplitRunners will be created
         private final AtomicBoolean noMoreDriverRunner = new AtomicBoolean();
 
+        private final List<WeakReference<Driver>> driverReferences = new CopyOnWriteArrayList<>();
+        private final Queue<ScheduledSplit> queuedSplits = new ConcurrentLinkedQueue<>();
+        private final AtomicLong inFlightSplits = new AtomicLong();
+        private final AtomicBoolean noMoreSplits = new AtomicBoolean();
+
         private DriverSplitRunnerFactory(DriverFactory driverFactory, boolean partitioned)
         {
             this.driverFactory = driverFactory;
@@ -602,28 +568,75 @@ public class SqlTaskExecution
         {
             Driver driver = driverFactory.createDriver(driverContext);
 
-            // record driver so other threads add unpartitioned sources can see the driver
-            // NOTE: this MUST be done before reading unpartitionedSources, so we see a consistent view of the unpartitioned sources
-            drivers.add(new WeakReference<>(driver));
-
             if (partitionedSplit != null) {
                 // TableScanOperator requires partitioned split to be added before the first call to process
                 driver.updateSplitAssignment(new SplitAssignment(partitionedSplit.getPlanNodeId(), ImmutableSet.of(partitionedSplit), true));
             }
 
-            // add unpartitioned sources
-            Optional<PlanNodeId> sourceId = driver.getSourceId();
-            if (sourceId.isPresent()) {
-                SplitAssignment splitAssignment = unpartitionedSplitAssignments.get(sourceId.get());
-                if (splitAssignment != null) {
-                    driver.updateSplitAssignment(splitAssignment);
-                }
-            }
-
             pendingCreations.decrementAndGet();
             closeDriverFactoryIfFullyCreated();
 
+            if (driverFactory.getSourceId().isPresent() && partitionedSplit == null) {
+                driverReferences.add(new WeakReference<>(driver));
+                scheduleSplits();
+            }
+
             return driver;
+        }
+
+        public void enqueueSplits(Set<ScheduledSplit> splits, boolean noMoreSplits)
+        {
+            verify(driverFactory.getSourceId().isPresent(), "not a source driver");
+            verify(!this.noMoreSplits.get() || splits.isEmpty(), "cannot add splits after noMoreSplits is set");
+            queuedSplits.addAll(splits);
+            verify(!this.noMoreSplits.get() || noMoreSplits, "cannot unset noMoreSplits");
+            if (noMoreSplits) {
+                this.noMoreSplits.set(true);
+            }
+        }
+
+        public void scheduleSplits()
+        {
+            if (driverReferences.isEmpty()) {
+                return;
+            }
+
+            PlanNodeId sourceId = driverFactory.getSourceId().orElseThrow();
+            while (!queuedSplits.isEmpty()) {
+                int activeDriversCount = 0;
+                for (WeakReference<Driver> driverReference : driverReferences) {
+                    Driver driver = driverReference.get();
+                    if (driver == null) {
+                        continue;
+                    }
+                    activeDriversCount++;
+                    inFlightSplits.incrementAndGet();
+                    ScheduledSplit split = queuedSplits.poll();
+                    if (split == null) {
+                        inFlightSplits.decrementAndGet();
+                        break;
+                    }
+                    driver.updateSplitAssignment(new SplitAssignment(sourceId, ImmutableSet.of(split), false));
+                    inFlightSplits.decrementAndGet();
+                }
+                if (activeDriversCount == 0) {
+                    break;
+                }
+            }
+
+            if (noMoreSplits.get() && queuedSplits.isEmpty() && inFlightSplits.get() == 0) {
+                for (WeakReference<Driver> driverReference : driverReferences) {
+                    Driver driver = driverReference.get();
+                    if (driver != null) {
+                        driver.updateSplitAssignment(new SplitAssignment(sourceId, ImmutableSet.of(), true));
+                    }
+                }
+            }
+        }
+
+        public boolean isNoMoreSplits()
+        {
+            return noMoreSplits.get();
         }
 
         public void noMoreDriverRunner()
