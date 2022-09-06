@@ -76,7 +76,12 @@ public abstract class BaseElasticsearchConnectorTest
         HostAndPort address = elasticsearch.getAddress();
         client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
 
-        return createElasticsearchQueryRunner(elasticsearch.getAddress(), TpchTable.getTables(), ImmutableMap.of(), ImmutableMap.of(), 3);
+        return createElasticsearchQueryRunner(
+                elasticsearch.getAddress(),
+                TpchTable.getTables(),
+                ImmutableMap.of(),
+                ImmutableMap.of("elasticsearch.legacy-pass-through-query.enabled", "true"),
+                3);
     }
 
     @Override
