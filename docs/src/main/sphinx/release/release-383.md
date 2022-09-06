@@ -1,4 +1,4 @@
-# Release 383 (1 June 2022)
+# Release 383 (1 Jun 2022)
 
 ```{warning}
 This release has a regression that may cause queries to fail.
