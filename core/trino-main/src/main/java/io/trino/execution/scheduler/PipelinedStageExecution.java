@@ -30,6 +30,7 @@ import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
+import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.failuredetector.FailureDetector;
@@ -485,7 +486,9 @@ public class PipelinedStageExecution
     @Override
     public boolean isAnyTaskBlocked()
     {
-        return getTaskStatuses().stream().anyMatch(TaskStatus::isOutputBufferOverutilized);
+        return getTaskStatuses().stream()
+                .map(TaskStatus::getOutputBufferStatus)
+                .anyMatch(OutputBufferStatus::isOverutilized);
     }
 
     @Override

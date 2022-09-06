@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.TaskStatus;
+import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.metadata.InternalNode;
 
 import java.util.Collection;
@@ -94,7 +95,8 @@ public class ScaledWriterScheduler
 
         double fullTasks = sourceTasksProvider.get().stream()
                 .filter(task -> !task.getState().isDone())
-                .map(TaskStatus::isOutputBufferOverutilized)
+                .map(TaskStatus::getOutputBufferStatus)
+                .map(OutputBufferStatus::isOverutilized)
                 .mapToDouble(full -> full ? 1.0 : 0.0)
                 .average().orElse(0.0);
 

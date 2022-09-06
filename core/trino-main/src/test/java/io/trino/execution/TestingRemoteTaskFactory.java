@@ -28,6 +28,7 @@ import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.BufferState;
 import io.trino.execution.buffer.OutputBufferInfo;
+import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
@@ -174,7 +175,7 @@ public class TestingRemoteTaskFactory
                     failures,
                     0,
                     0,
-                    false,
+                    OutputBufferStatus.initial(),
                     DataSize.of(0, BYTE),
                     DataSize.of(0, BYTE),
                     DataSize.of(0, BYTE),

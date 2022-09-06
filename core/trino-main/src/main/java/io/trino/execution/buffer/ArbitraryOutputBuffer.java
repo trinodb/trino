@@ -64,7 +64,7 @@ public class ArbitraryOutputBuffer
     private final PagesReleasedListener onPagesReleased;
 
     @GuardedBy("this")
-    private OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(ARBITRARY);
+    private volatile OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(ARBITRARY);
 
     private final MasterBuffer masterBuffer;
 
@@ -112,9 +112,12 @@ public class ArbitraryOutputBuffer
     }
 
     @Override
-    public boolean isOverutilized()
+    public OutputBufferStatus getStatus()
     {
-        return (memoryManager.getUtilization() >= 0.5) || !stateMachine.getState().canAddPages();
+        // do not grab lock to acquire outputBuffers to avoid delaying TaskStatus response
+        return OutputBufferStatus.builder(outputBuffers.getVersion())
+                .setOverutilized(memoryManager.getUtilization() >= 0.5 || !stateMachine.getState().canAddPages())
+                .build();
     }
 
     @Override
