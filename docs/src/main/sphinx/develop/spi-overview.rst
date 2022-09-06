@@ -118,3 +118,12 @@ configuration variable ``plugin.dir``. In order for Trino to pick up
 the new plugin, you must restart Trino.
 
 Plugins must be installed on all nodes in the Trino cluster (coordinator and workers).
+
+Marking as experimental
+-----------------------
+
+If your SPI is experimental or still a work in progress, you can use the
+``@Experimental`` annotation on top of any public class, method, or field to
+signify this. You can view `the annotation's implementation
+<https://github.com/trinodb/trino/blob/master/core/trino-spi/src/main/java/io/trino/spi/Experimental.java>`_
+for more information.
