@@ -57,7 +57,8 @@ public class TestElasticsearchConfig
                 .setTruststorePassword(null)
                 .setVerifyHostnames(true)
                 .setIgnorePublishAddress(false)
-                .setSecurity(null));
+                .setSecurity(null)
+                .setLegacyPassThroughQueryEnabled(false));
     }
 
     @Test
@@ -89,6 +90,7 @@ public class TestElasticsearchConfig
                 .put("elasticsearch.tls.verify-hostnames", "false")
                 .put("elasticsearch.ignore-publish-address", "true")
                 .put("elasticsearch.security", "AWS")
+                .put("elasticsearch.legacy-pass-through-query.enabled", "true")
                 .buildOrThrow();
 
         ElasticsearchConfig expected = new ElasticsearchConfig()
@@ -112,7 +114,8 @@ public class TestElasticsearchConfig
                 .setTruststorePassword("truststore-password")
                 .setVerifyHostnames(false)
                 .setIgnorePublishAddress(true)
-                .setSecurity(AWS);
+                .setSecurity(AWS)
+                .setLegacyPassThroughQueryEnabled(true);
 
         assertFullMapping(properties, expected);
     }
