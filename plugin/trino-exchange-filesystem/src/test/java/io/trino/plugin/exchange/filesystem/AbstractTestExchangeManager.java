@@ -94,7 +94,7 @@ public abstract class AbstractTestExchangeManager
                         0, "0-0-1",
                         1, "0-1-1"),
                 true);
-        exchange.sinkFinished(sinkInstanceHandle);
+        exchange.sinkFinished(sinkHandle0, 0);
         sinkInstanceHandle = exchange.instantiateSink(sinkHandle0, 1);
         writeData(
                 sinkInstanceHandle,
@@ -104,7 +104,7 @@ public abstract class AbstractTestExchangeManager
                         0, "0-0-1",
                         1, "0-1-1"),
                 true);
-        exchange.sinkFinished(sinkInstanceHandle);
+        exchange.sinkFinished(sinkHandle0, 1);
         sinkInstanceHandle = exchange.instantiateSink(sinkHandle0, 2);
         writeData(
                 sinkInstanceHandle,
@@ -112,7 +112,7 @@ public abstract class AbstractTestExchangeManager
                         0, "failed",
                         1, "another failed"),
                 false);
-        exchange.sinkFinished(sinkInstanceHandle);
+        exchange.sinkFinished(sinkHandle0, 2);
 
         sinkInstanceHandle = exchange.instantiateSink(sinkHandle1, 0);
         writeData(
@@ -123,7 +123,7 @@ public abstract class AbstractTestExchangeManager
                         0, "1-0-1",
                         1, "1-1-1"),
                 true);
-        exchange.sinkFinished(sinkInstanceHandle);
+        exchange.sinkFinished(sinkHandle1, 0);
         sinkInstanceHandle = exchange.instantiateSink(sinkHandle1, 1);
         writeData(
                 sinkInstanceHandle,
@@ -133,7 +133,7 @@ public abstract class AbstractTestExchangeManager
                         0, "1-0-1",
                         1, "1-1-1"),
                 true);
-        exchange.sinkFinished(sinkInstanceHandle);
+        exchange.sinkFinished(sinkHandle1, 1);
         sinkInstanceHandle = exchange.instantiateSink(sinkHandle1, 2);
         writeData(
                 sinkInstanceHandle,
@@ -141,7 +141,7 @@ public abstract class AbstractTestExchangeManager
                         0, "more failed",
                         1, "another failed"),
                 false);
-        exchange.sinkFinished(sinkInstanceHandle);
+        exchange.sinkFinished(sinkHandle1, 2);
 
         sinkInstanceHandle = exchange.instantiateSink(sinkHandle2, 2);
         writeData(
@@ -150,7 +150,7 @@ public abstract class AbstractTestExchangeManager
                         0, "2-0-0",
                         1, "2-1-0"),
                 true);
-        exchange.sinkFinished(sinkInstanceHandle);
+        exchange.sinkFinished(sinkHandle2, 2);
 
         ExchangeSourceHandleBatch sourceHandleBatch = exchange.getSourceHandles().getNextBatch().get();
         assertTrue(sourceHandleBatch.lastBatch());
@@ -193,7 +193,7 @@ public abstract class AbstractTestExchangeManager
                         .putAll(2, ImmutableList.of())
                         .build(),
                 true);
-        exchange.sinkFinished(sinkInstanceHandle);
+        exchange.sinkFinished(sinkHandle0, 0);
 
         sinkInstanceHandle = exchange.instantiateSink(sinkHandle1, 0);
         writeData(
@@ -204,7 +204,7 @@ public abstract class AbstractTestExchangeManager
                         .putAll(2, ImmutableList.of(smallPage))
                         .build(),
                 true);
-        exchange.sinkFinished(sinkInstanceHandle);
+        exchange.sinkFinished(sinkHandle1, 0);
 
         sinkInstanceHandle = exchange.instantiateSink(sinkHandle2, 0);
         writeData(
@@ -215,7 +215,7 @@ public abstract class AbstractTestExchangeManager
                         .putAll(2, ImmutableList.of(maxPage, largePage, mediumPage))
                         .build(),
                 true);
-        exchange.sinkFinished(sinkInstanceHandle);
+        exchange.sinkFinished(sinkHandle2, 0);
 
         ExchangeSourceHandleBatch sourceHandleBatch = exchange.getSourceHandles().getNextBatch().get();
         assertTrue(sourceHandleBatch.lastBatch());

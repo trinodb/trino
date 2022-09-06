@@ -63,7 +63,7 @@ public interface Exchange
      * <p>
      * This method is expected to be lightweight. An implementation shouldn't perform any long running blocking operations within this method.
      */
-    void sinkFinished(ExchangeSinkInstanceHandle handle);
+    void sinkFinished(ExchangeSinkHandle sinkHandle, int taskAttemptId);
 
     /**
      * Returns an {@link ExchangeSourceHandleSource} instance to be used to enumerate {@link ExchangeSourceHandle}s.

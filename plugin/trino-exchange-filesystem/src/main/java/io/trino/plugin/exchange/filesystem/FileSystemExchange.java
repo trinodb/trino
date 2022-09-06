@@ -154,11 +154,11 @@ public class FileSystemExchange
     }
 
     @Override
-    public void sinkFinished(ExchangeSinkInstanceHandle handle)
+    public void sinkFinished(ExchangeSinkHandle handle, int taskAttemptId)
     {
         synchronized (this) {
-            FileSystemExchangeSinkInstanceHandle instanceHandle = (FileSystemExchangeSinkInstanceHandle) handle;
-            finishedSinks.add(instanceHandle.getSinkHandle().getPartitionId());
+            FileSystemExchangeSinkHandle sinkHandle = (FileSystemExchangeSinkHandle) handle;
+            finishedSinks.add(sinkHandle.getPartitionId());
         }
         checkInputReady();
     }

@@ -39,7 +39,6 @@ import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeSink;
 import io.trino.spi.exchange.ExchangeSinkHandle;
-import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSource;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -481,7 +480,7 @@ public class DeduplicatingDirectExchangeBuffer
         @GuardedBy("this")
         private Exchange exchange;
         @GuardedBy("this")
-        private ExchangeSinkInstanceHandle sinkInstanceHandle;
+        private ExchangeSinkHandle sinkHandle;
         @GuardedBy("this")
         private ExchangeSink exchangeSink;
         @GuardedBy("this")
@@ -535,16 +534,15 @@ public class DeduplicatingDirectExchangeBuffer
             if (exchangeSink == null) {
                 verify(exchangeManager == null, "exchangeManager is not expected to be initialized");
                 verify(exchange == null, "exchange is not expected to be initialized");
-                verify(sinkInstanceHandle == null, "sinkInstanceHandle is not expected to be initialized");
+                verify(sinkHandle == null, "sinkHandle is not expected to be initialized");
                 verify(writeBuffer == null, "writeBuffer is not expected to be initialized");
 
                 exchangeManager = exchangeManagerRegistry.getExchangeManager();
                 exchange = exchangeManager.createExchange(new ExchangeContext(queryId, exchangeId), 1, true);
 
-                ExchangeSinkHandle sinkHandle = exchange.addSink(0);
-                sinkInstanceHandle = exchange.instantiateSink(sinkHandle, 0);
+                sinkHandle = exchange.addSink(0);
                 exchange.noMoreSinks();
-                exchangeSink = exchangeManager.createSink(sinkInstanceHandle);
+                exchangeSink = exchangeManager.createSink(exchange.instantiateSink(sinkHandle, 0));
 
                 writeBuffer = new DynamicSliceOutput(DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
             }
@@ -629,7 +627,7 @@ public class DeduplicatingDirectExchangeBuffer
 
             verify(exchangeManager != null, "exchangeManager is expected to be initialized");
             verify(exchange != null, "exchange is expected to be initialized");
-            verify(sinkInstanceHandle != null, "sinkInstanceHandle is expected to be initialized");
+            verify(sinkHandle != null, "sinkHandle is expected to be initialized");
 
             // no more data will be added, the buffer can be safely discarded
             writeBuffer = null;
@@ -637,10 +635,10 @@ public class DeduplicatingDirectExchangeBuffer
             // Finish ExchangeSink and create ExchangeSource asynchronously to avoid blocking an ExchangeClient thread for potentially substantial amount of time
             ListenableFuture<ExchangeSource> exchangeSourceFuture = FluentFuture.from(toListenableFuture(exchangeSink.finish()))
                     .transformAsync(ignored -> {
-                        exchange.sinkFinished(sinkInstanceHandle);
+                        exchange.sinkFinished(sinkHandle, 0);
                         synchronized (this) {
                             exchangeSink = null;
-                            sinkInstanceHandle = null;
+                            sinkHandle = null;
                         }
                         return getAllSourceHandles(exchange.getSourceHandles());
                     }, executor)

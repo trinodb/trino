@@ -408,7 +408,7 @@ public class FaultTolerantStageScheduler
             taskFinishedFuture = SettableFuture.create();
         }
 
-        task.addStateChangeListener(taskStatus -> updateTaskStatus(taskStatus, exchangeSinkInstanceHandle));
+        task.addStateChangeListener(taskStatus -> updateTaskStatus(taskStatus, sinkHandle));
         task.addFinalTaskInfoListener(taskExecutionStats::update);
         task.start();
     }
@@ -544,7 +544,7 @@ public class FaultTolerantStageScheduler
         return result.build();
     }
 
-    private void updateTaskStatus(TaskStatus taskStatus, ExchangeSinkInstanceHandle exchangeSinkInstanceHandle)
+    private void updateTaskStatus(TaskStatus taskStatus, ExchangeSinkHandle exchangeSinkHandle)
     {
         TaskState state = taskStatus.getState();
         if (!state.isDone()) {
@@ -578,7 +578,7 @@ public class FaultTolerantStageScheduler
                     switch (state) {
                         case FINISHED:
                             finishedPartitions.add(partitionId);
-                            sinkExchange.sinkFinished(exchangeSinkInstanceHandle);
+                            sinkExchange.sinkFinished(exchangeSinkHandle, taskId.getAttemptId());
                             partitionToRemoteTaskMap.get(partitionId).forEach(RemoteTask::abort);
                             partitionMemoryEstimator.registerPartitionFinished(session, memoryLimits, taskStatus.getPeakMemoryReservation(), true, Optional.empty());
 
