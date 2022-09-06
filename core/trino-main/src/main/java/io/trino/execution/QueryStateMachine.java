@@ -711,9 +711,9 @@ public class QueryStateMachine
                 operatorStatsSummary.build());
     }
 
-    public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
+    public void setOutputInfoListener(Consumer<QueryOutputInfo> listener)
     {
-        outputManager.addOutputInfoListener(listener);
+        outputManager.setOutputInfoListener(listener);
     }
 
     public void addOutputTaskFailureListener(TaskFailureListener listener)
@@ -1287,7 +1287,7 @@ public class QueryStateMachine
         private final Executor executor;
 
         @GuardedBy("this")
-        private final List<Consumer<QueryOutputInfo>> outputInfoListeners = new ArrayList<>();
+        private Optional<Consumer<QueryOutputInfo>> listener = Optional.empty();
 
         @GuardedBy("this")
         private List<String> columnNames;
@@ -1308,16 +1308,17 @@ public class QueryStateMachine
             this.executor = requireNonNull(executor, "executor is null");
         }
 
-        public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
+        public void setOutputInfoListener(Consumer<QueryOutputInfo> listener)
         {
             requireNonNull(listener, "listener is null");
 
             Optional<QueryOutputInfo> queryOutputInfo;
             synchronized (this) {
-                outputInfoListeners.add(listener);
+                checkState(this.listener.isEmpty(), "listener is already set");
+                this.listener = Optional.of(listener);
                 queryOutputInfo = getQueryOutputInfo();
             }
-            queryOutputInfo.ifPresent(info -> executor.execute(() -> listener.accept(info)));
+            fireStateChangedIfReady(queryOutputInfo, Optional.of(listener));
         }
 
         public void setColumns(List<String> columnNames, List<Type> columnTypes)
@@ -1327,16 +1328,16 @@ public class QueryStateMachine
             checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes must be the same size");
 
             Optional<QueryOutputInfo> queryOutputInfo;
-            List<Consumer<QueryOutputInfo>> outputInfoListeners;
+            Optional<Consumer<QueryOutputInfo>> listener;
             synchronized (this) {
                 checkState(this.columnNames == null && this.columnTypes == null, "output fields already set");
                 this.columnNames = ImmutableList.copyOf(columnNames);
                 this.columnTypes = ImmutableList.copyOf(columnTypes);
 
                 queryOutputInfo = getQueryOutputInfo();
-                outputInfoListeners = ImmutableList.copyOf(this.outputInfoListeners);
+                listener = this.listener;
             }
-            queryOutputInfo.ifPresent(info -> fireStateChanged(info, outputInfoListeners));
+            fireStateChangedIfReady(queryOutputInfo, listener);
         }
 
         public void updateInputsForQueryResults(List<ExchangeInput> newInputs, boolean noMoreInputs)
@@ -1344,16 +1345,16 @@ public class QueryStateMachine
             requireNonNull(newInputs, "newInputs is null");
 
             Optional<QueryOutputInfo> queryOutputInfo;
-            List<Consumer<QueryOutputInfo>> outputInfoListeners;
+            Optional<Consumer<QueryOutputInfo>> listener;
             synchronized (this) {
                 // noMoreInputs can be set more than once
                 checkState(newInputs.isEmpty() || !this.noMoreInputs, "new inputs added after no more inputs set");
                 inputs.addAll(newInputs);
                 this.noMoreInputs = noMoreInputs;
                 queryOutputInfo = getQueryOutputInfo();
-                outputInfoListeners = ImmutableList.copyOf(this.outputInfoListeners);
+                listener = this.listener;
             }
-            queryOutputInfo.ifPresent(info -> fireStateChanged(info, outputInfoListeners));
+            fireStateChangedIfReady(queryOutputInfo, listener);
         }
 
         public void addOutputTaskFailureListener(TaskFailureListener listener)
@@ -1390,11 +1391,12 @@ public class QueryStateMachine
             return Optional.of(new QueryOutputInfo(columnNames, columnTypes, inputs, noMoreInputs));
         }
 
-        private void fireStateChanged(QueryOutputInfo queryOutputInfo, List<Consumer<QueryOutputInfo>> outputInfoListeners)
+        private void fireStateChangedIfReady(Optional<QueryOutputInfo> info, Optional<Consumer<QueryOutputInfo>> listener)
         {
-            for (Consumer<QueryOutputInfo> outputInfoListener : outputInfoListeners) {
-                executor.execute(() -> outputInfoListener.accept(queryOutputInfo));
+            if (info.isEmpty() || listener.isEmpty()) {
+                return;
             }
+            executor.execute(() -> listener.get().accept(info.get()));
         }
     }
 }

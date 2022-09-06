@@ -187,7 +187,7 @@ class Query
 
         Query result = new Query(session, slug, queryManager, queryInfoUrl, exchangeDataSource, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
 
-        result.queryManager.addOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
+        result.queryManager.setOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
 
         result.queryManager.addStateChangeListener(result.getQueryId(), state -> {
             // Wait for the query info to become available and close the exchange client if there is no output stage for the query results to be pulled from.
