@@ -64,8 +64,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -284,6 +286,7 @@ public class QueryStateMachine
             QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState);
             if (newState.isDone()) {
                 queryStateMachine.getSession().getTransactionId().ifPresent(transactionManager::trySetInactive);
+                queryStateMachine.getOutputManager().setQueryCompleted();
             }
         });
 
@@ -1282,6 +1285,11 @@ public class QueryStateMachine
                 ImmutableList.of()); // Remove the operator summaries as OperatorInfo (especially DirectExchangeClientStatus) can hold onto a large amount of memory
     }
 
+    private QueryOutputManager getOutputManager()
+    {
+        return outputManager;
+    }
+
     public static class QueryOutputManager
     {
         private final Executor executor;
@@ -1294,9 +1302,11 @@ public class QueryStateMachine
         @GuardedBy("this")
         private List<Type> columnTypes;
         @GuardedBy("this")
-        private final List<ExchangeInput> inputs = new ArrayList<>();
-        @GuardedBy("this")
         private boolean noMoreInputs;
+        @GuardedBy("this")
+        private boolean queryCompleted;
+
+        private final Queue<ExchangeInput> inputsQueue = new ConcurrentLinkedQueue<>();
 
         @GuardedBy("this")
         private final Map<TaskId, Throwable> outputTaskFailures = new HashMap<>();
@@ -1347,14 +1357,26 @@ public class QueryStateMachine
             Optional<QueryOutputInfo> queryOutputInfo;
             Optional<Consumer<QueryOutputInfo>> listener;
             synchronized (this) {
-                // noMoreInputs can be set more than once
-                checkState(newInputs.isEmpty() || !this.noMoreInputs, "new inputs added after no more inputs set");
-                inputs.addAll(newInputs);
-                this.noMoreInputs = noMoreInputs;
+                if (!queryCompleted) {
+                    // noMoreInputs can be set more than once
+                    checkState(newInputs.isEmpty() || !this.noMoreInputs, "new inputs added after no more inputs set");
+                    inputsQueue.addAll(newInputs);
+                    this.noMoreInputs = noMoreInputs;
+                }
                 queryOutputInfo = getQueryOutputInfo();
                 listener = this.listener;
             }
             fireStateChangedIfReady(queryOutputInfo, listener);
+        }
+
+        public synchronized void setQueryCompleted()
+        {
+            if (queryCompleted) {
+                return;
+            }
+            queryCompleted = true;
+            inputsQueue.clear();
+            noMoreInputs = true;
         }
 
         public void addOutputTaskFailureListener(TaskFailureListener listener)
@@ -1388,7 +1410,7 @@ public class QueryStateMachine
             if (columnNames == null || columnTypes == null) {
                 return Optional.empty();
             }
-            return Optional.of(new QueryOutputInfo(columnNames, columnTypes, inputs, noMoreInputs));
+            return Optional.of(new QueryOutputInfo(columnNames, columnTypes, inputsQueue, noMoreInputs));
         }
 
         private void fireStateChangedIfReady(Optional<QueryOutputInfo> info, Optional<Consumer<QueryOutputInfo>> listener)
