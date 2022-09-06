@@ -16,6 +16,7 @@ package io.trino.plugin.exchange.filesystem;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.spi.exchange.ExchangeSource;
+import org.weakref.jmx.internal.guava.io.Closer;
 
 import javax.annotation.Nullable;
 
@@ -144,6 +145,13 @@ public class FileSystemExchangeSource
             closed = true;
         }
 
-        readers.forEach(ExchangeStorageReader::close);
+        Closer closer = Closer.create();
+        readers.forEach(closer::register);
+        try {
+            closer.close();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }
