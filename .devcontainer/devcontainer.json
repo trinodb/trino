@@ -39,6 +39,7 @@
 	"settings": {
 		"terminal.integrated.cwd": "${containerWorkspaceFolder}/trino",
 		"terminal.integrated.defaultProfile.linux": "bash",
+		"java.progressReports.enabled": false,
 		"java.home": "/docker-java-home"
 	},
 	// Add the IDs of extensions you want installed when the container is created.
