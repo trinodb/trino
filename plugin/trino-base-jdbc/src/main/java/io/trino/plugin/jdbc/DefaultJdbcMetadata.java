@@ -766,7 +766,10 @@ public class DefaultJdbcMetadata
         // The column is used for row-level delete, which is not supported, but it's required during analysis anyway.
         return new JdbcColumnHandle(
                 "$update_row_id",
-                new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
+                JdbcTypeHandle.builder()
+                        .setJdbcType(Types.BIGINT)
+                        .setJdbcTypeName("bigint")
+                        .build(),
                 BIGINT);
     }
 

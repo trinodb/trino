@@ -237,13 +237,14 @@ public abstract class BaseJdbcClient
             }
             for (int column = 1; column <= metadata.getColumnCount(); column++) {
                 String name = metadata.getColumnName(column);
-                JdbcTypeHandle jdbcTypeHandle = new JdbcTypeHandle(
-                        metadata.getColumnType(column),
-                        Optional.ofNullable(metadata.getColumnTypeName(column)),
-                        Optional.of(metadata.getPrecision(column)),
-                        Optional.of(metadata.getScale(column)),
-                        Optional.empty(), // TODO support arrays
-                        Optional.of(metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE));
+                JdbcTypeHandle jdbcTypeHandle = JdbcTypeHandle.builder()
+                        .setJdbcType(metadata.getColumnType(column))
+                        .setJdbcTypeName(Optional.ofNullable(metadata.getColumnTypeName(column)))
+                        .setColumnSize(metadata.getPrecision(column))
+                        .setDecimalDigits(metadata.getScale(column))
+                        // .setArrayDimensions(...) // TODO support arrays
+                        .setCaseSensitivity(metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE)
+                        .build();
                 Type type = toColumnMapping(session, connection, jdbcTypeHandle)
                         .orElseThrow(() -> new UnsupportedOperationException(format("Unsupported type: %s of column: %s", jdbcTypeHandle, name)))
                         .getType();
@@ -287,13 +288,12 @@ public abstract class BaseJdbcClient
                 }
                 allColumns++;
                 String columnName = resultSet.getString("COLUMN_NAME");
-                JdbcTypeHandle typeHandle = new JdbcTypeHandle(
-                        getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
-                        Optional.ofNullable(resultSet.getString("TYPE_NAME")),
-                        getInteger(resultSet, "COLUMN_SIZE"),
-                        getInteger(resultSet, "DECIMAL_DIGITS"),
-                        Optional.empty(),
-                        Optional.empty());
+                JdbcTypeHandle typeHandle = JdbcTypeHandle.builder()
+                        .setJdbcType(getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")))
+                        .setJdbcTypeName(Optional.ofNullable(resultSet.getString("TYPE_NAME")))
+                        .setColumnSize(getInteger(resultSet, "COLUMN_SIZE"))
+                        .setDecimalDigits(getInteger(resultSet, "DECIMAL_DIGITS"))
+                        .build();
                 Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
                 log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
                 boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);

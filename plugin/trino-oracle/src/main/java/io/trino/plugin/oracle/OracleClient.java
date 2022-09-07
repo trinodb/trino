@@ -219,7 +219,9 @@ public class OracleClient
                 .addStandardRules(this::quoted)
                 .build();
 
-        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(TRINO_BIGINT_TYPE, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+        JdbcTypeHandle bigintTypeHandle = JdbcTypeHandle.builder()
+                .setJdbcType(TRINO_BIGINT_TYPE)
+                .build();
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 connectorExpressionRewriter,
                 ImmutableSet.<AggregateFunctionRule<JdbcExpression, String>>builder()
@@ -457,7 +459,12 @@ public class OracleClient
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
-        return Optional.of(new JdbcTypeHandle(OracleTypes.NUMBER, Optional.of("NUMBER"), decimalType.getPrecision(), decimalType.getScale(), Optional.empty()));
+        return Optional.of(JdbcTypeHandle.builder()
+                .setJdbcType(OracleTypes.NUMBER)
+                .setJdbcTypeName("NUMBER")
+                .setColumnSize(decimalType.getPrecision())
+                .setDecimalDigits(decimalType.getScale())
+                .build());
     }
 
     @Override

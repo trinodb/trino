@@ -209,7 +209,10 @@ public class ClickHouseClient
         super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
-        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+        JdbcTypeHandle bigintTypeHandle = JdbcTypeHandle.builder()
+                .setJdbcType(Types.BIGINT)
+                .setJdbcTypeName("bigint")
+                .build();
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
                 .build();
@@ -241,7 +244,12 @@ public class ClickHouseClient
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
-        return Optional.of(new JdbcTypeHandle(Types.DECIMAL, Optional.of("Decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
+        return Optional.of(JdbcTypeHandle.builder()
+                .setJdbcType(Types.DECIMAL)
+                .setJdbcTypeName("Decimal")
+                .setColumnSize(decimalType.getPrecision())
+                .setDecimalDigits(decimalType.getScale())
+                .build());
     }
 
     @Override

@@ -160,7 +160,10 @@ public class MariaDbClient
     {
         super(config, "`", connectionFactory, queryBuilder, identifierMapping);
 
-        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+        JdbcTypeHandle bigintTypeHandle = JdbcTypeHandle.builder()
+                .setJdbcType(Types.BIGINT)
+                .setJdbcTypeName("bigint")
+                .build();
         ConnectorExpressionRewriter<String> connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
                 .build();
@@ -197,7 +200,12 @@ public class MariaDbClient
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
-        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
+        return Optional.of(JdbcTypeHandle.builder()
+                .setJdbcType(Types.NUMERIC)
+                .setJdbcTypeName("decimal")
+                .setColumnSize(decimalType.getPrecision())
+                .setDecimalDigits(decimalType.getScale())
+                .build());
     }
 
     @Override

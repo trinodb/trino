@@ -80,7 +80,9 @@ class TestingH2JdbcClient
 {
     private static final Logger log = Logger.get(TestingH2JdbcClient.class);
 
-    private static final JdbcTypeHandle BIGINT_TYPE_HANDLE = new JdbcTypeHandle(Types.BIGINT, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+    private static final JdbcTypeHandle BIGINT_TYPE_HANDLE = JdbcTypeHandle.builder()
+            .setJdbcType(Types.BIGINT)
+            .build();
 
     public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {

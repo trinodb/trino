@@ -317,7 +317,10 @@ public class PostgreSqlClient
                 .map("$nullif(first, second)").to("NULLIF(first, second)")
                 .build();
 
-        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+        JdbcTypeHandle bigintTypeHandle = JdbcTypeHandle.builder()
+                .setJdbcType(Types.BIGINT)
+                .setJdbcTypeName("bigint")
+                .build();
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this.connectorExpressionRewriter,
                 ImmutableSet.<AggregateFunctionRule<JdbcExpression, String>>builder()
@@ -416,13 +419,13 @@ public class PostgreSqlClient
                 while (resultSet.next()) {
                     allColumns++;
                     String columnName = resultSet.getString("COLUMN_NAME");
-                    JdbcTypeHandle typeHandle = new JdbcTypeHandle(
-                            getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
-                            Optional.of(resultSet.getString("TYPE_NAME")),
-                            getInteger(resultSet, "COLUMN_SIZE"),
-                            getInteger(resultSet, "DECIMAL_DIGITS"),
-                            Optional.ofNullable(arrayColumnDimensions.get(columnName)),
-                            Optional.empty());
+                    JdbcTypeHandle typeHandle = JdbcTypeHandle.builder()
+                            .setJdbcType(getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")))
+                            .setJdbcTypeName(resultSet.getString("TYPE_NAME"))
+                            .setColumnSize(getInteger(resultSet, "COLUMN_SIZE"))
+                            .setDecimalDigits(getInteger(resultSet, "DECIMAL_DIGITS"))
+                            .setArrayDimensions(Optional.ofNullable(arrayColumnDimensions.get(columnName)))
+                            .build();
                     Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
                     log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
                     // skip unsupported column types
@@ -762,7 +765,12 @@ public class PostgreSqlClient
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
-        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
+        return Optional.of(JdbcTypeHandle.builder()
+                .setJdbcType(Types.NUMERIC)
+                .setJdbcTypeName("decimal")
+                .setColumnSize(decimalType.getPrecision())
+                .setDecimalDigits(decimalType.getScale())
+                .build());
     }
 
     @Override
@@ -1352,6 +1360,7 @@ public class PostgreSqlClient
             TypeInfo typeInfo = connection.unwrap(PgConnection.class).getTypeInfo();
             int pgElementOid = typeInfo.getPGArrayElement(typeInfo.getPGType(jdbcTypeName));
             verify(arrayTypeHandle.getCaseSensitivity().isEmpty(), "Case sensitivity not supported");
+            // Not using JdbcTypeHandle.builder() to ensure the code gets updated appropriately when new JdbcTypeHandle attributes added
             return new JdbcTypeHandle(
                     typeInfo.getSQLType(pgElementOid),
                     Optional.of(typeInfo.getPGType(pgElementOid)),

@@ -802,6 +802,7 @@ public class PhoenixClient
         checkArgument(arrayTypeName.endsWith(" ARRAY"), "array type must end with ' ARRAY'");
         arrayTypeName = arrayTypeName.substring(0, arrayTypeName.length() - " ARRAY".length());
         verify(arrayTypeHandle.getCaseSensitivity().isEmpty(), "Case sensitivity not supported");
+        // Not using JdbcTypeHandle.builder() to ensure the code gets updated appropriately when new JdbcTypeHandle attributes added
         return new JdbcTypeHandle(
                 PDataType.fromSqlTypeName(arrayTypeName).getSqlType(),
                 Optional.of(arrayTypeName),

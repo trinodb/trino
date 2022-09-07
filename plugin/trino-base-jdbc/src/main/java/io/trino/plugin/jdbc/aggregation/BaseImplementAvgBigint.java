@@ -70,7 +70,10 @@ public abstract class BaseImplementAvgBigint
 
         return Optional.of(new JdbcExpression(
                 format(getRewriteFormatExpression(), context.rewriteExpression(argument).orElseThrow()),
-                new JdbcTypeHandle(Types.DOUBLE, Optional.of("double"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty())));
+                JdbcTypeHandle.builder()
+                        .setJdbcType(Types.DOUBLE)
+                        .setJdbcTypeName("double")
+                        .build()));
     }
 
     // TODO String.format is not great for contract of an extensible API. Replace with formatting method.

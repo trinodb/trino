@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
@@ -167,5 +168,100 @@ public final class JdbcTypeHandle
                 + sizeOf(decimalDigits, SizeOf::sizeOf)
                 + sizeOf(arrayDimensions, SizeOf::sizeOf)
                 + sizeOf(caseSensitivity, ignored -> 0);
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static class Builder
+    {
+        private Integer jdbcType;
+        private Optional<String> jdbcTypeName;
+        private Optional<Integer> columnSize;
+        private Optional<Integer> decimalDigits;
+        private Optional<Integer> arrayDimensions;
+        private Optional<CaseSensitivity> caseSensitivity;
+
+        private Builder() {}
+
+        public Builder setJdbcType(Integer jdbcType)
+        {
+            this.jdbcType = jdbcType;
+            return this;
+        }
+
+        public Builder setJdbcTypeName(String jdbcTypeName)
+        {
+            this.jdbcTypeName = Optional.of(jdbcTypeName);
+            return this;
+        }
+
+        public Builder setJdbcTypeName(Optional<String> jdbcTypeName)
+        {
+            this.jdbcTypeName = requireNonNull(jdbcTypeName, "jdbcTypeName is null");
+            return this;
+        }
+
+        public Builder setColumnSize(int columnSize)
+        {
+            this.columnSize = Optional.of(columnSize);
+            return this;
+        }
+
+        public Builder setColumnSize(Optional<Integer> columnSize)
+        {
+            this.columnSize = requireNonNull(columnSize, "columnSize is null");
+            return this;
+        }
+
+        public Builder setDecimalDigits(int decimalDigits)
+        {
+            this.decimalDigits = Optional.of(decimalDigits);
+            return this;
+        }
+
+        public Builder setDecimalDigits(Optional<Integer> decimalDigits)
+        {
+            this.decimalDigits = requireNonNull(decimalDigits, "decimalDigits is null");
+            return this;
+        }
+
+        public Builder setArrayDimensions(int arrayDimensions)
+        {
+            this.arrayDimensions = Optional.of(arrayDimensions);
+            return this;
+        }
+
+        public Builder setArrayDimensions(Optional<Integer> arrayDimensions)
+        {
+            this.arrayDimensions = requireNonNull(arrayDimensions, "arrayDimensions is null");
+            return this;
+        }
+
+        public Builder setCaseSensitivity(CaseSensitivity caseSensitivity)
+        {
+            this.caseSensitivity = Optional.of(caseSensitivity);
+            return this;
+        }
+
+        public Builder setCaseSensitivity(Optional<CaseSensitivity> caseSensitivity)
+        {
+            this.caseSensitivity = requireNonNull(caseSensitivity, "caseSensitivity is null");
+            return this;
+        }
+
+        public JdbcTypeHandle build()
+        {
+            checkState(jdbcType != null, "jdbcType not set");
+            return new JdbcTypeHandle(
+                    jdbcType,
+                    jdbcTypeName,
+                    columnSize,
+                    decimalDigits,
+                    arrayDimensions,
+                    caseSensitivity);
+        }
     }
 }

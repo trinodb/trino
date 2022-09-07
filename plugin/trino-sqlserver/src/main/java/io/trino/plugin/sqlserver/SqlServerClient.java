@@ -188,7 +188,10 @@ public class SqlServerClient
     // SqlServer supports 2100 parameters in prepared statement, let's create a space for about 4 big IN predicates
     public static final int SQL_SERVER_MAX_LIST_EXPRESSIONS = 500;
 
-    public static final JdbcTypeHandle BIGINT_TYPE = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+    public static final JdbcTypeHandle BIGINT_TYPE = JdbcTypeHandle.builder()
+            .setJdbcType(Types.BIGINT)
+            .setJdbcTypeName("bigint")
+            .build();
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
 
@@ -805,7 +808,12 @@ public class SqlServerClient
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
-        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
+        return Optional.of(JdbcTypeHandle.builder()
+                .setJdbcType(Types.NUMERIC)
+                .setJdbcTypeName("decimal")
+                .setColumnSize(decimalType.getPrecision())
+                .setDecimalDigits(decimalType.getScale())
+                .build());
     }
 
     @Override
