@@ -545,12 +545,12 @@ public class UnwrapCastInComparison
                 .plus(longTimestampWithTimeZone.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND, ChronoUnit.NANOS);
     }
 
-    private static Expression falseIfNotNull(Expression argument)
+    public static Expression falseIfNotNull(Expression argument)
     {
         return and(new IsNullPredicate(argument), new NullLiteral());
     }
 
-    private static Expression trueIfNotNull(Expression argument)
+    public static Expression trueIfNotNull(Expression argument)
     {
         return or(new IsNotNullPredicate(argument), new NullLiteral());
     }
