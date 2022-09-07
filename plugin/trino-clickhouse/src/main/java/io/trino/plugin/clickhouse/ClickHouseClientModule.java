@@ -14,6 +14,7 @@
 package io.trino.plugin.clickhouse;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -25,10 +26,13 @@ import io.trino.plugin.jdbc.DecimalModule;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 
 import java.sql.Driver;
 
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.trino.plugin.clickhouse.ClickHouseClient.CLICK_HOUSE_MAX_LIST_EXPRESSIONS;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 
@@ -42,6 +46,7 @@ public class ClickHouseClientModule
         bindSessionPropertiesProvider(binder, ClickHouseSessionProperties.class);
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(ClickHouseClient.class).in(Scopes.SINGLETON);
         bindTablePropertiesProvider(binder, ClickHouseTableProperties.class);
+        newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(CLICK_HOUSE_MAX_LIST_EXPRESSIONS);
         binder.install(new DecimalModule());
     }
 
