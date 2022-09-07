@@ -131,7 +131,7 @@ public class ServerIT
                     .withCommand("sh", "-xeuc", command)
                     .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))
                     .start();
-            QueryRunner queryRunner = new QueryRunner(container.getContainerIpAddress(), container.getMappedPort(8080));
+            QueryRunner queryRunner = new QueryRunner(container.getHost(), container.getMappedPort(8080));
             assertEquals(queryRunner.execute("SHOW CATALOGS"), ImmutableSet.of(asList("system"), asList("hive"), asList("jmx")));
             assertEquals(queryRunner.execute("SELECT node_id FROM system.runtime.nodes"), ImmutableSet.of(asList("test-node-id-injected-via-env")));
             // TODO remove usage of assertEventually once https://github.com/trinodb/trino/issues/2214 is fixed

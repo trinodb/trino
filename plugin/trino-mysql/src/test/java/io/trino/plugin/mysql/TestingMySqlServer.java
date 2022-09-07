@@ -104,7 +104,7 @@ public class TestingMySqlServer
 
     public String getJdbcUrl()
     {
-        return format("jdbc:mysql://%s:%s?useSSL=false&allowPublicKeyRetrieval=true", container.getContainerIpAddress(), container.getMappedPort(MYSQL_PORT));
+        return format("jdbc:mysql://%s:%s?useSSL=false&allowPublicKeyRetrieval=true", container.getHost(), container.getMappedPort(MYSQL_PORT));
     }
 
     @Override

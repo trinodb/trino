@@ -73,7 +73,7 @@ public final class SelectedPortWaitStrategy
                         // We say "timed out" immediately. Failsafe will propagate this only when timeout reached.
                         throw new ContainerLaunchException(format(
                                 "Timed out waiting for container port to open (%s ports: %s should be listening)",
-                                waitStrategyTarget.getContainerIpAddress(),
+                                waitStrategyTarget.getHost(),
                                 exposedPorts));
                     }
                 });

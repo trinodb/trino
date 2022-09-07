@@ -152,22 +152,22 @@ public class TestingPinotCluster
 
     public String getControllerConnectString()
     {
-        return controller.getContainerIpAddress() + ":" + controller.getMappedPort(CONTROLLER_PORT);
+        return controller.getHost() + ":" + controller.getMappedPort(CONTROLLER_PORT);
     }
 
     public HostAndPort getBrokerHostAndPort()
     {
-        return HostAndPort.fromParts(broker.getContainerIpAddress(), broker.getMappedPort(BROKER_PORT));
+        return HostAndPort.fromParts(broker.getHost(), broker.getMappedPort(BROKER_PORT));
     }
 
     public HostAndPort getServerHostAndPort()
     {
-        return HostAndPort.fromParts(server.getContainerIpAddress(), server.getMappedPort(SERVER_PORT));
+        return HostAndPort.fromParts(server.getHost(), server.getMappedPort(SERVER_PORT));
     }
 
     public HostAndPort getServerGrpcHostAndPort()
     {
-        return HostAndPort.fromParts(server.getContainerIpAddress(), server.getMappedPort(GRPC_PORT));
+        return HostAndPort.fromParts(server.getHost(), server.getMappedPort(GRPC_PORT));
     }
 
     public void createSchema(InputStream tableSchemaSpec, String tableName)
