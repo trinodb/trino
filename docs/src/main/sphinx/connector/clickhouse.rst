@@ -92,6 +92,9 @@ configured connector to create a catalog named ``sales``.
 
 .. include:: jdbc-common-configurations.fragment
 
+.. |default_domain_compaction_threshold| replace:: ``1000``
+.. include:: jdbc-domain-compaction-threshold.fragment
+
 .. include:: jdbc-procedures.fragment
 
 .. include:: jdbc-case-insensitive-matching.fragment

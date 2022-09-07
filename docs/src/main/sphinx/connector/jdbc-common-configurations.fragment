@@ -51,10 +51,3 @@ connector:
       Using a large timeout can potentially result in more detailed dynamic filters.
       However, it can also increase latency for some queries.
     - ``20s``
-  * - ``domain-compaction-threshold``
-    - Minimum size of query predicates above which Trino compacts the predicates.
-      Pushing down a large list of predicates to the data source can compromise
-      performance. For optimization in that situation, Trino can compact the large
-      predicates into a simpler range predicate. If necessary, adjust the threshold
-      to ensure a balance between performance and predicate pushdown.
-    - ``32``
