@@ -205,6 +205,9 @@ public class PhoenixClient
     private static final String DATE_FORMAT = "y-MM-dd G";
     private static final DateTimeFormatter LOCAL_DATE_FORMATTER = DateTimeFormatter.ofPattern(DATE_FORMAT);
 
+    // Phoenix threshold for simplifying big IN predicates is 50k https://issues.apache.org/jira/browse/PHOENIX-6751
+    public static final int PHOENIX_MAX_LIST_EXPRESSIONS = 5_000;
+
     private final Configuration configuration;
 
     @Inject
