@@ -52,7 +52,7 @@ public class TestingClickHouseServer
 
     public TestingClickHouseServer(DockerImageName image)
     {
-        dockerContainer = (ClickHouseContainer) createContainer(image)
+        dockerContainer = createContainer(image)
                 .withCopyFileToContainer(forClasspathResource("custom.xml"), "/etc/clickhouse-server/config.d/custom.xml")
                 .withStartupAttempts(10);
 
