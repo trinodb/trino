@@ -697,10 +697,10 @@ class QueryPlanner
             for (ColumnHandle dataColumnHandle : mergeAnalysis.getDataColumnHandles()) {
                 int index = mergeCaseSetColumns.indexOf(dataColumnHandle);
                 if (index >= 0) {
-                    Expression original = mergeCase.getSetExpressions().get(index);
-                    Expression setExpression = coerceIfNecessary(analysis, original, original);
+                    Expression setExpression = mergeCase.getSetExpressions().get(index);
                     subPlan = subqueryPlanner.handleSubqueries(subPlan, setExpression, analysis.getSubqueries(merge));
                     Expression rewritten = subPlan.rewrite(setExpression);
+                    rewritten = coerceIfNecessary(analysis, setExpression, rewritten);
                     if (nonNullableColumnHandles.contains(dataColumnHandle)) {
                         int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(dataColumnHandle), "Could not find fieldIndex for non nullable column");
                         ColumnSchema columnSchema = dataColumnSchemas.get(fieldIndex);
