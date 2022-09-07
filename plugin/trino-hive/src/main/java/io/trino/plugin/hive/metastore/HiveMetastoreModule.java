@@ -26,6 +26,7 @@ import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreModule;
 import java.util.Optional;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class HiveMetastoreModule
         extends AbstractConfigurationAwareModule
@@ -42,9 +43,8 @@ public class HiveMetastoreModule
     {
         if (metastore.isPresent()) {
             binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).toInstance(HiveMetastoreFactory.ofInstance(metastore.get()));
-            MetastoreTypeConfig metastoreTypeConfig = new MetastoreTypeConfig();
-            metastoreTypeConfig.setMetastoreType("provided");
-            binder.bind(MetastoreTypeConfig.class).toInstance(metastoreTypeConfig);
+            configBinder(binder).bindConfigDefaults(MetastoreTypeConfig.class, config -> config.setMetastoreType("provided"));
+            configBinder(binder).bindConfig(MetastoreTypeConfig.class);
         }
         else {
             bindMetastoreModule("thrift", new ThriftMetastoreModule());

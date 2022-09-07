@@ -65,6 +65,7 @@ import static java.nio.file.Files.createDirectories;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public final class HiveQueryRunner
@@ -138,6 +139,9 @@ public final class HiveQueryRunner
 
         public SELF setHiveProperties(Map<String, String> hiveProperties)
         {
+            assertThat(hiveProperties)
+                    .withFailMessage("Setting hive.metastore is not allowed in HiveQueryRunner")
+                    .doesNotContainKey("hive.metastore");
             this.hiveProperties = ImmutableMap.<String, String>builder()
                     .putAll(requireNonNull(hiveProperties, "hiveProperties is null"));
             return self();
