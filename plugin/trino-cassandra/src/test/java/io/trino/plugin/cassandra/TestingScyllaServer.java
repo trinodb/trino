@@ -72,7 +72,7 @@ public class TestingScyllaServer
 
         CqlSessionBuilder cqlSessionBuilder = CqlSession.builder()
                 .withApplicationName("TestCluster")
-                .addContactPoint(new InetSocketAddress(this.container.getContainerIpAddress(), this.container.getMappedPort(PORT)))
+                .addContactPoint(new InetSocketAddress(this.container.getHost(), this.container.getMappedPort(PORT)))
                 .withLocalDatacenter("datacenter1")
                 .withConfigLoader(config.build());
 
@@ -90,7 +90,7 @@ public class TestingScyllaServer
 
     public String getHost()
     {
-        return container.getContainerIpAddress();
+        return container.getHost();
     }
 
     public int getPort()

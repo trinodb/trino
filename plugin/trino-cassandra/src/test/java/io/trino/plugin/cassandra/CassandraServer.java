@@ -99,7 +99,7 @@ public class CassandraServer
 
         CqlSessionBuilder cqlSessionBuilder = CqlSession.builder()
                 .withApplicationName("TestCluster")
-                .addContactPoint(new InetSocketAddress(this.dockerContainer.getContainerIpAddress(), this.dockerContainer.getMappedPort(PORT)))
+                .addContactPoint(new InetSocketAddress(this.dockerContainer.getHost(), this.dockerContainer.getMappedPort(PORT)))
                 .withLocalDatacenter("datacenter1")
                 .withConfigLoader(driverConfigLoaderBuilder.build());
 
@@ -146,7 +146,7 @@ public class CassandraServer
 
     public String getHost()
     {
-        return dockerContainer.getContainerIpAddress();
+        return dockerContainer.getHost();
     }
 
     public int getPort()

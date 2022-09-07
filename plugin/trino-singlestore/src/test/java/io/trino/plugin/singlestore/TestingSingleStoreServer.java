@@ -89,7 +89,7 @@ public class TestingSingleStoreServer
     @Override
     public String getJdbcUrl()
     {
-        return "jdbc:singlestore://" + getContainerIpAddress() + ":" + getMappedPort(SINGLESTORE_PORT);
+        return "jdbc:singlestore://" + getHost() + ":" + getMappedPort(SINGLESTORE_PORT);
     }
 
     @Override
