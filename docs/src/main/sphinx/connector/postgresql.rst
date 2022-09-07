@@ -459,6 +459,9 @@ The connector supports pushdown for a number of operations:
 Predicate pushdown support
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Predicates are pushed down for most types, including ``UUID`` and temporal
+types, such as ``DATE``.
+
 The connector does not support pushdown of range predicates, such as ``>``,
 ``<``, or ``BETWEEN``, on columns with :ref:`character string types
 <string-data-types>` like ``CHAR`` or ``VARCHAR``.  Equality predicates, such as
