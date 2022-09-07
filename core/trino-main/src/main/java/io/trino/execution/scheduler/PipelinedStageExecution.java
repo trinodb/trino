@@ -54,7 +54,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -115,12 +118,16 @@ public class PipelinedStageExecution
     private final Map<Integer, RemoteTask> tasks = new ConcurrentHashMap<>();
 
     // current stage task tracking
-    @GuardedBy("this")
+    private final ReentrantReadWriteLock allTasksLock = new ReentrantReadWriteLock();
+    @GuardedBy("allTasksLock")
     private final Set<TaskId> allTasks = new HashSet<>();
-    @GuardedBy("this")
-    private final Set<TaskId> finishedTasks = new HashSet<>();
-    @GuardedBy("this")
-    private final Set<TaskId> flushingTasks = new HashSet<>();
+
+    private final AtomicLong allTasksCounter = new AtomicLong();
+    private final AtomicLong finishedTasksCounter = new AtomicLong();
+    private final AtomicLong runningTasksCounter = new AtomicLong();
+    private final AtomicBoolean wasFlushingTask = new AtomicBoolean();
+    private final Set<TaskId> finishedTasks = ConcurrentHashMap.newKeySet();
+    private final Set<TaskId> runningTasks = ConcurrentHashMap.newKeySet();
 
     // source task tracking
     @GuardedBy("this")
@@ -224,11 +231,17 @@ public class PipelinedStageExecution
             return;
         }
 
-        if (isFlushing()) {
-            stateMachine.transitionToFlushing();
+        try {
+            allTasksLock.readLock().lock();
+            if (isFlushing()) {
+                stateMachine.transitionToFlushing();
+            }
+            if (isFinished()) {
+                stateMachine.transitionToFinished();
+            }
         }
-        if (finishedTasks.containsAll(allTasks)) {
-            stateMachine.transitionToFinished();
+        finally {
+            allTasksLock.readLock().unlock();
         }
 
         for (PlanNodeId partitionedSource : stage.getFragment().getPartitionedSources()) {
@@ -236,11 +249,15 @@ public class PipelinedStageExecution
         }
     }
 
-    private synchronized boolean isFlushing()
+    private boolean isFlushing()
     {
         // to transition to flushing, there must be at least one flushing task, and all others must be flushing or finished.
-        return !flushingTasks.isEmpty()
-                && allTasks.stream().allMatch(taskId -> finishedTasks.contains(taskId) || flushingTasks.contains(taskId));
+        return runningTasksCounter.get() == -1;
+    }
+
+    private boolean isFinished()
+    {
+        return finishedTasksCounter.get() == allTasksCounter.get();
     }
 
     @Override
@@ -286,69 +303,81 @@ public class PipelinedStageExecution
             int partition,
             Multimap<PlanNodeId, Split> initialSplits)
     {
-        if (stateMachine.getState().isDone()) {
-            return Optional.empty();
-        }
+        try {
+            allTasksLock.writeLock().lock();
 
-        checkArgument(!tasks.containsKey(partition), "A task for partition %s already exists", partition);
-
-        OutputBuffers outputBuffers = outputBufferManagers.get(stage.getFragment().getId()).getOutputBuffers();
-
-        Optional<RemoteTask> optionalTask = stage.createTask(
-                node,
-                partition,
-                attempt,
-                bucketToPartition,
-                outputBuffers,
-                initialSplits,
-                ImmutableSet.of(),
-                Optional.empty());
-
-        if (optionalTask.isEmpty()) {
-            return Optional.empty();
-        }
-
-        RemoteTask task = optionalTask.get();
-
-        tasks.put(partition, task);
-
-        ImmutableMultimap.Builder<PlanNodeId, Split> exchangeSplits = ImmutableMultimap.builder();
-        sourceTasks.forEach((fragmentId, sourceTask) -> {
-            TaskStatus status = sourceTask.getTaskStatus();
-            if (status.getState() != TaskState.FINISHED) {
-                PlanNodeId planNodeId = exchangeSources.get(fragmentId).getId();
-                exchangeSplits.put(planNodeId, createExchangeSplit(sourceTask, task));
+            if (stateMachine.getState().isDone()) {
+                return Optional.empty();
             }
-        });
 
-        allTasks.add(task.getTaskId());
+            checkArgument(!tasks.containsKey(partition), "A task for partition %s already exists", partition);
 
-        task.addSplits(exchangeSplits.build());
-        completeSources.forEach(task::noMoreSplits);
+            OutputBuffers outputBuffers = outputBufferManagers.get(stage.getFragment().getId()).getOutputBuffers();
 
-        task.addStateChangeListener(this::updateTaskStatus);
+            Optional<RemoteTask> optionalTask = stage.createTask(
+                    node,
+                    partition,
+                    attempt,
+                    bucketToPartition,
+                    outputBuffers,
+                    initialSplits,
+                    ImmutableSet.of(),
+                    Optional.empty());
 
-        task.start();
+            if (optionalTask.isEmpty()) {
+                return Optional.empty();
+            }
 
-        taskLifecycleListener.taskCreated(stage.getFragment().getId(), task);
+            RemoteTask task = optionalTask.get();
+            checkArgument(task.getTaskStatus().getState() != TaskState.FINISHED && task.getTaskStatus().getState() != TaskState.FLUSHING);
 
-        // update output buffers
-        OutputBufferId outputBufferId = new OutputBufferId(task.getTaskId().getPartitionId());
-        updateSourceTasksOutputBuffers(outputBufferManager -> outputBufferManager.addOutputBuffer(outputBufferId));
+            tasks.put(partition, task);
 
-        return Optional.of(task);
+            ImmutableMultimap.Builder<PlanNodeId, Split> exchangeSplits = ImmutableMultimap.builder();
+            sourceTasks.forEach((fragmentId, sourceTask) -> {
+                TaskStatus status = sourceTask.getTaskStatus();
+                if (status.getState() != TaskState.FINISHED) {
+                    PlanNodeId planNodeId = exchangeSources.get(fragmentId).getId();
+                    exchangeSplits.put(planNodeId, createExchangeSplit(sourceTask, task));
+                }
+            });
+
+            boolean firstTimeAdded = allTasks.add(task.getTaskId());
+            if (firstTimeAdded) {
+                allTasksCounter.incrementAndGet();
+            }
+            firstTimeAdded = runningTasks.add(task.getTaskId());
+            if (firstTimeAdded) {
+                runningTasksCounter.incrementAndGet();
+            }
+
+            task.addSplits(exchangeSplits.build());
+            completeSources.forEach(task::noMoreSplits);
+
+            task.addStateChangeListener(this::updateTaskStatus);
+
+            task.start();
+
+            taskLifecycleListener.taskCreated(stage.getFragment().getId(), task);
+
+            // update output buffers
+            OutputBufferId outputBufferId = new OutputBufferId(task.getTaskId().getPartitionId());
+            updateSourceTasksOutputBuffers(outputBufferManager -> outputBufferManager.addOutputBuffer(outputBufferId));
+
+            return Optional.of(task);
+        }
+        finally {
+            allTasksLock.writeLock().unlock();
+        }
     }
 
-    private synchronized void updateTaskStatus(TaskStatus taskStatus)
+    private synchronized void updateNotSuccessfulTaskStatus(TaskStatus taskStatus)
     {
         State stageState = stateMachine.getState();
         if (stageState.isDone()) {
             return;
         }
-
-        TaskState taskState = taskStatus.getState();
-
-        switch (taskState) {
+        switch (taskStatus.getState()) {
             case FAILED:
                 RuntimeException failure = taskStatus.getFailures().stream()
                         .findFirst()
@@ -365,25 +394,59 @@ public class PipelinedStageExecution
                 // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
                 fail(new TrinoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
                 break;
-            case FLUSHING:
-                flushingTasks.add(taskStatus.getTaskId());
-                break;
-            case FINISHED:
-                finishedTasks.add(taskStatus.getTaskId());
-                flushingTasks.remove(taskStatus.getTaskId());
-                break;
             default:
+                break;
+        }
+    }
+
+    private void updateTaskStatus(TaskStatus taskStatus)
+    {
+        State stageState = stateMachine.getState();
+        TaskState taskState = taskStatus.getState();
+        if (stageState.isDone()) {
+            return;
+        }
+
+        if (taskState == TaskState.FAILED || taskState == TaskState.CANCELED || taskState == TaskState.ABORTED) {
+            updateNotSuccessfulTaskStatus(taskStatus);
+            return;
+        }
+
+        if (taskState == TaskState.FLUSHING) {
+            boolean wasInSet = runningTasks.remove(taskStatus.getTaskId());
+            if (wasInSet) {
+                if (!wasFlushingTask.compareAndExchange(false, true)) {
+                    runningTasksCounter.decrementAndGet();
+                }
+                runningTasksCounter.decrementAndGet();
+            }
+        }
+        else if (taskState == TaskState.FINISHED) {
+            boolean addedNow = finishedTasks.add(taskStatus.getTaskId());
+            if (addedNow) {
+                finishedTasksCounter.incrementAndGet();
+            }
+            boolean wasInSet = runningTasks.remove(taskStatus.getTaskId());
+            if (wasInSet) {
+                runningTasksCounter.decrementAndGet();
+            }
         }
 
         if (stageState == SCHEDULED || stageState == RUNNING || stageState == FLUSHING) {
             if (taskState == TaskState.RUNNING) {
                 stateMachine.transitionToRunning();
             }
-            if (isFlushing()) {
-                stateMachine.transitionToFlushing();
+            try {
+                allTasksLock.readLock().lock();
+                if (isFlushing()) {
+                    stateMachine.transitionToFlushing();
+                }
+                if (isFinished()) {
+                    stateMachine.transitionToFinished();
+                }
             }
-            if (finishedTasks.containsAll(allTasks)) {
-                stateMachine.transitionToFinished();
+            finally {
+                allTasksLock.readLock().unlock();
             }
         }
     }
