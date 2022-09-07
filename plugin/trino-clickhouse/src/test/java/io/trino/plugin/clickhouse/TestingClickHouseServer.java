@@ -93,7 +93,7 @@ public class TestingClickHouseServer
 
     public String getJdbcUrl()
     {
-        return format("jdbc:clickhouse://%s:%s/", dockerContainer.getContainerIpAddress(),
+        return format("jdbc:clickhouse://%s:%s/", dockerContainer.getHost(),
                 dockerContainer.getMappedPort(HTTP_PORT));
     }
 
