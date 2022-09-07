@@ -57,7 +57,7 @@ import static org.testng.Assert.assertEquals;
 public class CassandraServer
         implements Closeable
 {
-    private static Logger log = Logger.get(CassandraServer.class);
+    private static final Logger log = Logger.get(CassandraServer.class);
 
     private static final int PORT = 9142;
 
