@@ -62,6 +62,7 @@ import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.Creat
 import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.CreateMode.CREATE_TABLE_AS_SELECT;
 import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.CreateMode.CREATE_TABLE_WITH_NO_DATA_AND_INSERT;
 import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.StorageFormat.AVRO;
+import static io.trino.tests.product.iceberg.util.IcebergTestUtils.getTableLocation;
 import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -2104,6 +2105,40 @@ public class TestIcebergSparkCompatibility
                 ImmutableMap.of("old_partition_key", "null", "new_partition_key", "null", "value_day", "2022-08-16", "value_month", "null"),
                 ImmutableMap.of("old_partition_key", "5", "new_partition_key", "null", "value_day", "null", "value_month", "null"),
                 ImmutableMap.of("old_partition_key", "3", "new_partition_key", "null", "value_day", "null", "value_month", "null")));
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testMetadataCompressionCodecGzip()
+    {
+        // Verify that Trino can read and write to a table created by Spark
+        String baseTableName = "test_metadata_compression_codec_gzip" + randomTableSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(col int) USING iceberg TBLPROPERTIES ('write.metadata.compression-codec'='gzip')");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1)");
+        onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (2)");
+
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(1), row(2));
+
+        // Verify that all metadata file is compressed as Gzip
+        String tableLocation = getTableLocation(trinoTableName);
+        List<String> metadataFiles = hdfsClient.listDirectory(tableLocation + "/metadata").stream()
+                .filter(file -> file.endsWith("metadata.json"))
+                .collect(toImmutableList());
+        Assertions.assertThat(metadataFiles)
+                .isNotEmpty()
+                .filteredOn(file -> file.endsWith("gz.metadata.json"))
+                .isEqualTo(metadataFiles);
+
+        // Change 'write.metadata.compression-codec' to none and insert and select the table in Trino
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " SET TBLPROPERTIES ('write.metadata.compression-codec'='none')");
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(1), row(2));
+
+        onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (3)");
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(1), row(2), row(3));
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
     private void validatePartitioning(String baseTableName, String sparkTableName, List<Map<String, String>> expectedValues)
