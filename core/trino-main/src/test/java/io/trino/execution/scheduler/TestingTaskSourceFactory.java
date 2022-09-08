@@ -43,6 +43,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.trino.execution.scheduler.StageTaskSourceFactory.createRemoteSplits;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static java.util.Objects.requireNonNull;
 
@@ -164,10 +165,12 @@ public class TestingTaskSourceFactory
                     break;
                 }
                 Split split = splits.next();
+                ImmutableListMultimap.Builder<PlanNodeId, Split> splits = ImmutableListMultimap.builder();
+                splits.put(tableScanPlanNodeId, split);
+                splits.putAll(createRemoteSplits(exchangeSourceHandles));
                 TaskDescriptor task = new TaskDescriptor(
                         nextPartitionId.getAndIncrement(),
-                        ImmutableListMultimap.of(tableScanPlanNodeId, split),
-                        exchangeSourceHandles,
+                        splits.build(),
                         new NodeRequirements(catalogRequirement, ImmutableSet.copyOf(split.getAddresses()), DataSize.of(4, GIGABYTE)));
                 result.add(task);
             }

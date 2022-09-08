@@ -18,7 +18,6 @@ import com.google.common.base.Ticker;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
@@ -29,7 +28,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.SqlStage;
@@ -41,7 +39,6 @@ import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.scheduler.PartitionMemoryEstimator.MemoryRequirements;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.InternalNode;
-import io.trino.metadata.Split;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
@@ -49,7 +46,6 @@ import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeSinkHandle;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
-import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
@@ -88,7 +84,6 @@ import static io.trino.execution.buffer.OutputBuffers.createSpoolingExchangeOutp
 import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
 import static io.trino.execution.scheduler.Exchanges.getAllSourceHandles;
 import static io.trino.failuredetector.FailureDetector.State.GONE;
-import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.ErrorType.INTERNAL_ERROR;
 import static io.trino.spi.ErrorType.USER_ERROR;
@@ -363,14 +358,6 @@ public class FaultTolerantStageScheduler
 
         InternalNode node = getFutureValue(nodeLease.getNode());
 
-        Multimap<PlanNodeId, Split> tableScanSplits = taskDescriptor.getSplits();
-        Multimap<PlanNodeId, Split> remoteSplits = createRemoteSplits(taskDescriptor.getExchangeSourceHandles());
-
-        Multimap<PlanNodeId, Split> taskSplits = ImmutableListMultimap.<PlanNodeId, Split>builder()
-                .putAll(tableScanSplits)
-                .putAll(remoteSplits)
-                .build();
-
         int attemptId = getNextAttemptIdForPartition(partition);
 
         ExchangeSinkHandle sinkHandle = partitionToExchangeSinkHandleMap.get(partition);
@@ -391,7 +378,7 @@ public class FaultTolerantStageScheduler
                 attemptId,
                 sinkPartitioningScheme.getBucketToPartitionMap(),
                 outputBuffers,
-                taskSplits,
+                taskDescriptor.getSplits(),
                 allSourcePlanNodeIds,
                 Optional.of(memoryRequirements.getRequiredMemory())).orElseThrow(() -> new VerifyException("stage execution is expected to be active"));
 
@@ -529,15 +516,6 @@ public class FaultTolerantStageScheduler
                 .max()
                 .orElse(-1);
         return latestAttemptId + 1;
-    }
-
-    private static Multimap<PlanNodeId, Split> createRemoteSplits(Multimap<PlanNodeId, ExchangeSourceHandle> exchangeSourceHandles)
-    {
-        ImmutableListMultimap.Builder<PlanNodeId, Split> result = ImmutableListMultimap.builder();
-        for (PlanNodeId planNodeId : exchangeSourceHandles.keySet()) {
-            result.put(planNodeId, new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.copyOf(exchangeSourceHandles.get(planNodeId))))));
-        }
-        return result.build();
     }
 
     private void updateTaskStatus(TaskStatus taskStatus, ExchangeSinkHandle exchangeSinkHandle)
