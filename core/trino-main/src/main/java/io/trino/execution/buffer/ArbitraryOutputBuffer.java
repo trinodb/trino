@@ -140,9 +140,7 @@ public class ArbitraryOutputBuffer
         for (ClientBuffer buffer : buffers) {
             BufferInfo bufferInfo = buffer.getInfo();
             infos.add(bufferInfo);
-
-            PageBufferInfo pageBufferInfo = bufferInfo.getPageBufferInfo();
-            totalBufferedPages += pageBufferInfo.getBufferedPages();
+            totalBufferedPages += bufferInfo.getBufferedPages();
         }
 
         return new OutputBufferInfo(

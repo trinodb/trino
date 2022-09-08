@@ -151,15 +151,13 @@ public final class BufferTestUtils
                 getBufferInfo(buffer, bufferId),
                 new BufferInfo(
                         bufferId,
-                        false,
+                        // every page has one row
+                        bufferedPages + pagesSent,
+                        bufferedPages + pagesSent,
                         bufferedPages,
+                        sizeOfPages(bufferedPages).toBytes(),
                         pagesSent,
-                        new PageBufferInfo(
-                                bufferId.getId(),
-                                bufferedPages,
-                                sizeOfPages(bufferedPages).toBytes(),
-                                bufferedPages + pagesSent, // every page has one row
-                                bufferedPages + pagesSent)));
+                        false));
     }
 
     static void assertQueueState(
@@ -187,15 +185,13 @@ public final class BufferTestUtils
                 bufferInfo,
                 new BufferInfo(
                         bufferId,
-                        false,
+                        // every page has one row
+                        bufferedPages + pagesSent,
+                        bufferedPages + pagesSent,
                         bufferedPages,
+                        sizeOfPages(bufferedPages).toBytes(),
                         pagesSent,
-                        new PageBufferInfo(
-                                bufferId.getId(),
-                                bufferedPages,
-                                sizeOfPages(bufferedPages).toBytes(),
-                                bufferedPages + pagesSent, // every page has one row
-                                bufferedPages + pagesSent)));
+                        false));
     }
 
     @SuppressWarnings("ConstantConditions")

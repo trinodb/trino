@@ -48,7 +48,6 @@ import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.BufferInfo;
 import io.trino.execution.buffer.OutputBuffers;
-import io.trino.execution.buffer.PageBufferInfo;
 import io.trino.metadata.Split;
 import io.trino.operator.TaskStats;
 import io.trino.server.DynamicFilterService;
@@ -251,7 +250,7 @@ public final class HttpRemoteTask
 
             List<BufferInfo> bufferStates = outputBuffers.getBuffers()
                     .keySet().stream()
-                    .map(outputId -> new BufferInfo(outputId, false, 0, 0, PageBufferInfo.empty()))
+                    .map(outputId -> new BufferInfo(outputId, 0, 0, 0, 0, 0, false))
                     .collect(toImmutableList());
 
             TaskInfo initialTask = createInitialTask(taskId, location, nodeId, bufferStates, new TaskStats(DateTime.now(), null));
