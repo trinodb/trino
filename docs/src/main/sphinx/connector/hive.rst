@@ -626,11 +626,11 @@ Property Name                                           Description
 ``hive.metastore.glue.pin-client-to-current-region``    Pin Glue requests to the same region as the EC2 instance
                                                         where Trino is running, defaults to ``false``.
 
-``hive.metastore.glue.max-connections``                 Max number of concurrent connections to Glue,
-                                                        defaults to ``30``.
+``hive.metastore.glue.max-connections``                 Max number of concurrent connections to Glue.
+                                                        Defaults to ``30``.
 
-``hive.metastore.glue.max-error-retries``               Maximum number of error retries for the Glue client,
-                                                        defaults to ``10``.
+``hive.metastore.glue.max-error-retries``               Maximum number of error retries for the Glue client.
+                                                        Defaults to ``10``.
 
 ``hive.metastore.glue.default-warehouse-dir``           Default warehouse directory for schemas created without an
                                                         explicit ``location`` property.
@@ -658,17 +658,17 @@ Property Name                                           Description
 ``hive.metastore.glue.external-id``                     External ID for the IAM role trust policy when connecting
                                                         to the Glue Catalog.
 
-``hive.metastore.glue.partitions-segments``             Number of segments for partitioned Glue tables, defaults
-                                                        to ``5``.
+``hive.metastore.glue.partitions-segments``             Number of segments for partitioned Glue tables.
+                                                        Defaults to ``5``.
 
-``hive.metastore.glue.get-partition-threads``           Number of threads for parallel partition fetches from Glue,
-                                                        defaults to ``20``.
+``hive.metastore.glue.get-partition-threads``           Number of threads for parallel partition fetches from Glue.
+                                                        Defaults to ``20``.
 
-``hive.metastore.glue.read-statistics-threads``         Number of threads for parallel statistic fetches from Glue,
-                                                        defaults to ``5``.
+``hive.metastore.glue.read-statistics-threads``         Number of threads for parallel statistic fetches from Glue.
+                                                        Defaults to ``5``.
 
-``hive.metastore.glue.write-statistics-threads``        Number of threads for parallel statistic writes to Glue,
-                                                        defaults to ``5``.
+``hive.metastore.glue.write-statistics-threads``        Number of threads for parallel statistic writes to Glue.
+                                                        Defaults to ``5``.
 ======================================================= ============================================================
 
 .. _hive-google-cloud-storage-configuration:
