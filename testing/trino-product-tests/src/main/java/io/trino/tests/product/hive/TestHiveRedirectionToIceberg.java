@@ -225,6 +225,33 @@ public class TestHiveRedirectionToIceberg
     }
 
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testMerge()
+    {
+        String sourceTableName = "iceberg_merge_source_" + randomTableSuffix();
+        String targetTableName = "iceberg_merge_target_" + randomTableSuffix();
+        String hiveSourceTableName = "hive.default." + sourceTableName;
+        String hiveTargetTableName = "hive.default." + targetTableName;
+        String icebergSourceTableName = "iceberg.default." + sourceTableName;
+        String icebergTargetTableName = "iceberg.default." + targetTableName;
+
+        createIcebergTable(icebergSourceTableName, true, true);
+        createIcebergTable(icebergTargetTableName, true, false);
+
+        assertThat(onTrino().executeQuery("" +
+                "MERGE INTO " + hiveTargetTableName + " t USING " + hiveSourceTableName + " s ON t.nationkey = s.nationkey " +
+                "WHEN NOT MATCHED " +
+                "    THEN INSERT (nationkey, name, regionkey, comment) " +
+                "            VALUES (s.nationkey, s.name, s.regionkey, s.comment)"))
+                .updatedRowsCountIsEqualTo(25);
+        assertResultsEqual(
+                onTrino().executeQuery("TABLE " + icebergSourceTableName),
+                onTrino().executeQuery("TABLE " + icebergTargetTableName));
+
+        onTrino().executeQuery("DROP TABLE " + icebergSourceTableName);
+        onTrino().executeQuery("DROP TABLE " + icebergTargetTableName);
+    }
+
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testDropTable()
     {
         String tableName = "hive_drop_iceberg_" + randomTableSuffix();

@@ -2798,15 +2798,17 @@ class StatementAnalyzer
         {
             Relation relation = merge.getTarget();
             Table table = getMergeTargetTable(relation);
-            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
-            if (metadata.isMaterializedView(session, tableName)) {
+            QualifiedObjectName originalTableName = createQualifiedObjectName(session, table, table.getName());
+            if (metadata.isMaterializedView(session, originalTableName)) {
                 throw semanticException(NOT_SUPPORTED, merge, "Merging into materialized views is not supported");
             }
-            if (metadata.isView(session, tableName)) {
+            if (metadata.isView(session, originalTableName)) {
                 throw semanticException(NOT_SUPPORTED, merge, "Merging into views is not supported");
             }
 
-            TableHandle targetTableHandle = metadata.getTableHandle(session, tableName)
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalTableName);
+            QualifiedObjectName tableName = redirection.getRedirectedTableName().orElse(originalTableName);
+            TableHandle targetTableHandle = redirection.getTableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
 
             StatementAnalyzer analyzer = statementAnalyzerFactory
