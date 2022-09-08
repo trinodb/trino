@@ -748,6 +748,9 @@ class StatementAnalyzer
         {
             Table table = node.getTable();
             QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName());
+            if (metadata.isMaterializedView(session, originalName)) {
+                throw semanticException(NOT_SUPPORTED, node, "Deleting from materialized views is not supported");
+            }
             if (metadata.isView(session, originalName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
             }
@@ -2690,6 +2693,9 @@ class StatementAnalyzer
         {
             Table table = update.getTable();
             QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName());
+            if (metadata.isMaterializedView(session, originalName)) {
+                throw semanticException(NOT_SUPPORTED, update, "Updating materialized views is not supported");
+            }
             if (metadata.isView(session, originalName)) {
                 throw semanticException(NOT_SUPPORTED, update, "Updating views is not supported");
             }
@@ -2793,6 +2799,9 @@ class StatementAnalyzer
             Relation relation = merge.getTarget();
             Table table = getMergeTargetTable(relation);
             QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
+            if (metadata.isMaterializedView(session, tableName)) {
+                throw semanticException(NOT_SUPPORTED, merge, "Merging into materialized views is not supported");
+            }
             if (metadata.getView(session, tableName).isPresent()) {
                 throw semanticException(NOT_SUPPORTED, merge, "Merging into views is not supported");
             }
