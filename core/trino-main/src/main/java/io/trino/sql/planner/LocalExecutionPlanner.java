@@ -3404,7 +3404,7 @@ public class LocalExecutionPlanner
 
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(node.getSource().getOutputSymbols(), source.getLayout());
+            Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(node.getProjectedSymbols(), source.getLayout());
 
             OperatorFactory operatorFactory = new MergeWriterOperatorFactory(context.getNextOperatorId(), node.getId(), pageSinkManager, node.getTarget(), session, pagePreprocessor);
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
