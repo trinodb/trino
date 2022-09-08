@@ -437,6 +437,8 @@ Property Name                                      Description                  
                                                    on auto_purge.
 
 ``hive.partition-projection-enabled``              Enables Athena partition projection support                  ``false``
+
+``hive.single-statement-writes``                   Require auto-commit mode for individual DML statements       ``false``
 ================================================== ============================================================ ============
 
 ORC format configuration properties
