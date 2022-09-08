@@ -1890,6 +1890,10 @@ public abstract class BaseConnectorTest
             assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN q bad_type", ".* Unknown type 'bad_type' for column 'q'");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN a varchar(50)");
+            // Verify table state after adding a column, but before inserting anything to it
+            assertQuery(
+                    "SELECT * FROM " + table.getName(),
+                    "VALUES ('first', NULL)");
             assertUpdate("INSERT INTO " + table.getName() + " SELECT 'second', 'xxx'", 1);
             assertQuery(
                     "SELECT x, a FROM " + table.getName(),
