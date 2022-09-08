@@ -1457,6 +1457,7 @@ public abstract class AbstractTestParquetReader
                 new ArrayType(INTEGER),
                 Optional.of(parquetMrNonNullSpecSchema));
 
+        // this style of schema is also written by the trino optimized parquet writer
         MessageType sparkSchema = parseMessageType("message hive_schema {" +
                 "  optional group my_list (LIST){" +
                 "    repeated group list {" +
@@ -1483,6 +1484,15 @@ public abstract class AbstractTestParquetReader
                 "  }" +
                 "} ");
         tester.testRoundTrip(getStandardListObjectInspector(javaIntObjectInspector), values, values, "my_list", new ArrayType(INTEGER), Optional.of(customNamingSchema));
+
+        MessageType optimizedParquetWriterOldListSchema = parseMessageType("message trino_schema {" +
+                "  optional group my_list (LIST){" +
+                "    repeated group list {" +
+                "        optional int32 array;" +
+                "    }" +
+                "  }" +
+                "} ");
+        tester.testRoundTrip(getStandardListObjectInspector(javaIntObjectInspector), values, values, "my_list", new ArrayType(INTEGER), Optional.of(optimizedParquetWriterOldListSchema));
     }
 
     /**

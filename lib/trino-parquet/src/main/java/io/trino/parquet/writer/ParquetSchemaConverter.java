@@ -184,7 +184,7 @@ public class ParquetSchemaConverter
     {
         Type elementType = type.getElementType();
         return Types.list(repetition)
-                .element(convert(elementType, "array", ImmutableList.<String>builder().addAll(parent).add(name).add("list").build(), OPTIONAL))
+                .element(convert(elementType, "element", ImmutableList.<String>builder().addAll(parent).add(name).add("list").build(), OPTIONAL))
                 .named(name);
     }
 
