@@ -30,7 +30,6 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY;
@@ -202,7 +201,7 @@ public class TestTaskDescriptorStorage
                 ImmutableListMultimap.of(
                         new PlanNodeId("1"),
                         new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.of(new TestingExchangeSourceHandle(retainedSize.toBytes())))))),
-                new NodeRequirements(catalog, ImmutableSet.of(), DataSize.of(4, GIGABYTE)));
+                new NodeRequirements(catalog, ImmutableSet.of()));
     }
 
     private static Optional<String> getCatalogName(TaskDescriptor descriptor)
