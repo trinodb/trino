@@ -89,7 +89,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.starburstdata.presto.license.StarburstFeature.ORACLE_EXTENSIONS;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static io.trino.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static java.lang.Math.min;
@@ -232,16 +231,6 @@ public class StarburstOracleClient
         // Oracle before 12.2 doesn't allow identifiers over 30 characters
         String id = super.generateTemporaryTableName();
         return id.substring(0, min(30, id.length()));
-    }
-
-    @Override
-    public String quoted(String name)
-    {
-        if (name.contains("\"")) {
-            // ORA-03001: unimplemented feature
-            throw new TrinoException(JDBC_NON_TRANSIENT_ERROR, "Oracle does not support escaping '\"' in identifiers");
-        }
-        return identifierQuote + name + identifierQuote;
     }
 
     @Override

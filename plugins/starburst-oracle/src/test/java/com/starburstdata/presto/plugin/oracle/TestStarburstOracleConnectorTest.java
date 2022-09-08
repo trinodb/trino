@@ -36,7 +36,6 @@ import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.prestoTimes
 import static io.trino.testing.datatype.DataType.timestampDataType;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestStarburstOracleConnectorTest
         extends BaseOracleConnectorTest
@@ -71,19 +70,6 @@ public class TestStarburstOracleConnectorTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
-    }
-
-    @Override
-    public void testColumnName(String columnName)
-    {
-        if (columnName.equals("a\"quote")) {
-            // Quote is not supported within column name
-            assertThatThrownBy(() -> super.testColumnName(columnName))
-                    .hasMessageMatching("Oracle does not support escaping '\"' in identifiers");
-            throw new SkipException("works incorrectly, column name is trimmed");
-        }
-
-        super.testColumnName(columnName);
     }
 
     @Override
