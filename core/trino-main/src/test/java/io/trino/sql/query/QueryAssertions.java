@@ -729,6 +729,20 @@ public class QueryAssertions
             });
         }
 
+        /**
+         * Syntactic sugar for:
+         *
+         * <pre>{@code
+         *     assertThat(...)
+         *         .hasType(type)
+         *         .isNull()
+         * }</pre>
+         */
+        public void isNull(Type type)
+        {
+            hasType(type).isNull();
+        }
+
         public ExpressionAssert hasType(Type type)
         {
             objects.assertEqual(info, actualType, type);
