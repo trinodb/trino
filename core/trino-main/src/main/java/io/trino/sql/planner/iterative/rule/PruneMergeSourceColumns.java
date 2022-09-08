@@ -20,12 +20,12 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.MergeWriterNode;
 
 import static io.trino.sql.planner.iterative.rule.Util.restrictChildOutputs;
-import static io.trino.sql.planner.plan.Patterns.merge;
+import static io.trino.sql.planner.plan.Patterns.mergeWriter;
 
 public class PruneMergeSourceColumns
         implements Rule<MergeWriterNode>
 {
-    private static final Pattern<MergeWriterNode> PATTERN = merge();
+    private static final Pattern<MergeWriterNode> PATTERN = mergeWriter();
 
     @Override
     public Pattern<MergeWriterNode> getPattern()
