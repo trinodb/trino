@@ -83,6 +83,9 @@ Configuration properties
       - Disables using the address published by Elasticsearch to connect for
         queries.
       -
+    * - ``elasticsearch.legacy-pass-through-query.enabled``
+      - Enables legacy pass-through query
+      - false
 
 TLS security
 ------------
@@ -378,6 +381,13 @@ Elasticsearch Trino         Supports
 
 Pass-through queries
 --------------------
+
+.. note::
+
+    This feature is deprecated and disabled by default. It's recommended to use
+    ``raw_query`` :doc:`table function</functions/table>` instead.
+    To enable legacy pass-through query please use
+    ``elasticsearch.legacy-pass-through-query-enabled`` configuration property.
 
 The Elasticsearch connector allows you to embed any valid Elasticsearch query,
 that uses the `Elasticsearch Query DSL
