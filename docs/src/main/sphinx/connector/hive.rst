@@ -414,25 +414,25 @@ Property Name                                      Description                  
                                                    with a leading 0. If set to 'skip', permissions of newly
                                                    created directories will not be set by Trino.
 
-``hive.fs.cache.max-size``                         Maximum number of cached file system objects.                 1000
+``hive.fs.cache.max-size``                         Maximum number of cached file system objects.                1000
 
-``hive.query-partition-filter-required``           Set to ``true`` to force a query to use a partition filter.   ``false``
+``hive.query-partition-filter-required``           Set to ``true`` to force a query to use a partition filter.  ``false``
                                                    You can use the ``query_partition_filter_required`` catalog
                                                    session property for temporary, catalog specific use.
 
-``hive.table-statistics-enabled``                  Enables :doc:`/optimizer/statistics`. The equivalent          ``true``
+``hive.table-statistics-enabled``                  Enables :doc:`/optimizer/statistics`. The equivalent         ``true``
                                                    :doc:`catalog session property </sql/set-session>`
                                                    is ``statistics_enabled`` for session specific use.
                                                    Set to ``false`` to disable statistics. Disabling statistics
                                                    means that :doc:`/optimizer/cost-based-optimizations` can
                                                    not make smart decisions about the query plan.
 
-``hive.auto-purge``                                Set the default value for the auto_purge table property for   ``false``
+``hive.auto-purge``                                Set the default value for the auto_purge table property for  ``false``
                                                    managed tables.
                                                    See the :ref:`hive_table_properties` for more information
                                                    on auto_purge.
 
-``hive.partition-projection-enabled``              Enables Athena partition projection support                     ``false``
+``hive.partition-projection-enabled``              Enables Athena partition projection support                  ``false``
 ================================================== ============================================================ ============
 
 ORC format configuration properties
