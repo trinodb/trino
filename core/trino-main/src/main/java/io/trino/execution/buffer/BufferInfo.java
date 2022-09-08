@@ -26,28 +26,35 @@ import static java.util.Objects.requireNonNull;
 public class BufferInfo
 {
     private final OutputBufferId bufferId;
-    private final boolean finished;
+    private final long rowsAdded;
+    private final long pagesAdded;
     private final int bufferedPages;
-
+    private final long bufferedBytes;
     private final long pagesSent;
-    private final PageBufferInfo pageBufferInfo;
+    private final boolean finished;
 
     @JsonCreator
     public BufferInfo(
             @JsonProperty("bufferId") OutputBufferId bufferId,
-            @JsonProperty("finished") boolean finished,
+            @JsonProperty("rowsAdded") long rowsAdded,
+            @JsonProperty("pagesAdded") long pagesAdded,
             @JsonProperty("bufferedPages") int bufferedPages,
+            @JsonProperty("bufferedBytes") long bufferedBytes,
             @JsonProperty("pagesSent") long pagesSent,
-            @JsonProperty("pageBufferInfo") PageBufferInfo pageBufferInfo)
+            @JsonProperty("finished") boolean finished)
     {
-        checkArgument(bufferedPages >= 0, "bufferedPages must be >= 0");
-        checkArgument(pagesSent >= 0, "pagesSent must be >= 0");
-
         this.bufferId = requireNonNull(bufferId, "bufferId is null");
-        this.pagesSent = pagesSent;
-        this.pageBufferInfo = requireNonNull(pageBufferInfo, "pageBufferInfo is null");
-        this.finished = finished;
+        checkArgument(rowsAdded >= 0, "rowsAdded must be >= 0");
+        this.rowsAdded = rowsAdded;
+        checkArgument(pagesAdded >= 0, "pagesAdded must be >= 0");
+        this.pagesAdded = pagesAdded;
+        checkArgument(bufferedPages >= 0, "bufferedPages must be >= 0");
         this.bufferedPages = bufferedPages;
+        checkArgument(bufferedBytes >= 0, "bufferedBytes must be >= 0");
+        this.bufferedBytes = bufferedBytes;
+        checkArgument(pagesSent >= 0, "pagesSent must be >= 0");
+        this.pagesSent = pagesSent;
+        this.finished = finished;
     }
 
     @JsonProperty
@@ -57,9 +64,15 @@ public class BufferInfo
     }
 
     @JsonProperty
-    public boolean isFinished()
+    public long getRowsAdded()
     {
-        return finished;
+        return rowsAdded;
+    }
+
+    @JsonProperty
+    public long getPagesAdded()
+    {
+        return pagesAdded;
     }
 
     @JsonProperty
@@ -69,15 +82,21 @@ public class BufferInfo
     }
 
     @JsonProperty
+    public long getBufferedBytes()
+    {
+        return bufferedBytes;
+    }
+
+    @JsonProperty
     public long getPagesSent()
     {
         return pagesSent;
     }
 
     @JsonProperty
-    public PageBufferInfo getPageBufferInfo()
+    public boolean isFinished()
     {
-        return pageBufferInfo;
+        return finished;
     }
 
     @Override
@@ -90,17 +109,19 @@ public class BufferInfo
             return false;
         }
         BufferInfo that = (BufferInfo) o;
-        return Objects.equals(finished, that.finished) &&
-                Objects.equals(bufferedPages, that.bufferedPages) &&
-                Objects.equals(pagesSent, that.pagesSent) &&
-                Objects.equals(bufferId, that.bufferId) &&
-                Objects.equals(pageBufferInfo, that.pageBufferInfo);
+        return rowsAdded == that.rowsAdded &&
+                pagesAdded == that.pagesAdded &&
+                bufferedPages == that.bufferedPages &&
+                bufferedBytes == that.bufferedBytes &&
+                pagesSent == that.pagesSent &&
+                finished == that.finished &&
+                Objects.equals(bufferId, that.bufferId);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(bufferId, finished, bufferedPages, pagesSent, pageBufferInfo);
+        return Objects.hash(bufferId, rowsAdded, pagesAdded, bufferedPages, bufferedBytes, pagesSent, finished);
     }
 
     @Override
@@ -108,10 +129,12 @@ public class BufferInfo
     {
         return toStringHelper(this)
                 .add("bufferId", bufferId)
-                .add("finished", finished)
+                .add("rowsAdded", rowsAdded)
+                .add("pagesAdded", pagesAdded)
                 .add("bufferedPages", bufferedPages)
+                .add("bufferedBytes", bufferedBytes)
                 .add("pagesSent", pagesSent)
-                .add("pageBufferInfo", pageBufferInfo)
+                .add("finished", finished)
                 .toString();
     }
 }

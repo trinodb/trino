@@ -441,15 +441,13 @@ public class TestClientBuffer
                 buffer.getInfo(),
                 new BufferInfo(
                         BUFFER_ID,
-                        false,
+                        // every page has one row,
+                        bufferedPages + pagesSent,
+                        bufferedPages + pagesSent,
                         bufferedPages,
+                        sizeOfPages(bufferedPages).toBytes(),
                         pagesSent,
-                        new PageBufferInfo(
-                                BUFFER_ID.getId(),
-                                bufferedPages,
-                                sizeOfPages(bufferedPages).toBytes(),
-                                bufferedPages + pagesSent, // every page has one row
-                                bufferedPages + pagesSent)));
+                        false));
         assertFalse(buffer.isDestroyed());
     }
 

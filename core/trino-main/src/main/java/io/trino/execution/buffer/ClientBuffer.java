@@ -93,8 +93,7 @@ class ClientBuffer
         // if destroyed the buffered page count must be zero regardless of observation ordering in this lock free code
         int bufferedPages = destroyed ? 0 : Math.max(toIntExact(pagesAdded.get() - sequenceId), 0);
 
-        PageBufferInfo pageBufferInfo = new PageBufferInfo(bufferId.getId(), bufferedPages, bufferedBytes.get(), rowsAdded.get(), pagesAdded.get());
-        return new BufferInfo(bufferId, destroyed, bufferedPages, sequenceId, pageBufferInfo);
+        return new BufferInfo(bufferId, rowsAdded.get(), pagesAdded.get(), bufferedPages, bufferedBytes.get(), sequenceId, destroyed);
     }
 
     public boolean isDestroyed()
