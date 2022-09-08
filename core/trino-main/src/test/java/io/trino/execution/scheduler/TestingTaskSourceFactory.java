@@ -20,7 +20,6 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.metadata.Split;
@@ -42,7 +41,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.execution.scheduler.StageTaskSourceFactory.createRemoteSplits;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static java.util.Objects.requireNonNull;
@@ -171,7 +169,7 @@ public class TestingTaskSourceFactory
                 TaskDescriptor task = new TaskDescriptor(
                         nextPartitionId.getAndIncrement(),
                         splits.build(),
-                        new NodeRequirements(catalogRequirement, ImmutableSet.copyOf(split.getAddresses()), DataSize.of(4, GIGABYTE)));
+                        new NodeRequirements(catalogRequirement, ImmutableSet.copyOf(split.getAddresses())));
                 result.add(task);
             }
             return result.build();

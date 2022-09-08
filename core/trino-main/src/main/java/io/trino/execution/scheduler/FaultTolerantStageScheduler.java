@@ -27,6 +27,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.RemoteTask;
@@ -77,6 +78,8 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultCoordinatorTaskMemory;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultTaskMemory;
 import static io.trino.SystemSessionProperties.getRetryDelayScaleFactor;
 import static io.trino.SystemSessionProperties.getRetryInitialDelay;
 import static io.trino.SystemSessionProperties.getRetryMaxDelay;
@@ -324,12 +327,13 @@ public class FaultTolerantStageScheduler
                     return;
                 }
                 TaskDescriptor taskDescriptor = taskDescriptorOptional.get();
-
-                MemoryRequirements memoryRequirements = partitionMemoryRequirements.computeIfAbsent(partition, ignored -> partitionMemoryEstimator.getInitialMemoryRequirements(session, taskDescriptor.getNodeRequirements().getMemory()));
+                DataSize defaultTaskMemory = stage.getFragment().getPartitioning().equals(COORDINATOR_DISTRIBUTION) ?
+                        getFaultTolerantExecutionDefaultCoordinatorTaskMemory(session) :
+                        getFaultTolerantExecutionDefaultTaskMemory(session);
+                MemoryRequirements memoryRequirements = partitionMemoryRequirements.computeIfAbsent(partition, ignored -> partitionMemoryEstimator.getInitialMemoryRequirements(session, defaultTaskMemory));
                 log.debug("Computed initial memory requirements for task from stage %s; requirements=%s; estimator=%s", stage.getStageId(), memoryRequirements, partitionMemoryEstimator);
                 NodeRequirements nodeRequirements = taskDescriptor.getNodeRequirements();
-                nodeRequirements = nodeRequirements.withMemory(memoryRequirements.getRequiredMemory());
-                NodeAllocator.NodeLease nodeLease = nodeAllocator.acquire(nodeRequirements);
+                NodeAllocator.NodeLease nodeLease = nodeAllocator.acquire(nodeRequirements, memoryRequirements.getRequiredMemory());
 
                 pendingPartitions.add(new PendingPartition(partition, nodeLease));
             }

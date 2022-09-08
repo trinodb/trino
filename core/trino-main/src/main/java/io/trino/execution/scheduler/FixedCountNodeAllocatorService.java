@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.metadata.InternalNode;
@@ -148,10 +149,10 @@ public class FixedCountNodeAllocatorService
         }
 
         @Override
-        public synchronized NodeLease acquire(NodeRequirements requirements)
+        public synchronized NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement)
         {
             try {
-                Optional<InternalNode> node = tryAcquireNode(requirements);
+                Optional<InternalNode> node = tryAcquireNode(nodeRequirements);
                 if (node.isPresent()) {
                     return new FixedCountNodeLease(immediateFuture(node.get()));
                 }
@@ -161,7 +162,7 @@ public class FixedCountNodeAllocatorService
             }
 
             SettableFuture<InternalNode> future = SettableFuture.create();
-            PendingAcquire pendingAcquire = new PendingAcquire(requirements, future);
+            PendingAcquire pendingAcquire = new PendingAcquire(nodeRequirements, future);
             pendingAcquires.add(pendingAcquire);
 
             return new FixedCountNodeLease(future);
