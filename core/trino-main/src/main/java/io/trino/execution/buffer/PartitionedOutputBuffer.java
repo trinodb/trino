@@ -118,7 +118,7 @@ public class PartitionedOutputBuffer
         for (ClientBuffer partition : partitions) {
             BufferInfo bufferInfo = partition.getInfo();
             infos.add(bufferInfo);
-            totalBufferedPages += bufferInfo.getPageBufferInfo().getBufferedPages();
+            totalBufferedPages += bufferInfo.getBufferedPages();
         }
 
         return new OutputBufferInfo(
