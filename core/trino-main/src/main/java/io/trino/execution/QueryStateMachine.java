@@ -32,6 +32,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.operator.BlockedReason;
 import io.trino.operator.OperatorStats;
+import io.trino.operator.TaskStats;
 import io.trino.security.AccessControl;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.BasicQueryStats;
@@ -52,6 +53,7 @@ import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionInfo;
 import io.trino.transaction.TransactionManager;
 import org.joda.time.DateTime;
+import org.joda.time.base.BaseDateTime;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -96,6 +98,7 @@ import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
 import static io.trino.util.Failures.toFailure;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -548,6 +551,8 @@ public class QueryStateMachine
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
         ImmutableList.Builder<OperatorStats> operatorStatsSummary = ImmutableList.builder();
+        long firstTaskStartTime = getEndTime().map(BaseDateTime::getMillis).orElse(0L);
+        long lastTaskEndTime = queryStateTimer.getCreateTime().getMillis() + queryStateTimer.getPlanningTime().toMillis();
         for (StageInfo stageInfo : allStages) {
             StageStats stageStats = stageInfo.getStageStats();
             totalTasks += stageStats.getTotalTasks();
@@ -613,7 +618,24 @@ public class QueryStateMachine
             stageGcStatistics.add(stageStats.getGcInfo());
 
             operatorStatsSummary.addAll(stageInfo.getStageStats().getOperatorSummaries());
+
+            for (TaskInfo taskInfo : stageInfo.getTasks()) {
+                TaskStats taskStats = taskInfo.getStats();
+
+                DateTime firstStartTime = taskStats.getFirstStartTime();
+                if (firstStartTime != null) {
+                    firstTaskStartTime = Math.min(firstStartTime.getMillis(), firstTaskStartTime);
+                }
+
+                DateTime endTime = taskStats.getEndTime();
+                if (endTime != null) {
+                    lastTaskEndTime = max(endTime.getMillis(), lastTaskEndTime);
+                }
+            }
         }
+
+        long scheduling = max(firstTaskStartTime - getCreateTime().getMillis() - getPlanningTime().map(Duration::toMillis).orElse(0L), 0);
+        long running = max(lastTaskEndTime - firstTaskStartTime, 0);
 
         if (rootStage.isPresent()) {
             StageStats outputStageStats = rootStage.get().getStageStats();
@@ -640,6 +662,8 @@ public class QueryStateMachine
                 queryStateTimer.getExecutionTime(),
                 queryStateTimer.getAnalysisTime(),
                 queryStateTimer.getPlanningTime(),
+                Duration.succinctDuration(scheduling, MILLISECONDS),
+                Duration.succinctDuration(running, MILLISECONDS),
                 queryStateTimer.getFinishingTime(),
 
                 totalTasks,
@@ -1223,6 +1247,8 @@ public class QueryStateMachine
                 queryStats.getExecutionTime(),
                 queryStats.getAnalysisTime(),
                 queryStats.getPlanningTime(),
+                queryStats.getSchedulingTime(),
+                queryStats.getRunningTime(),
                 queryStats.getFinishingTime(),
                 queryStats.getTotalTasks(),
                 queryStats.getFailedTasks(),

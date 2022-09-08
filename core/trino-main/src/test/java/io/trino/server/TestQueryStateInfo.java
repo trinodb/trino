@@ -118,6 +118,8 @@ public class TestQueryStateInfo
                         new Duration(10, MINUTES),
                         new Duration(11, MINUTES),
                         new Duration(12, MINUTES),
+                        new Duration(12, MINUTES),
+                        new Duration(12, MINUTES),
                         13,
                         14,
                         15,
