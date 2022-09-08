@@ -3890,6 +3890,37 @@ public class TestAnalyzer
         assertFails("DELETE FROM v1 WHERE a = 1")
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Deleting from views is not supported");
+        assertFails("DELETE FROM mv1")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Deleting from materialized views is not supported");
+    }
+
+    @Test
+    public void testInvalidUpdate()
+    {
+        assertFails("UPDATE foo SET bar = 'test'")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:1: Table 'tpch.s1.foo' does not exist");
+        assertFails("UPDATE v1 SET a = 2")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Updating views is not supported");
+        assertFails("UPDATE mv1 SET a = 1")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Updating materialized views is not supported");
+    }
+
+    @Test
+    public void testInvalidMerge()
+    {
+        assertFails("MERGE INTO foo USING bar ON foo.id = bar.id WHEN MATCHED THEN DELETE")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:1: Table 'tpch.s1.foo' does not exist");
+        assertFails("MERGE INTO v1 USING t1 ON v1.a = t1.a WHEN MATCHED THEN DELETE")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Merging into views is not supported");
+        assertFails("MERGE INTO mv1 USING t1 ON mv1.a = t1.a WHEN MATCHED THEN DELETE")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Merging into materialized views is not supported");
     }
 
     @Test
