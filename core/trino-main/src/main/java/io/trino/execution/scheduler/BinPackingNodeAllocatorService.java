@@ -624,9 +624,7 @@ public class BinPackingNodeAllocatorService
         {
             DataSize memory = Ordering.natural().max(defaultMemoryLimit, getEstimatedMemoryUsage(session));
             memory = capMemoryToMaxNodeSize(memory);
-            return new MemoryRequirements(
-                    memory,
-                    false);
+            return new MemoryRequirements(memory);
         }
 
         @Override
@@ -646,7 +644,7 @@ public class BinPackingNodeAllocatorService
             newMemory = Ordering.natural().max(newMemory, getEstimatedMemoryUsage(session));
 
             newMemory = capMemoryToMaxNodeSize(newMemory);
-            return new MemoryRequirements(newMemory, false);
+            return new MemoryRequirements(newMemory);
         }
 
         private DataSize capMemoryToMaxNodeSize(DataSize memory)
