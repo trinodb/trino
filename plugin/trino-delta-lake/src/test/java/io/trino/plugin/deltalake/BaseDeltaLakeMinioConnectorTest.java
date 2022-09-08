@@ -312,7 +312,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     public void testRenameTable()
     {
         assertThatThrownBy(super::testRenameTable)
-                .hasMessage("Renaming managed tables is not supported for thrift metastore")
+                .hasMessage("Renaming managed tables is not allowed with current metastore configuration")
                 .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
     }
 
@@ -323,7 +323,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     public void testRenameTableAcrossSchema()
     {
         assertThatThrownBy(super::testRenameTableAcrossSchema)
-                .hasMessage("Renaming managed tables is not supported for thrift metastore")
+                .hasMessage("Renaming managed tables is not allowed with current metastore configuration")
                 .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
     }
 
@@ -331,7 +331,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     public void testRenameTableToUnqualifiedPreservesSchema()
     {
         assertThatThrownBy(super::testRenameTableToUnqualifiedPreservesSchema)
-                .hasMessage("Renaming managed tables is not supported for thrift metastore")
+                .hasMessage("Renaming managed tables is not allowed with current metastore configuration")
                 .hasStackTraceContaining("SQL: ALTER TABLE test_source_schema_");
     }
 
@@ -339,7 +339,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     public void testRenameTableToLongTableName()
     {
         assertThatThrownBy(super::testRenameTableToLongTableName)
-                .hasMessage("Renaming managed tables is not supported for thrift metastore")
+                .hasMessage("Renaming managed tables is not allowed with current metastore configuration")
                 .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
     }
 

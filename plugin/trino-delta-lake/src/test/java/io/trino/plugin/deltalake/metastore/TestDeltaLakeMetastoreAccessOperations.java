@@ -18,8 +18,10 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.Session;
+import io.trino.plugin.deltalake.AllowDeltaLakeManagedTableRename;
 import io.trino.plugin.deltalake.TestingDeltaLakePlugin;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
@@ -98,6 +100,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         protected void setup(Binder binder)
         {
             binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).toInstance(HiveMetastoreFactory.ofInstance(metastore));
+            binder.bind(Key.get(boolean.class, AllowDeltaLakeManagedTableRename.class)).toInstance(false);
         }
     }
 
