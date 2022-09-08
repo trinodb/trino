@@ -14,7 +14,6 @@
 package io.trino.operator.exchange;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.XxHash64;
@@ -26,7 +25,6 @@ import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.PrecomputedHashGenerator;
 import io.trino.spi.Page;
-import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.PartitioningHandle;
@@ -226,9 +224,7 @@ public class LocalExchange
         // The same bucket function (with the same bucket count) as for node
         // partitioning must be used. This way rows within a single bucket
         // will be being processed by single thread.
-        int bucketCount = nodePartitioningManager.getConnectorBucketNodeMap(session, partitioning)
-                .map(ConnectorBucketNodeMap::getBucketCount)
-                .orElseThrow(() -> new VerifyException("No bucket node map for partitioning: " + partitioning));
+        int bucketCount = nodePartitioningManager.getBucketNodeMap(session, partitioning).getBucketCount();
         int[] bucketToPartition = new int[bucketCount];
         for (int bucket = 0; bucket < bucketCount; bucket++) {
             // mix the bucket bits so we don't use the same bucket number used to distribute between stages
