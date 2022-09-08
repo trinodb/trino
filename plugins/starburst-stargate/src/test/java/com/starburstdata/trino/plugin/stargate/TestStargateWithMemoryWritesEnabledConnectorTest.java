@@ -51,12 +51,9 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_COMMENT_ON_COLUMN:
-                // not supported in memory connector
-                return false;
-
             case SUPPORTS_ADD_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
+                // not supported in memory connector
                 return false;
 
             case SUPPORTS_DELETE:
@@ -105,6 +102,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
     @Override
     public void testDropColumn()
     {
+        // Required because Stargate connector adds additional `Query failed (...):` prefix to the error message
         assertThatThrownBy(super::testDropColumn)
                 .hasMessageContaining("This connector does not support dropping columns");
         throw new SkipException("not supported");
@@ -114,19 +112,10 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
     @Override
     public void testRenameColumn()
     {
-        // The super test requires a matching message, but we get it with "query failed" added
+        // Required because Stargate connector adds additional `Query failed (...):` prefix to the error message
         assertThatThrownBy(super::testRenameColumn)
                 .hasMessageContaining("This connector does not support renaming columns");
         throw new SkipException("not supported");
-    }
-
-    @Test
-    @Override
-    public void testCommentColumn()
-    {
-        // The super test requires a matching message, but we get it with "query failed" added
-        assertThatThrownBy(super::testCommentColumn)
-                .hasMessageContaining("This connector does not support setting column comments");
     }
 
     @Test

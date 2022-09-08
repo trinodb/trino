@@ -496,6 +496,14 @@ public class TestStargateWithHiveConnectorTest
     {
         assertThatThrownBy(super::testAlterTableRenameColumnToLongName)
                 .hasMessageMatching("This connector does not support creating tables with data");
-        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9739");
+        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9764");
+    }
+
+    @Override
+    public void testRenameColumnName(String columnName)
+    {
+        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
+                .hasMessageMatching("This connector does not support creating tables");
+        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9764");
     }
 }
