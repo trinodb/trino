@@ -397,6 +397,13 @@ public final class DeltaLakeSchemaSupport
         return invariants == null ? null : invariants.asText();
     }
 
+    public static Map<String, String> getCheckConstraints(MetadataEntry metadataEntry)
+    {
+        return metadataEntry.getConfiguration().entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith("delta.constraints."))
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
     public static Map<String, Map<String, Object>> getColumnsMetadata(MetadataEntry metadataEntry)
     {
         return getColumnProperties(metadataEntry, node -> OBJECT_MAPPER.convertValue(node.get("metadata"), new TypeReference<>(){}));
