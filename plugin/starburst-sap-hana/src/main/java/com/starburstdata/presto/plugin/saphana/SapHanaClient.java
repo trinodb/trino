@@ -282,7 +282,7 @@ public class SapHanaClient
         String sql = format(
                 "ALTER TABLE %s DROP (%s)",
                 quoted(handle.asPlainTable().getRemoteTableName()),
-                column.getColumnName());
+                quoted(column.getColumnName()));
         execute(session, sql);
     }
 
@@ -296,8 +296,8 @@ public class SapHanaClient
             String sql = format(
                     "RENAME COLUMN %s.%s TO %s",
                     quoted(handle.asPlainTable().getRemoteTableName()),
-                    jdbcColumn.getColumnName(),
-                    newColumnName);
+                    quoted(jdbcColumn.getColumnName()),
+                    quoted(newColumnName));
             execute(connection, sql);
         }
         catch (SQLException e) {
