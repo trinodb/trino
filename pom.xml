@@ -11,7 +11,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>395-SNAPSHOT</version>
+    <version>395</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -31,7 +31,7 @@
     <scm>
         <connection>scm:git:git://github.com/trinodb/trino.git</connection>
         <url>https://github.com/trinodb/trino</url>
-        <tag>HEAD</tag>
+        <tag>395</tag>
     </scm>
 
     <properties>
