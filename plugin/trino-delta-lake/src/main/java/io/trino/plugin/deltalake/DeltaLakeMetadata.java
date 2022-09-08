@@ -284,7 +284,7 @@ public class DeltaLakeMetadata
     private final ExtendedStatisticsAccess statisticsAccess;
     private final boolean deleteSchemaLocationsFallback;
     private final boolean useUniqueTableLocation;
-    private final String metastoreType;
+    private final boolean allowManagedTableRename;
 
     public DeltaLakeMetadata(
             DeltaLakeMetastore metastore,
@@ -305,7 +305,7 @@ public class DeltaLakeMetadata
             DeltaLakeRedirectionsProvider deltaLakeRedirectionsProvider,
             ExtendedStatisticsAccess statisticsAccess,
             boolean useUniqueTableLocation,
-            String metastoreType)
+            boolean allowManagedTableRename)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -326,7 +326,7 @@ public class DeltaLakeMetadata
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         this.useUniqueTableLocation = useUniqueTableLocation;
-        this.metastoreType = requireNonNull(metastoreType, "metastoreType is null");
+        this.allowManagedTableRename = allowManagedTableRename;
     }
 
     @Override
@@ -1984,9 +1984,8 @@ public class DeltaLakeMetadata
         DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
         Table table = metastore.getTable(handle.getSchemaName(), handle.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
-        if (table.getTableType().equals(MANAGED_TABLE.name()) &&
-                !(metastoreType.equalsIgnoreCase("glue") || metastoreType.equalsIgnoreCase("file"))) {
-            throw new TrinoException(NOT_SUPPORTED, format("Renaming managed tables is not supported for %s metastore", metastoreType));
+        if (table.getTableType().equals(MANAGED_TABLE.name()) && !allowManagedTableRename) {
+            throw new TrinoException(NOT_SUPPORTED, "Renaming managed tables is not allowed with current metastore configuration");
         }
         metastore.renameTable(session, handle.getSchemaTableName(), newTableName);
     }

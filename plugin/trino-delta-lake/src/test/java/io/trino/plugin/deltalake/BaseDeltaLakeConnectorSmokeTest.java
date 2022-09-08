@@ -632,7 +632,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testRenameTable()
     {
         assertThatThrownBy(super::testRenameTable)
-                .hasMessage("Renaming managed tables is not supported for thrift metastore")
+                .hasMessage("Renaming managed tables is not allowed with current metastore configuration")
                 .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
     }
 
@@ -668,7 +668,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testRenameTableAcrossSchemas()
     {
         assertThatThrownBy(super::testRenameTableAcrossSchemas)
-                .hasMessage("Renaming managed tables is not supported for thrift metastore")
+                .hasMessage("Renaming managed tables is not allowed with current metastore configuration")
                 .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
     }
 

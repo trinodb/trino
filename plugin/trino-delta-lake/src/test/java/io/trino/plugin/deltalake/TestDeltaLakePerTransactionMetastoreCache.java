@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.Reflection;
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -104,6 +105,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
                                 .as(generator -> generator.generatedNameOf(ThriftHiveMetastore.class));
                         install(new ThriftMetastoreAuthenticationModule());
                         binder.bind(BridgingHiveMetastoreFactory.class).in(Scopes.SINGLETON);
+                        binder.bind(Key.get(boolean.class, AllowDeltaLakeManagedTableRename.class)).toInstance(false);
                     }
 
                     @Provides
