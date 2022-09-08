@@ -469,4 +469,24 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                 {"GZIP"},
         };
     }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    public void testInsertsToTablesWithCheckConstraintFails()
+    {
+        String tableName = "test_inserts_into_tables_with_check_constraint_" + randomTableSuffix();
+        try {
+            onDelta().executeQuery("CREATE TABLE " + tableName + " (a INT, b INT)");
+            onDelta().executeQuery("ALTER TABLE " + tableName + " ADD CONSTRAINT aIsPositive CHECK (a > 0)");
+
+            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1, 2)"))
+                    .hasMessageContaining("Writing to tables with CHECK constraints is not supported");
+            assertQueryFailure(() -> onTrino().executeQuery("UPDATE " + tableName + " SET a = 3 WHERE b = 3"))
+                    .hasMessageContaining("Writing to tables with CHECK constraints is not supported");
+            assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM " + tableName + " WHERE a = 3"))
+                    .hasMessageContaining("Writing to tables with CHECK constraints is not supported");
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
 }

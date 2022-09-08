@@ -172,6 +172,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.CO
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractColumnMetadata;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getCheckConstraints;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnComments;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnInvariants;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnMappingMode;
@@ -255,7 +256,10 @@ public class DeltaLakeMetadata
     public static final String CHANGE_COLUMN_OPERATION = "CHANGE COLUMN";
     public static final String ISOLATION_LEVEL = "WriteSerializable";
     private static final int READER_VERSION = 1;
+    // The required writer version used by tables created by Trino
     private static final int WRITER_VERSION = 2;
+    // The highest writer version Trino supports writing to
+    private static final int MAX_WRITER_VERSION = 3;
     // Matches the dummy column Databricks stores in the metastore
     private static final List<Column> DUMMY_DATA_COLUMNS = ImmutableList.of(
             new Column("col", HiveType.toHiveType(new ArrayType(VarcharType.createUnboundedVarcharType())), Optional.empty()));
@@ -1245,6 +1249,9 @@ public class DeltaLakeMetadata
         if (!columnInvariants.isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Inserts are not supported for tables with delta invariants");
         }
+        if (!getCheckConstraints(table.getMetadataEntry()).isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Writing to tables with CHECK constraints is not supported");
+        }
         checkSupportedWriterVersion(session, table.getSchemaTableName());
 
         List<DeltaLakeColumnHandle> inputColumns = columns.stream()
@@ -1375,6 +1382,9 @@ public class DeltaLakeMetadata
             String fileSystem = new Path(handle.getLocation()).toUri().getScheme();
             throw new TrinoException(NOT_SUPPORTED, format("Deletes are not supported on the %s filesystem", fileSystem));
         }
+        if (!getCheckConstraints(handle.getMetadataEntry()).isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Writing to tables with CHECK constraints is not supported");
+        }
         checkSupportedWriterVersion(session, handle.getSchemaTableName());
 
         return DeltaLakeTableHandle.forDelete(
@@ -1434,6 +1444,9 @@ public class DeltaLakeMetadata
         Map<String, String> columnInvariants = getColumnInvariants(handle.getMetadataEntry());
         if (!columnInvariants.isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Updates are not supported for tables with delta invariants");
+        }
+        if (!getCheckConstraints(handle.getMetadataEntry()).isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Writing to tables with CHECK constraints is not supported");
         }
         checkSupportedWriterVersion(session, handle.getSchemaTableName());
 
@@ -1501,6 +1514,9 @@ public class DeltaLakeMetadata
         }
         if (!getColumnInvariants(handle.getMetadataEntry()).isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Updates are not supported for tables with delta invariants");
+        }
+        if (!getCheckConstraints(handle.getMetadataEntry()).isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Writing to tables with CHECK constraints is not supported");
         }
         checkSupportedWriterVersion(session, handle.getSchemaTableName());
 
@@ -1803,7 +1819,7 @@ public class DeltaLakeMetadata
     private void checkSupportedWriterVersion(ConnectorSession session, SchemaTableName schemaTableName)
     {
         int requiredWriterVersion = metastore.getProtocol(session, metastore.getSnapshot(schemaTableName, session)).getMinWriterVersion();
-        if (requiredWriterVersion > WRITER_VERSION) {
+        if (requiredWriterVersion > MAX_WRITER_VERSION) {
             throw new TrinoException(
                     NOT_SUPPORTED,
                     format("Table %s requires Delta Lake writer version %d which is not supported", schemaTableName, requiredWriterVersion));
