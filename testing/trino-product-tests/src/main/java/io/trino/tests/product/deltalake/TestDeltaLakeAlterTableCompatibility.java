@@ -69,14 +69,14 @@ public class TestDeltaLakeAlterTableCompatibility
         onDelta().executeQuery(format("" +
                         "CREATE TABLE default.%s (col int) " +
                         "USING DELTA LOCATION 's3://%s/%s'" +
-                        "TBLPROPERTIES ('delta.minWriterVersion'='3')",
+                        "TBLPROPERTIES ('delta.minWriterVersion'='4')",
                 tableName,
                 bucketName,
                 tableDirectory));
 
         try {
             assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_col int"))
-                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 3 which is not supported");
+                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 4 which is not supported");
         }
         finally {
             onDelta().executeQuery("DROP TABLE default." + tableName);
@@ -180,14 +180,14 @@ public class TestDeltaLakeAlterTableCompatibility
         onDelta().executeQuery(format("" +
                         "CREATE TABLE default.%s (col int) " +
                         "USING DELTA LOCATION 's3://%s/%s'" +
-                        "TBLPROPERTIES ('delta.minWriterVersion'='3')",
+                        "TBLPROPERTIES ('delta.minWriterVersion'='4')",
                 tableName,
                 bucketName,
                 tableDirectory));
 
         try {
             assertQueryFailure(() -> onTrino().executeQuery("COMMENT ON TABLE delta.default." + tableName + " IS 'test comment'"))
-                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 3 which is not supported");
+                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 4 which is not supported");
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
@@ -224,14 +224,14 @@ public class TestDeltaLakeAlterTableCompatibility
         onDelta().executeQuery(format("" +
                         "CREATE TABLE default.%s (col int) " +
                         "USING DELTA LOCATION 's3://%s/%s'" +
-                        "TBLPROPERTIES ('delta.minWriterVersion'='3')",
+                        "TBLPROPERTIES ('delta.minWriterVersion'='4')",
                 tableName,
                 bucketName,
                 tableDirectory));
 
         try {
             assertQueryFailure(() -> onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".col IS 'test column comment'"))
-                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 3 which is not supported");
+                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 4 which is not supported");
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
