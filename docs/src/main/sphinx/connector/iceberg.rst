@@ -520,7 +520,9 @@ The connector provides a system snapshots table for each Iceberg table.  Snapsho
 identified by BIGINT snapshot IDs.  You can find the latest snapshot ID for table
 ``customer_orders`` by running the following command::
 
-    SELECT snapshot_id FROM iceberg.testdb."customer_orders$snapshots" ORDER BY committed_at DESC LIMIT 1
+    SELECT snapshot_id
+    FROM iceberg.testdb."customer_orders$snapshots"
+    ORDER BY committed_at DESC LIMIT 1
 
 A SQL procedure ``system.rollback_to_snapshot`` allows the caller to roll back
 the state of the table to a previous snapshot id::
