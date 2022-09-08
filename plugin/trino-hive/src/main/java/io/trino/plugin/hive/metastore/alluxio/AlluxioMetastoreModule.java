@@ -21,9 +21,11 @@ import alluxio.conf.InstancedConfiguration;
 import alluxio.conf.PropertyKey;
 import alluxio.master.MasterClientContext;
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.hive.AllowHiveTableRename;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
@@ -42,6 +44,7 @@ public class AlluxioMetastoreModule
         configBinder(binder).bindConfig(AlluxioHiveMetastoreConfig.class);
 
         binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).to(AlluxioHiveMetastoreFactory.class).in(Scopes.SINGLETON);
+        binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(false);
     }
 
     @Provides
