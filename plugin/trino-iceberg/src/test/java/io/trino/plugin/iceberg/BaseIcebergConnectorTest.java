@@ -90,6 +90,7 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
+import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
@@ -5375,6 +5376,24 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(format("INSERT INTO %s VALUES (1, row(11))", tableName), 1);
         assertThat(query(format("SELECT * FROM %s", tableName)))
                 .matches("VALUES (INTEGER '1', CAST(ROW(11) AS ROW(\"another identifier\"INTEGER)))");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testInsertIntoBucketedColumnTaskWriterCount()
+    {
+        int taskWriterCount = 4;
+        assertThat(taskWriterCount).isGreaterThan(getQueryRunner().getNodeCount());
+        Session session = Session.builder(getSession())
+                .setSystemProperty(TASK_WRITER_COUNT, String.valueOf(taskWriterCount))
+                .build();
+
+        String tableName = "test_inserting_into_bucketed_column_task_writer_count_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (x INT) WITH (partitioning = ARRAY['bucket(x, 7)'])");
+
+        assertUpdate(session, "INSERT INTO " + tableName + " SELECT nationkey FROM nation", 25);
+        assertQuery("SELECT * FROM " + tableName, "SELECT nationkey FROM nation");
+
         assertUpdate("DROP TABLE " + tableName);
     }
 
