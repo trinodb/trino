@@ -2341,7 +2341,6 @@ public class TestSalesforceConnectorTest
                         "('applicable_roles'), " +
                         "('columns'), " +
                         "('enabled_roles'), " +
-                        "('role_authorization_descriptors'), " +
                         "('roles'), " +
                         "('schemata'), " +
                         "('table_privileges'), " +
@@ -2404,7 +2403,6 @@ public class TestSalesforceConnectorTest
                         "('applicable_roles'), " +
                         "('columns'), " +
                         "('enabled_roles'), " +
-                        "('role_authorization_descriptors'), " +
                         "('roles'), " +
                         "('schemata'), " +
                         "('table_privileges'), " +
