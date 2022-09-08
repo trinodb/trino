@@ -13,12 +13,10 @@
  */
 package io.trino.faulttolerant.hive;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
-import io.trino.plugin.hive.s3.S3HiveQueryRunner;
+import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
@@ -37,7 +35,6 @@ public class TestHiveQueryFailureRecoveryTest
         super(RetryPolicy.QUERY);
     }
 
-    private HiveMinioDataLake hiveMinioDataLake;
     private MinioStorage minioStorage;
 
     @Override
@@ -48,13 +45,11 @@ public class TestHiveQueryFailureRecoveryTest
             throws Exception
     {
         String bucketName = "test-hive-insert-overwrite-" + randomTableSuffix(); // randomizing bucket name to ensure cached TrinoS3FileSystem objects are not reused
-        this.hiveMinioDataLake = new HiveMinioDataLake(bucketName);
-        hiveMinioDataLake.start();
 
         this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomTableSuffix());
         minioStorage.start();
 
-        return S3HiveQueryRunner.builder(hiveMinioDataLake)
+        return HiveQueryRunner.builder()
                 .setInitialTables(requiredTpchTables)
                 .setExtraProperties(configProperties)
                 .setCoordinatorProperties(coordinatorProperties)
@@ -62,12 +57,6 @@ public class TestHiveQueryFailureRecoveryTest
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
                 })
-                .setHiveProperties(ImmutableMap.<String, String>builder()
-                        // Streaming upload allocates non trivial amount of memory for buffering (16MB per output file by default).
-                        // When streaming upload is enabled insert into a table with high number of buckets / partitions may cause
-                        // the tests to run out of memory as the buffer space is eagerly allocated for each output file.
-                        .put("hive.s3.streaming.enabled", "false")
-                        .buildOrThrow())
                 .build();
     }
 
@@ -75,10 +64,6 @@ public class TestHiveQueryFailureRecoveryTest
     public void destroy()
             throws Exception
     {
-        if (hiveMinioDataLake != null) {
-            hiveMinioDataLake.close();
-            hiveMinioDataLake = null;
-        }
         if (minioStorage != null) {
             minioStorage.close();
             minioStorage = null;
