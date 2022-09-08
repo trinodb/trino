@@ -14,7 +14,6 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
 import io.trino.connector.CatalogHandle;
 import io.trino.spi.HostAddress;
 import org.openjdk.jol.info.ClassLayout;
@@ -34,13 +33,11 @@ public class NodeRequirements
 
     private final Optional<CatalogHandle> catalogHandle;
     private final Set<HostAddress> addresses;
-    private final DataSize memory;
 
-    public NodeRequirements(Optional<CatalogHandle> catalogHandle, Set<HostAddress> addresses, DataSize memory)
+    public NodeRequirements(Optional<CatalogHandle> catalogHandle, Set<HostAddress> addresses)
     {
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.addresses = ImmutableSet.copyOf(requireNonNull(addresses, "addresses is null"));
-        this.memory = requireNonNull(memory, "memory is null");
     }
 
     /*
@@ -59,16 +56,6 @@ public class NodeRequirements
         return addresses;
     }
 
-    public DataSize getMemory()
-    {
-        return memory;
-    }
-
-    public NodeRequirements withMemory(DataSize memory)
-    {
-        return new NodeRequirements(catalogHandle, addresses, memory);
-    }
-
     @Override
     public boolean equals(Object o)
     {
@@ -79,13 +66,13 @@ public class NodeRequirements
             return false;
         }
         NodeRequirements that = (NodeRequirements) o;
-        return Objects.equals(catalogHandle, that.catalogHandle) && Objects.equals(addresses, that.addresses) && Objects.equals(memory, that.memory);
+        return Objects.equals(catalogHandle, that.catalogHandle) && Objects.equals(addresses, that.addresses);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogHandle, addresses, memory);
+        return Objects.hash(catalogHandle, addresses);
     }
 
     @Override
@@ -94,7 +81,6 @@ public class NodeRequirements
         return toStringHelper(this)
                 .add("catalogHandle", catalogHandle)
                 .add("addresses", addresses)
-                .add("memory", memory)
                 .toString();
     }
 
