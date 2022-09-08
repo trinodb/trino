@@ -96,7 +96,7 @@
 
 ## SPI
 
-* Add support for dynamic function resolution. ({issue}`12588`)
+* Add support for dynamic function resolution. ({issue}`8`)
 * Rename `LIKE_PATTERN_FUNCTION_NAME` to `LIKE_FUNCTION_NAME` in
   `StandardFunctions`. ({issue}`13965`)
 * Remove the `listAllRoleGrants` method from `ConnectorMetadata`. ({issue}`11341`)
