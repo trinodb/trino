@@ -439,6 +439,7 @@ jobs:
             - { modules: plugin/trino-kudu }
             - { modules: plugin/trino-druid }
             - { modules: plugin/trino-iceberg }
+            - { modules: plugin/trino-iceberg, profile: cloud-tests }
             - { modules: plugin/trino-phoenix5 }
             - { modules: [ client/trino-jdbc, plugin/trino-base-jdbc, plugin/trino-thrift, plugin/trino-memory ] }
             - { modules: plugin/trino-bigquery }
@@ -477,7 +478,9 @@ jobs:
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -am -pl "${{ matrix.modules }}"
       - name: Maven Tests
-        if: matrix.modules != 'plugin/trino-singlestore' && !(contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests'))
+        if: >-
+          matrix.modules != 'plugin/trino-singlestore' &&
+          !((contains(matrix.modules, 'trino-delta-lake') || contains(matrix.modules, 'trino-iceberg')) && contains(matrix.profile, 'cloud-tests'))
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
       # Additional tests for selected modules
       - name: Cloud Delta Lake Tests
@@ -534,7 +537,9 @@ jobs:
           AWS_REGION: us-east-2
           S3_BUCKET: presto-ci-test
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
-        if: contains(matrix.modules, 'plugin/trino-iceberg') && (env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
+        if: >-
+          contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests') &&
+          (env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-iceberg -P cloud-tests \
             -Ds3.bucket=${S3_BUCKET} \
