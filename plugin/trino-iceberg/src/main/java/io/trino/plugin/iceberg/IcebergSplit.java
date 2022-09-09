@@ -25,7 +25,6 @@ import io.trino.spi.connector.ConnectorSplit;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -44,7 +43,6 @@ public class IcebergSplit
     private final List<HostAddress> addresses;
     private final String partitionSpecJson;
     private final String partitionDataJson;
-    private final Optional<String> schemaAsJson;
     private final List<DeleteFile> deletes;
     private final SplitWeight splitWeight;
 
@@ -58,7 +56,6 @@ public class IcebergSplit
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("partitionSpecJson") String partitionSpecJson,
             @JsonProperty("partitionDataJson") String partitionDataJson,
-            @JsonProperty("schemaAsJson") Optional<String> schemaAsJson,
             @JsonProperty("deletes") List<DeleteFile> deletes,
             @JsonProperty("splitWeight") SplitWeight splitWeight)
     {
@@ -70,7 +67,6 @@ public class IcebergSplit
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.partitionSpecJson = requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
-        this.schemaAsJson = requireNonNull(schemaAsJson, "schemaAsJson is null");
         this.deletes = ImmutableList.copyOf(requireNonNull(deletes, "deletes is null"));
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
     }
@@ -122,12 +118,6 @@ public class IcebergSplit
     public String getPartitionSpecJson()
     {
         return partitionSpecJson;
-    }
-
-    @JsonProperty
-    public Optional<String> getSchemaAsJson()
-    {
-        return schemaAsJson;
     }
 
     @JsonProperty
