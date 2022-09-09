@@ -13,82 +13,172 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.spi.TrinoException;
-import io.trino.spi.type.VarcharType;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+
+@TestInstance(PER_CLASS)
 public class TestConcatWsFunction
-        extends AbstractTestFunctions
 {
-    private static final VarcharType RETURN_TYPE = VarcharType.createUnboundedVarcharType();
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
 
     @Test
     public void testSimple()
     {
-        assertFunction("concat_ws('abc', 'def')", "def");
-        assertFunction("concat_ws(',', 'def')", "def");
-        assertFunction("concat_ws(',', 'def', 'pqr', 'mno')", "def,pqr,mno");
-        assertFunction("concat_ws('abc', 'def', 'pqr')", "defabcpqr");
+        assertThat(assertions.function("concat_ws", "'abc'", "'def'"))
+                .hasType(VARCHAR)
+                .isEqualTo("def");
+
+        assertThat(assertions.function("concat_ws", "','", "'def'"))
+                .hasType(VARCHAR)
+                .isEqualTo("def");
+
+        assertThat(assertions.function("concat_ws", "','", "'def'", "'pqr'", "'mno'"))
+                .hasType(VARCHAR)
+                .isEqualTo("def,pqr,mno");
+
+        assertThat(assertions.function("concat_ws", "'abc'", "'def'", "'pqr'"))
+                .hasType(VARCHAR)
+                .isEqualTo("defabcpqr");
     }
 
     @Test
     public void testEmpty()
     {
-        assertFunction("concat_ws('', 'def')", "def");
-        assertFunction("concat_ws('', 'def', 'pqr')", "defpqr");
-        assertFunction("concat_ws('', '', 'pqr')", "pqr");
-        assertFunction("concat_ws('', 'def', '')", "def");
-        assertFunction("concat_ws('', '', '')", "");
-        assertFunction("concat_ws(',', 'def', '')", "def,");
-        assertFunction("concat_ws(',', 'def', '', 'pqr')", "def,,pqr");
-        assertFunction("concat_ws(',', '', 'pqr')", ",pqr");
+        assertThat(assertions.function("concat_ws", "''", "'def'"))
+                .hasType(VARCHAR)
+                .isEqualTo("def");
+
+        assertThat(assertions.function("concat_ws", "''", "'def'", "'pqr'"))
+                .hasType(VARCHAR)
+                .isEqualTo("defpqr");
+
+        assertThat(assertions.function("concat_ws", "''", "''", "'pqr'"))
+                .hasType(VARCHAR)
+                .isEqualTo("pqr");
+
+        assertThat(assertions.function("concat_ws", "''", "'def'", "''"))
+                .hasType(VARCHAR)
+                .isEqualTo("def");
+
+        assertThat(assertions.function("concat_ws", "''", "''", "''"))
+                .hasType(VARCHAR)
+                .isEqualTo("");
+
+        assertThat(assertions.function("concat_ws", "','", "'def'", "''"))
+                .hasType(VARCHAR)
+                .isEqualTo("def,");
+
+        assertThat(assertions.function("concat_ws", "','", "'def'", "''", "'pqr'"))
+                .hasType(VARCHAR)
+                .isEqualTo("def,,pqr");
+
+        assertThat(assertions.function("concat_ws", "','", "''", "'pqr'"))
+                .hasType(VARCHAR)
+                .isEqualTo(",pqr");
     }
 
     @Test
     public void testNull()
     {
-        assertFunction("concat_ws(NULL, 'def')", null);
-        assertFunction("concat_ws(NULL, cast(NULL as VARCHAR))", null);
-        assertFunction("concat_ws(NULL, 'def', 'pqr')", null);
-        assertFunction("concat_ws(',', cast(NULL as VARCHAR))", "");
-        assertFunction("concat_ws(',', NULL, 'pqr')", "pqr");
-        assertFunction("concat_ws(',', 'def', NULL)", "def");
-        assertFunction("concat_ws(',', 'def', NULL, 'pqr')", "def,pqr");
-        assertFunction("concat_ws(',', 'def', NULL, NULL, 'mno', 'xyz', NULL, 'box')", "def,mno,xyz,box");
+        assertThat(assertions.function("concat_ws", "NULL", "'def'"))
+                .isNull(VARCHAR);
+
+        assertThat(assertions.function("concat_ws", "NULL", "cast(NULL as VARCHAR)"))
+                .isNull(VARCHAR);
+
+        assertThat(assertions.function("concat_ws", "NULL", "'def'", "'pqr'"))
+                .isNull(VARCHAR);
+
+        assertThat(assertions.function("concat_ws", "','", "cast(NULL as VARCHAR)"))
+                .hasType(VARCHAR)
+                .isEqualTo("");
+
+        assertThat(assertions.function("concat_ws", "','", "NULL", "'pqr'"))
+                .hasType(VARCHAR)
+                .isEqualTo("pqr");
+
+        assertThat(assertions.function("concat_ws", "','", "'def'", "NULL"))
+                .hasType(VARCHAR)
+                .isEqualTo("def");
+
+        assertThat(assertions.function("concat_ws", "','", "'def'", "NULL", "'pqr'"))
+                .hasType(VARCHAR)
+                .isEqualTo("def,pqr");
+
+        assertThat(assertions.function("concat_ws", "','", "'def'", "NULL", "NULL", "'mno'", "'xyz'", "NULL", "'box'"))
+                .hasType(VARCHAR)
+                .isEqualTo("def,mno,xyz,box");
     }
 
     @Test
     public void testArray()
     {
-        assertFunction("concat_ws(',', ARRAY[])", "");
-        assertFunction("concat_ws(',', ARRAY['abc'])", "abc");
-        assertFunction("concat_ws(',', ARRAY['abc', 'def', 'pqr', 'xyz'])", "abc,def,pqr,xyz");
-        assertFunction("concat_ws(null, ARRAY['abc'])", null);
-        assertFunction("concat_ws(',', cast(NULL as array(varchar)))", null);
-        assertFunction("concat_ws(',', ARRAY['abc', null, null, 'xyz'])", "abc,xyz");
-        assertFunction("concat_ws(',', ARRAY['abc', '', '', 'xyz','abcdefghi'])", "abc,,,xyz,abcdefghi");
+        assertThat(assertions.function("concat_ws", "','", "ARRAY[]"))
+                .hasType(VARCHAR)
+                .isEqualTo("");
+
+        assertThat(assertions.function("concat_ws", "','", "ARRAY['abc']"))
+                .hasType(VARCHAR)
+                .isEqualTo("abc");
+
+        assertThat(assertions.function("concat_ws", "','", "ARRAY['abc', 'def', 'pqr', 'xyz']"))
+                .hasType(VARCHAR)
+                .isEqualTo("abc,def,pqr,xyz");
+
+        assertThat(assertions.function("concat_ws", "null", "ARRAY['abc']"))
+                .isNull(VARCHAR);
+
+        assertThat(assertions.function("concat_ws", "','", "cast(NULL as array(varchar))"))
+                .isNull(VARCHAR);
+
+        assertThat(assertions.function("concat_ws", "','", "ARRAY['abc', null, null, 'xyz']"))
+                .hasType(VARCHAR)
+                .isEqualTo("abc,xyz");
+
+        assertThat(assertions.function("concat_ws", "','", "ARRAY['abc', '', '', 'xyz','abcdefghi']"))
+                .hasType(VARCHAR)
+                .isEqualTo("abc,,,xyz,abcdefghi");
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = ".*Unexpected parameters.*")
+    @Test
     public void testBadArray()
     {
-        assertFunction("concat_ws(',', ARRAY[1, 15])", "");
+        assertTrinoExceptionThrownBy(() -> assertions.function("concat_ws", "','", "ARRAY[1, 15]").evaluate())
+                .hasMessageContaining("Unexpected parameters");
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = ".*Unexpected parameters.*")
+    @Test
     public void testBadArguments()
     {
-        assertFunction("concat_ws(',', 1, 15)", "");
+        assertTrinoExceptionThrownBy(() -> assertions.function("concat_ws", "','", "1", "15").evaluate())
+                .hasMessageContaining("Unexpected parameters");
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "There must be two or more.*")
+    @Test
     public void testLowArguments()
     {
-        assertFunction("concat_ws(',')", "");
-    }
-
-    private void assertFunction(String call, String expected)
-    {
-        assertFunction(call, RETURN_TYPE, expected);
+        assertTrinoExceptionThrownBy(() -> assertions.function("concat_ws", "','").evaluate())
+                .hasMessage("There must be two or more arguments");
     }
 }
