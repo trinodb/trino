@@ -30,7 +30,6 @@ import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.Decimals;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -42,21 +41,16 @@ import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BetweenPredicate;
-import io.trino.sql.tree.BinaryLiteral;
-import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CharLiteral;
 import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.DecimalLiteral;
-import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LikePredicate;
+import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Node;
@@ -65,7 +59,6 @@ import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.type.JoniRegexp;
@@ -522,12 +515,14 @@ public final class ConnectorExpressionTranslator
         private final Session session;
         private final Map<NodeRef<Expression>, Type> types;
         private final PlannerContext plannerContext;
+        private final LiteralInterpreter literalInterpreter;
 
         public SqlToConnectorExpressionTranslator(Session session, Map<NodeRef<Expression>, Type> types, PlannerContext plannerContext)
         {
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+            this.literalInterpreter = new LiteralInterpreter(plannerContext, session);
         }
 
         @Override
@@ -537,60 +532,10 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitBooleanLiteral(BooleanLiteral node, Void context)
+        protected Optional<ConnectorExpression> visitLiteral(Literal node, Void context)
         {
-            return Optional.of(new Constant(node.getValue(), typeOf(node)));
-        }
-
-        @Override
-        protected Optional<ConnectorExpression> visitStringLiteral(StringLiteral node, Void context)
-        {
-            return Optional.of(new Constant(Slices.utf8Slice(node.getValue()), typeOf(node)));
-        }
-
-        @Override
-        protected Optional<ConnectorExpression> visitDoubleLiteral(DoubleLiteral node, Void context)
-        {
-            return Optional.of(new Constant(node.getValue(), typeOf(node)));
-        }
-
-        @Override
-        protected Optional<ConnectorExpression> visitDecimalLiteral(DecimalLiteral node, Void context)
-        {
-            return Optional.of(new Constant(Decimals.parse(node.getValue()).getObject(), typeOf(node)));
-        }
-
-        @Override
-        protected Optional<ConnectorExpression> visitCharLiteral(CharLiteral node, Void context)
-        {
-            return Optional.of(new Constant(Slices.utf8Slice(node.getValue()), typeOf(node)));
-        }
-
-        @Override
-        protected Optional<ConnectorExpression> visitBinaryLiteral(BinaryLiteral node, Void context)
-        {
-            return Optional.of(new Constant(Slices.wrappedBuffer(node.getValue()), typeOf(node)));
-        }
-
-        @Override
-        protected Optional<ConnectorExpression> visitLongLiteral(LongLiteral node, Void context)
-        {
-            return Optional.of(new Constant(node.getValue(), typeOf(node)));
-        }
-
-        @Override
-        protected Optional<ConnectorExpression> visitNullLiteral(NullLiteral node, Void context)
-        {
-            return Optional.of(new Constant(null, typeOf(node)));
-        }
-
-        @Override
-        protected Optional<ConnectorExpression> visitGenericLiteral(GenericLiteral node, Void context)
-        {
-            if (!isComplexExpressionPushdown(session)) {
-                return Optional.empty();
-            }
-            return Optional.of(constantFor(node));
+            Type type = typeOf(node);
+            return Optional.of(new Constant(literalInterpreter.evaluate(node, type), type));
         }
 
         @Override
