@@ -1674,6 +1674,14 @@
             </dependency>
 
             <dependency>
+                <groupId>org.eclipse.jetty</groupId>
+                <artifactId>jetty-bom</artifactId>
+                <type>pom</type>
+                <version>9.4.49.v20220914</version>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
                 <groupId>org.flywaydb</groupId>
                 <artifactId>flyway-core</artifactId>
                 <version>7.15.0</version>
