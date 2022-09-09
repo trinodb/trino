@@ -34,6 +34,7 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 
 import java.time.Instant;
+import java.time.LocalTime;
 import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Optional;
@@ -251,6 +252,10 @@ public final class ConstraintExtractor
         ZonedDateTime periodStart;
         ZonedDateTime nextPeriodStart;
         switch (unit.toLowerCase(ENGLISH)) {
+            case "hour" -> {
+                periodStart = ZonedDateTime.of(dateTime.toLocalDate(), LocalTime.of(dateTime.getHour(), 0), UTC);
+                nextPeriodStart = periodStart.plusHours(1);
+            }
             case "day" -> {
                 periodStart = dateTime.toLocalDate().atStartOfDay().atZone(UTC);
                 nextPeriodStart = periodStart.plusDays(1);
