@@ -1874,7 +1874,7 @@ public class IcebergMetadata
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
         ConstraintExtractor.ExtractionResult extractionResult = extractTupleDomain(constraint);
-        TupleDomain<IcebergColumnHandle> predicate = extractionResult.getTupleDomain();
+        TupleDomain<IcebergColumnHandle> predicate = extractionResult.tupleDomain();
         if (predicate.isAll()) {
             return Optional.empty();
         }
@@ -1955,7 +1955,7 @@ public class IcebergMetadata
                         table.isRecordScannedFiles(),
                         table.getMaxScannedFileSize()),
                 remainingConstraint.transformKeys(ColumnHandle.class::cast),
-                extractionResult.getRemainingExpression(),
+                extractionResult.remainingExpression(),
                 false));
     }
 
