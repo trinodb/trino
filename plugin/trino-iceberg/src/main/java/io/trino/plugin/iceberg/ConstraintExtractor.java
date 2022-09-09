@@ -186,25 +186,12 @@ public final class ConstraintExtractor
         return (IcebergColumnHandle) columnHandle;
     }
 
-    public static class ExtractionResult
+    public record ExtractionResult(TupleDomain<IcebergColumnHandle> tupleDomain, ConnectorExpression remainingExpression)
     {
-        private final TupleDomain<IcebergColumnHandle> tupleDomain;
-        private final ConnectorExpression remainingExpression;
-
-        public ExtractionResult(TupleDomain<IcebergColumnHandle> tupleDomain, ConnectorExpression remainingExpression)
+        public ExtractionResult
         {
-            this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
-            this.remainingExpression = requireNonNull(remainingExpression, "remainingExpression is null");
-        }
-
-        public TupleDomain<IcebergColumnHandle> getTupleDomain()
-        {
-            return tupleDomain;
-        }
-
-        public ConnectorExpression getRemainingExpression()
-        {
-            return remainingExpression;
+            requireNonNull(tupleDomain, "tupleDomain is null");
+            requireNonNull(remainingExpression, "remainingExpression is null");
         }
     }
 }

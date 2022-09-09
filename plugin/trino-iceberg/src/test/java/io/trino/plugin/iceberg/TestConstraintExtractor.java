@@ -216,9 +216,9 @@ public class TestConstraintExtractor
     private static TupleDomain<IcebergColumnHandle> extract(Constraint constraint)
     {
         ConstraintExtractor.ExtractionResult result = extractTupleDomain(constraint);
-        assertThat(result.getRemainingExpression())
+        assertThat(result.remainingExpression())
                 .isEqualTo(Constant.TRUE);
-        return result.getTupleDomain();
+        return result.tupleDomain();
     }
 
     private static Constraint constraint(Expression expression, Map<String, IcebergColumnHandle> assignments)
