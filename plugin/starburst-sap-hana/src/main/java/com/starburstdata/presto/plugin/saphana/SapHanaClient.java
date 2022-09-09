@@ -397,13 +397,21 @@ public class SapHanaClient
 
             case Types.DECIMAL:
                 if (typeHandle.getDecimalDigits().isEmpty()) {
-                    // e.g.
-                    // In SAP HANA's `decimal` if precision and scale are not specified, then DECIMAL becomes a floating-point decimal number.
-                    // In this case, precision and scale can vary within the range of 1 to 34 for precision and -6,111 to 6,176 for scale, depending on the stored value.
-                    // However, this is reported as decimal(34,NULL) in JDBC.
-
-                    // Similarly for `smalldecimal``, which is reported as decimal(16,NULL) in JDBC (with type name "SMALLDECIMAL")
-
+                    // SAP HANA's SMALLDECIMAL and DECIMAL fit this category
+                    //
+                    // If precision and scale are not specified, then DECIMAL becomes a floating-point decimal number.
+                    // In this case, precision can vary within the range [1, 34] and scale within [-6,111, 6,176].
+                    // It is reported as decimal(34,NULL) in JDBC (with type name "DECIMAL").
+                    //
+                    // The SMALLDECIMAL data type is a floating-point decimal number.
+                    // The precision can vary within the range [1, 16] and scale within [-369, 368].
+                    // It is reported as decimal(16,NULL) in JDBC (with type name "SMALLDECIMAL")
+                    //
+                    // It worth to underline, that comparing to other connectors, e.g. Postgresql or Oracle where DECIMAL are always fixed-point,
+                    // in HANA, SMALLDECIMAL is always floating-point and DECIMAL in this situation becomes floating point, so it's safe (and ideal) to map them to a DOUBLE.
+                    // point, so the best option to map them to a DOUBLE.
+                    // Hovewer such mapping is not perfect because java's (and so Trino's) DOUBLE data type stores decimal values with 15-16 digits of precision and [-324, +308]
+                    // scale which does not fully cover HANA's types
                     return Optional.of(doubleColumnMapping());
                 }
 
@@ -463,7 +471,7 @@ public class SapHanaClient
         return ColumnMapping.doubleMapping(
                 DOUBLE,
                 ResultSet::getDouble,
-                new SmalldecimalWriteFunction());
+                new SapHanaDoubleWriteFunction());
     }
 
     @Override
@@ -490,7 +498,7 @@ public class SapHanaClient
             return WriteMapping.longMapping("real", realWriteFunction());
         }
         if (type == DOUBLE) {
-            return WriteMapping.doubleMapping("double precision", new SmalldecimalWriteFunction());
+            return WriteMapping.doubleMapping("double precision", new SapHanaDoubleWriteFunction());
         }
 
         if (type instanceof DecimalType) {
@@ -552,13 +560,13 @@ public class SapHanaClient
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
-    private static class SmalldecimalWriteFunction
+    private static class SapHanaDoubleWriteFunction
             implements DoubleWriteFunction
     {
         @Override
         public String getBindExpression()
         {
-            return "CAST(? AS SMALLDECIMAL)";
+            return "CAST(? AS DOUBLE)";
         }
 
         @Override

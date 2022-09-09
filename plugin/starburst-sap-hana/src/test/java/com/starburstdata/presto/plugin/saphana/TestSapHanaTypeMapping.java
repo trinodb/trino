@@ -257,39 +257,55 @@ public class TestSapHanaTypeMapping
                 .addRoundTrip("decimal", "CAST('2' AS DECIMAL)", DOUBLE, "CAST('2' AS DOUBLE)")
                 .addRoundTrip("decimal", "CAST('2.3' AS DECIMAL)", DOUBLE, "CAST('2.3' AS DOUBLE)")
                 .addRoundTrip("decimal", "CAST('123456789.3' AS DECIMAL)", DOUBLE, "CAST('123456789.3' AS DOUBLE)")
-                // TODO (https://starburstdata.atlassian.net/browse/SEP-8262) Comment out because these values can't verify predicates correctly. Testing only SELECT in testDecimalUnboundedIncorrectPredicatePushdown()
-                // .addRoundTrip("decimal", "CAST('12345678901234567890.31' AS DECIMAL)", DOUBLE, "CAST('12345678901234567890.31' AS DOUBLE)")
+                // TODO mappings with precision >15 are lossy because of mapping hana SMALLDECIMAL and DECIMAL to java double. see testDecimalUnboundedLossyMapping()
+                .addRoundTrip("decimal", "CAST('123456789012345673' AS DECIMAL)", DOUBLE, "CAST('123456789012345673' AS DOUBLE)")
+                .addRoundTrip("decimal", "CAST('12345678901234567890.31' AS DECIMAL)", DOUBLE, "CAST('12345678901234567890.31' AS DOUBLE)")
                 // up to 34 decimal digits
-                // .addRoundTrip("decimal", "CAST('3141592653589793238462643.383271234' AS DECIMAL)", DOUBLE, "CAST('3141592653589793238462643.383271234' AS DOUBLE)")
-                // .addRoundTrip("decimal", "CAST('-3141592653589793238462643.383271234' AS DECIMAL)", DOUBLE, "CAST('-3141592653589793238462643.383271234' AS DOUBLE)")
-                // .addRoundTrip("decimal", "CAST('27182818284590452353602874713526624977' AS DECIMAL)", DOUBLE, "CAST('27182818284590452353602874713526624977' AS DOUBLE)")
-                // .addRoundTrip("decimal", "CAST('-27182818284590452353602874713526624977' AS DECIMAL)", DOUBLE, "CAST('-27182818284590452353602874713526624977' AS DOUBLE)")
+                .addRoundTrip("decimal", "CAST('3141592653589793238462643.383271234' AS DECIMAL)", DOUBLE, "CAST('3141592653589793238462643.383271234' AS DOUBLE)")
+                .addRoundTrip("decimal", "CAST('-3141592653589793238462643.383271234' AS DECIMAL)", DOUBLE, "CAST('-3141592653589793238462643.383271234' AS DOUBLE)")
+                .addRoundTrip("decimal", "CAST('27182818284590452353602874713526624977' AS DECIMAL)", DOUBLE, "CAST('27182818284590452353602874713526624977' AS DOUBLE)")
+                .addRoundTrip("decimal", "CAST('-27182818284590452353602874713526624977' AS DECIMAL)", DOUBLE, "CAST('-27182818284590452353602874713526624977' AS DOUBLE)")
                 // large number
                 .addRoundTrip("decimal", format("CAST('1234%s' AS DECIMAL)", "0".repeat(100)), DOUBLE, format("CAST('1234%s' AS DOUBLE)", "0".repeat(100)))
                 .addRoundTrip("decimal", format("CAST('-234%s' AS DECIMAL)", "0".repeat(100)), DOUBLE, format("CAST('-234%s' AS DOUBLE)", "0".repeat(100)))
                 .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_decimal_unbounded"));
     }
 
-    @Deprecated
-    @Test(dataProvider = "largeDecimalProvider")
-    public void testDecimalUnboundedIncorrectPredicatePushdown(String value)
+    @Deprecated // TODO mappings with precision ~ >15 are lossy because of mapping hana SMALLDECIMAL and DECIMAL to java double.
+    @Test(dataProvider = "largePrecisionDecimalProvider")
+    public void testDecimalUnboundedLossyMapping(String value)
     {
-        try (TestTable table = new TestTable(server::execute, "tpch.test_large_decimal", "(c1 decimal)", ImmutableList.of(value))) {
-            assertQuery("SELECT * FROM " + table.getName(), format("VALUES CAST('%s' AS DOUBLE)", value));
-            assertQueryReturnsEmptyResult(format("SELECT * FROM %s WHERE c1 = CAST('%s' AS DOUBLE)", table.getName(), value)); // This should return a row
-        }
+        // these are expected to fail as they are within java double precision
+        assertThatThrownBy(() -> SqlDataTypeTest.create()
+                .addRoundTrip("decimal", "CAST('123456789012345678' AS DECIMAL)", DOUBLE, "CAST('123456789012345672' AS DOUBLE)")
+                .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_decimal_unbounded")))
+                .isInstanceOf(AssertionError.class);
+        assertThatThrownBy(() -> SqlDataTypeTest.create()
+                .addRoundTrip("decimal", format("CAST('%s' AS DECIMAL)", value), DOUBLE, "CAST('1234567890123456000' AS DOUBLE)")
+                .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_decimal_unbounded")))
+                .isInstanceOf(AssertionError.class);
+        assertThatThrownBy(() -> SqlDataTypeTest.create()
+                .addRoundTrip("decimal", format("CAST('-%s' AS DECIMAL)", value), DOUBLE, "CAST('-1234567890123456000' AS DOUBLE)")
+                .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_decimal_unbounded")))
+                .isInstanceOf(AssertionError.class);
+
+        // these should not pass because compared values are different (see numbers endings) but they are beyond java double precision
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal", "CAST('123456789012345678' AS DECIMAL)", DOUBLE, "CAST('123456789012345673' AS DOUBLE)")
+                .addRoundTrip("decimal", format("CAST('%s' AS DECIMAL)", value), DOUBLE, "CAST('1234567890123456700' AS DOUBLE)")
+                .addRoundTrip("decimal", format("CAST('-%s' AS DECIMAL)", value), DOUBLE, "CAST('-1234567890123456700' AS DOUBLE)")
+                .addRoundTrip("decimal", format("CAST('%s' AS DECIMAL)", value), DOUBLE, "CAST('1234567890123456789' AS DOUBLE)")
+                .addRoundTrip("decimal", format("CAST('-%s' AS DECIMAL)", value), DOUBLE, "CAST('-1234567890123456789' AS DOUBLE)")
+                .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_decimal_unbounded"));
     }
 
     @DataProvider
-    public Object[][] largeDecimalProvider()
+    public Object[][] largePrecisionDecimalProvider()
     {
-        // These cases should go to testDecimalUnbounded() when fixing incorrect predicate pushdown
         return new Object[][] {
-                {"12345678901234567890.31"},
-                {"3141592653589793238462643.383271234"},
-                {"-3141592653589793238462643.383271234"},
-                {"27182818284590452353602874713526624977"},
-                {"-27182818284590452353602874713526624977"},
+                {"1234567890123456789"},
+                {"1234567890123456789.012"},
+                {"1234567890123456789.012345"},
         };
     }
 
