@@ -9,6 +9,7 @@
  */
 package com.starburstdata.presto.plugin.saphana;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.testing.StarburstDistributedQueryRunner;
 import io.airlift.log.Logger;
@@ -21,6 +22,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest.redirectionDisabled;
@@ -28,11 +30,14 @@ import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.lang.Boolean.parseBoolean;
+import static java.lang.System.getenv;
 
 public final class SapHanaQueryRunner
 {
     public static final String GRANTED_USER = "alice";
     public static final String NON_GRANTED_USER = "bob";
+    private static final boolean TESTCONTAINERS_REUSE_ENABLE = parseBoolean(getenv("TESTCONTAINERS_REUSE_ENABLE"));
 
     private SapHanaQueryRunner() {}
 
@@ -60,11 +65,28 @@ public final class SapHanaQueryRunner
             connectorProperties.putIfAbsent("connection-user", server.getUser());
             connectorProperties.putIfAbsent("connection-password", server.getPassword());
 
-            server.executeWithRetry("CREATE SCHEMA tpch");
-            server.executeWithRetry("CREATE USER " + GRANTED_USER);
-            server.executeWithRetry("CREATE USER " + NON_GRANTED_USER);
-            server.executeWithRetry("GRANT ALL PRIVILEGES ON SCHEMA tpch TO " + GRANTED_USER);
+            List<String> queries = ImmutableList.of(
+                    "CREATE SCHEMA tpch",
+                    "CREATE USER " + GRANTED_USER,
+                    "CREATE USER " + NON_GRANTED_USER,
+                    "GRANT ALL PRIVILEGES ON SCHEMA tpch TO " + GRANTED_USER);
 
+            if (TESTCONTAINERS_REUSE_ENABLE) {
+                try {
+                    // in case when environment was already initialized by previous run, queries will fail,
+                    // and server::executeWithRetry will retry, and, still, eventually will fail.
+                    // this leads to longer startup time for local environment.
+                    // To mitigate that single try with server::execute is used, which is the acceptable trade-off during local testing.
+                    queries.forEach(server::execute);
+                }
+                catch (RuntimeException e) {
+                    System.err.println("Environment was not initialized properly. Either because local environment was already initialized by previous run, or... it's actual fail."
+                            + " TESTCONTAINERS_REUSE_ENABLE=true, so you know what you do." + e.getMessage());
+                }
+            }
+            else {
+                queries.forEach(server::executeWithRetry);
+            }
             queryRunner.installPlugin(new TestingSapHanaPlugin());
             queryRunner.createCatalog("saphana", "sap-hana", connectorProperties);
 
