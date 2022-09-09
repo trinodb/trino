@@ -43,7 +43,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.io.CloseableIterable;
@@ -76,7 +75,6 @@ import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
-import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
@@ -424,7 +422,6 @@ public class IcebergSplitSource
 
     private IcebergSplit toIcebergSplit(FileScanTask task)
     {
-        IcebergFileFormat fileFormat = IcebergFileFormat.fromIceberg(task.file().format());
         return new IcebergSplit(
                 task.file().path().toString(),
                 task.start(),
@@ -434,7 +431,6 @@ public class IcebergSplitSource
                 ImmutableList.of(),
                 PartitionSpecParser.toJson(task.spec()),
                 PartitionData.toJson(task.file().partition()),
-                fileFormat != AVRO ? Optional.empty() : Optional.of(SchemaParser.toJson(task.spec().schema())),
                 task.deletes().stream()
                         .map(DeleteFile::fromIceberg)
                         .collect(toImmutableList()),
