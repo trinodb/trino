@@ -2691,7 +2691,7 @@ class StatementAnalyzer
             Table table = update.getTable();
             QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName());
             if (metadata.isView(session, originalName)) {
-                throw semanticException(NOT_SUPPORTED, update, "Updating through views is not supported");
+                throw semanticException(NOT_SUPPORTED, update, "Updating views is not supported");
             }
 
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName);
@@ -2794,7 +2794,7 @@ class StatementAnalyzer
             Table table = getMergeTargetTable(relation);
             QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
             if (metadata.getView(session, tableName).isPresent()) {
-                throw semanticException(NOT_SUPPORTED, merge, "MERGE INTO a view is not supported");
+                throw semanticException(NOT_SUPPORTED, merge, "Merging into views is not supported");
             }
 
             TableHandle targetTableHandle = metadata.getTableHandle(session, tableName)
