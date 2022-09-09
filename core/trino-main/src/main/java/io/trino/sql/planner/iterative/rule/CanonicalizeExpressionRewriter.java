@@ -246,7 +246,7 @@ public final class CanonicalizeExpressionRewriter
                 if (argumentType instanceof TimestampType
                         || argumentType instanceof TimestampWithTimeZoneType
                         || argumentType instanceof VarcharType) {
-                    // prefer `CAST(x as DATE)` to `date(x)`
+                    // prefer `CAST(x as DATE)` to `date(x)`, see e.g. UnwrapCastInComparison
                     return new Cast(treeRewriter.rewrite(argument, context), toSqlType(DateType.DATE));
                 }
             }
