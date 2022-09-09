@@ -13,6 +13,8 @@
  */
 package io.trino.server.security.oauth2;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import io.trino.server.security.AbstractBearerAuthenticator;
 import io.trino.server.security.AuthenticationException;
@@ -62,7 +64,7 @@ public class OAuth2Authenticator
 
     @Override
     protected Optional<Identity> createIdentity(String token)
-            throws UserMappingException
+            throws UserMappingException, JsonProcessingException
     {
         TokenPair tokenPair = tokenPairSerializer.deserialize(token);
         if (tokenPair.getExpiration().before(Date.from(Instant.now()))) {
