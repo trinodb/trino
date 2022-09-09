@@ -189,20 +189,10 @@ public class TimestampColumnWriter
 
         // record values
         switch (timestampKind) {
-            case TIMESTAMP_MILLIS:
-            case TIMESTAMP_MICROS:
-                writeTimestampMicros(block);
-                break;
-            case TIMESTAMP_NANOS:
-                writeTimestampNanos(block);
-                break;
-            case INSTANT_MILLIS:
-                writeInstantShort(block);
-                break;
-            case INSTANT_MICROS:
-            case INSTANT_NANOS:
-                writeInstantLong(block);
-                break;
+            case TIMESTAMP_MILLIS, TIMESTAMP_MICROS -> writeTimestampMicros(block);
+            case TIMESTAMP_NANOS -> writeTimestampNanos(block);
+            case INSTANT_MILLIS -> writeInstantShort(block);
+            case INSTANT_MICROS, INSTANT_NANOS -> writeInstantLong(block);
         }
     }
 

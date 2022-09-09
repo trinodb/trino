@@ -333,35 +333,21 @@ public final class TypeOperatorDeclaration
                 }
 
                 switch (operatorType) {
-                    case EQUAL:
-                        addEqualOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, boolean.class), methodHandle));
-                        break;
-                    case HASH_CODE:
-                        addHashCodeOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, long.class), methodHandle));
-                        break;
-                    case XX_HASH_64:
-                        addXxHash64Operator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, long.class), methodHandle));
-                        break;
-                    case IS_DISTINCT_FROM:
-                        addDistinctFromOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, boolean.class), methodHandle));
-                        break;
-                    case INDETERMINATE:
-                        addIndeterminateOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, boolean.class), methodHandle));
-                        break;
-                    case COMPARISON_UNORDERED_LAST:
-                        addComparisonUnorderedLastOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, long.class), methodHandle));
-                        break;
-                    case COMPARISON_UNORDERED_FIRST:
-                        addComparisonUnorderedFirstOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, long.class), methodHandle));
-                        break;
-                    case LESS_THAN:
-                        addLessThanOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, boolean.class), methodHandle));
-                        break;
-                    case LESS_THAN_OR_EQUAL:
-                        addLessThanOrEqualOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, boolean.class), methodHandle));
-                        break;
-                    default:
-                        throw new IllegalArgumentException(operatorType + " operator is not supported: " + method);
+                    case EQUAL -> addEqualOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, boolean.class), methodHandle));
+                    case HASH_CODE -> addHashCodeOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, long.class), methodHandle));
+                    case XX_HASH_64 -> addXxHash64Operator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, long.class), methodHandle));
+                    case IS_DISTINCT_FROM ->
+                            addDistinctFromOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, boolean.class), methodHandle));
+                    case INDETERMINATE ->
+                            addIndeterminateOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, boolean.class), methodHandle));
+                    case COMPARISON_UNORDERED_LAST ->
+                            addComparisonUnorderedLastOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, long.class), methodHandle));
+                    case COMPARISON_UNORDERED_FIRST ->
+                            addComparisonUnorderedFirstOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, long.class), methodHandle));
+                    case LESS_THAN -> addLessThanOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, boolean.class), methodHandle));
+                    case LESS_THAN_OR_EQUAL ->
+                            addLessThanOrEqualOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, boolean.class), methodHandle));
+                    default -> throw new IllegalArgumentException(operatorType + " operator is not supported: " + method);
                 }
                 addedOperator = true;
             }
@@ -393,44 +379,28 @@ public final class TypeOperatorDeclaration
                 Class<?> parameterType = methodType.parameterType(parameterIndex);
                 checkArgument(!parameterType.equals(ConnectorSession.class), "Session is not supported in type operators");
                 switch (argumentConvention) {
-                    case NEVER_NULL:
-                        checkArgument(parameterType.isAssignableFrom(typeJavaType),
-                                "Expected argument type to be %s, but is %s", typeJavaType, parameterType);
-                        break;
-                    case NULL_FLAG:
-                        checkArgument(parameterType.isAssignableFrom(typeJavaType),
-                                "Expected argument type to be %s, but is %s", typeJavaType, parameterType);
-                        checkArgument(methodType.parameterType(parameterIndex + 1).equals(boolean.class),
-                                "Expected null flag parameter to be followed by a boolean parameter");
-                        break;
-                    case BOXED_NULLABLE:
-                        checkArgument(parameterType.isAssignableFrom(wrap(typeJavaType)),
-                                "Expected argument type to be %s, but is %s", wrap(typeJavaType), parameterType);
-                        break;
-                    case BLOCK_POSITION:
-                        checkArgument(parameterType.equals(Block.class) && methodType.parameterType(parameterIndex + 1).equals(int.class),
-                                "Expected BLOCK_POSITION argument have parameters Block and int");
-                        break;
-                    case FUNCTION:
-                        throw new IllegalArgumentException("Function argument convention is not supported in type operators");
-                    default:
-                        throw new UnsupportedOperationException("Unknown argument convention: " + argumentConvention);
+                    case NEVER_NULL -> checkArgument(parameterType.isAssignableFrom(typeJavaType), "Expected argument type to be %s, but is %s", typeJavaType, parameterType);
+                    case NULL_FLAG -> {
+                        checkArgument(parameterType.isAssignableFrom(typeJavaType), "Expected argument type to be %s, but is %s", typeJavaType, parameterType);
+                        checkArgument(methodType.parameterType(parameterIndex + 1).equals(boolean.class), "Expected null flag parameter to be followed by a boolean parameter");
+                    }
+                    case BOXED_NULLABLE ->
+                            checkArgument(parameterType.isAssignableFrom(wrap(typeJavaType)), "Expected argument type to be %s, but is %s", wrap(typeJavaType), parameterType);
+                    case BLOCK_POSITION ->
+                            checkArgument(parameterType.equals(Block.class) && methodType.parameterType(parameterIndex + 1).equals(int.class), "Expected BLOCK_POSITION argument have parameters Block and int");
+                    case FUNCTION -> throw new IllegalArgumentException("Function argument convention is not supported in type operators");
+                    default -> throw new UnsupportedOperationException("Unknown argument convention: " + argumentConvention);
                 }
                 parameterIndex += argumentConvention.getParameterCount();
             }
 
             InvocationReturnConvention returnConvention = convention.getReturnConvention();
             switch (returnConvention) {
-                case FAIL_ON_NULL:
-                    checkArgument(methodType.returnType().equals(returnJavaType),
-                            "Expected return type to be %s, but is %s", returnJavaType, methodType.returnType());
-                    break;
-                case NULLABLE_RETURN:
-                    checkArgument(methodType.returnType().equals(wrap(returnJavaType)),
-                            "Expected return type to be %s, but is %s", returnJavaType, wrap(methodType.returnType()));
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unknown return convention: " + returnConvention);
+                case FAIL_ON_NULL -> checkArgument(methodType.returnType().equals(returnJavaType),
+                        "Expected return type to be %s, but is %s", returnJavaType, methodType.returnType());
+                case NULLABLE_RETURN -> checkArgument(methodType.returnType().equals(wrap(returnJavaType)),
+                        "Expected return type to be %s, but is %s", returnJavaType, wrap(methodType.returnType()));
+                default -> throw new UnsupportedOperationException("Unknown return convention: " + returnConvention);
             }
         }
 

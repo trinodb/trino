@@ -336,18 +336,10 @@ public class LongOutputStreamV2
         }
 
         switch (encoding) {
-            case SHORT_REPEAT:
-                writeShortRepeatValues();
-                break;
-            case DIRECT:
-                writeDirectValues();
-                break;
-            case PATCHED_BASE:
-                writePatchedBaseValues();
-                break;
-            default:
-                writeDeltaValues();
-                break;
+            case SHORT_REPEAT -> writeShortRepeatValues();
+            case DIRECT -> writeDirectValues();
+            case PATCHED_BASE -> writePatchedBaseValues();
+            default -> writeDeltaValues();
         }
         clearEncoder();
     }

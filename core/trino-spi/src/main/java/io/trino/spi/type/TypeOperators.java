@@ -347,21 +347,13 @@ public class TypeOperators
 
         private List<Type> getOperatorArgumentTypes(OperatorConvention operatorConvention)
         {
-            switch (operatorConvention.getOperatorType()) {
-                case EQUAL:
-                case IS_DISTINCT_FROM:
-                case COMPARISON_UNORDERED_LAST:
-                case COMPARISON_UNORDERED_FIRST:
-                case LESS_THAN:
-                case LESS_THAN_OR_EQUAL:
-                    return List.of(operatorConvention.getType(), operatorConvention.getType());
-                case HASH_CODE:
-                case XX_HASH_64:
-                case INDETERMINATE:
-                    return List.of(operatorConvention.getType());
-                default:
-                    throw new IllegalArgumentException("Unsupported operator type: " + operatorConvention.getOperatorType());
-            }
+            return switch (operatorConvention.getOperatorType()) {
+                case EQUAL, IS_DISTINCT_FROM, COMPARISON_UNORDERED_LAST, COMPARISON_UNORDERED_FIRST, LESS_THAN, LESS_THAN_OR_EQUAL ->
+                        List.of(operatorConvention.getType(), operatorConvention.getType());
+                case HASH_CODE, XX_HASH_64, INDETERMINATE -> List.of(operatorConvention.getType());
+                default -> throw new IllegalArgumentException(
+                        "Unsupported operator type: " + operatorConvention.getOperatorType());
+            };
         }
     }
 

@@ -131,13 +131,10 @@ public final class ExpressionUtils
         requireNonNull(expressions, "expressions is null");
 
         if (expressions.isEmpty()) {
-            switch (operator) {
-                case AND:
-                    return TRUE_LITERAL;
-                case OR:
-                    return FALSE_LITERAL;
-            }
-            throw new IllegalArgumentException("Unsupported LogicalExpression operator");
+            return switch (operator) {
+                case AND -> TRUE_LITERAL;
+                case OR -> FALSE_LITERAL;
+            };
         }
 
         if (expressions.size() == 1) {

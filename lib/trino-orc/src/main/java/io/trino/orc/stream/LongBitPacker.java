@@ -42,41 +42,18 @@ public final class LongBitPacker
     {
         checkArgument(len <= MAX_BUFFERED_POSITIONS, "Expected ORC files to have runs of at most 512 bit packed longs");
         switch (bitSize) {
-            case 1:
-                unpack1(buffer, offset, len, input);
-                break;
-            case 2:
-                unpack2(buffer, offset, len, input);
-                break;
-            case 4:
-                unpack4(buffer, offset, len, input);
-                break;
-            case 8:
-                unpack8(buffer, offset, len, input);
-                break;
-            case 16:
-                unpack16(buffer, offset, len, input);
-                break;
-            case 24:
-                unpack24(buffer, offset, len, input);
-                break;
-            case 32:
-                unpack32(buffer, offset, len, input);
-                break;
-            case 40:
-                unpack40(buffer, offset, len, input);
-                break;
-            case 48:
-                unpack48(buffer, offset, len, input);
-                break;
-            case 56:
-                unpack56(buffer, offset, len, input);
-                break;
-            case 64:
-                unpack64(buffer, offset, len, input);
-                break;
-            default:
-                unpackGeneric(buffer, offset, len, bitSize, input);
+            case 1 -> unpack1(buffer, offset, len, input);
+            case 2 -> unpack2(buffer, offset, len, input);
+            case 4 -> unpack4(buffer, offset, len, input);
+            case 8 -> unpack8(buffer, offset, len, input);
+            case 16 -> unpack16(buffer, offset, len, input);
+            case 24 -> unpack24(buffer, offset, len, input);
+            case 32 -> unpack32(buffer, offset, len, input);
+            case 40 -> unpack40(buffer, offset, len, input);
+            case 48 -> unpack48(buffer, offset, len, input);
+            case 56 -> unpack56(buffer, offset, len, input);
+            case 64 -> unpack64(buffer, offset, len, input);
+            default -> unpackGeneric(buffer, offset, len, bitSize, input);
         }
     }
 

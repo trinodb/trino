@@ -116,16 +116,10 @@ public final class ScalarFunctionAdapter
         }
 
         if (expectedReturnConvention == FAIL_ON_NULL && actualReturnConvention == NULLABLE_RETURN) {
-            switch (nullAdaptationPolicy) {
-                case THROW_ON_NULL:
-                case UNDEFINED_VALUE_FOR_NULL:
-                    return true;
-                case UNSUPPORTED:
-                case RETURN_NULL_ON_NULL:
-                    return false;
-                default:
-                    return false;
-            }
+            return switch (nullAdaptationPolicy) {
+                case THROW_ON_NULL, UNDEFINED_VALUE_FOR_NULL -> true;
+                case UNSUPPORTED, RETURN_NULL_ON_NULL -> false;
+            };
         }
 
         return false;
@@ -160,17 +154,11 @@ public final class ScalarFunctionAdapter
         if (expectedArgumentConvention == BOXED_NULLABLE || expectedArgumentConvention == NULL_FLAG) {
             // null able to not nullable has special handling
             if (actualArgumentConvention == NEVER_NULL) {
-                switch (nullAdaptationPolicy) {
-                    case THROW_ON_NULL:
-                    case UNDEFINED_VALUE_FOR_NULL:
-                        return true;
-                    case RETURN_NULL_ON_NULL:
-                        return returnConvention != FAIL_ON_NULL;
-                    case UNSUPPORTED:
-                        return false;
-                    default:
-                        return false;
-                }
+                return switch (nullAdaptationPolicy) {
+                    case THROW_ON_NULL, UNDEFINED_VALUE_FOR_NULL -> true;
+                    case RETURN_NULL_ON_NULL -> returnConvention != FAIL_ON_NULL;
+                    case UNSUPPORTED -> false;
+                };
             }
 
             return true;

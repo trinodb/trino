@@ -88,22 +88,22 @@ public final class SortingProperty<E>
         String ordering = "";
         String nullOrdering = "";
         switch (order) {
-            case ASC_NULLS_FIRST:
+            case ASC_NULLS_FIRST -> {
                 ordering = "\u2191";
                 nullOrdering = "\u2190";
-                break;
-            case ASC_NULLS_LAST:
+            }
+            case ASC_NULLS_LAST -> {
                 ordering = "\u2191";
                 nullOrdering = "\u2192";
-                break;
-            case DESC_NULLS_FIRST:
+            }
+            case DESC_NULLS_FIRST -> {
                 ordering = "\u2193";
                 nullOrdering = "\u2190";
-                break;
-            case DESC_NULLS_LAST:
+            }
+            case DESC_NULLS_LAST -> {
                 ordering = "\u2193";
                 nullOrdering = "\u2192";
-                break;
+            }
         }
 
         return "S" + ordering + nullOrdering + "(" + column + ")";

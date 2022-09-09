@@ -32,19 +32,13 @@ public interface OrcDecompressor
         if ((compression != NONE) && ((bufferSize <= 0) || (bufferSize > MAX_BUFFER_SIZE))) {
             throw new OrcCorruptionException(orcDataSourceId, "Invalid compression block size: " + bufferSize);
         }
-        switch (compression) {
-            case NONE:
-                return Optional.empty();
-            case ZLIB:
-                return Optional.of(new OrcZlibDecompressor(orcDataSourceId, bufferSize));
-            case SNAPPY:
-                return Optional.of(new OrcSnappyDecompressor(orcDataSourceId, bufferSize));
-            case LZ4:
-                return Optional.of(new OrcLz4Decompressor(orcDataSourceId, bufferSize));
-            case ZSTD:
-                return Optional.of(new OrcZstdDecompressor(orcDataSourceId, bufferSize));
-        }
-        throw new OrcCorruptionException(orcDataSourceId, "Unknown compression type: " + compression);
+        return switch (compression) {
+            case NONE -> Optional.empty();
+            case ZLIB -> Optional.of(new OrcZlibDecompressor(orcDataSourceId, bufferSize));
+            case SNAPPY -> Optional.of(new OrcSnappyDecompressor(orcDataSourceId, bufferSize));
+            case LZ4 -> Optional.of(new OrcLz4Decompressor(orcDataSourceId, bufferSize));
+            case ZSTD -> Optional.of(new OrcZstdDecompressor(orcDataSourceId, bufferSize));
+        };
     }
 
     int decompress(byte[] input, int offset, int length, OutputBuffer output)

@@ -209,17 +209,15 @@ public class TrinoFileSystemCache
         String proxyUser;
         AuthenticationMethod authenticationMethod = userGroupInformation.getAuthenticationMethod();
         switch (authenticationMethod) {
-            case SIMPLE:
-            case KERBEROS:
+            case SIMPLE, KERBEROS -> {
                 realUser = userGroupInformation.getUserName();
                 proxyUser = null;
-                break;
-            case PROXY:
+            }
+            case PROXY -> {
                 realUser = userGroupInformation.getRealUser().getUserName();
                 proxyUser = userGroupInformation.getUserName();
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported authentication method: " + authenticationMethod);
+            }
+            default -> throw new IllegalArgumentException("Unsupported authentication method: " + authenticationMethod);
         }
         return new FileSystemKey(scheme, authority, unique, realUser, proxyUser);
     }
@@ -227,16 +225,12 @@ public class TrinoFileSystemCache
     private static Set<?> getPrivateCredentials(UserGroupInformation userGroupInformation)
     {
         AuthenticationMethod authenticationMethod = userGroupInformation.getAuthenticationMethod();
-        switch (authenticationMethod) {
-            case SIMPLE:
-                return ImmutableSet.of();
-            case KERBEROS:
-                return ImmutableSet.copyOf(getSubject(userGroupInformation).getPrivateCredentials());
-            case PROXY:
-                return getPrivateCredentials(userGroupInformation.getRealUser());
-            default:
-                throw new IllegalArgumentException("Unsupported authentication method: " + authenticationMethod);
-        }
+        return switch (authenticationMethod) {
+            case SIMPLE -> ImmutableSet.of();
+            case KERBEROS -> ImmutableSet.copyOf(getSubject(userGroupInformation).getPrivateCredentials());
+            case PROXY -> getPrivateCredentials(userGroupInformation.getRealUser());
+            default -> throw new IllegalArgumentException("Unsupported authentication method: " + authenticationMethod);
+        };
     }
 
     private static boolean isHdfs(URI uri)
