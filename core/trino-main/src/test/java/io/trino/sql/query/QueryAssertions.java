@@ -128,10 +128,10 @@ public class QueryAssertions
         return function(mangleOperatorName(operator), arguments);
     }
 
-    public ExpressionAssertProvider function(String name, @Language("SQL") String... arguments)
+    public ExpressionAssertProvider function(String name, List<String> arguments)
     {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
-        for (int i = 0; i < arguments.length; i++) {
+        for (int i = 0; i < arguments.size(); i++) {
             builder.add("a" + i);
         }
 
@@ -140,11 +140,16 @@ public class QueryAssertions
                 name,
                 String.join(",", names)));
 
-        for (int i = 0; i < arguments.length; i++) {
-            assertion.binding(names.get(i), arguments[i]);
+        for (int i = 0; i < arguments.size(); i++) {
+            assertion.binding(names.get(i), arguments.get(i));
         }
 
         return assertion;
+    }
+
+    public ExpressionAssertProvider function(String name, @Language("SQL") String... arguments)
+    {
+        return function(name, Arrays.asList(arguments));
     }
 
     public ExpressionAssertProvider expression(@Language("SQL") String expression, Session session)
