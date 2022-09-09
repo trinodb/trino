@@ -28,7 +28,6 @@ import io.trino.plugin.jdbc.ConfiguringConnectionFactory;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DecimalModule;
 import io.trino.plugin.jdbc.DefaultQueryBuilder;
-import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.DynamicFilteringStats;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.ForJdbcDynamicFiltering;
@@ -58,16 +57,11 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.apache.phoenix.jdbc.PhoenixDriver;
-import org.apache.phoenix.jdbc.PhoenixEmbeddedDriver;
 
 import javax.annotation.PreDestroy;
 
 import java.sql.SQLException;
-import java.util.Map;
-import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -161,39 +155,16 @@ public class PhoenixClientModule
             throws SQLException
     {
         return new ConfiguringConnectionFactory(
-                new DriverConnectionFactory(
+                new PhoenixDriverConnectionFactory(
                         PhoenixDriver.INSTANCE, // Note: for some reason new PhoenixDriver won't work.
                         config.getConnectionUrl(),
-                        getConnectionProperties(config),
+                        config,
                         new EmptyCredentialProvider()),
                 connection -> {
                     // Per JDBC spec, a Driver is expected to have new connections in auto-commit mode.
                     // This seems not to be true for PhoenixDriver, so we need to be explicit here.
                     connection.setAutoCommit(true);
                 });
-    }
-
-    public static Properties getConnectionProperties(PhoenixConfig config)
-            throws SQLException
-    {
-        Configuration resourcesConfig = readConfig(config);
-        Properties connectionProperties = new Properties();
-        for (Map.Entry<String, String> entry : resourcesConfig) {
-            connectionProperties.setProperty(entry.getKey(), entry.getValue());
-        }
-
-        PhoenixEmbeddedDriver.ConnectionInfo connectionInfo = PhoenixEmbeddedDriver.ConnectionInfo.create(config.getConnectionUrl());
-        connectionInfo.asProps().asMap().forEach(connectionProperties::setProperty);
-        return connectionProperties;
-    }
-
-    private static Configuration readConfig(PhoenixConfig config)
-    {
-        Configuration result = newEmptyConfiguration();
-        for (String resourcePath : config.getResourceConfigFiles()) {
-            result.addResource(new Path(resourcePath));
-        }
-        return result;
     }
 
     @Singleton
