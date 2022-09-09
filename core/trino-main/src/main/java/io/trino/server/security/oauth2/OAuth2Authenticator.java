@@ -64,7 +64,7 @@ public class OAuth2Authenticator
 
     @Override
     protected Optional<Identity> createIdentity(String token)
-            throws UserMappingException, JsonProcessingException
+            throws UserMappingException
     {
         TokenPair tokenPair = tokenPairSerializer.deserialize(token);
         if (tokenPair.getExpiration().before(Date.from(Instant.now()))) {
@@ -78,9 +78,14 @@ public class OAuth2Authenticator
         String principal = null;
         if (principalObj instanceof String) {
             principal = (String) principalObj;
-        }else{
+        } else {
             ObjectMapper mapper = new ObjectMapper();
-            principal = mapper.writeValueAsString(principalObj);
+            try {
+                principal = mapper.writeValueAsString(principalObj);
+            }
+            catch (JsonProcessingException e) {
+                return Optional.empty();
+            }
         }
         Identity.Builder builder = Identity.forUser(userMapping.mapUser(principal));
         builder.withPrincipal(new BasicPrincipal(principal));
