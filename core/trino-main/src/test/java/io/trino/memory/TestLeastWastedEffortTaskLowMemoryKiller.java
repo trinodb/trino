@@ -250,7 +250,7 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         0,
                         0,
                         0,
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.of(new TDigestHistogram(new TDigest()))),
                 ImmutableSet.of(),
                 new TaskStats(DateTime.now(),

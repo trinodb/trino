@@ -13,8 +13,8 @@
  */
 package io.trino.execution.scheduler;
 
-import io.trino.execution.buffer.OutputBuffers;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -25,12 +25,12 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-public class TestPartitionedOutputBufferManager
+public class TestPartitionedPipelinedOutputBufferManager
 {
     @Test
     public void test()
     {
-        PartitionedOutputBufferManager hashOutputBufferManager = new PartitionedOutputBufferManager(FIXED_HASH_DISTRIBUTION, 4);
+        PartitionedPipelinedOutputBufferManager hashOutputBufferManager = new PartitionedPipelinedOutputBufferManager(FIXED_HASH_DISTRIBUTION, 4);
 
         // output buffers are set immediately when the manager is created
         assertOutputBuffers(hashOutputBufferManager.getOutputBuffers());
@@ -54,7 +54,7 @@ public class TestPartitionedOutputBufferManager
         assertOutputBuffers(hashOutputBufferManager.getOutputBuffers());
     }
 
-    private static void assertOutputBuffers(OutputBuffers outputBuffers)
+    private static void assertOutputBuffers(PipelinedOutputBuffers outputBuffers)
     {
         assertNotNull(outputBuffers);
         assertTrue(outputBuffers.getVersion() > 0);

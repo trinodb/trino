@@ -37,6 +37,7 @@ import io.trino.execution.TaskId;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.OutputBuffers;
+import io.trino.execution.buffer.SpoolingOutputBuffers;
 import io.trino.execution.scheduler.PartitionMemoryEstimator.MemoryRequirements;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.InternalNode;
@@ -83,7 +84,6 @@ import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultT
 import static io.trino.SystemSessionProperties.getRetryDelayScaleFactor;
 import static io.trino.SystemSessionProperties.getRetryInitialDelay;
 import static io.trino.SystemSessionProperties.getRetryMaxDelay;
-import static io.trino.execution.buffer.OutputBuffers.createSpoolingExchangeOutputBuffers;
 import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
 import static io.trino.execution.scheduler.Exchanges.getAllSourceHandles;
 import static io.trino.failuredetector.FailureDetector.State.GONE;
@@ -366,7 +366,7 @@ public class FaultTolerantStageScheduler
 
         ExchangeSinkHandle sinkHandle = partitionToExchangeSinkHandleMap.get(partition);
         ExchangeSinkInstanceHandle exchangeSinkInstanceHandle = sinkExchange.instantiateSink(sinkHandle, attemptId);
-        OutputBuffers outputBuffers = createSpoolingExchangeOutputBuffers(exchangeSinkInstanceHandle);
+        OutputBuffers outputBuffers = SpoolingOutputBuffers.createInitial(exchangeSinkInstanceHandle);
 
         Set<PlanNodeId> allSourcePlanNodeIds = ImmutableSet.<PlanNodeId>builder()
                 .addAll(stage.getFragment().getPartitionedSources())

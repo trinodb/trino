@@ -13,14 +13,14 @@
  */
 package io.trino.execution.scheduler;
 
-import io.trino.execution.buffer.OutputBuffers;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 
-interface OutputBufferManager
+interface PipelinedOutputBufferManager
 {
     void addOutputBuffer(OutputBufferId newBuffer);
 
     void noMoreBuffers();
 
-    OutputBuffers getOutputBuffers();
+    PipelinedOutputBuffers getOutputBuffers();
 }

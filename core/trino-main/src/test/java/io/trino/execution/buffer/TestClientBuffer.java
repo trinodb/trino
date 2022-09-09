@@ -18,7 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.execution.buffer.ClientBuffer.PagesSupplier;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.execution.buffer.SerializedPageReference.PagesReleasedListener;
 import io.trino.spi.Page;
 import io.trino.spi.type.BigintType;
@@ -439,7 +439,7 @@ public class TestClientBuffer
     {
         assertEquals(
                 buffer.getInfo(),
-                new BufferInfo(
+                new PipelinedBufferInfo(
                         BUFFER_ID,
                         // every page has one row,
                         bufferedPages + pagesSent,
@@ -460,7 +460,7 @@ public class TestClientBuffer
     @SuppressWarnings("ConstantConditions")
     private static void assertBufferDestroyed(ClientBuffer buffer, int pagesSent)
     {
-        BufferInfo bufferInfo = buffer.getInfo();
+        PipelinedBufferInfo bufferInfo = buffer.getInfo();
         assertEquals(bufferInfo.getBufferedPages(), 0);
         assertEquals(bufferInfo.getPagesSent(), pagesSent);
         assertTrue(bufferInfo.isFinished());

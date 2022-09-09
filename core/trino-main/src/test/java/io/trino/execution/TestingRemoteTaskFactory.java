@@ -149,7 +149,7 @@ public class TestingRemoteTaskFactory
                             0,
                             0,
                             0,
-                            ImmutableList.of(),
+                            Optional.empty(),
                             Optional.of(new TDigestHistogram(new TDigest()))),
                     ImmutableSet.copyOf(noMoreSplits),
                     new TaskStats(DateTime.now(), null),

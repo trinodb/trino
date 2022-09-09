@@ -28,6 +28,7 @@ import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.DriverContext;
 import io.trino.operator.OperatorContext;
@@ -700,18 +701,18 @@ public class TestPagePartitioner
         }
 
         @Override
-        public ListenableFuture<BufferResult> get(OutputBuffers.OutputBufferId bufferId, long token, DataSize maxSize)
+        public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize)
         {
             return null;
         }
 
         @Override
-        public void acknowledge(OutputBuffers.OutputBufferId bufferId, long token)
+        public void acknowledge(OutputBufferId bufferId, long token)
         {
         }
 
         @Override
-        public void destroy(OutputBuffers.OutputBufferId bufferId)
+        public void destroy(OutputBufferId bufferId)
         {
         }
 

@@ -22,7 +22,7 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.ClientBuffer.PagesSupplier;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.execution.buffer.SerializedPageReference.PagesReleasedListener;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.plugin.base.metrics.TDigestHistogram;
@@ -48,9 +48,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.execution.buffer.BufferState.FINISHED;
 import static io.trino.execution.buffer.BufferState.FLUSHING;
 import static io.trino.execution.buffer.BufferState.NO_MORE_PAGES;
-import static io.trino.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
-import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
+import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.ARBITRARY;
 import static io.trino.execution.buffer.SerializedPageReference.dereferencePages;
 import static java.util.Objects.requireNonNull;
 
@@ -64,7 +63,7 @@ public class ArbitraryOutputBuffer
     private final PagesReleasedListener onPagesReleased;
 
     @GuardedBy("this")
-    private volatile OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(ARBITRARY);
+    private volatile PipelinedOutputBuffers outputBuffers = PipelinedOutputBuffers.createInitial(ARBITRARY);
 
     private final MasterBuffer masterBuffer;
 
@@ -136,9 +135,9 @@ public class ArbitraryOutputBuffer
         Collection<ClientBuffer> buffers = this.buffers.values();
 
         int totalBufferedPages = masterBuffer.getBufferedPages();
-        ImmutableList.Builder<BufferInfo> infos = ImmutableList.builderWithExpectedSize(buffers.size());
+        ImmutableList.Builder<PipelinedBufferInfo> infos = ImmutableList.builderWithExpectedSize(buffers.size());
         for (ClientBuffer buffer : buffers) {
-            BufferInfo bufferInfo = buffer.getInfo();
+            PipelinedBufferInfo bufferInfo = buffer.getInfo();
             infos.add(bufferInfo);
             totalBufferedPages += bufferInfo.getBufferedPages();
         }
@@ -152,7 +151,7 @@ public class ArbitraryOutputBuffer
                 totalBufferedPages,
                 totalRowsAdded.get(),
                 totalPagesAdded.get(),
-                infos.build(),
+                Optional.of(infos.build()),
                 Optional.of(new TDigestHistogram(memoryManager.getUtilizationHistogram())));
     }
 
@@ -167,6 +166,7 @@ public class ArbitraryOutputBuffer
     {
         checkState(!Thread.holdsLock(this), "Cannot set output buffers while holding a lock on this");
         requireNonNull(newOutputBuffers, "newOutputBuffers is null");
+        checkArgument(newOutputBuffers instanceof PipelinedOutputBuffers, "newOutputBuffers is expected to be an instance of PipelinedOutputBuffers");
 
         synchronized (this) {
             // ignore buffers added after query finishes, which can happen when a query is canceled
@@ -178,7 +178,7 @@ public class ArbitraryOutputBuffer
 
             // verify this is valid state change
             outputBuffers.checkValidTransition(newOutputBuffers);
-            outputBuffers = newOutputBuffers;
+            outputBuffers = (PipelinedOutputBuffers) newOutputBuffers;
 
             // add the new buffers
             for (OutputBufferId outputBufferId : outputBuffers.getBuffers().keySet()) {
