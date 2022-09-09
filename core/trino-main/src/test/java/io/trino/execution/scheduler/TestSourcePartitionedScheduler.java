@@ -757,11 +757,11 @@ public class TestSourcePartitionedScheduler
                 nodeTaskMap,
                 queryExecutor,
                 new SplitSchedulerStats());
-        ImmutableMap.Builder<PlanFragmentId, OutputBufferManager> outputBuffers = ImmutableMap.builder();
-        outputBuffers.put(fragment.getId(), new PartitionedOutputBufferManager(FIXED_HASH_DISTRIBUTION, 1));
+        ImmutableMap.Builder<PlanFragmentId, PipelinedOutputBufferManager> outputBuffers = ImmutableMap.builder();
+        outputBuffers.put(fragment.getId(), new PartitionedPipelinedOutputBufferManager(FIXED_HASH_DISTRIBUTION, 1));
         fragment.getRemoteSourceNodes().stream()
                 .flatMap(node -> node.getSourceFragmentIds().stream())
-                .forEach(fragmentId -> outputBuffers.put(fragmentId, new PartitionedOutputBufferManager(FIXED_HASH_DISTRIBUTION, 10)));
+                .forEach(fragmentId -> outputBuffers.put(fragmentId, new PartitionedPipelinedOutputBufferManager(FIXED_HASH_DISTRIBUTION, 10)));
         return createPipelinedStageExecution(
                 stage,
                 outputBuffers.buildOrThrow(),

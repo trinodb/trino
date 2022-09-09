@@ -15,7 +15,7 @@ package io.trino.execution.buffer;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 
 import java.util.Objects;
 
@@ -23,7 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class BufferInfo
+public class PipelinedBufferInfo
 {
     private final OutputBufferId bufferId;
     private final long rowsAdded;
@@ -34,7 +34,7 @@ public class BufferInfo
     private final boolean finished;
 
     @JsonCreator
-    public BufferInfo(
+    public PipelinedBufferInfo(
             @JsonProperty("bufferId") OutputBufferId bufferId,
             @JsonProperty("rowsAdded") long rowsAdded,
             @JsonProperty("pagesAdded") long pagesAdded,
@@ -108,7 +108,7 @@ public class BufferInfo
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        BufferInfo that = (BufferInfo) o;
+        PipelinedBufferInfo that = (PipelinedBufferInfo) o;
         return rowsAdded == that.rowsAdded &&
                 pagesAdded == that.pagesAdded &&
                 bufferedPages == that.bufferedPages &&

@@ -13,19 +13,18 @@
  */
 package io.trino.execution.scheduler;
 
-import io.trino.execution.buffer.OutputBuffers;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 
 import javax.annotation.concurrent.GuardedBy;
 
-import static io.trino.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
-import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.ARBITRARY;
 
-public class ScaledOutputBufferManager
-        implements OutputBufferManager
+public class ScaledPipelinedOutputBufferManager
+        implements PipelinedOutputBufferManager
 {
     @GuardedBy("this")
-    private OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(ARBITRARY);
+    private PipelinedOutputBuffers outputBuffers = PipelinedOutputBuffers.createInitial(ARBITRARY);
 
     @SuppressWarnings("ObjectEquality")
     @Override
@@ -37,7 +36,7 @@ public class ScaledOutputBufferManager
             return;
         }
 
-        OutputBuffers newOutputBuffers = outputBuffers.withBuffer(newBuffer, newBuffer.getId());
+        PipelinedOutputBuffers newOutputBuffers = outputBuffers.withBuffer(newBuffer, newBuffer.getId());
 
         // don't update if nothing changed
         if (newOutputBuffers != outputBuffers) {
@@ -54,7 +53,7 @@ public class ScaledOutputBufferManager
     }
 
     @Override
-    public synchronized OutputBuffers getOutputBuffers()
+    public synchronized PipelinedOutputBuffers getOutputBuffers()
     {
         return outputBuffers;
     }

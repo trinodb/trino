@@ -13,7 +13,6 @@
  */
 package io.trino.execution.buffer;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -21,7 +20,6 @@ import io.airlift.units.DataSize;
 import io.trino.execution.StateMachine;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.exchange.ExchangeSink;
-import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -30,11 +28,9 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
-import static io.trino.execution.buffer.OutputBuffers.BufferType.SPOOL;
 import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
 import static java.util.Objects.requireNonNull;
 
@@ -45,7 +41,7 @@ public class SpoolingExchangeOutputBuffer
     private static final Logger log = Logger.get(SpoolingExchangeOutputBuffer.class);
 
     private final OutputBufferStateMachine stateMachine;
-    private volatile OutputBuffers outputBuffers;
+    private volatile SpoolingOutputBuffers outputBuffers;
     // This field is not final to allow releasing the memory retained by the ExchangeSink instance.
     // It is modified (assigned to null) when the OutputBuffer is destroyed (either finished or aborted).
     // It doesn't have to be declared as volatile as the nullification of this variable doesn't have to be immediately visible to other threads.
@@ -59,13 +55,12 @@ public class SpoolingExchangeOutputBuffer
 
     public SpoolingExchangeOutputBuffer(
             OutputBufferStateMachine stateMachine,
-            OutputBuffers outputBuffers,
+            SpoolingOutputBuffers outputBuffers,
             ExchangeSink exchangeSink,
             Supplier<LocalMemoryContext> memoryContextSupplier)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.outputBuffers = requireNonNull(outputBuffers, "outputBuffers is null");
-        checkArgument(outputBuffers.getType() == SPOOL, "Expected a SPOOL output buffer");
         // this assignment is expected to be followed by an assignment of a final field to ensure safe publication
         this.exchangeSink = requireNonNull(exchangeSink, "exchangeSink is null");
         this.memoryContextSupplier = requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
@@ -87,7 +82,7 @@ public class SpoolingExchangeOutputBuffer
                 totalPagesAdded.get(),
                 totalRowsAdded.get(),
                 totalPagesAdded.get(),
-                ImmutableList.of(),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -137,29 +132,27 @@ public class SpoolingExchangeOutputBuffer
 
         ExchangeSink sink = exchangeSink;
         if (sink != null) {
-            ExchangeSinkInstanceHandle exchangeSinkInstanceHandle = newOutputBuffers.getExchangeSinkInstanceHandle()
-                    .orElseThrow(() -> new IllegalArgumentException("exchange sink handle is expected to be present"));
-            sink.updateHandle(exchangeSinkInstanceHandle);
+            sink.updateHandle(((SpoolingOutputBuffers) newOutputBuffers).getExchangeSinkInstanceHandle());
         }
 
         // assign output buffers only after updating the sink to avoid triggering an extra update
-        outputBuffers = newOutputBuffers;
+        outputBuffers = (SpoolingOutputBuffers) newOutputBuffers;
     }
 
     @Override
-    public ListenableFuture<BufferResult> get(OutputBuffers.OutputBufferId bufferId, long token, DataSize maxSize)
+    public ListenableFuture<BufferResult> get(PipelinedOutputBuffers.OutputBufferId bufferId, long token, DataSize maxSize)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void acknowledge(OutputBuffers.OutputBufferId bufferId, long token)
+    public void acknowledge(PipelinedOutputBuffers.OutputBufferId bufferId, long token)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void destroy(OutputBuffers.OutputBufferId bufferId)
+    public void destroy(PipelinedOutputBuffers.OutputBufferId bufferId)
     {
         throw new UnsupportedOperationException();
     }

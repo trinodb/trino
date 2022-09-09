@@ -13,25 +13,24 @@
  */
 package io.trino.execution.scheduler;
 
-import io.trino.execution.buffer.OutputBuffers;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import org.testng.annotations.Test;
 
-import static io.trino.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
-import static io.trino.execution.buffer.OutputBuffers.BufferType.BROADCAST;
-import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.trino.execution.buffer.PipelinedOutputBuffers.BROADCAST_PARTITION_ID;
+import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.BROADCAST;
 import static org.testng.Assert.assertEquals;
 
-public class TestBroadcastOutputBufferManager
+public class TestBroadcastPipelinedOutputBufferManager
 {
     @Test
     public void test()
     {
-        BroadcastOutputBufferManager hashOutputBufferManager = new BroadcastOutputBufferManager();
-        assertEquals(hashOutputBufferManager.getOutputBuffers(), createInitialEmptyOutputBuffers(BROADCAST));
+        BroadcastPipelinedOutputBufferManager hashOutputBufferManager = new BroadcastPipelinedOutputBufferManager();
+        assertEquals(hashOutputBufferManager.getOutputBuffers(), PipelinedOutputBuffers.createInitial(BROADCAST));
 
         hashOutputBufferManager.addOutputBuffer(new OutputBufferId(0));
-        OutputBuffers expectedOutputBuffers = createInitialEmptyOutputBuffers(BROADCAST).withBuffer(new OutputBufferId(0), BROADCAST_PARTITION_ID);
+        PipelinedOutputBuffers expectedOutputBuffers = PipelinedOutputBuffers.createInitial(BROADCAST).withBuffer(new OutputBufferId(0), BROADCAST_PARTITION_ID);
         assertEquals(hashOutputBufferManager.getOutputBuffers(), expectedOutputBuffers);
 
         hashOutputBufferManager.addOutputBuffer(new OutputBufferId(1));
