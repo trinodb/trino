@@ -889,7 +889,7 @@ public class IcebergMetadata
 
         switch (procedureId) {
             case OPTIMIZE:
-                return getTableHandleForOptimize(session, tableHandle, executeProperties, retryMode);
+                return getTableHandleForOptimize(tableHandle, executeProperties, retryMode);
             case DROP_EXTENDED_STATS:
                 return getTableHandleForDropExtendedStats(session, tableHandle);
             case EXPIRE_SNAPSHOTS:
@@ -901,24 +901,23 @@ public class IcebergMetadata
         throw new IllegalArgumentException("Unknown procedure: " + procedureId);
     }
 
-    private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimize(ConnectorSession session, IcebergTableHandle tableHandle, Map<String, Object> executeProperties, RetryMode retryMode)
+    private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimize(IcebergTableHandle tableHandle, Map<String, Object> executeProperties, RetryMode retryMode)
     {
         DataSize maxScannedFileSize = (DataSize) executeProperties.get("file_size_threshold");
-        Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
 
         return Optional.of(new IcebergTableExecuteHandle(
                 tableHandle.getSchemaTableName(),
                 OPTIMIZE,
                 new IcebergOptimizeHandle(
                         tableHandle.getSnapshotId(),
-                        SchemaParser.toJson(icebergTable.schema()),
-                        PartitionSpecParser.toJson(icebergTable.spec()),
-                        getColumns(icebergTable.schema(), typeManager),
-                        getFileFormat(icebergTable),
-                        icebergTable.properties(),
+                        tableHandle.getTableSchemaJson(),
+                        tableHandle.getPartitionSpecJson().orElseThrow(() -> new VerifyException("Partition spec missing in the table handle")),
+                        getColumns(SchemaParser.fromJson(tableHandle.getTableSchemaJson()), typeManager),
+                        getFileFormat(tableHandle.getStorageProperties()),
+                        tableHandle.getStorageProperties(),
                         maxScannedFileSize,
                         retryMode != NO_RETRIES),
-                icebergTable.location()));
+                tableHandle.getTableLocation()));
     }
 
     private Optional<ConnectorTableExecuteHandle> getTableHandleForDropExtendedStats(ConnectorSession session, IcebergTableHandle tableHandle)
