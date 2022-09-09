@@ -4130,7 +4130,7 @@ class StatementAnalyzer
             ExpressionAnalysis expressionAnalysis;
             try {
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        createViewSession(filter.getCatalog(), filter.getSchema(), Identity.forUser(filter.getIdentity()).build(), session.getPath()), // TODO: path should be included in row filter
+                        createViewSession(filter.getCatalog(), filter.getSchema(), getIdentityForExpression(filter), session.getPath()), // TODO: path should be included in row filter
                         plannerContext,
                         statementAnalyzerFactory,
                         accessControl,
@@ -4185,7 +4185,7 @@ class StatementAnalyzer
 
             try {
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        createViewSession(mask.getCatalog(), mask.getSchema(), Identity.forUser(mask.getIdentity()).build(), session.getPath()), // TODO: path should be included in row filter
+                        createViewSession(mask.getCatalog(), mask.getSchema(), getIdentityForExpression(mask), session.getPath()), // TODO: path should be included in row filter
                         plannerContext,
                         statementAnalyzerFactory,
                         accessControl,
@@ -4221,6 +4221,17 @@ class StatementAnalyzer
             }
 
             analysis.addColumnMask(table, column, expression);
+        }
+
+        private Identity getIdentityForExpression(ViewExpression expression)
+        {
+            // TODO: the ViewExpression we get from access control should include the full Identity instead of just the user name
+            if (expression.getIdentity().equals(session.getUser())) {
+                return session.getIdentity();
+            }
+
+            // if the mask or filter user is not the same as the session user, there's not much we can do
+            return Identity.ofUser(expression.getIdentity());
         }
 
         private List<Expression> descriptorToFields(Scope scope)

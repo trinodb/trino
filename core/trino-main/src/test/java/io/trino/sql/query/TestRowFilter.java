@@ -15,6 +15,7 @@ package io.trino.sql.query;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.metadata.QualifiedObjectName;
@@ -56,13 +57,16 @@ public class TestRowFilter
     private static final String MOCK_CATALOG = "mock";
     private static final String MOCK_CATALOG_MISSING_COLUMNS = "mockmissingcolumns";
     private static final String USER = "user";
+    private static final String USERROLE = "userrole";
     private static final String VIEW_OWNER = "view-owner";
     private static final String RUN_AS_USER = "run-as-user";
 
     private static final Session SESSION = testSessionBuilder()
             .setCatalog(LOCAL_CATALOG)
             .setSchema(TINY_SCHEMA_NAME)
-            .setIdentity(Identity.forUser(USER).build())
+            .setIdentity(Identity.forUser(USER)
+                    .withEnabledRoles(ImmutableSet.of(USERROLE))
+                    .build())
             .build();
 
     private QueryAssertions assertions;
@@ -158,6 +162,8 @@ public class TestRowFilter
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 USER,
                 new ViewExpression(USER, Optional.empty(), Optional.empty(), "orderkey < 10"));
+        // ensure that the table referenced in the filter is registered with a proper Identity:
+        accessControl.denyIdentityTable((identity, tableName) -> identity.getEnabledRoles().contains(USERROLE));
         assertThat(assertions.query("SELECT count(*) FROM orders")).matches("VALUES BIGINT '7'");
 
         accessControl.reset();
@@ -165,6 +171,8 @@ public class TestRowFilter
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 USER,
                 new ViewExpression(USER, Optional.empty(), Optional.empty(), "NULL"));
+        // ensure that the table referenced in the filter is registered with a proper Identity:
+        accessControl.denyIdentityTable((identity, tableName) -> identity.getEnabledRoles().contains(USERROLE));
         assertThat(assertions.query("SELECT count(*) FROM orders")).matches("VALUES BIGINT '0'");
     }
 
