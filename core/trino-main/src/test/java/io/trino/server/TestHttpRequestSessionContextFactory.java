@@ -29,6 +29,7 @@ import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.MultivaluedMap;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static io.trino.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -86,7 +87,10 @@ public class TestHttpRequestSessionContextFactory
         assertEquals(context.getCatalog().orElse(null), "testCatalog");
         assertEquals(context.getSchema().orElse(null), "testSchema");
         assertEquals(context.getPath().orElse(null), "testPath");
-        assertEquals(context.getIdentity(), Identity.ofUser("testUser"));
+        assertEquals(context.getIdentity(), Identity.forUser("testUser")
+                .withGroups(Set.of("testUser"))
+                .withEnabledRoles(Set.of("system-role"))
+                .build());
         assertEquals(context.getClientInfo().orElse(null), "client-info");
         assertEquals(context.getLanguage().orElse(null), "zh-TW");
         assertEquals(context.getTimeZoneId().orElse(null), "Asia/Taipei");

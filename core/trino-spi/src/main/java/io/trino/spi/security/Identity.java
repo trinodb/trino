@@ -130,13 +130,15 @@ public class Identity
             return false;
         }
         Identity identity = (Identity) o;
-        return Objects.equals(user, identity.user);
+        return Objects.equals(user, identity.user)
+                && enabledRoles.equals(identity.enabledRoles)
+                && groups.equals(identity.groups);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(user);
+        return Objects.hash(user, enabledRoles, groups);
     }
 
     @Override
