@@ -1726,7 +1726,7 @@ public class IcebergMetadata
         for (CommitTaskData task : commitTasks) {
             PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, task.getPartitionSpecJson());
             Type[] partitionColumnTypes = partitionSpec.fields().stream()
-                    .map(field -> field.transform().getResultType(icebergTable.schema().findType(field.sourceId())))
+                    .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
                     .toArray(Type[]::new);
             switch (task.getContent()) {
                 case POSITION_DELETES:
