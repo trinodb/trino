@@ -14,7 +14,6 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -39,6 +38,7 @@ import io.trino.execution.ForQueryExecution;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TableExecuteContext;
 import io.trino.execution.TableExecuteContextManager;
+import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
@@ -147,8 +147,7 @@ public class StageTaskSourceFactory
             PlanFragment fragment,
             Multimap<PlanFragmentId, ExchangeSourceHandle> exchangeSourceHandles,
             LongConsumer getSplitTimeRecorder,
-            Optional<int[]> bucketToPartitionMap,
-            Optional<BucketNodeMap> bucketNodeMap)
+            FaultTolerantPartitioningScheme sourcePartitioningScheme)
     {
         PartitioningHandle partitioning = fragment.getPartitioning();
 
@@ -170,8 +169,7 @@ public class StageTaskSourceFactory
                     exchangeSourceHandles,
                     splitBatchSize,
                     getSplitTimeRecorder,
-                    bucketToPartitionMap.orElseThrow(() -> new IllegalArgumentException("bucketToPartitionMap is expected to be present for hash distributed stages")),
-                    bucketNodeMap,
+                    sourcePartitioningScheme,
                     getFaultTolerantExecutionTargetTaskSplitCount(session) * SplitWeight.standard().getRawValue(),
                     getFaultTolerantExecutionTargetTaskInputSize(session),
                     getFaultTolerantPreserveInputPartitionsInWriteStage(session),
@@ -363,8 +361,7 @@ public class StageTaskSourceFactory
 
         private final int splitBatchSize;
         private final LongConsumer getSplitTimeRecorder;
-        private final int[] bucketToPartitionMap;
-        private final Optional<BucketNodeMap> bucketNodeMap;
+        private final FaultTolerantPartitioningScheme sourcePartitioningScheme;
         private final DataSize taskMemory;
         private final Optional<CatalogHandle> catalogRequirement;
         private final long targetPartitionSourceSizeInBytes; // compared data read from ExchangeSources
@@ -385,24 +382,20 @@ public class StageTaskSourceFactory
                 Multimap<PlanFragmentId, ExchangeSourceHandle> exchangeSourceHandles,
                 int splitBatchSize,
                 LongConsumer getSplitTimeRecorder,
-                int[] bucketToPartitionMap,
-                Optional<BucketNodeMap> bucketNodeMap,
+                FaultTolerantPartitioningScheme sourcePartitioningScheme,
                 long targetPartitionSplitWeight,
                 DataSize targetPartitionSourceSize,
                 boolean preserveInputPartitionsInWriteStage,
                 Executor executor)
         {
-            checkArgument(bucketNodeMap.isPresent() || fragment.getPartitionedSources().isEmpty(), "bucketNodeMap is expected to be set when the fragment reads partitioned sources (tables)");
             Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(session, fragment);
-
             return new HashDistributionTaskSource(
                     splitSources,
                     getPartitionedExchangeSourceHandles(fragment, exchangeSourceHandles),
                     getReplicatedExchangeSourceHandles(fragment, exchangeSourceHandles),
                     splitBatchSize,
                     getSplitTimeRecorder,
-                    bucketToPartitionMap,
-                    bucketNodeMap,
+                    sourcePartitioningScheme,
                     fragment.getPartitioning().getCatalogHandle(),
                     targetPartitionSplitWeight,
                     (preserveInputPartitionsInWriteStage && isWriteFragment(fragment)) ? DataSize.of(0, BYTE) : targetPartitionSourceSize,
@@ -442,8 +435,7 @@ public class StageTaskSourceFactory
                 Multimap<PlanNodeId, ExchangeSourceHandle> replicatedExchangeSourceHandles,
                 int splitBatchSize,
                 LongConsumer getSplitTimeRecorder,
-                int[] bucketToPartitionMap,
-                Optional<BucketNodeMap> bucketNodeMap,
+                FaultTolerantPartitioningScheme sourcePartitioningScheme,
                 Optional<CatalogHandle> catalogRequirement,
                 long targetPartitionSplitWeight,
                 DataSize targetPartitionSourceSize,
@@ -455,10 +447,8 @@ public class StageTaskSourceFactory
             this.replicatedExchangeSourceHandles = ImmutableListMultimap.copyOf(requireNonNull(replicatedExchangeSourceHandles, "replicatedExchangeSourceHandles is null"));
             this.splitBatchSize = splitBatchSize;
             this.getSplitTimeRecorder = requireNonNull(getSplitTimeRecorder, "getSplitTimeRecorder is null");
-            this.bucketToPartitionMap = requireNonNull(bucketToPartitionMap, "bucketToPartitionMap is null");
-            this.bucketNodeMap = requireNonNull(bucketNodeMap, "bucketNodeMap is null");
+            this.sourcePartitioningScheme = requireNonNull(sourcePartitioningScheme, "sourcePartitioningScheme is null");
             this.taskMemory = requireNonNull(taskMemory, "taskMemory is null");
-            checkArgument(bucketNodeMap.isPresent() || splitSources.isEmpty(), "bucketNodeMap is expected to be set when the fragment reads partitioned sources (tables)");
             this.catalogRequirement = requireNonNull(catalogRequirement, "catalogRequirement is null");
             this.targetPartitionSourceSizeInBytes = targetPartitionSourceSize.toBytes();
             this.targetPartitionSplitWeight = targetPartitionSplitWeight;
@@ -489,14 +479,11 @@ public class StageTaskSourceFactory
                             Map<Integer, ListMultimap<PlanNodeId, Split>> partitionToSplitsMap = new HashMap<>();
                             SetMultimap<Integer, HostAddress> partitionToNodeMap = HashMultimap.create();
                             for (LoadedSplits loadedSplits : loadedSplitsList) {
-                                BucketNodeMap bucketNodeMap = this.bucketNodeMap
-                                        .orElseThrow(() -> new VerifyException("bucket to node map is expected to be present"));
                                 for (Split split : loadedSplits.getSplits()) {
-                                    int bucket = bucketNodeMap.getBucket(split);
-                                    int partition = getPartitionForBucket(bucket);
-
-                                    {
-                                        HostAddress requiredAddress = bucketNodeMap.getAssignedNode(split).getHostAndPort();
+                                    int partition = sourcePartitioningScheme.getPartition(split);
+                                    Optional<InternalNode> assignedNode = sourcePartitioningScheme.getNodeRequirement(partition);
+                                    if (assignedNode.isPresent()) {
+                                        HostAddress requiredAddress = assignedNode.get().getHostAndPort();
                                         Set<HostAddress> existingRequirement = partitionToNodeMap.get(partition);
                                         if (existingRequirement.isEmpty()) {
                                             existingRequirement.add(requiredAddress);
@@ -618,11 +605,6 @@ public class StageTaskSourceFactory
         private ListMultimap<NodeRequirements, TaskDescriptor> groupCompatibleTasks(List<TaskDescriptor> tasks)
         {
             return Multimaps.index(tasks, TaskDescriptor::getNodeRequirements);
-        }
-
-        private int getPartitionForBucket(int bucket)
-        {
-            return bucketToPartitionMap[bucket];
         }
 
         @Override

@@ -115,11 +115,10 @@ public class FaultTolerantStageScheduler
     private final int maxTasksWaitingForNodePerStage;
 
     private final Exchange sinkExchange;
-    private final Optional<int[]> sinkBucketToPartitionMap;
+    private final FaultTolerantPartitioningScheme sinkPartitioningScheme;
 
     private final Map<PlanFragmentId, Exchange> sourceExchanges;
-    private final Optional<int[]> sourceBucketToPartitionMap;
-    private final Optional<BucketNodeMap> sourceBucketNodeMap;
+    private final FaultTolerantPartitioningScheme sourcePartitioningScheme;
 
     private final DelayedFutureCompletor futureCompletor;
 
@@ -187,10 +186,9 @@ public class FaultTolerantStageScheduler
             DelayedFutureCompletor futureCompletor,
             Ticker ticker,
             Exchange sinkExchange,
-            Optional<int[]> sinkBucketToPartitionMap,
+            FaultTolerantPartitioningScheme sinkPartitioningScheme,
             Map<PlanFragmentId, Exchange> sourceExchanges,
-            Optional<int[]> sourceBucketToPartitionMap,
-            Optional<BucketNodeMap> sourceBucketNodeMap,
+            FaultTolerantPartitioningScheme sourcePartitioningScheme,
             AtomicInteger remainingRetryAttemptsOverall,
             int taskRetryAttemptsPerTask,
             int maxTasksWaitingForNodePerStage,
@@ -206,10 +204,9 @@ public class FaultTolerantStageScheduler
         this.taskExecutionStats = requireNonNull(taskExecutionStats, "taskExecutionStats is null");
         this.futureCompletor = requireNonNull(futureCompletor, "futureCompletor is null");
         this.sinkExchange = requireNonNull(sinkExchange, "sinkExchange is null");
-        this.sinkBucketToPartitionMap = requireNonNull(sinkBucketToPartitionMap, "sinkBucketToPartitionMap is null");
+        this.sinkPartitioningScheme = requireNonNull(sinkPartitioningScheme, "sinkPartitioningScheme is null");
         this.sourceExchanges = ImmutableMap.copyOf(requireNonNull(sourceExchanges, "sourceExchanges is null"));
-        this.sourceBucketToPartitionMap = requireNonNull(sourceBucketToPartitionMap, "sourceBucketToPartitionMap is null");
-        this.sourceBucketNodeMap = requireNonNull(sourceBucketNodeMap, "sourceBucketNodeMap is null");
+        this.sourcePartitioningScheme = requireNonNull(sourcePartitioningScheme, "sourcePartitioningScheme is null");
         this.remainingRetryAttemptsOverall = requireNonNull(remainingRetryAttemptsOverall, "remainingRetryAttemptsOverall is null");
         this.maxRetryAttemptsPerTask = taskRetryAttemptsPerTask;
         this.maxTasksWaitingForNodePerStage = maxTasksWaitingForNodePerStage;
@@ -277,8 +274,7 @@ public class FaultTolerantStageScheduler
                     stage.getFragment(),
                     exchangeSources,
                     stage::recordGetSplitTime,
-                    sourceBucketToPartitionMap,
-                    sourceBucketNodeMap);
+                    sourcePartitioningScheme);
         }
 
         while (!pendingPartitions.isEmpty() || !queuedPartitions.isEmpty() || !taskSource.isFinished()) {
@@ -393,7 +389,7 @@ public class FaultTolerantStageScheduler
                 node,
                 partition,
                 attemptId,
-                sinkBucketToPartitionMap,
+                sinkPartitioningScheme.getBucketToPartitionMap(),
                 outputBuffers,
                 taskSplits,
                 allSourcePlanNodeIds,

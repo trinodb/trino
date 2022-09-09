@@ -71,8 +71,7 @@ public class TestingTaskSourceFactory
             PlanFragment fragment,
             Multimap<PlanFragmentId, ExchangeSourceHandle> exchangeSourceHandles,
             LongConsumer getSplitTimeRecorder,
-            Optional<int[]> bucketToPartitionMap,
-            Optional<BucketNodeMap> bucketNodeMap)
+            FaultTolerantPartitioningScheme sourcePartitioningScheme)
     {
         List<PlanNodeId> partitionedSources = fragment.getPartitionedSources();
         checkArgument(partitionedSources.size() == 1, "single partitioned source is expected");

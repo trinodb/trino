@@ -19,7 +19,6 @@ import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
 
-import java.util.Optional;
 import java.util.function.LongConsumer;
 
 public interface TaskSourceFactory
@@ -29,6 +28,5 @@ public interface TaskSourceFactory
             PlanFragment fragment,
             Multimap<PlanFragmentId, ExchangeSourceHandle> exchangeSourceHandles,
             LongConsumer getSplitTimeRecorder,
-            Optional<int[]> bucketToPartitionMap,
-            Optional<BucketNodeMap> bucketNodeMap);
+            FaultTolerantPartitioningScheme sourcePartitioningScheme);
 }
