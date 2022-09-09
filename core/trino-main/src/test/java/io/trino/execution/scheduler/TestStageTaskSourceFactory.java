@@ -54,6 +54,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -294,8 +295,7 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(),
                 ImmutableListMultimap.of(),
                 1,
-                new int[] {0, 1, 2, 3},
-                Optional.empty(),
+                createPartitioningScheme(4),
                 0,
                 DataSize.of(3, BYTE));
         assertFalse(taskSource.isFinished());
@@ -312,8 +312,7 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(
                         PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
                 1,
-                new int[] {0, 1, 2, 3},
-                Optional.empty(),
+                createPartitioningScheme(4),
                 0,
                 DataSize.of(0, BYTE));
         assertFalse(taskSource.isFinished());
@@ -355,8 +354,7 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(
                         PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
                 1,
-                new int[] {0, 1, 2, 3},
-                Optional.of(getTestingBucketNodeMap(4)),
+                createPartitioningScheme(4, 4),
                 0,
                 DataSize.of(0, BYTE));
         assertFalse(taskSource.isFinished());
@@ -403,8 +401,7 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(
                         PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
                 1,
-                new int[] {0, 1, 2, 3},
-                Optional.of(getTestingBucketNodeMap(4)),
+                createPartitioningScheme(4, 4),
                 0,
                 DataSize.of(0, BYTE));
         assertFalse(taskSource.isFinished());
@@ -454,8 +451,7 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(
                         PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
                 2,
-                new int[] {0, 1, 0, 1},
-                Optional.of(getTestingBucketNodeMap(4)),
+                createPartitioningScheme(2, 4),
                 0, DataSize.of(0, BYTE));
         assertFalse(taskSource.isFinished());
         assertEquals(getFutureValue(taskSource.getMoreTasks()), ImmutableList.of(
@@ -494,8 +490,7 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(
                         PLAN_NODE_3, new TestingExchangeSourceHandle(17, 1)),
                 2,
-                new int[] {0, 1, 2, 3},
-                Optional.of(getTestingBucketNodeMap(4)),
+                createPartitioningScheme(4, 4),
                 2 * STANDARD_WEIGHT,
                 DataSize.of(100, GIGABYTE));
         assertFalse(taskSource.isFinished());
@@ -537,8 +532,7 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(
                         PLAN_NODE_3, new TestingExchangeSourceHandle(17, 1)),
                 2,
-                new int[] {0, 1, 2, 3},
-                Optional.of(getTestingBucketNodeMap(4)),
+                createPartitioningScheme(4, 4),
                 100 * STANDARD_WEIGHT,
                 DataSize.of(100, BYTE));
         assertFalse(taskSource.isFinished());
@@ -578,8 +572,7 @@ public class TestStageTaskSourceFactory
             Multimap<PlanNodeId, ExchangeSourceHandle> partitionedExchangeSources,
             Multimap<PlanNodeId, ExchangeSourceHandle> replicatedExchangeSources,
             int splitBatchSize,
-            int[] bucketToPartitionMap,
-            Optional<BucketNodeMap> bucketNodeMap,
+            FaultTolerantPartitioningScheme sourcePartitioningScheme,
             long targetPartitionSplitWeight,
             DataSize targetPartitionSourceSize)
     {
@@ -589,8 +582,7 @@ public class TestStageTaskSourceFactory
                 replicatedExchangeSources,
                 splitBatchSize,
                 getSplitsTime -> {},
-                bucketToPartitionMap,
-                bucketNodeMap,
+                sourcePartitioningScheme,
                 Optional.of(TEST_CATALOG_HANDLE),
                 targetPartitionSplitWeight,
                 targetPartitionSourceSize,
@@ -860,8 +852,7 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(
                         PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
                 1,
-                new int[] {0, 1, 2, 3},
-                Optional.of(getTestingBucketNodeMap(4)),
+                createPartitioningScheme(4, 4),
                 0,
                 DataSize.of(0, BYTE));
         ListenableFuture<List<TaskDescriptor>> tasksFuture = taskSource.getMoreTasks();
@@ -964,11 +955,26 @@ public class TestStageTaskSourceFactory
                 .collect(toImmutableList()));
     }
 
-    private static BucketNodeMap getTestingBucketNodeMap(int bucketCount)
+    private static FaultTolerantPartitioningScheme createPartitioningScheme(int partitionCount)
     {
-        return new BucketNodeMap(
-                split -> ((TestingConnectorSplit) split.getConnectorSplit()).getBucket().orElseThrow(),
-                nCopies(bucketCount, new InternalNode("local", URI.create("local://" + NODE_ADDRESS), NodeVersion.UNKNOWN, true)));
+        return new FaultTolerantPartitioningScheme(
+                partitionCount,
+                Optional.of(IntStream.range(0, partitionCount).toArray()),
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    private static FaultTolerantPartitioningScheme createPartitioningScheme(int partitionCount, int bucketCount)
+    {
+        int[] bucketToPartitionMap = new int[bucketCount];
+        for (int i = 0; i < bucketCount; i++) {
+            bucketToPartitionMap[i] = i % partitionCount;
+        }
+        return new FaultTolerantPartitioningScheme(
+                partitionCount,
+                Optional.of(bucketToPartitionMap),
+                Optional.of(split -> ((TestingConnectorSplit) split.getConnectorSplit()).getBucket().orElseThrow()),
+                Optional.of(nCopies(partitionCount, new InternalNode("local", URI.create("local://" + NODE_ADDRESS), NodeVersion.UNKNOWN, true))));
     }
 
     private static class TestingConnectorSplit
