@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public final class OutputBufferInfo
 {
@@ -34,7 +35,7 @@ public final class OutputBufferInfo
     private final long totalBufferedPages;
     private final long totalRowsSent;
     private final long totalPagesSent;
-    private final List<BufferInfo> buffers;
+    private final Optional<List<PipelinedBufferInfo>> pipelinedBufferStates;
     private final Optional<TDigestHistogram> utilization;
 
     @JsonCreator
@@ -47,7 +48,7 @@ public final class OutputBufferInfo
             @JsonProperty("totalBufferedPages") long totalBufferedPages,
             @JsonProperty("totalRowsSent") long totalRowsSent,
             @JsonProperty("totalPagesSent") long totalPagesSent,
-            @JsonProperty("buffers") List<BufferInfo> buffers,
+            @JsonProperty("pipelinedBufferStates") Optional<List<PipelinedBufferInfo>> pipelinedBufferStates,
             @JsonProperty("utilization") Optional<TDigestHistogram> utilization)
     {
         this.type = type;
@@ -58,7 +59,7 @@ public final class OutputBufferInfo
         this.totalBufferedPages = totalBufferedPages;
         this.totalRowsSent = totalRowsSent;
         this.totalPagesSent = totalPagesSent;
-        this.buffers = ImmutableList.copyOf(buffers);
+        this.pipelinedBufferStates = requireNonNull(pipelinedBufferStates, "pipelinedBufferStates is null").map(ImmutableList::copyOf);
         this.utilization = utilization;
     }
 
@@ -75,9 +76,9 @@ public final class OutputBufferInfo
     }
 
     @JsonProperty
-    public List<BufferInfo> getBuffers()
+    public Optional<List<PipelinedBufferInfo>> getPipelinedBufferStates()
     {
-        return buffers;
+        return pipelinedBufferStates;
     }
 
     @JsonProperty
@@ -124,12 +125,12 @@ public final class OutputBufferInfo
 
     public OutputBufferInfo summarize()
     {
-        return new OutputBufferInfo(type, state, canAddBuffers, canAddPages, totalBufferedBytes, totalBufferedPages, totalRowsSent, totalPagesSent, ImmutableList.of(), Optional.empty());
+        return new OutputBufferInfo(type, state, canAddBuffers, canAddPages, totalBufferedBytes, totalBufferedPages, totalRowsSent, totalPagesSent, Optional.empty(), Optional.empty());
     }
 
     public OutputBufferInfo summarizeFinal()
     {
-        return new OutputBufferInfo(type, state, canAddBuffers, canAddPages, totalBufferedBytes, totalBufferedPages, totalRowsSent, totalPagesSent, ImmutableList.of(), utilization);
+        return new OutputBufferInfo(type, state, canAddBuffers, canAddPages, totalBufferedBytes, totalBufferedPages, totalRowsSent, totalPagesSent, Optional.empty(), utilization);
     }
 
     @Override
@@ -150,14 +151,14 @@ public final class OutputBufferInfo
                 Objects.equals(totalRowsSent, that.totalRowsSent) &&
                 Objects.equals(totalPagesSent, that.totalPagesSent) &&
                 state == that.state &&
-                Objects.equals(buffers, that.buffers) &&
+                Objects.equals(pipelinedBufferStates, that.pipelinedBufferStates) &&
                 Objects.equals(utilization, that.utilization);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(state, canAddBuffers, canAddPages, totalBufferedBytes, totalBufferedPages, totalRowsSent, totalPagesSent, buffers, utilization);
+        return Objects.hash(state, canAddBuffers, canAddPages, totalBufferedBytes, totalBufferedPages, totalRowsSent, totalPagesSent, pipelinedBufferStates, utilization);
     }
 
     @Override
@@ -172,7 +173,7 @@ public final class OutputBufferInfo
                 .add("totalBufferedPages", totalBufferedPages)
                 .add("totalRowsSent", totalRowsSent)
                 .add("totalPagesSent", totalPagesSent)
-                .add("buffers", buffers)
+                .add("pipelinedBufferStates", pipelinedBufferStates)
                 .add("bufferUtilization", utilization)
                 .toString();
     }

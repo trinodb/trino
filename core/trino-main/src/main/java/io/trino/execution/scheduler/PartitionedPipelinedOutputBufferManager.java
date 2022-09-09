@@ -14,23 +14,22 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.execution.buffer.OutputBuffers;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.sql.planner.PartitioningHandle;
 
 import javax.annotation.concurrent.ThreadSafe;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public class PartitionedOutputBufferManager
-        implements OutputBufferManager
+public class PartitionedPipelinedOutputBufferManager
+        implements PipelinedOutputBufferManager
 {
-    private final OutputBuffers outputBuffers;
+    private final PipelinedOutputBuffers outputBuffers;
 
-    public PartitionedOutputBufferManager(PartitioningHandle partitioningHandle, int partitionCount)
+    public PartitionedPipelinedOutputBufferManager(PartitioningHandle partitioningHandle, int partitionCount)
     {
         checkArgument(partitionCount >= 1, "partitionCount must be at least 1");
 
@@ -39,7 +38,7 @@ public class PartitionedOutputBufferManager
             partitions.put(new OutputBufferId(partition), partition);
         }
 
-        outputBuffers = createInitialEmptyOutputBuffers(requireNonNull(partitioningHandle, "partitioningHandle is null"))
+        outputBuffers = PipelinedOutputBuffers.createInitial(requireNonNull(partitioningHandle, "partitioningHandle is null"))
                 .withBuffers(partitions.buildOrThrow())
                 .withNoMoreBufferIds();
     }
@@ -62,7 +61,7 @@ public class PartitionedOutputBufferManager
     public void noMoreBuffers() {}
 
     @Override
-    public OutputBuffers getOutputBuffers()
+    public PipelinedOutputBuffers getOutputBuffers()
     {
         return outputBuffers;
     }

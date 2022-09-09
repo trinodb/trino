@@ -38,7 +38,6 @@ import static io.trino.execution.buffer.BufferState.FAILED;
 import static io.trino.execution.buffer.BufferState.FINISHED;
 import static io.trino.execution.buffer.BufferState.FLUSHING;
 import static io.trino.execution.buffer.BufferState.NO_MORE_BUFFERS;
-import static io.trino.execution.buffer.OutputBuffers.createSpoolingExchangeOutputBuffers;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -285,7 +284,7 @@ public class TestSpoolingExchangeOutputBuffer
     {
         return new SpoolingExchangeOutputBuffer(
                 new OutputBufferStateMachine(new TaskId(new StageId(new QueryId("query"), 0), 0, 0), directExecutor()),
-                createSpoolingExchangeOutputBuffers(TestingExchangeSinkInstanceHandle.INSTANCE),
+                SpoolingOutputBuffers.createInitial(TestingExchangeSinkInstanceHandle.INSTANCE),
                 exchangeSink,
                 TestingLocalMemoryContext::new);
     }

@@ -13,22 +13,21 @@
  */
 package io.trino.execution.scheduler;
 
-import io.trino.execution.buffer.OutputBuffers;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import static io.trino.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
-import static io.trino.execution.buffer.OutputBuffers.BufferType.BROADCAST;
-import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.trino.execution.buffer.PipelinedOutputBuffers.BROADCAST_PARTITION_ID;
+import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.BROADCAST;
 
 @ThreadSafe
-class BroadcastOutputBufferManager
-        implements OutputBufferManager
+class BroadcastPipelinedOutputBufferManager
+        implements PipelinedOutputBufferManager
 {
     @GuardedBy("this")
-    private OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(BROADCAST);
+    private PipelinedOutputBuffers outputBuffers = PipelinedOutputBuffers.createInitial(BROADCAST);
 
     @Override
     public synchronized void addOutputBuffer(OutputBufferId newBuffer)
@@ -40,7 +39,7 @@ class BroadcastOutputBufferManager
         }
 
         // Note: it does not matter which partition id the task is using, in broadcast all tasks read from the same partition
-        OutputBuffers newOutputBuffers = outputBuffers.withBuffer(newBuffer, BROADCAST_PARTITION_ID);
+        PipelinedOutputBuffers newOutputBuffers = outputBuffers.withBuffer(newBuffer, BROADCAST_PARTITION_ID);
 
         // don't update if nothing changed
         if (newOutputBuffers != outputBuffers) {
@@ -57,7 +56,7 @@ class BroadcastOutputBufferManager
     }
 
     @Override
-    public synchronized OutputBuffers getOutputBuffers()
+    public synchronized PipelinedOutputBuffers getOutputBuffers()
     {
         return outputBuffers;
     }
