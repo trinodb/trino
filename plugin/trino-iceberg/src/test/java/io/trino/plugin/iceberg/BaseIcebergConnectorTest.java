@@ -1514,7 +1514,7 @@ public abstract class BaseIcebergConnectorTest
 
         // date_trunc
         assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE date_trunc('hour', d) = TIMESTAMP '2015-05-15 12:00:00.000000 UTC'"))
-                .isNotFullyPushedDown(FilterNode.class);  // TODO convert into range
+                .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE date_trunc('day', d) = TIMESTAMP '2015-05-15 00:00:00.000000 UTC'"))
                 .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE date_trunc('month', d) = TIMESTAMP '2015-05-01 00:00:00.000000 UTC'"))
