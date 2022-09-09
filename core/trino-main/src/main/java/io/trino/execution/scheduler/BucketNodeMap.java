@@ -52,4 +52,9 @@ public final class BucketNodeMap
     {
         return getAssignedNode(getBucket(split));
     }
+
+    public ToIntFunction<Split> getSplitToBucketFunction()
+    {
+        return splitToBucket;
+    }
 }
