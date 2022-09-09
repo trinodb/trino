@@ -48,6 +48,7 @@ import com.nimbusds.oauth2.sdk.token.Tokens;
 import com.nimbusds.openid.connect.sdk.AuthenticationRequest;
 import com.nimbusds.openid.connect.sdk.Nonce;
 import com.nimbusds.openid.connect.sdk.OIDCTokenResponse;
+import com.nimbusds.openid.connect.sdk.Prompt;
 import com.nimbusds.openid.connect.sdk.UserInfoRequest;
 import com.nimbusds.openid.connect.sdk.UserInfoResponse;
 import com.nimbusds.openid.connect.sdk.claims.AccessTokenHash;
@@ -89,13 +90,15 @@ public class NimbusOAuth2Client
 
     private final Issuer issuer;
     private final ClientID clientId;
-    private final ClientSecretBasic clientAuth;
+    private final Optional<ClientSecretBasic> clientAuth;
     private final Scope scope;
     private final String principalField;
     private final Set<String> accessTokenAudiences;
     private final Duration maxClockSkew;
     private final NimbusHttpClient httpClient;
     private final OAuth2ServerConfigProvider serverConfigurationProvider;
+    private final Optional<Prompt> prompt;
+    private final Optional<URI> resource;
     private volatile boolean loaded;
     private URI authUrl;
     private URI tokenUrl;
@@ -106,11 +109,15 @@ public class NimbusOAuth2Client
 
     @Inject
     public NimbusOAuth2Client(OAuth2Config oauthConfig, OAuth2ServerConfigProvider serverConfigurationProvider, NimbusHttpClient httpClient)
+            throws ParseException
     {
         requireNonNull(oauthConfig, "oauthConfig is null");
         issuer = new Issuer(oauthConfig.getIssuer());
         clientId = new ClientID(oauthConfig.getClientId());
-        clientAuth = new ClientSecretBasic(clientId, new Secret(oauthConfig.getClientSecret()));
+        clientAuth = createClientAuthentication(clientId, oauthConfig.getClientSecret());
+        prompt = Optional.ofNullable(Prompt.parse(oauthConfig.getPrompt()));
+        resource = Optional.ofNullable(oauthConfig.getResource())
+                .map(URI::create);
         scope = Scope.parse(oauthConfig.getScopes());
         principalField = oauthConfig.getPrincipalField();
         maxClockSkew = oauthConfig.getMaxClockSkew();
@@ -121,6 +128,14 @@ public class NimbusOAuth2Client
 
         this.serverConfigurationProvider = requireNonNull(serverConfigurationProvider, "serverConfigurationProvider is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+    }
+
+    private static Optional<ClientSecretBasic> createClientAuthentication(ClientID clientId, String clientSecret)
+    {
+        return Optional.of(clientSecret)
+                .filter(secret -> !(secret.isEmpty() || secret.isBlank()))
+                .map(secret -> new ClientSecretBasic(clientId, new Secret(secret)))
+                .or(Optional::empty);
     }
 
     @Override
@@ -202,15 +217,18 @@ public class NimbusOAuth2Client
         @Override
         public Request createAuthorizationRequest(String state, URI callbackUri)
         {
-            return new Request(
-                    new AuthorizationRequest.Builder(CODE, clientId)
-                            .redirectionURI(callbackUri)
-                            .scope(scope)
-                            .endpointURI(authUrl)
-                            .state(new State(state))
-                            .build()
-                            .toURI(),
+            final AuthorizationRequest.Builder requestUriBuilder = new AuthorizationRequest.Builder(CODE, clientId)
+                    .redirectionURI(callbackUri)
+                    .scope(scope)
+                    .endpointURI(authUrl)
+                    .state(new State(state));
+            prompt.ifPresent(requestUriBuilder::prompt);
+            resource.ifPresent(requestUriBuilder::resource);
+
+            final Request request = new Request(
+                    requestUriBuilder.build().toURI(),
                     Optional.empty());
+            return request;
         }
 
         @Override
@@ -263,13 +281,15 @@ public class NimbusOAuth2Client
         public Request createAuthorizationRequest(String state, URI callbackUri)
         {
             String nonce = new Nonce().getValue();
+            AuthenticationRequest.Builder requestUriBuilder = new AuthenticationRequest.Builder(CODE, scope, clientId, callbackUri)
+                    .endpointURI(authUrl)
+                    .state(new State(state))
+                    .nonce(new Nonce(hashNonce(nonce)));
+            prompt.ifPresent(requestUriBuilder::prompt);
+            resource.ifPresent(requestUriBuilder::resource);
+
             return new Request(
-                    new AuthenticationRequest.Builder(CODE, scope, clientId, callbackUri)
-                            .endpointURI(authUrl)
-                            .state(new State(state))
-                            .nonce(new Nonce(hashNonce(nonce)))
-                            .build()
-                            .toURI(),
+                    requestUriBuilder.build().toURI(),
                     Optional.of(nonce));
         }
 
@@ -360,7 +380,14 @@ public class NimbusOAuth2Client
     private <T extends AccessTokenResponse> T getTokenResponse(AuthorizationGrant authorizationGrant, NimbusAirliftHttpClient.Parser<T> parser)
             throws ChallengeFailedException
     {
-        T tokenResponse = httpClient.execute(new TokenRequest(tokenUrl, clientAuth, authorizationGrant, scope), parser);
+        TokenRequest tokenRequest;
+        if (clientAuth.isEmpty()) {
+            tokenRequest = new TokenRequest(tokenUrl, clientId, authorizationGrant, scope);
+        }
+        else {
+            tokenRequest = new TokenRequest(tokenUrl, clientAuth.orElseThrow(), authorizationGrant, scope);
+        }
+        T tokenResponse = httpClient.execute(tokenRequest, parser);
         if (!tokenResponse.indicatesSuccess()) {
             throw new ChallengeFailedException("Error while fetching access token: " + tokenResponse.toErrorResponse().toJSONObject());
         }

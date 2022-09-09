@@ -44,6 +44,7 @@ public class OAuth2Config
     private String clientSecret;
     private Set<String> scopes = ImmutableSet.of(OPENID_SCOPE);
     private String principalField = "sub";
+    private String resource;
     private Optional<String> groupsField = Optional.empty();
     private List<String> additionalAudiences = Collections.emptyList();
     private Duration challengeTimeout = new Duration(15, TimeUnit.MINUTES);
@@ -52,6 +53,7 @@ public class OAuth2Config
     private Optional<File> userMappingFile = Optional.empty();
     private boolean enableRefreshTokens;
     private boolean enableDiscovery = true;
+    private String prompt;
 
     public Optional<String> getStateKey()
     {
@@ -244,6 +246,32 @@ public class OAuth2Config
     public OAuth2Config setEnableDiscovery(boolean enableDiscovery)
     {
         this.enableDiscovery = enableDiscovery;
+        return this;
+    }
+
+    public String getResource()
+    {
+        return resource;
+    }
+
+    @Config("http-server.authentication.oauth2.resource")
+    @ConfigDescription("Provide oauth2 resource")
+    public OAuth2Config setResource(String resource)
+    {
+        this.resource = resource;
+        return this;
+    }
+
+    public String getPrompt()
+    {
+        return prompt;
+    }
+
+    @Config("http-server.authentication.oauth2.prompt")
+    @ConfigDescription("Provide oauth2 prompt")
+    public OAuth2Config setPrompt(String prompt)
+    {
+        this.prompt = prompt;
         return this;
     }
 }
