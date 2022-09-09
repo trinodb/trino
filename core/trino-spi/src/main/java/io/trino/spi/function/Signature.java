@@ -13,7 +13,6 @@
  */
 package io.trino.spi.function;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.Experimental;
 import io.trino.spi.type.Type;
@@ -280,25 +279,7 @@ public class Signature
 
         public Signature build()
         {
-            return fromJson(name, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity);
+            return new Signature(name, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity);
         }
-    }
-
-    /**
-     * This method is only visible for JSON deserialization.
-     *
-     * @deprecated use builder
-     */
-    @Deprecated
-    @JsonCreator
-    public static Signature fromJson(
-            @JsonProperty("name") String name,
-            @JsonProperty("typeVariableConstraints") List<TypeVariableConstraint> typeVariableConstraints,
-            @JsonProperty("longVariableConstraints") List<LongVariableConstraint> longVariableConstraints,
-            @JsonProperty("returnType") TypeSignature returnType,
-            @JsonProperty("argumentTypes") List<TypeSignature> argumentTypes,
-            @JsonProperty("variableArity") boolean variableArity)
-    {
-        return new Signature(name, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity);
     }
 }
