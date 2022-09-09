@@ -695,8 +695,11 @@ public class IcebergMetadata
     public Optional<ConnectorTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
-        return getWriteLayout(icebergTable.schema(), icebergTable.spec(), false);
+        Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
+        PartitionSpec partitionSpec = PartitionSpecParser.fromJson(
+                schema,
+                table.getPartitionSpecJson().orElseThrow(() -> new VerifyException("Partition spec missing in the table handle")));
+        return getWriteLayout(schema, partitionSpec, false);
     }
 
     private Optional<ConnectorTableLayout> getWriteLayout(Schema tableSchema, PartitionSpec partitionSpec, boolean forceRepartitioning)
