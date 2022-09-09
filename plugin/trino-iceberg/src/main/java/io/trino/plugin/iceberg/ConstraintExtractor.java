@@ -78,8 +78,8 @@ public final class ConstraintExtractor
 
     private static Optional<TupleDomain<IcebergColumnHandle>> toTupleDomain(ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
-        if (expression instanceof Call) {
-            return toTupleDomain((Call) expression, assignments);
+        if (expression instanceof Call call) {
+            return toTupleDomain(call, assignments);
         }
         return Optional.empty();
     }
@@ -92,14 +92,14 @@ public final class ConstraintExtractor
 
             // Note: CanonicalizeExpressionRewriter ensures that constants are the second comparison argument.
 
-            if (firstArgument instanceof Call && ((Call) firstArgument).getFunctionName().equals(CAST_FUNCTION_NAME) &&
-                    secondArgument instanceof Constant &&
+            if (firstArgument instanceof Call firstAsCall && firstAsCall.getFunctionName().equals(CAST_FUNCTION_NAME) &&
+                    secondArgument instanceof Constant constant &&
                     // if type do no match, this cannot be a comparison function
                     firstArgument.getType().equals(secondArgument.getType())) {
                 return unwrapCastInComparison(
                         call.getFunctionName(),
-                        getOnlyElement(((Call) firstArgument).getArguments()),
-                        (Constant) secondArgument,
+                        getOnlyElement(firstAsCall.getArguments()),
+                        constant,
                         assignments);
             }
         }
@@ -114,7 +114,7 @@ public final class ConstraintExtractor
             Constant constant,
             Map<String, ColumnHandle> assignments)
     {
-        if (!(castSource instanceof Variable)) {
+        if (!(castSource instanceof Variable sourceVariable)) {
             // Engine unwraps casts in comparisons in UnwrapCastInComparison. Within a connector we can do more than
             // engine only for source columns. We cannot draw many conclusions for intermediate expressions without
             // knowing them well.
@@ -126,10 +126,10 @@ public final class ConstraintExtractor
             return Optional.empty();
         }
 
-        IcebergColumnHandle column = resolve((Variable) castSource, assignments);
-        if (column.getType() instanceof TimestampWithTimeZoneType) {
+        IcebergColumnHandle column = resolve(sourceVariable, assignments);
+        if (column.getType() instanceof TimestampWithTimeZoneType sourceType) {
             // Iceberg supports only timestamp(6) with time zone
-            checkArgument(((TimestampWithTimeZoneType) column.getType()).getPrecision() == 6, "Unexpected type: %s", column.getType());
+            checkArgument(sourceType.getPrecision() == 6, "Unexpected type: %s", column.getType());
 
             if (constant.getType() == DateType.DATE) {
                 return unwrapTimestampTzToDateCast(column, functionName, (long) constant.getValue())
