@@ -28,9 +28,10 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -40,6 +41,44 @@ import static org.testng.Assert.assertTrue;
 public class TestDictionaryBlock
         extends AbstractTestBlock
 {
+    @Test
+    public void testConstructionNoPositions()
+    {
+        Slice[] expectedValues = createExpectedValues(10);
+        Block dictionary = createSlicesBlock(expectedValues);
+
+        Block block = DictionaryBlock.create(0, dictionary, new int[] {1, 5, 9});
+        assertThat(block).isInstanceOf(VariableWidthBlock.class);
+        assertThat(block.getPositionCount()).isEqualTo(0);
+    }
+
+    @Test
+    public void testConstructionOnePositions()
+    {
+        Slice[] expectedValues = createExpectedValues(10);
+        Block dictionary = createSlicesBlock(expectedValues);
+
+        Block block = DictionaryBlock.create(1, dictionary, new int[] {1, 5, 9});
+        assertThat(block).isInstanceOf(VariableWidthBlock.class);
+        assertThat(block.getPositionCount()).isEqualTo(1);
+        assertThat(block.getSlice(0, 0, block.getSliceLength(0))).isEqualTo(expectedValues[1]);
+    }
+
+    @Test
+    public void testConstructionUnnestDictionary()
+    {
+        Slice[] expectedValues = createExpectedValues(10);
+        Block innerDictionary = createSlicesBlock(expectedValues);
+        DictionaryBlock dictionary = (DictionaryBlock) DictionaryBlock.create(4, innerDictionary, new int[] {1, 3, 5, 7});
+
+        Block block = DictionaryBlock.create(2, dictionary, new int[] {1, 3});
+        assertThat(block).isInstanceOf(DictionaryBlock.class);
+        assertBlock(block, TestDictionaryBlock::createBlockBuilder, new Slice[] {expectedValues[3], expectedValues[7]});
+
+        Block actualDictionary = ((DictionaryBlock) block).getDictionary();
+        assertThat(actualDictionary).isSameAs(innerDictionary);
+    }
+
     @Test
     public void testSizeInBytes()
     {
@@ -81,43 +120,6 @@ public class TestDictionaryBlock
 
         DictionaryBlock copyRegionDictionaryBlock = (DictionaryBlock) dictionaryBlock.copyRegion(1, 3);
         assertTrue(copyRegionDictionaryBlock.isCompact());
-    }
-
-    @Test
-    public void testCopyRegionUnwrapping()
-    {
-        Slice[] expectedValues = createExpectedValues(10);
-        DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
-
-        // 0 and 1 position copies unwrap the dictionary
-        assertInstanceOf(dictionaryBlock.copyRegion(0, 0), VariableWidthBlock.class);
-        assertInstanceOf(dictionaryBlock.copyRegion(0, 1), VariableWidthBlock.class);
-
-        // Compact dictionaries unwrap
-        DictionaryBlock compactSequentialDictionary = createDictionaryBlock(expectedValues, expectedValues.length);
-        assertTrue(compactSequentialDictionary.isCompact()); // force uniqueIds to be computed
-        assertInstanceOf(compactSequentialDictionary.copyRegion(0, 5), VariableWidthBlock.class);
-
-        // Nested dictionaries unwrap, even when not compact
-        DictionaryBlock outerDictionary = new DictionaryBlock(4, compactSequentialDictionary, new int[]{1, 3, 5, 7});
-        assertFalse(outerDictionary.isCompact()); // force uniqueIds to be computed
-        // inner dictionary is compact, and also unwraps
-        assertInstanceOf(outerDictionary.copyRegion(1, 2), VariableWidthBlock.class);
-
-        // Nested dictionaries unwrap down to a single dictionary layer when ids are repeated
-        Block innermostRawBlock = createSlicesBlock(expectedValues);
-        DictionaryBlock firstDictionary = new DictionaryBlock(7, innermostRawBlock, new int[]{0, 1, 1, 7, 7, 5, 3});
-        DictionaryBlock secondDictionary = new DictionaryBlock(4, firstDictionary, new int[]{3, 1, 1, 2});
-        DictionaryBlock thirdDictionary = new DictionaryBlock(4, secondDictionary, new int[]{0, 0, 0, 2});
-        // Result is still a dictionary, but only a single layer
-        assertInstanceOf(thirdDictionary.copyRegion(0, 2), DictionaryBlock.class);
-        assertInstanceOf(((DictionaryBlock) thirdDictionary.copyRegion(0, 2)).getDictionary(), VariableWidthBlock.class);
-        // Re-check after all dictionaries have their uniqueIds computed
-        assertFalse(firstDictionary.isCompact());
-        assertFalse(secondDictionary.isCompact());
-        assertFalse(thirdDictionary.isCompact());
-        assertInstanceOf(thirdDictionary.copyRegion(0, 2), DictionaryBlock.class);
-        assertInstanceOf(((DictionaryBlock) thirdDictionary.copyRegion(0, 2)).getDictionary(), VariableWidthBlock.class);
     }
 
     @Test
@@ -183,50 +185,6 @@ public class TestDictionaryBlock
     }
 
     @Test
-    public void testCopyPositionsUnwrapping()
-    {
-        Slice[] expectedValues = createExpectedValues(10);
-        DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
-        assertTrue(dictionaryBlock.isCompact());
-
-        // 0 and 1 position copies unwrap the dictionary
-        assertInstanceOf(dictionaryBlock.copyPositions(new int[0], 0, 0), VariableWidthBlock.class);
-        assertInstanceOf(dictionaryBlock.copyPositions(new int[1], 0, 1), VariableWidthBlock.class);
-
-        // Dictionaries unwrap when each selected id appears only once
-        int[] positionsToCopy = new int[] {9, 7, 5, 3, 2, 1, 0};
-        assertInstanceOf(dictionaryBlock.copyPositions(positionsToCopy, 0, positionsToCopy.length), VariableWidthBlock.class);
-
-        // Compact dictionaries unwrap
-        DictionaryBlock compactSequentialDictionary = createDictionaryBlock(expectedValues, expectedValues.length);
-        assertTrue(compactSequentialDictionary.isCompact()); // force uniqueIds to be computed
-        assertInstanceOf(compactSequentialDictionary.copyPositions(positionsToCopy, 0, positionsToCopy.length), VariableWidthBlock.class);
-
-        // Nested dictionaries unwrap, even when not compact
-        DictionaryBlock outerDictionary = new DictionaryBlock(5, compactSequentialDictionary, new int[]{1, 3, 5, 7, 9});
-        assertFalse(outerDictionary.isCompact()); // force uniqueIds to be computed
-        positionsToCopy = new int[] {0, 3, 2};
-        // inner dictionary is compact, and also unwraps
-        assertInstanceOf(outerDictionary.copyPositions(positionsToCopy, 0, positionsToCopy.length), VariableWidthBlock.class);
-
-        // Nested dictionaries unwrap down to a single dictionary layer when ids are repeated
-        Block innermostRawBlock = createSlicesBlock(expectedValues);
-        DictionaryBlock firstDictionary = new DictionaryBlock(7, innermostRawBlock, new int[]{0, 1, 1, 7, 7, 5, 3});
-        DictionaryBlock secondDictionary = new DictionaryBlock(4, firstDictionary, new int[]{3, 1, 1, 2});
-        DictionaryBlock thirdDictionary = new DictionaryBlock(4, secondDictionary, new int[]{0, 0, 0, 2});
-        // Result is still a dictionary, but only a single layer
-        positionsToCopy = new int[] {2, 1, 0};
-        assertInstanceOf(thirdDictionary.copyPositions(positionsToCopy, 0, 2), DictionaryBlock.class);
-        assertInstanceOf(((DictionaryBlock) thirdDictionary.copyPositions(positionsToCopy, 0, 2)).getDictionary(), VariableWidthBlock.class);
-        // Re-check after all dictionaries have their uniqueIds computed
-        assertFalse(firstDictionary.isCompact());
-        assertFalse(secondDictionary.isCompact());
-        assertFalse(thirdDictionary.isCompact());
-        assertInstanceOf(thirdDictionary.copyPositions(positionsToCopy, 0, 2), DictionaryBlock.class);
-        assertInstanceOf(((DictionaryBlock) thirdDictionary.copyPositions(positionsToCopy, 0, 2)).getDictionary(), VariableWidthBlock.class);
-    }
-
-    @Test
     public void testCompact()
     {
         Slice[] expectedValues = createExpectedValues(5);
@@ -243,33 +201,6 @@ public class TestDictionaryBlock
 
         DictionaryBlock reCompactedBlock = compactBlock.compact();
         assertEquals(reCompactedBlock.getDictionarySourceId(), compactBlock.getDictionarySourceId());
-    }
-
-    @Test
-    public void testNestedCompact()
-    {
-        Slice[] expectedValues = createExpectedValues(10);
-        Block valuesBlock = createSlicesBlock(expectedValues);
-        DictionaryBlock deeplyNestedDictionary = new DictionaryBlock(6, valuesBlock, new int[] {0, 1, 2, 2, 4, 5});
-        DictionaryBlock nestedDictionary = new DictionaryBlock(6, deeplyNestedDictionary, new int[] {0, 1, 2, 3, 4, 5});
-        DictionaryBlock dictionary = new DictionaryBlock(4, nestedDictionary, new int[] {2, 3, 2, 0});
-        DictionaryBlock dictionaryWithAllPositionsUsed = new DictionaryBlock(6, nestedDictionary, new int[] {0, 1, 2, 3, 4, 5});
-
-        assertEquals(
-                dictionary.getSizeInBytes(),
-                valuesBlock.getPositionsSizeInBytes(new boolean[] {true, false, true, false, false, false}, 2) + 4 * Integer.BYTES);
-        assertFalse(dictionary.isCompact());
-
-        assertEquals(
-                dictionaryWithAllPositionsUsed.getSizeInBytes(),
-                valuesBlock.getPositionsSizeInBytes(new boolean[] {true, true, true, false, true, true}, 5) + 6 * Integer.BYTES);
-        // dictionary is not compact (even though all positions were used) because it's unnested
-        assertFalse(dictionaryWithAllPositionsUsed.isCompact());
-
-        DictionaryBlock compactBlock = dictionary.compact();
-        assertBlock(compactBlock.getDictionary(), TestDictionaryBlock::createBlockBuilder, new Slice[] {expectedValues[2], expectedValues[0]});
-        assertDictionaryIds(compactBlock, 0, 0, 0, 1);
-        assertInstanceOf(compactBlock.getDictionary(), VariableWidthBlock.class);
     }
 
     @Test
@@ -292,7 +223,7 @@ public class TestDictionaryBlock
     public void testBasicGetPositions()
     {
         Slice[] expectedValues = createExpectedValues(10);
-        Block dictionaryBlock = new DictionaryBlock(6, createSlicesBlock(expectedValues), new int[] {0, 1, 2, 3, 4, 5});
+        Block dictionaryBlock = DictionaryBlock.create(6, createSlicesBlock(expectedValues), new int[] {0, 1, 2, 3, 4, 5});
         assertBlock(dictionaryBlock, TestDictionaryBlock::createBlockBuilder, new Slice[] {
                 expectedValues[0], expectedValues[1], expectedValues[2], expectedValues[3], expectedValues[4], expectedValues[5]});
         DictionaryId dictionaryId = ((DictionaryBlock) dictionaryBlock).getDictionarySourceId();
@@ -347,7 +278,8 @@ public class TestDictionaryBlock
     @Test
     public void testCompactGetPositions()
     {
-        DictionaryBlock block = new DictionaryBlock(6, createSlicesBlock(createExpectedValues(10)), new int[] {0, 1, 2, 3, 4, 5}).compact();
+        DictionaryBlock block = (DictionaryBlock) DictionaryBlock.create(6, createSlicesBlock(createExpectedValues(10)), new int[] {0, 1, 2, 3, 4, 5});
+        block = block.compact();
 
         // 3, 3, 4, 5, 2, 0, 1, 1
         block = (DictionaryBlock) block.getPositions(new int[] {3, 3, 4, 5, 2, 0, 1, 1}, 0, 7);
@@ -398,117 +330,56 @@ public class TestDictionaryBlock
     }
 
     @Test
-    public void testNestedDictionarySizes()
+    public void testDictionarySizes()
     {
-        // fixed width block
-        Block fixedWidthBlock = new IntArrayBlock(100, Optional.empty(), IntStream.range(0, 100).toArray());
-        assertDictionarySizeMethods(fixedWidthBlock);
-        assertDictionarySizeMethods(new DictionaryBlock(50, fixedWidthBlock, IntStream.range(0, 50).toArray()));
-        assertDictionarySizeMethods(
-                new DictionaryBlock(
-                        IntStream.range(0, 10).toArray().length,
-                        new DictionaryBlock(50, fixedWidthBlock, IntStream.range(0, 50).toArray()),
-                        IntStream.range(0, 10).toArray()));
-
-        // variable width block
-        Block variableWidthBlock = createSlicesBlock(createExpectedValues(100));
-        assertDictionarySizeMethods(variableWidthBlock);
-        assertDictionarySizeMethods(new DictionaryBlock(50, variableWidthBlock, IntStream.range(0, 50).toArray()));
-        assertDictionarySizeMethods(
-                new DictionaryBlock(
-                        IntStream.range(0, 10).toArray().length,
-                        new DictionaryBlock(50, variableWidthBlock, IntStream.range(0, 50).toArray()),
-                        IntStream.range(0, 10).toArray()));
+        assertDictionarySizeMethods(new IntArrayBlock(100, Optional.empty(), IntStream.range(0, 100).toArray()));
+        assertDictionarySizeMethods(createSlicesBlock(createExpectedValues(100)));
     }
 
     private static void assertDictionarySizeMethods(Block block)
     {
+        assertThat(block).isNotInstanceOf(DictionaryBlock.class);
+
         int positions = block.getPositionCount();
+        assertThat(positions > 0).isTrue();
 
         int[] allIds = IntStream.range(0, positions).toArray();
-        if (block instanceof DictionaryBlock) {
-            assertEquals(
-                    new DictionaryBlock(allIds.length, block, allIds).getSizeInBytes(),
-                    block.getSizeInBytes(),
-                    "nested dictionary size should not be counted");
-        }
-        else {
-            assertEquals(new DictionaryBlock(allIds.length, block, allIds).getSizeInBytes(), block.getSizeInBytes() + (Integer.BYTES * (long) positions));
-        }
+        assertEquals(DictionaryBlock.create(allIds.length, block, allIds).getSizeInBytes(), block.getSizeInBytes() + (Integer.BYTES * (long) positions));
 
-        if (positions > 0) {
-            int firstHalfLength = positions / 2;
-            int secondHalfLength = positions - firstHalfLength;
-            int[] firstHalfIds = IntStream.range(0, firstHalfLength).toArray();
-            int[] secondHalfIds = IntStream.range(firstHalfLength, positions).toArray();
+        int firstHalfLength = positions / 2;
+        int secondHalfLength = positions - firstHalfLength;
+        int[] firstHalfIds = IntStream.range(0, firstHalfLength).toArray();
+        int[] secondHalfIds = IntStream.range(firstHalfLength, positions).toArray();
 
-            boolean[] selectedPositions = new boolean[positions];
-            selectedPositions[0] = true;
-            if (block instanceof DictionaryBlock) {
-                assertEquals(
-                        new DictionaryBlock(allIds.length, block, allIds).getPositionsSizeInBytes(selectedPositions, 1),
-                        block.getPositionsSizeInBytes(selectedPositions, 1),
-                        "nested dictionary blocks must not include nested id overhead");
-                assertEquals(
-                        new DictionaryBlock(1, block, new int[]{0}).getSizeInBytes(),
-                        block.getPositionsSizeInBytes(selectedPositions, 1),
-                        "nested dictionary blocks must not include nested id overhead");
+        boolean[] selectedPositions = new boolean[positions];
+        selectedPositions[0] = true;
+        assertEquals(
+                DictionaryBlock.create(allIds.length, block, allIds).getPositionsSizeInBytes(selectedPositions, 1),
+                block.getPositionsSizeInBytes(selectedPositions, 1) + Integer.BYTES);
 
-                Arrays.fill(selectedPositions, true);
-                assertEquals(
-                        new DictionaryBlock(allIds.length, block, allIds).getPositionsSizeInBytes(selectedPositions, positions),
-                        block.getSizeInBytes(),
-                        "nested dictionary blocks must not include nested id overhead");
+        Arrays.fill(selectedPositions, true);
+        assertEquals(
+                DictionaryBlock.create(allIds.length, block, allIds).getPositionsSizeInBytes(selectedPositions, positions),
+                block.getSizeInBytes() + (Integer.BYTES * (long) positions));
 
-                assertEquals(
-                        new DictionaryBlock(firstHalfIds.length, block, firstHalfIds).getSizeInBytes(),
-                        block.getRegionSizeInBytes(0, firstHalfLength),
-                        "nested dictionary blocks must not include nested id overhead");
-                assertEquals(
-                        new DictionaryBlock(secondHalfIds.length, block, secondHalfIds).getSizeInBytes(),
-                        block.getRegionSizeInBytes(firstHalfLength, secondHalfLength),
-                        "nested dictionary blocks must not include nested id overhead");
-                assertEquals(
-                        new DictionaryBlock(allIds.length, block, allIds).getRegionSizeInBytes(0, firstHalfLength),
-                        block.getRegionSizeInBytes(0, firstHalfLength),
-                        "nested dictionary blocks must not include nested id overhead");
-                assertEquals(
-                        new DictionaryBlock(allIds.length, block, allIds).getRegionSizeInBytes(firstHalfLength, secondHalfLength),
-                        block.getRegionSizeInBytes(firstHalfLength, secondHalfLength),
-                        "nested dictionary blocks must not include nested id overhead");
-            }
-            else {
-                assertEquals(
-                        new DictionaryBlock(allIds.length, block, allIds).getPositionsSizeInBytes(selectedPositions, 1),
-                        block.getPositionsSizeInBytes(selectedPositions, 1) + Integer.BYTES);
-
-                assertEquals(
-                        new DictionaryBlock(1, block, new int[]{0}).getSizeInBytes(),
-                        block.getPositionsSizeInBytes(selectedPositions, 1) + Integer.BYTES);
-
-                Arrays.fill(selectedPositions, true);
-                assertEquals(
-                        new DictionaryBlock(allIds.length, block, allIds).getPositionsSizeInBytes(selectedPositions, positions),
-                        block.getSizeInBytes() + (Integer.BYTES * (long) positions));
-
-                assertEquals(
-                        new DictionaryBlock(firstHalfIds.length, block, firstHalfIds).getSizeInBytes(),
-                        block.getRegionSizeInBytes(0, firstHalfLength) + (Integer.BYTES * (long) firstHalfLength));
-                assertEquals(
-                        new DictionaryBlock(secondHalfIds.length, block, secondHalfIds).getSizeInBytes(),
-                        block.getRegionSizeInBytes(firstHalfLength, secondHalfLength) + (Integer.BYTES * (long) secondHalfLength));
-                assertEquals(
-                        new DictionaryBlock(allIds.length, block, allIds).getRegionSizeInBytes(0, firstHalfLength),
-                        block.getRegionSizeInBytes(0, firstHalfLength) + (Integer.BYTES * (long) firstHalfLength));
-                assertEquals(
-                        new DictionaryBlock(allIds.length, block, allIds).getRegionSizeInBytes(firstHalfLength, secondHalfLength),
-                        block.getRegionSizeInBytes(firstHalfLength, secondHalfLength) + (Integer.BYTES * (long) secondHalfLength));
-            }
-        }
+        assertEquals(
+                DictionaryBlock.create(firstHalfIds.length, block, firstHalfIds).getSizeInBytes(),
+                block.getRegionSizeInBytes(0, firstHalfLength) + (Integer.BYTES * (long) firstHalfLength));
+        assertEquals(
+                DictionaryBlock.create(secondHalfIds.length, block, secondHalfIds).getSizeInBytes(),
+                block.getRegionSizeInBytes(firstHalfLength, secondHalfLength) + (Integer.BYTES * (long) secondHalfLength));
+        assertEquals(
+                DictionaryBlock.create(allIds.length, block, allIds).getRegionSizeInBytes(0, firstHalfLength),
+                block.getRegionSizeInBytes(0, firstHalfLength) + (Integer.BYTES * (long) firstHalfLength));
+        assertEquals(
+                DictionaryBlock.create(allIds.length, block, allIds).getRegionSizeInBytes(firstHalfLength, secondHalfLength),
+                block.getRegionSizeInBytes(firstHalfLength, secondHalfLength) + (Integer.BYTES * (long) secondHalfLength));
     }
 
     private static DictionaryBlock createDictionaryBlockWithUnreferencedKeys(Slice[] expectedValues, int positionCount)
     {
+        checkArgument(positionCount >= 2, "positionCount must be at least 2 for a dictionary block");
+
         // adds references to 0 and all odd indexes
         int dictionarySize = expectedValues.length;
         int[] ids = new int[positionCount];
@@ -520,18 +391,19 @@ public class TestDictionaryBlock
             }
             ids[i] = index;
         }
-        return new DictionaryBlock(ids.length, createSlicesBlock(expectedValues), ids);
+        return (DictionaryBlock) DictionaryBlock.create(ids.length, createSlicesBlock(expectedValues), ids);
     }
 
     private static DictionaryBlock createDictionaryBlock(Slice[] expectedValues, int positionCount)
     {
+        checkArgument(positionCount >= 2, "positionCount must be at least 2 for a dictionary block");
         int dictionarySize = expectedValues.length;
         int[] ids = new int[positionCount];
 
         for (int i = 0; i < positionCount; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(ids.length, createSlicesBlock(expectedValues), ids);
+        return (DictionaryBlock) DictionaryBlock.create(ids.length, createSlicesBlock(expectedValues), ids);
     }
 
     private static BlockBuilder createBlockBuilder()

@@ -174,7 +174,7 @@ public class SliceDictionaryColumnReader
         verifyNotNull(dataStream);
         int[] values = new int[nextBatchSize];
         dataStream.next(values, nextBatchSize);
-        return new DictionaryBlock(nextBatchSize, dictionaryBlock, values);
+        return DictionaryBlock.create(nextBatchSize, dictionaryBlock, values);
     }
 
     private Block readNullBlock(boolean[] isNull, int nonNullCount)
@@ -205,7 +205,7 @@ public class SliceDictionaryColumnReader
             result[nonNullPositionList[i]] = nonNullValueTemp[i];
         }
 
-        return new DictionaryBlock(nextBatchSize, dictionaryBlock, result);
+        return DictionaryBlock.create(nextBatchSize, dictionaryBlock, result);
     }
 
     private void setDictionaryBlockData(byte[] dictionaryData, int[] dictionaryOffsets, int positionCount)

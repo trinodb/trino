@@ -84,8 +84,8 @@ public class ColumnarMap
                 dictionaryBlock,
                 0,
                 offsets,
-                new DictionaryBlock(dictionaryIds.length, columnarMap.getKeysBlock(), dictionaryIds),
-                new DictionaryBlock(dictionaryIds.length, columnarMap.getValuesBlock(), dictionaryIds));
+                DictionaryBlock.create(dictionaryIds.length, columnarMap.getKeysBlock(), dictionaryIds),
+                DictionaryBlock.create(dictionaryIds.length, columnarMap.getValuesBlock(), dictionaryIds));
     }
 
     private static ColumnarMap toColumnarMap(RunLengthEncodedBlock rleBlock)
@@ -113,8 +113,8 @@ public class ColumnarMap
                 rleBlock,
                 0,
                 offsets,
-                new DictionaryBlock(dictionaryIds.length, columnarMap.getKeysBlock(), dictionaryIds),
-                new DictionaryBlock(dictionaryIds.length, columnarMap.getValuesBlock(), dictionaryIds));
+                DictionaryBlock.create(dictionaryIds.length, columnarMap.getKeysBlock(), dictionaryIds),
+                DictionaryBlock.create(dictionaryIds.length, columnarMap.getValuesBlock(), dictionaryIds));
     }
 
     private ColumnarMap(Block nullCheckBlock, int offsetsOffset, int[] offsets, Block keysBlock, Block valuesBlock)

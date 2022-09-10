@@ -22,6 +22,7 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.ArrayType;
@@ -208,7 +209,7 @@ public class TestPageProcessorCompiler
         assertFalse(outputPage.getBlock(0) instanceof DictionaryBlock);
     }
 
-    private static DictionaryBlock createDictionaryBlock(Slice[] expectedValues, int positionCount)
+    private static Block createDictionaryBlock(Slice[] expectedValues, int positionCount)
     {
         int dictionarySize = expectedValues.length;
         int[] ids = new int[positionCount];
@@ -216,7 +217,7 @@ public class TestPageProcessorCompiler
         for (int i = 0; i < positionCount; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(ids.length, createSlicesBlock(expectedValues), ids);
+        return DictionaryBlock.create(ids.length, createSlicesBlock(expectedValues), ids);
     }
 
     private static Slice[] createExpectedValues(int positionCount)

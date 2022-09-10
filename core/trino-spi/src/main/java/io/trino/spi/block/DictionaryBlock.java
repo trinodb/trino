@@ -52,17 +52,43 @@ public class DictionaryBlock
     private final DictionaryId dictionarySourceId;
     private final boolean mayHaveNull;
 
-    public DictionaryBlock(int positionCount, Block dictionary, int[] ids)
+    public static Block create(int positionCount, Block dictionary, int[] ids)
     {
-        this(0, positionCount, dictionary, ids, false, false, randomDictionaryId());
+        return createInternal(positionCount, dictionary, ids, randomDictionaryId());
     }
 
     /**
      * This should not only be used when creating a projection of another dictionary block.
      */
-    public DictionaryBlock(int positionCount, Block dictionary, int[] ids, DictionaryId dictionarySourceId)
+    public static Block createProjectedDictionaryBlock(int positionCount, Block dictionary, int[] ids, DictionaryId dictionarySourceId)
     {
-        this(0, positionCount, dictionary, ids, false, false, dictionarySourceId);
+        return createInternal(positionCount, dictionary, ids, dictionarySourceId);
+    }
+
+    private static Block createInternal(int positionCount, Block dictionary, int[] ids, DictionaryId dictionarySourceId)
+    {
+        if (positionCount == 0) {
+            return dictionary.copyRegion(0, 0);
+        }
+        if (positionCount == 1) {
+            return dictionary.getRegion(ids[0], 1);
+        }
+
+        // if dictionary is an RLE then this can just be a new RLE
+        if (dictionary instanceof RunLengthEncodedBlock rle) {
+            return new RunLengthEncodedBlock(rle.getValue(), positionCount);
+        }
+
+        // unwrap dictionary in dictionary
+        if (dictionary instanceof DictionaryBlock dictionaryBlock) {
+            int[] newIds = new int[positionCount];
+            for (int position = 0; position < positionCount; position++) {
+                newIds[position] = dictionaryBlock.getId(ids[position]);
+            }
+            dictionary = dictionaryBlock.getDictionary();
+            ids = newIds;
+        }
+        return new DictionaryBlock(0, positionCount, dictionary, ids, false, false, dictionarySourceId);
     }
 
     DictionaryBlock(int idsOffset, int positionCount, Block dictionary, int[] ids)
@@ -92,7 +118,6 @@ public class DictionaryBlock
         // avoid eager loading of lazy dictionaries
         this.mayHaveNull = positionCount > 0 && (!dictionary.isLoaded() || dictionary.mayHaveNull());
 
-        dictionaryIsCompacted = dictionaryIsCompacted && !(dictionary instanceof DictionaryBlock);
         if (dictionaryIsCompacted) {
             this.sizeInBytes = dictionary.getSizeInBytes() + (Integer.BYTES * (long) positionCount);
             this.uniqueIds = dictionary.getPositionCount();
@@ -212,7 +237,7 @@ public class DictionaryBlock
             // is our fixed size per position
             OptionalInt dictionarySizePerPosition = dictionary.fixedSizeInBytesPerPosition();
             // Nested dictionaries should not include the additional id array overhead in the result
-            if (dictionarySizePerPosition.isPresent() && !(dictionary instanceof DictionaryBlock)) {
+            if (dictionarySizePerPosition.isPresent()) {
                 dictionarySizePerPosition = OptionalInt.of(dictionarySizePerPosition.getAsInt() + Integer.BYTES);
             }
             return dictionarySizePerPosition;
@@ -234,7 +259,7 @@ public class DictionaryBlock
         int uniqueIds = 0;
         boolean[] used = new boolean[dictionary.getPositionCount()];
         // nested dictionaries are assumed not to have sequential ids
-        boolean isSequentialIds = !(dictionary instanceof DictionaryBlock);
+        boolean isSequentialIds = true;
         int previousPosition = -1;
         for (int i = 0; i < positionCount; i++) {
             int position = ids[idsOffset + i];
@@ -342,10 +367,6 @@ public class DictionaryBlock
     private long getSizeInBytesForSelectedPositions(boolean[] usedIds, int uniqueIds, int selectedPositions)
     {
         long dictionarySize = dictionary.getPositionsSizeInBytes(usedIds, uniqueIds);
-        if (dictionary instanceof DictionaryBlock) {
-            // Don't include the nested ids array overhead in the resulting size
-            dictionarySize -= (Integer.BYTES * (long) uniqueIds);
-        }
         if (uniqueIds == dictionary.getPositionCount() && this.sizeInBytes == -1) {
             // All positions in the dictionary are referenced, store the uniqueId count and sizeInBytes
             this.uniqueIds = uniqueIds;
@@ -385,7 +406,7 @@ public class DictionaryBlock
     {
         checkArrayRange(positions, offset, length);
 
-        if (length <= 1 || dictionary instanceof DictionaryBlock || uniqueIds == positionCount) {
+        if (length <= 1 || uniqueIds == positionCount) {
             // each block position is unique or the dictionary is a nested dictionary block,
             // therefore it makes sense to unwrap this outer dictionary layer directly
             int[] positionsToCopy = new int[length];
@@ -446,13 +467,20 @@ public class DictionaryBlock
             // copy the contiguous range directly via copyRegion
             return dictionary.copyRegion(getId(position), length);
         }
-        if (dictionary instanceof DictionaryBlock || uniqueIds == positionCount) {
+        if (uniqueIds == positionCount) {
             // each block position is unique or the dictionary is a nested dictionary block,
             // therefore it makes sense to unwrap this outer dictionary layer directly
             return dictionary.copyPositions(ids, idsOffset + position, length);
         }
         int[] newIds = Arrays.copyOfRange(ids, idsOffset + position, idsOffset + position + length);
-        DictionaryBlock dictionaryBlock = new DictionaryBlock(newIds.length, dictionary, newIds);
+        DictionaryBlock dictionaryBlock = new DictionaryBlock(
+                0,
+                newIds.length,
+                dictionary,
+                newIds,
+                false,
+                false,
+                randomDictionaryId());
         return dictionaryBlock.compact();
     }
 
@@ -608,10 +636,6 @@ public class DictionaryBlock
 
     public boolean isCompact()
     {
-        if (dictionary instanceof DictionaryBlock) {
-            return false;
-        }
-
         if (uniqueIds == -1) {
             calculateCompactSize();
         }
@@ -622,11 +646,6 @@ public class DictionaryBlock
     {
         if (isCompact()) {
             return this;
-        }
-
-        DictionaryBlock unnested = unnest();
-        if (unnested != this) {
-            return unnested.compact();
         }
 
         // determine which dictionary entries are referenced and build a reindex for them
@@ -677,29 +696,6 @@ public class DictionaryBlock
             // ignore if copy positions is not supported for the dictionary block
             return this;
         }
-    }
-
-    private DictionaryBlock unnest()
-    {
-        if (!(dictionary instanceof DictionaryBlock)) {
-            return this;
-        }
-
-        int[] ids = new int[positionCount];
-        for (int i = 0; i < positionCount; i++) {
-            ids[i] = getId(i);
-        }
-
-        Block dictionary = this.dictionary;
-        while (dictionary instanceof DictionaryBlock) {
-            DictionaryBlock nestedDictionary = (DictionaryBlock) dictionary;
-            for (int i = 0; i < positionCount; i++) {
-                ids[i] = nestedDictionary.getId(ids[i]);
-            }
-            dictionary = nestedDictionary.getDictionary();
-        }
-
-        return new DictionaryBlock(ids.length, dictionary, ids);
     }
 
     /**
