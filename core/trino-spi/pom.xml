@@ -179,20 +179,8 @@
                                         <match>@java.lang.Deprecated(*) ^*;</match>
                                     </old>
                                 </item>
-                                <!-- Backwards incompatible changes since the previous release (394) -->
+                                <!-- Backwards incompatible changes since the previous release (395) -->
                                 <!-- Any exclusions below can be deleted after each release -->
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.Set&lt;io.trino.spi.security.RoleGrant&gt; io.trino.spi.connector.ConnectorMetadata::listAllRoleGrants(io.trino.spi.connector.ConnectorSession, java.util.Optional&lt;java.util.Set&lt;java.lang.String&gt;&gt;, java.util.Optional&lt;java.util.Set&lt;java.lang.String&gt;&gt;, java.util.OptionalLong)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.addedToInterface</code>
-                                    <new>method io.trino.spi.block.BlockBuilder io.trino.spi.block.BlockBuilder::newBlockBuilderLike(int, io.trino.spi.block.BlockBuilderStatus)</new>
-                                </item>
-                                <item>
-                                    <code>java.field.removed</code>
-                                    <old>field io.trino.spi.expression.StandardFunctions.LIKE_PATTERN_FUNCTION_NAME</old>
-                                </item>
                                 <item>
                                     <code>java.method.returnTypeChanged</code>
                                     <new>method io.trino.spi.block.Block io.trino.spi.block.ArrayBlockBuilder::build()</new>
