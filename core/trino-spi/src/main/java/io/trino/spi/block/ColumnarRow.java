@@ -106,9 +106,7 @@ public final class ColumnarRow
                     dictionaryBlock.getRawIdsOffset(),
                     dictionaryBlock.getPositionCount(),
                     columnarRow.getField(i),
-                    dictionaryBlock.getRawIds(),
-                    false,
-                    DictionaryId.randomDictionaryId());
+                    dictionaryBlock.getRawIds());
         }
         return new ColumnarRow(dictionaryBlock.getPositionCount(), null, fields);
     }

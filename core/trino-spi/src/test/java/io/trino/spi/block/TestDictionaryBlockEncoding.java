@@ -37,7 +37,7 @@ public class TestDictionaryBlockEncoding
             ids[i] = i % 4;
         }
 
-        DictionaryBlock dictionaryBlock = new DictionaryBlock(dictionary, ids);
+        DictionaryBlock dictionaryBlock = new DictionaryBlock(ids.length, dictionary, ids);
 
         Block actualBlock = roundTripBlock(dictionaryBlock);
         assertTrue(actualBlock instanceof DictionaryBlock);
@@ -53,7 +53,7 @@ public class TestDictionaryBlockEncoding
     public void testNonSequentialDictionaryUnnest()
     {
         int[] ids = new int[] {3, 2, 1, 0};
-        DictionaryBlock dictionaryBlock = new DictionaryBlock(dictionary, ids);
+        DictionaryBlock dictionaryBlock = new DictionaryBlock(ids.length, dictionary, ids);
 
         Block actualBlock = roundTripBlock(dictionaryBlock);
         assertTrue(actualBlock instanceof DictionaryBlock);
@@ -64,7 +64,7 @@ public class TestDictionaryBlockEncoding
     public void testNonSequentialDictionaryUnnestWithGaps()
     {
         int[] ids = new int[] {3, 2, 0};
-        DictionaryBlock dictionaryBlock = new DictionaryBlock(dictionary, ids);
+        DictionaryBlock dictionaryBlock = new DictionaryBlock(ids.length, dictionary, ids);
 
         Block actualBlock = roundTripBlock(dictionaryBlock);
         assertTrue(actualBlock instanceof VariableWidthBlock);
@@ -75,7 +75,7 @@ public class TestDictionaryBlockEncoding
     public void testSequentialDictionaryUnnest()
     {
         int[] ids = new int[] {0, 1, 2, 3};
-        DictionaryBlock dictionaryBlock = new DictionaryBlock(dictionary, ids);
+        DictionaryBlock dictionaryBlock = new DictionaryBlock(ids.length, dictionary, ids);
 
         Block actualBlock = roundTripBlock(dictionaryBlock);
         assertTrue(actualBlock instanceof VariableWidthBlock);
@@ -86,8 +86,8 @@ public class TestDictionaryBlockEncoding
     public void testNestedSequentialDictionaryUnnest()
     {
         int[] ids = new int[] {0, 1, 2, 3};
-        DictionaryBlock nestedDictionaryBlock = new DictionaryBlock(dictionary, ids);
-        DictionaryBlock dictionary = new DictionaryBlock(nestedDictionaryBlock, ids);
+        DictionaryBlock nestedDictionaryBlock = new DictionaryBlock(ids.length, dictionary, ids);
+        DictionaryBlock dictionary = new DictionaryBlock(ids.length, nestedDictionaryBlock, ids);
 
         Block actualBlock = roundTripBlock(dictionary);
         assertTrue(actualBlock instanceof VariableWidthBlock);

@@ -482,7 +482,7 @@ public class HivePageSource
                     fields[i] = rowBlock.getField(i);
                 }
                 else {
-                    fields[i] = new DictionaryBlock(nullBlocks[i], ids);
+                    fields[i] = new DictionaryBlock(ids.length, nullBlocks[i], ids);
                 }
             }
             boolean[] valueIsNull = null;
