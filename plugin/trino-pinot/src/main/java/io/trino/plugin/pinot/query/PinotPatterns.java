@@ -241,6 +241,16 @@ public class PinotPatterns
         });
     }
 
+    public static Property<FunctionContext, ?, String> transformFunctionName()
+    {
+        return Property.optionalProperty("transformFunctionType", functionContext -> {
+            if (functionContext.getType() == TRANSFORM) {
+                return Optional.of(functionContext.getFunctionName());
+            }
+            return Optional.empty();
+        });
+    }
+
     // AggregationFunction Properties
     public static Property<FunctionContext, ?, AggregationFunctionType> aggregationFunctionType()
     {
