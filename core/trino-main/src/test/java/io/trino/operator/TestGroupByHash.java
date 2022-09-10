@@ -173,8 +173,8 @@ public class TestGroupByHash
         Block hashBlock = TypeTestUtils.getHashBlock(ImmutableList.of(BIGINT), block);
         int[] ids = new int[] {0, 0, 1, 1};
         Page page = new Page(
-                new DictionaryBlock(ids.length, block, ids),
-                new DictionaryBlock(ids.length, hashBlock, ids));
+                DictionaryBlock.create(ids.length, block, ids),
+                DictionaryBlock.create(ids.length, hashBlock, ids));
 
         groupByHash.addPage(page).process();
 
@@ -473,8 +473,8 @@ public class TestGroupByHash
         int dictionaryLength = 1_000;
         int length = 2_000_000;
         int[] ids = IntStream.range(0, dictionaryLength).toArray();
-        Block valuesBlock = new DictionaryBlock(dictionaryLength, createLongSequenceBlock(0, length), ids);
-        Block hashBlock = new DictionaryBlock(dictionaryLength, getHashBlock(ImmutableList.of(BIGINT), valuesBlock), ids);
+        Block valuesBlock = DictionaryBlock.create(dictionaryLength, createLongSequenceBlock(0, length), ids);
+        Block hashBlock = DictionaryBlock.create(dictionaryLength, getHashBlock(ImmutableList.of(BIGINT), valuesBlock), ids);
         Page page = new Page(valuesBlock, hashBlock);
         AtomicInteger currentQuota = new AtomicInteger(0);
         AtomicInteger allowedQuota = new AtomicInteger(3);
@@ -634,8 +634,8 @@ public class TestGroupByHash
         for (int i = 0; i < 16; i++) {
             ids[i] = 1;
         }
-        Block block1 = new DictionaryBlock(ids.length, dictionary, ids);
-        Block block2 = new DictionaryBlock(ids.length, dictionary, ids);
+        Block block1 = DictionaryBlock.create(ids.length, dictionary, ids);
+        Block block2 = DictionaryBlock.create(ids.length, dictionary, ids);
 
         Page page = new Page(block1, block2);
 

@@ -216,7 +216,7 @@ public class SliceDictionaryColumnWriter
         for (int i = 0; valueCount > 0 && i < segments.length; i++) {
             int[] segment = segments[i];
             int positionCount = Math.min(valueCount, segment.length);
-            Block block = new DictionaryBlock(positionCount, dictionary, segment);
+            Block block = DictionaryBlock.create(positionCount, dictionary, segment);
 
             while (block != null) {
                 int chunkPositionCount = block.getPositionCount();
