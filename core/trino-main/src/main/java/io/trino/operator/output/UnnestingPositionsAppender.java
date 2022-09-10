@@ -86,22 +86,7 @@ public class UnnestingPositionsAppender
 
     private void appendDictionary(IntArrayList positions, DictionaryBlock source)
     {
-        Block dictionary = source.getDictionary();
-
-        while (dictionary instanceof RunLengthEncodedBlock || dictionary instanceof DictionaryBlock) {
-            if (dictionary instanceof RunLengthEncodedBlock) {
-                // if at some level dictionary contains only a single value then it can be flattened to rle
-                appendRle(new RunLengthEncodedBlock(((RunLengthEncodedBlock) dictionary).getValue(), positions.size()));
-                return;
-            }
-
-            // dictionary is a nested dictionary. we need to remap the ids
-            DictionaryBlock nestedDictionary = (DictionaryBlock) dictionary;
-            positions = mapPositions(positions, source);
-            dictionary = nestedDictionary.getDictionary();
-            source = nestedDictionary;
-        }
-        delegate.append(mapPositions(positions, source), dictionary);
+        delegate.append(mapPositions(positions, source), source.getDictionary());
     }
 
     private RunLengthEncodedBlock flatten(RunLengthEncodedBlock source, int positionCount)

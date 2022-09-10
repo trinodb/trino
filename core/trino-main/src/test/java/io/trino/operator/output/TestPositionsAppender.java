@@ -300,17 +300,17 @@ public class TestPositionsAppender
         return new IntArrayList(positions);
     }
 
-    private DictionaryBlock dictionaryBlock(Block dictionary, int positionCount)
+    private Block dictionaryBlock(Block dictionary, int positionCount)
     {
         return createRandomDictionaryBlock(dictionary, positionCount);
     }
 
-    private DictionaryBlock dictionaryBlock(Block dictionary, int[] ids)
+    private Block dictionaryBlock(Block dictionary, int[] ids)
     {
-        return new DictionaryBlock(ids.length, dictionary, ids);
+        return DictionaryBlock.create(ids.length, dictionary, ids);
     }
 
-    private DictionaryBlock dictionaryBlock(TestType type, int positionCount, int dictionarySize, float nullRate)
+    private Block dictionaryBlock(TestType type, int positionCount, int dictionarySize, float nullRate)
     {
         Block dictionary = createRandomBlockForType(type, dictionarySize, nullRate);
         return createRandomDictionaryBlock(dictionary, positionCount);

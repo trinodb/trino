@@ -202,6 +202,10 @@
                                 </item>
                                 <item>
                                     <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.block.DictionaryBlock::&lt;init&gt;(int, io.trino.spi.block.Block, int[])</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
                                     <old>method void io.trino.spi.block.DictionaryBlock::&lt;init&gt;(int, io.trino.spi.block.Block, int[], boolean)</old>
                                 </item>
                                 <item>
@@ -211,6 +215,14 @@
                                 <item>
                                     <code>java.method.removed</code>
                                     <old>method void io.trino.spi.block.DictionaryBlock::&lt;init&gt;(int, int, io.trino.spi.block.Block, int[], boolean, io.trino.spi.block.DictionaryId)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.block.DictionaryBlock::&lt;init&gt;(int, io.trino.spi.block.Block, int[], boolean, io.trino.spi.block.DictionaryId)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.block.DictionaryBlock::&lt;init&gt;(int, io.trino.spi.block.Block, int[], io.trino.spi.block.DictionaryId)</old>
                                 </item>
                             </differences>
                         </revapi.differences>

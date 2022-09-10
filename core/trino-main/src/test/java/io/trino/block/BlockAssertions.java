@@ -121,7 +121,7 @@ public final class BlockAssertions
         }
     }
 
-    public static DictionaryBlock createRandomDictionaryBlock(Block dictionary, int positionCount)
+    public static Block createRandomDictionaryBlock(Block dictionary, int positionCount)
     {
         checkArgument(dictionary.getPositionCount() > 0, "dictionary position count %s is less than or equal to 0", dictionary.getPositionCount());
 
@@ -129,7 +129,7 @@ public final class BlockAssertions
         int[] ids = IntStream.range(0, positionCount)
                 .map(i -> random.nextInt(dictionary.getPositionCount()))
                 .toArray();
-        return new DictionaryBlock(positionCount, dictionary, ids);
+        return DictionaryBlock.create(positionCount, dictionary, ids);
     }
 
     public static RunLengthEncodedBlock createRandomRleBlock(Block block, int positionCount)
@@ -445,7 +445,7 @@ public final class BlockAssertions
         for (int i = 0; i < length; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(ids.length, builder.build(), ids);
+        return DictionaryBlock.create(ids.length, builder.build(), ids);
     }
 
     public static Block createStringArraysBlock(Iterable<? extends Iterable<String>> values)
@@ -716,7 +716,7 @@ public final class BlockAssertions
         for (int i = 0; i < length; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(ids.length, builder.build(), ids);
+        return DictionaryBlock.create(ids.length, builder.build(), ids);
     }
 
     public static Block createLongRepeatBlock(int value, int length)

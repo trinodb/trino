@@ -114,7 +114,7 @@ public class UnnestBlockBuilder
             }
         }
 
-        return new DictionaryBlock(outputPositionCount, source, ids);
+        return DictionaryBlock.create(outputPositionCount, source, ids);
     }
 
     /**

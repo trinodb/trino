@@ -85,7 +85,7 @@ public final class ColumnarRow
         ColumnarRow columnarRow = toColumnarRow(dictionaryBlock.getDictionary());
         Block[] fields = new Block[columnarRow.getFieldCount()];
         for (int i = 0; i < columnarRow.getFieldCount(); i++) {
-            fields[i] = new DictionaryBlock(nonNullPositionCount, columnarRow.getField(i), dictionaryIds);
+            fields[i] = DictionaryBlock.create(nonNullPositionCount, columnarRow.getField(i), dictionaryIds);
         }
 
         int positionCount = dictionaryBlock.getPositionCount();

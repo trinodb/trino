@@ -223,10 +223,7 @@ public final class SortedRangeSet
         return new SortedRangeSet(
                 type,
                 inclusive,
-                new DictionaryBlock(
-                        dictionaryIndex,
-                        block,
-                        dictionary));
+                DictionaryBlock.create(dictionaryIndex, block, dictionary));
     }
 
     /**
