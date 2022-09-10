@@ -834,6 +834,7 @@ public class SnowflakeClient
     {
         checkArgument(table.isNamedRelation(), "Relation is not a table: %s", table);
 
+        RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
         try (Connection connection = connectionFactory.openConnection(session);
                 Handle handle = Jdbi.open(connection)) {
             Long rowCount = handle.createQuery("" +
@@ -844,8 +845,8 @@ public class SnowflakeClient
                     "  AND table_schema = :table_schema " +
                     "  AND table_name = :table_name " +
                     ")")
-                    .bind("table_catalog", table.getRequiredNamedRelation().getRemoteTableName().getCatalogName().orElse(null))
-                    .bind("table_schema", table.getSchemaName())
+                    .bind("table_catalog", remoteTableName.getCatalogName().orElse(null))
+                    .bind("table_schema", remoteTableName.getSchemaName().orElse(null))
                     .bind("table_name", table.getTableName())
                     .mapTo(Long.class)
                     .findOnly();
