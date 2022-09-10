@@ -21,7 +21,6 @@ import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
-import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 
 public interface Block
 {
@@ -244,7 +243,7 @@ public interface Block
     {
         checkArrayRange(positions, offset, length);
 
-        return new DictionaryBlock(offset, length, this, positions, false, randomDictionaryId());
+        return new DictionaryBlock(offset, length, this, positions);
     }
 
     /**

@@ -185,6 +185,33 @@
                                     <code>java.method.returnTypeChanged</code>
                                     <new>method io.trino.spi.block.Block io.trino.spi.block.ArrayBlockBuilder::build()</new>
                                 </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method void io.trino.spi.block.DictionaryBlock::&lt;init&gt;(int, int, io.trino.spi.block.Block, int[], boolean, boolean, io.trino.spi.block.DictionaryId)</old>
+                                    <new>method void io.trino.spi.block.DictionaryBlock::&lt;init&gt;(int, int, io.trino.spi.block.Block, int[], boolean, boolean, io.trino.spi.block.DictionaryId)</new>
+                                    <oldVisibility>public</oldVisibility>
+                                    <newVisibility>private</newVisibility>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method void io.trino.spi.block.DictionaryBlock::&lt;init&gt;(io.trino.spi.block.Block, int[])</old>
+                                    <new>method void io.trino.spi.block.DictionaryBlock::&lt;init&gt;(int, int, io.trino.spi.block.Block, int[])</new>
+                                    <oldVisibility>public</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.block.DictionaryBlock::&lt;init&gt;(int, io.trino.spi.block.Block, int[], boolean)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.block.DictionaryBlock::&lt;init&gt;(int, io.trino.spi.block.Block, int[], boolean, io.trino.spi.block.DictionaryId)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.block.DictionaryBlock::&lt;init&gt;(int, int, io.trino.spi.block.Block, int[], boolean, io.trino.spi.block.DictionaryId)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

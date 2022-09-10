@@ -22,7 +22,6 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.DictionaryId;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.VariableWidthBlock;
@@ -49,7 +48,6 @@ import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createStringSequenceBlock;
 import static io.trino.operator.GroupByHash.createGroupByHash;
 import static io.trino.operator.UpdateMemory.NOOP;
-import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -175,8 +173,8 @@ public class TestGroupByHash
         Block hashBlock = TypeTestUtils.getHashBlock(ImmutableList.of(BIGINT), block);
         int[] ids = new int[] {0, 0, 1, 1};
         Page page = new Page(
-                new DictionaryBlock(block, ids),
-                new DictionaryBlock(hashBlock, ids));
+                new DictionaryBlock(ids.length, block, ids),
+                new DictionaryBlock(ids.length, hashBlock, ids));
 
         groupByHash.addPage(page).process();
 
@@ -475,9 +473,8 @@ public class TestGroupByHash
         int dictionaryLength = 1_000;
         int length = 2_000_000;
         int[] ids = IntStream.range(0, dictionaryLength).toArray();
-        DictionaryId dictionaryId = randomDictionaryId();
-        Block valuesBlock = new DictionaryBlock(dictionaryLength, createLongSequenceBlock(0, length), ids, dictionaryId);
-        Block hashBlock = new DictionaryBlock(dictionaryLength, getHashBlock(ImmutableList.of(BIGINT), valuesBlock), ids, dictionaryId);
+        Block valuesBlock = new DictionaryBlock(dictionaryLength, createLongSequenceBlock(0, length), ids);
+        Block hashBlock = new DictionaryBlock(dictionaryLength, getHashBlock(ImmutableList.of(BIGINT), valuesBlock), ids);
         Page page = new Page(valuesBlock, hashBlock);
         AtomicInteger currentQuota = new AtomicInteger(0);
         AtomicInteger allowedQuota = new AtomicInteger(3);
@@ -637,8 +634,8 @@ public class TestGroupByHash
         for (int i = 0; i < 16; i++) {
             ids[i] = 1;
         }
-        Block block1 = new DictionaryBlock(dictionary, ids);
-        Block block2 = new DictionaryBlock(dictionary, ids);
+        Block block1 = new DictionaryBlock(ids.length, dictionary, ids);
+        Block block2 = new DictionaryBlock(ids.length, dictionary, ids);
 
         Page page = new Page(block1, block2);
 

@@ -169,7 +169,7 @@ public class DictionaryAwarePageProjection
                     DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
                     // if dictionary was processed, produce a dictionary block; otherwise do normal processing
                     int[] outputIds = filterDictionaryIds(dictionaryBlock, selectedPositions);
-                    result = new DictionaryBlock(selectedPositions.size(), dictionaryOutput.get(), outputIds, false, sourceIdFunction.apply(dictionaryBlock));
+                    result = new DictionaryBlock(selectedPositions.size(), dictionaryOutput.get(), outputIds, sourceIdFunction.apply(dictionaryBlock));
                     return true;
                 }
 

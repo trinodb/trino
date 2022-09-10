@@ -317,7 +317,7 @@ public class TestPagePartitioner
     public void testOutputForOneValueDictionaryBlock(PartitioningMode partitioningMode)
     {
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT).build();
-        Page page = new Page(new DictionaryBlock(createLongsBlock(0), new int[] {0, 0, 0, 0}));
+        Page page = new Page(new DictionaryBlock(4, createLongsBlock(0), new int[] {0, 0, 0, 0}));
 
         processPages(pagePartitioner, partitioningMode, page);
 
@@ -331,7 +331,7 @@ public class TestPagePartitioner
     public void testOutputForViewDictionaryBlock(PartitioningMode partitioningMode)
     {
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT).build();
-        Page page = new Page(new DictionaryBlock(createLongSequenceBlock(4, 8), new int[] {1, 0, 3, 2}));
+        Page page = new Page(new DictionaryBlock(4, createLongSequenceBlock(4, 8), new int[] {1, 0, 3, 2}));
 
         processPages(pagePartitioner, partitioningMode, page);
 

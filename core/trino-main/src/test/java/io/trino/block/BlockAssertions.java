@@ -52,7 +52,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
-import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -130,7 +129,7 @@ public final class BlockAssertions
         int[] ids = IntStream.range(0, positionCount)
                 .map(i -> random.nextInt(dictionary.getPositionCount()))
                 .toArray();
-        return new DictionaryBlock(0, positionCount, dictionary, ids, false, randomDictionaryId());
+        return new DictionaryBlock(positionCount, dictionary, ids);
     }
 
     public static RunLengthEncodedBlock createRandomRleBlock(Block block, int positionCount)
@@ -446,7 +445,7 @@ public final class BlockAssertions
         for (int i = 0; i < length; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(builder.build(), ids);
+        return new DictionaryBlock(ids.length, builder.build(), ids);
     }
 
     public static Block createStringArraysBlock(Iterable<? extends Iterable<String>> values)
@@ -717,7 +716,7 @@ public final class BlockAssertions
         for (int i = 0; i < length; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(builder.build(), ids);
+        return new DictionaryBlock(ids.length, builder.build(), ids);
     }
 
     public static Block createLongRepeatBlock(int value, int length)
