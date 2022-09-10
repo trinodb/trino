@@ -65,7 +65,7 @@ public class TestBlockRetainedSizeBreakdown
         for (int i = 0; i < keyIds.length; i++) {
             keyIds[i] = i;
         }
-        checkRetainedSize(new DictionaryBlock(EXPECTED_ENTRIES, keyDictionaryBlock, keyIds), false);
+        checkRetainedSize(DictionaryBlock.create(EXPECTED_ENTRIES, keyDictionaryBlock, keyIds), false);
     }
 
     @Test

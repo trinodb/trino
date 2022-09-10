@@ -183,7 +183,7 @@ public class OrcDeletedRows
             if (positionCount == block.getPositionCount()) {
                 return block;
             }
-            return new DictionaryBlock(positionCount, block, validPositions);
+            return DictionaryBlock.create(positionCount, block, validPositions);
         }
 
         private void loadValidPositions()

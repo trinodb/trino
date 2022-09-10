@@ -84,7 +84,7 @@ public class ColumnarArray
                 dictionaryBlock,
                 0,
                 offsets,
-                new DictionaryBlock(dictionaryIds.length, columnarArray.getElementsBlock(), dictionaryIds));
+                DictionaryBlock.create(dictionaryIds.length, columnarArray.getElementsBlock(), dictionaryIds));
     }
 
     private static ColumnarArray toColumnarArray(RunLengthEncodedBlock rleBlock)
@@ -112,7 +112,7 @@ public class ColumnarArray
                 rleBlock,
                 0,
                 offsets,
-                new DictionaryBlock(dictionaryIds.length, columnarArray.getElementsBlock(), dictionaryIds));
+                DictionaryBlock.create(dictionaryIds.length, columnarArray.getElementsBlock(), dictionaryIds));
     }
 
     private ColumnarArray(Block nullCheckBlock, int offsetsOffset, int[] offsets, Block elementsBlock)

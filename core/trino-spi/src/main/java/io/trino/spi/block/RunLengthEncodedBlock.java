@@ -307,7 +307,7 @@ public class RunLengthEncodedBlock
         Block dictionary = value.copyWithAppendedNull();
         int[] ids = new int[positionCount + 1];
         ids[positionCount] = 1;
-        return new DictionaryBlock(ids.length, dictionary, ids);
+        return DictionaryBlock.create(ids.length, dictionary, ids);
     }
 
     @Override
