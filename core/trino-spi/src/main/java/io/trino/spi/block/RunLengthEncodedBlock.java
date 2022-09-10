@@ -55,16 +55,26 @@ public class RunLengthEncodedBlock
         if (value.getPositionCount() != 1) {
             throw new IllegalArgumentException(format("Expected value to contain a single position but has %s positions", value.getPositionCount()));
         }
+        if (positionCount < 0) {
+            throw new IllegalArgumentException("positionCount is negative");
+        }
 
-        if (value instanceof RunLengthEncodedBlock) {
-            this.value = ((RunLengthEncodedBlock) value).getValue();
+        // do not nest an RLE or Dictionary in an RLE
+        if (value instanceof RunLengthEncodedBlock block) {
+            this.value = block.getValue();
+        }
+        else if (value instanceof DictionaryBlock block) {
+            Block dictionary = block.getDictionary();
+            int id = block.getId(0);
+            if (dictionary.getPositionCount() == 1 && id == 0) {
+                this.value = dictionary;
+            }
+            else {
+                this.value = dictionary.getRegion(id, 1);
+            }
         }
         else {
             this.value = value;
-        }
-
-        if (positionCount < 0) {
-            throw new IllegalArgumentException("positionCount is negative");
         }
 
         this.positionCount = positionCount;
