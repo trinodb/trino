@@ -847,7 +847,7 @@ public class SnowflakeClient
                     ")")
                     .bind("table_catalog", remoteTableName.getCatalogName().orElse(null))
                     .bind("table_schema", remoteTableName.getSchemaName().orElse(null))
-                    .bind("table_name", table.getTableName())
+                    .bind("table_name", remoteTableName.getTableName())
                     .mapTo(Long.class)
                     .findOnly();
 
