@@ -16,7 +16,7 @@ package io.trino.plugin.pinot.client;
 import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;
 
-import static org.apache.pinot.common.utils.grpc.GrpcQueryClient.Config.DEFAULT_MAX_INBOUND_MESSAGE_BYTES_SIZE;
+import static org.apache.pinot.common.config.GrpcConfig.DEFAULT_MAX_INBOUND_MESSAGE_BYTES_SIZE;
 
 public class PinotGrpcServerQueryClientConfig
 {

@@ -21,6 +21,7 @@ import io.trino.plugin.pinot.PinotErrorCode;
 import io.trino.plugin.pinot.PinotException;
 import io.trino.plugin.pinot.PinotSplit;
 import io.trino.spi.connector.ConnectorSession;
+import org.apache.pinot.common.config.GrpcConfig;
 import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.request.BrokerRequest;
 import org.apache.pinot.common.utils.grpc.GrpcQueryClient;
@@ -43,9 +44,9 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static java.util.Objects.requireNonNull;
-import static org.apache.pinot.common.utils.grpc.GrpcQueryClient.Config.CONFIG_MAX_INBOUND_MESSAGE_BYTES_SIZE;
-import static org.apache.pinot.common.utils.grpc.GrpcQueryClient.Config.CONFIG_USE_PLAIN_TEXT;
-import static org.apache.pinot.common.utils.grpc.GrpcQueryClient.Config.GRPC_TLS_PREFIX;
+import static org.apache.pinot.common.config.GrpcConfig.CONFIG_MAX_INBOUND_MESSAGE_BYTES_SIZE;
+import static org.apache.pinot.common.config.GrpcConfig.CONFIG_USE_PLAIN_TEXT;
+import static org.apache.pinot.common.config.GrpcConfig.GRPC_TLS_PREFIX;
 
 public class PinotGrpcDataFetcher
         implements PinotDataFetcher
@@ -154,13 +155,13 @@ public class PinotGrpcDataFetcher
     public static class PlainTextGrpcQueryClientFactory
             implements GrpcQueryClientFactory
     {
-        private final GrpcQueryClient.Config config;
+        private final GrpcConfig config;
 
         @Inject
         public PlainTextGrpcQueryClientFactory(PinotGrpcServerQueryClientConfig grpcClientConfig)
         {
             requireNonNull(grpcClientConfig, "grpcClientConfig is null");
-            this.config = new GrpcQueryClient.Config(ImmutableMap.<String, Object>builder()
+            this.config = new GrpcConfig(ImmutableMap.<String, Object>builder()
                     .put(CONFIG_MAX_INBOUND_MESSAGE_BYTES_SIZE, String.valueOf(grpcClientConfig.getMaxInboundMessageSize().toBytes()))
                     .put(CONFIG_USE_PLAIN_TEXT, String.valueOf(grpcClientConfig.isUsePlainText()))
                     .buildOrThrow());
@@ -185,7 +186,7 @@ public class PinotGrpcDataFetcher
         private static final String TRUSTSTORE_PASSWORD = GRPC_TLS_PREFIX + "." + "truststore.password";
         private static final String SSL_PROVIDER = GRPC_TLS_PREFIX + "." + "ssl.provider";
 
-        private final GrpcQueryClient.Config config;
+        private final GrpcConfig config;
 
         @Inject
         public TlsGrpcQueryClientFactory(PinotGrpcServerQueryClientTlsConfig tlsConfig)
@@ -203,7 +204,7 @@ public class PinotGrpcDataFetcher
             }
             tlsConfigBuilder.put(SSL_PROVIDER, tlsConfig.getSslProvider());
 
-            this.config = new GrpcQueryClient.Config(tlsConfigBuilder.buildOrThrow());
+            this.config = new GrpcConfig(tlsConfigBuilder.buildOrThrow());
         }
 
         @Override
@@ -215,8 +216,6 @@ public class PinotGrpcDataFetcher
 
     public static class PinotGrpcServerQueryClient
     {
-        private static final CalciteSqlCompiler REQUEST_COMPILER = new CalciteSqlCompiler();
-
         private final PinotHostMapper pinotHostMapper;
         private final Map<HostAndPort, GrpcQueryClient> clientCache = new ConcurrentHashMap<>();
         private final int grpcPort;
@@ -241,7 +240,7 @@ public class PinotGrpcDataFetcher
                 closer.register(queryClient::close);
                 return queryClient;
             });
-            BrokerRequest brokerRequest = REQUEST_COMPILER.compileToBrokerRequest(query);
+            BrokerRequest brokerRequest = CalciteSqlCompiler.compileToBrokerRequest(query);
             GrpcRequestBuilder requestBuilder = new GrpcRequestBuilder()
                     .setSql(query)
                     .setSegments(segments)
