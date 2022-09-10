@@ -71,7 +71,6 @@ import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static io.trino.block.BlockAssertions.createSmallintsBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.block.BlockAssertions.createTinyintsBlock;
-import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.CharType.createCharType;
@@ -308,7 +307,7 @@ public class TestPositionsAppender
 
     private DictionaryBlock dictionaryBlock(Block dictionary, int[] ids)
     {
-        return new DictionaryBlock(0, ids.length, dictionary, ids, false, randomDictionaryId());
+        return new DictionaryBlock(ids.length, dictionary, ids);
     }
 
     private DictionaryBlock dictionaryBlock(TestType type, int positionCount, int dictionarySize, float nullRate)

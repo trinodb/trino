@@ -98,7 +98,7 @@ public class TestPage
         int otherDictionaryUsedPositions = 30;
         int[] otherDictionaryIds = getDictionaryIds(positionCount, otherDictionaryUsedPositions);
         Block dictionary3 = createSlicesBlock(createExpectedValues(70));
-        DictionaryBlock randomSourceIdBlock = new DictionaryBlock(dictionary3, otherDictionaryIds);
+        DictionaryBlock randomSourceIdBlock = new DictionaryBlock(otherDictionaryIds.length, dictionary3, otherDictionaryIds);
 
         Page page = new Page(commonSourceIdBlock1, randomSourceIdBlock, commonSourceIdBlock2);
         page.compact();
@@ -121,8 +121,8 @@ public class TestPage
     {
         Slice[] expectedValues = createExpectedValues(10);
         Block valuesBlock = createSlicesBlock(expectedValues);
-        DictionaryBlock nestedDictionary = new DictionaryBlock(valuesBlock, new int[] {0, 1, 2, 2, 4, 5});
-        DictionaryBlock dictionary = new DictionaryBlock(nestedDictionary, new int[] {2, 3, 2, 0});
+        DictionaryBlock nestedDictionary = new DictionaryBlock(6, valuesBlock, new int[] {0, 1, 2, 2, 4, 5});
+        DictionaryBlock dictionary = new DictionaryBlock(4, nestedDictionary, new int[] {2, 3, 2, 0});
 
         Page page = new Page(dictionary);
         page.compact();
