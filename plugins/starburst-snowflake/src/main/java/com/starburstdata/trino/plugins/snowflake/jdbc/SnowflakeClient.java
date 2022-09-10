@@ -844,7 +844,7 @@ public class SnowflakeClient
                     "  AND table_schema = :table_schema " +
                     "  AND table_name = :table_name " +
                     ")")
-                    .bind("table_catalog", table.getCatalogName())
+                    .bind("table_catalog", table.getRequiredNamedRelation().getRemoteTableName().getCatalogName().orElse(null))
                     .bind("table_schema", table.getSchemaName())
                     .bind("table_name", table.getTableName())
                     .mapTo(Long.class)
