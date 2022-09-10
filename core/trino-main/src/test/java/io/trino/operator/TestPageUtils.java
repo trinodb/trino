@@ -50,7 +50,7 @@ public class TestPageUtils
     public void testNestedBlocks()
     {
         Block elements = lazyWrapper(createIntsBlock(1, 2, 3));
-        DictionaryBlock dictBlock = new DictionaryBlock(elements, new int[] {0});
+        DictionaryBlock dictBlock = new DictionaryBlock(1, elements, new int[] {0});
         Page page = new Page(1, dictBlock);
 
         AtomicLong sizeInBytes = new AtomicLong();

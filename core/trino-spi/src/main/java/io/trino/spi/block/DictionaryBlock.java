@@ -52,37 +52,25 @@ public class DictionaryBlock
     private final DictionaryId dictionarySourceId;
     private final boolean mayHaveNull;
 
-    public DictionaryBlock(Block dictionary, int[] ids)
-    {
-        this(ids.length, dictionary, ids);
-    }
-
     public DictionaryBlock(int positionCount, Block dictionary, int[] ids)
     {
-        this(0, positionCount, dictionary, ids, false, randomDictionaryId());
+        this(0, positionCount, dictionary, ids, false, false, randomDictionaryId());
     }
 
-    public DictionaryBlock(int positionCount, Block dictionary, int[] ids, DictionaryId dictionaryId)
+    /**
+     * This should not only be used when creating a projection of another dictionary block.
+     */
+    public DictionaryBlock(int positionCount, Block dictionary, int[] ids, DictionaryId dictionarySourceId)
     {
-        this(0, positionCount, dictionary, ids, false, dictionaryId);
+        this(0, positionCount, dictionary, ids, false, false, dictionarySourceId);
     }
 
-    public DictionaryBlock(int positionCount, Block dictionary, int[] ids, boolean dictionaryIsCompacted)
+    DictionaryBlock(int idsOffset, int positionCount, Block dictionary, int[] ids)
     {
-        this(0, positionCount, dictionary, ids, dictionaryIsCompacted, randomDictionaryId());
+        this(idsOffset, positionCount, dictionary, ids, false, false, randomDictionaryId());
     }
 
-    public DictionaryBlock(int positionCount, Block dictionary, int[] ids, boolean dictionaryIsCompacted, DictionaryId dictionarySourceId)
-    {
-        this(0, positionCount, dictionary, ids, dictionaryIsCompacted, dictionarySourceId);
-    }
-
-    public DictionaryBlock(int idsOffset, int positionCount, Block dictionary, int[] ids, boolean dictionaryIsCompacted, DictionaryId dictionarySourceId)
-    {
-        this(idsOffset, positionCount, dictionary, ids, dictionaryIsCompacted, false, dictionarySourceId);
-    }
-
-    public DictionaryBlock(int idsOffset, int positionCount, Block dictionary, int[] ids, boolean dictionaryIsCompacted, boolean isSequentialIds, DictionaryId dictionarySourceId)
+    private DictionaryBlock(int idsOffset, int positionCount, Block dictionary, int[] ids, boolean dictionaryIsCompacted, boolean isSequentialIds, DictionaryId dictionarySourceId)
     {
         requireNonNull(dictionary, "dictionary is null");
         requireNonNull(ids, "ids is null");
@@ -104,10 +92,8 @@ public class DictionaryBlock
         // avoid eager loading of lazy dictionaries
         this.mayHaveNull = positionCount > 0 && (!dictionary.isLoaded() || dictionary.mayHaveNull());
 
+        dictionaryIsCompacted = dictionaryIsCompacted && !(dictionary instanceof DictionaryBlock);
         if (dictionaryIsCompacted) {
-            if (dictionary instanceof DictionaryBlock) {
-                throw new IllegalArgumentException("compacted dictionary should not have dictionary base block");
-            }
             this.sizeInBytes = dictionary.getSizeInBytes() + (Integer.BYTES * (long) positionCount);
             this.uniqueIds = dictionary.getPositionCount();
         }
@@ -447,7 +433,7 @@ public class DictionaryBlock
             return this;
         }
 
-        return new DictionaryBlock(idsOffset + positionOffset, length, dictionary, ids, false, dictionarySourceId);
+        return new DictionaryBlock(idsOffset + positionOffset, length, dictionary, ids, false, false, dictionarySourceId);
     }
 
     @Override
@@ -466,7 +452,7 @@ public class DictionaryBlock
             return dictionary.copyPositions(ids, idsOffset + position, length);
         }
         int[] newIds = Arrays.copyOfRange(ids, idsOffset + position, idsOffset + position + length);
-        DictionaryBlock dictionaryBlock = new DictionaryBlock(dictionary, newIds);
+        DictionaryBlock dictionaryBlock = new DictionaryBlock(newIds.length, dictionary, newIds);
         return dictionaryBlock.compact();
     }
 
@@ -505,7 +491,7 @@ public class DictionaryBlock
         }
         // All positions must have been referenced in order to be compact
         isCompact &= (usedIds != null && usedIds.length == uniqueIds);
-        DictionaryBlock result = new DictionaryBlock(newIds.length, dictionary, newIds, isCompact, getDictionarySourceId());
+        DictionaryBlock result = new DictionaryBlock(0, newIds.length, dictionary, newIds, isCompact, false, getDictionarySourceId());
         if (usedIds != null && !isCompact) {
             // resulting dictionary is not compact, but we know the number of unique ids and which positions are used
             result.uniqueIds = uniqueIds;
@@ -541,7 +527,7 @@ public class DictionaryBlock
             newIds[idsOffset + positionCount] = nullIndex;
         }
 
-        return new DictionaryBlock(idsOffset, positionCount + 1, newDictionary, newIds, isCompact(), getDictionarySourceId());
+        return new DictionaryBlock(idsOffset, positionCount + 1, newDictionary, newIds, isCompact(), false, getDictionarySourceId());
     }
 
     @Override
@@ -567,7 +553,7 @@ public class DictionaryBlock
         if (loadedDictionary == dictionary) {
             return this;
         }
-        return new DictionaryBlock(idsOffset, getPositionCount(), loadedDictionary, ids, false, randomDictionaryId());
+        return new DictionaryBlock(idsOffset, getPositionCount(), loadedDictionary, ids, false, false, randomDictionaryId());
     }
 
     @Override
@@ -713,7 +699,7 @@ public class DictionaryBlock
             dictionary = nestedDictionary.getDictionary();
         }
 
-        return new DictionaryBlock(dictionary, ids);
+        return new DictionaryBlock(ids.length, dictionary, ids);
     }
 
     /**
@@ -759,7 +745,14 @@ public class DictionaryBlock
 
             try {
                 Block compactDictionary = dictionaryBlock.getDictionary().copyPositions(dictionaryPositionsToCopy, 0, numberOfIndexes);
-                outputDictionaryBlocks.add(new DictionaryBlock(positionCount, compactDictionary, newIds, !(compactDictionary instanceof DictionaryBlock), newDictionaryId));
+                outputDictionaryBlocks.add(new DictionaryBlock(
+                        0,
+                        positionCount,
+                        compactDictionary,
+                        newIds,
+                        !(compactDictionary instanceof DictionaryBlock),
+                        false,
+                        newDictionaryId));
             }
             catch (UnsupportedOperationException e) {
                 // ignore if copy positions is not supported for the dictionary

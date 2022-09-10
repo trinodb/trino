@@ -180,8 +180,8 @@ public class TestDictionaryAwarePageProjection
                 block -> randomDictionaryId(),
                 false);
         Block dictionary = createLongsBlock(0, 1);
-        DictionaryBlock firstDictionaryBlock = new DictionaryBlock(dictionary, new int[] {0, 1, 2, 3});
-        DictionaryBlock secondDictionaryBlock = new DictionaryBlock(dictionary, new int[] {3, 2, 1, 0});
+        DictionaryBlock firstDictionaryBlock = new DictionaryBlock(4, dictionary, new int[] {0, 1, 2, 3});
+        DictionaryBlock secondDictionaryBlock = new DictionaryBlock(4, dictionary, new int[] {3, 2, 1, 0});
 
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
         Work<Block> firstWork = projection.project(null, yieldSignal, new Page(firstDictionaryBlock), SelectedPositions.positionsList(new int[] {0}, 0, 1));
@@ -208,7 +208,7 @@ public class TestDictionaryAwarePageProjection
         Block dictionary = createLongSequenceBlock(0, dictionarySize);
         int[] ids = new int[blockSize];
         Arrays.setAll(ids, index -> index % dictionarySize);
-        return new DictionaryBlock(dictionary, ids);
+        return new DictionaryBlock(ids.length, dictionary, ids);
     }
 
     private static DictionaryBlock createDictionaryBlockWithFailure(int dictionarySize, int blockSize)
@@ -216,7 +216,7 @@ public class TestDictionaryAwarePageProjection
         Block dictionary = createLongSequenceBlock(-10, dictionarySize - 10);
         int[] ids = new int[blockSize];
         Arrays.setAll(ids, index -> index % dictionarySize);
-        return new DictionaryBlock(dictionary, ids);
+        return new DictionaryBlock(ids.length, dictionary, ids);
     }
 
     private static DictionaryBlock createDictionaryBlockWithUnusedEntries(int dictionarySize, int blockSize)
@@ -224,7 +224,7 @@ public class TestDictionaryAwarePageProjection
         Block dictionary = createLongSequenceBlock(-10, dictionarySize);
         int[] ids = new int[blockSize];
         Arrays.setAll(ids, index -> (index % dictionarySize) + 10);
-        return new DictionaryBlock(dictionary, ids);
+        return new DictionaryBlock(ids.length, dictionary, ids);
     }
 
     private static Block projectWithYield(Work<Block> work, DriverYieldSignal yieldSignal)
