@@ -79,7 +79,7 @@ public class ChangeOnlyUpdatedColumnsMergeProcessor
         Block operationChannelBlock = mergeRow.getField(mergeRow.getFieldCount() - 2);
         builder.add(operationChannelBlock);
         builder.add(inputPage.getBlock(rowIdChannel));
-        builder.add(new RunLengthEncodedBlock(INSERT_FROM_UPDATE_BLOCK, positionCount));
+        builder.add(RunLengthEncodedBlock.create(INSERT_FROM_UPDATE_BLOCK, positionCount));
 
         Page result = new Page(builder.toArray(Block[]::new));
 

@@ -656,7 +656,7 @@ public class BigintGroupByHash
 
             return new GroupByIdBlock(
                     nextGroupId,
-                    new RunLengthEncodedBlock(
+                    RunLengthEncodedBlock.create(
                             BIGINT.createFixedSizeBlockBuilder(1).writeLong(groupId).build(),
                             block.getPositionCount()));
         }

@@ -69,7 +69,7 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createLongsBlock;
-import static io.trino.block.BlockAssertions.createRLEBlock;
+import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.operator.GroupByHashYieldAssertion.GroupByHashYieldResult;
 import static io.trino.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
 import static io.trino.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
@@ -744,11 +744,11 @@ public class TestHashAggregationOperator
         // First operator will trigger adaptive partial aggregation after the first page
         List<Page> operator1Input = rowPagesBuilder(false, hashChannels, BIGINT)
                 .addBlocksPage(createLongsBlock(0, 1, 2, 3, 4, 5, 6, 7, 8, 8)) // first page will be hashed but the values are almost unique, so it will trigger adaptation
-                .addBlocksPage(createRLEBlock(1, 10)) // second page would be hashed to existing value 1. but if adaptive PA kicks in, the raw values will be passed on
+                .addBlocksPage(createRepeatedValuesBlock(1, 10)) // second page would be hashed to existing value 1. but if adaptive PA kicks in, the raw values will be passed on
                 .build();
         List<Page> operator1Expected = rowPagesBuilder(BIGINT, BIGINT)
                 .addBlocksPage(createLongsBlock(0, 1, 2, 3, 4, 5, 6, 7, 8), createLongsBlock(0, 1, 2, 3, 4, 5, 6, 7, 8)) // the last position was aggregated
-                .addBlocksPage(createRLEBlock(1, 10), createRLEBlock(1, 10)) // we are expecting second page with raw values
+                .addBlocksPage(createRepeatedValuesBlock(1, 10), createRepeatedValuesBlock(1, 10)) // we are expecting second page with raw values
                 .build();
         assertOperatorEquals(operatorFactory, operator1Input, operator1Expected);
 
@@ -756,12 +756,12 @@ public class TestHashAggregationOperator
         assertTrue(partialAggregationController.isPartialAggregationDisabled());
         // second operator using the same factory, reuses PartialAggregationControl, so it will only produce raw pages (partial aggregation is disabled at this point)
         List<Page> operator2Input = rowPagesBuilder(false, hashChannels, BIGINT)
-                .addBlocksPage(createRLEBlock(1, 10))
-                .addBlocksPage(createRLEBlock(2, 10))
+                .addBlocksPage(createRepeatedValuesBlock(1, 10))
+                .addBlocksPage(createRepeatedValuesBlock(2, 10))
                 .build();
         List<Page> operator2Expected = rowPagesBuilder(BIGINT, BIGINT)
-                .addBlocksPage(createRLEBlock(1, 10), createRLEBlock(1, 10))
-                .addBlocksPage(createRLEBlock(2, 10), createRLEBlock(2, 10))
+                .addBlocksPage(createRepeatedValuesBlock(1, 10), createRepeatedValuesBlock(1, 10))
+                .addBlocksPage(createRepeatedValuesBlock(2, 10), createRepeatedValuesBlock(2, 10))
                 .build();
 
         assertOperatorEquals(operatorFactory, operator2Input, operator2Expected);
@@ -792,7 +792,7 @@ public class TestHashAggregationOperator
 
         List<Page> operator1Input = rowPagesBuilder(false, hashChannels, BIGINT)
                 .addSequencePage(10, 0) // first page are unique values, so it would trigger adaptation, but it won't because flush is not called
-                .addBlocksPage(createRLEBlock(1, 2)) // second page will be hashed to existing value 1
+                .addBlocksPage(createRepeatedValuesBlock(1, 2)) // second page will be hashed to existing value 1
                 .build();
         // the total unique ows ratio for the first operator will be 10/12 so > 0.8 (adaptive partial aggregation uniqueRowsRatioThreshold)
         List<Page> operator1Expected = rowPagesBuilder(BIGINT, BIGINT)
@@ -805,12 +805,12 @@ public class TestHashAggregationOperator
 
         // second operator using the same factory, reuses PartialAggregationControl, so it will only produce raw pages (partial aggregation is disabled at this point)
         List<Page> operator2Input = rowPagesBuilder(false, hashChannels, BIGINT)
-                .addBlocksPage(createRLEBlock(1, 10))
-                .addBlocksPage(createRLEBlock(2, 10))
+                .addBlocksPage(createRepeatedValuesBlock(1, 10))
+                .addBlocksPage(createRepeatedValuesBlock(2, 10))
                 .build();
         List<Page> operator2Expected = rowPagesBuilder(BIGINT, BIGINT)
-                .addBlocksPage(createRLEBlock(1, 10), createRLEBlock(1, 10))
-                .addBlocksPage(createRLEBlock(2, 10), createRLEBlock(2, 10))
+                .addBlocksPage(createRepeatedValuesBlock(1, 10), createRepeatedValuesBlock(1, 10))
+                .addBlocksPage(createRepeatedValuesBlock(2, 10), createRepeatedValuesBlock(2, 10))
                 .build();
 
         assertOperatorEquals(operatorFactory, operator2Input, operator2Expected);

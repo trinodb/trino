@@ -62,9 +62,9 @@ public class TestDictionaryAwarePageFilter
     private static void testRleBlock(boolean filterRange)
     {
         DictionaryAwarePageFilter filter = createDictionaryAwarePageFilter(filterRange, LongArrayBlock.class);
-        RunLengthEncodedBlock match = new RunLengthEncodedBlock(createLongSequenceBlock(4, 5), 100);
+        RunLengthEncodedBlock match = (RunLengthEncodedBlock) RunLengthEncodedBlock.create(createLongSequenceBlock(4, 5), 100);
         testFilter(filter, match, filterRange);
-        RunLengthEncodedBlock noMatch = new RunLengthEncodedBlock(createLongSequenceBlock(0, 1), 100);
+        RunLengthEncodedBlock noMatch = (RunLengthEncodedBlock) RunLengthEncodedBlock.create(createLongSequenceBlock(0, 1), 100);
         testFilter(filter, noMatch, filterRange);
     }
 
@@ -72,7 +72,7 @@ public class TestDictionaryAwarePageFilter
     public void testRleBlockWithFailure()
     {
         DictionaryAwarePageFilter filter = createDictionaryAwarePageFilter(true, LongArrayBlock.class);
-        RunLengthEncodedBlock fail = new RunLengthEncodedBlock(createLongSequenceBlock(-10, -9), 100);
+        RunLengthEncodedBlock fail = (RunLengthEncodedBlock) RunLengthEncodedBlock.create(createLongSequenceBlock(-10, -9), 100);
         assertThatThrownBy(() -> testFilter(filter, fail, true))
                 .isInstanceOf(NegativeValueException.class)
                 .hasMessage("value is negative: -10");

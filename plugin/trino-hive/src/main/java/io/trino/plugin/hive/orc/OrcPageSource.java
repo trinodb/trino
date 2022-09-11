@@ -331,7 +331,7 @@ public class OrcPageSource
         @Override
         public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
         {
-            return new RunLengthEncodedBlock(nullBlock, maskDeletedRowsFunction.getPositionCount());
+            return RunLengthEncodedBlock.create(nullBlock, maskDeletedRowsFunction.getPositionCount());
         }
 
         @Override
@@ -467,8 +467,8 @@ public class OrcPageSource
             int positionCount = sourcePage.getPositionCount();
             ImmutableList.Builder<Block> originalFilesBlockBuilder = ImmutableList.builder();
             originalFilesBlockBuilder.add(
-                    new RunLengthEncodedBlock(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
-                    new RunLengthEncodedBlock(bucketBlock, positionCount),
+                    RunLengthEncodedBlock.create(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
+                    RunLengthEncodedBlock.create(bucketBlock, positionCount),
                     createRowNumberBlock(startingRowId, filePosition, positionCount));
             for (int channel = 0; channel < sourcePage.getChannelCount(); channel++) {
                 originalFilesBlockBuilder.add(sourcePage.getBlock(channel));
@@ -524,8 +524,8 @@ public class OrcPageSource
                     positionCount,
                     Optional.empty(),
                     new Block[] {
-                            new RunLengthEncodedBlock(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
-                            new RunLengthEncodedBlock(bucketBlock, positionCount),
+                            RunLengthEncodedBlock.create(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
+                            RunLengthEncodedBlock.create(bucketBlock, positionCount),
                             createRowNumberBlock(startingRowId, filePosition, positionCount)
                     }));
         }
@@ -551,8 +551,8 @@ public class OrcPageSource
                     positionCount,
                     Optional.empty(),
                     new Block[] {
-                            new RunLengthEncodedBlock(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
-                            new RunLengthEncodedBlock(bucketBlock, positionCount),
+                            RunLengthEncodedBlock.create(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
+                            RunLengthEncodedBlock.create(bucketBlock, positionCount),
                             createRowNumberBlock(startingRowId, filePosition, positionCount)
                     }));
             return rowBlock;
@@ -574,7 +574,7 @@ public class OrcPageSource
         @Override
         public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
         {
-            return new RunLengthEncodedBlock(singleValueBlock, sourcePage.getPositionCount());
+            return RunLengthEncodedBlock.create(singleValueBlock, sourcePage.getPositionCount());
         }
     }
 

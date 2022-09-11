@@ -127,7 +127,7 @@ public final class ColumnarRow
                 fields[i] = nullSuppressedField;
             }
             else {
-                fields[i] = new RunLengthEncodedBlock(nullSuppressedField, rleBlock.getPositionCount());
+                fields[i] = RunLengthEncodedBlock.create(nullSuppressedField, rleBlock.getPositionCount());
             }
         }
         return new ColumnarRow(rleBlock.getPositionCount(), rleBlock, fields);

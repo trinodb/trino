@@ -224,6 +224,18 @@
                                     <code>java.method.removed</code>
                                     <old>method void io.trino.spi.block.DictionaryBlock::&lt;init&gt;(int, io.trino.spi.block.Block, int[], io.trino.spi.block.DictionaryId)</old>
                                 </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method io.trino.spi.block.RunLengthEncodedBlock io.trino.spi.block.RunLengthBlockEncoding::readBlock(io.trino.spi.block.BlockEncodingSerde, io.airlift.slice.SliceInput)</old>
+                                    <new>method io.trino.spi.block.Block io.trino.spi.block.RunLengthBlockEncoding::readBlock(io.trino.spi.block.BlockEncodingSerde, io.airlift.slice.SliceInput)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method void io.trino.spi.block.RunLengthEncodedBlock::&lt;init&gt;(io.trino.spi.block.Block, int)</old>
+                                    <new>method void io.trino.spi.block.RunLengthEncodedBlock::&lt;init&gt;(io.trino.spi.block.Block, int)</new>
+                                    <oldVisibility>public</oldVisibility>
+                                    <newVisibility>private</newVisibility>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

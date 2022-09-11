@@ -86,9 +86,9 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.chooseNullPositions;
 import static io.trino.block.BlockAssertions.createLongDictionaryBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
-import static io.trino.block.BlockAssertions.createRLEBlock;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.block.BlockAssertions.createRandomLongsBlock;
+import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -264,14 +264,14 @@ public class BenchmarkPartitionedOutputOperator
                         positionCount,
                         types.size(),
                         () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                        createRLEBlock(42, positionCount));
+                        createRepeatedValuesBlock(42, positionCount));
             }),
             BIGINT_PARTITION_CHANNEL_RLE_NULL(BigintType.BIGINT, 20, (types, positionCount, nullRate) -> {
                 return page(
                         positionCount,
                         types.size(),
                         () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                        new RunLengthEncodedBlock(createLongsBlock((Long) null), positionCount));
+                        RunLengthEncodedBlock.create(createLongsBlock((Long) null), positionCount));
             }),
             LONG_DECIMAL(createDecimalType(MAX_SHORT_PRECISION + 1), 5000),
             DICTIONARY_LONG_DECIMAL(createDecimalType(MAX_SHORT_PRECISION + 1), 5000, PageTestUtils::createRandomDictionaryPage),
@@ -313,7 +313,7 @@ public class BenchmarkPartitionedOutputOperator
                                             positionCount,
                                             Optional.ofNullable(isNull),
                                             new Block[] {
-                                                    new RunLengthEncodedBlock(createLongsBlock(-65128734213L), notNullPositionsCount),
+                                                    RunLengthEncodedBlock.create(createLongsBlock(-65128734213L), notNullPositionsCount),
                                                     createRandomLongsBlock(notNullPositionsCount, nullRate)});
                                 })
                                 .collect(toImmutableList()));

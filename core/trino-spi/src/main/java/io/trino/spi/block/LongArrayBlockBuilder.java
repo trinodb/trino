@@ -103,7 +103,7 @@ public class LongArrayBlockBuilder
     public Block build()
     {
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positionCount);
         }
         return new LongArrayBlock(0, positionCount, hasNullValue ? valueIsNull : null, values);
     }
@@ -274,7 +274,7 @@ public class LongArrayBlockBuilder
         checkArrayRange(positions, offset, length);
 
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
         }
         boolean[] newValueIsNull = null;
         if (hasNullValue) {
@@ -298,7 +298,7 @@ public class LongArrayBlockBuilder
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
         }
         return new LongArrayBlock(positionOffset, length, hasNullValue ? valueIsNull : null, values);
     }
@@ -309,7 +309,7 @@ public class LongArrayBlockBuilder
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
         }
         boolean[] newValueIsNull = null;
         if (hasNullValue) {

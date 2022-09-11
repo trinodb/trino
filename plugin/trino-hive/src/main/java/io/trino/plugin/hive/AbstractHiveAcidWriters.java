@@ -152,12 +152,12 @@ public abstract class AbstractHiveAcidWriters
         int positionCount = rowIdsRowBlock.getPositionCount();
         // We've verified that the rowIds block has no null rows, so it's okay to get the field blocks
         Block[] blockArray = {
-                new RunLengthEncodedBlock(DELETE_OPERATION_BLOCK, positionCount),
+                RunLengthEncodedBlock.create(DELETE_OPERATION_BLOCK, positionCount),
                 columnarRow.getField(ORIGINAL_TRANSACTION_CHANNEL),
                 columnarRow.getField(BUCKET_CHANNEL),
                 columnarRow.getField(ROW_ID_CHANNEL),
                 RunLengthEncodedBlock.create(BIGINT, writeId, positionCount),
-                new RunLengthEncodedBlock(rowTypeNullsBlock, positionCount),
+                RunLengthEncodedBlock.create(rowTypeNullsBlock, positionCount),
         };
         return new Page(blockArray);
     }

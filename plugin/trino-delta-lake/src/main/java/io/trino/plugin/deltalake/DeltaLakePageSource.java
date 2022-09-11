@@ -165,7 +165,7 @@ public class DeltaLakePageSource
             Block[] blocks = new Block[prefilledBlocks.length];
             for (int i = 0; i < prefilledBlocks.length; i++) {
                 if (prefilledBlocks[i] != null) {
-                    blocks[i] = new RunLengthEncodedBlock(prefilledBlocks[i], batchSize);
+                    blocks[i] = RunLengthEncodedBlock.create(prefilledBlocks[i], batchSize);
                 }
                 else if (i == rowIdIndex) {
                     blocks[i] = createRowIdBlock(dataPage.getBlock(delegateIndexes[i]));
@@ -187,9 +187,9 @@ public class DeltaLakePageSource
     {
         int positions = rowIndexBlock.getPositionCount();
         Block[] fields = {
-                new RunLengthEncodedBlock(pathBlock, positions),
+                RunLengthEncodedBlock.create(pathBlock, positions),
                 rowIndexBlock,
-                new RunLengthEncodedBlock(partitionsBlock, positions),
+                RunLengthEncodedBlock.create(partitionsBlock, positions),
         };
         return RowBlock.fromFieldBlocks(positions, Optional.empty(), fields);
     }
