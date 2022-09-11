@@ -98,9 +98,8 @@ public class Int96PositionsAppender
     }
 
     @Override
-    public void appendRle(RunLengthEncodedBlock block)
+    public void appendRle(Block block, int rlePositionCount)
     {
-        int rlePositionCount = block.getPositionCount();
         if (rlePositionCount == 0) {
             return;
         }

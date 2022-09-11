@@ -19,14 +19,10 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Dispatches the {@link #append} and {@link #appendRle} methods to the {@link #delegate} depending on the input {@link Block} class.
- * The {@link Block} is flattened if necessary so that the {@link #delegate} {@link PositionsAppender#append(IntArrayList, Block)}
- * always gets flat {@link Block} and {@link PositionsAppender#appendRle(RunLengthEncodedBlock)} always gets {@link RunLengthEncodedBlock}
- * with {@link RunLengthEncodedBlock#getValue()} being flat {@link Block}.
  */
 public class UnnestingPositionsAppender
         implements PositionsAppender
@@ -47,7 +43,7 @@ public class UnnestingPositionsAppender
             return;
         }
         if (source instanceof RunLengthEncodedBlock) {
-            delegate.appendRle(flatten((RunLengthEncodedBlock) source, positions.size()));
+            delegate.appendRle(((RunLengthEncodedBlock) source).getValue(), positions.size());
         }
         else if (source instanceof DictionaryBlock) {
             appendDictionary(positions, (DictionaryBlock) source);
@@ -58,12 +54,12 @@ public class UnnestingPositionsAppender
     }
 
     @Override
-    public void appendRle(RunLengthEncodedBlock source)
+    public void appendRle(Block block, int rlePositionCount)
     {
-        if (source.getPositionCount() == 0) {
+        if (rlePositionCount == 0) {
             return;
         }
-        delegate.appendRle(flatten(source, source.getPositionCount()));
+        delegate.appendRle(block, rlePositionCount);
     }
 
     @Override
@@ -87,14 +83,6 @@ public class UnnestingPositionsAppender
     private void appendDictionary(IntArrayList positions, DictionaryBlock source)
     {
         delegate.append(mapPositions(positions, source), source.getDictionary());
-    }
-
-    private RunLengthEncodedBlock flatten(RunLengthEncodedBlock source, int positionCount)
-    {
-        checkArgument(positionCount > 0);
-        Block value = source.getValue().getSingleValueBlock(0);
-        checkArgument(!(value instanceof DictionaryBlock) && !(value instanceof RunLengthEncodedBlock), "value must be flat but got %s", value);
-        return new RunLengthEncodedBlock(value, positionCount);
     }
 
     private IntArrayList mapPositions(IntArrayList positions, DictionaryBlock block)
