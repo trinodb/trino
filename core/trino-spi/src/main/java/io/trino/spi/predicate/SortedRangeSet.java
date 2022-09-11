@@ -1077,7 +1077,7 @@ public final class SortedRangeSet
             writeRange(type, blockBuilder, inclusive, rangeIndex, range);
         }
 
-        return new SortedRangeSet(type, inclusive, blockBuilder);
+        return new SortedRangeSet(type, inclusive, blockBuilder.build());
     }
 
     private static void writeRange(Type type, BlockBuilder blockBuilder, boolean[] inclusive, int rangeIndex, Range range)
