@@ -76,7 +76,7 @@ public class DictionaryBlock
 
         // if dictionary is an RLE then this can just be a new RLE
         if (dictionary instanceof RunLengthEncodedBlock rle) {
-            return new RunLengthEncodedBlock(rle.getValue(), positionCount);
+            return RunLengthEncodedBlock.create(rle.getValue(), positionCount);
         }
 
         // unwrap dictionary in dictionary

@@ -129,7 +129,7 @@ public class RcFilePageSource
             Block[] blocks = new Block[hiveColumnIndexes.length];
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
                 if (constantBlocks[fieldId] != null) {
-                    blocks[fieldId] = new RunLengthEncodedBlock(constantBlocks[fieldId], currentPageSize);
+                    blocks[fieldId] = RunLengthEncodedBlock.create(constantBlocks[fieldId], currentPageSize);
                 }
                 else {
                     blocks[fieldId] = createBlock(currentPageSize, fieldId);

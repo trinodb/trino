@@ -162,7 +162,7 @@ public class DictionaryAwarePageProjection
                 if (block instanceof RunLengthEncodedBlock) {
                     // single value block is always considered effective, but the processing could have thrown
                     // in that case we fallback and process again so the correct error message sent
-                    result = new RunLengthEncodedBlock(dictionaryOutput.get(), selectedPositions.size());
+                    result = RunLengthEncodedBlock.create(dictionaryOutput.get(), selectedPositions.size());
                     return true;
                 }
 

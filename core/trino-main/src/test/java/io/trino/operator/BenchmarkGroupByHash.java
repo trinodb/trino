@@ -255,7 +255,7 @@ public class BenchmarkGroupByHash
                         // rle page
                         Block[] blocks = new Block[page.getChannelCount()];
                         for (int channel = 0; channel < blocks.length; ++channel) {
-                            blocks[channel] = new RunLengthEncodedBlock(page.getBlock(channel).getSingleValueBlock(0), page.getPositionCount());
+                            blocks[channel] = RunLengthEncodedBlock.create(page.getBlock(channel).getSingleValueBlock(0), page.getPositionCount());
                         }
                         pages.add(new Page(blocks));
                     }

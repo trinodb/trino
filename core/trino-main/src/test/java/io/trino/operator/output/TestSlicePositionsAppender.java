@@ -43,7 +43,7 @@ public class TestSlicePositionsAppender
 
         Block actualBlock = positionsAppender.build();
 
-        assertBlockEquals(VARCHAR, actualBlock, new RunLengthEncodedBlock(value, 10));
+        assertBlockEquals(VARCHAR, actualBlock, RunLengthEncodedBlock.create(value, 10));
     }
 
     // test append with VariableWidthBlock using Slice not backed by byte array

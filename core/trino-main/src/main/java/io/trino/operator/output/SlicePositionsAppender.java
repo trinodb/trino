@@ -153,7 +153,7 @@ public class SlicePositionsAppender
                     hasNullValue ? Optional.of(valueIsNull) : Optional.empty());
         }
         else {
-            result = new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+            result = RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positionCount);
         }
         reset();
         return result;

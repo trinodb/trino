@@ -78,18 +78,18 @@ public class TestArrayBlockBuilder
     public void testBuilderProducesNullRleForNullRows()
     {
         // empty block
-        assertIsNullRle(blockBuilder().build(), 0);
+        assertIsAllNulls(blockBuilder().build(), 0);
 
         // single null
-        assertIsNullRle(blockBuilder().appendNull().build(), 1);
+        assertIsAllNulls(blockBuilder().appendNull().build(), 1);
 
         // multiple nulls
-        assertIsNullRle(blockBuilder().appendNull().appendNull().build(), 2);
+        assertIsAllNulls(blockBuilder().appendNull().appendNull().build(), 2);
 
         BlockBuilder blockBuilder = blockBuilder().appendNull().appendNull();
-        assertIsNullRle(blockBuilder.copyPositions(new int[] {0}, 0, 1), 1);
-        assertIsNullRle(blockBuilder.getRegion(0, 1), 1);
-        assertIsNullRle(blockBuilder.copyRegion(0, 1), 1);
+        assertIsAllNulls(blockBuilder.copyPositions(new int[] {0}, 0, 1), 1);
+        assertIsAllNulls(blockBuilder.getRegion(0, 1), 1);
+        assertIsAllNulls(blockBuilder.copyRegion(0, 1), 1);
     }
 
     private static BlockBuilder blockBuilder()
@@ -97,10 +97,16 @@ public class TestArrayBlockBuilder
         return new ArrayBlockBuilder(BIGINT, null, 10);
     }
 
-    private void assertIsNullRle(Block block, int expectedPositionCount)
+    private static void assertIsAllNulls(Block block, int expectedPositionCount)
     {
         assertEquals(block.getPositionCount(), expectedPositionCount);
-        assertEquals(block.getClass(), RunLengthEncodedBlock.class);
+        if (expectedPositionCount <= 1) {
+            assertEquals(block.getClass(), ArrayBlock.class);
+        }
+        else {
+            assertEquals(block.getClass(), RunLengthEncodedBlock.class);
+            assertEquals(((RunLengthEncodedBlock) block).getValue().getClass(), ArrayBlock.class);
+        }
         if (expectedPositionCount > 0) {
             assertTrue(block.isNull(0));
         }

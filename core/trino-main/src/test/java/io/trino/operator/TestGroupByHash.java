@@ -144,8 +144,8 @@ public class TestGroupByHash
         Block block = BlockAssertions.createLongsBlock(0L);
         Block hashBlock = TypeTestUtils.getHashBlock(ImmutableList.of(BIGINT), block);
         Page page = new Page(
-                new RunLengthEncodedBlock(block, 2),
-                new RunLengthEncodedBlock(hashBlock, 2));
+                RunLengthEncodedBlock.create(block, 2),
+                RunLengthEncodedBlock.create(hashBlock, 2));
 
         groupByHash.addPage(page).process();
 
@@ -658,10 +658,10 @@ public class TestGroupByHash
     {
         Block bigintBlock = BlockAssertions.createLongsBlock(1, 2, 3, 4, 5, 6, 7, 8);
         Block bigintDictionaryBlock = BlockAssertions.createLongDictionaryBlock(0, 8);
-        Block bigintRleBlock = BlockAssertions.createRLEBlock(42, 8);
+        Block bigintRleBlock = BlockAssertions.createRepeatedValuesBlock(42, 8);
         Block varcharBlock = BlockAssertions.createStringsBlock("1", "2", "3", "4", "5", "6", "7", "8");
         Block varcharDictionaryBlock = BlockAssertions.createStringDictionaryBlock(1, 8);
-        Block varcharRleBlock = new RunLengthEncodedBlock(new VariableWidthBlock(1, Slices.EMPTY_SLICE, new int[] {0, 1}, Optional.empty()), 8);
+        Block varcharRleBlock = RunLengthEncodedBlock.create(new VariableWidthBlock(1, Slices.EMPTY_SLICE, new int[] {0, 1}, Optional.empty()), 8);
         Block bigintBigDictionaryBlock = BlockAssertions.createLongDictionaryBlock(1, 8, 1000);
         Block bigintSingletonDictionaryBlock = BlockAssertions.createLongDictionaryBlock(1, 500000, 1);
         Block bigintHugeDictionaryBlock = BlockAssertions.createLongDictionaryBlock(1, 500000, 66000); // Above Short.MAX_VALUE
