@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.base.Joiner;
 import com.google.common.primitives.Floats;
 import io.airlift.stats.QuantileDigest;
+import io.trino.block.BlockAssertions;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.Page;
@@ -39,7 +40,7 @@ import static io.trino.block.BlockAssertions.createDoubleSequenceBlock;
 import static io.trino.block.BlockAssertions.createDoublesBlock;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
-import static io.trino.block.BlockAssertions.createRLEBlock;
+import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.block.BlockAssertions.createSequenceBlockOfReal;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.operator.aggregation.FloatingPointBitsConverterUtil.doubleToSortableLong;
@@ -67,31 +68,31 @@ public class TestQuantileDigestAggregationFunction
     {
         testAggregationDouble(
                 createDoublesBlock(1.0, null, 2.0, null, 3.0, null, 4.0, null, 5.0, null),
-                createRLEBlock(1, 10),
+                createRepeatedValuesBlock(1, 10),
                 0.01, 1.0, 2.0, 3.0, 4.0, 5.0);
         testAggregationDouble(
                 createDoublesBlock(null, null, null, null, null),
-                createRLEBlock(1, 5),
+                createRepeatedValuesBlock(1, 5),
                 NaN);
         testAggregationDouble(
                 createDoublesBlock(-1.0, -2.0, -3.0, -4.0, -5.0, -6.0, -7.0, -8.0, -9.0, -10.0),
-                createRLEBlock(1, 10),
+                createRepeatedValuesBlock(1, 10),
                 0.01, -1.0, -2.0, -3.0, -4.0, -5.0, -6.0, -7.0, -8.0, -9.0, -10.0);
         testAggregationDouble(
                 createDoublesBlock(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0),
-                createRLEBlock(1, 10),
+                createRepeatedValuesBlock(1, 10),
                 0.01, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0);
         testAggregationDouble(
                 createDoublesBlock(),
-                createRLEBlock(1, 0),
+                createRepeatedValuesBlock(1, 0),
                 NaN);
         testAggregationDouble(
                 createDoublesBlock(1.0),
-                createRLEBlock(1, 1),
+                createRepeatedValuesBlock(1, 1),
                 0.01, 1.0);
         testAggregationDouble(
                 createDoubleSequenceBlock(-1000, 1000),
-                createRLEBlock(1, 2000),
+                createRepeatedValuesBlock(1, 2000),
                 0.01,
                 LongStream.range(-1000, 1000).asDoubleStream().toArray());
     }
@@ -101,31 +102,31 @@ public class TestQuantileDigestAggregationFunction
     {
         testAggregationReal(
                 createBlockOfReals(1.0F, null, 2.0F, null, 3.0F, null, 4.0F, null, 5.0F, null),
-                createRLEBlock(1, 10),
+                createRepeatedValuesBlock(1, 10),
                 0.01, 1.0F, 2.0F, 3.0F, 4.0F, 5.0F);
         testAggregationReal(
                 createBlockOfReals(null, null, null, null, null),
-                createRLEBlock(1, 5),
+                createRepeatedValuesBlock(1, 5),
                 NaN);
         testAggregationReal(
                 createBlockOfReals(-1.0F, -2.0F, -3.0F, -4.0F, -5.0F, -6.0F, -7.0F, -8.0F, -9.0F, -10.0F),
-                createRLEBlock(1, 10),
+                createRepeatedValuesBlock(1, 10),
                 0.01, -1.0F, -2.0F, -3.0F, -4.0F, -5.0F, -6.0F, -7.0F, -8.0F, -9.0F, -10.0F);
         testAggregationReal(
                 createBlockOfReals(1.0F, 2.0F, 3.0F, 4.0F, 5.0F, 6.0F, 7.0F, 8.0F, 9.0F, 10.0F),
-                createRLEBlock(1, 10),
+                createRepeatedValuesBlock(1, 10),
                 0.01, 1.0F, 2.0F, 3.0F, 4.0F, 5.0F, 6.0F, 7.0F, 8.0F, 9.0F, 10.0F);
         testAggregationReal(
                 createBlockOfReals(),
-                createRLEBlock(1, 0),
+                createRepeatedValuesBlock(1, 0),
                 NaN);
         testAggregationReal(
                 createBlockOfReals(1.0F),
-                createRLEBlock(1, 1),
+                createRepeatedValuesBlock(1, 1),
                 0.01, 1.0F);
         testAggregationReal(
                 createSequenceBlockOfReal(-1000, 1000),
-                createRLEBlock(1, 2000),
+                createRepeatedValuesBlock(1, 2000),
                 0.01,
                 Floats.toArray(LongStream.range(-1000, 1000).mapToObj(Float::new).collect(toImmutableList())));
     }
@@ -135,31 +136,31 @@ public class TestQuantileDigestAggregationFunction
     {
         testAggregationBigint(
                 createLongsBlock(1L, null, 2L, null, 3L, null, 4L, null, 5L, null),
-                createRLEBlock(1, 10),
+                createRepeatedValuesBlock(1, 10),
                 0.01, 1, 2, 3, 4, 5);
         testAggregationBigint(
                 createLongsBlock(null, null, null, null, null),
-                createRLEBlock(1, 5),
+                createRepeatedValuesBlock(1, 5),
                 NaN);
         testAggregationBigint(
                 createLongsBlock(-1, -2, -3, -4, -5, -6, -7, -8, -9, -10),
-                createRLEBlock(1, 10),
+                createRepeatedValuesBlock(1, 10),
                 0.01, -1, -2, -3, -4, -5, -6, -7, -8, -9, -10);
         testAggregationBigint(
                 createLongsBlock(1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
-                createRLEBlock(1, 10),
+                createRepeatedValuesBlock(1, 10),
                 0.01, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
         testAggregationBigint(
                 createLongsBlock(new int[] {}),
-                createRLEBlock(1, 0),
+                createRepeatedValuesBlock(1, 0),
                 NaN);
         testAggregationBigint(
                 createLongsBlock(1),
-                createRLEBlock(1, 1),
+                createRepeatedValuesBlock(1, 1),
                 0.01, 1);
         testAggregationBigint(
                 createLongSequenceBlock(-1000, 1000),
-                createRLEBlock(1, 2000),
+                createRepeatedValuesBlock(1, 2000),
                 0.01,
                 LongStream.range(-1000, 1000).toArray());
     }
@@ -182,7 +183,7 @@ public class TestQuantileDigestAggregationFunction
         // Test with weights and accuracy
         testAggregationBigints(
                 fromTypes(BIGINT, BIGINT, DOUBLE),
-                new Page(inputBlock, weightsBlock, createRLEBlock(maxError, inputBlock.getPositionCount())),
+                new Page(inputBlock, weightsBlock, BlockAssertions.createRepeatedValuesBlock(maxError, inputBlock.getPositionCount())),
                 maxError,
                 inputs);
     }
@@ -204,7 +205,7 @@ public class TestQuantileDigestAggregationFunction
         // Test with weights and accuracy
         testAggregationReal(
                 fromTypes(REAL, BIGINT, DOUBLE),
-                new Page(longsBlock, weightsBlock, createRLEBlock(maxError, longsBlock.getPositionCount())),
+                new Page(longsBlock, weightsBlock, BlockAssertions.createRepeatedValuesBlock(maxError, longsBlock.getPositionCount())),
                 maxError,
                 inputs);
     }
@@ -226,7 +227,7 @@ public class TestQuantileDigestAggregationFunction
         // Test with weights and accuracy
         testAggregationDoubles(
                 fromTypes(DOUBLE, BIGINT, DOUBLE),
-                new Page(longsBlock, weightsBlock, createRLEBlock(maxError, longsBlock.getPositionCount())),
+                new Page(longsBlock, weightsBlock, BlockAssertions.createRepeatedValuesBlock(maxError, longsBlock.getPositionCount())),
                 maxError,
                 inputs);
     }

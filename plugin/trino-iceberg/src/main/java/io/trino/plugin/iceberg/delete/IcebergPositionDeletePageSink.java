@@ -111,7 +111,7 @@ public class IcebergPositionDeletePageSink
         checkArgument(page.getChannelCount() == 1, "IcebergPositionDeletePageSink expected a Page with only one channel, but got " + page.getChannelCount());
 
         Block[] blocks = new Block[2];
-        blocks[0] = new RunLengthEncodedBlock(nativeValueToBlock(VARCHAR, utf8Slice(dataFilePath)), page.getPositionCount());
+        blocks[0] = RunLengthEncodedBlock.create(nativeValueToBlock(VARCHAR, utf8Slice(dataFilePath)), page.getPositionCount());
         blocks[1] = page.getBlock(0);
         writer.appendRows(new Page(blocks));
 

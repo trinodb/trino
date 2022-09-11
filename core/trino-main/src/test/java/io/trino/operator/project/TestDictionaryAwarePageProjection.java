@@ -90,7 +90,7 @@ public class TestDictionaryAwarePageProjection
     public void testRleBlock(boolean forceYield, boolean produceLazyBlock)
     {
         Block value = createLongSequenceBlock(42, 43);
-        RunLengthEncodedBlock block = new RunLengthEncodedBlock(value, 100);
+        RunLengthEncodedBlock block = (RunLengthEncodedBlock) RunLengthEncodedBlock.create(value, 100);
 
         testProject(block, RunLengthEncodedBlock.class, forceYield, produceLazyBlock);
     }
@@ -99,7 +99,7 @@ public class TestDictionaryAwarePageProjection
     public void testRleBlockWithFailure(boolean forceYield, boolean produceLazyBlock)
     {
         Block value = createLongSequenceBlock(-43, -42);
-        RunLengthEncodedBlock block = new RunLengthEncodedBlock(value, 100);
+        RunLengthEncodedBlock block = (RunLengthEncodedBlock) RunLengthEncodedBlock.create(value, 100);
 
         testProjectFails(block, RunLengthEncodedBlock.class, forceYield, produceLazyBlock);
     }
