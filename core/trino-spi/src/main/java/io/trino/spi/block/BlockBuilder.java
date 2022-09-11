@@ -16,17 +16,25 @@ package io.trino.spi.block;
 import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
 
 public interface BlockBuilder
-        extends Block
 {
     /**
-     * Create a new block from the current materialized block by keeping the same elements
-     * only with respect to {@code visiblePositions}.
+     * Returns the number of positions in this block builder.
      */
-    @Override
-    default Block getPositions(int[] visiblePositions, int offset, int length)
-    {
-        return build().getPositions(visiblePositions, offset, length);
-    }
+    int getPositionCount();
+
+    /**
+     * Returns the size of this block as if it was compacted, ignoring any over-allocations
+     * and any unloaded nested blocks.
+     * For example, in dictionary blocks, this only counts each dictionary entry once,
+     * rather than each time a value is referenced.
+     */
+    long getSizeInBytes();
+
+    /**
+     * Returns the retained size of this block in memory, including over-allocations.
+     * This method is called from the innermost execution loop and must be fast.
+     */
+    long getRetainedSizeInBytes();
 
     /**
      * Appends a null value to the block.
@@ -46,15 +54,5 @@ public interface BlockBuilder
     default BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
     {
         return newBlockBuilderLike(calculateBlockResetSize(getPositionCount()), blockBuilderStatus);
-    }
-
-    /**
-     * This method is not expected to be implemented for {@code BlockBuilder} implementations, the method
-     * {@link BlockBuilder#appendNull} should be used instead.
-     */
-    @Override
-    default Block copyWithAppendedNull()
-    {
-        throw new UnsupportedOperationException("BlockBuilder implementation does not support newBlockWithAppendedNull");
     }
 }

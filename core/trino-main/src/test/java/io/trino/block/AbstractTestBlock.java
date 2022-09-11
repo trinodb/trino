@@ -24,7 +24,6 @@ import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
-import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.MapHashTables;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.block.VariableWidthBlockBuilder;
@@ -113,10 +112,10 @@ public abstract class AbstractTestBlock
                         retainedSize += BlockBuilderStatus.INSTANCE_SIZE;
                     }
                 }
-                else if (type == BlockBuilder.class || type == Block.class) {
+                else if (type == Block.class) {
                     retainedSize += ((Block) field.get(block)).getRetainedSizeInBytes();
                 }
-                else if (type == BlockBuilder[].class || type == Block[].class) {
+                else if (type == Block[].class) {
                     Block[] blocks = (Block[]) field.get(block);
                     for (Block innerBlock : blocks) {
                         assertRetainedSize(innerBlock);
@@ -147,18 +146,11 @@ public abstract class AbstractTestBlock
                 else if (type == MapHashTables.class) {
                     retainedSize += ((MapHashTables) field.get(block)).getRetainedSizeInBytes();
                 }
-                else if (type.getEnclosingClass() == MapBlockBuilder.class) {
-                    // ignore nested enum
-                }
                 else if (type == MethodHandle.class) {
-                    // MethodHandles are only used in MapBlock/MapBlockBuilder,
+                    // MethodHandles are only used in MapBlock
                     // and they are shared among blocks created by the same MapType.
                     // So we don't account for the memory held onto by MethodHandle instances.
                     // Otherwise, we will be counting it multiple times.
-                }
-                else if (field.getName().equals("fieldBlockBuildersList")) {
-                    // RowBlockBuilder fieldBlockBuildersList is a simple wrapper around the
-                    // array already accounted for in the instance
                 }
                 else {
                     throw new IllegalArgumentException(format("Unknown type encountered: %s", type));
