@@ -446,7 +446,7 @@ public class ParquetReader
             // update batch size
             maxCombinedBytesPerRow = maxCombinedBytesPerRow - maxBytesPerCell.getOrDefault(fieldId, 0L) + bytesPerCell;
             maxBatchSize = toIntExact(min(maxBatchSize, max(1, options.getMaxReadBlockSize().toBytes() / maxCombinedBytesPerRow)));
-            maxBytesPerCell.replace(fieldId, bytesPerCell);
+            maxBytesPerCell.put(fieldId, bytesPerCell);
         }
         return columnChunk;
     }
