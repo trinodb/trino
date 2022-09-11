@@ -131,7 +131,7 @@ public class Int96PositionsAppender
             result = new Int96ArrayBlock(positionCount, hasNullValue ? Optional.of(valueIsNull) : Optional.empty(), high, low);
         }
         else {
-            result = new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+            result = RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positionCount);
         }
         reset();
         return result;

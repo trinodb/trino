@@ -689,7 +689,7 @@ public final class PartitionTransforms
                 type,
                 true,
                 true,
-                block -> new RunLengthEncodedBlock(nullBlock, block.getPositionCount()),
+                block -> RunLengthEncodedBlock.create(nullBlock, block.getPositionCount()),
                 (block, position) -> null);
     }
 

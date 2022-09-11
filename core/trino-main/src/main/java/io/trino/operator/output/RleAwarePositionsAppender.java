@@ -94,7 +94,7 @@ public class RleAwarePositionsAppender
     {
         Block result;
         if (rleValue != null) {
-            result = new RunLengthEncodedBlock(rleValue, rlePositionCount);
+            result = RunLengthEncodedBlock.create(rleValue, rlePositionCount);
         }
         else {
             result = delegate.build();

@@ -255,9 +255,9 @@ public class UuidColumnReader
         return values;
     }
 
-    private RunLengthEncodedBlock createAllNullsBlock()
+    private Block createAllNullsBlock()
     {
-        return new RunLengthEncodedBlock(new Int128ArrayBlock(1, Optional.of(new boolean[] {true}), new long[2]), nextBatchSize);
+        return RunLengthEncodedBlock.create(new Int128ArrayBlock(1, Optional.of(new boolean[] {true}), new long[2]), nextBatchSize);
     }
 
     private void openRowGroup()

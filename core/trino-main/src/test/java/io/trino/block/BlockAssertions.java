@@ -134,8 +134,8 @@ public final class BlockAssertions
 
     public static RunLengthEncodedBlock createRandomRleBlock(Block block, int positionCount)
     {
-        checkArgument(block.getPositionCount() > 0, format("block positions %d is less than or equal to 0", block.getPositionCount()));
-        return new RunLengthEncodedBlock(block.getSingleValueBlock(random().nextInt(block.getPositionCount())), positionCount);
+        checkArgument(block.getPositionCount() >= 2, format("block positions %d is less 2", block.getPositionCount()));
+        return (RunLengthEncodedBlock) RunLengthEncodedBlock.create(block.getSingleValueBlock(random().nextInt(block.getPositionCount())), positionCount);
     }
 
     public static Block createRandomBlockForType(Type type, int positionCount, float nullRate)
@@ -893,18 +893,18 @@ public final class BlockAssertions
         return builder.build();
     }
 
-    public static RunLengthEncodedBlock createRLEBlock(double value, int positionCount)
+    public static Block createRepeatedValuesBlock(double value, int positionCount)
     {
         BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, 1);
         DOUBLE.writeDouble(blockBuilder, value);
-        return new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
+        return RunLengthEncodedBlock.create(blockBuilder.build(), positionCount);
     }
 
-    public static RunLengthEncodedBlock createRLEBlock(long value, int positionCount)
+    public static Block createRepeatedValuesBlock(long value, int positionCount)
     {
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 1);
         BIGINT.writeLong(blockBuilder, value);
-        return new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
+        return RunLengthEncodedBlock.create(blockBuilder.build(), positionCount);
     }
 
     private static <T> Block createBlock(Type type, ValueWriter<T> valueWriter, Iterable<T> values)

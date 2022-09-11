@@ -131,7 +131,7 @@ public class RowPositionsAppender
         }
         else {
             Block nullRowBlock = fromFieldBlocks(1, Optional.of(new boolean[] {true}), fieldBlocks);
-            result = new RunLengthEncodedBlock(nullRowBlock, positionCount);
+            result = RunLengthEncodedBlock.create(nullRowBlock, positionCount);
         }
 
         reset();

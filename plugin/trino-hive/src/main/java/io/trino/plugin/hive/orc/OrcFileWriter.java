@@ -157,7 +157,7 @@ public class OrcFileWriter
             int inputColumnIndex = fileInputColumnIndexes[i];
             if (inputColumnIndex < 0) {
                 hasNullBlocks = true;
-                blocks[i] = new RunLengthEncodedBlock(nullBlocks.get(i), positionCount);
+                blocks[i] = RunLengthEncodedBlock.create(nullBlocks.get(i), positionCount);
             }
             else {
                 blocks[i] = dataPage.getBlock(inputColumnIndex);

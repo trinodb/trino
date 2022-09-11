@@ -157,6 +157,6 @@ public final class ColumnarTestUtils
 
     public static RunLengthEncodedBlock createTestRleBlock(Block block, int position)
     {
-        return new RunLengthEncodedBlock(block.getRegion(position, 1), 10);
+        return (RunLengthEncodedBlock) RunLengthEncodedBlock.create(block.getRegion(position, 1), 10);
     }
 }

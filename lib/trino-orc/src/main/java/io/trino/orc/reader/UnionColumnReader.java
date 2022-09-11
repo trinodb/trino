@@ -259,7 +259,7 @@ public class UnionColumnReader
                 blocks[i + 1] = new LazyBlock(positionCount, new UnpackLazyBlockLoader(rawBlock, fieldType, valueIsNonNull[i]));
             }
             else {
-                blocks[i + 1] = new RunLengthEncodedBlock(
+                blocks[i + 1] = RunLengthEncodedBlock.create(
                         fieldType.createBlockBuilder(null, 1).appendNull().build(),
                         positionCount);
             }

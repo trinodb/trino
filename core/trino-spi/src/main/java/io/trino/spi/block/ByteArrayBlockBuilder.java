@@ -102,7 +102,7 @@ public class ByteArrayBlockBuilder
     public Block build()
     {
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positionCount);
         }
         return new ByteArrayBlock(0, positionCount, hasNullValue ? valueIsNull : null, values);
     }
@@ -227,7 +227,7 @@ public class ByteArrayBlockBuilder
         checkArrayRange(positions, offset, length);
 
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
         }
         boolean[] newValueIsNull = null;
         if (hasNullValue) {
@@ -251,7 +251,7 @@ public class ByteArrayBlockBuilder
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
         }
         return new ByteArrayBlock(positionOffset, length, hasNullValue ? valueIsNull : null, values);
     }
@@ -262,7 +262,7 @@ public class ByteArrayBlockBuilder
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
         }
         boolean[] newValueIsNull = null;
         if (hasNullValue) {

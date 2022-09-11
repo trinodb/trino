@@ -163,9 +163,9 @@ public class SliceDictionaryColumnReader
         return block;
     }
 
-    private RunLengthEncodedBlock readAllNullsBlock()
+    private Block readAllNullsBlock()
     {
-        return new RunLengthEncodedBlock(new VariableWidthBlock(1, EMPTY_SLICE, new int[2], Optional.of(new boolean[] {true})), nextBatchSize);
+        return RunLengthEncodedBlock.create(new VariableWidthBlock(1, EMPTY_SLICE, new int[2], Optional.of(new boolean[] {true})), nextBatchSize);
     }
 
     private Block readNonNullBlock()

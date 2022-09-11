@@ -392,7 +392,7 @@ public class NestedLoopJoinOperator
             // For the page with less rows, create RLE blocks and add them to the blocks array
             for (int i = 0; i < smallPageOutputBlocks.length; i++) {
                 Block block = smallPageOutputBlocks[i].getSingleValueBlock(rowIndex);
-                resultBlockBuffer[indexForRleBlocks + i] = new RunLengthEncodedBlock(block, largePagePositionCount);
+                resultBlockBuffer[indexForRleBlocks + i] = RunLengthEncodedBlock.create(block, largePagePositionCount);
             }
             // Page constructor will create a copy of the block buffer (and must for correctness)
             return new Page(largePagePositionCount, resultBlockBuffer);
