@@ -96,11 +96,10 @@ public class RowPositionsAppender
     }
 
     @Override
-    public void appendRle(RunLengthEncodedBlock rleBlock)
+    public void appendRle(Block value, int rlePositionCount)
     {
-        int rlePositionCount = rleBlock.getPositionCount();
         ensureCapacity(rlePositionCount);
-        AbstractRowBlock sourceRowBlock = (AbstractRowBlock) rleBlock.getValue();
+        AbstractRowBlock sourceRowBlock = (AbstractRowBlock) value;
         if (sourceRowBlock.isNull(0)) {
             // append rlePositionCount nulls
             Arrays.fill(rowIsNull, positionCount, positionCount + rlePositionCount, true);
@@ -111,7 +110,7 @@ public class RowPositionsAppender
             List<Block> fieldBlocks = sourceRowBlock.getChildren();
             int fieldPosition = sourceRowBlock.getFieldBlockOffset(0);
             for (int i = 0; i < fieldAppenders.length; i++) {
-                fieldAppenders[i].appendRle(new RunLengthEncodedBlock(fieldBlocks.get(i).getSingleValueBlock(fieldPosition), rlePositionCount));
+                fieldAppenders[i].appendRle(fieldBlocks.get(i).getSingleValueBlock(fieldPosition), rlePositionCount);
             }
             hasNonNullRow = true;
         }

@@ -15,7 +15,6 @@ package io.trino.operator.output;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.openjdk.jol.info.ClassLayout;
@@ -53,9 +52,9 @@ class TypedPositionsAppender
     }
 
     @Override
-    public void appendRle(RunLengthEncodedBlock block)
+    public void appendRle(Block block, int rlePositionCount)
     {
-        for (int i = 0; i < block.getPositionCount(); i++) {
+        for (int i = 0; i < rlePositionCount; i++) {
             type.appendTo(block, 0, blockBuilder);
         }
     }

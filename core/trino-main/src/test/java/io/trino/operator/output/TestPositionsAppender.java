@@ -244,11 +244,11 @@ public class TestPositionsAppender
         PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(VARCHAR, 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
 
         // first append some not empty value to avoid RleAwarePositionsAppender for the empty value
-        positionsAppender.appendRle(new RunLengthEncodedBlock(singleValueBlock("some value"), 1));
+        positionsAppender.appendRle(singleValueBlock("some value"), 1);
         // append empty value multiple times to trigger jit compilation
         Block emptyStringBlock = singleValueBlock("");
         for (int i = 0; i < 1000; i++) {
-            positionsAppender.appendRle(new RunLengthEncodedBlock(emptyStringBlock, 2000));
+            positionsAppender.appendRle(emptyStringBlock, 2000);
         }
     }
 
