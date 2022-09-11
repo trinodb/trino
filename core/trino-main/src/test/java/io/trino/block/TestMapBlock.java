@@ -201,13 +201,9 @@ public class TestMapBlock
     private void testWith(Map<String, Long>[] expectedValues)
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-        assertFalse(blockBuilder.mayHaveNull());
 
-        assertBlock(blockBuilder, expectedValues);
         assertBlock(blockBuilder.build(), expectedValues);
-        assertBlockFilteredPositions(expectedValues, blockBuilder, 0, 1, 3, 4, 7);
         assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 0, 1, 3, 4, 7);
-        assertBlockFilteredPositions(expectedValues, blockBuilder, 2, 3, 5, 6);
         assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 2, 3, 5, 6);
 
         Block block = createBlockWithValuesFromKeyValueBlock(expectedValues);
@@ -219,13 +215,9 @@ public class TestMapBlock
 
         Map<String, Long>[] expectedValuesWithNull = alternatingNullValues(expectedValues);
         BlockBuilder blockBuilderWithNull = createBlockBuilderWithValues(expectedValuesWithNull);
-        assertTrue(blockBuilderWithNull.mayHaveNull());
 
-        assertBlock(blockBuilderWithNull, expectedValuesWithNull);
         assertBlock(blockBuilderWithNull.build(), expectedValuesWithNull);
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull, 0, 1, 5, 6, 7, 10, 11, 12, 15);
         assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), 0, 1, 5, 6, 7, 10, 11, 12, 15);
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull, 2, 3, 4, 9, 13, 14);
         assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), 2, 3, 4, 9, 13, 14);
 
         Block blockWithNull = createBlockWithValuesFromKeyValueBlock(expectedValuesWithNull);
@@ -363,6 +355,7 @@ public class TestMapBlock
                 BIGINT.writeLong(valueBuilder, -1);
             });
         }
+        mapBlockBuilder.build();
 
         mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
             // Add 50 keys so we get some chance to get hash conflict
@@ -372,14 +365,16 @@ public class TestMapBlock
                 BIGINT.writeLong(valueBuilder, -1);
             }
         });
+        mapBlockBuilder.build();
 
-        assertThatThrownBy(
-                () -> mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
-                    for (int i = 0; i < 2; i++) {
-                        BIGINT.writeLong(keyBuilder, 99);
-                        BIGINT.writeLong(valueBuilder, -1);
-                    }
-                }))
+        // map block builder does not check for problems until the block is built
+        mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+            for (int i = 0; i < 2; i++) {
+                BIGINT.writeLong(keyBuilder, 99);
+                BIGINT.writeLong(valueBuilder, -1);
+            }
+        });
+        assertThatThrownBy(mapBlockBuilder::build)
                 .isInstanceOf(DuplicateMapKeyException.class)
                 .hasMessage("Duplicate map keys are not allowed");
     }
@@ -393,7 +388,6 @@ public class TestMapBlock
         assertEquals(block.getPositionCount(), expectedValues.length);
         for (int i = 0; i < block.getPositionCount(); i++) {
             int expectedSize = getExpectedEstimatedDataSize(expectedValues[i]);
-            assertEquals(blockBuilder.getEstimatedDataSizeForStats(i), expectedSize);
             assertEquals(block.getEstimatedDataSizeForStats(i), expectedSize);
         }
     }

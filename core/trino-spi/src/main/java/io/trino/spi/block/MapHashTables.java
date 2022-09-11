@@ -123,7 +123,7 @@ public final class MapHashTables
         this.hashTables = hashTables;
     }
 
-    static void buildHashTable(MapType mapType, Block keyBlock, int keyOffset, int keyCount, int[] hashTables)
+    private static void buildHashTable(MapType mapType, Block keyBlock, int keyOffset, int keyCount, int[] hashTables)
     {
         int hashTableOffset = keyOffset * HASH_MULTIPLIER;
         int hashTableSize = keyCount * HASH_MULTIPLIER;
@@ -145,7 +145,7 @@ public final class MapHashTables
     /**
      * This method checks whether {@code keyBlock} has duplicated entries (in the specified range)
      */
-    static void buildHashTableStrict(MapType mapType, Block keyBlock, int keyOffset, int keyCount, int[] hashTables)
+    private static void buildHashTableStrict(MapType mapType, Block keyBlock, int keyOffset, int keyCount, int[] hashTables)
     {
         int hashTableOffset = keyOffset * HASH_MULTIPLIER;
         int hashTableSize = keyCount * HASH_MULTIPLIER;
@@ -191,7 +191,7 @@ public final class MapHashTables
     /**
      * This method checks whether {@code keyBlock} has duplicates based on type NOT DISTINCT FROM.
      */
-    static void buildDistinctHashTableStrict(MapType mapType, Block keyBlock, int keyOffset, int keyCount, int[] hashTables)
+    private static void buildDistinctHashTableStrict(MapType mapType, Block keyBlock, int keyOffset, int keyCount, int[] hashTables)
     {
         int hashTableOffset = keyOffset * HASH_MULTIPLIER;
         int hashTableSize = keyCount * HASH_MULTIPLIER;

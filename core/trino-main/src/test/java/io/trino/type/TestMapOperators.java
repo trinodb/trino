@@ -689,12 +689,12 @@ public class TestMapOperators
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(BIGINT, BIGINT))")
                 .binding("a", "JSON '{\"1\":1, \"01\": 2}'").evaluate())
-                .hasMessage("Cannot cast to map(bigint, bigint). Duplicate keys are not allowed\n{\"01\":2,\"1\":1}")
+                .hasMessage("Cannot cast to map(bigint, bigint). Duplicate map keys are not allowed\n{\"01\":2,\"1\":1}")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(MAP(BIGINT, BIGINT)))")
                 .binding("a", "JSON '[{\"1\":1, \"01\": 2}]'").evaluate())
-                .hasMessage("Cannot cast to array(map(bigint, bigint)). Duplicate keys are not allowed\n[{\"01\":2,\"1\":1}]")
+                .hasMessage("Cannot cast to array(map(bigint, bigint)). Duplicate map keys are not allowed\n[{\"01\":2,\"1\":1}]")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         // some other key/value type combinations
