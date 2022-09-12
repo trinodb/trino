@@ -153,30 +153,56 @@ The above query is translated to the following Pinot PQL query::
     WHERE col3 IN('FOO', 'BAR') and col4 > 50
     TOP 30000
 
+.. _pinot-type-mapping:
 
+Type mapping
+------------
 
-Data types
-----------
+Because Trino and Pinot each support types that the other does not, this
+connector :ref:`maps some types <type-mapping-overview>` when reading data.
 
-Pinot does not allow null values in any data type and supports the following primitive types:
+Pinot type to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-==========================   ==============
-Pinot                        Trino
-==========================   ==============
-``INT``                      ``INTEGER``
-``LONG``                     ``BIGINT``
-``FLOAT``                    ``REAL``
-``DOUBLE``                   ``DOUBLE``
-``STRING``                   ``VARCHAR``
-``BYTES``                    ``VARBINARY``
-``JSON``                     ``JSON``
-``TIMESTAMP``                ``TIMESTAMP``
-``INT_ARRAY``                ``VARCHAR``
-``LONG_ARRAY``               ``VARCHAR``
-``FLOAT_ARRAY``              ``VARCHAR``
-``DOUBLE_ARRAY``             ``VARCHAR``
-``STRING_ARRAY``             ``VARCHAR``
-==========================   ==============
+The connector maps Pinot types to the corresponding Trino types
+according to the following table:
+
+.. list-table:: Pinot type to Trino type mapping
+  :widths: 75,60
+  :header-rows: 1
+
+  * - Pinot type
+    - Trino type
+  * - ``INT``
+    - ``INTEGER``
+  * - ``LONG``
+    - ``BIGINT``
+  * - ``FLOAT``
+    - ``REAL``
+  * - ``DOUBLE``
+    - ``DOUBLE``
+  * - ``STRING``
+    - ``VARCHAR``
+  * - ``BYTES``
+    - ``VARBINARY``
+  * - ``JSON``
+    - ``JSON``
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP``
+  * - ``INT_ARRAY``
+    - ``VARCHAR``
+  * - ``LONG_ARRAY``
+    - ``VARCHAR``
+  * - ``FLOAT_ARRAY``
+    - ``VARCHAR``
+  * - ``DOUBLE_ARRAY``
+    - ``VARCHAR``
+  * - ``STRING_ARRAY``
+    - ``VARCHAR``
+
+Pinot does not allow null values in any data type.
+
+No other types are supported.
 
 .. _pinot-sql-support:
 
