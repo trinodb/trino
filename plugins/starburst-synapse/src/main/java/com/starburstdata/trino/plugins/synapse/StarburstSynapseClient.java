@@ -9,10 +9,13 @@
  */
 package com.starburstdata.trino.plugins.synapse;
 
+import com.google.common.base.Joiner;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
+import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
@@ -61,6 +64,8 @@ public class StarburstSynapseClient
 
     private static final int MAX_SUPPORTED_TEMPORAL_PRECISION = 7;
 
+    private static final Joiner DOT_JOINER = Joiner.on(".");
+
     @Inject
     public StarburstSynapseClient(
             BaseJdbcConfig config,
@@ -96,6 +101,16 @@ public class StarburstSynapseClient
                 quoted(catalogName, schemaName, tableName),
                 newTable.getTableName());
         execute(session, sql);
+    }
+
+    @Override
+    protected String renameColumnSql(JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newRemoteColumnName)
+    {
+        // TODO: Evaluate whether this is SQL injection issue or not https://starburstdata.atlassian.net/browse/SEP-9796
+        return format(
+                "sp_rename %s, %s, 'COLUMN'",
+                singleQuote(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), jdbcColumn.getColumnName()),
+                singleQuote(newRemoteColumnName));
     }
 
     @Override
@@ -215,5 +230,20 @@ public class StarburstSynapseClient
                     .collect(joining(", "));
             return format("SELECT TOP (%d) %s ORDER BY %s", limit, query.substring(start.length()), orderBy);
         });
+    }
+
+    private static String singleQuote(String... objects)
+    {
+        return singleQuote(DOT_JOINER.join(objects));
+    }
+
+    private static String singleQuote(String literal)
+    {
+        return "\'" + escape(literal) + "\'";
+    }
+
+    private static String escape(String name)
+    {
+        return name.replace("'", "''");
     }
 }
