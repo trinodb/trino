@@ -61,7 +61,7 @@ Type mapping
 ------------
 
 Because Trino and Druid each support types that the other does not, this
-connector modifies some types when reading data.
+connector :ref:`modifies some types <type-mapping-overview>` when reading data.
 
 Druid type to Trino type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
