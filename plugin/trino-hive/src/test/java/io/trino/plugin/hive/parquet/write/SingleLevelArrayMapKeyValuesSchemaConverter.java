@@ -175,7 +175,7 @@ public final class SingleLevelArrayMapKeyValuesSchemaConverter
     {
         //support projection only on key of a map
         if (valueType == null) {
-            return mapKvWrapper(
+            return mapKeyValueWrapper(
                     repetition,
                     alias,
                     new GroupType(
@@ -186,7 +186,7 @@ public final class SingleLevelArrayMapKeyValuesSchemaConverter
         if (!valueType.getName().equals("value")) {
             throw new RuntimeException(valueType.getName() + " should be value");
         }
-        return mapKvWrapper(
+        return mapKeyValueWrapper(
                 repetition,
                 alias,
                 new GroupType(
@@ -196,7 +196,7 @@ public final class SingleLevelArrayMapKeyValuesSchemaConverter
                         valueType));
     }
 
-    private static GroupType mapKvWrapper(Repetition repetition, String alias, Type nested)
+    private static GroupType mapKeyValueWrapper(Repetition repetition, String alias, Type nested)
     {
         if (!nested.isRepetition(Repetition.REPEATED)) {
             throw new IllegalArgumentException("Nested type should be repeated: " + nested);
