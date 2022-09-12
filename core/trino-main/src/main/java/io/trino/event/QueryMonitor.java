@@ -561,7 +561,6 @@ public class QueryMonitor
             List<StageInfo> stages = getAllStages(queryInfo.getOutputStage());
             // long lastSchedulingCompletion = 0;
             long firstTaskStartTime = queryEndTime.getMillis();
-            long lastTaskStartTime = queryStartTime.getMillis() + planning;
             long lastTaskEndTime = queryStartTime.getMillis() + planning;
             for (StageInfo stage : stages) {
                 // only consider leaf stages
@@ -575,11 +574,6 @@ public class QueryMonitor
                     DateTime firstStartTime = taskStats.getFirstStartTime();
                     if (firstStartTime != null) {
                         firstTaskStartTime = Math.min(firstStartTime.getMillis(), firstTaskStartTime);
-                    }
-
-                    DateTime lastStartTime = taskStats.getLastStartTime();
-                    if (lastStartTime != null) {
-                        lastTaskStartTime = max(lastStartTime.getMillis(), lastTaskStartTime);
                     }
 
                     DateTime endTime = taskStats.getEndTime();
