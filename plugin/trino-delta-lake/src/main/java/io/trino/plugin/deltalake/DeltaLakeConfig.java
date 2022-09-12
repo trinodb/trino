@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -36,6 +37,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+@DefunctConfig("delta.experimental.ignore-checkpoint-write-failures")
 public class DeltaLakeConfig
 {
     public static final String VACUUM_MIN_RETENTION = "delta.vacuum.min-retention";
@@ -59,7 +61,6 @@ public class DeltaLakeConfig
     private boolean unsafeWritesEnabled;
     private boolean checkpointRowStatisticsWritingEnabled = true;
     private long defaultCheckpointWritingInterval = 10;
-    private boolean ignoreCheckpointWriteFailures;
     private Duration vacuumMinRetention = new Duration(7, DAYS);
     private Optional<String> hiveCatalogName = Optional.empty();
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
@@ -247,18 +248,6 @@ public class DeltaLakeConfig
     public long getDefaultCheckpointWritingInterval()
     {
         return defaultCheckpointWritingInterval;
-    }
-
-    @Config("delta.experimental.ignore-checkpoint-write-failures")
-    public DeltaLakeConfig setIgnoreCheckpointWriteFailures(boolean ignoreCheckpointWriteFailures)
-    {
-        this.ignoreCheckpointWriteFailures = ignoreCheckpointWriteFailures;
-        return this;
-    }
-
-    public boolean isIgnoreCheckpointWriteFailures()
-    {
-        return ignoreCheckpointWriteFailures;
     }
 
     @NotNull

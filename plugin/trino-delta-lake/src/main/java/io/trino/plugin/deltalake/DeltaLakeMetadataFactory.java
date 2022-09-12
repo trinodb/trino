@@ -53,7 +53,6 @@ public class DeltaLakeMetadataFactory
     private final int domainCompactionThreshold;
     private final boolean unsafeWritesEnabled;
     private final long checkpointWritingInterval;
-    private final boolean ignoreCheckpointWriteFailures;
     private final long perTransactionMetastoreCacheMaximumSize;
     private final boolean deleteSchemaLocationsFallback;
     private final boolean useUniqueTableLocation;
@@ -94,7 +93,6 @@ public class DeltaLakeMetadataFactory
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
         this.unsafeWritesEnabled = deltaLakeConfig.getUnsafeWritesEnabled();
         this.checkpointWritingInterval = deltaLakeConfig.getDefaultCheckpointWritingInterval();
-        this.ignoreCheckpointWriteFailures = deltaLakeConfig.isIgnoreCheckpointWriteFailures();
         this.perTransactionMetastoreCacheMaximumSize = deltaLakeConfig.getPerTransactionMetastoreCacheMaximumSize();
         this.deleteSchemaLocationsFallback = deltaLakeConfig.isDeleteSchemaLocationsFallback();
         this.useUniqueTableLocation = deltaLakeConfig.isUniqueTableLocation();
@@ -128,7 +126,6 @@ public class DeltaLakeMetadataFactory
                 nodeManager,
                 checkpointWriterManager,
                 checkpointWritingInterval,
-                ignoreCheckpointWriteFailures,
                 deleteSchemaLocationsFallback,
                 deltaLakeRedirectionsProvider,
                 statisticsAccess,

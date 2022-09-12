@@ -270,7 +270,6 @@ public class DeltaLakeMetadata
     private final TypeManager typeManager;
     private final CheckpointWriterManager checkpointWriterManager;
     private final long defaultCheckpointInterval;
-    private final boolean ignoreCheckpointWriteFailures;
     private final int domainCompactionThreshold;
     private final boolean unsafeWritesEnabled;
     private final JsonCodec<DataFileInfo> dataFileInfoCodec;
@@ -300,7 +299,6 @@ public class DeltaLakeMetadata
             NodeManager nodeManager,
             CheckpointWriterManager checkpointWriterManager,
             long defaultCheckpointInterval,
-            boolean ignoreCheckpointWriteFailures,
             boolean deleteSchemaLocationsFallback,
             DeltaLakeRedirectionsProvider deltaLakeRedirectionsProvider,
             ExtendedStatisticsAccess statisticsAccess,
@@ -321,7 +319,6 @@ public class DeltaLakeMetadata
         this.nodeId = nodeManager.getCurrentNode().getNodeIdentifier();
         this.checkpointWriterManager = requireNonNull(checkpointWriterManager, "checkpointWriterManager is null");
         this.defaultCheckpointInterval = defaultCheckpointInterval;
-        this.ignoreCheckpointWriteFailures = ignoreCheckpointWriteFailures;
         this.deltaLakeRedirectionsProvider = requireNonNull(deltaLakeRedirectionsProvider, "deltaLakeRedirectionsProvider is null");
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
@@ -1935,12 +1932,9 @@ public class DeltaLakeMetadata
             checkpointWriterManager.writeCheckpoint(session, snapshot);
         }
         catch (Exception e) {
-            if (ignoreCheckpointWriteFailures) {
-                LOG.warn(e, "Failed to write checkpoint for table %s for version %s", table, newVersion);
-            }
-            else {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Failed to write checkpoint for table %s for version %s", table, newVersion), e);
-            }
+            // We can't fail here as transaction was already committed, in case of INSERT this could result
+            // in inserting data twice if client saw an error and decided to retry
+            LOG.error(e, "Failed to write checkpoint for table %s for version %s", table, newVersion);
         }
     }
 
