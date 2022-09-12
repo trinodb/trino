@@ -25,7 +25,7 @@ import io.trino.spi.function.AccumulatorStateMetadata;
 public interface MultimapAggregationState
         extends AccumulatorState
 {
-    void add(Block keyBlock, Block valueBlock, int position);
+    void add(Block keyBlock, int keyPosition, Block valueBlock, int valuePosition);
 
     void forEach(MultimapAggregationStateConsumer consumer);
 

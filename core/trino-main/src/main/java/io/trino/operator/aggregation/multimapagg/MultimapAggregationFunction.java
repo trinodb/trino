@@ -56,10 +56,11 @@ public final class MultimapAggregationFunction
     public static void input(
             @AggregationState({"K", "V"}) MultimapAggregationState state,
             @BlockPosition @SqlType("K") Block key,
+            @BlockIndex int keyPosition,
             @NullablePosition @BlockPosition @SqlType("V") Block value,
-            @BlockIndex int position)
+            @BlockIndex int valuePosition)
     {
-        state.add(key, value, position);
+        state.add(key, keyPosition, value, valuePosition);
     }
 
     @CombineFunction
@@ -97,7 +98,7 @@ public final class MultimapAggregationFunction
             BlockBuilder distinctKeyBlockBuilder = keyType.createBlockBuilder(null, state.getEntryCount(), expectedValueSize(keyType, 100));
             TypedSet keySet = createDistinctTypedSet(keyType, keyDistinctFrom, keyHashCode, state.getEntryCount(), "multimap_agg");
 
-            state.forEach((key, value, keyValueIndex) -> {
+            state.forEach((key, keyValueIndex, value, valuePosition) -> {
                 // Merge values of the same key into an array
                 if (keySet.add(key, keyValueIndex)) {
                     keyType.appendTo(key, keyValueIndex, distinctKeyBlockBuilder);

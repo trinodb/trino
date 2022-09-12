@@ -37,8 +37,8 @@ public final class MinNAggregationFunction
     public static void input(
             @AggregationState("E") MinNState state,
             @BlockPosition @SqlType("E") Block block,
-            @SqlType("BIGINT") long n,
-            @BlockIndex int blockIndex)
+            @BlockIndex int blockIndex,
+            @SqlType("BIGINT") long n)
     {
         state.initialize(n);
         state.add(block, blockIndex);

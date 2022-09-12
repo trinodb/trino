@@ -22,8 +22,6 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -34,7 +32,6 @@ import static io.trino.operator.aggregation.AggregationFunctionAdapter.Aggregati
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.lookup;
-import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.util.Objects.requireNonNull;
 
 public final class AggregationFunctionAdapter
@@ -103,7 +100,6 @@ public final class AggregationFunctionAdapter
         List<AggregationParameterKind> inputArgumentKinds = parameterKinds.stream()
                 .filter(kind -> kind == INPUT_CHANNEL || kind == BLOCK_INPUT_CHANNEL || kind == NULLABLE_BLOCK_INPUT_CHANNEL)
                 .collect(toImmutableList());
-        boolean hasInputChannel = parameterKinds.stream().anyMatch(kind -> kind == BLOCK_INPUT_CHANNEL || kind == NULLABLE_BLOCK_INPUT_CHANNEL);
 
         checkArgument(
                 boundSignature.getArgumentTypes().size() - lambdaCount == inputArgumentKinds.size(),
@@ -113,19 +109,21 @@ public final class AggregationFunctionAdapter
 
         List<AggregationParameterKind> expectedInputArgumentKinds = new ArrayList<>();
         expectedInputArgumentKinds.addAll(stateArgumentKinds);
-        expectedInputArgumentKinds.addAll(inputArgumentKinds);
-        if (hasInputChannel) {
-            expectedInputArgumentKinds.add(BLOCK_INDEX);
+        for (AggregationParameterKind kind : inputArgumentKinds) {
+            expectedInputArgumentKinds.add(kind);
+            if (kind == BLOCK_INPUT_CHANNEL || kind == NULLABLE_BLOCK_INPUT_CHANNEL) {
+                expectedInputArgumentKinds.add(BLOCK_INDEX);
+            }
         }
+
         checkArgument(
                 expectedInputArgumentKinds.equals(parameterKinds),
                 "Expected input parameter kinds %s, but got %s",
                 expectedInputArgumentKinds,
                 parameterKinds);
 
-        MethodType inputMethodType = inputMethod.type();
         for (int argumentIndex = 0; argumentIndex < inputArgumentKinds.size(); argumentIndex++) {
-            int parameterIndex = stateArgumentKinds.size() + argumentIndex;
+            int parameterIndex = stateArgumentKinds.size() + (argumentIndex * 2);
             AggregationParameterKind inputArgument = inputArgumentKinds.get(argumentIndex);
             if (inputArgument != INPUT_CHANNEL) {
                 continue;
@@ -145,27 +143,9 @@ public final class AggregationFunctionAdapter
             }
             else {
                 valueGetter = OBJECT_TYPE_GETTER.bindTo(argumentType);
-                valueGetter = valueGetter.asType(valueGetter.type().changeReturnType(inputMethodType.parameterType(parameterIndex)));
+                valueGetter = valueGetter.asType(valueGetter.type().changeReturnType(inputMethod.type().parameterType(parameterIndex)));
             }
             inputMethod = collectArguments(inputMethod, parameterIndex, valueGetter);
-
-            // move the position argument to the end (and combine with other existing position argument)
-            inputMethodType = inputMethodType.changeParameterType(parameterIndex, Block.class);
-
-            ArrayList<Integer> reorder;
-            if (hasInputChannel) {
-                reorder = IntStream.range(0, inputMethodType.parameterCount()).boxed().collect(Collectors.toCollection(ArrayList::new));
-                reorder.add(parameterIndex + 1, inputMethodType.parameterCount() - 1 - lambdaCount);
-            }
-            else {
-                inputMethodType = inputMethodType.insertParameterTypes(inputMethodType.parameterCount() - lambdaCount, int.class);
-                reorder = IntStream.range(0, inputMethodType.parameterCount()).boxed().collect(Collectors.toCollection(ArrayList::new));
-                int positionParameterIndex = inputMethodType.parameterCount() - 1 - lambdaCount;
-                reorder.remove(positionParameterIndex);
-                reorder.add(parameterIndex + 1, positionParameterIndex);
-                hasInputChannel = true;
-            }
-            inputMethod = permuteArguments(inputMethod, inputMethodType, reorder.stream().mapToInt(Integer::intValue).toArray());
         }
         return inputMethod;
     }

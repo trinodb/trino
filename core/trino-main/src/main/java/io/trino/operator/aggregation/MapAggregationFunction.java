@@ -61,8 +61,9 @@ public final class MapAggregationFunction
             @TypeParameter("V") Type valueType,
             @AggregationState({"K", "V"}) KeyValuePairsState state,
             @BlockPosition @SqlType("K") Block key,
+            @BlockIndex int keyPosition,
             @NullablePosition @BlockPosition @SqlType("V") Block value,
-            @BlockIndex int position)
+            @BlockIndex int valuePosition)
     {
         KeyValuePairs pairs = state.get();
         if (pairs == null) {
@@ -71,7 +72,7 @@ public final class MapAggregationFunction
         }
 
         long startSize = pairs.estimatedInMemorySize();
-        pairs.add(key, value, position, position);
+        pairs.add(key, value, keyPosition, valuePosition);
         state.addMemoryUsage(pairs.estimatedInMemorySize() - startSize);
     }
 

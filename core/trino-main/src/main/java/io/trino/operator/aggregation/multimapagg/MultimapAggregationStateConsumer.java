@@ -17,5 +17,5 @@ import io.trino.spi.block.Block;
 
 public interface MultimapAggregationStateConsumer
 {
-    void accept(Block keyBlock, Block valueBlock, int position);
+    void accept(Block keyBlock, int keyPosition, Block valueBlock, int valuePosition);
 }

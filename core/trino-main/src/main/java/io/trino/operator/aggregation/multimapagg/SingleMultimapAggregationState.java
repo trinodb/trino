@@ -52,17 +52,17 @@ public class SingleMultimapAggregationState
     }
 
     @Override
-    public void add(Block key, Block value, int position)
+    public void add(Block key, int keyPosition, Block value, int valuePosition)
     {
-        keyType.appendTo(key, position, keyBlockBuilder);
-        valueType.appendTo(value, position, valueBlockBuilder);
+        keyType.appendTo(key, keyPosition, keyBlockBuilder);
+        valueType.appendTo(value, valuePosition, valueBlockBuilder);
     }
 
     @Override
     public void forEach(MultimapAggregationStateConsumer consumer)
     {
         for (int i = 0; i < keyBlockBuilder.getPositionCount(); i++) {
-            consumer.accept(keyBlockBuilder, valueBlockBuilder, i);
+            consumer.accept(keyBlockBuilder, i, valueBlockBuilder, i);
         }
     }
 

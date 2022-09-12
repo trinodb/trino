@@ -56,10 +56,10 @@ public class MultimapAggregationStateSerializer
             return;
         }
         BlockBuilder entryBuilder = out.beginBlockEntry();
-        state.forEach((keyBlock, valueBlock, position) -> {
+        state.forEach((keyBlock, keyPosition, valueBlock, valuePosition) -> {
             BlockBuilder rowBlockBuilder = entryBuilder.beginBlockEntry();
-            valueType.appendTo(valueBlock, position, rowBlockBuilder);
-            keyType.appendTo(keyBlock, position, rowBlockBuilder);
+            valueType.appendTo(valueBlock, valuePosition, rowBlockBuilder);
+            keyType.appendTo(keyBlock, keyPosition, rowBlockBuilder);
             entryBuilder.closeEntry();
         });
         out.closeEntry();
@@ -73,7 +73,7 @@ public class MultimapAggregationStateSerializer
         Block keys = columnarRow.getField(KEY_CHANNEL);
         Block values = columnarRow.getField(VALUE_CHANNEL);
         for (int i = 0; i < columnarRow.getPositionCount(); i++) {
-            state.add(keys, values, i);
+            state.add(keys, i, values, i);
         }
     }
 }

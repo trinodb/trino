@@ -176,23 +176,23 @@ public class TypedKeyValueHeap
         siftDown();
     }
 
-    public void add(Block keyBlock, Block valueBlock, int position)
+    public void add(Block keyBlock, int keyPosition, Block valueBlock, int valuePosition)
     {
-        checkArgument(!keyBlock.isNull(position));
+        checkArgument(!keyBlock.isNull(keyPosition));
         if (positionCount == capacity) {
-            if (keyGreaterThanOrEqual(keyBlockBuilder, heapIndex[0], keyBlock, position)) {
+            if (keyGreaterThanOrEqual(keyBlockBuilder, heapIndex[0], keyBlock, keyPosition)) {
                 return; // and new element is not larger than heap top: do not add
             }
             heapIndex[0] = keyBlockBuilder.getPositionCount();
-            keyType.appendTo(keyBlock, position, keyBlockBuilder);
-            valueType.appendTo(valueBlock, position, valueBlockBuilder);
+            keyType.appendTo(keyBlock, keyPosition, keyBlockBuilder);
+            valueType.appendTo(valueBlock, valuePosition, valueBlockBuilder);
             siftDown();
         }
         else {
             heapIndex[positionCount] = keyBlockBuilder.getPositionCount();
             positionCount++;
-            keyType.appendTo(keyBlock, position, keyBlockBuilder);
-            valueType.appendTo(valueBlock, position, valueBlockBuilder);
+            keyType.appendTo(keyBlock, keyPosition, keyBlockBuilder);
+            valueType.appendTo(valueBlock, valuePosition, valueBlockBuilder);
             siftUp();
         }
         compactIfNecessary();
@@ -206,7 +206,7 @@ public class TypedKeyValueHeap
     public void addAll(Block keysBlock, Block valuesBlock)
     {
         for (int i = 0; i < keysBlock.getPositionCount(); i++) {
-            add(keysBlock, valuesBlock, i);
+            add(keysBlock, i, valuesBlock, i);
         }
     }
 

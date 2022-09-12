@@ -29,7 +29,7 @@ public interface MinMaxByNState
     /**
      * Adds the value to this state.
      */
-    void add(Block keyBlock, Block valueBlock, int position);
+    void add(Block keyBlock, int keyPosition, Block valueBlock, int valuePosition);
 
     /**
      * Merge with the specified state.
