@@ -2802,7 +2802,7 @@ class StatementAnalyzer
             if (metadata.isMaterializedView(session, tableName)) {
                 throw semanticException(NOT_SUPPORTED, merge, "Merging into materialized views is not supported");
             }
-            if (metadata.getView(session, tableName).isPresent()) {
+            if (metadata.isView(session, tableName)) {
                 throw semanticException(NOT_SUPPORTED, merge, "Merging into views is not supported");
             }
 
