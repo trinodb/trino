@@ -461,6 +461,8 @@ with ORC files performed by the Hive connector.
       - Enable bloom filters for predicate pushdown.
       - ``false``
 
+.. _hive-parquet-configuration:
+
 Parquet format configuration properties
 ---------------------------------------
 
