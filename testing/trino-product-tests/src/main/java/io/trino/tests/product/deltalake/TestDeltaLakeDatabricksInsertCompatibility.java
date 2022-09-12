@@ -334,11 +334,11 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .containsOnly(row(1, 1));
 
             assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (2, 2)"))
-                    .hasMessageMatching(".*Table default." + tableName + " requires Delta Lake writer version 3 which is not supported");
+                    .hasMessageContaining("Writing to tables with CHECK constraints is not supported");
             assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a_number = 1"))
-                    .hasMessageMatching(".*Table default." + tableName + " requires Delta Lake writer version 3 which is not supported");
+                    .hasMessageContaining("Writing to tables with CHECK constraints is not supported");
             assertQueryFailure(() -> onTrino().executeQuery("UPDATE delta.default." + tableName + " SET a_number = 10 WHERE id = 1"))
-                    .hasMessageMatching(".*Table default." + tableName + " requires Delta Lake writer version 3 which is not supported");
+                    .hasMessageContaining("Writing to tables with CHECK constraints is not supported");
 
             assertThat(onTrino().executeQuery("SELECT id, a_number FROM " + tableName))
                     .containsOnly(row(1, 1));
