@@ -135,17 +135,12 @@ class StargateAggregateFunctionRewriteRule
 
     private static String toSql(SortOrder sortOrder)
     {
-        switch (requireNonNull(sortOrder, "sortOrder is null")) {
-            case ASC_NULLS_FIRST:
-                return "ASC NULLS FIRST";
-            case ASC_NULLS_LAST:
-                return "ASC NULLS LAST";
-            case DESC_NULLS_FIRST:
-                return "DESC NULLS FIRST";
-            case DESC_NULLS_LAST:
-                return "DESC NULLS LAST";
-        }
-        throw new UnsupportedOperationException("Unknown SortOrder: " + sortOrder);
+        return switch (requireNonNull(sortOrder, "sortOrder is null")) {
+            case ASC_NULLS_FIRST -> "ASC NULLS FIRST";
+            case ASC_NULLS_LAST -> "ASC NULLS LAST";
+            case DESC_NULLS_FIRST -> "DESC NULLS FIRST";
+            case DESC_NULLS_LAST -> "DESC NULLS LAST";
+        };
     }
 
     // TODO simplify with https://github.com/trinodb/trino/pull/6125
