@@ -29,8 +29,6 @@ import java.util.Optional;
 import static io.trino.plugin.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -96,31 +94,6 @@ public class TestAccumuloConnectorTest
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Accumulo connector does not support column default values");
-    }
-
-    @Override
-    public void testCreateTableWithColumnComment()
-    {
-        // TODO Avoid setting hard-coded column comment
-        // Accumulo connector ignores specified comment and sets column comments as
-        // "Accumulo row ID" for the first column when "row_id" table property isn't specified
-        // "Accumulo column %s:%s. Indexed: boolean" for other columns
-        String tableName = "test_create_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (a bigint COMMENT 'test comment a', b bigint COMMENT 'test comment b')");
-
-        assertEquals(getColumnComment(tableName, "a"), "Accumulo row ID");
-        assertEquals(getColumnComment(tableName, "b"), "Accumulo column b:b. Indexed: false");
-
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Override
-    public void testCreateTableWithColumnCommentSpecialCharacter(String comment)
-    {
-        // TODO https://github.com/trinodb/trino/issues/14095 Enable this test after fixing the issue
-        assertThatThrownBy(() -> super.testCreateTableWithColumnCommentSpecialCharacter(comment))
-                .hasMessageContaining("expected [%s] but found [Accumulo row ID]".formatted(comment));
-        throw new SkipException("Accumulo connector ignores column comments when creating a new table");
     }
 
     @Override
@@ -227,7 +200,7 @@ public class TestAccumuloConnectorTest
     @Override
     public void testShowColumns()
     {
-        // Override base class because table descriptions for Accumulo connector include comments
+        // Override base class because table descriptions for Accumulo connector include extra info
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
         assertEquals(actual.getMaterializedRows().get(0).getField(0), "orderkey");
@@ -292,36 +265,18 @@ public class TestAccumuloConnectorTest
     public void testDescribeTable()
     {
         MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "Accumulo row ID")
-                .row("custkey", "bigint", "", "Accumulo column custkey:custkey. Indexed: false")
-                .row("orderstatus", "varchar(1)", "", "Accumulo column orderstatus:orderstatus. Indexed: false")
-                .row("totalprice", "double", "", "Accumulo column totalprice:totalprice. Indexed: false")
-                .row("orderdate", "date", "", "Accumulo column orderdate:orderdate. Indexed: true")
-                .row("orderpriority", "varchar(15)", "", "Accumulo column orderpriority:orderpriority. Indexed: false")
-                .row("clerk", "varchar(15)", "", "Accumulo column clerk:clerk. Indexed: false")
-                .row("shippriority", "integer", "", "Accumulo column shippriority:shippriority. Indexed: false")
-                .row("comment", "varchar(79)", "", "Accumulo column comment:comment. Indexed: false")
+                .row("orderkey", "bigint", "Accumulo row ID", "")
+                .row("custkey", "bigint", "Accumulo column custkey:custkey. Indexed: false", "")
+                .row("orderstatus", "varchar(1)", "Accumulo column orderstatus:orderstatus. Indexed: false", "")
+                .row("totalprice", "double", "Accumulo column totalprice:totalprice. Indexed: false", "")
+                .row("orderdate", "date", "Accumulo column orderdate:orderdate. Indexed: true", "")
+                .row("orderpriority", "varchar(15)", "Accumulo column orderpriority:orderpriority. Indexed: false", "")
+                .row("clerk", "varchar(15)", "Accumulo column clerk:clerk. Indexed: false", "")
+                .row("shippriority", "integer", "Accumulo column shippriority:shippriority. Indexed: false", "")
+                .row("comment", "varchar(79)", "Accumulo column comment:comment. Indexed: false", "")
                 .build();
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
         Assert.assertEquals(actualColumns, expectedColumns);
-    }
-
-    @Test
-    @Override
-    public void testShowCreateTable()
-    {
-        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE accumulo.tpch.orders (\n" +
-                        "   orderkey bigint COMMENT 'Accumulo row ID',\n" +
-                        "   custkey bigint COMMENT 'Accumulo column custkey:custkey. Indexed: false',\n" +
-                        "   orderstatus varchar(1) COMMENT 'Accumulo column orderstatus:orderstatus. Indexed: false',\n" +
-                        "   totalprice double COMMENT 'Accumulo column totalprice:totalprice. Indexed: false',\n" +
-                        "   orderdate date COMMENT 'Accumulo column orderdate:orderdate. Indexed: true',\n" +
-                        "   orderpriority varchar(15) COMMENT 'Accumulo column orderpriority:orderpriority. Indexed: false',\n" +
-                        "   clerk varchar(15) COMMENT 'Accumulo column clerk:clerk. Indexed: false',\n" +
-                        "   shippriority integer COMMENT 'Accumulo column shippriority:shippriority. Indexed: false',\n" +
-                        "   comment varchar(79) COMMENT 'Accumulo column comment:comment. Indexed: false'\n" +
-                        ")");
     }
 
     @Override
