@@ -147,6 +147,59 @@ public class TestHiveThriftMetastoreWithS3
         }
     }
 
+    @Test
+    public void testRecreatePartition()
+    {
+        String tableName = "test_recreate_partition_" + randomTableSuffix();
+        String schemaTableName = "%s.%s".formatted(schemaName, tableName);
+        String partitionLocation = "%s/%s/part=1".formatted(schemaName, tableName);
+
+        assertUpdate("CREATE TABLE " + schemaTableName + "(col int, part int) WITH (partitioned_by = ARRAY['part'])");
+        try {
+            // Creating an empty partition generates special empty file on S3 (not MinIO)
+            assertUpdate("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['1'])".formatted(schemaName, tableName));
+            assertUpdate("INSERT INTO " + schemaTableName + " VALUES (1, 1)", 1);
+            assertQuery("SELECT * FROM " + schemaTableName, "VALUES (1, 1)");
+
+            assertThat(getS3ObjectSummaries(partitionLocation)).hasSize(2); // directory + file
+
+            // DELETE with Thrift metastore on S3 (not MinIO) leaves some files
+            // when 'hive.metastore.thrift.delete-files-on-drop' config property is false.
+            // Then, the subsequent SELECT doesn't return an empty row
+            assertUpdate("DELETE FROM " + schemaTableName);
+            assertThat(getS3ObjectSummaries(partitionLocation)).hasSize(0);
+
+            assertUpdate("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['1'])".formatted(schemaName, tableName));
+            assertQueryReturnsEmptyResult("SELECT * FROM " + schemaTableName);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + schemaTableName);
+        }
+    }
+
+    @Test
+    public void testUnregisterPartitionNotRemoveData()
+    {
+        // Verify unregister_partition procedure doesn't remove physical data even when 'hive.metastore.thrift.delete-files-on-drop' config property is true
+        String tableName = "test_recreate_partition_" + randomTableSuffix();
+        String schemaTableName = "%s.%s".formatted(schemaName, tableName);
+
+        assertUpdate("CREATE TABLE " + schemaTableName + "(col int, part int) WITH (partitioned_by = ARRAY['part'])");
+        try {
+            assertUpdate("INSERT INTO " + schemaTableName + " VALUES (1, 1)", 1);
+            assertQuery("SELECT * FROM " + schemaTableName, "VALUES (1, 1)");
+
+            assertUpdate("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['1'])".formatted(schemaName, tableName));
+            assertQueryReturnsEmptyResult("SELECT * FROM " + schemaTableName);
+
+            assertUpdate("CALL system.register_partition('%s', '%s', ARRAY['part'], ARRAY['1'])".formatted(schemaName, tableName));
+            assertQuery("SELECT * FROM " + schemaTableName, "VALUES (1, 1)");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + schemaTableName);
+        }
+    }
+
     private List<S3ObjectSummary> getS3ObjectSummaries(String prefix)
     {
         return s3Client.listObjectsV2(writableBucket, prefix).getObjectSummaries();
