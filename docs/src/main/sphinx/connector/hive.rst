@@ -594,7 +594,7 @@ Property Name                              Description
    * - ``hive.metastore.client.keytab``
      - Hive metastore client keytab location.
    * - ``hive.metastore.thrift.delete-files-on-drop``
-     - Actively delete the files for drop table operations, for cases when the
+     - Actively delete the files for drop table or partition operations, for cases when the
        metastore does not delete the files. Default is ``false``.
 
 .. _hive-glue-metastore:
