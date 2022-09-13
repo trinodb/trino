@@ -83,6 +83,18 @@
         </dependency>
 
         <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-core</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-s3</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.qubole.rubix</groupId>
             <artifactId>rubix-presto-shaded</artifactId>
             <scope>runtime</scope>
@@ -147,6 +159,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing-containers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
@@ -180,6 +198,7 @@
                             <excludes>
                                 <exclude>**/TestHive.java</exclude>
                                 <exclude>**/TestHiveAlluxioMetastore.java</exclude>
+                                <exclude>**/TestHiveThriftMetastoreWithS3.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3SelectPushdown.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3SelectJsonPushdown.java</exclude>
@@ -221,6 +240,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
+                                <include>**/TestHiveThriftMetastoreWithS3.java</include>
                                 <include>**/TestHiveFileSystemS3.java</include>
                                 <include>**/TestHiveFileSystemS3SelectPushdown.java</include>
                                 <include>**/TestHiveFileSystemS3SelectCsvPushdownWithSplits.java</include>
