@@ -69,6 +69,7 @@ import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.reverse;
+import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
@@ -287,7 +288,8 @@ public class FaultTolerantQueryScheduler
                         .map(Exchange::getSourceHandles)
                         .map(MoreFutures::toListenableFuture)
                         .collect(toImmutableList());
-                addSuccessCallback(Futures.allAsList(futures), result -> {
+                ListenableFuture<List<List<ExchangeSourceHandle>>> allFuture = Futures.allAsList(futures);
+                addSuccessCallback(allFuture, result -> {
                     List<ExchangeSourceHandle> handles = result.stream()
                             .flatMap(List::stream)
                             .collect(toImmutableList());
@@ -297,6 +299,7 @@ public class FaultTolerantQueryScheduler
                     }
                     queryStateMachine.updateInputsForQueryResults(inputs.build(), true);
                 });
+                addExceptionCallback(allFuture, queryStateMachine::transitionToFailed);
             }
 
             return new Scheduler(
