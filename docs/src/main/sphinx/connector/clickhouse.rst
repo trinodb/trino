@@ -239,7 +239,7 @@ to the following table:
     - ``DATE``
     -
   * - ``DateTime``
-    - ``TIMESTAMP``
+    - ``TIMESTAMP(0)``
     -
   * - ``IPv4``
     - ``IPADDRESS``
