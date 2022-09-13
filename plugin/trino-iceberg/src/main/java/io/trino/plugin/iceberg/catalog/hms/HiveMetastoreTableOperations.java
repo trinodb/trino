@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.exceptions.CommitFailedException;
+import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.io.FileIO;
 
 import javax.annotation.concurrent.NotThreadSafe;
@@ -90,8 +91,9 @@ public class HiveMetastoreTableOperations
                 metastore.replaceTable(database, tableName, table, privileges);
             }
             catch (RuntimeException e) {
-                // CommitFailedException is handled as a special case in the Iceberg library. This commit will automatically retry
-                throw new CommitFailedException(e, "Failed to commit to table %s.%s", database, tableName);
+                // Cannot determine whether the `replaceTable` operation was successful,
+                // regardless of the exception thrown (e.g. : timeout exception) or it actually failed
+                throw new CommitStateUnknownException(e);
             }
         }
         finally {
