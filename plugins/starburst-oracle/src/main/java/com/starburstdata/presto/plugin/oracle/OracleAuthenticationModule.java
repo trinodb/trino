@@ -242,9 +242,9 @@ public class OracleAuthenticationModule
                         Optional.empty(),
                         oracleConfig,
                         starburstOracleConfig.getAuthenticationType());
-                return new KerberosConnectionFactory(licenseManager, connectionFactory, kerberosConfig);
+                return new KerberosConnectionFactory(licenseManager, connectionFactory, kerberosConfig, true);
             }
-            return new KerberosConnectionFactory(licenseManager, new OracleDriver(), baseJdbcConfig, kerberosConfig, getKerberosProperties(oracleConfig));
+            return new KerberosConnectionFactory(licenseManager, new OracleDriver(), baseJdbcConfig, kerberosConfig, getKerberosProperties(oracleConfig), true);
         }
     }
 
