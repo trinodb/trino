@@ -1521,12 +1521,7 @@ class StatementAnalyzer
 
             List<List<String>> copartitioningLists = analyzeCopartitioning(node.getCopartitioning(), argumentsAnalysis.getTableArgumentAnalyses());
 
-            // determine the result relation type.
-            // The result relation type of a table function consists of:
-            // 1. passed columns from input tables:
-            // - for tables with the "pass through columns" option, these are all columns of the table,
-            // - for tables without the "pass through columns" option, these are the partitioning columns of the table, if any.
-            // 2. columns created by the table function, called the proper columns.
+            // determine the result relation type per SQL standard ISO/IEC 9075-2, 4.33 SQL-invoked routines, p. 123, 413, 414
             ReturnTypeSpecification returnTypeSpecification = function.getReturnTypeSpecification();
             if (returnTypeSpecification == GENERIC_TABLE || !argumentsAnalysis.getTableArgumentAnalyses().isEmpty()) {
                 analysis.addPolymorphicTableFunction(node);
@@ -1539,8 +1534,12 @@ class StatementAnalyzer
                     // table alias is prohibited for a table function with ONLY PASS THROUGH returned type.
                     throw semanticException(INVALID_TABLE_FUNCTION_INVOCATION, node, "Alias specified for table function with ONLY PASS THROUGH return type");
                 }
-                // this option is only allowed if there are input tables
-                throw semanticException(NOT_SUPPORTED, node, "Returning only pass through columns is not yet supported for table functions");
+                if (analyzedProperColumnsDescriptor.isPresent()) {
+                    // If a table function has ONLY PASS THROUGH returned type, it does not produce any proper columns,
+                    // so the function's analyze() method should not return the proper columns descriptor.
+                    throw semanticException(AMBIGUOUS_RETURN_TYPE, node, "Returned relation type for table function %s is ambiguous", node.getName());
+                }
+                properColumnsDescriptor = null;
             }
             else if (returnTypeSpecification == GENERIC_TABLE) {
                 // According to SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409,
@@ -1553,31 +1552,66 @@ class StatementAnalyzer
                 // According to SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409,
                 // table alias is mandatory for a polymorphic table function invocation which produces proper columns.
                 // We don't enforce this requirement.
-                // the declared type cannot be overridden
                 if (analyzedProperColumnsDescriptor.isPresent()) {
+                    // If a table function has statically declared returned type, it is returned in TableFunctionMetadata
+                    // so the function's analyze() method should not return the proper columns descriptor.
                     throw semanticException(AMBIGUOUS_RETURN_TYPE, node, "Returned relation type for table function %s is ambiguous", node.getName());
                 }
                 properColumnsDescriptor = ((DescribedTable) returnTypeSpecification).getDescriptor();
             }
 
-            // currently we don't support input tables, so the output consists of proper columns only
-            // TODO implement SQL standard ISO/IEC 9075-2, 4.33 SQL-invoked routines, p. 123, 413, 414
-            List<Field> fields = properColumnsDescriptor.getFields().stream()
-                    // per spec, field names are mandatory
-                    .map(field -> Field.newUnqualified(field.getName(), field.getType().orElseThrow(() -> new IllegalStateException("missing returned type for proper field"))))
+            // The result relation type of a table function consists of:
+            // 1. columns created by the table function, called the proper columns.
+            // 2. passed columns from input tables:
+            // - for tables with the "pass through columns" option, these are all columns of the table,
+            // - for tables without the "pass through columns" option, these are the partitioning columns of the table, if any.
+            ImmutableList.Builder<Field> fields = ImmutableList.builder();
+
+            // proper columns first
+            if (properColumnsDescriptor != null) {
+                properColumnsDescriptor.getFields().stream()
+                        // per spec, field names are mandatory
+                        .map(field -> Field.newUnqualified(field.getName(), field.getType().orElseThrow(() -> new IllegalStateException("missing returned type for proper field"))))
+                        .forEach(fields::add);
+            }
+
+            // next, columns derived from table arguments, in order of argument declarations
+            List<String> tableArgumentNames = function.getArguments().stream()
+                    .filter(argumentSpecification -> argumentSpecification instanceof TableArgumentSpecification)
+                    .map(ArgumentSpecification::getName)
                     .collect(toImmutableList());
+            Map<String, TableArgumentAnalysis> tableArgumentsByName = argumentsAnalysis.getTableArgumentAnalyses().stream()
+                    .collect(toImmutableMap(TableArgumentAnalysis::getArgumentName, Function.identity()));
+
+            // table arguments in order of argument declarations
+            ImmutableList.Builder<TableArgumentAnalysis> orderedTableArguments = ImmutableList.builder();
+
+            for (String name : tableArgumentNames) {
+                TableArgumentAnalysis argument = tableArgumentsByName.get(name);
+                orderedTableArguments.add(argument);
+                Scope argumentScope = analysis.getScope(argument.getRelation());
+                if (argument.isPassThroughColumns()) {
+                    argumentScope.getRelationType().getAllFields().stream()
+                            .forEach(fields::add);
+                }
+                else if (argument.getPartitionBy().isPresent()) {
+                    argument.getPartitionBy().get().stream()
+                            .map(expression -> validateAndGetInputField(expression, argumentScope))
+                            .forEach(fields::add);
+                }
+            }
 
             analysis.setTableFunctionAnalysis(node, new TableFunctionInvocationAnalysis(
                     catalogHandle,
                     function.getName(),
                     argumentsAnalysis.getPassedArguments(),
-                    argumentsAnalysis.getTableArgumentAnalyses(),
+                    orderedTableArguments.build(),
                     copartitioningLists,
-                    properColumnsDescriptor.getFields().size(),
+                    properColumnsDescriptor == null ? 0 : properColumnsDescriptor.getFields().size(),
                     functionAnalysis.getHandle(),
                     transactionHandle));
 
-            return createAndAssignScope(node, scope, fields);
+            return createAndAssignScope(node, scope, fields.build());
         }
 
         private Optional<TableFunctionMetadata> resolveTableFunction(TableFunctionInvocation node)
