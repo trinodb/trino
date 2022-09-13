@@ -28,6 +28,7 @@ import io.trino.connector.StaticConnectorFactory;
 import io.trino.connector.TestingTableFunctions.DescriptorArgumentFunction;
 import io.trino.connector.TestingTableFunctions.MonomorphicStaticReturnTypeFunction;
 import io.trino.connector.TestingTableFunctions.OnlyPassThroughFunction;
+import io.trino.connector.TestingTableFunctions.PassThroughFunction;
 import io.trino.connector.TestingTableFunctions.PolymorphicStaticReturnTypeFunction;
 import io.trino.connector.TestingTableFunctions.TableArgumentFunction;
 import io.trino.connector.TestingTableFunctions.TableArgumentRowSemanticsFunction;
@@ -6505,25 +6506,21 @@ public class TestAnalyzer
         analyze("SELECT * FROM TABLE(system.polymorphic_static_return_type_function(input => TABLE(t1)))");
         analyze("SELECT * FROM TABLE(system.polymorphic_static_return_type_function(input => TABLE(t1))) f(x, y)");
 
-        // TODO enable this test when ONLY PASS THROUGH functions are fully analyzed (currently they fail with NOT_SUPPORTED).
-        //  An ONLY PASS THROUGH function had to be used here, because it's the only kind which does not take an alias.
-//        // sampled
-//        assertFails("SELECT * FROM TABLE(system.only_pass_through_function(TABLE(t1))) TABLESAMPLE BERNOULLI (10)")
-//                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
-//                .hasMessage("line 1:21: Cannot apply sample to polymorphic table function invocation");
+        // sampled
+        assertFails("SELECT * FROM TABLE(system.only_pass_through_function(TABLE(t1))) TABLESAMPLE BERNOULLI (10)")
+                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
+                .hasMessage("line 1:21: Cannot apply sample to polymorphic table function invocation");
 
-        // TODO enable this test when ONLY PASS THROUGH functions are fully analyzed (currently they fail with NOT_SUPPORTED)
-        //  An ONLY PASS THROUGH function had to be used here, because it's the only kind which does not take an alias.
-//        // row pattern matching
-//        assertFails("""
-//                SELECT *
-//                FROM TABLE(system.only_pass_through_function(TABLE(t1)))
-//                MATCH_RECOGNIZE(
-//                    PATTERN (a*)
-//                    DEFINE a AS true)
-//                """)
-//                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
-//                .hasMessage("line 2:12: Cannot apply row pattern matching to polymorphic table function invocation");
+        // row pattern matching
+        assertFails("""
+                SELECT *
+                FROM TABLE(system.only_pass_through_function(TABLE(t1)))
+                MATCH_RECOGNIZE(
+                    PATTERN (a*)
+                    DEFINE a AS true)
+                """)
+                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
+                .hasMessage("line 2:12: Cannot apply row pattern matching to polymorphic table function invocation");
 
         // aliased + sampled
         assertFails("SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x) TABLESAMPLE BERNOULLI (10)")
@@ -6542,19 +6539,17 @@ public class TestAnalyzer
                 .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
                 .hasMessage("line 2:6: Cannot apply row pattern matching to polymorphic table function invocation");
 
-        // TODO enable this test when ONLY PASS THROUGH functions are fully analyzed (currently they fail with NOT_SUPPORTED)
-        //  An ONLY PASS THROUGH function had to be used here, because it's the only kind which does not take an alias.
-//        // row pattern matching + sampled
-//        assertFails("""
-//                SELECT *
-//                FROM TABLE(system.only_pass_through_function(TABLE(t1)))
-//                MATCH_RECOGNIZE(
-//                    PATTERN (a*)
-//                    DEFINE a AS true)
-//                TABLESAMPLE BERNOULLI (10)
-//                """)
-//                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
-//                .hasMessage("line 2:12: Cannot apply row pattern matching to polymorphic table function invocation");
+        // row pattern matching + sampled
+        assertFails("""
+                SELECT *
+                FROM TABLE(system.only_pass_through_function(TABLE(t1)))
+                MATCH_RECOGNIZE(
+                    PATTERN (a*)
+                    DEFINE a AS true)
+                TABLESAMPLE BERNOULLI (10)
+                """)
+                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
+                .hasMessage("line 2:12: Cannot apply row pattern matching to polymorphic table function invocation");
 
         // aliased + row pattern matching + sampled
         assertFails("""
@@ -6611,7 +6606,20 @@ public class TestAnalyzer
                 .hasErrorCode(DUPLICATE_COLUMN_NAME)
                 .hasMessage("line 1:21: Duplicate name of table function proper column: col");
 
-        // TODO test pass-through columns wen we support them: they mustn't be aliased, and must be referenced by the original range variables of their corresponding table arguments
+        // pass-through columns of an input table must not be aliased, and must be referenced by the original range variables of their corresponding table arguments
+        // the function pass_through_function has one proper column ("x" : BOOLEAN), and one table argument with pass-through property
+        // tha alias applies only to the proper column
+        analyze("SELECT table_alias.x, t1.a, t1.b, t1.c, t1.d FROM TABLE(system.pass_through_function(TABLE(t1))) table_alias");
+
+        analyze("SELECT table_alias.x, arg_alias.a, arg_alias.b, arg_alias.c, arg_alias.d FROM TABLE(system.pass_through_function(TABLE(t1) arg_alias)) table_alias");
+
+        assertFails("SELECT table_alias.x, t1.a FROM TABLE(system.pass_through_function(TABLE(t1) arg_alias)) table_alias")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:23: Column 't1.a' cannot be resolved");
+
+        assertFails("SELECT table_alias.x, table_alias.a FROM TABLE(system.pass_through_function(TABLE(t1))) table_alias")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:23: Column 'table_alias.a' cannot be resolved");
     }
 
     @BeforeClass
@@ -6995,7 +7003,8 @@ public class TestAnalyzer
                         new TwoTableArgumentsFunction(),
                         new OnlyPassThroughFunction(),
                         new MonomorphicStaticReturnTypeFunction(),
-                        new PolymorphicStaticReturnTypeFunction()))),
+                        new PolymorphicStaticReturnTypeFunction(),
+                        new PassThroughFunction()))),
                 new SessionPropertyManager(),
                 tablePropertyManager,
                 analyzePropertyManager,
