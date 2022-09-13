@@ -1139,7 +1139,12 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("dropPartition", stats.getDropPartition().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient()) {
+                            Partition partition = client.getPartition(databaseName, tableName, parts);
                             client.dropPartition(databaseName, tableName, parts, deleteData);
+                            String partitionLocation = partition.getSd().getLocation();
+                            if (deleteFilesOnDrop && deleteData && !isNullOrEmpty(partitionLocation) && isManagedTable(client.getTable(databaseName, tableName))) {
+                                deleteDirRecursive(new Path(partitionLocation));
+                            }
                         }
                         return null;
                     }));
