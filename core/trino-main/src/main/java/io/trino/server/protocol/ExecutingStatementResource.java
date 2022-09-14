@@ -135,6 +135,15 @@ public class ExecutingStatementResource
                     catch (Throwable e) {
                         log.warn(e, "Error removing old queries");
                     }
+
+                    try {
+                        for (Query query : queries.values()) {
+                            query.markResultsConsumedIfReady();
+                        }
+                    }
+                    catch (Throwable e) {
+                        log.warn(e, "Error marking results consumed");
+                    }
                 },
                 200,
                 200,
