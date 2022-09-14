@@ -35,7 +35,6 @@ import static io.trino.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveSessionProperties.isS3SelectPushdownEnabled;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
-import static io.trino.plugin.hive.s3select.S3SelectDataType.CSV;
 import static io.trino.plugin.hive.s3select.S3SelectSerDeDataTypeMapper.getDataType;
 import static io.trino.plugin.hive.util.HiveUtil.getCompressionCodec;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
@@ -115,16 +114,17 @@ public final class S3SelectPushdown
         return false;
     }
 
-    public static boolean isSplittable(boolean s3SelectPushdownEnabled, Properties schema,
-                                       InputFormat<?, ?> inputFormat, Path path)
+    public static boolean isSplittable(boolean s3SelectPushdownEnabled,
+                                       Properties schema,
+                                       InputFormat<?, ?> inputFormat,
+                                       Path path)
     {
         if (!s3SelectPushdownEnabled) {
             return true;
         }
 
         if (isUncompressed(inputFormat, path)) {
-            Optional<S3SelectDataType> s3SelectDataTypeOptional = getDataType(getDeserializerClassName(schema));
-            return CSV.equals(s3SelectDataTypeOptional.orElse(null));
+            return getDataType(getDeserializerClassName(schema)).isPresent();
         }
 
         return false;

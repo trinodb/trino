@@ -16,18 +16,13 @@ package io.trino.plugin.hive.s3select.csv;
 import com.amazonaws.services.s3.model.CSVInput;
 import com.amazonaws.services.s3.model.CSVOutput;
 import com.amazonaws.services.s3.model.CompressionType;
-import com.amazonaws.services.s3.model.ExpressionType;
 import com.amazonaws.services.s3.model.InputSerialization;
 import com.amazonaws.services.s3.model.OutputSerialization;
-import com.amazonaws.services.s3.model.ScanRange;
-import com.amazonaws.services.s3.model.SelectObjectContentRequest;
-import io.trino.plugin.hive.s3.TrinoS3FileSystem;
 import io.trino.plugin.hive.s3select.S3SelectLineRecordReader;
 import io.trino.plugin.hive.s3select.TrinoS3ClientFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
-import java.net.URI;
 import java.util.Properties;
 
 import static org.apache.hadoop.hive.serde.serdeConstants.ESCAPE_CHAR;
@@ -61,16 +56,10 @@ public class S3SelectCsvRecordReader
     }
 
     @Override
-    public SelectObjectContentRequest buildSelectObjectRequest(Properties schema, String query, Path path)
+    public InputSerialization buildInputSerialization()
     {
-        SelectObjectContentRequest selectObjectRequest = new SelectObjectContentRequest();
-        URI uri = path.toUri();
-        selectObjectRequest.setBucketName(TrinoS3FileSystem.extractBucketName(uri));
-        selectObjectRequest.setKey(TrinoS3FileSystem.keyFromPath(path));
-        selectObjectRequest.setExpression(query);
-        selectObjectRequest.setExpressionType(ExpressionType.SQL);
-
-        String fieldDelimiter = getFieldDelimiter(schema);
+        Properties schema = getSchema();
+        String fieldDelimiter = schema.getProperty(FIELD_DELIM, DEFAULT_FIELD_DELIMITER);
         String quoteChar = schema.getProperty(QUOTE_CHAR, null);
         String escapeChar = schema.getProperty(ESCAPE_CHAR, null);
 
@@ -82,10 +71,19 @@ public class S3SelectCsvRecordReader
         selectObjectCSVInputSerialization.setQuoteEscapeCharacter(escapeChar);
 
         InputSerialization selectObjectInputSerialization = new InputSerialization();
-        CompressionType compressionType = getCompressionType(path);
-        selectObjectInputSerialization.setCompressionType(compressionType);
+        selectObjectInputSerialization.setCompressionType(getCompressionType());
         selectObjectInputSerialization.setCsv(selectObjectCSVInputSerialization);
-        selectObjectRequest.setInputSerialization(selectObjectInputSerialization);
+
+        return selectObjectInputSerialization;
+    }
+
+    @Override
+    public OutputSerialization buildOutputSerialization()
+    {
+        Properties schema = getSchema();
+        String fieldDelimiter = schema.getProperty(FIELD_DELIM, DEFAULT_FIELD_DELIMITER);
+        String quoteChar = schema.getProperty(QUOTE_CHAR, null);
+        String escapeChar = schema.getProperty(ESCAPE_CHAR, null);
 
         OutputSerialization selectObjectOutputSerialization = new OutputSerialization();
         CSVOutput selectObjectCSVOutputSerialization = new CSVOutput();
@@ -94,27 +92,16 @@ public class S3SelectCsvRecordReader
         selectObjectCSVOutputSerialization.setQuoteCharacter(quoteChar);
         selectObjectCSVOutputSerialization.setQuoteEscapeCharacter(escapeChar);
         selectObjectOutputSerialization.setCsv(selectObjectCSVOutputSerialization);
-        selectObjectRequest.setOutputSerialization(selectObjectOutputSerialization);
 
-        // Scan range requests to S3 Select allow us to enable splits,
-        // by providing a finer granularity than file level.
-        // Works for CSV if AllowQuotedRecordDelimiter is disabled.
-        boolean isQuotedRecordDelimiterAllowed = Boolean.TRUE.equals(
-                selectObjectCSVInputSerialization.getAllowQuotedRecordDelimiter());
-        if (CompressionType.NONE.equals(compressionType) && !isQuotedRecordDelimiterAllowed) {
-            // Scan range queries are not supported for compressed files.
-            ScanRange scanRange = new ScanRange();
-            scanRange.setStart(getStart());
-            scanRange.setEnd(getEnd());
-            selectObjectRequest.setScanRange(scanRange);
-        }
-
-        return selectObjectRequest;
+        return selectObjectOutputSerialization;
     }
 
-    protected String getFieldDelimiter(Properties schema)
+    @Override
+    public boolean shouldEnableScanRange()
     {
-        // Use the field delimiter only if it is specified in the schema. If not, use a default field delimiter ','
-        return schema.getProperty(FIELD_DELIM, DEFAULT_FIELD_DELIMITER);
+        // Works for CSV if AllowQuotedRecordDelimiter is disabled.
+        boolean isQuotedRecordDelimiterAllowed = Boolean.TRUE.equals(
+                buildInputSerialization().getCsv().getAllowQuotedRecordDelimiter());
+        return CompressionType.NONE.equals(getCompressionType()) && !isQuotedRecordDelimiterAllowed;
     }
 }
