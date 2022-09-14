@@ -95,6 +95,16 @@ public abstract class BaseClickHouseConnectorTest
     }
 
     @Override
+    public void testAddColumnWithCommentSpecialCharacter(String comment)
+    {
+        // Override because default storage engine doesn't support renaming columns
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_", "(a_varchar varchar NOT NULL) WITH (engine = 'mergetree', order_by = ARRAY['a_varchar'])")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN b_varchar varchar COMMENT " + varcharLiteral(comment));
+            assertEquals(getColumnComment(table.getName(), "b_varchar"), comment);
+        }
+    }
+
+    @Override
     public void testAddAndDropColumnName(String columnName)
     {
         // TODO: Enable this test

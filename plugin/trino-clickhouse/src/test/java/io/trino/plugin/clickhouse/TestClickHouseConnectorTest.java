@@ -62,6 +62,30 @@ public class TestClickHouseConnectorTest
     }
 
     @Override
+    public void testCreateTableWithTableCommentSpecialCharacter(String comment)
+    {
+        // Table comment is unsupported in old ClickHouse version
+        assertThatThrownBy(() -> super.testCreateTableWithTableCommentSpecialCharacter(comment))
+                .hasMessageMatching("(?s).* Syntax error: .* COMMENT .*");
+    }
+
+    @Override
+    public void testCreateTableAsSelectWithTableCommentSpecialCharacter(String comment)
+    {
+        // Table comment is unsupported in old ClickHouse version
+        assertThatThrownBy(() -> super.testCreateTableAsSelectWithTableCommentSpecialCharacter(comment))
+                .hasMessageMatching("(?s).* Syntax error: .* COMMENT .*");
+    }
+
+    @Override
+    public void testCommentTableSpecialCharacter(String comment)
+    {
+        // Table comment is unsupported in old ClickHouse version
+        assertThatThrownBy(() -> super.testCommentTableSpecialCharacter(comment))
+                .hasMessageMatching("(?s).* Syntax error: .* COMMENT .*");
+    }
+
+    @Override
     protected OptionalInt maxTableNameLength()
     {
         // The numeric value depends on file system
