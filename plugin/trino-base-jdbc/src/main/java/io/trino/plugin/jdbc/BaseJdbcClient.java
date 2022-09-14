@@ -1131,6 +1131,12 @@ public abstract class BaseJdbcClient
         return sb.toString();
     }
 
+    public static String varcharLiteral(String value)
+    {
+        requireNonNull(value, "value is null");
+        return "'" + value.replace("'", "''") + "'";
+    }
+
     protected static Optional<String> escapeNamePattern(Optional<String> name, String escape)
     {
         return name.map(string -> escapeNamePattern(string, escape));

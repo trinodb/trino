@@ -168,6 +168,8 @@ import static java.lang.System.arraycopy;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
+import static ru.yandex.clickhouse.ClickHouseUtil.escape;
 
 public class ClickHouseClient
         extends BaseJdbcClient
@@ -282,7 +284,7 @@ public class ClickHouseClient
         formatProperty(ClickHouseTableProperties.getPrimaryKey(tableProperties)).ifPresent(value -> tableOptions.add("PRIMARY KEY " + value));
         formatProperty(ClickHouseTableProperties.getPartitionBy(tableProperties)).ifPresent(value -> tableOptions.add("PARTITION BY " + value));
         ClickHouseTableProperties.getSampleBy(tableProperties).ifPresent(value -> tableOptions.add("SAMPLE BY " + value));
-        tableMetadata.getComment().ifPresent(comment -> tableOptions.add(format("COMMENT '%s'", comment)));
+        tableMetadata.getComment().ifPresent(comment -> tableOptions.add(format("COMMENT %s", clickhouseVarcharLiteral(comment))));
 
         return format("CREATE TABLE %s (%s) %s", quoted(remoteTableName), join(", ", columns), join(" ", tableOptions.build()));
     }
@@ -374,7 +376,7 @@ public class ClickHouseClient
             sb.append(toWriteMapping(session, column.getType()).getDataType());
         }
         if (column.getComment() != null) {
-            sb.append(format(" COMMENT '%s'", column.getComment()));
+            sb.append(format(" COMMENT %s", clickhouseVarcharLiteral(column.getComment())));
         }
         return sb.toString();
     }
@@ -426,9 +428,9 @@ public class ClickHouseClient
     public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
     {
         String sql = format(
-                "ALTER TABLE %s MODIFY COMMENT '%s'",
+                "ALTER TABLE %s MODIFY COMMENT %s",
                 quoted(handle.asPlainTable().getRemoteTableName()),
-                comment.orElse(NO_COMMENT));
+                clickhouseVarcharLiteral(comment.orElse(NO_COMMENT)));
         execute(session, sql);
     }
 
@@ -436,11 +438,17 @@ public class ClickHouseClient
     public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
         String sql = format(
-                "ALTER TABLE %s COMMENT COLUMN %s '%s'",
+                "ALTER TABLE %s COMMENT COLUMN %s %s",
                 quoted(handle.asPlainTable().getRemoteTableName()),
                 quoted(column.getColumnName()),
-                comment.orElse(""));
+                clickhouseVarcharLiteral(comment.orElse("")));
         execute(session, sql);
+    }
+
+    private static String clickhouseVarcharLiteral(String value)
+    {
+        requireNonNull(value, "value is null");
+        return "'" + escape(value) + "'";
     }
 
     @Override
