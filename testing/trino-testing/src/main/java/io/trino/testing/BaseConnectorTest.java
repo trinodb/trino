@@ -3973,6 +3973,91 @@ public abstract class BaseConnectorTest
         return "test_data_mapping_smoke_" + trinoTypeName.replaceAll("[^a-zA-Z0-9]", "_") + "_" + randomTableSuffix();
     }
 
+    @Test(dataProvider = "testCommentDataProvider")
+    public void testCreateTableWithTableCommentSpecialCharacter(String comment)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_", "(a bigint) COMMENT " + varcharLiteral(comment))) {
+            assertEquals(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName()), comment);
+        }
+    }
+
+    @Test(dataProvider = "testCommentDataProvider")
+    public void testCreateTableAsSelectWithTableCommentSpecialCharacter(String comment)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_", " COMMENT " + varcharLiteral(comment) + " AS SELECT 1 a")) {
+            assertEquals(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName()), comment);
+        }
+    }
+
+    @Test(dataProvider = "testCommentDataProvider")
+    public void testCreateTableWithColumnCommentSpecialCharacter(String comment)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_", " (a bigint COMMENT " + varcharLiteral(comment) + ")")) {
+            assertEquals(getColumnComment(table.getName(), "a"), comment);
+        }
+    }
+
+    @Test(dataProvider = "testCommentDataProvider")
+    public void testAddColumnWithCommentSpecialCharacter(String comment)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN_WITH_COMMENT));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_col_", "(a_varchar varchar)")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN b_varchar varchar COMMENT " + varcharLiteral(comment));
+            assertEquals(getColumnComment(table.getName(), "b_varchar"), comment);
+        }
+    }
+
+    @Test(dataProvider = "testCommentDataProvider")
+    public void testCommentTableSpecialCharacter(String comment)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_COMMENT_ON_TABLE));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_table_", "(a integer)")) {
+            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS " + varcharLiteral(comment));
+            assertEquals(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName()), comment);
+        }
+    }
+
+    @Test(dataProvider = "testCommentDataProvider")
+    public void testCommentColumnSpecialCharacter(String comment)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_COMMENT_ON_COLUMN));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_column_", "(a integer)")) {
+            assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS " + varcharLiteral(comment));
+            assertEquals(getColumnComment(table.getName(), "a"), comment);
+        }
+    }
+
+    @DataProvider
+    public Object[][] testCommentDataProvider()
+    {
+        return new Object[][] {
+                {"a;semicolon"},
+                {"an@at"},
+                {"a\"quote"},
+                {"an'apostrophe"},
+                {"a`backtick`"},
+                {"a/slash"},
+                {"a\\backslash"},
+                {"a?question"},
+                {"[square bracket]"},
+        };
+    }
+
+    protected static String varcharLiteral(String value)
+    {
+        requireNonNull(value, "value is null");
+        return "'" + value.replace("'", "''") + "'";
+    }
+
     @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
     public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
     {

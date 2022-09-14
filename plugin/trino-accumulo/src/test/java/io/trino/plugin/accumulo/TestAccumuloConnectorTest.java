@@ -115,6 +115,15 @@ public class TestAccumuloConnectorTest
     }
 
     @Override
+    public void testCreateTableWithColumnCommentSpecialCharacter(String comment)
+    {
+        // TODO https://github.com/trinodb/trino/issues/14095 Enable this test after fixing the issue
+        assertThatThrownBy(() -> super.testCreateTableWithColumnCommentSpecialCharacter(comment))
+                .hasMessageContaining("expected [%s] but found [Accumulo row ID]".formatted(comment));
+        throw new SkipException("Accumulo connector ignores column comments when creating a new table");
+    }
+
+    @Override
     public void testCreateTableAsSelect()
     {
         // This test is overridden due to Function "UUID" not found errors

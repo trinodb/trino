@@ -329,9 +329,9 @@ public class MySqlClient
     public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
     {
         String sql = format(
-                "ALTER TABLE %s COMMENT = '%s'",
+                "ALTER TABLE %s COMMENT = %s",
                 quoted(handle.asPlainTable().getRemoteTableName()),
-                comment.orElse(NO_COMMENT)); // An empty character removes the existing comment in MySQL
+                mysqlVarcharLiteral(comment.orElse(NO_COMMENT))); // An empty character removes the existing comment in MySQL
         execute(session, sql);
     }
 
@@ -347,7 +347,13 @@ public class MySqlClient
     protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
         checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
-        return format("CREATE TABLE %s (%s) COMMENT '%s'", quoted(remoteTableName), join(", ", columns), tableMetadata.getComment().orElse(NO_COMMENT));
+        return format("CREATE TABLE %s (%s) COMMENT %s", quoted(remoteTableName), join(", ", columns), mysqlVarcharLiteral(tableMetadata.getComment().orElse(NO_COMMENT)));
+    }
+
+    private static String mysqlVarcharLiteral(String value)
+    {
+        requireNonNull(value, "value is null");
+        return "'" + value.replace("'", "''").replace("\\", "\\\\") + "'";
     }
 
     @Override
