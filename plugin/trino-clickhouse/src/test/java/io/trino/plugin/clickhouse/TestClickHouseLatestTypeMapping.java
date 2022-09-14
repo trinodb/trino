@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.clickhouse;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import org.testng.annotations.DataProvider;
@@ -31,12 +29,7 @@ public class TestClickHouseLatestTypeMapping
             throws Exception
     {
         clickhouseServer = closeAfterClass(new TestingClickHouseServer(CLICKHOUSE_LATEST_IMAGE));
-        return createClickHouseQueryRunner(clickhouseServer, ImmutableMap.of(),
-                ImmutableMap.<String, String>builder()
-                        .put("metadata.cache-ttl", "10m")
-                        .put("metadata.cache-missing", "true")
-                        .buildOrThrow(),
-                ImmutableList.of());
+        return createClickHouseQueryRunner(clickhouseServer);
     }
 
     @DataProvider
