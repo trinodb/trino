@@ -634,13 +634,13 @@ public abstract class BaseClickHouseConnectorTest
     @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
-        return "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: " + date;
+        return "Date must be between 1970-01-01 and 2149-06-06 in ClickHouse: " + date;
     }
 
     @Override
     protected String errorMessageForInsertNegativeDate(String date)
     {
-        return "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: " + date;
+        return "Date must be between 1970-01-01 and 2149-06-06 in ClickHouse: " + date;
     }
 
     @Test
@@ -656,7 +656,7 @@ public abstract class BaseClickHouseConnectorTest
 
     protected String errorMessageForDateYearOfEraPredicate(String date)
     {
-        return "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: " + date;
+        return "Date must be between 1970-01-01 and 2149-06-06 in ClickHouse: " + date;
     }
 
     @Override
@@ -843,6 +843,13 @@ public abstract class BaseClickHouseConnectorTest
         assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + invalidTargetTableName))
                 .hasMessageMatching("(?s).*(Cannot rename|File name too long).*");
         assertFalse(getQueryRunner().tableExists(getSession(), invalidTargetTableName));
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        // The numeric value depends on file system
+        return OptionalInt.of(255 - ".sql.detached".length());
     }
 
     @Override

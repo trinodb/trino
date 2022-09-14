@@ -648,7 +648,7 @@ public abstract class BaseClickHouseTypeMapping
     {
         return new Object[][] {
                 {"1970-01-01"}, // min value in ClickHouse
-                {"2106-02-07"}, // max value in ClickHouse
+                {"2149-06-06"}, // max value in ClickHouse
         };
     }
 
@@ -675,7 +675,7 @@ public abstract class BaseClickHouseTypeMapping
     {
         return new Object[][] {
                 {"1969-12-31"}, // min - 1 day
-                {"2106-02-08"}, // max + 1 day
+                {"2149-06-07"}, // max + 1 day
         };
     }
 
@@ -715,7 +715,7 @@ public abstract class BaseClickHouseTypeMapping
     protected SqlDataTypeTest unsupportedTimestampBecomeUnexpectedValueTest(String inputType)
     {
         return SqlDataTypeTest.create()
-                .addRoundTrip(inputType, "'1969-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '1970-01-01 23:59:59'"); // unsupported timestamp become 1970-01-01 23:59:59
+                .addRoundTrip(inputType, "'1969-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:00'");
     }
 
     @Test(dataProvider = "clickHouseDateTimeMinMaxValuesDataProvider")
@@ -747,7 +747,7 @@ public abstract class BaseClickHouseTypeMapping
     {
         return new Object[][] {
                 {"1970-01-01 00:00:00"}, // min value in ClickHouse
-                {"2106-02-06 06:28:15"}, // max value in ClickHouse
+                {"2106-02-07 06:28:15"}, // max value in ClickHouse
         };
     }
 
@@ -774,7 +774,7 @@ public abstract class BaseClickHouseTypeMapping
     {
         return new Object[][] {
                 {"1969-12-31 23:59:59"}, // min - 1 second
-                {"2106-02-06 06:28:16"}, // max + 1 second
+                {"2106-02-07 06:28:16"}, // max + 1 second
         };
     }
 
