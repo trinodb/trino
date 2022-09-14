@@ -30,6 +30,7 @@ import io.trino.operator.WorkProcessorSourceOperatorAdapter.AdapterWorkProcessor
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.CursorProcessorOutput;
 import io.trino.operator.project.PageProcessor;
+import io.trino.operator.project.PageProcessorMetrics;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ColumnHandle;
@@ -70,6 +71,7 @@ public class ScanFilterAndProjectOperator
         implements WorkProcessorSourceOperator
 {
     private final WorkProcessor<Page> pages;
+    private final PageProcessorMetrics pageProcessorMetrics = new PageProcessorMetrics();
 
     @Nullable
     private RecordCursor cursor;
@@ -168,6 +170,15 @@ public class ScanFilterAndProjectOperator
     public Metrics getConnectorMetrics()
     {
         return metrics;
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        if (cursor != null) {
+            return Metrics.EMPTY;
+        }
+        return pageProcessorMetrics.getMetrics();
     }
 
     @Override
@@ -294,6 +305,7 @@ public class ScanFilterAndProjectOperator
                             connectorSession,
                             yieldSignal,
                             outputMemoryContext,
+                            pageProcessorMetrics,
                             page,
                             avoidPageMaterialization))
                     .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))

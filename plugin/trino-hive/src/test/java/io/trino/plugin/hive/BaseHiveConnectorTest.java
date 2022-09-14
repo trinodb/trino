@@ -8245,6 +8245,24 @@ public abstract class BaseHiveConnectorTest
                 "'Physical input read time' = \\{duration=.*}");
     }
 
+    @Test
+    public void testExplainAnalyzeScanFilterProjectWallTime()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT nationkey * 2 FROM nation WHERE nationkey > 0",
+                "'Filter CPU time' = \\{duration=.*}",
+                "'Projection CPU time' = \\{duration=.*}");
+    }
+
+    @Test
+    public void testExplainAnalyzeFilterProjectWallTime()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT * FROM (SELECT nationkey, count(*) cnt FROM nation GROUP BY 1) where cnt > 0",
+                "'Filter CPU time' = \\{duration=.*}",
+                "'Projection CPU time' = \\{duration=.*}");
+    }
+
     private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);
 
     @DataProvider
