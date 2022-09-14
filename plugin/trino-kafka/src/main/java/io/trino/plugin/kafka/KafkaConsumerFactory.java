@@ -15,14 +15,18 @@
 package io.trino.plugin.kafka;
 
 import io.trino.spi.connector.ConnectorSession;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 
 import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public interface KafkaConsumerFactory
 {
     default KafkaConsumer<byte[], byte[]> create(ConnectorSession session)
     {
+        Logger.getLogger(ConsumerConfig.class.getName()).setLevel(Level.WARNING);
         return new KafkaConsumer<>(configure(session));
     }
 
