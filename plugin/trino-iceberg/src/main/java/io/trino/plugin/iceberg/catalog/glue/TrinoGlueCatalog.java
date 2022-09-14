@@ -39,7 +39,6 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.ViewAlreadyExistsException;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
-import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.spi.TrinoException;
@@ -286,7 +285,7 @@ public class TrinoGlueCatalog
     public Table loadTable(ConnectorSession session, SchemaTableName table)
     {
         if (viewCache.containsKey(table) || materializedViewCache.containsKey(table)) {
-            throw new UnknownTableTypeException(table);
+            throw new TableNotFoundException(table);
         }
 
         TableMetadata metadata = tableMetadataCache.computeIfAbsent(
