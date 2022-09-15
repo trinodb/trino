@@ -63,9 +63,9 @@ public class ParquetWriterConfig
         return parquetOptimizedWriterEnabled;
     }
 
-    @Config("parquet.experimental-optimized-writer.enabled")
-    @LegacyConfig("hive.parquet.optimized-writer.enabled")
-    @ConfigDescription("Experimental: Enable optimized Parquet writer")
+    @Config("parquet.optimized-writer.enabled")
+    @LegacyConfig({"hive.parquet.optimized-writer.enabled", "parquet.experimental-optimized-writer.enabled"})
+    @ConfigDescription("Enable optimized Parquet writer")
     public ParquetWriterConfig setParquetOptimizedWriterEnabled(boolean parquetOptimizedWriterEnabled)
     {
         this.parquetOptimizedWriterEnabled = parquetOptimizedWriterEnabled;

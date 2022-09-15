@@ -167,7 +167,7 @@ public class TestHiveCompatibility
     {
         // only admin user is allowed to change session properties
         setAdminRole(onTrino().getConnection());
-        setSessionProperty(onTrino().getConnection(), "hive.experimental_parquet_optimized_writer_enabled", "true");
+        setSessionProperty(onTrino().getConnection(), "hive.parquet_optimized_writer_enabled", "true");
 
         String tableName = "parquet_table_timestamp_created_in_trino";
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
@@ -201,7 +201,7 @@ public class TestHiveCompatibility
     {
         // only admin user is allowed to change session properties
         setAdminRole(onTrino().getConnection());
-        setSessionProperty(onTrino().getConnection(), "hive.experimental_parquet_optimized_writer_enabled", "true");
+        setSessionProperty(onTrino().getConnection(), "hive.parquet_optimized_writer_enabled", "true");
 
         String tableName = "parquet_table_small_decimal_created_in_trino";
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);

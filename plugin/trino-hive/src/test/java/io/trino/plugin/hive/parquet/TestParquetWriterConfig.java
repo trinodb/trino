@@ -45,9 +45,13 @@ public class TestParquetWriterConfig
         assertDeprecatedEquivalence(
                 ParquetWriterConfig.class,
                 Map.of(
-                        "parquet.experimental-optimized-writer.enabled", "true",
+                        "parquet.optimized-writer.enabled", "true",
                         "parquet.writer.block-size", "2PB",
                         "parquet.writer.page-size", "3PB"),
+                Map.of(
+                        "parquet.experimental-optimized-writer.enabled", "true",
+                        "hive.parquet.writer.block-size", "2PB",
+                        "hive.parquet.writer.page-size", "3PB"),
                 Map.of(
                         "hive.parquet.optimized-writer.enabled", "true",
                         "hive.parquet.writer.block-size", "2PB",
@@ -58,7 +62,7 @@ public class TestParquetWriterConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = Map.of(
-                "parquet.experimental-optimized-writer.enabled", "true",
+                "parquet.optimized-writer.enabled", "true",
                 "parquet.writer.block-size", "234MB",
                 "parquet.writer.page-size", "11MB",
                 "parquet.writer.batch-size", "100",
