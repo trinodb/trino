@@ -2119,12 +2119,14 @@ public class IcebergMetadata
             Collection<ComputedStatistics> computedStatistics,
             List<ConnectorTableHandle> sourceTableHandles)
     {
-        // delete before insert .. simulating overwrite
-        executeDelete(session, tableHandle);
-
         IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
 
         Table icebergTable = transaction.table();
+        // delete before insert .. simulating overwrite
+        transaction.newDelete()
+                .deleteFromRowFilter(Expressions.alwaysTrue())
+                .commit();
+
         List<CommitTaskData> commitTasks = fragments.stream()
                 .map(slice -> commitTaskCodec.fromJson(slice.getBytes()))
                 .collect(toImmutableList());
