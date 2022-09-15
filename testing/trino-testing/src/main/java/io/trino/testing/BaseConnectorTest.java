@@ -3993,7 +3993,7 @@ public abstract class BaseConnectorTest
             // TODO test with both CTAS *and* CREATE TABLE + INSERT, since they use different connector API methods.
             String createTable = "" +
                     "CREATE TABLE " + tableName + " AS " +
-                    "SELECT CAST(row_id AS varchar(50)) row_id, CAST(value AS " + trinoTypeName + ") value " +
+                    "SELECT CAST(row_id AS varchar(50)) row_id, CAST(value AS " + trinoTypeName + ") value, CAST(value AS " + trinoTypeName + ") another_column " +
                     "FROM (VALUES " +
                     "  ('null value', NULL), " +
                     "  ('sample value', " + sampleValueLiteral + "), " +
@@ -4027,6 +4027,9 @@ public abstract class BaseConnectorTest
         assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value <= " + sampleValueLiteral, "VALUES 'null value', 'sample value'");
         assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value > " + sampleValueLiteral, "VALUES 'null value', 'high value'");
         assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value <= " + highValueLiteral, "VALUES 'null value', 'sample value', 'high value'");
+
+        // complex condition, one that cannot be represented with a TupleDomain
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value = " + sampleValueLiteral + " OR another_column = " + sampleValueLiteral, "VALUES 'sample value'");
 
         assertUpdate("DROP TABLE " + tableName);
     }
