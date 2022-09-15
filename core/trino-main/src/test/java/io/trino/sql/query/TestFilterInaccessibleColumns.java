@@ -62,7 +62,7 @@ public class TestFilterInaccessibleColumns
 
         runner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(1), ImmutableMap.of());
         assertions = new QueryAssertions(runner);
-        accessControl = assertions.getQueryRunner().getAccessControl();
+        accessControl = runner.getAccessControl();
     }
 
     @AfterClass(alwaysRun = true)

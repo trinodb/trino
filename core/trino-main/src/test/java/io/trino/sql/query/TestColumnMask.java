@@ -150,7 +150,7 @@ public class TestColumnMask
         runner.createCatalog(MOCK_CATALOG, mock, ImmutableMap.of());
 
         assertions = new QueryAssertions(runner);
-        accessControl = assertions.getQueryRunner().getAccessControl();
+        accessControl = runner.getAccessControl();
     }
 
     @AfterAll

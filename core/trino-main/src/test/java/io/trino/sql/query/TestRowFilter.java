@@ -140,7 +140,7 @@ public class TestRowFilter
         runner.createCatalog(MOCK_CATALOG_MISSING_COLUMNS, mockMissingColumns, ImmutableMap.of());
 
         assertions = new QueryAssertions(runner);
-        accessControl = assertions.getQueryRunner().getAccessControl();
+        accessControl = runner.getAccessControl();
     }
 
     @AfterAll
