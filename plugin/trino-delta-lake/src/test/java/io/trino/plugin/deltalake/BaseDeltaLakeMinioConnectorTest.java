@@ -106,7 +106,6 @@ public abstract class BaseDeltaLakeMinioConnectorTest
             case SUPPORTS_ROW_LEVEL_DELETE:
             case SUPPORTS_UPDATE:
             case SUPPORTS_NOT_NULL_CONSTRAINT:
-                return true;
             case SUPPORTS_MERGE:
                 return true;
             case SUPPORTS_PREDICATE_PUSHDOWN:
