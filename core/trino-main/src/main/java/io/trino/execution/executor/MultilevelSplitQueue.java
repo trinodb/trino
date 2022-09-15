@@ -66,11 +66,11 @@ public class MultilevelSplitQueue
         this.levelWaitingSplits = new PriorityQueue[LEVEL_THRESHOLD_SECONDS.length];
         this.selectedLevelCounters = new CounterStat[LEVEL_THRESHOLD_SECONDS.length];
 
-        for (int i = 0; i < LEVEL_THRESHOLD_SECONDS.length; i++) {
-            levelScheduledTime[i] = new AtomicLong();
-            levelMinPriority[i] = new AtomicLong(-1);
-            levelWaitingSplits[i] = new PriorityQueue<>();
-            selectedLevelCounters[i] = new CounterStat();
+        for (int level = 0; level < LEVEL_THRESHOLD_SECONDS.length; level++) {
+            levelScheduledTime[level] = new AtomicLong();
+            levelMinPriority[level] = new AtomicLong(-1);
+            levelWaitingSplits[level] = new PriorityQueue<>();
+            selectedLevelCounters[level] = new CounterStat();
         }
 
         this.levelTimeMultiplier = levelTimeMultiplier;
@@ -291,9 +291,9 @@ public class MultilevelSplitQueue
     public static int computeLevel(long threadUsageNanos)
     {
         long seconds = NANOSECONDS.toSeconds(threadUsageNanos);
-        for (int i = 0; i < (LEVEL_THRESHOLD_SECONDS.length - 1); i++) {
-            if (seconds < LEVEL_THRESHOLD_SECONDS[i + 1]) {
-                return i;
+        for (int level = 0; level < (LEVEL_THRESHOLD_SECONDS.length - 1); level++) {
+            if (seconds < LEVEL_THRESHOLD_SECONDS[level + 1]) {
+                return level;
             }
         }
 
