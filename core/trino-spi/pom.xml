@@ -40,6 +40,12 @@
             <artifactId>jol-core</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>io.trino</groupId>
@@ -196,6 +202,19 @@
                                 <item>
                                     <code>java.method.returnTypeChanged</code>
                                     <new>method io.trino.spi.block.Block io.trino.spi.block.ArrayBlockBuilder::build()</new>
+                                </item>
+                                <item>
+                                    <code>java.class.externalClassExposedInAPI</code>
+                                    <new>class io.airlift.units.DataSize</new>
+                                </item>
+                                <item>
+                                    <code>java.class.externalClassExposedInAPI</code>
+                                    <new>class io.airlift.units.Duration</new>
+                                </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.eventlistener.QueryMetadata::&lt;init&gt;(java.lang.String, java.util.Optional&lt;java.lang.String&gt;, java.lang.String, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.lang.String, java.util.List&lt;io.trino.spi.eventlistener.TableInfo&gt;, java.util.List&lt;io.trino.spi.eventlistener.RoutineInfo&gt;, java.net.URI, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;)</old>
+                                    <new>method void io.trino.spi.eventlistener.QueryMetadata::&lt;init&gt;(java.lang.String, java.util.Optional&lt;java.lang.String&gt;, java.lang.String, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.lang.String, java.util.List&lt;io.trino.spi.eventlistener.TableInfo&gt;, java.util.List&lt;io.trino.spi.eventlistener.RoutineInfo&gt;, java.net.URI, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageDetails&gt;, java.util.Optional&lt;io.trino.spi.eventlistener.QueryPlanDetails&gt;)</new>
                                 </item>
                             </differences>
                         </revapi.differences>

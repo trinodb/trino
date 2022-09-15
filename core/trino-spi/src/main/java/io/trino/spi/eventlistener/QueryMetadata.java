@@ -45,6 +45,9 @@ public class QueryMetadata
 
     private final Optional<String> payload;
 
+    private final List<StageDetails> stageDetails;
+    private final Optional<QueryPlanDetails> queryPlanDetails;
+
     @JsonCreator
     public QueryMetadata(
             String queryId,
@@ -58,7 +61,9 @@ public class QueryMetadata
             URI uri,
             Optional<String> plan,
             Optional<String> jsonPlan,
-            Optional<String> payload)
+            Optional<String> payload,
+            List<StageDetails> stageDetails,
+            Optional<QueryPlanDetails> queryPlanDetails)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -72,6 +77,8 @@ public class QueryMetadata
         this.plan = requireNonNull(plan, "plan is null");
         this.jsonPlan = requireNonNull(jsonPlan, "jsonPlan is null");
         this.payload = requireNonNull(payload, "payload is null");
+        this.stageDetails = requireNonNull(stageDetails, "stageDetails is null");
+        this.queryPlanDetails = requireNonNull(queryPlanDetails, "queryPlanDetails is null");
     }
 
     @JsonProperty
@@ -144,5 +151,17 @@ public class QueryMetadata
     public Optional<String> getPayload()
     {
         return payload;
+    }
+
+    @JsonProperty
+    public List<StageDetails> getStageDetails()
+    {
+        return stageDetails;
+    }
+
+    @JsonProperty
+    public Optional<QueryPlanDetails> getQueryPlanDetails()
+    {
+        return queryPlanDetails;
     }
 }

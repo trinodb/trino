@@ -24,6 +24,7 @@ import io.airlift.node.NodeInfo;
 import io.airlift.stats.Distribution;
 import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.trino.SessionRepresentation;
 import io.trino.client.NodeVersion;
 import io.trino.cost.StatsAndCosts;
@@ -35,8 +36,10 @@ import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
 import io.trino.execution.QueryStats;
 import io.trino.execution.StageInfo;
+import io.trino.execution.StageStats;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskState;
+import io.trino.execution.TaskStatus;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
@@ -56,8 +59,14 @@ import io.trino.spi.eventlistener.QueryIOMetadata;
 import io.trino.spi.eventlistener.QueryInputMetadata;
 import io.trino.spi.eventlistener.QueryMetadata;
 import io.trino.spi.eventlistener.QueryOutputMetadata;
+import io.trino.spi.eventlistener.QueryPlanDetails;
+import io.trino.spi.eventlistener.QueryPlanNodeInfo;
+import io.trino.spi.eventlistener.QueryPlanStageInfo;
 import io.trino.spi.eventlistener.QueryStatistics;
 import io.trino.spi.eventlistener.StageCpuDistribution;
+import io.trino.spi.eventlistener.StageDetails;
+import io.trino.spi.eventlistener.StageStatistics;
+import io.trino.spi.eventlistener.TaskDetails;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -76,6 +85,8 @@ import org.joda.time.DateTime;
 
 import javax.inject.Inject;
 
+import java.math.BigDecimal;
+import java.net.URI;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -83,10 +94,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.stream.Collectors;
+import java.util.concurrent.TimeUnit;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.sql.planner.planprinter.PlanPrinter.jsonDistributedPlan;
@@ -96,10 +105,13 @@ import static java.lang.Math.toIntExact;
 import static java.time.Duration.ofMillis;
 import static java.time.Instant.ofEpochMilli;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 
 public class QueryMonitor
 {
     private static final Logger log = Logger.get(QueryMonitor.class);
+    private static final JsonCodec<QueryPlanNodeInfo> PLAN_NODE_CODEC = JsonCodec.jsonCodec(QueryPlanNodeInfo.class);
 
     private final JsonCodec<StageInfo> stageInfoCodec;
     private final JsonCodec<OperatorStats> operatorStatsCodec;
@@ -164,6 +176,8 @@ public class QueryMonitor
                                 queryInfo.getSelf(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty())));
     }
 
@@ -182,6 +196,8 @@ public class QueryMonitor
                         queryInfo.getSelf(),
                         Optional.empty(),
                         Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(),
                         Optional.empty()),
                 new QueryStatistics(
                         ofMillis(0),
@@ -273,7 +289,138 @@ public class QueryMonitor
                 queryInfo.getSelf(),
                 createTextQueryPlan(queryInfo, anonymizer),
                 createJsonQueryPlan(queryInfo, anonymizer),
-                queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, maxJsonLimit)));
+                queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, maxJsonLimit)),
+                createStageDetails(queryInfo),
+                createQueryPlanDetails(queryInfo));
+    }
+
+    public List<StageDetails> createStageDetails(QueryInfo query)
+    {
+        return getAllStages(query.getOutputStage()).stream()
+                .map(QueryMonitor::toStageDetails)
+                .collect(toList());
+    }
+
+    private static StageDetails toStageDetails(StageInfo stage)
+    {
+        StageStats stats = stage.getStageStats();
+        return new StageDetails(
+                String.valueOf(stage.getStageId().getId()),
+                stage.getState().name(),
+                getStageTasks(stage),
+                stage.getStageStats().isFullyBlocked(),
+                toDecimalMillis(stats.getTotalScheduledTime()),
+                toDecimalMillis(stats.getTotalBlockedTime()),
+                toDecimalMillis(stats.getTotalCpuTime()),
+                getStageInputBuffer(stage));
+    }
+
+    private static List<TaskDetails> getStageTasks(StageInfo stage)
+    {
+        return stage.getTasks().stream()
+                .map(QueryMonitor::toTaskDetails)
+                .collect(toList());
+    }
+
+    private static long getStageInputBuffer(StageInfo stage)
+    {
+        // stage input buffer = sum of task output buffers across all of immediate substages
+        long buffer = 0;
+        for (StageInfo subStage : stage.getSubStages()) {
+            for (TaskInfo task : subStage.getTasks()) {
+                buffer += task.getOutputBuffers().getTotalBufferedBytes();
+            }
+        }
+        return buffer;
+    }
+
+    private static TaskDetails toTaskDetails(TaskInfo task)
+    {
+        TaskStatus taskStatus = task.getTaskStatus();
+        TaskStats stats = task.getStats();
+        String fullTaskId = taskStatus.getTaskId().toString();
+        return new TaskDetails(
+                fullTaskId.substring(fullTaskId.indexOf('.') + 1),
+                hostAndPort(taskStatus.getSelf()),
+                taskStatus.getState().name(),
+                stats.getQueuedDrivers(),
+                stats.getRunningDrivers(),
+                stats.getBlockedDrivers(),
+                stats.getCompletedDrivers(),
+                stats.getTotalDrivers(),
+                stats.getRawInputPositions(),
+                stats.getRawInputDataSize().toBytes(),
+                task.getOutputBuffers().getTotalBufferedBytes(),
+                toDecimalMillis(stats.getElapsedTime()),
+                toDecimalMillis(stats.getTotalCpuTime()),
+                stats.getPhysicalWrittenDataSize().toBytes(),
+                stats.getPhysicalInputDataSize().toBytes());
+    }
+
+    private static String hostAndPort(URI self)
+    {
+        return self.getHost() + ":" + self.getPort();
+    }
+
+    private static BigDecimal toDecimalMillis(Duration dur)
+    {
+        return BigDecimal.valueOf(dur.roundTo(TimeUnit.NANOSECONDS))
+                .divide(BigDecimal.valueOf(1_000_000L));
+    }
+
+    private Optional<QueryPlanDetails> createQueryPlanDetails(QueryInfo queryInfo)
+    {
+        if (isPruned(queryInfo)) {
+            return Optional.empty();
+        }
+
+        Optional<StageInfo> outputStage = queryInfo.getOutputStage();
+        return outputStage.map(stageInfo -> new QueryPlanDetails(queryInfo.isFinalQueryInfo(), createStageList(stageInfo)));
+    }
+
+    private static boolean isPruned(QueryInfo queryInfo)
+    {
+        if (!queryInfo.getState().isDone()) {
+            return false;
+        }
+
+        // see QueryStateMachine#pruneQueryInfo()
+        boolean prunedPlan = queryInfo.getOutputStage()
+                .map(s -> s.getPlan() == null)
+                .orElse(false);
+        boolean prunedOperatorStats = queryInfo.getQueryStats().getTotalDrivers() > 0
+                && queryInfo.getQueryStats().getOperatorSummaries().isEmpty();
+
+        return prunedPlan && prunedOperatorStats;
+    }
+
+    private static List<QueryPlanStageInfo> createStageList(StageInfo stageInfo)
+    {
+        ImmutableList.Builder<QueryPlanStageInfo> stages = ImmutableList.builder();
+        flattenStage(stages, stageInfo);
+        return stages.build();
+    }
+
+    private static void flattenStage(ImmutableList.Builder<QueryPlanStageInfo> stages, StageInfo stageInfo)
+    {
+        Optional<QueryPlanNodeInfo> planNode = stageInfo.getPlan().getJsonRepresentation().map(PLAN_NODE_CODEC::fromJson);
+
+        stages.add(new QueryPlanStageInfo(
+                stageInfo.getStageId().toString(),
+                createStageStatistics(stageInfo.getStageStats()),
+                stageInfo.getState().toString(),
+                planNode));
+
+        stageInfo.getSubStages().forEach(subStage -> flattenStage(stages, subStage));
+    }
+
+    private static StageStatistics createStageStatistics(StageStats stageStats)
+    {
+        return new StageStatistics(stageStats.getQueuedDrivers(), stageStats.getRunningDrivers(), stageStats.getCompletedDrivers(),
+                stageStats.getUserMemoryReservation(), stageStats.getTotalCpuTime(),
+                stageStats.getTotalBlockedTime(), stageStats.isFullyBlocked(), stageStats.getRawInputDataSize(),
+                stageStats.getRawInputPositions(), stageStats.getBufferedDataSize(), stageStats.getOutputDataSize(),
+                stageStats.getOutputPositions());
     }
 
     private QueryStatistics createQueryStatistics(QueryInfo queryInfo)
@@ -422,7 +569,7 @@ public class QueryMonitor
                     input.getSchema(),
                     input.getTable(),
                     input.getColumns().stream()
-                            .map(Column::getName).collect(Collectors.toList()),
+                            .map(Column::getName).collect(toList()),
                     input.getConnectorInfo(),
                     connectorMetrics,
                     physicalInputBytes,
@@ -444,8 +591,8 @@ public class QueryMonitor
                                     column.getColumn().getType(),
                                     column.getSourceColumns().stream()
                                             .map(Analysis.SourceColumn::getColumnDetail)
-                                            .collect(toImmutableSet())))
-                            .collect(toImmutableList()));
+                                            .collect(toSet())))
+                            .collect(toList()));
 
             output = Optional.of(
                     new QueryOutputMetadata(
