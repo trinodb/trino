@@ -109,7 +109,7 @@ public final class HiveSessionProperties
     private static final String QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS = "query_partition_filter_required_schemas";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String TIMESTAMP_PRECISION = "timestamp_precision";
-    private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "experimental_parquet_optimized_writer_enabled";
+    private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "parquet_optimized_writer_enabled";
     private static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
     private static final String OPTIMIZE_SYMLINK_LISTING = "optimize_symlink_listing";
     private static final String HIVE_VIEWS_LEGACY_TRANSLATION = "hive_views_legacy_translation";
@@ -466,7 +466,7 @@ public final class HiveSessionProperties
                         false),
                 booleanProperty(
                         PARQUET_OPTIMIZED_WRITER_ENABLED,
-                        "Experimental: Enable optimized writer",
+                        "Enable optimized writer",
                         parquetWriterConfig.isParquetOptimizedWriterEnabled(),
                         false),
                 durationProperty(
