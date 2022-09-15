@@ -1019,11 +1019,5 @@ view is queried, the snapshot-ids are used to check if the data in the storage
 table is up to date. If the data is outdated, the materialized view behaves
 like a normal view, and the data is queried directly from the base tables.
 
-.. warning::
-
-    There is a small time window between the commit of the delete and insert,
-    when the materialized view is empty. If the commit operation for the insert
-    fails, the materialized view remains empty.
-
 Dropping a materialized view with :doc:`/sql/drop-materialized-view` removes
 the definition and the storage table.
