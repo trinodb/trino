@@ -20,19 +20,30 @@ can be enabled for different parts of the Trino architecture:
 Suggested configuration workflow
 --------------------------------
 
-To configure security for a new Trino cluster, follow this best practice
-order of steps. Do not skip or combine steps.
+To configure security for a new Trino cluster, follow this best practice order
+of steps. Each step is followed by an additional verification step. Do not skip
+or combine steps.
 
-#. **Enable** :doc:`TLS/HTTPS </security/tls>`
+1. **Enable** :doc:`TLS/HTTPS </security/tls>`
 
    * Work with your security team.
    * Use a :ref:`load balancer or proxy <https-load-balancer>` to terminate
      HTTPS, if possible.
    * Use a globally trusted TLS certificate.
 
-#. **Configure** a :doc:`a shared secret </security/internal-communication>`
+To verify this step, connect to the :doc:`Web UI </admin/web-interface>` and
+send a query with the Trino :doc:`CLI </client/cli>` using a URL that begins
+with ``HTTPS``. If successfully enabled, you will not be able to send a query or
+use the Web UI with a URL that begins with ``HTTP``.
 
-#. **Enable authentication**
+2. **Configure** :doc:`a shared secret </security/internal-communication>`
+
+To verify this step, connect to the :doc:`Web UI </admin/web-interface>` and
+send a query with the Trino :doc:`CLI </client/cli>` using a URL that begins
+with ``HTTPS``. If successfully enabled, you will not be able to send a query or
+use the Web UI with a URL that begins with ``HTTP``.
+
+3. **Enable authentication**
 
    * Start with :doc:`password file authentication <password-file>` to get up
      and running.
@@ -40,10 +51,34 @@ order of steps. Do not skip or combine steps.
      </security/ldap>`.
    * Avoid the complexity of Kerberos for client authentication, if possible.
 
-#. **Enable authorization and access control**
+To verify this step, log in to the :doc:`Web UI </admin/web-interface>` using
+the ``Username`` and ``Password`` text boxes, and connect to the Trino :doc:`CLI
+</client/cli>` with the ``--user`` and ``--password`` properties.
+
+4. **Enable authorization and access control**
 
    * Start with :doc:`file-based rules <file-system-access-control>`.
    * Then configure another access control method as required.
+
+To verify this step, set the rules file to:
+
+.. code-block:: json
+
+    {
+      "catalogs": [
+        {
+          "catalog": "system",
+          "allow": "none"
+        }
+      ]
+    }
+
+From the Trino :doc:`CLI </client/cli>`, run query:
+
+.. code-block:: text
+
+  trino> select * from system.runtime.nodes;
+  Query 20200824_183358_00000_c62aw failed: Access Denied: Cannot access catalog system
 
 Configure one step at a time. Always restart the Trino server after each
 change, and verify the results before proceeding.
