@@ -11,11 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.parquet.writer.repdef;
+package io.trino.parquet.writer;
 
 import com.google.common.collect.AbstractIterator;
-import io.trino.parquet.writer.repdef.RepLevelIterable.RepValueIterator;
-import io.trino.parquet.writer.repdef.RepLevelIterable.RepetitionLevel;
+import io.trino.parquet.writer.RepLevelIterable.RepValueIterator;
+import io.trino.parquet.writer.RepLevelIterable.RepetitionLevel;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;

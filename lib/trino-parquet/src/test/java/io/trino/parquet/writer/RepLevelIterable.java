@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.parquet.writer.repdef;
+package io.trino.parquet.writer;
 
 import com.google.common.collect.AbstractIterator;
 
@@ -59,7 +59,7 @@ public interface RepLevelIterable
             return isNull;
         }
 
-        int value()
+        public int value()
         {
             return this.value;
         }

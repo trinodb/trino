@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.parquet.writer.repdef.DefLevelWriterProvider;
 import io.trino.parquet.writer.repdef.DefLevelWriterProviders;
-import io.trino.parquet.writer.repdef.RepLevelIterable;
-import io.trino.parquet.writer.repdef.RepLevelIterables;
+import io.trino.parquet.writer.repdef.RepLevelWriterProvider;
+import io.trino.parquet.writer.repdef.RepLevelWriterProviders;
 import io.trino.parquet.writer.valuewriter.PrimitiveValueWriter;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -39,7 +39,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -51,6 +50,8 @@ import static io.trino.parquet.writer.ParquetCompressor.getCompressor;
 import static io.trino.parquet.writer.ParquetDataOutput.createDataOutput;
 import static io.trino.parquet.writer.repdef.DefLevelWriterProvider.DefinitionLevelWriter;
 import static io.trino.parquet.writer.repdef.DefLevelWriterProvider.getRootDefinitionLevelWriter;
+import static io.trino.parquet.writer.repdef.RepLevelWriterProvider.RepetitionLevelWriter;
+import static io.trino.parquet.writer.repdef.RepLevelWriterProvider.getRootRepetitionLevelWriter;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -131,14 +132,12 @@ public class PrimitiveColumnWriter
 
         if (columnDescriptor.getMaxRepetitionLevel() > 0) {
             // write repetition levels for nested types
-            Iterator<Integer> repIterator = RepLevelIterables.getIterator(ImmutableList.<RepLevelIterable>builder()
-                    .addAll(columnChunk.getRepLevelIterables())
-                    .add(RepLevelIterables.of(columnChunk.getBlock()))
-                    .build());
-            while (repIterator.hasNext()) {
-                int next = repIterator.next();
-                repetitionLevelWriter.writeInteger(next);
-            }
+            List<RepLevelWriterProvider> repLevelWriterProviders = ImmutableList.<RepLevelWriterProvider>builder()
+                    .addAll(columnChunk.getRepLevelWriterProviders())
+                    .add(RepLevelWriterProviders.of(columnChunk.getBlock()))
+                    .build();
+            RepetitionLevelWriter rootRepetitionLevelWriter = getRootRepetitionLevelWriter(repLevelWriterProviders, repetitionLevelWriter);
+            rootRepetitionLevelWriter.writeRepetitionLevels(0);
         }
 
         long currentPageBufferedBytes = getCurrentPageBufferedBytes();
