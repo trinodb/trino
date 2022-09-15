@@ -95,11 +95,13 @@ public class PageProcessor
         this(filter, projections, OptionalInt.of(1));
     }
 
+    @VisibleForTesting
     public Iterator<Optional<Page>> process(ConnectorSession session, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, Page page)
     {
         return process(session, yieldSignal, memoryContext, page, false);
     }
 
+    @VisibleForTesting
     public Iterator<Optional<Page>> process(ConnectorSession session, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, Page page, boolean avoidPageMaterialization)
     {
         WorkProcessor<Page> processor = createWorkProcessor(session, yieldSignal, memoryContext, page, avoidPageMaterialization);
