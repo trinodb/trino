@@ -63,6 +63,17 @@ with a different name (making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Trino
 creates a catalog named ``sales`` using the configured connector.
 
+Log levels
+^^^^^^^^^^
+
+Kafka consumer logging can be verbose and pollute Trino logs. To lower the
+:ref:`log level <log-levels>`, simply add the following to ``etc/log.properties``:
+
+.. code-block:: text
+
+   org.apache.kafka=WARN
+
+
 Configuration properties
 ------------------------
 
