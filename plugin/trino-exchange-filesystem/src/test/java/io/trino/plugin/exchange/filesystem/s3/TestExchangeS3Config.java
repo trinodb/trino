@@ -40,7 +40,7 @@ public class TestExchangeS3Config
                 .setS3ExternalId(null)
                 .setS3Region(null)
                 .setS3Endpoint(null)
-                .setS3MaxErrorRetries(10)
+                .setS3MaxErrorRetries(3)
                 .setS3UploadPartSize(DataSize.of(5, MEGABYTE))
                 .setStorageClass(StorageClass.STANDARD)
                 .setRetryMode(RetryMode.ADAPTIVE)

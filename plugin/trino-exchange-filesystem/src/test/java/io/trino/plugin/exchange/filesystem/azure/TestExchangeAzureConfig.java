@@ -32,7 +32,7 @@ public class TestExchangeAzureConfig
         assertRecordedDefaults(recordDefaults(ExchangeAzureConfig.class)
                 .setAzureStorageConnectionString(null)
                 .setAzureStorageBlockSize(DataSize.of(4, MEGABYTE))
-                .setMaxErrorRetries(10));
+                .setMaxErrorRetries(4));
     }
 
     @Test

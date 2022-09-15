@@ -31,7 +31,7 @@ public class ExchangeAzureConfig
 {
     private Optional<String> azureStorageConnectionString = Optional.empty();
     private DataSize azureStorageBlockSize = DataSize.of(4, MEGABYTE);
-    private int maxErrorRetries = 10;
+    private int maxErrorRetries = 4;
 
     public Optional<String> getAzureStorageConnectionString()
     {

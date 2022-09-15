@@ -41,7 +41,7 @@ public class ExchangeS3Config
     private Optional<String> s3ExternalId = Optional.empty();
     private Optional<Region> s3Region = Optional.empty();
     private Optional<String> s3Endpoint = Optional.empty();
-    private int s3MaxErrorRetries = 10;
+    private int s3MaxErrorRetries = 3;
     // Default to S3 multi-part upload minimum size to avoid excessive memory consumption from buffering
     private DataSize s3UploadPartSize = DataSize.of(5, MEGABYTE);
     private StorageClass storageClass = StorageClass.STANDARD;
