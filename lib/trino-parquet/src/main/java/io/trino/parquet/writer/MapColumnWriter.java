@@ -16,8 +16,8 @@ package io.trino.parquet.writer;
 import com.google.common.collect.ImmutableList;
 import io.trino.parquet.writer.repdef.DefLevelWriterProvider;
 import io.trino.parquet.writer.repdef.DefLevelWriterProviders;
-import io.trino.parquet.writer.repdef.RepLevelIterable;
-import io.trino.parquet.writer.repdef.RepLevelIterables;
+import io.trino.parquet.writer.repdef.RepLevelWriterProvider;
+import io.trino.parquet.writer.repdef.RepLevelWriterProviders;
 import io.trino.spi.block.ColumnarMap;
 
 import java.io.IOException;
@@ -54,9 +54,9 @@ public class MapColumnWriter
                 .addAll(columnChunk.getDefLevelWriterProviders())
                 .add(DefLevelWriterProviders.of(columnarMap, maxDefinitionLevel)).build();
 
-        ImmutableList<RepLevelIterable> repLevelIterables = ImmutableList.<RepLevelIterable>builder()
-                .addAll(columnChunk.getRepLevelIterables())
-                .add(RepLevelIterables.of(columnarMap, maxRepetitionLevel)).build();
+        ImmutableList<RepLevelWriterProvider> repLevelIterables = ImmutableList.<RepLevelWriterProvider>builder()
+                .addAll(columnChunk.getRepLevelWriterProviders())
+                .add(RepLevelWriterProviders.of(columnarMap, maxRepetitionLevel)).build();
 
         keyWriter.writeBlock(new ColumnChunk(columnarMap.getKeysBlock(), defLevelWriterProviders, repLevelIterables));
         valueWriter.writeBlock(new ColumnChunk(columnarMap.getValuesBlock(), defLevelWriterProviders, repLevelIterables));

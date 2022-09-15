@@ -139,7 +139,7 @@ public class ParquetTestUtils
         return fromKeyValueBlock(mapIsNull, offsets, keyBlock, valueBlock, new MapType(BIGINT, BIGINT, TYPE_OPERATORS));
     }
 
-    private static int[] generateOffsets(Optional<boolean[]> valueIsNull, int positionCount)
+    public static int[] generateOffsets(Optional<boolean[]> valueIsNull, int positionCount)
     {
         int maxCardinality = 7; // array length or map size at the current position
         int[] offsets = new int[positionCount + 1];
