@@ -301,6 +301,19 @@ References a folder within Trino deployment that holds one or more JSON files
 
 This property is optional; the default is ``etc/kafka``.
 
+.. _kafka-type-mapping:
+
+Type mapping
+------------
+
+Because Trino and Kafka each support types that the other does not, this
+connector :ref:`maps some types <type-mapping-overview>` when reading (decoding)
+or writing (encoding) data. Data types may not map the same way in both
+directions between Trino and the data source. Type mapping depends on the format
+(Avro, raw, JSON, or CSV). Refer to the following sections for type mapping in
+each direction.
+
+
 Table definition files
 """"""""""""""""""""""
 
@@ -351,6 +364,8 @@ Field           Required  Type           Description
 ``message``     optional  JSON object    Field definitions for data columns mapped to the message itself.
 =============== ========= ============== =============================
 
+No other types are supported.
+
 Key and message in Kafka
 """"""""""""""""""""""""
 
@@ -396,6 +411,8 @@ Field           Required  Type      Description
 =============== ========= ========= =============================
 
 There is no limit on field descriptions for either key or message.
+
+No other types are supported.
 
 Confluent table description supplier
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -819,6 +836,8 @@ The following table defines which temporal data types are supported by
 |                                     | ``seconds-since-epoch``                                                        |
 +-------------------------------------+--------------------------------------------------------------------------------+
 
+No other types are supported.
+
 The following is an example JSON field definition in a `table definition file
 <#table-definition-files>`__ for a Kafka message:
 
@@ -1062,6 +1081,8 @@ Length of decoded byte sequence is implied by the ``dataFormat``.
 
 For ``VARCHAR`` data type a sequence of bytes is interpreted according to UTF-8
 encoding.
+
+No other types are supported.
 
 ``csv`` decoder
 """""""""""""""
