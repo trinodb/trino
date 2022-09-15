@@ -290,6 +290,19 @@ References a folder within Trino deployment that holds one or more JSON files
 
 This property is optional; the default is ``etc/kafka``.
 
+.. _kafka-type-mapping:
+
+Type mapping
+------------
+
+Because Trino and Kafka each support types that the other does not, this
+connector :ref:`maps some types <type-mapping-overview>` when reading (decoding)
+or writing (encoding) data. Data types may not map the same way in both
+directions between Trino and the data source. Type mapping depends on the format
+(Avro, raw, JSON, or CSV). Refer to the following sections for type mapping in
+each direction.
+
+
 Table definition files
 """"""""""""""""""""""
 
@@ -341,6 +354,8 @@ Field           Required  Type           Description
 ``message``     optional  JSON object    Field definitions for data columns mapped to the message itself.
 =============== ========= ============== =============================
 
+No other types are supported.
+
 Key and message in Kafka
 """"""""""""""""""""""""
 
@@ -386,6 +401,8 @@ Field           Required  Type      Description
 =============== ========= ========= =============================
 
 There is no limit on field descriptions for either key or message.
+
+No other types are supported.
 
 Confluent table description supplier
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -672,6 +689,8 @@ The following Trino data types are supported by the CSV encoder:
 
 Column values are converted to strings before they are formatted as a CSV line.
 
+No other types are supported.
+
 Example CSV field definition in a `table definition file <#table-definition-files>`__
 for a Kafka message:
 
@@ -767,7 +786,7 @@ The following ``dataFormats`` are available for temporal data:
 * ``milliseconds-since-epoch``
 * ``seconds-since-epoch``
 
-All temporal data in Kafka supports milliseconds precision
+All temporal data in Kafka supports milliseconds precision.
 
 The following table defines which temporal data types are supported by
 ``dataFormats``:
@@ -788,6 +807,8 @@ The following table defines which temporal data types are supported by
 | ``TIMESTAMP WITH TIME ZONE``        | ``custom-date-time``, ``iso8601``, ``rfc2822``, ``milliseconds-since-epoch``,  |
 |                                     | ``seconds-since-epoch``                                                        |
 +-------------------------------------+--------------------------------------------------------------------------------+
+
+No other types are supported.
 
 Example JSON field definition in a `table definition file <#table-definition-files>`__
 for a Kafka message:
@@ -872,6 +893,8 @@ Trino data type                       Avro data type
 ``BOOLEAN``                           ``BOOLEAN``
 ``VARCHAR`` / ``VARCHAR(x)``          ``STRING``
 ===================================== =======================================
+
+No other types are supported.
 
 Example Avro field definition in a `table definition file <#table-definition-files>`__
 for a Kafka message:
@@ -1024,7 +1047,10 @@ A sequence of bytes is read from input message and decoded according to either:
 
 Length of decoded byte sequence is implied by the ``dataFormat``.
 
-For ``VARCHAR`` data type a sequence of bytes is interpreted according to UTF-8 encoding.
+For ``VARCHAR`` data type a sequence of bytes is interpreted according to UTF-8
+encoding.
+
+No other types are supported.
 
 ``csv`` decoder
 ^^^^^^^^^^^^^^^
@@ -1058,6 +1084,7 @@ Table below lists supported Trino types, which can be used in ``type`` and decod
 | ``VARCHAR`` / ``VARCHAR(x)``        | Used as is                                                                     |
 +-------------------------------------+--------------------------------------------------------------------------------+
 
+No other types are supported.
 
 ``json`` decoder
 ^^^^^^^^^^^^^^^^
@@ -1106,6 +1133,7 @@ which can be specified via ``dataFormat`` attribute.
 | |                                   | ``seconds-since-epoch``                                                        |
 +-------------------------------------+--------------------------------------------------------------------------------+
 
+No other types are supported.
 
 Default field decoder
 ^^^^^^^^^^^^^^^^^^^^^
@@ -1164,6 +1192,8 @@ Trino data type                       Allowed Avro data type
 ``ARRAY``                             ``ARRAY``
 ``MAP``                               ``MAP``
 ===================================== =======================================
+
+No other types are supported.
 
 Avro schema evolution
 """""""""""""""""""""
