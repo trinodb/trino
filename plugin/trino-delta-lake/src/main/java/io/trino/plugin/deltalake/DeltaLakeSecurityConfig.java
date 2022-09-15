@@ -18,29 +18,21 @@ import io.airlift.configuration.ConfigDescription;
 
 import javax.validation.constraints.NotNull;
 
-import static io.trino.plugin.deltalake.DeltaLakeSecurityConfig.DeltaLakeSecurity.ALLOW_ALL;
+import static io.trino.plugin.deltalake.DeltaLakeSecurityModule.ALLOW_ALL;
 
 public class DeltaLakeSecurityConfig
 {
-    public enum DeltaLakeSecurity
-    {
-        ALLOW_ALL,
-        READ_ONLY,
-        SYSTEM,
-        FILE,
-    }
-
-    private DeltaLakeSecurity securitySystem = ALLOW_ALL;
+    private String securitySystem = ALLOW_ALL;
 
     @NotNull
-    public DeltaLakeSecurity getSecuritySystem()
+    public String getSecuritySystem()
     {
         return securitySystem;
     }
 
     @Config("delta.security")
     @ConfigDescription("Authorization checks for Delta Lake connector")
-    public DeltaLakeSecurityConfig setSecuritySystem(DeltaLakeSecurity securitySystem)
+    public DeltaLakeSecurityConfig setSecuritySystem(String securitySystem)
     {
         this.securitySystem = securitySystem;
         return this;
