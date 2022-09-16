@@ -71,22 +71,101 @@ public class DictionaryReader
         return dictionary.decodeToInt(readInt());
     }
 
+    // Read array of ints and convert from indices to values
+    @Override
+    public void readIntegers(int[] arr, int offset, int len)
+    {
+        readInts(arr, offset, len);
+        dictionary.decodeToInts(arr, offset, len);
+    }
+
     @Override
     public long readLong()
     {
         return dictionary.decodeToLong(readInt());
     }
 
+    // Temporary array to hold indices.
+    // This must not be static, because that would not be thread-safe with other
+    // DictionaryReaders in other threads. The maximum size of this array will be
+    // that of the maximum rows in a Parquet page, which is only 1024 in my
+    // experience, so the performance benefit to holding onto this across multiple
+    // batch read calls will outweigh the memory burden.
+    int[] intArr;
+
+    // Read array of ints and convert from indices to long values
+    @Override
+    public void readLongs(long[] arr, int offset, int len)
+    {
+        if (intArr == null || intArr.length < offset + len) {
+            intArr = new int[offset + len];
+        }
+
+        readInts(intArr, offset, len);
+        dictionary.decodeToLongs(intArr, arr, offset, len);
+    }
+
+    // Read array of ints and convert from indices to float values
+    @Override
+    public void readFloats(float[] arr, int offset, int len)
+    {
+        if (intArr == null || intArr.length < offset + len) {
+            intArr = new int[offset + len];
+        }
+
+        readInts(intArr, offset, len);
+        dictionary.decodeToFloats(intArr, arr, offset, len);
+    }
+
+    // Read array of ints and convert from indices to double values
+    @Override
+    public void readDoubles(double[] arr, int offset, int len)
+    {
+        if (intArr == null || intArr.length < offset + len) {
+            intArr = new int[offset + len];
+        }
+
+        readInts(intArr, offset, len);
+        dictionary.decodeToDoubles(intArr, arr, offset, len);
+    }
+
     @Override
     public void skip()
     {
-        readInt();
+        try {
+            decoder.skip();
+        }
+        catch (IOException e) {
+            throw new ParquetDecodingException(e);
+        }
+    }
+
+    @Override
+    public void skip(int n)
+    {
+        try {
+            decoder.skip(n);
+        }
+        catch (IOException e) {
+            throw new ParquetDecodingException(e);
+        }
     }
 
     private int readInt()
     {
         try {
             return decoder.readInt();
+        }
+        catch (IOException e) {
+            throw new ParquetDecodingException(e);
+        }
+    }
+
+    // Fetch an array of indices
+    private void readInts(int[] arr, int offset, int len)
+    {
+        try {
+            decoder.readInts(arr, offset, len);
         }
         catch (IOException e) {
             throw new ParquetDecodingException(e);

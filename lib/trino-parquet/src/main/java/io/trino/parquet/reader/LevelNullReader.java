@@ -21,4 +21,14 @@ public class LevelNullReader
     {
         return 0;
     }
+
+    @Override
+    public void readLevels(int[] arr, int offset, int count)
+    {
+        int s = offset;
+        int e = offset + count;
+        for (int i = s; i < e; i++) {
+            arr[i] = 0;
+        }
+    }
 }

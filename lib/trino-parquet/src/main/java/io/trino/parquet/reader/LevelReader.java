@@ -16,4 +16,6 @@ package io.trino.parquet.reader;
 public interface LevelReader
 {
     int readLevel();
+
+    void readLevels(int[] arr, int offset, int count);
 }

@@ -23,6 +23,7 @@ import io.airlift.slice.Slice;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ChunkKey;
 import io.trino.parquet.ChunkReader;
+import io.trino.parquet.ColumnReader;
 import io.trino.parquet.DiskRange;
 import io.trino.parquet.Field;
 import io.trino.parquet.GroupField;
@@ -118,7 +119,7 @@ public class ParquetReader
     private long nextRowInGroup;
     private int batchSize;
     private int nextBatchSize = INITIAL_BATCH_SIZE;
-    private final Map<Integer, PrimitiveColumnReader> columnReaders;
+    private final Map<Integer, ColumnReader> columnReaders;
     private final Map<Integer, Long> maxBytesPerCell;
     private long maxCombinedBytesPerRow;
     private final ParquetReaderOptions options;
@@ -430,7 +431,7 @@ public class ParquetReader
     {
         ColumnDescriptor columnDescriptor = field.getDescriptor();
         int fieldId = field.getId();
-        PrimitiveColumnReader columnReader = columnReaders.get(fieldId);
+        ColumnReader columnReader = columnReaders.get(fieldId);
         if (columnReader.getPageReader() == null) {
             validateParquet(currentBlockMetadata.getRowCount() > 0, "Row group has 0 rows");
             ColumnChunkMetaData metadata = getColumnChunkMetaData(currentBlockMetadata, columnDescriptor);
@@ -492,8 +493,9 @@ public class ParquetReader
 
     private void initializeColumnReaders()
     {
+        boolean enableBatch = options.isEnableBatchColumnReader();
         for (PrimitiveField field : primitiveFields) {
-            columnReaders.put(field.getId(), PrimitiveColumnReader.createReader(field, timeZone));
+            columnReaders.put(field.getId(), PrimitiveColumnReader.createReader(field, timeZone, enableBatch));
         }
     }
 

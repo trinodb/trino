@@ -14,6 +14,7 @@
 package io.trino.parquet.reader;
 
 import io.airlift.slice.Slice;
+import io.trino.parquet.ColumnReader;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV1;
 import io.trino.parquet.DataPageV2;
@@ -22,6 +23,7 @@ import io.trino.parquet.Field;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetTypeUtils;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.batchreader.BatchColumnReaderFactory;
 import io.trino.parquet.dictionary.Dictionary;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
@@ -60,6 +62,7 @@ import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
 
 public abstract class PrimitiveColumnReader
+        implements ColumnReader
 {
     private static final int EMPTY_LEVEL_VALUE = -1;
     protected final PrimitiveField field;
@@ -97,7 +100,22 @@ public abstract class PrimitiveColumnReader
         return ParquetTypeUtils.isValueNull(field.isRequired(), definitionLevel, field.getDefinitionLevel());
     }
 
-    public static PrimitiveColumnReader createReader(PrimitiveField field, DateTimeZone timeZone)
+    static final boolean GloballyDisableBatchColumnReaders = false;
+
+    public static ColumnReader createReader(PrimitiveField field, DateTimeZone timeZone, boolean enableBatch)
+    {
+        // See if the batch reader supports this column type.
+        if (enableBatch && !GloballyDisableBatchColumnReaders) {
+            ColumnReader batchReader = BatchColumnReaderFactory.createReader(field, timeZone);
+            if (batchReader != null) {
+                return batchReader;
+            }
+        }
+
+        return createDefaultReader(field, timeZone);
+    }
+
+    public static ColumnReader createDefaultReader(PrimitiveField field, DateTimeZone timeZone)
     {
         PrimitiveType primitiveType = field.getDescriptor().getPrimitiveType();
         switch (primitiveType.getPrimitiveTypeName()) {
@@ -132,7 +150,7 @@ public abstract class PrimitiveColumnReader
             case BINARY:
                 return createDecimalColumnReader(field).orElse(new BinaryColumnReader(field));
             case FIXED_LEN_BYTE_ARRAY:
-                Optional<PrimitiveColumnReader> decimalColumnReader = createDecimalColumnReader(field);
+                Optional<ColumnReader> decimalColumnReader = createDecimalColumnReader(field);
                 if (decimalColumnReader.isPresent()) {
                     return decimalColumnReader.get();
                 }
@@ -163,7 +181,7 @@ public abstract class PrimitiveColumnReader
                 .orElse(FALSE);
     }
 
-    private static Optional<PrimitiveColumnReader> createDecimalColumnReader(PrimitiveField field)
+    private static Optional<ColumnReader> createDecimalColumnReader(PrimitiveField field)
     {
         return createDecimalType(field)
                 .map(decimalType -> DecimalColumnReaderFactory.createReader(field, decimalType));
@@ -177,11 +195,13 @@ public abstract class PrimitiveColumnReader
         this.indexIterator = null;
     }
 
+    @Override
     public PageReader getPageReader()
     {
         return pageReader;
     }
 
+    @Override
     public void setPageReader(PageReader pageReader, RowRanges rowRanges)
     {
         this.pageReader = requireNonNull(pageReader, "pageReader");
@@ -208,12 +228,14 @@ public abstract class PrimitiveColumnReader
         }
     }
 
+    @Override
     public void prepareNextRead(int batchSize)
     {
         readOffset = readOffset + nextBatchSize;
         nextBatchSize = batchSize;
     }
 
+    @Override
     public ColumnChunk readPrimitive(Field field)
     {
         // Pre-allocate these arrays to the necessary size. This saves a substantial amount of
@@ -411,7 +433,7 @@ public abstract class PrimitiveColumnReader
         if (maxLevel == 0) {
             return new LevelNullReader();
         }
-        return new LevelRLEReader(new RunLengthBitPackingHybridDecoder(BytesUtils.getWidthFromMaxInt(maxLevel), slice.getInput()));
+        return new LevelRLEReader(new RunLengthBitPackingHybridDecoder(BytesUtils.getWidthFromMaxInt(maxLevel), ByteBufferInputStream.wrap(slice.toByteBuffer())));
     }
 
     private ValuesReader initDataReader(ParquetEncoding dataEncoding, int valueCount, ByteBufferInputStream in, OptionalLong firstRowIndex)

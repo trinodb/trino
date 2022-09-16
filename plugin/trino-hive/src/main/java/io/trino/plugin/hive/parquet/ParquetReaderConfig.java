@@ -103,6 +103,19 @@ public class ParquetReaderConfig
         return options.isUseColumnIndex();
     }
 
+    @Config("parquet.enable-batch-column-reader")
+    @ConfigDescription("Enable using batch column reader")
+    public ParquetReaderConfig setEnableBatchColumnReader(boolean enableBatchColumnReader)
+    {
+        options = options.withEnableBatchColumnReader(enableBatchColumnReader);
+        return this;
+    }
+
+    public boolean isEnableBatchColumnReader()
+    {
+        return options.isEnableBatchColumnReader();
+    }
+
     public ParquetReaderOptions toParquetReaderOptions()
     {
         return options;

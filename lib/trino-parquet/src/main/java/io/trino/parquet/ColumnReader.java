@@ -11,21 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.parquet.reader;
+package io.trino.parquet;
 
-import io.trino.parquet.ColumnReader;
-import io.trino.parquet.PrimitiveField;
-import io.trino.spi.type.DecimalType;
+import io.trino.parquet.reader.ColumnChunk;
+import io.trino.parquet.reader.PageReader;
+import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 
-public final class DecimalColumnReaderFactory
+public interface ColumnReader
 {
-    private DecimalColumnReaderFactory() {}
+    PageReader getPageReader();
 
-    public static ColumnReader createReader(PrimitiveField field, DecimalType parquetDecimalType)
-    {
-        if (parquetDecimalType.isShort()) {
-            return new ShortDecimalColumnReader(field, parquetDecimalType);
-        }
-        return new LongDecimalColumnReader(field, parquetDecimalType);
-    }
+    void setPageReader(PageReader pageReader, RowRanges rowRanges);
+
+    void prepareNextRead(int batchSize);
+
+    ColumnChunk readPrimitive(Field field);
 }

@@ -15,6 +15,7 @@ package io.trino.parquet.reader;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
+import io.trino.parquet.ColumnReader;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV2;
 import io.trino.parquet.PrimitiveField;
@@ -74,7 +75,7 @@ public class TestColumnReader
             Optional<RowRanges> rowRanges,
             List<RowRange> pageRowRanges)
     {
-        PrimitiveColumnReader reader = columnReaderInput.createColumnReader();
+        ColumnReader reader = columnReaderInput.createColumnReader();
         reader.setPageReader(
                 new TestingPageReader(pageRowRanges),
                 rowRanges.orElse(null));
@@ -150,16 +151,16 @@ public class TestColumnReader
         INT_PRIMITIVE_NO_NULLS(() -> new IntColumnReader(FIELD), FIELD),
         INT_PRIMITIVE_NULLABLE(() -> new IntColumnReader(NULLABLE_FIELD), NULLABLE_FIELD);
 
-        private final Supplier<PrimitiveColumnReader> columnReader;
+        private final Supplier<ColumnReader> columnReader;
         private final PrimitiveField field;
 
-        ColumnReaderInput(Supplier<PrimitiveColumnReader> columnReader, PrimitiveField field)
+        ColumnReaderInput(Supplier<ColumnReader> columnReader, PrimitiveField field)
         {
             this.columnReader = requireNonNull(columnReader, "columnReader is null");
             this.field = requireNonNull(field, "field is null");
         }
 
-        PrimitiveColumnReader createColumnReader()
+        ColumnReader createColumnReader()
         {
             return columnReader.get();
         }

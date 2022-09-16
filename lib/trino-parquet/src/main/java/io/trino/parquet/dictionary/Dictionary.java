@@ -52,4 +52,44 @@ public abstract class Dictionary
     {
         throw new UnsupportedOperationException();
     }
+
+    // Convert entire array of ints from indices to values, in place
+    public void decodeToInts(int[] arr, int offset, int len)
+    {
+        int s = offset;
+        int e = offset + len;
+        for (int i = s; i < e; i++) {
+            arr[i] = decodeToInt(arr[i]);
+        }
+    }
+
+    // Convert entire array of int indices to long values
+    public void decodeToLongs(int[] idsIn, long[] valsOut, int offset, int len)
+    {
+        int s = offset;
+        int e = offset + len;
+        for (int i = s; i < e; i++) {
+            valsOut[i] = decodeToLong(idsIn[i]);
+        }
+    }
+
+    // Convert entire array of int indices to float values
+    public void decodeToFloats(int[] idsIn, float[] valsOut, int offset, int len)
+    {
+        int s = offset;
+        int e = offset + len;
+        for (int i = s; i < e; i++) {
+            valsOut[i] = decodeToFloat(idsIn[i]);
+        }
+    }
+
+    // Convert entire array of int indices to float values
+    public void decodeToDoubles(int[] idsIn, double[] valsOut, int offset, int len)
+    {
+        int s = offset;
+        int e = offset + len;
+        for (int i = s; i < e; i++) {
+            valsOut[i] = decodeToDouble(idsIn[i]);
+        }
+    }
 }

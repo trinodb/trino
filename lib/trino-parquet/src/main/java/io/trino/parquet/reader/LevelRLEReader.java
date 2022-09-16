@@ -38,4 +38,16 @@ public class LevelRLEReader
             throw new ParquetDecodingException(e);
         }
     }
+
+    // Read array of levels
+    @Override
+    public void readLevels(int[] arr, int offset, int count)
+    {
+        try {
+            delegate.readInts(arr, offset, count);
+        }
+        catch (IOException e) {
+            throw new ParquetDecodingException(e);
+        }
+    }
 }

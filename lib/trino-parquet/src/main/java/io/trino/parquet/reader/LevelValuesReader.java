@@ -30,4 +30,11 @@ public class LevelValuesReader
     {
         return delegate.readInteger();
     }
+
+    // Read array of levels
+    @Override
+    public void readLevels(int[] arr, int offset, int count)
+    {
+        delegate.readIntegers(arr, offset, count);
+    }
 }

@@ -44,6 +44,32 @@ public class IntegerDictionary
         return content[id];
     }
 
+//    @Override
+//    public long decodeToLong(int id)
+//    {
+//        return decodeToInt(id);
+//    }
+
+    @Override
+    public void decodeToInts(int[] arr, int offset, int len)
+    {
+        int s = offset;
+        int e = offset + len;
+        for (int i = s; i < e; i++) {
+            arr[i] = content[arr[i]];
+        }
+    }
+
+//    @Override
+//    public void decodeToLongs(int[] ids, long[] vals, int offset, int len)
+//    {
+//        int s = offset;
+//        int e = offset + len;
+//        for (int i = s; i < e; i++) {
+//            vals[i] = content[ids[i]];
+//        }
+//    }
+
     @Override
     public String toString()
     {
