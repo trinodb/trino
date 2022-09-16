@@ -49,6 +49,9 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v3
+      # Unset the default Java in case actions/setup-java silently fails
+      - name: Unset default Java
+        run: echo "JAVA_HOME=" >> $GITHUB_ENV
       - uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
@@ -79,6 +82,9 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
+      # Unset the default Java in case actions/setup-java silently fails
+      - name: Unset default Java
+        run: echo "JAVA_HOME=" >> $GITHUB_ENV
       - uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
