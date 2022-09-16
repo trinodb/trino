@@ -19,6 +19,7 @@ import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.sqlserver.SqlServerClient;
@@ -107,9 +108,10 @@ public class StarburstSynapseClient
     protected String renameColumnSql(JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newRemoteColumnName)
     {
         // TODO: Evaluate whether this is SQL injection issue or not https://starburstdata.atlassian.net/browse/SEP-9796
+        RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
         return format(
                 "sp_rename %s, %s, 'COLUMN'",
-                singleQuote(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), jdbcColumn.getColumnName()),
+                singleQuote(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName(), jdbcColumn.getColumnName()),
                 singleQuote(newRemoteColumnName));
     }
 

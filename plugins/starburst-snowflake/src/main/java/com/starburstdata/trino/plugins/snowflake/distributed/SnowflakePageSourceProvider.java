@@ -41,6 +41,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.amazonaws.services.s3.internal.crypto.JceEncryptionConstants.SYMMETRIC_CIPHER_BLOCK_SIZE;
@@ -148,7 +149,8 @@ public class SnowflakePageSourceProvider
                 stats,
                 parquetReaderConfig.toParquetReaderOptions()
                         .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
-                        .withUseColumnIndex(isParquetUseColumnIndex(session)));
+                        .withUseColumnIndex(isParquetUseColumnIndex(session)),
+                Optional.empty());
 
         verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");
 
