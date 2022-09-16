@@ -226,7 +226,7 @@ public final class ViewReaderUtil
                         Optional.of(table.getDatabaseName()),
                         columns,
                         Optional.ofNullable(table.getParameters().get(TABLE_COMMENT)),
-                        Optional.empty(),
+                        hiveViewsRunAsInvoker ? Optional.empty() : table.getOwner(),
                         hiveViewsRunAsInvoker);
             }
             catch (RuntimeException e) {

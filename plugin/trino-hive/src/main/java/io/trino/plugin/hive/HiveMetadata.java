@@ -2443,20 +2443,8 @@ public class HiveMetadata
                         throw new HiveViewNotSupportedException(viewName);
                     }
 
-                    ConnectorViewDefinition definition = createViewReader(metastore, session, view, typeManager, this::redirectTable, metadataProvider, hiveViewsRunAsInvoker)
+                    return createViewReader(metastore, session, view, typeManager, this::redirectTable, metadataProvider, hiveViewsRunAsInvoker)
                             .decodeViewData(view.getViewOriginalText().get(), view, catalogName);
-                    // use owner from table metadata if it exists
-                    if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
-                        definition = new ConnectorViewDefinition(
-                                definition.getOriginalSql(),
-                                definition.getCatalog(),
-                                definition.getSchema(),
-                                definition.getColumns(),
-                                definition.getComment(),
-                                view.getOwner(),
-                                false);
-                    }
-                    return definition;
                 });
     }
 
