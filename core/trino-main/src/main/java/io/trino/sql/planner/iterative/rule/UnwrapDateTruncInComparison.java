@@ -207,8 +207,8 @@ public class UnwrapDateTruncInComparison
                 return expression;
             }
             SupportedUnit unit = unitIfSupported.get();
-            if (unit == SupportedUnit.DAY && rightType == DATE) {
-                // case handled by CanonicalizeExpressionRewriter
+            if (rightType == DATE && (unit == SupportedUnit.DAY || unit == SupportedUnit.HOUR)) {
+                // DAY case handled by CanonicalizeExpressionRewriter, other is illegal, will fail
                 return expression;
             }
 
@@ -260,7 +260,7 @@ public class UnwrapDateTruncInComparison
             if (type == DATE) {
                 LocalDate date = LocalDate.ofEpochDay((long) rangeStart);
                 LocalDate endExclusive = switch (rangeUnit) {
-                    case DAY -> throw new UnsupportedOperationException("Unsupported type and unit: %s, %s".formatted(type, rangeUnit));
+                    case HOUR, DAY -> throw new UnsupportedOperationException("Unsupported type and unit: %s, %s".formatted(type, rangeUnit));
                     case MONTH -> date.plusMonths(1);
                     case YEAR -> date.plusYears(1);
                 };
@@ -274,6 +274,7 @@ public class UnwrapDateTruncInComparison
                     verify(microOfSecond == 0, "Unexpected micros, value should be rounded to %s: %s", rangeUnit, microOfSecond);
                     LocalDateTime dateTime = LocalDateTime.ofEpochSecond(epochSecond, 0, ZoneOffset.UTC);
                     LocalDateTime endExclusive = switch (rangeUnit) {
+                        case HOUR -> dateTime.plusHours(1);
                         case DAY -> dateTime.plusDays(1);
                         case MONTH -> dateTime.plusMonths(1);
                         case YEAR -> dateTime.plusYears(1);
@@ -321,6 +322,7 @@ public class UnwrapDateTruncInComparison
 
     private enum SupportedUnit
     {
+        HOUR,
         DAY,
         MONTH,
         YEAR,
