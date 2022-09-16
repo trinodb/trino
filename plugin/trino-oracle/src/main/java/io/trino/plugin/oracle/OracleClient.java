@@ -629,9 +629,8 @@ public class OracleClient
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
-        if (type instanceof VarcharType) {
+        if (type instanceof VarcharType varcharType) {
             String dataType;
-            VarcharType varcharType = (VarcharType) type;
             if (varcharType.isUnbounded() || varcharType.getBoundedLength() > ORACLE_VARCHAR2_MAX_CHARS) {
                 dataType = "nclob";
             }
@@ -640,22 +639,22 @@ public class OracleClient
             }
             return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
         }
-        if (type instanceof CharType) {
+        if (type instanceof CharType charType) {
             String dataType;
-            if (((CharType) type).getLength() > ORACLE_CHAR_MAX_CHARS) {
+            if (charType.getLength() > ORACLE_CHAR_MAX_CHARS) {
                 dataType = "nclob";
             }
             else {
-                dataType = "char(" + ((CharType) type).getLength() + " CHAR)";
+                dataType = "char(" + charType.getLength() + " CHAR)";
             }
             return WriteMapping.sliceMapping(dataType, oracleCharWriteFunction());
         }
-        if (type instanceof DecimalType) {
-            String dataType = format("number(%s, %s)", ((DecimalType) type).getPrecision(), ((DecimalType) type).getScale());
-            if (((DecimalType) type).isShort()) {
-                return WriteMapping.longMapping(dataType, shortDecimalWriteFunction((DecimalType) type));
+        if (type instanceof DecimalType decimalType) {
+            String dataType = format("number(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            if (decimalType.isShort()) {
+                return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
-            return WriteMapping.objectMapping(dataType, longDecimalWriteFunction((DecimalType) type));
+            return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
         if (type.equals(TIMESTAMP_SECONDS)) {
             // Specify 'date' instead of 'timestamp(0)' to propagate the type in case of CTAS from date columns
