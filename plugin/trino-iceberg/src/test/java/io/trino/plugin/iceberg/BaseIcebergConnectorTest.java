@@ -1307,9 +1307,9 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    public void testHourTransform()
+    public void testHourTransformTimestamp()
     {
-        assertUpdate("CREATE TABLE test_hour_transform (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['hour(d)'])");
+        assertUpdate("CREATE TABLE test_hour_transform_timestamp (d timestamp(6), b bigint) WITH (partitioning = ARRAY['hour(d)'])");
 
         @Language("SQL") String values = "VALUES " +
                 "(NULL, 101)," +
@@ -1324,8 +1324,8 @@ public abstract class BaseIcebergConnectorTest
                 "(TIMESTAMP '2015-05-15 12:21:02.345678', 5)," +
                 "(TIMESTAMP '2020-02-21 13:11:11.876543', 6)," +
                 "(TIMESTAMP '2020-02-21 13:12:12.654321', 7)";
-        assertUpdate("INSERT INTO test_hour_transform " + values, 12);
-        assertQuery("SELECT * FROM test_hour_transform", values);
+        assertUpdate("INSERT INTO test_hour_transform_timestamp " + values, 12);
+        assertQuery("SELECT * FROM test_hour_transform_timestamp", values);
 
         @Language("SQL") String expected = "VALUES " +
                 "(NULL, 1, NULL, NULL, 101, 101), " +
@@ -1361,36 +1361,160 @@ public abstract class BaseIcebergConnectorTest
             expectedBigIntStats = "NULL, NULL, NULL, NULL, NULL, NULL";
         }
 
-        assertQuery("SELECT partition.d_hour, record_count, data.d.min, data.d.max, data.b.min, data.b.max FROM \"test_hour_transform$partitions\"", expected);
+        assertQuery("SELECT partition.d_hour, record_count, data.d.min, data.d.max, data.b.min, data.b.max FROM \"test_hour_transform_timestamp$partitions\"", expected);
 
         // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
         assertQuery(
-                "SELECT * FROM test_hour_transform WHERE day_of_week(d) = 3 AND b % 7 = 3",
+                "SELECT * FROM test_hour_transform_timestamp WHERE day_of_week(d) = 3 AND b % 7 = 3",
                 "VALUES (TIMESTAMP '1969-12-31 23:44:55.567890', 10)");
 
-        assertThat(query("SHOW STATS FOR test_hour_transform"))
+        assertThat(query("SHOW STATS FOR test_hour_transform_timestamp"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
                         "  ('d', " + expectedTimestampStats + "), " +
                         "  ('b', " + expectedBigIntStats + "), " +
                         "  (NULL, NULL, NULL, NULL, 12e0, NULL, NULL)");
 
-        assertThat(query("SELECT * FROM test_hour_transform WHERE d IS NOT NULL"))
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE d IS NOT NULL"))
                 .isFullyPushedDown();
-        assertThat(query("SELECT * FROM test_hour_transform WHERE d IS NULL"))
-                .isFullyPushedDown();
-
-        assertThat(query("SELECT * FROM test_hour_transform WHERE d >= DATE '2015-05-15'"))
-                .isFullyPushedDown();
-        assertThat(query("SELECT * FROM test_hour_transform WHERE CAST(d AS date) >= DATE '2015-05-15'"))
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE d IS NULL"))
                 .isFullyPushedDown();
 
-        assertThat(query("SELECT * FROM test_hour_transform WHERE d >= TIMESTAMP '2015-05-15 12:00:00'"))
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE d >= DATE '2015-05-15'"))
                 .isFullyPushedDown();
-        assertThat(query("SELECT * FROM test_hour_transform WHERE d >= TIMESTAMP '2015-05-15 12:00:00.000001'"))
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE CAST(d AS date) >= DATE '2015-05-15'"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE d >= TIMESTAMP '2015-05-15 12:00:00'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE d >= TIMESTAMP '2015-05-15 12:00:00.000001'"))
                 .isNotFullyPushedDown(FilterNode.class);
 
-        dropTable("test_hour_transform");
+        // date()
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE date(d) = DATE '2015-05-15'"))
+                .isFullyPushedDown();
+
+        // year()
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE year(d) = 2015"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+
+        // date_trunc
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE date_trunc('hour', d) = TIMESTAMP '2015-05-15 12:00:00'"))
+                .isNotFullyPushedDown(FilterNode.class);  // TODO convert into range
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE date_trunc('day', d) = DATE '2015-05-15'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE date_trunc('month', d) = DATE '2015-05-01'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE date_trunc('year', d) = DATE '2015-01-01'"))
+                .isFullyPushedDown();
+
+        assertUpdate("DROP TABLE test_hour_transform_timestamp");
+    }
+
+    @Test
+    public void testHourTransformTimestampWithTimeZone()
+    {
+        assertUpdate("CREATE TABLE test_hour_transform_timestamptz (d timestamp(6) with time zone, b integer) WITH (partitioning = ARRAY['hour(d)'])");
+
+        @Language("SQL") String values = "VALUES " +
+                "(NULL, 101)," +
+                "(TIMESTAMP '1969-12-31 22:22:22.222222 UTC', 8)," +
+                "(TIMESTAMP '1969-12-31 23:33:11.456789 UTC', 9)," +
+                "(TIMESTAMP '1969-12-31 23:44:55.567890 UTC', 10)," +
+                "(TIMESTAMP '1970-01-01 00:55:44.765432 UTC', 11)," +
+                "(TIMESTAMP '2015-01-01 10:01:23.123456 UTC', 1)," +
+                "(TIMESTAMP '2015-01-01 10:10:02.987654 UTC', 2)," +
+                "(TIMESTAMP '2015-01-01 10:55:00.456789 UTC', 3)," +
+                "(TIMESTAMP '2015-05-15 12:05:01.234567 UTC', 4)," +
+                "(TIMESTAMP '2015-05-15 12:21:02.345678 UTC', 5)," +
+                "(TIMESTAMP '2020-02-21 13:11:11.876543 UTC', 6)," +
+                "(TIMESTAMP '2020-02-21 13:12:12.654321 UTC', 7)";
+        assertUpdate("INSERT INTO test_hour_transform_timestamptz " + values, 12);
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz"))
+                .matches(values);
+
+        @Language("SQL") String expected = "VALUES " +
+                "(NULL, BIGINT '1', NULL, NULL, 101, 101), " +
+                "(-2, 1, TIMESTAMP '1969-12-31 22:22:22.222222 UTC', TIMESTAMP '1969-12-31 22:22:22.222222 UTC', 8, 8), " +
+                "(-1, 2, TIMESTAMP '1969-12-31 23:33:11.456789 UTC', TIMESTAMP '1969-12-31 23:44:55.567890 UTC', 9, 10), " +
+                "(0, 1, TIMESTAMP '1970-01-01 00:55:44.765432 UTC', TIMESTAMP '1970-01-01 00:55:44.765432 UTC', 11, 11), " +
+                "(394474, 3, TIMESTAMP '2015-01-01 10:01:23.123456 UTC', TIMESTAMP '2015-01-01 10:55:00.456789 UTC', 1, 3), " +
+                "(397692, 2, TIMESTAMP '2015-05-15 12:05:01.234567 UTC', TIMESTAMP '2015-05-15 12:21:02.345678 UTC', 4, 5), " +
+                "(439525, 2, TIMESTAMP '2020-02-21 13:11:11.876543 UTC', TIMESTAMP '2020-02-21 13:12:12.654321 UTC', 6, 7)";
+        String expectedTimestampStats = "NULL, NULL, 0.0833333e0, NULL, '1969-12-31 22:22:22.222 UTC', '2020-02-21 13:12:12.654 UTC'";
+        String expectedBigIntStats = "NULL, NULL, 0e0, NULL, '1', '101'";
+        if (format == ORC) {
+            expected = "VALUES " +
+                    "(NULL, BIGINT '1', NULL, NULL, 101, 101), " +
+                    "(-2, 1, TIMESTAMP '1969-12-31 22:22:22.222000 UTC', TIMESTAMP '1969-12-31 22:22:22.222999 UTC', 8, 8), " +
+                    "(-1, 2, TIMESTAMP '1969-12-31 23:33:11.456000 UTC', TIMESTAMP '1969-12-31 23:44:55.567999 UTC', 9, 10), " +
+                    "(0, 1, TIMESTAMP '1970-01-01 00:55:44.765000 UTC', TIMESTAMP '1970-01-01 00:55:44.765999 UTC', 11, 11), " +
+                    "(394474, 3, TIMESTAMP '2015-01-01 10:01:23.123000 UTC', TIMESTAMP '2015-01-01 10:55:00.456999 UTC', 1, 3), " +
+                    "(397692, 2, TIMESTAMP '2015-05-15 12:05:01.234000 UTC', TIMESTAMP '2015-05-15 12:21:02.345999 UTC', 4, 5), " +
+                    "(439525, 2, TIMESTAMP '2020-02-21 13:11:11.876000 UTC', TIMESTAMP '2020-02-21 13:12:12.654999 UTC', 6, 7)";
+            expectedTimestampStats = "NULL, NULL, 0.0833333e0, NULL, '1969-12-31 22:22:22.222 UTC', '2020-02-21 13:12:12.654 UTC'";
+        }
+        else if (format == AVRO) {
+            expected = "VALUES " +
+                    "(NULL, BIGINT '1', CAST(NULL AS timestamp(6) with time zone), CAST(NULL AS timestamp(6) with time zone), CAST(NULL AS integer), CAST(NULL AS integer)), " +
+                    "(-2, 1, NULL, NULL, NULL, NULL), " +
+                    "(-1, 2, NULL, NULL, NULL, NULL), " +
+                    "(0, 1, NULL, NULL, NULL, NULL), " +
+                    "(394474, 3, NULL, NULL, NULL, NULL), " +
+                    "(397692, 2, NULL, NULL, NULL, NULL), " +
+                    "(439525, 2, NULL, NULL, NULL, NULL)";
+            expectedTimestampStats = "NULL, NULL, NULL, NULL, NULL, NULL";
+            expectedBigIntStats = "NULL, NULL, NULL, NULL, NULL, NULL";
+        }
+
+        assertThat(query("SELECT partition.d_hour, record_count, data.d.min, data.d.max, data.b.min, data.b.max FROM \"test_hour_transform_timestamptz$partitions\""))
+                .matches(expected);
+
+        // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE day_of_week(d) = 3 AND b % 7 = 3"))
+                .matches("VALUES (TIMESTAMP '1969-12-31 23:44:55.567890 UTC', 10)");
+
+        assertThat(query("SHOW STATS FOR test_hour_transform_timestamptz"))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('d', " + expectedTimestampStats + "), " +
+                        "  ('b', " + expectedBigIntStats + "), " +
+                        "  (NULL, NULL, NULL, NULL, 12e0, NULL, NULL)");
+
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE d IS NULL"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE d >= DATE '2015-05-15'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE CAST(d AS date) >= DATE '2015-05-15'"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE d >= TIMESTAMP '2015-05-15 12:00:00 UTC'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE d >= TIMESTAMP '2015-05-15 12:00:00.000001 UTC'"))
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // date()
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE date(d) = DATE '2015-05-15'"))
+                .isFullyPushedDown();
+
+        // year()
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE year(d) = 2015"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+
+        // date_trunc
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE date_trunc('hour', d) = TIMESTAMP '2015-05-15 12:00:00.000000 UTC'"))
+                .isNotFullyPushedDown(FilterNode.class);  // TODO convert into range
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE date_trunc('day', d) = TIMESTAMP '2015-05-15 00:00:00.000000 UTC'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE date_trunc('month', d) = TIMESTAMP '2015-05-01 00:00:00.000000 UTC'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE date_trunc('year', d) = TIMESTAMP '2015-01-01 00:00:00.000000 UTC'"))
+                .isFullyPushedDown();
+
+        assertUpdate("DROP TABLE test_hour_transform_timestamptz");
     }
 
     @Test
