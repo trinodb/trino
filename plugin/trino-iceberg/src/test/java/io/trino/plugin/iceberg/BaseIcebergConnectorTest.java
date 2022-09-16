@@ -164,23 +164,15 @@ public abstract class BaseIcebergConnectorTest
     {
         switch (connectorBehavior) {
             case SUPPORTS_TOPN_PUSHDOWN:
-                return false;
-
-            case SUPPORTS_CREATE_VIEW:
-                return true;
-
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
-            case SUPPORTS_RENAME_MATERIALIZED_VIEW:
-                return true;
             case SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS:
                 return false;
-
+            case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
+            case SUPPORTS_RENAME_MATERIALIZED_VIEW:
+            case SUPPORTS_COMMENT_ON_VIEW:
             case SUPPORTS_DELETE:
             case SUPPORTS_UPDATE:
             case SUPPORTS_MERGE:
-                return true;
-
-            case SUPPORTS_COMMENT_ON_VIEW:
                 return true;
             default:
                 return super.hasBehavior(connectorBehavior);
