@@ -5,8 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <!-- TODO remove dep.slf4j.version after upgrading to airbase 129 -->
-        <version>128</version>
+        <version>129</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -51,7 +50,6 @@
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.11.1</dep.antlr.version>
         <dep.airlift.version>218</dep.airlift.version>
-        <dep.slf4j.version>1.7.36</dep.slf4j.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.aws-sdk.version>1.12.172</dep.aws-sdk.version>
         <dep.okhttp.version>3.14.9</dep.okhttp.version>
@@ -1803,7 +1801,7 @@
             <dependency>
                 <groupId>org.yaml</groupId>
                 <artifactId>snakeyaml</artifactId>
-                <version>1.30</version>
+                <version>1.31</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
