@@ -37,8 +37,8 @@ import static java.lang.String.format;
 /**
  * Tests metadata operations on a schema which has a mix of Hive and Delta Lake tables.
  * <p>
- * Requires AWS credentials, which can be provided any way supported by the DefaultProviderChain.
- * See <a href="https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default">Using the Default Credential Provider Chain</a>
+ * Requires AWS credentials, which can be provided any way supported by the DefaultProviderChain
+ * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
  */
 public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
         extends BaseDeltaLakeSharedMetastoreWithTableRedirectionsTest

@@ -170,7 +170,7 @@ public class TestIcebergBucketing
     }
 
     /**
-     * Test example values from <a href="https://iceberg.apache.org/spec/#appendix-b-32-bit-hash-requirements">here</a>
+     * Test example values from https://iceberg.apache.org/spec/#appendix-b-32-bit-hash-requirements
      */
     @Test
     public void testBucketingSpecValues()
