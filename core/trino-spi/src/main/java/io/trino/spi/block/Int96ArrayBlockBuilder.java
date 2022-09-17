@@ -216,7 +216,7 @@ public class Int96ArrayBlockBuilder
         consumer.accept(high, sizeOf(high));
         consumer.accept(low, sizeOf(low));
         consumer.accept(valueIsNull, sizeOf(valueIsNull));
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override

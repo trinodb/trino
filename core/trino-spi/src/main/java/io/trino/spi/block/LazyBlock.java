@@ -210,7 +210,7 @@ public class LazyBlock
     public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         getBlock().retainedBytesForEachPart(consumer);
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override

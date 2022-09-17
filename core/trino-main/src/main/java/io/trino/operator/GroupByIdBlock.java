@@ -206,7 +206,7 @@ public class GroupByIdBlock
     public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(block, block.getRetainedSizeInBytes());
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override

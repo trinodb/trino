@@ -251,7 +251,7 @@ public class MapBlock
             consumer.accept(mapIsNull, sizeOf(mapIsNull));
         }
         consumer.accept(hashTables, hashTables.getRetainedSizeInBytes());
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
