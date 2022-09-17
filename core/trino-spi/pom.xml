@@ -179,12 +179,8 @@
                                         <match>@java.lang.Deprecated(*) ^*;</match>
                                     </old>
                                 </item>
-                                <!-- Backwards incompatible changes since the previous release (395) -->
-                                <!-- Any exclusions below can be deleted after each release -->
-                                <item>
-                                    <code>java.method.returnTypeChanged</code>
-                                    <new>method io.trino.spi.block.Block io.trino.spi.block.ArrayBlockBuilder::build()</new>
-                                </item>
+                                <!-- Backwards incompatible changes since the previous release -->
+                                <!-- Any exclusions below can be deleted after each release (last cleared after 396) -->
                                 <item>
                                     <code>java.method.visibilityReduced</code>
                                     <old>method void io.trino.spi.block.DictionaryBlock::&lt;init&gt;(int, int, io.trino.spi.block.Block, int[], boolean, boolean, io.trino.spi.block.DictionaryId)</old>
