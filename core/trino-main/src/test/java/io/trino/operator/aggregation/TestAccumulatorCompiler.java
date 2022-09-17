@@ -42,6 +42,7 @@ import java.lang.reflect.Constructor;
 import java.util.Optional;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.operator.aggregation.AccumulatorCompiler.generateAccumulatorFactory;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
@@ -55,13 +56,26 @@ public class TestAccumulatorCompiler
     @Test
     public void testAccumulatorCompilerForTypeSpecificObjectParameter()
     {
+        testAccumulatorCompilerForTypeSpecificObjectParameter(true);
+        testAccumulatorCompilerForTypeSpecificObjectParameter(false);
+    }
+
+    private void testAccumulatorCompilerForTypeSpecificObjectParameter(boolean specializedLoops)
+    {
         TimestampType parameterType = TimestampType.TIMESTAMP_NANOS;
         assertThat(parameterType.getJavaType()).isEqualTo(LongTimestamp.class);
-        assertGenerateAccumulator(LongTimestampAggregation.class, LongTimestampAggregationState.class);
+        assertGenerateAccumulator(LongTimestampAggregation.class, LongTimestampAggregationState.class, specializedLoops);
     }
 
     @Test
     public void testAccumulatorCompilerForTypeSpecificObjectParameterSeparateClassLoader()
+            throws Exception
+    {
+        testAccumulatorCompilerForTypeSpecificObjectParameterSeparateClassLoader(true);
+        testAccumulatorCompilerForTypeSpecificObjectParameterSeparateClassLoader(false);
+    }
+
+    private void testAccumulatorCompilerForTypeSpecificObjectParameterSeparateClassLoader(boolean specializedLoops)
             throws Exception
     {
         TimestampType parameterType = TimestampType.TIMESTAMP_NANOS;
@@ -80,10 +94,10 @@ public class TestAccumulatorCompiler
         assertThat(aggregation.getCanonicalName()).isEqualTo(LongTimestampAggregation.class.getCanonicalName());
         assertThat(aggregation).isNotSameAs(LongTimestampAggregation.class);
 
-        assertGenerateAccumulator(aggregation, stateInterface);
+        assertGenerateAccumulator(aggregation, stateInterface, specializedLoops);
     }
 
-    private static <S extends AccumulatorState, A> void assertGenerateAccumulator(Class<A> aggregation, Class<S> stateInterface)
+    private static <S extends AccumulatorState, A> void assertGenerateAccumulator(Class<A> aggregation, Class<S> stateInterface, boolean specializedLoops)
     {
         AccumulatorStateSerializer<S> stateSerializer = StateCompiler.generateStateSerializer(stateInterface);
         AccumulatorStateFactory<S> stateFactory = StateCompiler.generateStateFactory(stateInterface);
@@ -105,7 +119,7 @@ public class TestAccumulatorCompiler
         FunctionNullability functionNullability = new FunctionNullability(false, ImmutableList.of(false));
 
         // test if we can compile aggregation
-        AccumulatorFactory accumulatorFactory = AccumulatorCompiler.generateAccumulatorFactory(signature, implementation, functionNullability);
+        AccumulatorFactory accumulatorFactory = generateAccumulatorFactory(signature, implementation, functionNullability, specializedLoops);
         assertThat(accumulatorFactory).isNotNull();
 
         // compile window aggregation
