@@ -391,11 +391,6 @@ public final class Checkpoints
             this.positionsList = ImmutableList.copyOf(requireNonNull(positionsList, "positionsList is null"));
         }
 
-        public int getIndex()
-        {
-            return index;
-        }
-
         public boolean hasNextPosition()
         {
             return index < positionsList.size();
