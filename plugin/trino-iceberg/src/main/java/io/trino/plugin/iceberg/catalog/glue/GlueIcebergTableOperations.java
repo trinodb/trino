@@ -18,6 +18,8 @@ import com.amazonaws.services.glue.model.ConcurrentModificationException;
 import com.amazonaws.services.glue.model.CreateTableRequest;
 import com.amazonaws.services.glue.model.EntityNotFoundException;
 import com.amazonaws.services.glue.model.GetTableRequest;
+import com.amazonaws.services.glue.model.InvalidInputException;
+import com.amazonaws.services.glue.model.ResourceNumberLimitExceededException;
 import com.amazonaws.services.glue.model.Table;
 import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
@@ -30,6 +32,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.exceptions.CommitFailedException;
+import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.io.FileIO;
 
 import javax.annotation.Nullable;
@@ -130,7 +133,16 @@ public class GlueIcebergTableOperations
         }
         catch (ConcurrentModificationException e) {
             // CommitFailedException is handled as a special case in the Iceberg library. This commit will automatically retry
-            throw new CommitFailedException(e, "Failed to commit to Glue table due to concurrent updates: %s.%s", database, tableName);
+            throw new CommitFailedException(e, "Failed to commit to Glue table: %s.%s", database, tableName);
+        }
+        catch (EntityNotFoundException | InvalidInputException | ResourceNumberLimitExceededException e) {
+            // Signal a non-retriable commit failure and eventually clean up metadata files corresponding to the current transaction
+            throw e;
+        }
+        catch (RuntimeException e) {
+            // Cannot determine whether the `updateTable` operation was successful,
+            // regardless of the exception thrown (e.g. : timeout exception) or it actually failed
+            throw new CommitStateUnknownException(e);
         }
         shouldRefresh = true;
     }
