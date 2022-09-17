@@ -796,6 +796,20 @@
                                     <old>method io.trino.spi.block.Block io.trino.spi.type.MapType::createBlockFromKeyValue(java.util.Optional&lt;boolean[]&gt;, int[], io.trino.spi.block.Block, io.trino.spi.block.Block)</old>
                                     <new>method io.trino.spi.block.MapBlock io.trino.spi.type.MapType::createBlockFromKeyValue(java.util.Optional&lt;boolean[]&gt;, int[], io.trino.spi.block.Block, io.trino.spi.block.Block)</new>
                                 </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method int[] io.trino.spi.block.DictionaryBlock::getRawIds()</old>
+                                    <new>method int[] io.trino.spi.block.DictionaryBlock::getRawIds()</new>
+                                    <oldVisibility>package</oldVisibility>
+                                    <newVisibility>public</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method int io.trino.spi.block.DictionaryBlock::getRawIdsOffset()</old>
+                                    <new>method int io.trino.spi.block.DictionaryBlock::getRawIdsOffset()</new>
+                                    <oldVisibility>package</oldVisibility>
+                                    <newVisibility>public</newVisibility>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

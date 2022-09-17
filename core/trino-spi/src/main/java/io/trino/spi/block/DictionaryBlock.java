@@ -124,12 +124,12 @@ public class DictionaryBlock
         this.isSequentialIds = isSequentialIds;
     }
 
-    int[] getRawIds()
+    public int[] getRawIds()
     {
         return ids;
     }
 
-    int getRawIdsOffset()
+    public int getRawIdsOffset()
     {
         return idsOffset;
     }
