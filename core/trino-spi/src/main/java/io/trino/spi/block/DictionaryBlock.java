@@ -392,7 +392,7 @@ public class DictionaryBlock
     {
         consumer.accept(dictionary, dictionary.getRetainedSizeInBytes());
         consumer.accept(ids, sizeOf(ids));
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override

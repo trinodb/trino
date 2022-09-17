@@ -66,7 +66,7 @@ public class SingleArrayBlockWriter
     public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(blockBuilder, blockBuilder.getRetainedSizeInBytes());
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override

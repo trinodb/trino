@@ -92,7 +92,7 @@ public class SingleMapBlockWriter
     {
         consumer.accept(keyBlockBuilder, keyBlockBuilder.getRetainedSizeInBytes());
         consumer.accept(valueBlockBuilder, valueBlockBuilder.getRetainedSizeInBytes());
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
