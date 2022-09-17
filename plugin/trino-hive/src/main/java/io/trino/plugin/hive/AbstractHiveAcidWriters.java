@@ -76,7 +76,6 @@ public abstract class AbstractHiveAcidWriters
     private final OrcFileWriterFactory orcFileWriterFactory;
     private final Configuration configuration;
     protected final ConnectorSession session;
-    protected final HiveType hiveRowType;
     private final AcidOperation updateKind;
     private final Properties hiveAcidSchema;
     protected final Block hiveRowTypeNullsBlock;
@@ -111,7 +110,6 @@ public abstract class AbstractHiveAcidWriters
         this.configuration = requireNonNull(configuration, "configuration is null");
         this.session = requireNonNull(session, "session is null");
         checkArgument(transaction.isTransactional(), "Not in a transaction: %s", transaction);
-        this.hiveRowType = requireNonNull(hiveRowType, "hiveRowType is null");
         this.updateKind = requireNonNull(updateKind, "updateKind is null");
         this.hiveAcidSchema = createAcidSchema(hiveRowType);
         this.hiveRowTypeNullsBlock = nativeValueToBlock(hiveRowType.getType(typeManager), null);
