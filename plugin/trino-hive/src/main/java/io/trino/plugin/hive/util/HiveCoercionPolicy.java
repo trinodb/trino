@@ -61,7 +61,7 @@ public final class HiveCoercionPolicy
                     toHiveType.equals(HIVE_LONG);
         }
         if (toType instanceof VarcharType) {
-            return fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG);
+            return fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG) || fromType instanceof DecimalType;
         }
         if (fromHiveType.equals(HIVE_BYTE)) {
             return toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG);

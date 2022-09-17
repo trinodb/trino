@@ -78,6 +78,7 @@ import static io.trino.plugin.hive.HiveType.HIVE_SHORT;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToDecimalCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToDoubleCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToRealCoercer;
+import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToVarcharCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDoubleToDecimalCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createRealToDecimalCoercer;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucket;
@@ -336,6 +337,9 @@ public class HivePageSource
         }
         if (fromType instanceof DecimalType && toType == REAL) {
             return Optional.of(createDecimalToRealCoercer((DecimalType) fromType));
+        }
+        if (fromType instanceof DecimalType && toType instanceof VarcharType) {
+            return Optional.of(createDecimalToVarcharCoercer((DecimalType) fromType, (VarcharType) toType));
         }
         if (fromType == DOUBLE && toType instanceof DecimalType) {
             return Optional.of(createDoubleToDecimalCoercer((DecimalType) toType));
