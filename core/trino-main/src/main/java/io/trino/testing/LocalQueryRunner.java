@@ -160,6 +160,7 @@ import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.LogicalPlanner;
@@ -952,7 +953,8 @@ public class LocalQueryRunner
                 new DynamicFilterConfig(),
                 blockTypeOperators,
                 tableExecuteContextManager,
-                exchangeManagerRegistry);
+                exchangeManagerRegistry,
+                new CompilerConfig());
 
         // plan query
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(

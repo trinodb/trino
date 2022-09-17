@@ -71,6 +71,8 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.not;
+import static io.trino.operator.aggregation.AggregationLoopBuilder.buildLoop;
+import static io.trino.operator.aggregation.AggregationLoopBuilder.toGroupedInputFunction;
 import static io.trino.operator.aggregation.AggregationMaskCompiler.generateAggregationMaskBuilder;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
@@ -87,7 +89,8 @@ public final class AccumulatorCompiler
     public static AccumulatorFactory generateAccumulatorFactory(
             BoundSignature boundSignature,
             AggregationImplementation implementation,
-            FunctionNullability functionNullability)
+            FunctionNullability functionNullability,
+            boolean specializedLoops)
     {
         // change types used in Aggregation methods to types used in the core Trino engine to simplify code generation
         implementation = normalizeAggregationMethods(implementation);
@@ -102,14 +105,16 @@ public final class AccumulatorCompiler
                 Accumulator.class,
                 implementation,
                 argumentNullable,
-                classLoader);
+                classLoader,
+                specializedLoops);
 
         Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor = generateAccumulatorClass(
                 boundSignature,
                 GroupedAccumulator.class,
                 implementation,
                 argumentNullable,
-                classLoader);
+                classLoader,
+                specializedLoops);
 
         List<Integer> nonNullArguments = new ArrayList<>();
         for (int argumentIndex = 0; argumentIndex < argumentNullable.size(); argumentIndex++) {
@@ -131,7 +136,8 @@ public final class AccumulatorCompiler
             Class<T> accumulatorInterface,
             AggregationImplementation implementation,
             List<Boolean> argumentNullable,
-            DynamicClassLoader classLoader)
+            DynamicClassLoader classLoader,
+            boolean specializedLoops)
     {
         boolean grouped = accumulatorInterface == GroupedAccumulator.class;
 
@@ -179,6 +185,7 @@ public final class AccumulatorCompiler
 
         generateAddInput(
                 definition,
+                specializedLoops,
                 stateFields,
                 argumentNullable,
                 lambdaProviderFields,
@@ -359,6 +366,7 @@ public final class AccumulatorCompiler
 
     private static void generateAddInput(
             ClassDefinition definition,
+            boolean specializedLoops,
             List<FieldDefinition> stateField,
             List<Boolean> argumentNullable,
             List<FieldDefinition> lambdaProviderFields,
@@ -391,6 +399,7 @@ public final class AccumulatorCompiler
         }
 
         BytecodeBlock block = generateInputForLoop(
+                specializedLoops,
                 stateField,
                 inputFunction,
                 scope,
@@ -499,6 +508,7 @@ public final class AccumulatorCompiler
     }
 
     private static BytecodeBlock generateInputForLoop(
+            boolean specializedLoops,
             List<FieldDefinition> stateField,
             MethodHandle inputFunction,
             Scope scope,
@@ -508,6 +518,33 @@ public final class AccumulatorCompiler
             CallSiteBinder callSiteBinder,
             boolean grouped)
     {
+        if (specializedLoops) {
+            if (grouped) {
+                inputFunction = toGroupedInputFunction(inputFunction, stateField.size());
+            }
+            BytecodeBlock newBlock = new BytecodeBlock();
+            Variable thisVariable = scope.getThis();
+
+            MethodHandle mainLoop = buildLoop(inputFunction, stateField.size(), parameterVariables.size() + (grouped ? 1 : 0), lambdaProviderFields.size());
+
+            ImmutableList.Builder<BytecodeExpression> parameters = ImmutableList.builder();
+            parameters.add(mask);
+            for (FieldDefinition fieldDefinition : stateField) {
+                parameters.add(thisVariable.getField(fieldDefinition));
+            }
+            if (grouped) {
+                parameters.add(scope.getVariable("groupIdsBlock"));
+            }
+            parameters.addAll(parameterVariables);
+            for (FieldDefinition lambdaProviderField : lambdaProviderFields) {
+                parameters.add(scope.getThis().getField(lambdaProviderField)
+                        .invoke("get", Object.class));
+            }
+
+            newBlock.append(invoke(callSiteBinder.bind(mainLoop), "mainLoop", parameters.build()));
+            return newBlock;
+        }
+
         // For-loop over rows
         Variable positionVariable = scope.declareVariable(int.class, "position");
         Variable rowsVariable = scope.declareVariable(int.class, "rows");
