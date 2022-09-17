@@ -182,6 +182,10 @@
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release (last cleared after 396) -->
                                 <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.type.TypeSignature io.trino.spi.type.VarcharType::getParametrizedVarcharSignature(java.lang.String)</old>
+                                </item>
+                                <item>
                                     <code>java.method.visibilityReduced</code>
                                     <old>method void io.trino.spi.block.DictionaryBlock::&lt;init&gt;(int, int, io.trino.spi.block.Block, int[], boolean, boolean, io.trino.spi.block.DictionaryId)</old>
                                     <new>method void io.trino.spi.block.DictionaryBlock::&lt;init&gt;(int, int, io.trino.spi.block.Block, int[], boolean, boolean, io.trino.spi.block.DictionaryId)</new>
