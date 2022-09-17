@@ -127,10 +127,14 @@ public class TestHiveCoercion
                         "    longdecimal_to_longdecimal            DECIMAL(20,12)," +
                         //"    float_to_decimal           " + floatType + "," + // this coercion is not permitted in Hive 3. TODO test this on Hive < 3.
                         //"    double_to_decimal          DOUBLE," + // this coercion is not permitted in Hive 3. TODO test this on Hive < 3.
-                        "    decimal_to_float           DECIMAL(10,5)," +
-                        "    decimal_to_double          DECIMAL(10,5)," +
-                        "    varchar_to_bigger_varchar  VARCHAR(3)," +
-                        "    varchar_to_smaller_varchar VARCHAR(3)" +
+                        "    decimal_to_float                   DECIMAL(10,5)," +
+                        "    decimal_to_double                  DECIMAL(10,5)," +
+                        "    short_decimal_to_varchar           DECIMAL(10,5)," +
+                        "    long_decimal_to_varchar            DECIMAL(20,12)," +
+                        "    short_decimal_to_bounded_varchar   DECIMAL(10,5)," +
+                        "    long_decimal_to_bounded_varchar    DECIMAL(20,12)," +
+                        "    varchar_to_bigger_varchar          VARCHAR(3)," +
+                        "    varchar_to_smaller_varchar         VARCHAR(3)" +
                         ") " +
                         "PARTITIONED BY (id BIGINT) " +
                         rowFormat.map(s -> format("ROW FORMAT %s ", s)).orElse("") +
@@ -306,6 +310,10 @@ public class TestHiveCoercion
                 // "double_to_decimal",
                 "decimal_to_float",
                 "decimal_to_double",
+                "short_decimal_to_varchar",
+                "long_decimal_to_varchar",
+                "short_decimal_to_bounded_varchar",
+                "long_decimal_to_bounded_varchar",
                 "varchar_to_bigger_varchar",
                 "varchar_to_smaller_varchar",
                 "id");
@@ -349,6 +357,10 @@ public class TestHiveCoercion
                         //"  DOUBLE '12345.12345', " +
                         "  DECIMAL '12345.12345', " +
                         "  DECIMAL '12345.12345', " +
+                        "  DECIMAL '12345.12345', " +
+                        "  DECIMAL '12345678.123456123456', " +
+                        "  DECIMAL '12345.12345', " +
+                        "  DECIMAL '12345678.123456123456', " +
                         "  'abc', " +
                         "  'abc', " +
                         "  1), " +
@@ -373,6 +385,10 @@ public class TestHiveCoercion
                         //"  DOUBLE '-12345.12345', " +
                         "  DECIMAL '-12345.12345', " +
                         "  DECIMAL '-12345.12345', " +
+                        "  DECIMAL '-12345.12345', " +
+                        "  DECIMAL '-12345678.123456123456', " +
+                        "  DECIMAL '-12345.12345', " +
+                        "  DECIMAL '-12345678.123456123456', " +
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
                         "  1)",
@@ -480,6 +496,18 @@ public class TestHiveCoercion
                 .put("decimal_to_double", Arrays.asList(
                         12345.12345,
                         -12345.12345))
+                .put("short_decimal_to_varchar", Arrays.asList(
+                        "12345.12345",
+                        "-12345.12345"))
+                .put("long_decimal_to_varchar", Arrays.asList(
+                        "12345678.123456123456",
+                        "-12345678.123456123456"))
+                .put("short_decimal_to_bounded_varchar", Arrays.asList(
+                        "12345.12345",
+                        "12345.12345"))
+                .put("long_decimal_to_bounded_varchar", Arrays.asList(
+                        "12345678.123456123456",
+                        "-12345678.123456123456"))
                 .put("varchar_to_bigger_varchar", Arrays.asList(
                         "abc",
                         "\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0"))
@@ -637,6 +665,10 @@ public class TestHiveCoercion
                 //row("double_to_decimal", "decimal(10,5)"),
                 row("decimal_to_float", floatType),
                 row("decimal_to_double", "double"),
+                row("short_decimal_to_varchar", "varchar"),
+                row("long_decimal_to_varchar", "varchar"),
+                row("short_decimal_to_bounded_varchar", "varchar(30)"),
+                row("long_decimal_to_bounded_varchar", "varchar(30)"),
                 row("varchar_to_bigger_varchar", "varchar(4)"),
                 row("varchar_to_smaller_varchar", "varchar(2)"),
                 row("id", "bigint"));
@@ -677,6 +709,10 @@ public class TestHiveCoercion
                 //.put("double_to_decimal", DECIMAL)
                 .put("decimal_to_float", floatType)
                 .put("decimal_to_double", DOUBLE)
+                .put("short_decimal_to_varchar", VARCHAR)
+                .put("long_decimal_to_varchar", VARCHAR)
+                .put("short_decimal_to_bounded_varchar", VARCHAR)
+                .put("long_decimal_to_bounded_varchar", VARCHAR)
                 .put("varchar_to_bigger_varchar", VARCHAR)
                 .put("varchar_to_smaller_varchar", VARCHAR)
                 .put("id", BIGINT)
@@ -710,6 +746,10 @@ public class TestHiveCoercion
         //onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_decimal double_to_decimal DECIMAL(10,5)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN decimal_to_float decimal_to_float %s", tableName, floatType));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN decimal_to_double decimal_to_double double", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN short_decimal_to_varchar short_decimal_to_varchar string", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN long_decimal_to_varchar long_decimal_to_varchar string", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN short_decimal_to_bounded_varchar short_decimal_to_bounded_varchar varchar(30)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN long_decimal_to_bounded_varchar long_decimal_to_bounded_varchar varchar(30)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_bigger_varchar varchar_to_bigger_varchar varchar(4)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_smaller_varchar varchar_to_smaller_varchar varchar(2)", tableName));
     }
