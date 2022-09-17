@@ -183,7 +183,7 @@ public class TrinoResultSet
                     }
                 }
                 catch (InterruptedException e) {
-                    interrupt(e);
+                    handleInterrupt(e);
                 }
                 finally {
                     semaphore.release();
@@ -199,7 +199,7 @@ public class TrinoResultSet
             cleanup();
         }
 
-        public void interrupt(InterruptedException e)
+        private void handleInterrupt(InterruptedException e)
         {
             cleanup();
             Thread.currentThread().interrupt();
@@ -234,7 +234,7 @@ public class TrinoResultSet
                 semaphore.acquire();
             }
             catch (InterruptedException e) {
-                interrupt(e);
+                handleInterrupt(e);
             }
             if (rowQueue.isEmpty()) {
                 // If we got here and the queue is empty the thread fetching from the underlying iterator is done.
@@ -243,7 +243,7 @@ public class TrinoResultSet
                     future.get();
                 }
                 catch (InterruptedException e) {
-                    interrupt(e);
+                    handleInterrupt(e);
                 }
                 catch (ExecutionException e) {
                     throwIfUnchecked(e.getCause());
