@@ -150,7 +150,7 @@ public class RowBlockBuilder
         }
         consumer.accept(fieldBlockOffsets, sizeOf(fieldBlockOffsets));
         consumer.accept(rowIsNull, sizeOf(rowIsNull));
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
