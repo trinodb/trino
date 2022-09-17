@@ -47,7 +47,7 @@ public class TestRunLengthEncodedBlock
         for (int position = 0; position < positionCount; position++) {
             expectedValues[position] = expectedValue;
         }
-        assertBlock(block, TestRunLengthEncodedBlock::createBlockBuilder, expectedValues);
+        assertBlock(block, expectedValues);
     }
 
     private static Block createSingleValueBlock(Slice expectedValue)
