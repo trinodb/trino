@@ -16,7 +16,6 @@ package io.trino.testing.containers;
 
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.PortBinding;
-import com.google.common.collect.ImmutableList;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.TestcontainersConfiguration;
 
@@ -69,12 +68,10 @@ public final class TestContainers
                 "This method is supposed to be invoked from local development helpers only e.g. QueryRunner.main(), " +
                 "hence it should never run on CI");
 
-        ImmutableList<PortBinding> portBindings = container.getExposedPorts().stream()
-                .map(exposedPort -> new PortBinding(bindPort(exposedPort), new ExposedPort(exposedPort)))
-                .collect(toImmutableList());
-
         container.withCreateContainerCmdModifier(cmd -> cmd
                 .withHostConfig(requireNonNull(cmd.getHostConfig(), "hostConfig is null")
-                        .withPortBindings(portBindings)));
+                        .withPortBindings(container.getExposedPorts().stream()
+                                .map(exposedPort -> new PortBinding(bindPort(exposedPort), new ExposedPort(exposedPort)))
+                                .collect(toImmutableList()))));
     }
 }
