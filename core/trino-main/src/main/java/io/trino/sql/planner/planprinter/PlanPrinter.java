@@ -42,6 +42,8 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.ptf.Argument;
+import io.trino.spi.ptf.DescriptorArgument;
 import io.trino.spi.ptf.ScalarArgument;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.TableStatisticType;
@@ -104,6 +106,7 @@ import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
+import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
@@ -154,6 +157,7 @@ import static io.airlift.units.Duration.succinctNanos;
 import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
+import static io.trino.spi.ptf.DescriptorArgument.NULL_DESCRIPTOR;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.ExpressionUtils.combineConjunctsWithDuplicates;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -1754,24 +1758,77 @@ public class PlanPrinter
                     ImmutableMap.of("name", node.getName()),
                     context.tag());
 
-            checkArgument(
-                    node.getSources().isEmpty() && node.getTableArgumentProperties().isEmpty(),
-                    "Table or descriptor arguments are not yet supported in PlanPrinter");
+            if (!node.getArguments().isEmpty()) {
+                nodeOutput.appendDetails("Arguments:");
 
-            node.getArguments().entrySet().stream()
-                    .forEach(entry -> nodeOutput.appendDetails(entry.getKey() + " => " + formatArgument((ScalarArgument) entry.getValue())));
+                Map<String, TableArgumentProperties> tableArguments = node.getTableArgumentProperties().stream()
+                        .collect(toImmutableMap(TableArgumentProperties::getArgumentName, identity()));
+
+                node.getArguments().entrySet().stream()
+                        .forEach(entry -> nodeOutput.appendDetails(formatArgument(entry.getKey(), entry.getValue(), tableArguments)));
+
+                if (!node.getCopartitioningLists().isEmpty()) {
+                    nodeOutput.appendDetails(node.getCopartitioningLists().stream()
+                            .map(list -> list.stream().collect(Collectors.joining(", ", "(", ")")))
+                            .collect(joining(", ", "Co-partition: [", "]")));
+                }
+            }
+
+            for (int i = 0; i < node.getSources().size(); i++) {
+                node.getSources().get(i).accept(this, new Context(node.getTableArgumentProperties().get(i).getArgumentName()));
+            }
 
             return null;
         }
 
-        private String formatArgument(ScalarArgument argument)
+        private String formatArgument(String argumentName, Argument argument, Map<String, TableArgumentProperties> tableArguments)
         {
-            return format(
-                    "ScalarArgument{type=%s, value=%s}",
-                    argument.getType(),
-                    anonymizer.anonymize(
-                            argument.getType(),
-                            valuePrinter.castToVarchar(argument.getType(), argument.getValue())));
+            if (argument instanceof ScalarArgument scalarArgument) {
+                return format(
+                        "%s => ScalarArgument{type=%s, value=%s}",
+                        argumentName,
+                        scalarArgument.getType().getDisplayName(),
+                        anonymizer.anonymize(
+                                scalarArgument.getType(),
+                                valuePrinter.castToVarchar(scalarArgument.getType(), scalarArgument.getValue())));
+            }
+            if (argument instanceof DescriptorArgument descriptorArgument) {
+                String descriptor;
+                if (descriptorArgument.equals(NULL_DESCRIPTOR)) {
+                    descriptor = "NULL";
+                }
+                else {
+                    descriptor = descriptorArgument.getDescriptor().orElseThrow().getFields().stream()
+                            .map(field -> anonymizer.anonymizeColumn(field.getName()) + field.getType().map(type -> " " + type.getDisplayName()).orElse(""))
+                            .collect(joining(", ", "(", ")"));
+                }
+                return format("%s => DescriptorArgument{%s}", argumentName, descriptor);
+            }
+            else {
+                TableArgumentProperties argumentProperties = tableArguments.get(argumentName);
+                StringBuilder properties = new StringBuilder();
+                if (argumentProperties.isRowSemantics()) {
+                    properties.append("row semantics");
+                }
+                argumentProperties.getSpecification().ifPresent(specification -> {
+                    properties
+                            .append("partition by: [")
+                            .append(Joiner.on(", ").join(anonymize(specification.getPartitionBy())))
+                            .append("]");
+                    specification.getOrderingScheme().ifPresent(orderingScheme -> {
+                        properties
+                                .append(", order by: ")
+                                .append(formatOrderingScheme(orderingScheme));
+                    });
+                });
+                if (argumentProperties.isPruneWhenEmpty()) {
+                    properties.append(", prune when empty");
+                }
+                if (argumentProperties.isPassThroughColumns()) {
+                    properties.append(", pass through columns");
+                }
+                return format("%s => TableArgument{%s}", argumentName, properties);
+            }
         }
 
         @Override

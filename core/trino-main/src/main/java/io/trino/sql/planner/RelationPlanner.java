@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import io.trino.Session;
@@ -27,11 +28,13 @@ import io.trino.spi.type.Type;
 import io.trino.sql.ExpressionUtils;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
+import io.trino.sql.analyzer.Analysis.TableArgumentAnalysis;
 import io.trino.sql.analyzer.Analysis.TableFunctionInvocationAnalysis;
 import io.trino.sql.analyzer.Analysis.UnnestAnalysis;
 import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
+import io.trino.sql.planner.QueryPlanner.PlanAndMappings;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
@@ -88,9 +91,7 @@ import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
-import io.trino.sql.tree.TableFunctionDescriptorArgument;
 import io.trino.sql.tree.TableFunctionInvocation;
-import io.trino.sql.tree.TableFunctionTableArgument;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
@@ -106,6 +107,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -122,6 +124,7 @@ import static io.trino.sql.planner.QueryPlanner.coerceIfNecessary;
 import static io.trino.sql.planner.QueryPlanner.extractPatternRecognitionExpressions;
 import static io.trino.sql.planner.QueryPlanner.planWindowSpecification;
 import static io.trino.sql.planner.QueryPlanner.pruneInvisibleFields;
+import static io.trino.sql.planner.QueryPlanner.translateOrderingScheme;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -329,46 +332,99 @@ class RelationPlanner
     @Override
     protected RelationPlan visitTableFunctionInvocation(TableFunctionInvocation node, Void context)
     {
-        node.getArguments().stream()
-                .forEach(argument -> {
-                    if (argument.getValue() instanceof TableFunctionTableArgument) {
-                        throw semanticException(NOT_SUPPORTED, argument, "Table arguments are not yet supported for table functions");
-                    }
-                    if (argument.getValue() instanceof TableFunctionDescriptorArgument) {
-                        throw semanticException(NOT_SUPPORTED, argument, "Descriptor arguments are not yet supported for table functions");
-                    }
-                });
-
         TableFunctionInvocationAnalysis functionAnalysis = analysis.getTableFunctionAnalysis(node);
 
-        // TODO handle input relations:
-        // 1. extract the input relations from node.getArguments() and plan them. Apply relation coercions if requested.
-        // 2. for each input relation, prepare the TableArgumentProperties record, consisting of:
-        //  - row or set semantics (from the actualArgument)
-        //  - prune when empty property  (from the actualArgument)
-        //  - pass through columns property (from the actualArgument)
-        //  - optional Specification: ordering scheme and partitioning (from the node's argument) <- planned upon the source's RelationPlan (or combined RelationPlan from all sources)
-        // TODO add - argument name
-        // TODO add - mapping column name => Symbol // TODO mind the fields without names and duplicate field names in RelationType
-        List<RelationPlan> sources = ImmutableList.of();
-        List<TableArgumentProperties> inputRelationsProperties = ImmutableList.of();
+        ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
+        ImmutableList.Builder<TableArgumentProperties> sourceProperties = ImmutableList.builder();
+        ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
 
-        Scope scope = analysis.getScope(node);
-        // TODO pass columns from input relations, and make sure they have the right qualifier
-        List<Symbol> outputSymbols = scope.getRelationType().getAllFields().stream()
+        // create new symbols for table function's proper columns
+        RelationType relationType = analysis.getScope(node).getRelationType();
+        List<Symbol> properOutputs = IntStream.range(0, functionAnalysis.getProperColumnsCount())
+                .mapToObj(relationType::getFieldByIndex)
                 .map(symbolAllocator::newSymbol)
                 .collect(toImmutableList());
+
+        outputSymbols.addAll(properOutputs);
+
+         // process sources in order of argument declarations
+        for (TableArgumentAnalysis tableArgument : functionAnalysis.getTableArgumentAnalyses()) {
+            RelationPlan sourcePlan = process(tableArgument.getRelation(), context);
+            PlanBuilder sourcePlanBuilder = newPlanBuilder(sourcePlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
+
+            // map column names to symbols
+            // note: hidden columns are included in the mapping. They are present both in sourceDescriptor.allFields, and in sourcePlan.fieldMappings
+            // note: for an aliased relation or a CTE, the field names in the relation type are in the same case as specified in the alias.
+            //  quotes and canonicalization rules are not applied.
+            ImmutableMultimap.Builder<String, Symbol> columnMapping = ImmutableMultimap.builder();
+            RelationType sourceDescriptor = sourcePlan.getDescriptor();
+            for (int i = 0; i < sourceDescriptor.getAllFieldCount(); i++) {
+                Optional<String> name = sourceDescriptor.getFieldByIndex(i).getName();
+                if (name.isPresent()) {
+                    columnMapping.put(name.get(), sourcePlan.getSymbol(i));
+                }
+            }
+
+            Optional<DataOrganizationSpecification> specification = Optional.empty();
+
+            // if the table argument has set semantics, create Specification
+            if (!tableArgument.isRowSemantics()) {
+                // partition by
+                List<Symbol> partitionBy = ImmutableList.of();
+                // if there are partitioning columns, they might have to be coerced for copartitioning
+                if (tableArgument.getPartitionBy().isPresent() && !tableArgument.getPartitionBy().get().isEmpty()) {
+                    List<Expression> partitioningColumns = tableArgument.getPartitionBy().get();
+                    PlanAndMappings copartitionCoercions = coerce(sourcePlanBuilder, partitioningColumns, analysis, idAllocator, symbolAllocator, typeCoercion);
+                    sourcePlanBuilder = copartitionCoercions.getSubPlan();
+                    partitionBy = partitioningColumns.stream()
+                            .map(copartitionCoercions::get)
+                            .collect(toImmutableList());
+                }
+
+                // order by
+                Optional<OrderingScheme> orderBy = Optional.empty();
+                if (tableArgument.getOrderBy().isPresent()) {
+                    // the ordering symbols are not coerced
+                    orderBy = Optional.of(translateOrderingScheme(tableArgument.getOrderBy().get().getSortItems(), sourcePlanBuilder::translate));
+                }
+
+                specification = Optional.of(new DataOrganizationSpecification(partitionBy, orderBy));
+            }
+
+            sources.add(sourcePlanBuilder.getRoot());
+            sourceProperties.add(new TableArgumentProperties(
+                    tableArgument.getArgumentName(),
+                    columnMapping.build(),
+                    tableArgument.isRowSemantics(),
+                    tableArgument.isPruneWhenEmpty(),
+                    tableArgument.isPassThroughColumns(),
+                    specification));
+
+            // add output symbols passed from the table argument
+            if (tableArgument.isPassThroughColumns()) {
+                // the original output symbols from the source node, not coerced
+                // note: hidden columns are included. They are present in sourcePlan.fieldMappings
+                outputSymbols.addAll(sourcePlan.getFieldMappings());
+            }
+            else if (tableArgument.getPartitionBy().isPresent()) {
+                tableArgument.getPartitionBy().get().stream()
+                        // the original symbols for partitioning columns, not coerced
+                        .map(sourcePlanBuilder::translate)
+                        .forEach(outputSymbols::add);
+            }
+        }
 
         PlanNode root = new TableFunctionNode(
                 idAllocator.getNextId(),
                 functionAnalysis.getFunctionName(),
                 functionAnalysis.getArguments(),
-                outputSymbols,
-                sources.stream().map(RelationPlan::getRoot).collect(toImmutableList()),
-                inputRelationsProperties,
+                properOutputs,
+                sources.build(),
+                sourceProperties.build(),
+                functionAnalysis.getCopartitioningLists(),
                 new TableFunctionHandle(functionAnalysis.getCatalogHandle(), functionAnalysis.getConnectorTableFunctionHandle(), functionAnalysis.getTransactionHandle()));
 
-        return new RelationPlan(root, scope, outputSymbols, outerContext);
+        return new RelationPlan(root, analysis.getScope(node), outputSymbols.build(), outerContext);
     }
 
     @Override

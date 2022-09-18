@@ -1414,7 +1414,7 @@ class QueryPlanner
                 .collect(toImmutableList());
     }
 
-    private static OrderingScheme translateOrderingScheme(List<SortItem> items, Function<Expression, Symbol> coercions)
+    public static OrderingScheme translateOrderingScheme(List<SortItem> items, Function<Expression, Symbol> coercions)
     {
         List<Symbol> coerced = items.stream()
                 .map(SortItem::getSortKey)

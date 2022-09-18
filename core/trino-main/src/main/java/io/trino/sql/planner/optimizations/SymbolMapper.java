@@ -240,7 +240,7 @@ public class SymbolMapper
                 frame.getOriginalEndValue());
     }
 
-    private DataOrganizationSpecification mapAndDistinct(DataOrganizationSpecification specification)
+    public DataOrganizationSpecification mapAndDistinct(DataOrganizationSpecification specification)
     {
         return new DataOrganizationSpecification(
                 mapAndDistinct(specification.getPartitionBy()),
