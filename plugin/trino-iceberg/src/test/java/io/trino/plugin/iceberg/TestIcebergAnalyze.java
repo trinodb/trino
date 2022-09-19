@@ -145,8 +145,8 @@ public class TestIcebergAnalyze
                           ('nationkey', null, 25, 0, null, '0', '24'),
                           ('regionkey', null, 5, 0, null, '0', '4'),
                           ('name', null, 25, 0, null, null, null),
-                          ('info', null, null, null, null, null, null),
-                          (null, null, null, null, 50, null, null)""");
+                          ('info', null, null, 0, null, null, null),
+                          (null, null, null, null, 25, null, null)""");
 
         assertUpdate("ANALYZE " + tableName);
         assertQuery(
@@ -156,8 +156,8 @@ public class TestIcebergAnalyze
                           ('nationkey', null, 25, 0, null, '0', '24'),
                           ('regionkey', null, 5, 0, null, '0', '4'),
                           ('name', null, 25, 0, null, null, null),
-                          ('info', null, 25, null, null, null, null),
-                          (null, null, null, null, 50, null, null)""");
+                          ('info', null, 25, 0, null, null, null),
+                          (null, null, null, null, 25, null, null)""");
 
         assertUpdate("DROP TABLE " + tableName);
     }

@@ -41,6 +41,7 @@ public final class DeleteFile
     private final FileContent content;
     private final String path;
     private final FileFormat format;
+    private final long recordCount;
     private final long fileSizeInBytes;
     private final List<Integer> equalityFieldIds;
     private final Map<Integer, byte[]> lowerBounds;
@@ -57,6 +58,7 @@ public final class DeleteFile
                 deleteFile.content(),
                 deleteFile.path().toString(),
                 deleteFile.format(),
+                deleteFile.recordCount(),
                 deleteFile.fileSizeInBytes(),
                 Optional.ofNullable(deleteFile.equalityFieldIds()).orElseGet(ImmutableList::of),
                 lowerBounds,
@@ -68,6 +70,7 @@ public final class DeleteFile
             FileContent content,
             String path,
             FileFormat format,
+            long recordCount,
             long fileSizeInBytes,
             List<Integer> equalityFieldIds,
             Map<Integer, byte[]> lowerBounds,
@@ -76,6 +79,7 @@ public final class DeleteFile
         this.content = requireNonNull(content, "content is null");
         this.path = requireNonNull(path, "path is null");
         this.format = requireNonNull(format, "format is null");
+        this.recordCount = recordCount;
         this.fileSizeInBytes = fileSizeInBytes;
         this.equalityFieldIds = ImmutableList.copyOf(requireNonNull(equalityFieldIds, "equalityFieldIds is null"));
         this.lowerBounds = ImmutableMap.copyOf(requireNonNull(lowerBounds, "lowerBounds is null"));
@@ -98,6 +102,12 @@ public final class DeleteFile
     public FileFormat format()
     {
         return format;
+    }
+
+    @JsonProperty
+    public long recordCount()
+    {
+        return recordCount;
     }
 
     @JsonProperty
@@ -138,6 +148,7 @@ public final class DeleteFile
     {
         return toStringHelper(this)
                 .addValue(path)
+                .add("records", recordCount)
                 .toString();
     }
 }
