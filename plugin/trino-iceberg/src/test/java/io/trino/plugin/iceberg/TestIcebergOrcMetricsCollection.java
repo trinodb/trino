@@ -25,6 +25,7 @@ import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.SchemaTableName;
@@ -99,7 +100,7 @@ public class TestIcebergOrcMetricsCollection
                 false,
                 false);
 
-        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(metastore), Optional.empty(), EMPTY_MODULE));
+        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore)), Optional.empty(), EMPTY_MODULE));
         queryRunner.createCatalog("iceberg", "iceberg");
 
         queryRunner.installPlugin(new TpchPlugin());

@@ -87,7 +87,7 @@ public class TestIcebergFileMetastoreTableOperationsInsertFailure
 
         queryRunner.createCatalog(
                 ICEBERG_CATALOG,
-                new TestingIcebergConnectorFactory(Optional.of(metastore), Optional.empty(), EMPTY_MODULE),
+                new TestingIcebergConnectorFactory(Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore)), Optional.empty(), EMPTY_MODULE),
                 ImmutableMap.of());
 
         Database database = Database.builder()
