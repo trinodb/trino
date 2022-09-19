@@ -40,7 +40,7 @@ public class IntegerNumberToVarcharCoercer<F extends Type>
         long value = fromType.getLong(block, position);
         Slice converted = utf8Slice(String.valueOf(value));
         if (!toType.isUnbounded() && countCodePoints(converted) > toType.getBoundedLength()) {
-            throw new TrinoException(INVALID_ARGUMENTS, format("Varchar representation of %s exceed %s bounds", value, toType));
+            throw new TrinoException(INVALID_ARGUMENTS, format("Varchar representation of %s exceeds %s bounds", value, toType));
         }
         toType.writeSlice(blockBuilder, converted);
     }
