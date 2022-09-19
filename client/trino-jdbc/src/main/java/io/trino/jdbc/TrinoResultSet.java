@@ -183,7 +183,9 @@ public class TrinoResultSet
                     }
                 }
                 catch (InterruptedException e) {
-                    handleInterrupt(e);
+                    client.close();
+                    rowQueue.clear();
+                    throw new RuntimeException(new SQLException("ResultSet thread was interrupted", e));
                 }
                 finally {
                     semaphore.release();
@@ -196,18 +198,6 @@ public class TrinoResultSet
         {
             cancelled = true;
             future.cancel(true);
-            cleanup();
-        }
-
-        private void handleInterrupt(InterruptedException e)
-        {
-            cleanup();
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(new SQLException("ResultSet thread was interrupted", e));
-        }
-
-        private void cleanup()
-        {
             // When thread interruption is mis-handled by underlying implementation of `client`, the thread which
             // is working for `future` may be blocked by `rowQueue.put` (`rowQueue` is full) and will never finish
             // its work. It is necessary to close `client` and drain `rowQueue` to avoid such leaks.
@@ -252,6 +242,13 @@ public class TrinoResultSet
                 return endOfData();
             }
             return rowQueue.poll();
+        }
+
+        private void handleInterrupt(InterruptedException e)
+        {
+            cancel();
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(new SQLException("Interrupted", e));
         }
     }
 

@@ -906,7 +906,7 @@ public class TestTrinoDriver
         assertTrue(queryFinished.await(10, SECONDS));
         assertThat(queryFailure.get())
                 .isInstanceOf(SQLException.class)
-                .hasMessage("ResultSet thread was interrupted");
+                .hasMessage("Interrupted");
         assertEquals(getQueryState(queryId.get()), FAILED);
     }
 
