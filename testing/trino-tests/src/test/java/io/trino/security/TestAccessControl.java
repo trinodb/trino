@@ -46,6 +46,9 @@ import java.util.Optional;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
+import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_COLUMN;
@@ -121,6 +124,14 @@ public class TestAccessControl
                             new SchemaTableName("default", "test_view_invoker"), definitionRunAsInvoker);
                 })
                 .withListRoleGrants((connectorSession, roles, grantees, limit) -> ImmutableSet.of(new RoleGrant(new TrinoPrincipal(USER, "alice"), "alice_role", false)))
+                .withAnalyzeProperties(() -> ImmutableList.of(
+                        integerProperty("integer_analyze_property", "description", 0, false)))
+                .withGetMaterializedViewProperties(() -> ImmutableList.of(
+                        stringProperty("string_materialized_view_property", "description", "", false)))
+                .withSchemaProperties(() -> ImmutableList.of(
+                        booleanProperty("boolean_schema_property", "description", false, false)))
+                .withColumnProperties(() -> ImmutableList.of(
+                        stringProperty("string_column_property", "description", "", false)))
                 .build()));
         queryRunner.createCatalog("mock", "mock");
         queryRunner.installPlugin(new JdbcPlugin("base-jdbc", new TestingH2JdbcModule()));
@@ -626,5 +637,75 @@ public class TestAccessControl
     public void testSetViewAuthorizationWithSecurityInvoker()
     {
         assertQuerySucceeds("ALTER VIEW mock.default.test_view_invoker SET AUTHORIZATION some_other_user");
+    }
+
+    @Test
+    public void testSystemMetadataAnalyzePropertiesFilteringValues()
+    {
+        executeExclusively(() -> {
+            try {
+                getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("mock"));
+                assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.analyze_properties");
+            }
+            finally {
+                getQueryRunner().getAccessControl().reset();
+            }
+        });
+    }
+
+    @Test
+    public void testSystemMetadataMaterializedViewPropertiesFilteringValues()
+    {
+        executeExclusively(() -> {
+            try {
+                getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("mock"));
+                assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.materialized_view_properties");
+            }
+            finally {
+                getQueryRunner().getAccessControl().reset();
+            }
+        });
+    }
+
+    @Test
+    public void testSystemMetadataSchemaPropertiesFilteringValues()
+    {
+        executeExclusively(() -> {
+            try {
+                getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("mock"));
+                assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.schema_properties");
+            }
+            finally {
+                getQueryRunner().getAccessControl().reset();
+            }
+        });
+    }
+
+    @Test
+    public void testSystemMetadataTablePropertiesFilteringValues()
+    {
+        executeExclusively(() -> {
+            try {
+                getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("blackhole"));
+                assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.table_properties");
+            }
+            finally {
+                getQueryRunner().getAccessControl().reset();
+            }
+        });
+    }
+
+    @Test
+    public void testSystemMetadataColumnPropertiesFilteringValues()
+    {
+        executeExclusively(() -> {
+            try {
+                getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("mock"));
+                assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.column_properties");
+            }
+            finally {
+                getQueryRunner().getAccessControl().reset();
+            }
+        });
     }
 }

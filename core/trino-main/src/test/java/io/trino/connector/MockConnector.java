@@ -155,8 +155,10 @@ public class MockConnector
     private final Set<ConnectorTableFunction> tableFunctions;
     private final boolean supportsReportingWrittenBytes;
     private final boolean allowMissingColumnsOnInsert;
+    private final Supplier<List<PropertyMetadata<?>>> analyzeProperties;
     private final Supplier<List<PropertyMetadata<?>>> schemaProperties;
     private final Supplier<List<PropertyMetadata<?>>> tableProperties;
+    private final Supplier<List<PropertyMetadata<?>>> columnProperties;
     private final List<PropertyMetadata<?>> sessionProperties;
 
     MockConnector(
@@ -192,8 +194,10 @@ public class MockConnector
             Set<TableProcedureMetadata> tableProcedures,
             Set<ConnectorTableFunction> tableFunctions,
             boolean allowMissingColumnsOnInsert,
+            Supplier<List<PropertyMetadata<?>>> analyzeProperties,
             Supplier<List<PropertyMetadata<?>>> schemaProperties,
             Supplier<List<PropertyMetadata<?>>> tableProperties,
+            Supplier<List<PropertyMetadata<?>>> columnProperties,
             boolean supportsReportingWrittenBytes)
     {
         this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
@@ -229,8 +233,10 @@ public class MockConnector
         this.tableFunctions = requireNonNull(tableFunctions, "tableFunctions is null");
         this.supportsReportingWrittenBytes = supportsReportingWrittenBytes;
         this.allowMissingColumnsOnInsert = allowMissingColumnsOnInsert;
+        this.analyzeProperties = requireNonNull(analyzeProperties, "analyzeProperties is null");
         this.schemaProperties = requireNonNull(schemaProperties, "schemaProperties is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
+        this.columnProperties = requireNonNull(columnProperties, "columnProperties is null");
     }
 
     @Override
@@ -324,6 +330,12 @@ public class MockConnector
     }
 
     @Override
+    public List<PropertyMetadata<?>> getAnalyzeProperties()
+    {
+        return analyzeProperties.get();
+    }
+
+    @Override
     public List<PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties.get();
@@ -333,6 +345,12 @@ public class MockConnector
     public List<PropertyMetadata<?>> getMaterializedViewProperties()
     {
         return getMaterializedViewProperties.get();
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getColumnProperties()
+    {
+        return columnProperties.get();
     }
 
     private class MockConnectorMetadata
