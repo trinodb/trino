@@ -754,6 +754,32 @@ public class TestCachingHiveMetastore
         }
     }
 
+    @Test
+    public void testDropTable()
+    {
+        // make sure the table and partition caches hit
+        assertEquals(mockClient.getAccessCount(), 0);
+        Table table = metastore.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
+        assertEquals(mockClient.getAccessCount(), 1);
+        assertNotNull(metastore.getTable(TEST_DATABASE, TEST_TABLE));
+        assertEquals(mockClient.getAccessCount(), 1);
+
+        assertNotNull(metastore.getPartition(table, TEST_PARTITION_VALUES1));
+        assertEquals(mockClient.getAccessCount(), 2);
+        assertNotNull(metastore.getPartition(table, TEST_PARTITION_VALUES1));
+        assertEquals(mockClient.getAccessCount(), 2);
+
+        // the mock table is not really dropped, because it doesn't really exist in hive,
+        // we just need to go through the cache invalidation logic in the try finally code block
+        metastore.dropTable(TEST_DATABASE, TEST_TABLE, false);
+
+        // pretend that the mock table is recreated, if the cache is invalidated, the access count should increment
+        assertNotNull(metastore.getTable(TEST_DATABASE, TEST_TABLE));
+        assertEquals(mockClient.getAccessCount(), 4);
+        assertNotNull(metastore.getPartition(table, TEST_PARTITION_VALUES1));
+        assertEquals(mockClient.getAccessCount(), 5);
+    }
+
     private static void await(CountDownLatch latch, long timeout, TimeUnit unit)
     {
         try {
