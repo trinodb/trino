@@ -27,7 +27,7 @@ import javax.inject.Inject;
 import java.time.Duration;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
@@ -63,7 +63,7 @@ public class Kafka
 
         MountableFile logConfigFile = forHostPath(configDir.getPath("log.properties"));
         builder.configureContainers(container -> {
-            if (isPrestoContainer(container.getLogicalName())) {
+            if (isTrinoContainer(container.getLogicalName())) {
                 container.withCopyFileToContainer(logConfigFile, CONTAINER_PRESTO_ETC + "/log.properties");
             }
         });

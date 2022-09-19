@@ -69,7 +69,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.tests.product.launcher.env.DockerContainer.ensurePathExists;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
 import static io.trino.tests.product.launcher.env.Environments.pruneEnvironment;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.lang.String.format;
@@ -439,7 +439,7 @@ public final class Environment
             requireNonNull(configFile, "configFile is null");
             requireNonNull(containerPath, "containerPath is null");
             configureContainers(container -> {
-                if (isPrestoContainer(container.getLogicalName())) {
+                if (isTrinoContainer(container.getLogicalName())) {
                     container.withCopyFileToContainer(configFile, containerPath);
                 }
             });
