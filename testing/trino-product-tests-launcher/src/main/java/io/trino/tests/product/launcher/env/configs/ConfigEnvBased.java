@@ -94,11 +94,11 @@ public class ConfigEnvBased
     {
         builder.configureContainers(container -> {
             if (container.getLogicalName().startsWith(PRESTO)) {
-                String prestoInitScript = getenv("HADOOP_PRESTO_INIT_SCRIPT");
+                String trinoInitScript = getenv("HADOOP_PRESTO_INIT_SCRIPT");
 
-                if (!Strings.isNullOrEmpty(prestoInitScript)) {
+                if (!Strings.isNullOrEmpty(trinoInitScript)) {
                     container.withCopyFileToContainer(
-                            forHostPath(dockerFiles.getDockerFilesHostPath(prestoInitScript)),
+                            forHostPath(dockerFiles.getDockerFilesHostPath(trinoInitScript)),
                             "/docker/presto-init.d/presto-init.sh");
                 }
             }
