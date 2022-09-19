@@ -45,7 +45,7 @@
 * Improve performance when writing
   [structural data types](structural-data-types) to Parquet files. ({issue}`13714`)
 * Improve performance of queries that contain predicates involving `date_trunc`
-  on `date` or `timestamp` partition columns. ({issue}`14011`)
+  on `date`, `timestamp` or `timestamp with time zone` partition columns. ({issue}`14011`)
 * Fix incorrect results from using the `[VERSION | TIMESTAMP] AS OF` clause when
   the snapshot's schema differs from the current schema of the table. ({issue}`14064`)
 * Prevent `No bucket node map` failures when inserting data. ({issue}`13960`)
