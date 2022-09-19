@@ -26,7 +26,7 @@ import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
@@ -54,7 +54,7 @@ public final class EnvSinglenodeKerberosHdfsImpersonationWithDataProtection
 
         builder.configureContainer(COORDINATOR, container -> {
             container
-                    .withCopyFileToContainer(forHostPath(configDir.getPath("hive-data-protection-site.xml")), CONTAINER_PRESTO_ETC + "/hive-data-protection-site.xml");
+                    .withCopyFileToContainer(forHostPath(configDir.getPath("hive-data-protection-site.xml")), CONTAINER_TRINO_ETC + "/hive-data-protection-site.xml");
         });
         builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
     }
