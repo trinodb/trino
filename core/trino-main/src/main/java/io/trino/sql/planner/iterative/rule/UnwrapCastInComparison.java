@@ -174,14 +174,13 @@ public class UnwrapCastInComparison
         private Expression unwrapCast(ComparisonExpression expression)
         {
             // Canonicalization is handled by CanonicalizeExpressionRewriter
-            if (!(expression.getLeft() instanceof Cast)) {
+            if (!(expression.getLeft() instanceof Cast cast)) {
                 return expression;
             }
 
             Object right = new ExpressionInterpreter(expression.getRight(), plannerContext, session, typeAnalyzer.getTypes(session, types, expression.getRight()))
                     .optimize(NoOpSymbolResolver.INSTANCE);
 
-            Cast cast = (Cast) expression.getLeft();
             ComparisonExpression.Operator operator = expression.getOperator();
 
             if (right == null || right instanceof NullLiteral) {
@@ -423,8 +422,7 @@ public class UnwrapCastInComparison
                 }
             }
 
-            if (target instanceof TimestampWithTimeZoneType) {
-                TimestampWithTimeZoneType timestampWithTimeZoneType = (TimestampWithTimeZoneType) target;
+            if (target instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
                 if (source instanceof TimestampType) {
                     // Cast from TIMESTAMP WITH TIME ZONE to TIMESTAMP and back to TIMESTAMP WITH TIME ZONE does not round trip, unless the value's zone is equal to sesion zone
                     if (!getTimeZone(timestampWithTimeZoneType, value).equals(session.getTimeZoneKey())) {
@@ -452,10 +450,7 @@ public class UnwrapCastInComparison
             }
 
             boolean coercible = new TypeCoercion(plannerContext.getTypeManager()::getType).canCoerce(source, target);
-            if (source instanceof VarcharType && target instanceof CharType) {
-                VarcharType sourceVarchar = (VarcharType) source;
-                CharType targetChar = (CharType) target;
-
+            if (source instanceof VarcharType sourceVarchar && target instanceof CharType targetChar) {
                 if (sourceVarchar.isUnbounded() || sourceVarchar.getBoundedLength() > targetChar.getLength()) {
                     // Truncation, not injective.
                     return false;
@@ -492,7 +487,7 @@ public class UnwrapCastInComparison
             // choice of placing unordered values first or last does not matter for this code
             MethodHandle comparisonOperator = plannerContext.getTypeOperators().getComparisonUnorderedLastOperator(type, InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
             try {
-                return (int) (long) comparisonOperator.invoke(first, second);
+                return toIntExact((long) comparisonOperator.invoke(first, second));
             }
             catch (Throwable throwable) {
                 Throwables.throwIfUnchecked(throwable);
