@@ -56,6 +56,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.spi.function.FunctionKind.TABLE;
 import static io.trino.spi.security.AccessDeniedException.denySelectTable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
@@ -183,6 +184,29 @@ public class TestAccessControlManager
                     }))
                     .isInstanceOf(TrinoException.class)
                     .hasMessageMatching("Access Denied: Cannot select from columns \\[column\\] in table or view schema.table");
+        }
+    }
+
+    @Test
+    public void testDenyTableFunctionCatalogAccessControl()
+    {
+        try (LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION)) {
+            TransactionManager transactionManager = queryRunner.getTransactionManager();
+            AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
+
+            TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
+            accessControlManager.addSystemAccessControlFactory(accessControlFactory);
+            accessControlManager.loadSystemAccessControl("allow-all", ImmutableMap.of());
+
+            queryRunner.createCatalog(TEST_CATALOG_NAME, MockConnectorFactory.create(), ImmutableMap.of());
+            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, Optional.of(new DenyConnectorAccessControl())));
+
+            assertThatThrownBy(() -> transaction(transactionManager, accessControlManager)
+                    .execute(transactionId -> {
+                        accessControlManager.checkCanGrantExecuteFunctionPrivilege(context(transactionId), TABLE, new QualifiedObjectName(TEST_CATALOG_NAME, "example_schema", "executed_function"), Identity.ofUser("bob"), true);
+                    }))
+                    .isInstanceOf(TrinoException.class)
+                    .hasMessageMatching("Access Denied: 'user_name' cannot grant 'example_schema\\.executed_function' execution to user 'bob'");
         }
     }
 
@@ -446,6 +470,20 @@ public class TestAccessControlManager
                 .execute(transactionId -> {
                     accessControlManager.checkCanExecuteFunction(context(transactionId), "executed_function");
                     accessControlManager.checkCanGrantExecuteFunctionPrivilege(context(transactionId), "executed_function", Identity.ofUser("bob"), true);
+                });
+    }
+
+    @Test
+    public void testAllowExecuteTableFunction()
+    {
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
+        accessControlManager.loadSystemAccessControl("allow-all", ImmutableMap.of());
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanExecuteFunction(context(transactionId), TABLE, new QualifiedObjectName(TEST_CATALOG_NAME, "example_schema", "executed_function"));
+                    accessControlManager.checkCanGrantExecuteFunctionPrivilege(context(transactionId), TABLE, new QualifiedObjectName(TEST_CATALOG_NAME, "example_schema", "executed_function"), Identity.ofUser("bob"), true);
                 });
     }
 
