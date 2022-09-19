@@ -15,6 +15,7 @@ package io.trino.parquet;
 
 import com.google.common.collect.ListMultimap;
 import io.airlift.slice.Slice;
+import org.apache.parquet.io.SeekableInputStream;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -37,6 +38,8 @@ public interface ParquetDataSource
             throws IOException;
 
     <K> ListMultimap<K, ChunkReader> planRead(ListMultimap<K, DiskRange> diskRanges);
+
+    SeekableInputStream seekableInputStream();
 
     @Override
     default void close()

@@ -20,6 +20,8 @@ import io.trino.parquet.AbstractParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
+import org.apache.parquet.io.DelegatingSeekableInputStream;
+import org.apache.parquet.io.SeekableInputStream;
 
 import java.io.IOException;
 
@@ -63,5 +65,32 @@ public class TrinoParquetDataSource
         long readStart = System.nanoTime();
         input.readFully(position, buffer, bufferOffset, bufferLength);
         stats.readDataBytesPerSecond(bufferLength, System.nanoTime() - readStart);
+    }
+
+    public SeekableInputStream seekableInputStream()
+    {
+        return new ParquetInputStreamAdapter(input.inputStream());
+    }
+
+    private static class ParquetInputStreamAdapter
+            extends DelegatingSeekableInputStream
+    {
+        private final org.apache.iceberg.io.SeekableInputStream delegate;
+
+        private ParquetInputStreamAdapter(org.apache.iceberg.io.SeekableInputStream delegate)
+        {
+            super(delegate);
+            this.delegate = delegate;
+        }
+
+        public long getPos() throws IOException
+        {
+            return this.delegate.getPos();
+        }
+
+        public void seek(long newPos) throws IOException
+        {
+            this.delegate.seek(newPos);
+        }
     }
 }
