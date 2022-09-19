@@ -49,7 +49,7 @@ public final class EnvMultinodeTlsKerberosDelegation
     private final DockerFiles dockerFiles;
 
     private final DockerFiles.ResourceProvider configDir;
-    private final String prestoDockerImageName;
+    private final String trinoDockerImageName;
     private final SupportedTrinoJdk jdkVersion;
     private final File serverPackage;
     private final boolean debug;
@@ -69,7 +69,7 @@ public final class EnvMultinodeTlsKerberosDelegation
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         String hadoopBaseImage = config.getHadoopBaseImage();
         String hadoopImagesVersion = config.getHadoopImagesVersion();
-        this.prestoDockerImageName = hadoopBaseImage + "-kerberized:" + hadoopImagesVersion;
+        this.trinoDockerImageName = hadoopBaseImage + "-kerberized:" + hadoopImagesVersion;
         this.jdkVersion = requireNonNull(jdkVersion, "jdkVersion is null");
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
         this.debug = debug;
@@ -80,7 +80,7 @@ public final class EnvMultinodeTlsKerberosDelegation
     public void extendEnvironment(Environment.Builder builder)
     {
         builder.configureContainer(COORDINATOR, container -> {
-            verify(Objects.equals(container.getDockerImageName(), prestoDockerImageName), "Expected image '%s', but is '%s'", prestoDockerImageName, container.getDockerImageName());
+            verify(Objects.equals(container.getDockerImageName(), trinoDockerImageName), "Expected image '%s', but is '%s'", trinoDockerImageName, container.getDockerImageName());
             container
                     .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/config-master.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES);
         });
@@ -94,7 +94,7 @@ public final class EnvMultinodeTlsKerberosDelegation
     @SuppressWarnings("resource")
     private DockerContainer createTrinoWorker(String workerName)
     {
-        return createTrinoContainer(dockerFiles, serverPackage, jdkVersion, debug, prestoDockerImageName, workerName)
+        return createTrinoContainer(dockerFiles, serverPackage, jdkVersion, debug, trinoDockerImageName, workerName)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withDomainName("docker.cluster"))
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/config-worker.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)
