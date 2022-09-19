@@ -108,8 +108,10 @@ public class MockConnectorFactory
     private final Set<TableProcedureMetadata> tableProcedures;
     private final Set<ConnectorTableFunction> tableFunctions;
     private final boolean allowMissingColumnsOnInsert;
+    private final Supplier<List<PropertyMetadata<?>>> analyzeProperties;
     private final Supplier<List<PropertyMetadata<?>>> schemaProperties;
     private final Supplier<List<PropertyMetadata<?>>> tableProperties;
+    private final Supplier<List<PropertyMetadata<?>>> columnProperties;
     private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
 
     // access control
@@ -147,8 +149,10 @@ public class MockConnectorFactory
             Set<Procedure> procedures,
             Set<TableProcedureMetadata> tableProcedures,
             Set<ConnectorTableFunction> tableFunctions,
+            Supplier<List<PropertyMetadata<?>>> analyzeProperties,
             Supplier<List<PropertyMetadata<?>>> schemaProperties,
             Supplier<List<PropertyMetadata<?>>> tableProperties,
+            Supplier<List<PropertyMetadata<?>>> columnProperties,
             Optional<ConnectorNodePartitioningProvider> partitioningProvider,
             ListRoleGrants roleGrants,
             boolean supportsReportingWrittenBytes,
@@ -179,8 +183,10 @@ public class MockConnectorFactory
         this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
         this.getTableProperties = requireNonNull(getTableProperties, "getTableProperties is null");
         this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
+        this.analyzeProperties = requireNonNull(analyzeProperties, "analyzeProperties is null");
         this.schemaProperties = requireNonNull(schemaProperties, "schemaProperties is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
+        this.columnProperties = requireNonNull(columnProperties, "columnProperties is null");
         this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -235,8 +241,10 @@ public class MockConnectorFactory
                 tableProcedures,
                 tableFunctions,
                 allowMissingColumnsOnInsert,
+                analyzeProperties,
                 schemaProperties,
                 tableProperties,
+                columnProperties,
                 supportsReportingWrittenBytes);
     }
 
@@ -355,8 +363,10 @@ public class MockConnectorFactory
         private Set<Procedure> procedures = ImmutableSet.of();
         private Set<TableProcedureMetadata> tableProcedures = ImmutableSet.of();
         private Set<ConnectorTableFunction> tableFunctions = ImmutableSet.of();
+        private Supplier<List<PropertyMetadata<?>>> analyzeProperties = ImmutableList::of;
         private Supplier<List<PropertyMetadata<?>>> schemaProperties = ImmutableList::of;
         private Supplier<List<PropertyMetadata<?>>> tableProperties = ImmutableList::of;
+        private Supplier<List<PropertyMetadata<?>>> columnProperties = ImmutableList::of;
         private Optional<ConnectorNodePartitioningProvider> partitioningProvider = Optional.empty();
 
         // access control
@@ -563,6 +573,12 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withAnalyzeProperties(Supplier<List<PropertyMetadata<?>>> analyzeProperties)
+        {
+            this.analyzeProperties = requireNonNull(analyzeProperties, "analyzeProperties is null");
+            return this;
+        }
+
         public Builder withSchemaProperties(Supplier<List<PropertyMetadata<?>>> schemaProperties)
         {
             this.schemaProperties = requireNonNull(schemaProperties, "schemaProperties is null");
@@ -572,6 +588,12 @@ public class MockConnectorFactory
         public Builder withTableProperties(Supplier<List<PropertyMetadata<?>>> tableProperties)
         {
             this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
+            return this;
+        }
+
+        public Builder withColumnProperties(Supplier<List<PropertyMetadata<?>>> columnProperties)
+        {
+            this.columnProperties = requireNonNull(columnProperties, "columnProperties is null");
             return this;
         }
 
@@ -664,8 +686,10 @@ public class MockConnectorFactory
                     procedures,
                     tableProcedures,
                     tableFunctions,
+                    analyzeProperties,
                     schemaProperties,
                     tableProperties,
+                    columnProperties,
                     partitioningProvider,
                     roleGrants,
                     supportsReportingWrittenBytes,
