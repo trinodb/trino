@@ -604,12 +604,12 @@ public class TypeOperators
 
         // False; return orderComparisonResult(comparison(leftValue, rightValue))
         // (leftValue, rightValue)::int
-        MethodHandle orderComparision = filterReturnValue(comparison, ORDER_COMPARISON_RESULT.bindTo(sortOrder));
+        MethodHandle orderComparison = filterReturnValue(comparison, ORDER_COMPARISON_RESULT.bindTo(sortOrder));
         // (leftIsNull, rightIsNull, comparison_args)::int
-        orderComparision = dropArguments(orderComparision, 0, boolean.class, boolean.class);
+        orderComparison = dropArguments(orderComparison, 0, boolean.class, boolean.class);
 
         // (leftIsNull, rightIsNull, comparison_args)::int
-        return guardWithTest(eitherIsNull, orderNulls, orderComparision);
+        return guardWithTest(eitherIsNull, orderNulls, orderComparison);
     }
 
     private static int orderNulls(SortOrder sortOrder, boolean leftIsNull, boolean rightIsNull)
