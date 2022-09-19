@@ -36,7 +36,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 /**
  * Two pseudo-distributed Hadoop installations running on side-by-side,
  * each within single container (one kerberized and one not), with single-node,
- * kerberized Presto.
+ * kerberized Trino.
  */
 @TestsEnvironment
 public final class EnvTwoMixedHives
