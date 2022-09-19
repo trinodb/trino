@@ -29,7 +29,7 @@ import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.common.Hadoop.createHadoopContainer;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -68,10 +68,10 @@ public final class EnvTwoMixedHives
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.addConnector("hive", forHostPath(configDir.getPath("hive1.properties")), CONTAINER_PRESTO_ETC + "/catalog/hive1.properties");
-        builder.addConnector("hive", forHostPath(configDir.getPath("hive2.properties")), CONTAINER_PRESTO_ETC + "/catalog/hive2.properties");
-        builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg1.properties")), CONTAINER_PRESTO_ETC + "/catalog/iceberg1.properties");
-        builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg2.properties")), CONTAINER_PRESTO_ETC + "/catalog/iceberg2.properties");
+        builder.addConnector("hive", forHostPath(configDir.getPath("hive1.properties")), CONTAINER_TRINO_ETC + "/catalog/hive1.properties");
+        builder.addConnector("hive", forHostPath(configDir.getPath("hive2.properties")), CONTAINER_TRINO_ETC + "/catalog/hive2.properties");
+        builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg1.properties")), CONTAINER_TRINO_ETC + "/catalog/iceberg1.properties");
+        builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg2.properties")), CONTAINER_TRINO_ETC + "/catalog/iceberg2.properties");
 
         builder.addContainer(createHadoopMaster2());
     }

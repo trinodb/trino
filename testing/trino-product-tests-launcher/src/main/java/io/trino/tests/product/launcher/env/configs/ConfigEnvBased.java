@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.PRESTO;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.TRINO;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
 import static java.lang.System.getenv;
 import static java.util.Objects.requireNonNull;
@@ -93,7 +93,7 @@ public class ConfigEnvBased
     public void extendEnvironment(Environment.Builder builder)
     {
         builder.configureContainers(container -> {
-            if (container.getLogicalName().startsWith(PRESTO)) {
+            if (container.getLogicalName().startsWith(TRINO)) {
                 String trinoInitScript = getenv("HADOOP_PRESTO_INIT_SCRIPT");
 
                 if (!Strings.isNullOrEmpty(trinoInitScript)) {

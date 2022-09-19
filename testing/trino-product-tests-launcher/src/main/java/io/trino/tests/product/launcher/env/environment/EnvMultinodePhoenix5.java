@@ -31,7 +31,7 @@ import java.time.Duration;
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -67,8 +67,8 @@ public final class EnvMultinodePhoenix5
 
         builder.configureContainers(container -> {
             if (isTrinoContainer(container.getLogicalName())) {
-                container.withCopyFileToContainer(forHostPath(configDir.getPath("hbase-site.xml")), CONTAINER_PRESTO_ETC + "/hbase-site.xml");
-                container.withCopyFileToContainer(forHostPath(configDir.getPath("phoenix.properties")), CONTAINER_PRESTO_ETC + "/catalog/phoenix.properties");
+                container.withCopyFileToContainer(forHostPath(configDir.getPath("hbase-site.xml")), CONTAINER_TRINO_ETC + "/hbase-site.xml");
+                container.withCopyFileToContainer(forHostPath(configDir.getPath("phoenix.properties")), CONTAINER_TRINO_ETC + "/catalog/phoenix.properties");
             }
         });
 
