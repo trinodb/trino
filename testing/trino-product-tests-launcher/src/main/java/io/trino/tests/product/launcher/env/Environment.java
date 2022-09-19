@@ -379,7 +379,7 @@ public final class Environment
 
         public Builder containerDependsOn(String container, String dependencyContainer)
         {
-            checkState(containers.containsKey(container), "Container with name %s is not registered", name);
+            checkState(containers.containsKey(container), "Container with name %s is not registered", container);
             checkState(containers.containsKey(dependencyContainer), "Dependency container with name %s is not registered", dependencyContainer);
             containers.get(container).dependsOn(containers.get(dependencyContainer));
 
