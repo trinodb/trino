@@ -24,7 +24,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -82,7 +82,7 @@ public final class EnvMultinodeAllConnectors
                         connector,
                         forHostPath(configDir.getPath(connector + ".properties"))));
         builder.configureContainers(container -> {
-            if (isPrestoContainer(container.getLogicalName())) {
+            if (isTrinoContainer(container.getLogicalName())) {
                 container.withCopyFileToContainer(
                         forHostPath(configDir.getPath("google-sheets-auth.json")),
                         CONTAINER_PRESTO_ETC + "/catalog/google-sheets-auth.json");

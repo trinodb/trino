@@ -36,7 +36,7 @@ import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_JVM_CONFIG;
-import static io.trino.tests.product.launcher.env.common.Standard.createPrestoContainer;
+import static io.trino.tests.product.launcher.env.common.Standard.createTrinoContainer;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -83,14 +83,14 @@ public final class EnvMultinodeHiveCaching
         builder.addConnector("hive", forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_NON_CACHED_PROPERTIES);
         builder.addConnector("hive", forHostPath(configDir.getPath("multinode-cached/hive-coordinator.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES);
 
-        createPrestoWorker(builder, 0);
-        createPrestoWorker(builder, 1);
+        createTrinoWorker(builder, 0);
+        createTrinoWorker(builder, 1);
     }
 
     @SuppressWarnings("resource")
-    private void createPrestoWorker(Environment.Builder builder, int workerNumber)
+    private void createTrinoWorker(Environment.Builder builder, int workerNumber)
     {
-        builder.addContainer(createPrestoContainer(dockerFiles, serverPackage, jdkVersion, debug, "ghcr.io/trinodb/testing/centos7-oj11:" + imagesVersion, worker(workerNumber))
+        builder.addContainer(createTrinoContainer(dockerFiles, serverPackage, jdkVersion, debug, "ghcr.io/trinodb/testing/centos7-oj11:" + imagesVersion, worker(workerNumber))
                 .withCopyFileToContainer(forHostPath(configDir.getPath("multinode/multinode-worker-jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard-multinode/multinode-worker-config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_NON_CACHED_PROPERTIES)
