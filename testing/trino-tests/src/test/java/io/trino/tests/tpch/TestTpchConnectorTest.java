@@ -97,24 +97,27 @@ public class TestTpchConnectorTest
         MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) " + query);
         EstimatedStatsAndCost scanEstimate = new EstimatedStatsAndCost(15000.0, 1597294.0, 1597294.0, 0.0, 0.0);
         EstimatedStatsAndCost totalEstimate = new EstimatedStatsAndCost(15000.0, 1597294.0, 1597294.0, 0.0, 1597294.0);
+
         IoPlanPrinter.IoPlan.TableColumnInfo input = new IoPlanPrinter.IoPlan.TableColumnInfo(
                 new CatalogSchemaTableName("tpch", "tiny", "orders"),
-                ImmutableSet.of(
-                        new IoPlanPrinter.ColumnConstraint(
-                                "orderstatus",
-                                createVarcharType(1),
-                                new IoPlanPrinter.FormattedDomain(
-                                        false,
-                                        ImmutableSet.of(
-                                                new IoPlanPrinter.FormattedRange(
-                                                        new IoPlanPrinter.FormattedMarker(Optional.of("F"), EXACTLY),
-                                                        new IoPlanPrinter.FormattedMarker(Optional.of("F"), EXACTLY)),
-                                                new IoPlanPrinter.FormattedRange(
-                                                        new IoPlanPrinter.FormattedMarker(Optional.of("O"), EXACTLY),
-                                                        new IoPlanPrinter.FormattedMarker(Optional.of("O"), EXACTLY)),
-                                                new IoPlanPrinter.FormattedRange(
-                                                        new IoPlanPrinter.FormattedMarker(Optional.of("P"), EXACTLY),
-                                                        new IoPlanPrinter.FormattedMarker(Optional.of("P"), EXACTLY)))))),
+                new IoPlanPrinter.Constraint(
+                        false,
+                        ImmutableSet.of(
+                                new IoPlanPrinter.ColumnConstraint(
+                                        "orderstatus",
+                                        createVarcharType(1),
+                                        new IoPlanPrinter.FormattedDomain(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new IoPlanPrinter.FormattedRange(
+                                                                new IoPlanPrinter.FormattedMarker(Optional.of("F"), EXACTLY),
+                                                                new IoPlanPrinter.FormattedMarker(Optional.of("F"), EXACTLY)),
+                                                        new IoPlanPrinter.FormattedRange(
+                                                                new IoPlanPrinter.FormattedMarker(Optional.of("O"), EXACTLY),
+                                                                new IoPlanPrinter.FormattedMarker(Optional.of("O"), EXACTLY)),
+                                                        new IoPlanPrinter.FormattedRange(
+                                                                new IoPlanPrinter.FormattedMarker(Optional.of("P"), EXACTLY),
+                                                                new IoPlanPrinter.FormattedMarker(Optional.of("P"), EXACTLY))))))),
                 scanEstimate);
 
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
