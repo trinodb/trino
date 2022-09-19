@@ -40,7 +40,7 @@ import java.util.concurrent.Callable;
 
 import static io.trino.tests.product.launcher.cli.Commands.runCommand;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
 import static io.trino.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.Mixin;
@@ -140,7 +140,7 @@ public final class EnvironmentUp
                     .removeContainer(TESTS);
 
             if (withoutPrestoMaster) {
-                builder.removeContainers(container -> isPrestoContainer(container.getLogicalName()));
+                builder.removeContainers(container -> isTrinoContainer(container.getLogicalName()));
             }
 
             log.info("Creating environment '%s' with configuration %s and options %s", environment, environmentConfig, extraOptions);

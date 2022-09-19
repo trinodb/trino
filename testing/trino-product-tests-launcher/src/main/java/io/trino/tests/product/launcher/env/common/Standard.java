@@ -105,7 +105,7 @@ public final class Standard
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.addContainers(createPrestoMaster(), createTestsContainer());
+        builder.addContainers(createTrinoMaster(), createTestsContainer());
         // default catalogs copied from /docker/presto-product-tests
         builder.addConnector("blackhole");
         builder.addConnector("jmx");
@@ -114,10 +114,10 @@ public final class Standard
     }
 
     @SuppressWarnings("resource")
-    private DockerContainer createPrestoMaster()
+    private DockerContainer createTrinoMaster()
     {
         DockerContainer container =
-                createPrestoContainer(dockerFiles, serverPackage, jdkVersion, debug, "ghcr.io/trinodb/testing/centos7-oj11:" + imagesVersion, COORDINATOR)
+                createTrinoContainer(dockerFiles, serverPackage, jdkVersion, debug, "ghcr.io/trinodb/testing/centos7-oj11:" + imagesVersion, COORDINATOR)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/access-control.properties")), CONTAINER_PRESTO_ACCESS_CONTROL_PROPERTIES)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES);
 
@@ -138,7 +138,7 @@ public final class Standard
     }
 
     @SuppressWarnings("resource")
-    public static DockerContainer createPrestoContainer(DockerFiles dockerFiles, File serverPackage, SupportedTrinoJdk jdkVersion, boolean debug, String dockerImageName, String logicalName)
+    public static DockerContainer createTrinoContainer(DockerFiles dockerFiles, File serverPackage, SupportedTrinoJdk jdkVersion, boolean debug, String dockerImageName, String logicalName)
     {
         DockerContainer container = new DockerContainer(dockerImageName, logicalName)
                 .withNetworkAliases(logicalName + ".docker.cluster")
@@ -154,7 +154,7 @@ public final class Standard
                 .waitingForAll(forLogMessage(".*======== SERVER STARTED ========.*", 1), forHealthcheck())
                 .withStartupTimeout(Duration.ofMinutes(5));
         if (debug) {
-            enablePrestoJavaDebugger(container);
+            enableTrinoJavaDebugger(container);
         }
         else {
             container.withHealthCheck(dockerFiles.getDockerFilesHostPath("health-checks/health.sh"));
@@ -162,7 +162,7 @@ public final class Standard
         return container;
     }
 
-    private static void enablePrestoJavaDebugger(DockerContainer dockerContainer)
+    private static void enableTrinoJavaDebugger(DockerContainer dockerContainer)
     {
         String logicalName = dockerContainer.getLogicalName();
 
@@ -181,10 +181,10 @@ public final class Standard
             throw new IllegalStateException("Cannot enable Java debugger for: " + logicalName);
         }
 
-        enablePrestoJavaDebugger(dockerContainer, logicalName, debugPort);
+        enableTrinoJavaDebugger(dockerContainer, logicalName, debugPort);
     }
 
-    private static void enablePrestoJavaDebugger(DockerContainer container, String containerName, int debugPort)
+    private static void enableTrinoJavaDebugger(DockerContainer container, String containerName, int debugPort)
     {
         log.info("Enabling Java debugger for container: '%s' on port %d", containerName, debugPort);
 
