@@ -35,7 +35,6 @@ import io.trino.plugin.hive.metastore.TablesWithParameterCacheKey;
 import io.trino.plugin.hive.metastore.UserTableKey;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.RoleGrant;
-import io.trino.spi.statistics.ColumnStatisticType;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.Immutable;
@@ -70,7 +69,6 @@ public class HiveMetastoreRecording
     private volatile Optional<Set<String>> allRoles = Optional.empty();
     private final NonEvictableCache<String, Optional<Database>> databaseCache;
     private final NonEvictableCache<HiveTableName, Optional<Table>> tableCache;
-    private final NonEvictableCache<String, Set<ColumnStatisticType>> supportedColumnStatisticsCache;
     private final NonEvictableCache<HiveTableName, PartitionStatistics> tableStatisticsCache;
     private final NonEvictableCache<HivePartitionName, PartitionStatistics> partitionStatisticsCache;
     private final NonEvictableCache<String, List<String>> allTablesCache;
@@ -95,7 +93,6 @@ public class HiveMetastoreRecording
         Duration recordingDuration = config.getRecordingDuration();
         databaseCache = createCache(replay, recordingDuration);
         tableCache = createCache(replay, recordingDuration);
-        supportedColumnStatisticsCache = createCache(replay, recordingDuration);
         tableStatisticsCache = createCache(replay, recordingDuration);
         partitionStatisticsCache = createCache(replay, recordingDuration);
         allTablesCache = createCache(replay, recordingDuration);
@@ -127,7 +124,6 @@ public class HiveMetastoreRecording
         allRoles = recording.getAllRoles();
         databaseCache.putAll(toMap(recording.getDatabases()));
         tableCache.putAll(toMap(recording.getTables()));
-        supportedColumnStatisticsCache.putAll(toMap(recording.getSupportedColumnStatistics()));
         tableStatisticsCache.putAll(toMap(recording.getTableStatistics()));
         partitionStatisticsCache.putAll(toMap(recording.getPartitionStatistics()));
         allTablesCache.putAll(toMap(recording.getAllTables()));
@@ -166,11 +162,6 @@ public class HiveMetastoreRecording
     public Optional<Table> getTable(HiveTableName hiveTableName, Supplier<Optional<Table>> valueSupplier)
     {
         return loadValue(tableCache, hiveTableName, valueSupplier);
-    }
-
-    public Set<ColumnStatisticType> getSupportedColumnStatistics(String type, Supplier<Set<ColumnStatisticType>> valueSupplier)
-    {
-        return loadValue(supportedColumnStatisticsCache, type, valueSupplier);
     }
 
     public PartitionStatistics getTableStatistics(HiveTableName hiveTableName, Supplier<PartitionStatistics> valueSupplier)
@@ -262,7 +253,6 @@ public class HiveMetastoreRecording
                 allRoles,
                 toPairs(databaseCache),
                 toPairs(tableCache),
-                toPairs(supportedColumnStatisticsCache),
                 toPairs(tableStatisticsCache),
                 toPairs(partitionStatisticsCache),
                 toPairs(allTablesCache),
@@ -331,7 +321,6 @@ public class HiveMetastoreRecording
         private final Optional<Set<String>> allRoles;
         private final List<Pair<String, Optional<Database>>> databases;
         private final List<Pair<HiveTableName, Optional<Table>>> tables;
-        private final List<Pair<String, Set<ColumnStatisticType>>> supportedColumnStatistics;
         private final List<Pair<HiveTableName, PartitionStatistics>> tableStatistics;
         private final List<Pair<HivePartitionName, PartitionStatistics>> partitionStatistics;
         private final List<Pair<String, List<String>>> allTables;
@@ -351,7 +340,6 @@ public class HiveMetastoreRecording
                 @JsonProperty("allRoles") Optional<Set<String>> allRoles,
                 @JsonProperty("databases") List<Pair<String, Optional<Database>>> databases,
                 @JsonProperty("tables") List<Pair<HiveTableName, Optional<Table>>> tables,
-                @JsonProperty("supportedColumnStatistics") List<Pair<String, Set<ColumnStatisticType>>> supportedColumnStatistics,
                 @JsonProperty("tableStatistics") List<Pair<HiveTableName, PartitionStatistics>> tableStatistics,
                 @JsonProperty("partitionStatistics") List<Pair<HivePartitionName, PartitionStatistics>> partitionStatistics,
                 @JsonProperty("allTables") List<Pair<String, List<String>>> allTables,
@@ -369,7 +357,6 @@ public class HiveMetastoreRecording
             this.allRoles = allRoles;
             this.databases = databases;
             this.tables = tables;
-            this.supportedColumnStatistics = supportedColumnStatistics;
             this.tableStatistics = tableStatistics;
             this.partitionStatistics = partitionStatistics;
             this.allTables = allTables;
@@ -412,12 +399,6 @@ public class HiveMetastoreRecording
         public List<Pair<TablesWithParameterCacheKey, List<String>>> getTablesWithParameter()
         {
             return tablesWithParameter;
-        }
-
-        @JsonProperty
-        public List<Pair<String, Set<ColumnStatisticType>>> getSupportedColumnStatistics()
-        {
-            return supportedColumnStatistics;
         }
 
         @JsonProperty
