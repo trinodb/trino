@@ -16,6 +16,7 @@ package io.trino.sql.planner.plan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
 import io.airlift.json.JsonCodec;
+import io.trino.spi.expression.FunctionName;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.sql.planner.Symbol;
@@ -51,6 +52,8 @@ public class TestStatisticAggregationsDescriptor
             for (ColumnStatisticType type : ColumnStatisticType.values()) {
                 builder.addColumnStatistic(new ColumnStatisticMetadata(column, type), testSymbol(symbolAllocator));
             }
+            builder.addColumnStatistic(new ColumnStatisticMetadata(column, new FunctionName("count")), testSymbol(symbolAllocator));
+            builder.addColumnStatistic(new ColumnStatisticMetadata(column, new FunctionName("count_if")), testSymbol(symbolAllocator));
             builder.addGrouping(column, testSymbol(symbolAllocator));
         }
         builder.addTableStatistic(ROW_COUNT, testSymbol(symbolAllocator));
