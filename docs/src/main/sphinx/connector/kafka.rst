@@ -86,6 +86,7 @@ Property name                                              Description
 ``kafka.nodes``                                            List of nodes in the Kafka cluster.
 ``kafka.buffer-size``                                      Kafka read buffer size.
 ``kafka.hide-internal-columns``                            Controls whether internal columns are part of the table schema or not.
+``kafka.internal-column-prefix``                           Prefix for internal columns, defaults to ``_``
 ``kafka.messages-per-split``                               Number of messages that are processed by each Trino split; defaults to ``100000``.
 ``kafka.timestamp-upper-bound-force-push-down-enabled``    Controls if upper bound timestamp pushdown is enabled for topics using ``CreateTime`` mode.
 ``kafka.security-protocol``                                Security protocol for connection to Kafka cluster; defaults to ``PLAINTEXT``.
@@ -227,6 +228,12 @@ This property is optional; default is ``https``.
 
 Internal columns
 ----------------
+
+The internal column prefix is configurable by ``kafka.internal-column-prefix``
+configuration property and defaults to ``_``. A different prefix affects the
+internal column names in the following sections. For example, a value of
+``internal_`` changes the partition ID column name from ``_partition_id``
+to ``internal_partition_id``.
 
 For each defined table, the connector maintains the following columns:
 

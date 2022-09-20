@@ -15,6 +15,7 @@ package io.trino.plugin.kafka;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -49,9 +50,9 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
-import static io.trino.plugin.kafka.KafkaInternalFieldManager.OFFSET_TIMESTAMP_FIELD;
-import static io.trino.plugin.kafka.KafkaInternalFieldManager.PARTITION_ID_FIELD;
-import static io.trino.plugin.kafka.KafkaInternalFieldManager.PARTITION_OFFSET_FIELD;
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.OFFSET_TIMESTAMP_FIELD;
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.PARTITION_ID_FIELD;
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.PARTITION_OFFSET_FIELD;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Math.floorDiv;
@@ -66,12 +67,14 @@ public class KafkaFilterManager
 
     private final KafkaConsumerFactory consumerFactory;
     private final KafkaAdminFactory adminFactory;
+    private final KafkaInternalFieldManager kafkaInternalFieldManager;
 
     @Inject
-    public KafkaFilterManager(KafkaConsumerFactory consumerFactory, KafkaAdminFactory adminFactory)
+    public KafkaFilterManager(KafkaConsumerFactory consumerFactory, KafkaAdminFactory adminFactory, KafkaInternalFieldManager kafkaInternalFieldManager)
     {
         this.consumerFactory = requireNonNull(consumerFactory, "consumerFactory is null");
         this.adminFactory = requireNonNull(adminFactory, "adminFactory is null");
+        this.kafkaInternalFieldManager = requireNonNull(kafkaInternalFieldManager, "kafkaInternalFieldManager is null");
     }
 
     public KafkaFilteringResult getKafkaFilterResult(
@@ -142,8 +145,9 @@ public class KafkaFilterManager
         return new KafkaFilteringResult(partitionInfos, partitionBeginOffsets, partitionEndOffsets);
     }
 
-    private Optional<Domain> getDomain(String columnName, Map<String, Domain> columnNameToDomain)
+    private Optional<Domain> getDomain(InternalFieldId internalFieldId, Map<String, Domain> columnNameToDomain)
     {
+        String columnName = kafkaInternalFieldManager.getFieldById(internalFieldId).getColumnName();
         return Optional.ofNullable(columnNameToDomain.get(columnName));
     }
 

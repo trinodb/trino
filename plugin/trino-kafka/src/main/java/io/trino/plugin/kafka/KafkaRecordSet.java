@@ -45,16 +45,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.decoder.FieldValueProviders.booleanValueProvider;
 import static io.trino.decoder.FieldValueProviders.bytesValueProvider;
 import static io.trino.decoder.FieldValueProviders.longValueProvider;
-import static io.trino.plugin.kafka.KafkaInternalFieldManager.HEADERS_FIELD;
-import static io.trino.plugin.kafka.KafkaInternalFieldManager.KEY_CORRUPT_FIELD;
-import static io.trino.plugin.kafka.KafkaInternalFieldManager.KEY_FIELD;
-import static io.trino.plugin.kafka.KafkaInternalFieldManager.KEY_LENGTH_FIELD;
-import static io.trino.plugin.kafka.KafkaInternalFieldManager.MESSAGE_CORRUPT_FIELD;
-import static io.trino.plugin.kafka.KafkaInternalFieldManager.MESSAGE_FIELD;
-import static io.trino.plugin.kafka.KafkaInternalFieldManager.MESSAGE_LENGTH_FIELD;
-import static io.trino.plugin.kafka.KafkaInternalFieldManager.OFFSET_TIMESTAMP_FIELD;
-import static io.trino.plugin.kafka.KafkaInternalFieldManager.PARTITION_ID_FIELD;
-import static io.trino.plugin.kafka.KafkaInternalFieldManager.PARTITION_OFFSET_FIELD;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.max;
@@ -75,6 +65,7 @@ public class KafkaRecordSet
     private final ConnectorSession connectorSession;
     private final RowDecoder keyDecoder;
     private final RowDecoder messageDecoder;
+    private final KafkaInternalFieldManager kafkaInternalFieldManager;
 
     private final List<KafkaColumnHandle> columnHandles;
     private final List<Type> columnTypes;
@@ -85,7 +76,8 @@ public class KafkaRecordSet
             ConnectorSession connectorSession,
             List<KafkaColumnHandle> columnHandles,
             RowDecoder keyDecoder,
-            RowDecoder messageDecoder)
+            RowDecoder messageDecoder,
+            KafkaInternalFieldManager kafkaInternalFieldManager)
     {
         this.split = requireNonNull(split, "split is null");
         this.consumerFactory = requireNonNull(consumerFactory, "consumerFactory is null");
@@ -95,6 +87,7 @@ public class KafkaRecordSet
         this.messageDecoder = requireNonNull(messageDecoder, "messageDecoder is null");
 
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
+        this.kafkaInternalFieldManager = requireNonNull(kafkaInternalFieldManager, "kafkaInternalFieldManager is null");
 
         this.columnTypes = columnHandles.stream()
                 .map(KafkaColumnHandle::getType)
@@ -182,7 +175,7 @@ public class KafkaRecordSet
 
             Map<ColumnHandle, FieldValueProvider> currentRowValuesMap = columnHandles.stream()
                     .filter(KafkaColumnHandle::isInternal)
-                    .collect(toMap(identity(), columnHandle -> switch (columnHandle.getName()) {
+                    .collect(toMap(identity(), columnHandle -> switch (getInternalFieldId(columnHandle)) {
                         case PARTITION_OFFSET_FIELD -> longValueProvider(message.offset());
                         case MESSAGE_FIELD -> bytesValueProvider(messageData);
                         case MESSAGE_LENGTH_FIELD -> longValueProvider(messageData.length);
@@ -193,7 +186,6 @@ public class KafkaRecordSet
                         case HEADERS_FIELD -> headerMapValueProvider((MapType) columnHandle.getType(), message.headers());
                         case MESSAGE_CORRUPT_FIELD -> booleanValueProvider(decodedValue.isEmpty());
                         case PARTITION_ID_FIELD -> longValueProvider(message.partition());
-                        default -> throw new IllegalArgumentException("unknown internal field " + columnHandle.getName());
                     }));
 
             decodedKey.ifPresent(currentRowValuesMap::putAll);
@@ -205,6 +197,11 @@ public class KafkaRecordSet
             }
 
             return true; // Advanced successfully.
+        }
+
+        private KafkaInternalFieldManager.InternalFieldId getInternalFieldId(KafkaColumnHandle columnHandle)
+        {
+            return kafkaInternalFieldManager.getFieldByName(columnHandle.getName()).getInternalFieldId();
         }
 
         @Override

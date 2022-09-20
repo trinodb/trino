@@ -93,6 +93,7 @@ public class TestKafkaConnectorTest
     private static final SchemaTableName TABLE_INSERT_UNICODE_2 = new SchemaTableName("write_test", "test_unicode_2_" + randomTableSuffix());
     private static final SchemaTableName TABLE_INSERT_UNICODE_3 = new SchemaTableName("write_test", "test_unicode_3_" + randomTableSuffix());
     private static final SchemaTableName TABLE_INSERT_HIGHEST_UNICODE = new SchemaTableName("write_test", "test_highest_unicode_" + randomTableSuffix());
+    private static final SchemaTableName TABLE_INTERNAL_FIELD_PREFIX = new SchemaTableName("write_test", "test_internal_fields_prefix_" + randomTableSuffix());
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -148,6 +149,10 @@ public class TestKafkaConnectorTest
                         TABLE_INSERT_HIGHEST_UNICODE,
                         createOneFieldDescription("key", BIGINT),
                         ImmutableList.of(createOneFieldDescription("test", createVarcharType(50)))))
+                .put(TABLE_INTERNAL_FIELD_PREFIX, createDescription(
+                        TABLE_INTERNAL_FIELD_PREFIX,
+                        createOneFieldDescription("_key", createVarcharType(15)),
+                        ImmutableList.of(createOneFieldDescription("custkey", BIGINT), createOneFieldDescription("acctbal", DOUBLE))))
                 .buildOrThrow();
 
         QueryRunner queryRunner = KafkaQueryRunner.builder(testingKafka)
@@ -184,6 +189,16 @@ public class TestKafkaConnectorTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
+    }
+
+    @Test
+    public void testInternalFieldPrefix()
+    {
+        assertQueryFails("SELECT count(*) FROM " + TABLE_INTERNAL_FIELD_PREFIX, ""
+                + "Internal Kafka column names conflict with column names from the table. "
+                + "Consider changing kafka.internal-column-prefix configuration property. "
+                + "topic=" + TABLE_INTERNAL_FIELD_PREFIX
+                + ", Conflicting names=\\[_key]");
     }
 
     @Override
