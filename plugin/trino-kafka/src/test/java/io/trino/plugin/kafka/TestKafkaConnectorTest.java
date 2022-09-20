@@ -45,6 +45,9 @@ import static io.trino.plugin.kafka.encoder.json.format.DateTimeFormat.ISO8601;
 import static io.trino.plugin.kafka.encoder.json.format.DateTimeFormat.MILLISECONDS_SINCE_EPOCH;
 import static io.trino.plugin.kafka.encoder.json.format.DateTimeFormat.RFC2822;
 import static io.trino.plugin.kafka.encoder.json.format.DateTimeFormat.SECONDS_SINCE_EPOCH;
+import static io.trino.plugin.kafka.util.TestUtils.createDescription;
+import static io.trino.plugin.kafka.util.TestUtils.createFieldGroup;
+import static io.trino.plugin.kafka.util.TestUtils.createOneFieldDescription;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -463,47 +466,6 @@ public class TestKafkaConnectorTest
     public void testInsertRowConcurrently()
     {
         throw new SkipException("TODO Prepare a topic in Kafka and enable this test");
-    }
-
-    private static KafkaTopicDescription createDescription(SchemaTableName schemaTableName, KafkaTopicFieldDescription key, List<KafkaTopicFieldDescription> fields)
-    {
-        return new KafkaTopicDescription(
-                schemaTableName.getTableName(),
-                Optional.of(schemaTableName.getSchemaName()),
-                schemaTableName.getTableName(),
-                Optional.of(new KafkaTopicFieldGroup("json", Optional.empty(), Optional.empty(), ImmutableList.of(key))),
-                Optional.of(new KafkaTopicFieldGroup("json", Optional.empty(), Optional.empty(), fields)));
-    }
-
-    private static KafkaTopicDescription createDescription(String name, String schema, String topic, Optional<KafkaTopicFieldGroup> message)
-    {
-        return new KafkaTopicDescription(name, Optional.of(schema), topic, Optional.empty(), message);
-    }
-
-    private static Optional<KafkaTopicFieldGroup> createFieldGroup(String dataFormat, List<KafkaTopicFieldDescription> fields)
-    {
-        return Optional.of(new KafkaTopicFieldGroup(dataFormat, Optional.empty(), Optional.empty(), fields));
-    }
-
-    private static KafkaTopicFieldDescription createOneFieldDescription(String name, Type type)
-    {
-        return new KafkaTopicFieldDescription(name, type, name, null, null, null, false);
-    }
-
-    private static KafkaTopicFieldDescription createOneFieldDescription(String name, Type type, String dataFormat)
-    {
-        return new KafkaTopicFieldDescription(name, type, name, null, dataFormat, null, false);
-    }
-
-    private static KafkaTopicFieldDescription createOneFieldDescription(String name, Type type, String dataFormat, Optional<String> formatHint)
-    {
-        return formatHint.map(s -> new KafkaTopicFieldDescription(name, type, name, null, dataFormat, s, false))
-                .orElseGet(() -> new KafkaTopicFieldDescription(name, type, name, null, dataFormat, null, false));
-    }
-
-    private static KafkaTopicFieldDescription createOneFieldDescription(String name, Type type, String mapping, String dataFormat)
-    {
-        return new KafkaTopicFieldDescription(name, type, mapping, null, dataFormat, null, false);
     }
 
     @Test
