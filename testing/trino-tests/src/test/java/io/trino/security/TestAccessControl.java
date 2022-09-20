@@ -708,4 +708,52 @@ public class TestAccessControl
             }
         });
     }
+
+    @Test
+    public void testUseStatementAccessControl()
+    {
+        executeExclusively(() -> {
+            Session session = testSessionBuilder()
+                    .setCatalog(Optional.empty())
+                    .setSchema(Optional.empty())
+                    .build();
+            getQueryRunner().execute(session, "USE tpch.tiny");
+            assertThatThrownBy(() -> getQueryRunner().execute("USE not_exists_catalog.tiny"))
+                    .hasMessageMatching("Catalog does not exist: not_exists_catalog");
+            assertThatThrownBy(() -> getQueryRunner().execute("USE tpch.not_exists_schema"))
+                    .hasMessageMatching("Schema does not exist: tpch.not_exists_schema");
+        });
+    }
+
+    @Test
+    public void testUseStatementAccessControlWithDeniedCatalog()
+    {
+        executeExclusively(() -> {
+            try {
+                getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("tpch"));
+                assertThatThrownBy(() -> getQueryRunner().execute("USE tpch.tiny"))
+                        .hasMessageMatching("Access Denied: Cannot access catalog tpch");
+                assertThatThrownBy(() -> getQueryRunner().execute("USE tpch.not_exists_schema"))
+                        .hasMessageMatching("Access Denied: Cannot access catalog tpch");
+            }
+            finally {
+                getQueryRunner().getAccessControl().reset();
+            }
+        });
+    }
+
+    @Test
+    public void testUseStatementAccessControlWithDeniedSchema()
+    {
+        executeExclusively(() -> {
+            try {
+                getQueryRunner().getAccessControl().denySchemas(schema -> !schema.equals("tiny"));
+                assertThatThrownBy(() -> getQueryRunner().execute("USE tpch.tiny"))
+                        .hasMessageMatching("Access Denied: Cannot access schema: tpch.tiny");
+            }
+            finally {
+                getQueryRunner().getAccessControl().reset();
+            }
+        });
+    }
 }
