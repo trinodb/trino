@@ -1535,7 +1535,7 @@ public class IcebergMetadata
                     updateProperties.set(TRINO_STATS_NDV_FORMAT.formatted(columnId), Long.toString(ndv));
                 }
                 else {
-                    throw new UnsupportedOperationException("Unsupported statistic type: " + statisticMetadata.getStatisticType());
+                    throw new UnsupportedOperationException("Unsupported statistic: " + statisticMetadata);
                 }
             }
         }
