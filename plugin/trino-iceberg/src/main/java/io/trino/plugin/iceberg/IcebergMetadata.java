@@ -80,6 +80,7 @@ import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
@@ -229,7 +230,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static io.trino.spi.predicate.Utils.blockToNativeValue;
-import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.UuidType.UUID;
@@ -262,6 +262,8 @@ public class IcebergMetadata
 
     public static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
     public static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
+
+    private static final FunctionName NUMBER_OF_DISTINCT_VALUES = new FunctionName("approx_distinct");
 
     private final TypeManager typeManager;
     private final TypeOperators typeOperators;
@@ -1533,7 +1535,7 @@ public class IcebergMetadata
             verify(computedStatistic.getTableStatistics().isEmpty(), "Unexpected table statistics");
             for (Map.Entry<ColumnStatisticMetadata, Block> entry : computedStatistic.getColumnStatistics().entrySet()) {
                 ColumnStatisticMetadata statisticMetadata = entry.getKey();
-                if (statisticMetadata.getStatisticType() == NUMBER_OF_DISTINCT_VALUES) {
+                if (statisticMetadata.getAggregation().equals(NUMBER_OF_DISTINCT_VALUES)) {
                     long ndv = (long) blockToNativeValue(BIGINT, entry.getValue());
                     Integer columnId = verifyNotNull(
                             columnNameToId.get(statisticMetadata.getColumnName()),

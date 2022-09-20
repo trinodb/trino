@@ -14,24 +14,59 @@
 package io.trino.spi.statistics;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.Experimental;
+import io.trino.spi.expression.FunctionName;
 
 import java.util.Objects;
+import java.util.Optional;
+import java.util.StringJoiner;
 
 import static java.util.Objects.requireNonNull;
 
 public class ColumnStatisticMetadata
 {
     private final String columnName;
-    private final ColumnStatisticType statisticType;
+    private final Optional<ColumnStatisticType> statisticType;
+    private final Optional<FunctionName> aggregation;
 
-    @JsonCreator
     public ColumnStatisticMetadata(
-            @JsonProperty("columnName") String columnName,
-            @JsonProperty("statisticType") ColumnStatisticType statisticType)
+            String columnName,
+            ColumnStatisticType statisticType)
+    {
+        this(columnName, Optional.of(statisticType), Optional.empty());
+    }
+
+    @Experimental(eta = "2023-01-31")
+    public ColumnStatisticMetadata(
+            String columnName,
+            FunctionName aggregation)
+    {
+        this(columnName, Optional.empty(), Optional.of(aggregation));
+    }
+
+    private ColumnStatisticMetadata(
+            String columnName,
+            Optional<ColumnStatisticType> statisticType,
+            Optional<FunctionName> aggregation)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.statisticType = requireNonNull(statisticType, "statisticType is null");
+        this.aggregation = requireNonNull(aggregation, "aggregation is null");
+        if (statisticType.isPresent() == aggregation.isPresent()) {
+            throw new IllegalArgumentException("Exactly one of statisticType and aggregation should be set");
+        }
+    }
+
+    @Deprecated // For JSON deserialization only
+    @JsonCreator
+    public static ColumnStatisticMetadata fromJson(
+            @JsonProperty("columnName") String columnName,
+            @JsonProperty("statisticType") Optional<ColumnStatisticType> statisticType,
+            @JsonProperty("aggregation") Optional<FunctionName> aggregation)
+    {
+        return new ColumnStatisticMetadata(columnName, statisticType, aggregation);
     }
 
     @JsonProperty
@@ -40,10 +75,31 @@ public class ColumnStatisticMetadata
         return columnName;
     }
 
-    @JsonProperty
+    @JsonIgnore
     public ColumnStatisticType getStatisticType()
     {
+        return statisticType.orElseThrow();
+    }
+
+    @Experimental(eta = "2023-01-31")
+    @JsonProperty("statisticType")
+    public Optional<ColumnStatisticType> getStatisticTypeIfPresent()
+    {
         return statisticType;
+    }
+
+    @Experimental(eta = "2023-01-31")
+    @JsonIgnore
+    public FunctionName getAggregation()
+    {
+        return aggregation.orElseThrow();
+    }
+
+    @Experimental(eta = "2023-01-31")
+    @JsonProperty("aggregation")
+    public Optional<FunctionName> getAggregationIfPresent()
+    {
+        return aggregation;
     }
 
     @Override
@@ -57,21 +113,23 @@ public class ColumnStatisticMetadata
         }
         ColumnStatisticMetadata that = (ColumnStatisticMetadata) o;
         return Objects.equals(columnName, that.columnName) &&
-                statisticType == that.statisticType;
+                Objects.equals(statisticType, that.statisticType) &&
+                Objects.equals(aggregation, that.aggregation);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(columnName, statisticType);
+        return Objects.hash(columnName, statisticType, aggregation);
     }
 
     @Override
     public String toString()
     {
-        return "ColumnStatisticMetadata{" +
-                "columnName='" + columnName + '\'' +
-                ", statisticType=" + statisticType +
-                '}';
+        return new StringJoiner(", ", ColumnStatisticMetadata.class.getSimpleName() + "[", "]")
+                .add("columnName='" + columnName + "'")
+                .add("statisticType=" + statisticType)
+                .add("aggregation=" + aggregation)
+                .toString();
     }
 }
