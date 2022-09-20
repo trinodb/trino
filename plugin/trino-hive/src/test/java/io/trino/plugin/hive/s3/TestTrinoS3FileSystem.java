@@ -812,18 +812,19 @@ public class TestTrinoS3FileSystem
     {
         Configuration config = newEmptyConfiguration();
         config.set(S3_STREAMING_UPLOAD_ENABLED, "true");
-        config.set(S3_STREAMING_UPLOAD_PART_SIZE, "10");
 
         try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
             String expectedBucketName = "test-bucket";
+            config.set(S3_STREAMING_UPLOAD_PART_SIZE, "128");
             fs.initialize(new URI("s3n://" + expectedBucketName + "/"), config);
             fs.setS3Client(s3);
-            try (FSDataOutputStream stream = fs.create(new Path("s3n://test-bucket/test"))) {
+            String objectKey = "test";
+            try (FSDataOutputStream stream = fs.create(new Path("s3n://test-bucket/" + objectKey))) {
                 stream.write('a');
-                stream.write("foo".repeat(2).getBytes(US_ASCII));
-                stream.write("bar".repeat(3).getBytes(US_ASCII));
-                stream.write("orange".repeat(4).getBytes(US_ASCII), 6, 12);
+                stream.write("foo".repeat(21).getBytes(US_ASCII)); // 63 bytes = "foo" * 21
+                stream.write("bar".repeat(44).getBytes(US_ASCII)); // 132 bytes = "bar" * 44
+                stream.write("orange".repeat(25).getBytes(US_ASCII), 6, 132); // 132 bytes = "orange" * 22
             }
 
             List<UploadPartRequest> parts = s3.getUploadParts();
@@ -833,7 +834,7 @@ public class TestTrinoS3FileSystem
                     .map(UploadPartRequest::getInputStream)
                     .reduce(new ByteArrayInputStream(new byte[0]), SequenceInputStream::new);
             String data = new String(toByteArray(concatInputStream), US_ASCII);
-            assertEquals(data, "afoofoobarbarbarorangeorange");
+            assertEquals(data, "a" + "foo".repeat(21) + "bar".repeat(44) + "orange".repeat(22));
         }
     }
 

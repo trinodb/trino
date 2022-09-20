@@ -113,6 +113,7 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Date;
 import java.util.Iterator;
@@ -1561,6 +1562,8 @@ public class TrinoS3FileSystem
         private Optional<String> uploadId = Optional.empty();
         private Future<UploadPartResult> inProgressUploadFuture;
         private final List<UploadPartResult> parts = new ArrayList<>();
+        private final int partSize;
+        private int initialBufferSize;
 
         public TrinoS3StreamingOutputStream(
                 AmazonS3 s3,
@@ -1574,20 +1577,21 @@ public class TrinoS3FileSystem
             STATS.uploadStarted();
 
             this.s3 = requireNonNull(s3, "s3 is null");
-
-            this.buffer = new byte[partSize];
-
+            this.partSize = partSize;
             this.bucketName = requireNonNull(bucketName, "bucketName is null");
             this.key = requireNonNull(key, "key is null");
             this.requestCustomizer = requireNonNull(requestCustomizer, "requestCustomizer is null");
             this.uploadIdFactory = requireNonNull(uploadIdFactory, "uploadIdFactory is null");
             this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
+            this.buffer = new byte[0];
+            this.initialBufferSize = 64;
         }
 
         @Override
         public void write(int b)
                 throws IOException
         {
+            ensureExtraBytesCapacity(1);
             flushBuffer(false);
             buffer[bufferSize] = (byte) b;
             bufferSize++;
@@ -1598,6 +1602,7 @@ public class TrinoS3FileSystem
                 throws IOException
         {
             while (length > 0) {
+                ensureExtraBytesCapacity(min(partSize - bufferSize, length));
                 int copied = min(buffer.length - bufferSize, length);
                 arraycopy(bytes, offset, buffer, bufferSize, copied);
                 bufferSize += copied;
@@ -1653,6 +1658,22 @@ public class TrinoS3FileSystem
             }
         }
 
+        private void ensureExtraBytesCapacity(int extraBytesCapacity)
+        {
+            int totalBytesCapacity = bufferSize + extraBytesCapacity;
+            checkArgument(totalBytesCapacity <= partSize);
+            if (buffer.length < totalBytesCapacity) {
+                // buffer length might be 0
+                int newBytesLength = max(buffer.length, initialBufferSize);
+                if (totalBytesCapacity > newBytesLength) {
+                    // grow array by 50%
+                    newBytesLength = max(newBytesLength + (newBytesLength >> 1), totalBytesCapacity);
+                    newBytesLength = min(newBytesLength, partSize);
+                }
+                buffer = Arrays.copyOf(buffer, newBytesLength);
+            }
+        }
+
         private void flushBuffer(boolean finished)
                 throws IOException
         {
@@ -1678,7 +1699,7 @@ public class TrinoS3FileSystem
             }
 
             // The multipart upload API only accept the last part to be less than 5MB
-            if (bufferSize == buffer.length || (finished && bufferSize > 0)) {
+            if (bufferSize == partSize || (finished && bufferSize > 0)) {
                 byte[] data = buffer;
                 int length = bufferSize;
 
@@ -1686,7 +1707,8 @@ public class TrinoS3FileSystem
                     this.buffer = null;
                 }
                 else {
-                    this.buffer = new byte[buffer.length];
+                    this.buffer = new byte[0];
+                    this.initialBufferSize = partSize;
                     bufferSize = 0;
                 }
 
