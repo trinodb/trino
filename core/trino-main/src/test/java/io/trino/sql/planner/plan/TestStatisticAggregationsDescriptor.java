@@ -24,24 +24,11 @@ import org.testng.annotations.Test;
 
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.planner.plan.StatisticAggregationsDescriptor.ColumnStatisticMetadataKeyDeserializer.deserialize;
-import static io.trino.sql.planner.plan.StatisticAggregationsDescriptor.ColumnStatisticMetadataKeySerializer.serialize;
 import static io.trino.testing.assertions.Assert.assertEquals;
 
 public class TestStatisticAggregationsDescriptor
 {
     private static final ImmutableList<String> COLUMNS = ImmutableList.of("", "col1", "$:###:;", "abc+dddd___");
-
-    @Test
-    public void testColumnStatisticMetadataKeySerializationRoundTrip()
-    {
-        for (String column : COLUMNS) {
-            for (ColumnStatisticType type : ColumnStatisticType.values()) {
-                ColumnStatisticMetadata expected = new ColumnStatisticMetadata(column, type);
-                assertEquals(deserialize(serialize(expected)), expected);
-            }
-        }
-    }
 
     @Test
     public void testSerializationRoundTrip()
