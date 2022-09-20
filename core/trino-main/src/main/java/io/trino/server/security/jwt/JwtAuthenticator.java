@@ -77,11 +77,11 @@ public class JwtAuthenticator
 
     private void validateAudience(Claims claims)
     {
-        Object tokenAudience = claims.get(AUDIENCE);
         if (requiredAudience.isEmpty()) {
             return;
         }
 
+        Object tokenAudience = claims.get(AUDIENCE);
         if (tokenAudience == null) {
             throw new InvalidClaimException(format("Expected %s claim to be: %s, but was not present in the JWT claims.", AUDIENCE, requiredAudience.get()));
         }

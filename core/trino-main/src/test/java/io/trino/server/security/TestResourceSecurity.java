@@ -581,6 +581,50 @@ public class TestResourceSecurity
     }
 
     @Test
+    public void testJwtAuthenticatorWithNoRequiredAudience()
+            throws Exception
+    {
+        verifyJwtAuthenticatorWithoutRequiredAudience(Optional.empty());
+        verifyJwtAuthenticatorWithoutRequiredAudience(Optional.of(ImmutableList.of(TRINO_AUDIENCE, ADDITIONAL_AUDIENCE)));
+    }
+
+    private void verifyJwtAuthenticatorWithoutRequiredAudience(Optional<Object> audience)
+            throws Exception
+    {
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("http-server.authentication.type", "jwt")
+                        .put("http-server.authentication.jwt.key-file", HMAC_KEY)
+                        .buildOrThrow())
+                .build()) {
+            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION);
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+
+            assertAuthenticationDisabled(httpServerInfo.getHttpUri());
+
+            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
+            JwtBuilder tokenBuilder = newJwtBuilder()
+                    .signWith(hmac)
+                    .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                    .setSubject(TEST_USER);
+
+            if (audience.isPresent()) {
+                tokenBuilder.claim(AUDIENCE, audience.get());
+            }
+
+            String token = tokenBuilder.compact();
+
+            OkHttpClient clientWithJwt = client.newBuilder()
+                    .authenticator((route, response) -> response.request().newBuilder()
+                            .header(AUTHORIZATION, "Bearer " + token)
+                            .build())
+                    .build();
+            assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithJwt);
+        }
+    }
+
+    @Test
     public void testOAuth2Authenticator()
             throws Exception
     {
