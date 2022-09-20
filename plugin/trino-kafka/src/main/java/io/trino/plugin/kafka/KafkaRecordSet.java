@@ -120,7 +120,7 @@ public class KafkaRecordSet
         private Iterator<ConsumerRecord<byte[], byte[]>> records = emptyIterator();
         private long completedBytes;
 
-        private final FieldValueProvider[] currentRowValues = new FieldValueProvider[columnHandles.size()];
+        private List<FieldValueProvider> currentRowValues = ImmutableList.of();
 
         private KafkaRecordCursor()
         {
@@ -232,10 +232,9 @@ public class KafkaRecordSet
             decodedKey.ifPresent(currentRowValuesMap::putAll);
             decodedValue.ifPresent(currentRowValuesMap::putAll);
 
-            for (int i = 0; i < columnHandles.size(); i++) {
-                ColumnHandle columnHandle = columnHandles.get(i);
-                currentRowValues[i] = currentRowValuesMap.get(columnHandle);
-            }
+            currentRowValues = columnHandles.stream()
+                    .map(currentRowValuesMap::get)
+                    .collect(toImmutableList());
 
             return true; // Advanced successfully.
         }
@@ -274,14 +273,14 @@ public class KafkaRecordSet
         public boolean isNull(int field)
         {
             checkArgument(field < columnHandles.size(), "Invalid field index");
-            return currentRowValues[field] == null || currentRowValues[field].isNull();
+            return currentRowValues.get(field) == null || currentRowValues.get(field).isNull();
         }
 
         private FieldValueProvider getFieldValueProvider(int field, Class<?> expectedType)
         {
             checkArgument(field < columnHandles.size(), "Invalid field index");
             checkFieldType(field, expectedType);
-            return currentRowValues[field];
+            return currentRowValues.get(field);
         }
 
         private void checkFieldType(int field, Class<?> expected)
