@@ -23,6 +23,8 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.assertions.Assert.assertEquals;
@@ -52,8 +54,8 @@ public class TestStatisticAggregationsDescriptor
             for (ColumnStatisticType type : ColumnStatisticType.values()) {
                 builder.addColumnStatistic(new ColumnStatisticMetadata(column, type), testSymbol(symbolAllocator));
             }
-            builder.addColumnStatistic(new ColumnStatisticMetadata(column, new FunctionName("count")), testSymbol(symbolAllocator));
-            builder.addColumnStatistic(new ColumnStatisticMetadata(column, new FunctionName("count_if")), testSymbol(symbolAllocator));
+            builder.addColumnStatistic(new ColumnStatisticMetadata(column, "count non null", new FunctionName("count"), Optional.empty()), testSymbol(symbolAllocator));
+            builder.addColumnStatistic(new ColumnStatisticMetadata(column, "count true", new FunctionName("count_if"), Optional.empty()), testSymbol(symbolAllocator));
             builder.addGrouping(column, testSymbol(symbolAllocator));
         }
         builder.addTableStatistic(ROW_COUNT, testSymbol(symbolAllocator));

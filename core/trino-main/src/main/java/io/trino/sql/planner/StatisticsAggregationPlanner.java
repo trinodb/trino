@@ -21,15 +21,19 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.aggregation.MaxDataSizeForStats;
 import io.trino.operator.aggregation.SumDataSizeForStats;
 import io.trino.spi.TrinoException;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FunctionName;
+import io.trino.spi.expression.Variable;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.statistics.TableStatisticType;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.StatisticAggregations;
 import io.trino.sql.planner.plan.StatisticAggregationsDescriptor;
+import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.QualifiedName;
 
 import java.util.List;
@@ -41,6 +45,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -51,13 +56,17 @@ import static java.util.Objects.requireNonNull;
 public class StatisticsAggregationPlanner
 {
     private final SymbolAllocator symbolAllocator;
+    private final PlannerContext plannerContext;
     private final Metadata metadata;
+    private final LiteralEncoder literalEncoder;
     private final Session session;
 
-    public StatisticsAggregationPlanner(SymbolAllocator symbolAllocator, Metadata metadata, Session session)
+    public StatisticsAggregationPlanner(SymbolAllocator symbolAllocator, PlannerContext plannerContext, Session session)
     {
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = plannerContext.getMetadata();
+        this.literalEncoder = new LiteralEncoder(plannerContext);
         this.session = requireNonNull(session, "session is null");
     }
 
@@ -93,23 +102,22 @@ public class StatisticsAggregationPlanner
 
         for (ColumnStatisticMetadata columnStatisticMetadata : statisticsMetadata.getColumnStatistics()) {
             String columnName = columnStatisticMetadata.getColumnName();
+            String connectorAggregationId = columnStatisticMetadata.getConnectorAggregationId();
             Symbol inputSymbol = columnToSymbolMap.get(columnName);
             verifyNotNull(inputSymbol, "inputSymbol is null");
             Type inputType = symbolAllocator.getTypes().get(inputSymbol);
             verifyNotNull(inputType, "inputType is null for symbol: %s", inputSymbol);
             ColumnStatisticsAggregation aggregation;
-            String symbolHint;
             if (columnStatisticMetadata.getStatisticTypeIfPresent().isPresent()) {
                 ColumnStatisticType statisticType = columnStatisticMetadata.getStatisticType();
                 aggregation = createColumnAggregation(statisticType, inputSymbol, inputType);
-                symbolHint = statisticType + ":" + columnName;
             }
             else {
                 FunctionName aggregationName = columnStatisticMetadata.getAggregation();
-                aggregation = createColumnAggregation(aggregationName, inputSymbol, inputType);
-                symbolHint = aggregationName.getName() + ":" + columnName;
+                Optional<ConnectorExpression> projection = columnStatisticMetadata.getProjection();
+                aggregation = createColumnAggregation(aggregationName, inputSymbol, inputType, projection);
             }
-            Symbol symbol = symbolAllocator.newSymbol(symbolHint, aggregation.getOutputType());
+            Symbol symbol = symbolAllocator.newSymbol(connectorAggregationId + ":" + columnName, aggregation.getOutputType());
             aggregations.put(symbol, aggregation.getAggregation());
             descriptor.addColumnStatistic(columnStatisticMetadata, symbol);
         }
@@ -134,21 +142,41 @@ public class StatisticsAggregationPlanner
         };
     }
 
-    private ColumnStatisticsAggregation createColumnAggregation(FunctionName aggregation, Symbol input, Type inputType)
+    private ColumnStatisticsAggregation createColumnAggregation(FunctionName aggregation, Symbol input, Type inputType, Optional<ConnectorExpression> projection)
     {
         checkArgument(aggregation.getCatalogSchema().isEmpty(), "Catalog/schema name not supported");
-        return createAggregation(QualifiedName.of(aggregation.getName()), input, inputType);
+        return createAggregation(QualifiedName.of(aggregation.getName()), input, inputType, projection);
     }
 
     private ColumnStatisticsAggregation createAggregation(QualifiedName functionName, Symbol input, Type inputType)
     {
-        ResolvedFunction resolvedFunction = metadata.resolveFunction(session, functionName, fromTypes(inputType));
+        return createAggregation(functionName, input, inputType, Optional.empty());
+    }
+
+    private ColumnStatisticsAggregation createAggregation(QualifiedName functionName, Symbol input, Type inputType, Optional<ConnectorExpression> projection)
+    {
+        Expression aggregationInput;
+        Type aggregationInputType;
+        if (projection.isEmpty()) {
+            aggregationInput = input.toSymbolReference();
+            aggregationInputType = inputType;
+        }
+        else {
+            Variable inputVariable = ConnectorExpressions.preOrder(projection.get())
+                    .filter(Variable.class::isInstance)
+                    .map(Variable.class::cast)
+                    .collect(onlyElement());
+            verify(inputVariable.getType().equals(inputType), "Projection variable type %s does not match column type %s", inputVariable.getType(), inputType);
+            aggregationInput = ConnectorExpressionTranslator.translate(session, projection.get(), plannerContext, ImmutableMap.of(inputVariable.getName(), input), literalEncoder);
+            aggregationInputType = projection.get().getType();
+        }
+        ResolvedFunction resolvedFunction = metadata.resolveFunction(session, functionName, fromTypes(aggregationInputType));
         Type resolvedType = getOnlyElement(resolvedFunction.getSignature().getArgumentTypes());
-        verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
+        verify(resolvedType.equals(aggregationInputType), "resolved function input type does not match the input type: %s != %s", resolvedType, aggregationInputType);
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(
                         resolvedFunction,
-                        ImmutableList.of(input.toSymbolReference()),
+                        ImmutableList.of(aggregationInput),
                         false,
                         Optional.empty(),
                         Optional.empty(),

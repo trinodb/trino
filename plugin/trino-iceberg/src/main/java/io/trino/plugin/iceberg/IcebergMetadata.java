@@ -1490,7 +1490,7 @@ public class IcebergMetadata
         Set<ColumnStatisticMetadata> columnStatistics = tableMetadata.getColumns().stream()
                 .filter(column -> analyzeColumnNames.contains(column.getName()))
                 // TODO: add support for NDV summary/sketch, but using Theta sketch, not HLL; see https://github.com/apache/iceberg-docs/pull/69
-                .map(column -> new ColumnStatisticMetadata(column.getName(), NUMBER_OF_DISTINCT_VALUES))
+                .map(column -> new ColumnStatisticMetadata(column.getName(), "ndv", NUMBER_OF_DISTINCT_VALUES, Optional.empty()))
                 .collect(toImmutableSet());
 
         return new ConnectorAnalyzeMetadata(
