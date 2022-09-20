@@ -616,7 +616,7 @@ public class TestingAccessControlManager
             denyGrantExecuteFunctionPrivilege(functionName.toString(), context.getIdentity(), grantee);
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanGrantExecuteFunctionPrivilege(context, functionName.toString(), grantee, grantOption);
+            super.checkCanGrantExecuteFunctionPrivilege(context, functionKind, functionName, grantee, grantOption);
         }
     }
 
@@ -681,6 +681,17 @@ public class TestingAccessControlManager
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanExecuteFunction(context, functionName);
+        }
+    }
+
+    @Override
+    public void checkCanExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
+    {
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName.toString(), EXECUTE_FUNCTION)) {
+            denyExecuteFunction(functionName.toString());
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanExecuteFunction(context, functionKind, functionName);
         }
     }
 
