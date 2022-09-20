@@ -78,7 +78,8 @@ public class RecordingHiveMetastore
     @Override
     public Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
     {
-        return recording.getSupportedColumnStatistics(type.getTypeSignature().toString(), () -> delegate.getSupportedColumnStatistics(type));
+        // No need to record that, since it's a pure local operation.
+        return delegate.getSupportedColumnStatistics(type);
     }
 
     @Override
