@@ -48,6 +48,7 @@ public class FlushHiveMetastoreCacheProcedure
     private static final String PROCEDURE_USAGE_EXAMPLES = format(
             "Valid usages:%n" +
                     " - '%1$s()'%n" +
+                    " - %1$s(%2$s => ..., %3$s => ...)" +
                     " - %1$s(%2$s => ..., %3$s => ..., %4$s => ARRAY['...'], %5$s => ARRAY['...'])",
             PROCEDURE_NAME,
             // Use lowercase parameter names per convention. In the usage example the names are not delimited.
@@ -113,8 +114,13 @@ public class FlushHiveMetastoreCacheProcedure
         if (schemaName.isEmpty() && tableName.isEmpty() && partitionColumns.isEmpty()) {
             cachingHiveMetastore.flushCache();
         }
-        else if (schemaName.isPresent() && tableName.isPresent() && !partitionColumns.isEmpty()) {
-            cachingHiveMetastore.flushPartitionCache(schemaName.get(), tableName.get(), partitionColumns, partitionValues);
+        else if (schemaName.isPresent() && tableName.isPresent()) {
+            if (!partitionColumns.isEmpty()) {
+                cachingHiveMetastore.flushPartitionCache(schemaName.get(), tableName.get(), partitionColumns, partitionValues);
+            }
+            else {
+                cachingHiveMetastore.invalidateTable(schemaName.get(), tableName.get());
+            }
         }
         else {
             throw new TrinoException(
