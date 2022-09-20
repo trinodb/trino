@@ -266,8 +266,8 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("REFRESH MATERIALIZED VIEW test_refresh_mview_view",
                     ImmutableMultiset.builder()
-                            .addCopies(GET_TABLE, 9)
-                            .addCopies(UPDATE_TABLE, 2)
+                            .addCopies(GET_TABLE, 6)
+                            .addCopies(UPDATE_TABLE, 1)
                             .build());
         }
         finally {
