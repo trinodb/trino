@@ -275,18 +275,16 @@ public class TestHiveGlueMetastore
 
     @Override
     public void testUpdateTableColumnStatisticsEmptyOptionalFields()
-            throws Exception
     {
-        // this test expect consistency between written and read stats but this is not provided by glue at the moment
+        // this test expects consistency between written and read stats but this is not provided by glue at the moment
         // when writing empty min/max statistics glue will return 0 to the readers
         // in order to avoid incorrect data we skip writes for statistics with min/max = null
     }
 
     @Override
     public void testUpdatePartitionColumnStatisticsEmptyOptionalFields()
-            throws Exception
     {
-        // this test expect consistency between written and read stats but this is not provided by glue at the moment
+        // this test expects consistency between written and read stats but this is not provided by glue at the moment
         // when writing empty min/max statistics glue will return 0 to the readers
         // in order to avoid incorrect data we skip writes for statistics with min/max = null
     }
