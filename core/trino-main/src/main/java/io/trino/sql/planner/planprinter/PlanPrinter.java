@@ -35,6 +35,7 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.expression.FunctionName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
@@ -1458,9 +1459,22 @@ public class PlanPrinter
             }
 
             for (Map.Entry<ColumnStatisticMetadata, Symbol> columnStatistic : columnStatistics.entrySet()) {
+                String aggregationName;
+                if (columnStatistic.getKey().getStatisticTypeIfPresent().isPresent()) {
+                    aggregationName = columnStatistic.getKey().getStatisticType().name();
+                }
+                else {
+                    FunctionName aggregation = columnStatistic.getKey().getAggregation();
+                    if (aggregation.getCatalogSchema().isPresent()) {
+                        aggregationName = aggregation.getCatalogSchema().get() + "." + aggregation.getName();
+                    }
+                    else {
+                        aggregationName = aggregation.getName();
+                    }
+                }
                 nodeOutput.appendDetails(
                         indentString(1) + "%s[%s] => [%s := %s]",
-                        columnStatistic.getKey().getStatisticType(),
+                        aggregationName,
                         anonymizer.anonymizeColumn(columnStatistic.getKey().getColumnName()),
                         anonymizer.anonymize(columnStatistic.getValue()),
                         formatAggregation(anonymizer, aggregations.get(columnStatistic.getValue())));

@@ -21,6 +21,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.aggregation.MaxDataSizeForStats;
 import io.trino.operator.aggregation.SumDataSizeForStats;
 import io.trino.spi.TrinoException;
+import io.trino.spi.expression.FunctionName;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.statistics.TableStatisticType;
@@ -36,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -92,13 +94,23 @@ public class StatisticsAggregationPlanner
 
         for (ColumnStatisticMetadata columnStatisticMetadata : statisticsMetadata.getColumnStatistics()) {
             String columnName = columnStatisticMetadata.getColumnName();
-            ColumnStatisticType statisticType = columnStatisticMetadata.getStatisticType();
             Symbol inputSymbol = columnToSymbolMap.get(columnName);
             verifyNotNull(inputSymbol, "inputSymbol is null");
             Type inputType = symbolAllocator.getTypes().get(inputSymbol);
             verifyNotNull(inputType, "inputType is null for symbol: %s", inputSymbol);
-            ColumnStatisticsAggregation aggregation = createColumnAggregation(statisticType, inputSymbol, inputType);
-            Symbol symbol = symbolAllocator.newSymbol(statisticType + ":" + columnName, aggregation.getOutputType());
+            ColumnStatisticsAggregation aggregation;
+            String symbolHint;
+            if (columnStatisticMetadata.getStatisticTypeIfPresent().isPresent()) {
+                ColumnStatisticType statisticType = columnStatisticMetadata.getStatisticType();
+                aggregation = createColumnAggregation(statisticType, inputSymbol, inputType);
+                symbolHint = statisticType + ":" + columnName;
+            }
+            else {
+                FunctionName aggregationName = columnStatisticMetadata.getAggregation();
+                aggregation = createColumnAggregation(aggregationName, inputSymbol, inputType);
+                symbolHint = aggregationName.getName() + ":" + columnName;
+            }
+            Symbol symbol = symbolAllocator.newSymbol(symbolHint, aggregation.getOutputType());
             aggregations.put(symbol, aggregation.getAggregation());
             descriptor.addColumnStatistic(columnStatisticMetadata, symbol);
         }
@@ -121,6 +133,12 @@ public class StatisticsAggregationPlanner
             case TOTAL_SIZE_IN_BYTES -> createAggregation(QualifiedName.of(SumDataSizeForStats.NAME), input.toSymbolReference(), inputType);
             case MAX_VALUE_SIZE_IN_BYTES -> createAggregation(QualifiedName.of(MaxDataSizeForStats.NAME), input.toSymbolReference(), inputType);
         };
+    }
+
+    private ColumnStatisticsAggregation createColumnAggregation(FunctionName aggregation, Symbol input, Type inputType)
+    {
+        checkArgument(aggregation.getCatalogSchema().isEmpty(), "Catalog/schema name not supported");
+        return createAggregation(QualifiedName.of(aggregation.getName()), input.toSymbolReference(), inputType);
     }
 
     private ColumnStatisticsAggregation createAggregation(QualifiedName functionName, SymbolReference input, Type inputType)
