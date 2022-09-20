@@ -18,11 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.operator.aggregation.MaxDataSizeForStats;
-import io.trino.operator.aggregation.SumDataSizeForStats;
 import io.trino.spi.TrinoException;
+import io.trino.spi.expression.FunctionName;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
-import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.statistics.TableStatisticType;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
@@ -30,12 +28,12 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.StatisticAggregations;
 import io.trino.sql.planner.plan.StatisticAggregationsDescriptor;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -43,8 +41,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.util.Objects.requireNonNull;
 
@@ -93,13 +89,13 @@ public class StatisticsAggregationPlanner
 
         for (ColumnStatisticMetadata columnStatisticMetadata : statisticsMetadata.getColumnStatistics()) {
             String columnName = columnStatisticMetadata.getColumnName();
-            ColumnStatisticType statisticType = columnStatisticMetadata.getStatisticType();
+            FunctionName aggregationName = columnStatisticMetadata.getAggregation();
             Symbol inputSymbol = columnToSymbolMap.get(columnName);
             verifyNotNull(inputSymbol, "inputSymbol is null");
             Type inputType = symbolAllocator.getTypes().get(inputSymbol);
             verifyNotNull(inputType, "inputType is null for symbol: %s", inputSymbol);
-            ColumnStatisticsAggregation aggregation = createColumnAggregation(statisticType, inputSymbol, inputType);
-            Symbol symbol = symbolAllocator.newSymbol(statisticType + ":" + columnName, aggregation.getOutputType());
+            ColumnStatisticsAggregation aggregation = createColumnAggregation(aggregationName, inputSymbol, inputType);
+            Symbol symbol = symbolAllocator.newSymbol(aggregationName.getName() + ":" + columnName, aggregation.getOutputType());
             aggregations.put(symbol, aggregation.getAggregation());
             descriptor.addColumnStatistic(columnStatisticMetadata, symbol);
         }
@@ -108,36 +104,21 @@ public class StatisticsAggregationPlanner
         return new TableStatisticAggregation(aggregation, descriptor.build());
     }
 
-    private ColumnStatisticsAggregation createColumnAggregation(ColumnStatisticType statisticType, Symbol input, Type inputType)
+    private ColumnStatisticsAggregation createColumnAggregation(FunctionName aggregationName, Symbol input, Type inputType)
     {
-        return switch (statisticType) {
-            case MIN_VALUE -> createAggregation(QualifiedName.of("min"), input.toSymbolReference(), inputType, inputType);
-            case MAX_VALUE -> createAggregation(QualifiedName.of("max"), input.toSymbolReference(), inputType, inputType);
-            case NUMBER_OF_DISTINCT_VALUES -> createAggregation(QualifiedName.of("approx_distinct"), input.toSymbolReference(), inputType, BIGINT);
-            case NUMBER_OF_DISTINCT_VALUES_SUMMARY ->
-                // we use $approx_set here and not approx_set because latter is not defined for all types supported by Trino
-                    createAggregation(QualifiedName.of("$approx_set"), input.toSymbolReference(), inputType, HYPER_LOG_LOG);
-            case NUMBER_OF_NON_NULL_VALUES -> createAggregation(QualifiedName.of("count"), input.toSymbolReference(), inputType, BIGINT);
-            case NUMBER_OF_TRUE_VALUES -> createAggregation(QualifiedName.of("count_if"), input.toSymbolReference(), BOOLEAN, BIGINT);
-            case TOTAL_SIZE_IN_BYTES -> createAggregation(QualifiedName.of(SumDataSizeForStats.NAME), input.toSymbolReference(), inputType, BIGINT);
-            case MAX_VALUE_SIZE_IN_BYTES -> createAggregation(QualifiedName.of(MaxDataSizeForStats.NAME), input.toSymbolReference(), inputType, BIGINT);
-        };
-    }
-
-    private ColumnStatisticsAggregation createAggregation(QualifiedName functionName, SymbolReference input, Type inputType, Type outputType)
-    {
-        ResolvedFunction resolvedFunction = metadata.resolveFunction(session, functionName, fromTypes(inputType));
+        checkArgument(aggregationName.getCatalogSchema().isEmpty(), "Qualified aggregation name is not supported yet");
+        ResolvedFunction resolvedFunction = metadata.resolveFunction(session, QualifiedName.of(aggregationName.getName()), fromTypes(inputType));
         Type resolvedType = getOnlyElement(resolvedFunction.getSignature().getArgumentTypes());
         verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(
                         resolvedFunction,
-                        ImmutableList.of(input),
+                        ImmutableList.of(input.toSymbolReference()),
                         false,
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()),
-                outputType);
+                resolvedFunction.getSignature().getReturnType());
     }
 
     public static class TableStatisticAggregation

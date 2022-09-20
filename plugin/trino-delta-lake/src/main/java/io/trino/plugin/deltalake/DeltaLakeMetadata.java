@@ -92,12 +92,12 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
-import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
@@ -201,15 +201,14 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
+import static io.trino.spi.expression.StandardFunctions.APPROX_SET_GENERIC;
+import static io.trino.spi.expression.StandardFunctions.SUM_DATA_SIZE_FOR_STATS;
 import static io.trino.spi.predicate.Range.greaterThanOrEqual;
 import static io.trino.spi.predicate.Range.lessThanOrEqual;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.predicate.Utils.blockToNativeValue;
 import static io.trino.spi.predicate.ValueSet.ofRanges;
-import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
-import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES_SUMMARY;
-import static io.trino.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -263,10 +262,11 @@ public class DeltaLakeMetadata
     // Matches the dummy column Databricks stores in the metastore
     private static final List<Column> DUMMY_DATA_COLUMNS = ImmutableList.of(
             new Column("col", HiveType.toHiveType(new ArrayType(VarcharType.createUnboundedVarcharType())), Optional.empty()));
-    private static final Set<ColumnStatisticType> SUPPORTED_STATISTICS_TYPE = ImmutableSet.<ColumnStatisticType>builder()
-            .add(TOTAL_SIZE_IN_BYTES)
-            .add(NUMBER_OF_DISTINCT_VALUES_SUMMARY)
+    private static final Set<FunctionName> SUPPORTED_STATISTICS_TYPE = ImmutableSet.<FunctionName>builder()
+            .add(SUM_DATA_SIZE_FOR_STATS)
+            .add(APPROX_SET_GENERIC)
             .build();
+    private static final FunctionName MAX = new FunctionName("max");
 
     private final DeltaLakeMetastore metastore;
     private final TrinoFileSystemFactory fileSystemFactory;
@@ -2194,14 +2194,14 @@ public class DeltaLakeMetadata
                 .forEach(columnMetadata -> {
                     if (!(columnMetadata.getType() instanceof FixedWidthType)) {
                         if (statistics.isEmpty() || totalSizeStatisticsExists(statistics.get().getColumnStatistics(), columnMetadata.getName())) {
-                            columnStatistics.add(new ColumnStatisticMetadata(columnMetadata.getName(), TOTAL_SIZE_IN_BYTES));
+                            columnStatistics.add(new ColumnStatisticMetadata(columnMetadata.getName(), SUM_DATA_SIZE_FOR_STATS));
                         }
                     }
-                    columnStatistics.add(new ColumnStatisticMetadata(columnMetadata.getName(), NUMBER_OF_DISTINCT_VALUES_SUMMARY));
+                    columnStatistics.add(new ColumnStatisticMetadata(columnMetadata.getName(), APPROX_SET_GENERIC));
                 });
 
         // collect max(file modification time) for sake of incremental ANALYZE
-        columnStatistics.add(new ColumnStatisticMetadata(FILE_MODIFIED_TIME_COLUMN_NAME, MAX_VALUE));
+        columnStatistics.add(new ColumnStatisticMetadata(FILE_MODIFIED_TIME_COLUMN_NAME, MAX));
 
         TableStatisticsMetadata statisticsMetadata = new TableStatisticsMetadata(
                 columnStatistics.build(),
@@ -2401,29 +2401,29 @@ public class DeltaLakeMetadata
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> createDeltaLakeColumnStatistics(entry.getValue())));
     }
 
-    private static Map<String, Map<ColumnStatisticType, Block>> createColumnToComputedStatisticsMap(Map<ColumnStatisticMetadata, Block> computedStatistics)
+    private static Map<String, Map<FunctionName, Block>> createColumnToComputedStatisticsMap(Map<ColumnStatisticMetadata, Block> computedStatistics)
     {
-        ImmutableTable.Builder<String, ColumnStatisticType, Block> result = ImmutableTable.builder();
+        ImmutableTable.Builder<String, FunctionName, Block> result = ImmutableTable.builder();
         computedStatistics.forEach((metadata, block) -> {
             if (metadata.getColumnName().equals(FILE_MODIFIED_TIME_COLUMN_NAME)) {
                 return;
             }
-            if (!SUPPORTED_STATISTICS_TYPE.contains(metadata.getStatisticType())) {
+            if (!SUPPORTED_STATISTICS_TYPE.contains(metadata.getAggregation())) {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unexpected statistics collection: " + metadata);
             }
 
-            result.put(metadata.getColumnName(), metadata.getStatisticType(), block);
+            result.put(metadata.getColumnName(), metadata.getAggregation(), block);
         });
         return result.buildOrThrow().rowMap();
     }
 
-    private static DeltaLakeColumnStatistics createDeltaLakeColumnStatistics(Map<ColumnStatisticType, Block> computedStatistics)
+    private static DeltaLakeColumnStatistics createDeltaLakeColumnStatistics(Map<FunctionName, Block> computedStatistics)
     {
         OptionalLong totalSize = OptionalLong.empty();
-        if (computedStatistics.containsKey(TOTAL_SIZE_IN_BYTES)) {
-            totalSize = getLongValue(computedStatistics.get(TOTAL_SIZE_IN_BYTES));
+        if (computedStatistics.containsKey(SUM_DATA_SIZE_FOR_STATS)) {
+            totalSize = getLongValue(computedStatistics.get(SUM_DATA_SIZE_FOR_STATS));
         }
-        HyperLogLog ndvSummary = getHyperLogLogForNdv(computedStatistics.get(NUMBER_OF_DISTINCT_VALUES_SUMMARY));
+        HyperLogLog ndvSummary = getHyperLogLogForNdv(computedStatistics.get(APPROX_SET_GENERIC));
         return DeltaLakeColumnStatistics.create(totalSize, ndvSummary);
     }
 
@@ -2453,7 +2453,7 @@ public class DeltaLakeMetadata
                 .filter(entry -> entry.getKey().getColumnName().equals(FILE_MODIFIED_TIME_COLUMN_NAME))
                 .map(entry -> {
                     ColumnStatisticMetadata columnStatisticMetadata = entry.getKey();
-                    if (columnStatisticMetadata.getStatisticType() != MAX_VALUE) {
+                    if (!columnStatisticMetadata.getAggregation().equals(MAX)) {
                         throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unexpected statistics collection: " + columnStatisticMetadata);
                     }
                     if (entry.getValue().isNull(0)) {

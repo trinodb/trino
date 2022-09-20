@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import io.trino.operator.aggregation.state.NullableLongState;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.expression.StandardFunctions;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
@@ -28,10 +29,16 @@ import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.StandardTypes;
 
+import static com.google.common.base.Preconditions.checkState;
+
 @AggregationFunction(value = SumDataSizeForStats.NAME, hidden = true)
 public final class SumDataSizeForStats
 {
-    public static final String NAME = "$internal$sum_data_size_for_stats";
+    public static final String NAME = "$sum_data_size_for_stats";
+
+    static {
+        checkState(NAME.equals(StandardFunctions.SUM_DATA_SIZE_FOR_STATS.getName()));
+    }
 
     private SumDataSizeForStats() {}
 

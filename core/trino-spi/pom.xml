@@ -186,6 +186,33 @@
                                     <old>method io.trino.spi.type.TypeSignature io.trino.spi.type.VarcharType::getParametrizedVarcharSignature(java.lang.String)</old>
                                 </item>
                                 <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.statistics.ColumnStatisticMetadata::&lt;init&gt;(java.lang.String, ===io.trino.spi.statistics.ColumnStatisticType===)</old>
+                                    <new>parameter void io.trino.spi.statistics.ColumnStatisticMetadata::&lt;init&gt;(java.lang.String, ===io.trino.spi.expression.FunctionName===)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.attributeValueChanged</code>
+                                    <old>parameter void io.trino.spi.statistics.ColumnStatisticMetadata::&lt;init&gt;(java.lang.String, ===io.trino.spi.statistics.ColumnStatisticType===)</old>
+                                    <new>parameter void io.trino.spi.statistics.ColumnStatisticMetadata::&lt;init&gt;(java.lang.String, ===io.trino.spi.expression.FunctionName===)</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonProperty</annotationType>
+                                    <attribute>value</attribute>
+                                    <oldValue>"statisticType"</oldValue>
+                                    <newValue>"aggregation"</newValue>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.statistics.ColumnStatisticType io.trino.spi.statistics.ColumnStatisticMetadata::getStatisticType()</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>enum io.trino.spi.statistics.ColumnStatisticType</old>
+                                </item>
+                                <item>
                                     <code>java.method.visibilityReduced</code>
                                     <old>method void io.trino.spi.block.DictionaryBlock::&lt;init&gt;(int, int, io.trino.spi.block.Block, int[], boolean, boolean, io.trino.spi.block.DictionaryId)</old>
                                     <new>method void io.trino.spi.block.DictionaryBlock::&lt;init&gt;(int, int, io.trino.spi.block.Block, int[], boolean, boolean, io.trino.spi.block.DictionaryId)</new>

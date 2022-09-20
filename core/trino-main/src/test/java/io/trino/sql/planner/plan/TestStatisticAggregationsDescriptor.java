@@ -16,12 +16,13 @@ package io.trino.sql.planner.plan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
 import io.airlift.json.JsonCodec;
+import io.trino.spi.expression.FunctionName;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
-import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import org.testng.annotations.Test;
 
+import static io.trino.spi.expression.StandardFunctions.SUM_DATA_SIZE_FOR_STATS;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.assertions.Assert.assertEquals;
@@ -48,9 +49,8 @@ public class TestStatisticAggregationsDescriptor
         StatisticAggregationsDescriptor.Builder<Symbol> builder = StatisticAggregationsDescriptor.builder();
         SymbolAllocator symbolAllocator = new SymbolAllocator();
         for (String column : COLUMNS) {
-            for (ColumnStatisticType type : ColumnStatisticType.values()) {
-                builder.addColumnStatistic(new ColumnStatisticMetadata(column, type), testSymbol(symbolAllocator));
-            }
+            builder.addColumnStatistic(new ColumnStatisticMetadata(column, new FunctionName("count")), testSymbol(symbolAllocator));
+            builder.addColumnStatistic(new ColumnStatisticMetadata(column, SUM_DATA_SIZE_FOR_STATS), testSymbol(symbolAllocator));
             builder.addGrouping(column, testSymbol(symbolAllocator));
         }
         builder.addTableStatistic(ROW_COUNT, testSymbol(symbolAllocator));

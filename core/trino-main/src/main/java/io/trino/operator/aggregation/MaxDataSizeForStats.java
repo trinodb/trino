@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import io.trino.operator.aggregation.state.NullableLongState;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.expression.StandardFunctions;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
@@ -28,12 +29,17 @@ import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.StandardTypes;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 
 @AggregationFunction(value = MaxDataSizeForStats.NAME, hidden = true)
 public final class MaxDataSizeForStats
 {
-    public static final String NAME = "$internal$max_data_size_for_stats";
+    public static final String NAME = "$max_data_size_for_stats";
+
+    static {
+        checkState(NAME.equals(StandardFunctions.MAX_DATA_SIZE_FOR_STATS.getName()));
+    }
 
     private MaxDataSizeForStats() {}
 

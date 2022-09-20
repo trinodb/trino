@@ -96,4 +96,21 @@ public final class StandardFunctions
      * $array creates instance of {@link ArrayType}
      */
     public static final FunctionName ARRAY_CONSTRUCTOR_FUNCTION_NAME = new FunctionName("$array");
+
+    /**
+     * Aggregation similar to {@code $approx_set} that works for any input type
+     */
+    public static final FunctionName APPROX_SET_GENERIC = new FunctionName("$approx_set");
+
+    /**
+     * Aggregation that calculates input's data size in bytes
+     */
+    // TODO decompose as sum(data_size(input))
+    public static final FunctionName SUM_DATA_SIZE_FOR_STATS = new FunctionName("$sum_data_size_for_stats");
+
+    /**
+     * Aggregation that calculates input's max data size in bytes
+     */
+    // TODO decompose as max(data_size(input))
+    public static final FunctionName MAX_DATA_SIZE_FOR_STATS = new FunctionName("$max_data_size_for_stats");
 }

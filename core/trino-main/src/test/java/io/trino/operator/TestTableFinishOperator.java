@@ -27,6 +27,7 @@ import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LongArrayBlockBuilder;
 import io.trino.spi.connector.ConnectorOutputMetadata;
+import io.trino.spi.expression.FunctionName;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.Type;
@@ -49,7 +50,6 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.operator.PageAssertions.assertPageEquals;
-import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -87,7 +87,7 @@ public class TestTableFinishOperator
             throws Exception
     {
         TestTableFinisher tableFinisher = new TestTableFinisher();
-        ColumnStatisticMetadata statisticMetadata = new ColumnStatisticMetadata("column", MAX_VALUE);
+        ColumnStatisticMetadata statisticMetadata = new ColumnStatisticMetadata("column", new FunctionName("max"));
         StatisticAggregationsDescriptor<Integer> descriptor = new StatisticAggregationsDescriptor<>(
                 ImmutableMap.of(),
                 ImmutableMap.of(),

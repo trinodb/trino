@@ -15,6 +15,7 @@ package io.trino.spi.statistics;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.expression.FunctionName;
 
 import java.util.Objects;
 
@@ -23,15 +24,15 @@ import static java.util.Objects.requireNonNull;
 public class ColumnStatisticMetadata
 {
     private final String columnName;
-    private final ColumnStatisticType statisticType;
+    private final FunctionName aggregation;
 
     @JsonCreator
     public ColumnStatisticMetadata(
             @JsonProperty("columnName") String columnName,
-            @JsonProperty("statisticType") ColumnStatisticType statisticType)
+            @JsonProperty("aggregation") FunctionName aggregation)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
-        this.statisticType = requireNonNull(statisticType, "statisticType is null");
+        this.aggregation = requireNonNull(aggregation, "aggregation is null");
     }
 
     @JsonProperty
@@ -41,9 +42,9 @@ public class ColumnStatisticMetadata
     }
 
     @JsonProperty
-    public ColumnStatisticType getStatisticType()
+    public FunctionName getAggregation()
     {
-        return statisticType;
+        return aggregation;
     }
 
     @Override
@@ -57,13 +58,13 @@ public class ColumnStatisticMetadata
         }
         ColumnStatisticMetadata that = (ColumnStatisticMetadata) o;
         return Objects.equals(columnName, that.columnName) &&
-                statisticType == that.statisticType;
+                Objects.equals(aggregation, that.aggregation);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(columnName, statisticType);
+        return Objects.hash(columnName, aggregation);
     }
 
     @Override
@@ -71,7 +72,7 @@ public class ColumnStatisticMetadata
     {
         return "ColumnStatisticMetadata{" +
                 "columnName='" + columnName + '\'' +
-                ", statisticType=" + statisticType +
+                ", aggregation=" + aggregation +
                 '}';
     }
 }
