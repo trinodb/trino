@@ -243,6 +243,16 @@ public abstract class BaseTestHiveOnDataLake
         // Should return 0 rows as we left cache untouched
         assertQueryReturnsEmptyResult(queryUsingPartitionCacheForValue2);
 
+        // Refresh cache for schema_name => 'dummy_schema', table_name => 'dummy_table'
+        getQueryRunner().execute(format(
+                "CALL system.flush_metadata_cache(schema_name => '%s', table_name => '%s')",
+                HIVE_TEST_SCHEMA,
+                tableName));
+
+        // Should return expected rows for all partitions
+        assertQuery(queryUsingPartitionCacheForValue1, expectedQueryResultForValue1);
+        assertQuery(queryUsingPartitionCacheForValue2, expectedQueryResultForValue2);
+
         computeActual(format("DROP TABLE %s", fullyQualifiedTestTableName));
     }
 

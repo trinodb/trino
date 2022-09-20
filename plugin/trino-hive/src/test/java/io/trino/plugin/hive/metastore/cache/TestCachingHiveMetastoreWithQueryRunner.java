@@ -143,14 +143,15 @@ public class TestCachingHiveMetastoreWithQueryRunner
     @Test
     public void testIllegalFlushHiveMetastoreCacheProcedureCalls()
     {
-        String illegalParameterMessage = "Illegal parameter set passed. Valid usages:\n - 'flush_metadata_cache()'\n - flush_metadata_cache(schema_name => ..., table_name => ..., partition_column => ARRAY['...'], partition_value => ARRAY['...'])";
+        String illegalParameterMessage = "Illegal parameter set passed. Valid usages:\n" +
+                " - 'flush_metadata_cache()'\n" +
+                " - flush_metadata_cache(schema_name => ..., table_name => ...)" +
+                " - flush_metadata_cache(schema_name => ..., table_name => ..., partition_column => ARRAY['...'], partition_value => ARRAY['...'])";
 
         assertThatThrownBy(() -> getQueryRunner().execute("CALL system.flush_metadata_cache('dummy_schema')"))
                 .hasMessageContaining("Only named arguments are allowed for this procedure");
 
         assertThatThrownBy(() -> getQueryRunner().execute("CALL system.flush_metadata_cache(schema_name => 'dummy_schema')"))
-                .hasMessage(illegalParameterMessage);
-        assertThatThrownBy(() -> getQueryRunner().execute("CALL system.flush_metadata_cache(schema_name => 'dummy_schema', table_name => 'dummy_table')"))
                 .hasMessage(illegalParameterMessage);
 
         assertThatThrownBy(() -> getQueryRunner().execute("CALL system.flush_metadata_cache(schema_name => 'dummy_schema', table_name => 'dummy_table', partition_column => ARRAY['dummy_partition'])"))
