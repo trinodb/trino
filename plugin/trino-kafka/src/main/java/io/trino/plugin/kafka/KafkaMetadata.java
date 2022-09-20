@@ -151,7 +151,7 @@ public class KafkaMetadata
         List<KafkaColumnHandle> topicColumnHandles = concat(keyColumnHandles, messageColumnHandles)
                 .collect(toImmutableList());
 
-        List<KafkaColumnHandle> internalColumnHandles = kafkaInternalFieldManager.getInternalFields().values().stream()
+        List<KafkaColumnHandle> internalColumnHandles = kafkaInternalFieldManager.getInternalFields().stream()
                 .map(kafkaInternalField -> kafkaInternalField.getColumnHandle(hideInternalColumns))
                 .collect(toImmutableList());
 
@@ -159,6 +159,7 @@ public class KafkaMetadata
         conflictingColumns.retainAll(internalColumnHandles.stream().map(KafkaColumnHandle::getName).collect(toSet()));
         if (!conflictingColumns.isEmpty()) {
             throw new TrinoException(DUPLICATE_COLUMN_NAME, "Internal Kafka column names conflict with column names from the table. "
+                    + "Consider changing kafka.internal-column-prefix configuration property. "
                     + "topic=" + schemaTableName
                     + ", Conflicting names=" + conflictingColumns);
         }
@@ -223,7 +224,7 @@ public class KafkaMetadata
             }
         });
 
-        for (KafkaInternalFieldManager.InternalField fieldDescription : kafkaInternalFieldManager.getInternalFields().values()) {
+        for (KafkaInternalFieldManager.InternalField fieldDescription : kafkaInternalFieldManager.getInternalFields()) {
             builder.add(fieldDescription.getColumnMetadata(hideInternalColumns));
         }
 
