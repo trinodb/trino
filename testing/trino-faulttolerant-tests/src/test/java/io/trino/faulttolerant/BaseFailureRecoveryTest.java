@@ -326,6 +326,23 @@ public abstract class BaseFailureRecoveryTest
     }
 
     @Test(invocationCount = INVOCATION_COUNT)
+    public void testMerge()
+    {
+        testTableModification(
+                Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
+                """
+                        MERGE INTO <table> t
+                        USING (SELECT orderkey, 'X' clerk FROM <table>) s
+                        ON t.orderkey = s.orderkey
+                        WHEN MATCHED AND s.orderkey > 1000
+                            THEN UPDATE SET clerk = t.clerk || s.clerk
+                        WHEN MATCHED AND s.orderkey <= 1000
+                            THEN DELETE
+                        """,
+                Optional.of("DROP TABLE <table>"));
+    }
+
+    @Test(invocationCount = INVOCATION_COUNT)
     public void testRefreshMaterializedView()
     {
         testTableModification(

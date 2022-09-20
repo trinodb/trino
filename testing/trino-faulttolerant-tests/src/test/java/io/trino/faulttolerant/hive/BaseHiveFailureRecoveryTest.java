@@ -82,6 +82,13 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Override
+    public void testMerge()
+    {
+        assertThatThrownBy(super::testMerge)
+                .hasMessageContaining("Hive merge is only supported for transactional tables");
+    }
+
+    @Override
     // materialized views are currently not implemented by Hive connector
     public void testRefreshMaterializedView()
     {
