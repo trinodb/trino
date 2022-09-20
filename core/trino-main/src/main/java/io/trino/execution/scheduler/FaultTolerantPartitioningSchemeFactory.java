@@ -16,6 +16,7 @@ package io.trino.execution.scheduler;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.InternalNode;
+import io.trino.sql.planner.MergePartitioningHandle;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.PartitioningHandle;
 
@@ -61,9 +62,10 @@ public class FaultTolerantPartitioningSchemeFactory
                     Optional.empty(),
                     Optional.empty());
         }
-        if (partitioningHandle.getCatalogHandle().isPresent()) {
+        if (partitioningHandle.getCatalogHandle().isPresent() ||
+                (partitioningHandle.getConnectorHandle() instanceof MergePartitioningHandle)) {
             // TODO This caps the number of partitions to the number of available nodes. Perhaps a better approach is required for fault tolerant execution.
-            BucketNodeMap bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle);
+            BucketNodeMap bucketNodeMap = nodePartitioningManager.getNodePartitioningMap(session, partitioningHandle).asBucketNodeMap();
             int bucketCount = bucketNodeMap.getBucketCount();
             int[] bucketToPartition = new int[bucketCount];
             // make sure all buckets mapped to the same node map to the same partition, such that locality requirements are respected in scheduling
