@@ -35,7 +35,6 @@ import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.Headers;
 
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +60,8 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.max;
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
 
 public class KafkaRecordSet
         implements RecordSet
@@ -152,15 +153,14 @@ public class KafkaRecordSet
         @Override
         public boolean advanceNextPosition()
         {
-            if (!records.hasNext()) {
-                if (kafkaConsumer.position(topicPartition) >= split.getMessagesRange().getEnd()) {
-                    return false;
-                }
-                records = kafkaConsumer.poll(Duration.ofMillis(CONSUMER_POLL_TIMEOUT)).iterator();
-                return advanceNextPosition();
+            if (records.hasNext()) {
+                return nextRow(records.next());
             }
-
-            return nextRow(records.next());
+            if (kafkaConsumer.position(topicPartition) >= split.getMessagesRange().getEnd()) {
+                return false;
+            }
+            records = kafkaConsumer.poll(Duration.ofMillis(CONSUMER_POLL_TIMEOUT)).iterator();
+            return advanceNextPosition();
         }
 
         private boolean nextRow(ConsumerRecord<byte[], byte[]> message)
@@ -173,61 +173,28 @@ public class KafkaRecordSet
 
             completedBytes += max(message.serializedKeySize(), 0) + max(message.serializedValueSize(), 0);
 
-            byte[] keyData = EMPTY_BYTE_ARRAY;
-            if (message.key() != null) {
-                keyData = message.key();
-            }
-
-            byte[] messageData = EMPTY_BYTE_ARRAY;
-            if (message.value() != null) {
-                messageData = message.value();
-            }
-            long timeStamp = message.timestamp();
-
-            Map<ColumnHandle, FieldValueProvider> currentRowValuesMap = new HashMap<>();
+            byte[] keyData = message.key() == null ? EMPTY_BYTE_ARRAY : message.key();
+            byte[] messageData = message.value() == null ? EMPTY_BYTE_ARRAY : message.value();
+            long timeStamp = message.timestamp() * MICROSECONDS_PER_MILLISECOND;
 
             Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedKey = keyDecoder.decodeRow(keyData);
             Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = messageDecoder.decodeRow(messageData);
 
-            for (DecoderColumnHandle columnHandle : columnHandles) {
-                if (columnHandle.isInternal()) {
-                    switch (columnHandle.getName()) {
-                        case PARTITION_OFFSET_FIELD:
-                            currentRowValuesMap.put(columnHandle, longValueProvider(message.offset()));
-                            break;
-                        case MESSAGE_FIELD:
-                            currentRowValuesMap.put(columnHandle, bytesValueProvider(messageData));
-                            break;
-                        case MESSAGE_LENGTH_FIELD:
-                            currentRowValuesMap.put(columnHandle, longValueProvider(messageData.length));
-                            break;
-                        case KEY_FIELD:
-                            currentRowValuesMap.put(columnHandle, bytesValueProvider(keyData));
-                            break;
-                        case KEY_LENGTH_FIELD:
-                            currentRowValuesMap.put(columnHandle, longValueProvider(keyData.length));
-                            break;
-                        case OFFSET_TIMESTAMP_FIELD:
-                            timeStamp *= MICROSECONDS_PER_MILLISECOND;
-                            currentRowValuesMap.put(columnHandle, longValueProvider(timeStamp));
-                            break;
-                        case KEY_CORRUPT_FIELD:
-                            currentRowValuesMap.put(columnHandle, booleanValueProvider(decodedKey.isEmpty()));
-                            break;
-                        case HEADERS_FIELD:
-                            currentRowValuesMap.put(columnHandle, headerMapValueProvider((MapType) columnHandle.getType(), message.headers()));
-                            break;
-                        case MESSAGE_CORRUPT_FIELD:
-                            currentRowValuesMap.put(columnHandle, booleanValueProvider(decodedValue.isEmpty()));
-                            break;
-                        case PARTITION_ID_FIELD:
-                            currentRowValuesMap.put(columnHandle, longValueProvider(message.partition()));
-                            break;
-                        default:
-                            throw new IllegalArgumentException("unknown internal field " + columnHandle.getName());
-                    }
-                }
-            }
+            Map<ColumnHandle, FieldValueProvider> currentRowValuesMap = columnHandles.stream()
+                    .filter(KafkaColumnHandle::isInternal)
+                    .collect(toMap(identity(), columnHandle -> switch (columnHandle.getName()) {
+                        case PARTITION_OFFSET_FIELD -> longValueProvider(message.offset());
+                        case MESSAGE_FIELD -> bytesValueProvider(messageData);
+                        case MESSAGE_LENGTH_FIELD -> longValueProvider(messageData.length);
+                        case KEY_FIELD -> bytesValueProvider(keyData);
+                        case KEY_LENGTH_FIELD -> longValueProvider(keyData.length);
+                        case OFFSET_TIMESTAMP_FIELD -> longValueProvider(timeStamp);
+                        case KEY_CORRUPT_FIELD -> booleanValueProvider(decodedKey.isEmpty());
+                        case HEADERS_FIELD -> headerMapValueProvider((MapType) columnHandle.getType(), message.headers());
+                        case MESSAGE_CORRUPT_FIELD -> booleanValueProvider(decodedValue.isEmpty());
+                        case PARTITION_ID_FIELD -> longValueProvider(message.partition());
+                        default -> throw new IllegalArgumentException("unknown internal field " + columnHandle.getName());
+                    }));
 
             decodedKey.ifPresent(currentRowValuesMap::putAll);
             decodedValue.ifPresent(currentRowValuesMap::putAll);

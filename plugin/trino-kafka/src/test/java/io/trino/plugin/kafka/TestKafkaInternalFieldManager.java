@@ -53,7 +53,7 @@ public class TestKafkaInternalFieldManager
                         .build();
 
         assertThat(internalField.getColumnName()).isEqualTo(PARTITION_ID_FIELD);
-        assertThat(internalField.getColumnHandle(0, false)).isEqualTo(kafkaColumnHandle);
+        assertThat(internalField.getColumnHandle(false)).isEqualTo(kafkaColumnHandle);
         assertThat(internalField.getColumnMetadata(false)).isEqualTo(columnMetadata);
     }
 }
