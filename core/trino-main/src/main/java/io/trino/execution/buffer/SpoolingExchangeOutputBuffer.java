@@ -53,6 +53,8 @@ public class SpoolingExchangeOutputBuffer
     private final AtomicLong totalPagesAdded = new AtomicLong();
     private final AtomicLong totalRowsAdded = new AtomicLong();
 
+    private final SpoolingOutputStats outputStats;
+
     public SpoolingExchangeOutputBuffer(
             OutputBufferStateMachine stateMachine,
             SpoolingOutputBuffers outputBuffers,
@@ -66,6 +68,8 @@ public class SpoolingExchangeOutputBuffer
         this.memoryContextSupplier = requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
 
         stateMachine.noMoreBuffers();
+
+        outputStats = new SpoolingOutputStats(outputBuffers.getOutputPartitionCount());
     }
 
     @Override
@@ -83,7 +87,8 @@ public class SpoolingExchangeOutputBuffer
                 totalRowsAdded.get(),
                 totalPagesAdded.get(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                outputStats.getFinalSnapshot());
     }
 
     @Override
@@ -186,12 +191,15 @@ public class SpoolingExchangeOutputBuffer
 
         ExchangeSink sink = exchangeSink;
         checkState(sink != null, "exchangeSink is null");
+        long dataSizeInBytes = 0;
         for (Slice page : pages) {
+            dataSizeInBytes += page.length();
             sink.add(partition, page);
             totalRowsAdded.addAndGet(getSerializedPagePositionCount(page));
         }
         updateMemoryUsage(sink.getMemoryUsage());
         totalPagesAdded.addAndGet(pages.size());
+        outputStats.update(partition, dataSizeInBytes);
     }
 
     @Override
@@ -200,6 +208,8 @@ public class SpoolingExchangeOutputBuffer
         if (!stateMachine.noMorePages()) {
             return;
         }
+
+        outputStats.finish();
 
         ExchangeSink sink = exchangeSink;
         if (sink == null) {
