@@ -41,9 +41,9 @@ as appropriate for your setup:
 The ``connection-url`` defines the connection information and parameters to pass
 to the PostgreSQL JDBC driver. The parameters for the URL are available in the
 `PostgreSQL JDBC driver documentation
-<https://jdbc.postgresql.org/documentation/head/connect.html>`_. Some parameters
-can have adverse effects on the connector behavior or not work with the
-connector.
+<https://jdbc.postgresql.org/documentation/use/#connecting-to-the-database>`_.
+Some parameters can have adverse effects on the connector behavior or not work
+with the connector.
 
 The ``connection-user`` and ``connection-password`` are typically required and
 determine the user credentials for the connection, often a service user. You can
