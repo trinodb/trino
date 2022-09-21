@@ -209,7 +209,7 @@ public final class DeltaLakeQueryRunner
         Builder builder = builder(session);
         extraProperties.forEach(builder::addExtraProperty);
         coordinatorProperties.forEach(builder::setSingleCoordinatorProperty);
-        DistributedQueryRunner queryRunner = builder
+        return builder
                 .setCatalogName(catalogName)
                 .setAdditionalSetup(additionalSetup)
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
@@ -218,7 +218,6 @@ public final class DeltaLakeQueryRunner
                         .putAll(connectorProperties)
                         .buildOrThrow())
                 .build();
-        return queryRunner;
     }
 
     private static String requiredNonEmptySystemProperty(String propertyName)
