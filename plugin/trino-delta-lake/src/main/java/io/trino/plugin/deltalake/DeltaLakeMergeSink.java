@@ -73,6 +73,7 @@ import static io.trino.spi.connector.MergePage.createDeleteAndInsertPages;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -324,7 +325,9 @@ public class DeltaLakeMergeSink
 
         private FileDeletion(List<String> partitionValues)
         {
-            this.partitionValues = ImmutableList.copyOf(requireNonNull(partitionValues, "partitionValues is null"));
+            // Use ArrayList since Delta Lake allows NULL partition values, and wrap it in
+            // an unmodifiableList.
+            this.partitionValues = unmodifiableList(new ArrayList<>(requireNonNull(partitionValues, "partitionValues is null")));
         }
 
         public List<String> partitionValues()
