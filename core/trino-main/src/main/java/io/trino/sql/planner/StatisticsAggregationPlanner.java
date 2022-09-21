@@ -31,7 +31,6 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.StatisticAggregations;
 import io.trino.sql.planner.plan.StatisticAggregationsDescriptor;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
@@ -122,26 +121,26 @@ public class StatisticsAggregationPlanner
     private ColumnStatisticsAggregation createColumnAggregation(ColumnStatisticType statisticType, Symbol input, Type inputType)
     {
         return switch (statisticType) {
-            case MIN_VALUE -> createAggregation(QualifiedName.of("min"), input.toSymbolReference(), inputType);
-            case MAX_VALUE -> createAggregation(QualifiedName.of("max"), input.toSymbolReference(), inputType);
-            case NUMBER_OF_DISTINCT_VALUES -> createAggregation(QualifiedName.of("approx_distinct"), input.toSymbolReference(), inputType);
+            case MIN_VALUE -> createAggregation(QualifiedName.of("min"), input, inputType);
+            case MAX_VALUE -> createAggregation(QualifiedName.of("max"), input, inputType);
+            case NUMBER_OF_DISTINCT_VALUES -> createAggregation(QualifiedName.of("approx_distinct"), input, inputType);
             case NUMBER_OF_DISTINCT_VALUES_SUMMARY ->
                 // we use $approx_set here and not approx_set because latter is not defined for all types supported by Trino
-                    createAggregation(QualifiedName.of("$approx_set"), input.toSymbolReference(), inputType);
-            case NUMBER_OF_NON_NULL_VALUES -> createAggregation(QualifiedName.of("count"), input.toSymbolReference(), inputType);
-            case NUMBER_OF_TRUE_VALUES -> createAggregation(QualifiedName.of("count_if"), input.toSymbolReference(), BOOLEAN);
-            case TOTAL_SIZE_IN_BYTES -> createAggregation(QualifiedName.of(SumDataSizeForStats.NAME), input.toSymbolReference(), inputType);
-            case MAX_VALUE_SIZE_IN_BYTES -> createAggregation(QualifiedName.of(MaxDataSizeForStats.NAME), input.toSymbolReference(), inputType);
+                    createAggregation(QualifiedName.of("$approx_set"), input, inputType);
+            case NUMBER_OF_NON_NULL_VALUES -> createAggregation(QualifiedName.of("count"), input, inputType);
+            case NUMBER_OF_TRUE_VALUES -> createAggregation(QualifiedName.of("count_if"), input, BOOLEAN);
+            case TOTAL_SIZE_IN_BYTES -> createAggregation(QualifiedName.of(SumDataSizeForStats.NAME), input, inputType);
+            case MAX_VALUE_SIZE_IN_BYTES -> createAggregation(QualifiedName.of(MaxDataSizeForStats.NAME), input, inputType);
         };
     }
 
     private ColumnStatisticsAggregation createColumnAggregation(FunctionName aggregation, Symbol input, Type inputType)
     {
         checkArgument(aggregation.getCatalogSchema().isEmpty(), "Catalog/schema name not supported");
-        return createAggregation(QualifiedName.of(aggregation.getName()), input.toSymbolReference(), inputType);
+        return createAggregation(QualifiedName.of(aggregation.getName()), input, inputType);
     }
 
-    private ColumnStatisticsAggregation createAggregation(QualifiedName functionName, SymbolReference input, Type inputType)
+    private ColumnStatisticsAggregation createAggregation(QualifiedName functionName, Symbol input, Type inputType)
     {
         ResolvedFunction resolvedFunction = metadata.resolveFunction(session, functionName, fromTypes(inputType));
         Type resolvedType = getOnlyElement(resolvedFunction.getSignature().getArgumentTypes());
@@ -149,7 +148,7 @@ public class StatisticsAggregationPlanner
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(
                         resolvedFunction,
-                        ImmutableList.of(input),
+                        ImmutableList.of(input.toSymbolReference()),
                         false,
                         Optional.empty(),
                         Optional.empty(),
