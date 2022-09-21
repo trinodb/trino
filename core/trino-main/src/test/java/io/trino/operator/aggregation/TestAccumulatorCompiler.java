@@ -122,8 +122,7 @@ public class TestAccumulatorCompiler
                 ImmutableList.of(TIMESTAMP_PICOS),
                 ImmutableList.of(BIGINT),
                 BIGINT,
-                accumulatorFactory,
-                functionNullability);
+                accumulatorFactory);
         assertThat(AggregationTestUtils.aggregation(aggregationFunction, createPage(1234))).isEqualTo(1234L);
     }
 
