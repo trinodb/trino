@@ -116,6 +116,11 @@ public class TaskInfo
         return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarize(), estimatedMemory, needsPlan);
     }
 
+    public TaskInfo pruneSpoolingOutputStats()
+    {
+        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.pruneSpoolingOutputStats(), noMoreSplits, stats, estimatedMemory, needsPlan);
+    }
+
     @Override
     public String toString()
     {
@@ -140,6 +145,7 @@ public class TaskInfo
                         0,
                         0,
                         pipelinedBufferStates,
+                        Optional.empty(),
                         Optional.empty()),
                 ImmutableSet.of(),
                 taskStats,

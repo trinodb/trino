@@ -24,25 +24,35 @@ public class SpoolingOutputBuffers
         extends OutputBuffers
 {
     private final ExchangeSinkInstanceHandle exchangeSinkInstanceHandle;
+    private final int outputPartitionCount;
 
-    public static SpoolingOutputBuffers createInitial(ExchangeSinkInstanceHandle exchangeSinkInstanceHandle)
+    public static SpoolingOutputBuffers createInitial(ExchangeSinkInstanceHandle exchangeSinkInstanceHandle, int outputPartitionCount)
     {
-        return new SpoolingOutputBuffers(0, exchangeSinkInstanceHandle);
+        return new SpoolingOutputBuffers(0, exchangeSinkInstanceHandle, outputPartitionCount);
     }
 
     @JsonCreator
     public SpoolingOutputBuffers(
             @JsonProperty("version") long version,
-            @JsonProperty("exchangeSinkInstanceHandle") ExchangeSinkInstanceHandle exchangeSinkInstanceHandle)
+            @JsonProperty("exchangeSinkInstanceHandle") ExchangeSinkInstanceHandle exchangeSinkInstanceHandle,
+            @JsonProperty("outputPartitionCount") int outputPartitionCount)
     {
         super(version);
         this.exchangeSinkInstanceHandle = requireNonNull(exchangeSinkInstanceHandle, "exchangeSinkInstanceHandle is null");
+        checkArgument(outputPartitionCount > 0, "outputPartitionCount must be greater than zero");
+        this.outputPartitionCount = outputPartitionCount;
     }
 
     @JsonProperty
     public ExchangeSinkInstanceHandle getExchangeSinkInstanceHandle()
     {
         return exchangeSinkInstanceHandle;
+    }
+
+    @JsonProperty
+    public int getOutputPartitionCount()
+    {
+        return outputPartitionCount;
     }
 
     @Override
@@ -53,5 +63,11 @@ public class SpoolingOutputBuffers
         if (getVersion() > outputBuffers.getVersion()) {
             throw new IllegalArgumentException("new outputBuffers version is older");
         }
+        SpoolingOutputBuffers newOutputBuffers = (SpoolingOutputBuffers) outputBuffers;
+        checkArgument(
+                getOutputPartitionCount() == newOutputBuffers.getOutputPartitionCount(),
+                "number of output partitions must be the same: %s != %s",
+                getOutputPartitionCount(),
+                newOutputBuffers.getOutputPartitionCount());
     }
 }

@@ -366,7 +366,7 @@ public class FaultTolerantStageScheduler
 
         ExchangeSinkHandle sinkHandle = partitionToExchangeSinkHandleMap.get(partition);
         ExchangeSinkInstanceHandle exchangeSinkInstanceHandle = sinkExchange.instantiateSink(sinkHandle, attemptId);
-        OutputBuffers outputBuffers = SpoolingOutputBuffers.createInitial(exchangeSinkInstanceHandle);
+        OutputBuffers outputBuffers = SpoolingOutputBuffers.createInitial(exchangeSinkInstanceHandle, sinkPartitioningScheme.getPartitionCount());
 
         Set<PlanNodeId> allSourcePlanNodeIds = ImmutableSet.<PlanNodeId>builder()
                 .addAll(stage.getFragment().getPartitionedSources())

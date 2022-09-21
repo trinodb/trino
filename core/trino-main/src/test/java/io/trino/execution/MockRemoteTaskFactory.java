@@ -32,6 +32,7 @@ import io.trino.execution.buffer.LazyOutputBuffer;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
+import io.trino.execution.buffer.SpoolingOutputStats;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.memory.context.SimpleLocalMemoryContext;
@@ -495,6 +496,12 @@ public class MockRemoteTaskFactory
         public synchronized int getUnacknowledgedPartitionedSplitCount()
         {
             return unacknowledgedSplits;
+        }
+
+        @Override
+        public SpoolingOutputStats.Snapshot retrieveAndDropSpoolingOutputStats()
+        {
+            throw new UnsupportedOperationException();
         }
     }
 }
