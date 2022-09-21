@@ -98,6 +98,12 @@ public class DistinctAccumulatorFactory
         return delegate.createGroupedIntermediateAccumulator(lambdaProviders);
     }
 
+    @Override
+    public AggregationMaskBuilder createAggregationMaskBuilder()
+    {
+        return delegate.createAggregationMaskBuilder();
+    }
+
     private static class DistinctAccumulator
             implements Accumulator
     {

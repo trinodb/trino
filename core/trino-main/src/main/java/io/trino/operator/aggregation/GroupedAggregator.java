@@ -16,13 +16,14 @@ package io.trino.operator.aggregation;
 import com.google.common.primitives.Ints;
 import io.trino.operator.GroupByIdBlock;
 import io.trino.spi.Page;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -36,8 +37,7 @@ public class GroupedAggregator
     private final Type finalType;
     private final int[] inputChannels;
     private final OptionalInt maskChannel;
-    private final FunctionNullability functionNullability;
-    private final AggregationMask mask = AggregationMask.createSelectAll(0);
+    private final AggregationMaskBuilder maskBuilder;
 
     public GroupedAggregator(
             GroupedAccumulator accumulator,
@@ -46,7 +46,7 @@ public class GroupedAggregator
             Type finalType,
             List<Integer> inputChannels,
             OptionalInt maskChannel,
-            FunctionNullability functionNullability)
+            AggregationMaskBuilder maskBuilder)
     {
         this.accumulator = requireNonNull(accumulator, "accumulator is null");
         this.step = requireNonNull(step, "step is null");
@@ -54,7 +54,7 @@ public class GroupedAggregator
         this.finalType = requireNonNull(finalType, "finalType is null");
         this.inputChannels = Ints.toArray(requireNonNull(inputChannels, "inputChannels is null"));
         this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
-        this.functionNullability = requireNonNull(functionNullability, "functionNullability is null");
+        this.maskBuilder = requireNonNull(maskBuilder, "maskBuilder is null");
         checkArgument(step.isInputRaw() || inputChannels.size() == 1, "expected 1 input channel for intermediate aggregation");
     }
 
@@ -76,20 +76,16 @@ public class GroupedAggregator
         accumulator.setGroupCount(groupIds.getGroupCount());
 
         if (step.isInputRaw()) {
-            mask.reset(page.getPositionCount());
-            if (maskChannel.isPresent()) {
-                mask.applyMaskBlock(page.getBlock(maskChannel.getAsInt()));
-            }
             Page arguments = page.getColumns(inputChannels);
-            for (int channel = 0; channel < arguments.getChannelCount(); channel++) {
-                if (!functionNullability.isArgumentNullable(channel)) {
-                    mask.unselectNullPositions(arguments.getBlock(channel));
-                }
+            Optional<Block> maskBlock = Optional.empty();
+            if (maskChannel.isPresent()) {
+                maskBlock = Optional.of(page.getBlock(maskChannel.getAsInt()));
             }
+            AggregationMask mask = maskBuilder.buildAggregationMask(arguments, maskBlock);
+
             if (mask.isSelectNone()) {
                 return;
             }
-
             accumulator.addInput(groupIds, arguments, mask);
         }
         else {

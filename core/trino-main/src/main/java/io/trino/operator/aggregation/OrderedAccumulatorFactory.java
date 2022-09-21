@@ -94,6 +94,12 @@ public class OrderedAccumulatorFactory
         return delegate.createGroupedIntermediateAccumulator(lambdaProviders);
     }
 
+    @Override
+    public AggregationMaskBuilder createAggregationMaskBuilder()
+    {
+        return delegate.createAggregationMaskBuilder();
+    }
+
     private static class OrderedAccumulator
             implements Accumulator
     {

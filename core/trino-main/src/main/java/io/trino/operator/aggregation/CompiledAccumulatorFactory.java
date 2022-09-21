@@ -27,15 +27,18 @@ public class CompiledAccumulatorFactory
     private final Constructor<? extends Accumulator> accumulatorConstructor;
     private final Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor;
     private final List<Class<?>> lambdaInterfaces;
+    private final Constructor<? extends AggregationMaskBuilder> maskBuilderConstructor;
 
     public CompiledAccumulatorFactory(
             Constructor<? extends Accumulator> accumulatorConstructor,
             Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor,
-            List<Class<?>> lambdaInterfaces)
+            List<Class<?>> lambdaInterfaces,
+            Constructor<? extends AggregationMaskBuilder> maskBuilderConstructor)
     {
         this.accumulatorConstructor = requireNonNull(accumulatorConstructor, "accumulatorConstructor is null");
         this.groupedAccumulatorConstructor = requireNonNull(groupedAccumulatorConstructor, "groupedAccumulatorConstructor is null");
         this.lambdaInterfaces = ImmutableList.copyOf(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null"));
+        this.maskBuilderConstructor = requireNonNull(maskBuilderConstructor, "maskBuilderConstructor is null");
     }
 
     @Override
@@ -82,6 +85,17 @@ public class CompiledAccumulatorFactory
     {
         try {
             return groupedAccumulatorConstructor.newInstance(lambdaProviders);
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public AggregationMaskBuilder createAggregationMaskBuilder()
+    {
+        try {
+            return maskBuilderConstructor.newInstance();
         }
         catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);

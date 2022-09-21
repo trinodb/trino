@@ -71,6 +71,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.not;
+import static io.trino.operator.aggregation.AggregationMaskCompiler.generateAggregationMaskBuilder;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
@@ -110,10 +111,19 @@ public final class AccumulatorCompiler
                 argumentNullable,
                 classLoader);
 
+        List<Integer> nonNullArguments = new ArrayList<>();
+        for (int argumentIndex = 0; argumentIndex < argumentNullable.size(); argumentIndex++) {
+            if (!argumentNullable.get(argumentIndex)) {
+                nonNullArguments.add(argumentIndex);
+            }
+        }
+        Constructor<? extends AggregationMaskBuilder> maskBuilderConstructor = generateAggregationMaskBuilder(nonNullArguments.stream().mapToInt(Integer::intValue).toArray());
+
         return new CompiledAccumulatorFactory(
                 accumulatorConstructor,
                 groupedAccumulatorConstructor,
-                implementation.getLambdaInterfaces());
+                implementation.getLambdaInterfaces(),
+                maskBuilderConstructor);
     }
 
     private static <T> Constructor<? extends T> generateAccumulatorClass(
