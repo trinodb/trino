@@ -37,6 +37,7 @@ public final class OutputBufferInfo
     private final long totalPagesSent;
     private final Optional<List<PipelinedBufferInfo>> pipelinedBufferStates;
     private final Optional<TDigestHistogram> utilization;
+    private final Optional<SpoolingOutputStats.Snapshot> spoolingOutputStats;
 
     @JsonCreator
     public OutputBufferInfo(
@@ -49,7 +50,8 @@ public final class OutputBufferInfo
             @JsonProperty("totalRowsSent") long totalRowsSent,
             @JsonProperty("totalPagesSent") long totalPagesSent,
             @JsonProperty("pipelinedBufferStates") Optional<List<PipelinedBufferInfo>> pipelinedBufferStates,
-            @JsonProperty("utilization") Optional<TDigestHistogram> utilization)
+            @JsonProperty("utilization") Optional<TDigestHistogram> utilization,
+            @JsonProperty("spoolingOutputStats") Optional<SpoolingOutputStats.Snapshot> spoolingOutputStats)
     {
         this.type = type;
         this.state = state;
@@ -61,6 +63,7 @@ public final class OutputBufferInfo
         this.totalPagesSent = totalPagesSent;
         this.pipelinedBufferStates = requireNonNull(pipelinedBufferStates, "pipelinedBufferStates is null").map(ImmutableList::copyOf);
         this.utilization = utilization;
+        this.spoolingOutputStats = requireNonNull(spoolingOutputStats, "spoolingOutputStats is null");
     }
 
     @JsonProperty
@@ -123,14 +126,58 @@ public final class OutputBufferInfo
         return utilization;
     }
 
+    @JsonProperty
+    public Optional<SpoolingOutputStats.Snapshot> getSpoolingOutputStats()
+    {
+        return spoolingOutputStats;
+    }
+
     public OutputBufferInfo summarize()
     {
-        return new OutputBufferInfo(type, state, canAddBuffers, canAddPages, totalBufferedBytes, totalBufferedPages, totalRowsSent, totalPagesSent, Optional.empty(), Optional.empty());
+        return new OutputBufferInfo(
+                type,
+                state,
+                canAddBuffers,
+                canAddPages,
+                totalBufferedBytes,
+                totalBufferedPages,
+                totalRowsSent,
+                totalPagesSent,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
     }
 
     public OutputBufferInfo summarizeFinal()
     {
-        return new OutputBufferInfo(type, state, canAddBuffers, canAddPages, totalBufferedBytes, totalBufferedPages, totalRowsSent, totalPagesSent, Optional.empty(), utilization);
+        return new OutputBufferInfo(
+                type,
+                state,
+                canAddBuffers,
+                canAddPages,
+                totalBufferedBytes,
+                totalBufferedPages,
+                totalRowsSent,
+                totalPagesSent,
+                Optional.empty(),
+                utilization,
+                spoolingOutputStats);
+    }
+
+    public OutputBufferInfo pruneSpoolingOutputStats()
+    {
+        return new OutputBufferInfo(
+                type,
+                state,
+                canAddBuffers,
+                canAddPages,
+                totalBufferedBytes,
+                totalBufferedPages,
+                totalRowsSent,
+                totalPagesSent,
+                pipelinedBufferStates,
+                utilization,
+                Optional.empty());
     }
 
     @Override

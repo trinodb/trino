@@ -49,6 +49,7 @@ import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PipelinedBufferInfo;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
+import io.trino.execution.buffer.SpoolingOutputStats;
 import io.trino.metadata.Split;
 import io.trino.operator.TaskStats;
 import io.trino.server.DynamicFilterService;
@@ -471,6 +472,12 @@ public final class HttpRemoteTask
     public int getUnacknowledgedPartitionedSplitCount()
     {
         return getPendingSourceSplitCount();
+    }
+
+    @Override
+    public SpoolingOutputStats.Snapshot retrieveAndDropSpoolingOutputStats()
+    {
+        return taskInfoFetcher.retrieveAndDropSpoolingOutputStats();
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")

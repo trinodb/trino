@@ -30,6 +30,7 @@ import io.trino.execution.buffer.BufferState;
 import io.trino.execution.buffer.OutputBufferInfo;
 import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.execution.buffer.OutputBuffers;
+import io.trino.execution.buffer.SpoolingOutputStats;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.operator.TaskStats;
@@ -150,7 +151,8 @@ public class TestingRemoteTaskFactory
                             0,
                             0,
                             Optional.empty(),
-                            Optional.of(new TDigestHistogram(new TDigest()))),
+                            Optional.of(new TDigestHistogram(new TDigest())),
+                            Optional.empty()),
                     ImmutableSet.copyOf(noMoreSplits),
                     new TaskStats(DateTime.now(), null),
                     Optional.empty(),
@@ -301,6 +303,12 @@ public class TestingRemoteTaskFactory
         public int getUnacknowledgedPartitionedSplitCount()
         {
             return 0;
+        }
+
+        @Override
+        public SpoolingOutputStats.Snapshot retrieveAndDropSpoolingOutputStats()
+        {
+            throw new UnsupportedOperationException();
         }
     }
 }
