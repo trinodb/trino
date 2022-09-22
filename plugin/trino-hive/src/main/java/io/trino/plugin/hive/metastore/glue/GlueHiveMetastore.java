@@ -59,6 +59,7 @@ import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.UpdateDatabaseRequest;
 import com.amazonaws.services.glue.model.UpdatePartitionRequest;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -145,6 +146,7 @@ import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.security.PrincipalType.USER;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.Predicate.not;
 import static java.util.function.UnaryOperator.identity;
 import static java.util.stream.Collectors.toCollection;
@@ -389,12 +391,11 @@ public class GlueHiveMetastore
         List<Future<BatchUpdatePartitionResult>> partitionUpdateRequestsFutures = new ArrayList<>();
         partitionUpdateRequestsPartitioned.forEach(partitionUpdateRequestsPartition -> {
             // Update basic statistics
-            long startTimestamp = System.currentTimeMillis();
             partitionUpdateRequestsFutures.add(glueClient.batchUpdatePartitionAsync(new BatchUpdatePartitionRequest()
                             .withDatabaseName(table.getDatabaseName())
                             .withTableName(table.getTableName())
                             .withEntries(partitionUpdateRequestsPartition),
-                    new StatsRecordingAsyncHandler<>(stats.getBatchUpdatePartition(), startTimestamp)));
+                    new StatsRecordingAsyncHandler<>(stats.getBatchUpdatePartition())));
         });
 
         try {
@@ -918,12 +919,11 @@ public class GlueHiveMetastore
             while (!pendingPartitions.isEmpty()) {
                 List<Future<BatchGetPartitionResult>> batchGetPartitionFutures = new ArrayList<>();
                 for (List<PartitionValueList> partitions : Lists.partition(pendingPartitions, BATCH_GET_PARTITION_MAX_PAGE_SIZE)) {
-                    long startTimestamp = System.currentTimeMillis();
                     batchGetPartitionFutures.add(glueClient.batchGetPartitionAsync(new BatchGetPartitionRequest()
                                     .withDatabaseName(table.getDatabaseName())
                                     .withTableName(table.getTableName())
                                     .withPartitionsToGet(partitions),
-                            new StatsRecordingAsyncHandler<>(stats.getGetPartitions(), startTimestamp)));
+                            new StatsRecordingAsyncHandler<>(stats.getGetPartitions())));
                 }
                 pendingPartitions.clear();
 
@@ -964,13 +964,12 @@ public class GlueHiveMetastore
 
                 for (List<PartitionWithStatistics> partitionBatch : Lists.partition(partitions, BATCH_CREATE_PARTITION_MAX_PAGE_SIZE)) {
                     List<PartitionInput> partitionInputs = mappedCopy(partitionBatch, partition -> GlueInputConverter.convertPartition(partition));
-                    long startTime = System.currentTimeMillis();
                     futures.add(glueClient.batchCreatePartitionAsync(
                             new BatchCreatePartitionRequest()
                                     .withDatabaseName(databaseName)
                                     .withTableName(tableName)
                                     .withPartitionInputList(partitionInputs),
-                            new StatsRecordingAsyncHandler<>(stats.getBatchCreatePartition(), startTime)));
+                            new StatsRecordingAsyncHandler<>(stats.getBatchCreatePartition())));
                 }
 
                 for (Future<BatchCreatePartitionResult> future : futures) {
@@ -1130,24 +1129,24 @@ public class GlueHiveMetastore
             implements AsyncHandler<Request, Result>
     {
         private final GlueMetastoreApiStats stats;
-        private final long startTimeInMillis;
+        private final Stopwatch stopwatch;
 
-        public StatsRecordingAsyncHandler(GlueMetastoreApiStats stats, long startTimeInMillis)
+        public StatsRecordingAsyncHandler(GlueMetastoreApiStats stats)
         {
             this.stats = requireNonNull(stats, "stats is null");
-            this.startTimeInMillis = startTimeInMillis;
+            this.stopwatch = Stopwatch.createStarted();
         }
 
         @Override
         public void onError(Exception e)
         {
-            stats.recordCall(System.currentTimeMillis() - startTimeInMillis, true);
+            stats.recordCall(stopwatch.elapsed(MILLISECONDS), true);
         }
 
         @Override
         public void onSuccess(AmazonWebServiceRequest request, Object o)
         {
-            stats.recordCall(System.currentTimeMillis() - startTimeInMillis, false);
+            stats.recordCall(stopwatch.elapsed(MILLISECONDS), false);
         }
     }
 }
