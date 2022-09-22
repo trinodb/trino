@@ -486,7 +486,10 @@ public class TupleDomainParquetPredicate
         int dictionarySize = dictionaryPage.get().getDictionarySize();
 
         if (dictionarySize == 0) {
-            return Domain.onlyNull(type);
+            if (dictionaryDescriptor.isNullAllowed()) {
+                return Domain.onlyNull(type);
+            }
+            return Domain.none(type);
         }
 
         DictionaryValueConverter converter = new DictionaryValueConverter(dictionary);
@@ -497,7 +500,7 @@ public class TupleDomainParquetPredicate
         }
 
         // TODO: when min == max (i.e., singleton ranges, the construction of Domains can be done more efficiently
-        return getDomain(columnDescriptor, type, values, values, true, timeZone);
+        return getDomain(columnDescriptor, type, values, values, dictionaryDescriptor.isNullAllowed(), timeZone);
     }
 
     private static ParquetCorruptionException corruptionException(String column, ParquetDataSourceId id, Statistics<?> statistics, Exception cause)
