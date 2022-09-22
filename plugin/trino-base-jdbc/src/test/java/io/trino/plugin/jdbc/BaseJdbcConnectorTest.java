@@ -126,6 +126,7 @@ public abstract class BaseJdbcConnectorTest
         switch (connectorBehavior) {
             case SUPPORTS_DELETE:
             case SUPPORTS_TRUNCATE:
+                return true;
 
             case SUPPORTS_DYNAMIC_FILTER_PUSHDOWN:
                 // Dynamic filters can be pushed down only if predicate push down is supported.
