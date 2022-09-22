@@ -36,7 +36,13 @@ public final class HiveCompressionCodecs
 
     public static HiveCompressionCodec selectCompressionCodec(HiveCompressionOption compressionOption, HiveStorageFormat storageFormat)
     {
-        HiveCompressionCodec selectedCodec = selectCompressionCodec(compressionOption);
+        HiveCompressionCodec selectedCodec = switch (compressionOption) {
+            case NONE -> HiveCompressionCodec.NONE;
+            case SNAPPY -> HiveCompressionCodec.SNAPPY;
+            case LZ4 -> HiveCompressionCodec.LZ4;
+            case ZSTD -> HiveCompressionCodec.ZSTD;
+            case GZIP -> HiveCompressionCodec.GZIP;
+        };
 
         // perform codec vs format validation
         if (storageFormat == HiveStorageFormat.AVRO && selectedCodec.getAvroCompressionCodec().isEmpty()) {
@@ -44,17 +50,6 @@ public final class HiveCompressionCodecs
         }
 
         return selectedCodec;
-    }
-
-    private static HiveCompressionCodec selectCompressionCodec(HiveCompressionOption compressionOption)
-    {
-        return switch (compressionOption) {
-            case NONE -> HiveCompressionCodec.NONE;
-            case SNAPPY -> HiveCompressionCodec.SNAPPY;
-            case LZ4 -> HiveCompressionCodec.LZ4;
-            case ZSTD -> HiveCompressionCodec.ZSTD;
-            case GZIP -> HiveCompressionCodec.GZIP;
-        };
     }
 
     private static HiveCompressionCodec selectCompressionCodecForUnknownStorageFormat(HiveCompressionOption compressionOption)
