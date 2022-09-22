@@ -164,9 +164,14 @@ public final class PredicateUtils
             ColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
             if (descriptor != null) {
                 if (isOnlyDictionaryEncodingPages(columnMetaData) && isColumnPredicate(descriptor, parquetTupleDomain)) {
+                    Statistics<?> columnStatistics = columnMetaData.getStatistics();
+                    boolean nullAllowed = columnStatistics == null || columnStatistics.getNumNulls() != 0;
                     Slice buffer = dataSource.readFully(columnMetaData.getStartingPos(), toIntExact(columnMetaData.getTotalSize()));
                     //  Early abort, predicate already filters block so no more dictionaries need be read
-                    if (!parquetPredicate.matches(new DictionaryDescriptor(descriptor, readDictionaryPage(buffer, columnMetaData.getCodec())))) {
+                    if (!parquetPredicate.matches(new DictionaryDescriptor(
+                            descriptor,
+                            nullAllowed,
+                            readDictionaryPage(buffer, columnMetaData.getCodec())))) {
                         return false;
                     }
                 }

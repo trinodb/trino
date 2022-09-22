@@ -604,7 +604,15 @@ public class TestTupleDomainParquetPredicate
         TupleDomain<ColumnDescriptor> effectivePredicate = getEffectivePredicate(column, createVarcharType(255), EMPTY_SLICE);
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
         DictionaryPage page = new DictionaryPage(Slices.wrappedBuffer(new byte[] {0, 0, 0, 0}), 1, PLAIN_DICTIONARY);
-        assertTrue(parquetPredicate.matches(new DictionaryDescriptor(column, Optional.of(page))));
+        assertTrue(parquetPredicate.matches(new DictionaryDescriptor(column, true, Optional.of(page))));
+        assertTrue(parquetPredicate.matches(new DictionaryDescriptor(column, false, Optional.of(page))));
+
+        effectivePredicate = withColumnDomains(ImmutableMap.of(
+                column,
+                singleValue(createVarcharType(255), Slices.utf8Slice("abc"), true)));
+        parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
+        assertTrue(parquetPredicate.matches(new DictionaryDescriptor(column, true, Optional.of(page))));
+        assertFalse(parquetPredicate.matches(new DictionaryDescriptor(column, false, Optional.of(page))));
     }
 
     @Test
@@ -622,21 +630,24 @@ public class TestTupleDomainParquetPredicate
                 withColumnDomains(singletonMap(descriptor, notNull(type))),
                 singletonList(column),
                 UTC);
-        assertFalse(predicate.matches(new DictionaryDescriptor(column, Optional.of(dictionary))));
+        assertFalse(predicate.matches(new DictionaryDescriptor(column, true, Optional.of(dictionary))));
+        assertFalse(predicate.matches(new DictionaryDescriptor(column, false, Optional.of(dictionary))));
 
         // only nulls allowed
         predicate = new TupleDomainParquetPredicate(
                 withColumnDomains(singletonMap(descriptor, onlyNull(type))),
                 singletonList(column),
                 UTC);
-        assertTrue(predicate.matches(new DictionaryDescriptor(column, Optional.of(dictionary))));
+        assertTrue(predicate.matches(new DictionaryDescriptor(column, true, Optional.of(dictionary))));
+        assertFalse(predicate.matches(new DictionaryDescriptor(column, false, Optional.of(dictionary))));
 
         // mixed non-nulls and nulls allowed
         predicate = new TupleDomainParquetPredicate(
                 withColumnDomains(singletonMap(descriptor, singleValue(type, EMPTY_SLICE, true))),
                 singletonList(column),
                 UTC);
-        assertTrue(predicate.matches(new DictionaryDescriptor(column, Optional.of(dictionary))));
+        assertTrue(predicate.matches(new DictionaryDescriptor(column, true, Optional.of(dictionary))));
+        assertFalse(predicate.matches(new DictionaryDescriptor(column, false, Optional.of(dictionary))));
     }
 
     @Test
@@ -751,6 +762,7 @@ public class TestTupleDomainParquetPredicate
         }
         return new DictionaryDescriptor(
                 new ColumnDescriptor(new String[] {"dummy"}, new PrimitiveType(OPTIONAL, FLOAT, 0, "FloatColumn"), 1, 1),
+                true,
                 Optional.of(new DictionaryPage(Slices.wrappedBuffer(buf.toByteArray()), values.length, PLAIN_DICTIONARY)));
     }
 
@@ -765,6 +777,7 @@ public class TestTupleDomainParquetPredicate
         }
         return new DictionaryDescriptor(
                 new ColumnDescriptor(new String[] {"dummy"}, new PrimitiveType(OPTIONAL, PrimitiveTypeName.DOUBLE, 0, "DoubleColumn"), 1, 1),
+                true,
                 Optional.of(new DictionaryPage(Slices.wrappedBuffer(buf.toByteArray()), values.length, PLAIN_DICTIONARY)));
     }
 
