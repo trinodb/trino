@@ -67,6 +67,13 @@ import static org.apache.parquet.column.Encoding.RLE;
 
 public final class PredicateUtils
 {
+    // Maximum size of dictionary that we will read for row-group pruning.
+    // Reading larger dictionaries is typically not beneficial. Before checking
+    // the dictionary, the row-group and page indexes have already been checked
+    // and when the dictionary does not eliminate a row-group, the work done to
+    // decode the dictionary and match it with predicates is wasted.
+    private static final int MAX_DICTIONARY_SIZE = 8096;
+
     private PredicateUtils() {}
 
     public static boolean isStatisticsOverflow(Type type, long min, long max)
@@ -258,6 +265,10 @@ public final class PredicateUtils
         }
 
         if (pageHeader.type != PageType.DICTIONARY_PAGE) {
+            return Optional.empty();
+        }
+        DictionaryPageHeader dictionaryHeader = pageHeader.getDictionary_page_header();
+        if (dictionaryHeader.getNum_values() > MAX_DICTIONARY_SIZE) {
             return Optional.empty();
         }
         return Optional.of(new PageHeaderWithData(
