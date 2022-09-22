@@ -158,8 +158,7 @@ The following configuration properties are available:
        When a ``userinfo_endpoint`` value is supplied this URL is used to
        validate the OAuth 2.0 access token, and retrieve any associated claims.
        This flag allows ignoring the value provided in the metadata document.
-       Required for JWT access tokens which support local validation. Default is
-       ``false``.
+       Default is ``true``.
 
 Refresh tokens
 ^^^^^^^^^^^^^^
