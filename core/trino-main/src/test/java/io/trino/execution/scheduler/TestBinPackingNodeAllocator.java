@@ -45,6 +45,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.time.temporal.ChronoUnit.MINUTES;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -346,6 +347,50 @@ public class TestBinPackingNodeAllocator
                 assertThatThrownBy(() -> getFutureValue(acquire2.getNode()))
                         .hasMessage("No nodes available to run query");
             });
+        }
+    }
+
+    @Test(timeOut = TEST_TIMEOUT)
+    public void testNoMatchingNodeAvailableTimeoutReset()
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        setupNodeAllocatorService(nodeManager);
+
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
+            // request a node with specific catalog (not present)
+            NodeAllocator.NodeLease acquireNoMatching1 = nodeAllocator.acquire(REQ_CATALOG_1, DataSize.of(64, GIGABYTE));
+            NodeAllocator.NodeLease acquireNoMatching2 = nodeAllocator.acquire(REQ_CATALOG_1, DataSize.of(64, GIGABYTE));
+            assertNotAcquired(acquireNoMatching1);
+            assertNotAcquired(acquireNoMatching2);
+
+            // wait for a while and add a node
+            ticker.increment(30, TimeUnit.SECONDS); // past 1 minute timeout
+            nodeManager.addNodes(NODE_2);
+
+            // only one of the leases should be completed but timeout counter for period where no nodes
+            // are available should be reset for the other one
+            nodeAllocatorService.processPendingAcquires();
+            assertThat(acquireNoMatching1.getNode().isDone() != acquireNoMatching2.getNode().isDone())
+                    .describedAs("exactly one of pending acquires should be completed")
+                    .isTrue();
+
+            NodeAllocator.NodeLease theAcquireLease = acquireNoMatching1.getNode().isDone() ? acquireNoMatching1 : acquireNoMatching2;
+            NodeAllocator.NodeLease theNotAcquireLease = acquireNoMatching1.getNode().isDone() ? acquireNoMatching2 : acquireNoMatching1;
+
+            // remove the node - we are again in situation where no matching nodes exist in cluster
+            nodeManager.removeNode(NODE_2);
+            theAcquireLease.release();
+            nodeAllocatorService.processPendingAcquires();
+            assertNotAcquired(theNotAcquireLease);
+
+            ticker.increment(59, TimeUnit.SECONDS); // still below 1m timeout as the reset happened in previous step
+            nodeAllocatorService.processPendingAcquires();
+            assertNotAcquired(theNotAcquireLease);
+
+            ticker.increment(2, TimeUnit.SECONDS);
+            nodeAllocatorService.processPendingAcquires();
+            assertThatThrownBy(() -> Futures.getUnchecked(theNotAcquireLease.getNode()))
+                    .hasMessageContaining("No nodes available to run query");
         }
     }
 
