@@ -963,7 +963,7 @@ public class GlueHiveMetastore
                 List<Future<BatchCreatePartitionResult>> futures = new ArrayList<>();
 
                 for (List<PartitionWithStatistics> partitionBatch : Lists.partition(partitions, BATCH_CREATE_PARTITION_MAX_PAGE_SIZE)) {
-                    List<PartitionInput> partitionInputs = mappedCopy(partitionBatch, partition -> GlueInputConverter.convertPartition(partition));
+                    List<PartitionInput> partitionInputs = mappedCopy(partitionBatch, GlueInputConverter::convertPartition);
                     futures.add(glueClient.batchCreatePartitionAsync(
                             new BatchCreatePartitionRequest()
                                     .withDatabaseName(databaseName)
