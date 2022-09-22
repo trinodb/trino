@@ -268,7 +268,7 @@ public class TupleDomainParquetPredicate
         }
 
         if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(DATE) || type.equals(SMALLINT) || type.equals(TINYINT)) {
-            List<Range> ranges = new ArrayList<>();
+            List<Range> ranges = new ArrayList<>(minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
                 long min = asLong(minimums.get(i));
                 long max = asLong(maximums.get(i));
@@ -284,7 +284,7 @@ public class TupleDomainParquetPredicate
 
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
-            List<Range> ranges = new ArrayList<>();
+            List<Range> ranges = new ArrayList<>(minimums.size());
             if (decimalType.isShort()) {
                 for (int i = 0; i < minimums.size(); i++) {
                     Object min = minimums.get(i);
@@ -313,7 +313,7 @@ public class TupleDomainParquetPredicate
         }
 
         if (type.equals(REAL)) {
-            List<Range> ranges = new ArrayList<>();
+            List<Range> ranges = new ArrayList<>(minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
                 Float min = (Float) minimums.get(i);
                 Float max = (Float) maximums.get(i);
@@ -328,7 +328,7 @@ public class TupleDomainParquetPredicate
         }
 
         if (type.equals(DOUBLE)) {
-            List<Range> ranges = new ArrayList<>();
+            List<Range> ranges = new ArrayList<>(minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
                 Double min = (Double) minimums.get(i);
                 Double max = (Double) maximums.get(i);
@@ -343,7 +343,7 @@ public class TupleDomainParquetPredicate
         }
 
         if (type instanceof VarcharType) {
-            List<Range> ranges = new ArrayList<>();
+            List<Range> ranges = new ArrayList<>(minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
                 Slice min = Slices.wrappedBuffer(((Binary) minimums.get(i)).toByteBuffer());
                 Slice max = Slices.wrappedBuffer(((Binary) maximums.get(i)).toByteBuffer());
@@ -355,7 +355,7 @@ public class TupleDomainParquetPredicate
         if (type instanceof TimestampType) {
             if (column.getPrimitiveType().getPrimitiveTypeName().equals(INT96)) {
                 TrinoTimestampEncoder<?> timestampEncoder = createTimestampEncoder((TimestampType) type, timeZone);
-                List<Object> values = new ArrayList<>();
+                List<Object> values = new ArrayList<>(minimums.size());
                 for (int i = 0; i < minimums.size(); i++) {
                     Object min = minimums.get(i);
                     Object max = maximums.get(i);
@@ -386,7 +386,7 @@ public class TupleDomainParquetPredicate
                 }
                 TrinoTimestampEncoder<?> timestampEncoder = createTimestampEncoder((TimestampType) type, DateTimeZone.UTC);
 
-                List<Range> ranges = new ArrayList<>();
+                List<Range> ranges = new ArrayList<>(minimums.size());
                 for (int i = 0; i < minimums.size(); i++) {
                     long min = (long) minimums.get(i);
                     long max = (long) maximums.get(i);
@@ -445,8 +445,8 @@ public class TupleDomainParquetPredicate
             int pageCount = minValues.size();
             ColumnIndexValueConverter converter = new ColumnIndexValueConverter();
             Function<ByteBuffer, Object> converterFunction = converter.getConverter(descriptor.getPrimitiveType());
-            List<Object> min = new ArrayList<>();
-            List<Object> max = new ArrayList<>();
+            List<Object> min = new ArrayList<>(pageCount);
+            List<Object> max = new ArrayList<>(pageCount);
             for (int i = 0; i < pageCount; i++) {
                 if (nullPages.get(i)) {
                     continue;
@@ -501,7 +501,7 @@ public class TupleDomainParquetPredicate
 
         DictionaryValueConverter converter = new DictionaryValueConverter(dictionary);
         Function<Integer, Object> convertFunction = converter.getConverter(columnDescriptor.getPrimitiveType());
-        List<Object> values = new ArrayList<>();
+        List<Object> values = new ArrayList<>(dictionarySize);
         for (int i = 0; i < dictionarySize; i++) {
             values.add(convertFunction.apply(i));
         }
