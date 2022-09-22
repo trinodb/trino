@@ -24,6 +24,8 @@ public interface GroupedAccumulator
 {
     long getEstimatedSize();
 
+    void setGroupCount(long groupCount);
+
     void addInput(GroupByIdBlock groupIdsBlock, Page page, Optional<Block> mask);
 
     void addIntermediate(GroupByIdBlock groupIdsBlock, Block block);
