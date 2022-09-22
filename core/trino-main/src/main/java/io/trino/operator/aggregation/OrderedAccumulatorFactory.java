@@ -200,6 +200,13 @@ public class OrderedAccumulatorFactory
         }
 
         @Override
+        public void setGroupCount(long groupCount)
+        {
+            this.groupCount = max(this.groupCount, groupCount);
+            accumulator.setGroupCount(groupCount);
+        }
+
+        @Override
         public void addInput(GroupByIdBlock groupIdsBlock, Page page, Optional<Block> mask)
         {
             groupCount = max(groupCount, groupIdsBlock.getGroupCount());
@@ -211,14 +218,7 @@ public class OrderedAccumulatorFactory
             if (mask.isPresent()) {
                 page = filter(page, mask.orElseThrow());
             }
-            if (page.getPositionCount() == 0) {
-                // page was entirely filtered out, but we need to inform the accumulator of the new group count
-                accumulator.addInput(
-                        new GroupByIdBlock(groupCount, page.getBlock(page.getChannelCount() - 1)),
-                        page.getColumns(argumentChannels),
-                        Optional.empty());
-            }
-            else {
+            if (page.getPositionCount() > 0) {
                 pagesIndex.addPage(page);
             }
         }

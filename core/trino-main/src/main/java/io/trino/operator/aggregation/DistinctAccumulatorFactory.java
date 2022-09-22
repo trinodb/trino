@@ -210,6 +210,12 @@ public class DistinctAccumulatorFactory
         }
 
         @Override
+        public void setGroupCount(long groupCount)
+        {
+            accumulator.setGroupCount(groupCount);
+        }
+
+        @Override
         public void addInput(GroupByIdBlock groupIdsBlock, Page page, Optional<Block> mask)
         {
             Page withGroup = page.prependColumn(groupIdsBlock);

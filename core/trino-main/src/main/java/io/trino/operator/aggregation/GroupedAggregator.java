@@ -64,6 +64,8 @@ public class GroupedAggregator
 
     public void processPage(GroupByIdBlock groupIds, Page page)
     {
+        accumulator.setGroupCount(groupIds.getGroupCount());
+
         if (step.isInputRaw()) {
             accumulator.addInput(groupIds, page.getColumns(inputChannels), getMaskBlock(page));
         }
