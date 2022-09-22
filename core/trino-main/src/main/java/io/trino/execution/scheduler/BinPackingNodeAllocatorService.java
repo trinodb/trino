@@ -247,6 +247,7 @@ public class BinPackingNodeAllocatorService
                     iterator.remove();
                     break;
                 case NOT_ENOUGH_RESOURCES_NOW:
+                    pendingAcquire.resetNoMatchingNodeFound();
                     break; // nothing to be done
                 default:
                     throw new IllegalArgumentException("unknown status: " + result.getStatus());
@@ -338,6 +339,11 @@ public class BinPackingNodeAllocatorService
                 noMatchingNodeStopwatch.start();
             }
             return noMatchingNodeStopwatch.elapsed();
+        }
+
+        public void resetNoMatchingNodeFound()
+        {
+            noMatchingNodeStopwatch.reset();
         }
     }
 
