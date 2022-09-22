@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 
@@ -34,6 +35,7 @@ public class AggregatorFactory
     private final OptionalInt maskChannel;
     private final boolean spillable;
     private final List<Supplier<Object>> lambdaProviders;
+    private final FunctionNullability functionNullability;
 
     public AggregatorFactory(
             AccumulatorFactory accumulatorFactory,
@@ -43,7 +45,8 @@ public class AggregatorFactory
             List<Integer> inputChannels,
             OptionalInt maskChannel,
             boolean spillable,
-            List<Supplier<Object>> lambdaProviders)
+            List<Supplier<Object>> lambdaProviders,
+            FunctionNullability functionNullability)
     {
         this.accumulatorFactory = requireNonNull(accumulatorFactory, "accumulatorFactory is null");
         this.step = requireNonNull(step, "step is null");
@@ -53,6 +56,7 @@ public class AggregatorFactory
         this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
         this.spillable = spillable;
         this.lambdaProviders = ImmutableList.copyOf(requireNonNull(lambdaProviders, "lambdaProviders is null"));
+        this.functionNullability = requireNonNull(functionNullability, "functionNullability is null");
 
         checkArgument(step.isInputRaw() || inputChannels.size() == 1, "expected 1 input channel for intermediate aggregation");
     }
@@ -66,7 +70,7 @@ public class AggregatorFactory
         else {
             accumulator = accumulatorFactory.createIntermediateAccumulator(lambdaProviders);
         }
-        return new Aggregator(accumulator, step, intermediateType, finalType, inputChannels, maskChannel);
+        return new Aggregator(accumulator, step, intermediateType, finalType, inputChannels, maskChannel, functionNullability);
     }
 
     public GroupedAggregator createGroupedAggregator()
@@ -78,7 +82,7 @@ public class AggregatorFactory
         else {
             accumulator = accumulatorFactory.createGroupedIntermediateAccumulator(lambdaProviders);
         }
-        return new GroupedAggregator(accumulator, step, intermediateType, finalType, inputChannels, maskChannel);
+        return new GroupedAggregator(accumulator, step, intermediateType, finalType, inputChannels, maskChannel, functionNullability);
     }
 
     public GroupedAggregator createUnspillGroupedAggregator(Step step, int inputChannel)
@@ -90,7 +94,7 @@ public class AggregatorFactory
         else {
             accumulator = accumulatorFactory.createGroupedIntermediateAccumulator(lambdaProviders);
         }
-        return new GroupedAggregator(accumulator, step, intermediateType, finalType, ImmutableList.of(inputChannel), maskChannel);
+        return new GroupedAggregator(accumulator, step, intermediateType, finalType, ImmutableList.of(inputChannel), maskChannel, functionNullability);
     }
 
     public boolean isSpillable()
