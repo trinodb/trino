@@ -179,6 +179,10 @@ public final class AccumulatorCompiler
                 grouped);
         generateGetEstimatedSize(definition, stateFields);
 
+        if (grouped) {
+            generateSetGroupCount(definition, stateFields);
+        }
+
         generateAddIntermediateAsCombine(
                 definition,
                 stateFieldAndDescriptors,
@@ -335,6 +339,19 @@ public final class AccumulatorCompiler
         method.getBody().append(estimatedSize.ret());
     }
 
+    private static void generateSetGroupCount(ClassDefinition definition, List<FieldDefinition> stateFields)
+    {
+        Parameter groupCount = arg("groupCount", long.class);
+
+        MethodDefinition method = definition.declareMethod(a(PUBLIC), "setGroupCount", type(void.class), groupCount);
+        BytecodeBlock body = method.getBody();
+        for (FieldDefinition stateField : stateFields) {
+            BytecodeExpression state = method.getScope().getThis().getField(stateField);
+            body.append(state.invoke("ensureCapacity", void.class, groupCount));
+        }
+        body.ret();
+    }
+
     private static void generateAddInput(
             ClassDefinition definition,
             List<FieldDefinition> stateField,
@@ -356,10 +373,6 @@ public final class AccumulatorCompiler
         MethodDefinition method = definition.declareMethod(a(PUBLIC), "addInput", type(void.class), parameters.build());
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
-
-        if (grouped) {
-            generateEnsureCapacity(scope, stateField, body);
-        }
 
         List<Variable> parameterVariables = new ArrayList<>();
         for (int i = 0; i < argumentNullable.size(); i++) {
@@ -695,10 +708,6 @@ public final class AccumulatorCompiler
                 .map(StateFieldAndDescriptor::getStateField)
                 .collect(toImmutableList());
 
-        if (grouped) {
-            generateEnsureCapacity(scope, stateFields, body);
-        }
-
         BytecodeBlock loopBody = new BytecodeBlock();
 
         loopBody.comment("combine(state_0, state_1, ... scratchState_0, scratchState_1, ... lambda_0, lambda_1, ...)");
@@ -740,15 +749,6 @@ public final class AccumulatorCompiler
         for (FieldDefinition stateField : stateFields) {
             BytecodeExpression state = scope.getThis().getField(stateField);
             block.append(state.invoke("setGroupId", void.class, groupIdsBlock.invoke("getGroupId", long.class, position)));
-        }
-    }
-
-    private static void generateEnsureCapacity(Scope scope, List<FieldDefinition> stateFields, BytecodeBlock block)
-    {
-        Variable groupIdsBlock = scope.getVariable("groupIdsBlock");
-        for (FieldDefinition stateField : stateFields) {
-            BytecodeExpression state = scope.getThis().getField(stateField);
-            block.append(state.invoke("ensureCapacity", void.class, groupIdsBlock.invoke("getGroupCount", long.class)));
         }
     }
 
