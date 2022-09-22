@@ -247,7 +247,6 @@ public final class ParquetTypeUtils
         return !required && (definitionLevel == maxDefinitionLevel - 1);
     }
 
-    // copied from trino-hive DecimalUtils
     public static long getShortDecimalValue(byte[] bytes)
     {
         return getShortDecimalValue(bytes, 0, bytes.length);
@@ -256,16 +255,32 @@ public final class ParquetTypeUtils
     public static long getShortDecimalValue(byte[] bytes, int startOffset, int length)
     {
         long value = 0;
-        if (bytes[startOffset] < 0) {
-            for (int i = 0; i < 8 - length; ++i) {
-                value |= 0xFFL << (8 * (7 - i));
-            }
+        switch (length) {
+            case 8:
+                value |= bytes[startOffset + 7] & 0xFFL;
+                // fall through
+            case 7:
+                value |= (bytes[startOffset + 6] & 0xFFL) << 8;
+                // fall through
+            case 6:
+                value |= (bytes[startOffset + 5] & 0xFFL) << 16;
+                // fall through
+            case 5:
+                value |= (bytes[startOffset + 4] & 0xFFL) << 24;
+                // fall through
+            case 4:
+                value |= (bytes[startOffset + 3] & 0xFFL) << 32;
+                // fall through
+            case 3:
+                value |= (bytes[startOffset + 2] & 0xFFL) << 40;
+                // fall through
+            case 2:
+                value |= (bytes[startOffset + 1] & 0xFFL) << 48;
+                // fall through
+            case 1:
+                value |= (bytes[startOffset] & 0xFFL) << 56;
         }
-
-        for (int i = 0; i < length; i++) {
-            value |= (bytes[startOffset + length - i - 1] & 0xFFL) << (8 * i);
-        }
-
+        value = value >> ((8 - length) * 8);
         return value;
     }
 
