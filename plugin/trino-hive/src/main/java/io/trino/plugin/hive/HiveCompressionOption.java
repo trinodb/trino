@@ -20,5 +20,6 @@ public enum HiveCompressionOption
     LZ4,
     ZSTD,
     GZIP,
+    DEFAULT,
     /**/;
 }

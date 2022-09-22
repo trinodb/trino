@@ -74,6 +74,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -115,6 +116,7 @@ import static io.trino.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NA
 import static io.trino.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.PARTITION_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
+import static io.trino.plugin.hive.HiveCompressionCodecs.selectCompressionCodec;
 import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.hive.HiveQueryRunner.createBucketedSession;
@@ -195,7 +197,10 @@ public abstract class BaseHiveConnectorTest
             throws Exception
     {
         // Use faster compression codec in tests. TODO remove explicit config when default changes
-        verify(new HiveConfig().getHiveCompressionCodec() == HiveCompressionOption.GZIP);
+        HiveCompressionOption defaultCompression = new HiveConfig().getHiveCompressionCodec();
+        boolean someStorageFormatsUseGzip = Arrays.stream(HiveStorageFormat.values())
+                .anyMatch(hiveStorageFormat -> selectCompressionCodec(defaultCompression, hiveStorageFormat) == HiveCompressionCodec.GZIP);
+        verify(someStorageFormatsUseGzip, "None of the formats use GZIP; no need to force ZSTD");
         String hiveCompressionCodec = HiveCompressionCodec.ZSTD.name();
 
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
