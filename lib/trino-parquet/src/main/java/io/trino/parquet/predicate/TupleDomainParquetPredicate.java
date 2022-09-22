@@ -91,18 +91,19 @@ public class TupleDomainParquetPredicate
     }
 
     @Override
-    public boolean matches(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id)
+    public Optional<List<ColumnDescriptor>> getIndexLookupCandidates(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id)
             throws ParquetCorruptionException
     {
         if (numberOfRows == 0) {
-            return false;
+            return Optional.empty();
         }
         if (effectivePredicate.isNone()) {
-            return false;
+            return Optional.empty();
         }
         Map<ColumnDescriptor, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
                 .orElseThrow(() -> new IllegalStateException("Effective predicate other than none should have domains"));
 
+        ImmutableList.Builder<ColumnDescriptor> candidateColumns = ImmutableList.builder();
         for (ColumnDescriptor column : columns) {
             Domain effectivePredicateDomain = effectivePredicateDomains.get(column);
             if (effectivePredicateDomain == null) {
@@ -112,6 +113,7 @@ public class TupleDomainParquetPredicate
             Statistics<?> columnStatistics = statistics.get(column);
             if (columnStatistics == null || columnStatistics.isEmpty()) {
                 // no stats for column
+                candidateColumns.add(column);
                 continue;
             }
 
@@ -123,10 +125,15 @@ public class TupleDomainParquetPredicate
                     id,
                     timeZone);
             if (!effectivePredicateDomain.overlaps(domain)) {
-                return false;
+                return Optional.empty();
+            }
+            // If the predicate domain on a column includes the entire domain from column row-group statistics,
+            // then more granular statistics from page stats or dictionary for this column will not help to eliminate the row-group.
+            if (!effectivePredicateDomain.contains(domain)) {
+                candidateColumns.add(column);
             }
         }
-        return true;
+        return Optional.of(candidateColumns.build());
     }
 
     @Override

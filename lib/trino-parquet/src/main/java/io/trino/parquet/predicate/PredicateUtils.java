@@ -49,7 +49,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Verify.verify;
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -120,26 +119,35 @@ public final class PredicateUtils
         return new TupleDomainParquetPredicate(parquetTupleDomain, columnReferences.build(), timeZone);
     }
 
-    public static boolean predicateMatches(Predicate parquetPredicate, BlockMetaData block, ParquetDataSource dataSource, Map<List<String>, ColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain)
-            throws IOException
-    {
-        return predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, Optional.empty());
-    }
-
-    public static boolean predicateMatches(Predicate parquetPredicate, BlockMetaData block, ParquetDataSource dataSource, Map<List<String>, ColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain, Optional<ColumnIndexStore> columnIndexStore)
+    public static boolean predicateMatches(
+            Predicate parquetPredicate,
+            BlockMetaData block,
+            ParquetDataSource dataSource,
+            Map<List<String>, ColumnDescriptor> descriptorsByPath,
+            TupleDomain<ColumnDescriptor> parquetTupleDomain,
+            Optional<ColumnIndexStore> columnIndexStore,
+            DateTimeZone timeZone)
             throws IOException
     {
         Map<ColumnDescriptor, Statistics<?>> columnStatistics = getStatistics(block, descriptorsByPath);
-        if (!parquetPredicate.matches(block.getRowCount(), columnStatistics, dataSource.getId())) {
+        Optional<List<ColumnDescriptor>> candidateColumns = parquetPredicate.getIndexLookupCandidates(block.getRowCount(), columnStatistics, dataSource.getId());
+        if (candidateColumns.isEmpty()) {
             return false;
         }
+        if (candidateColumns.get().isEmpty()) {
+            return true;
+        }
+        // Perform column index and dictionary lookups only for the subset of columns where it can be useful.
+        // This prevents unnecessary filesystem reads and decoding work when the predicate on a column comes from
+        // file-level min/max stats or more generally when the predicate selects a range equal to or wider than row-group min/max.
+        Predicate indexPredicate = new TupleDomainParquetPredicate(parquetTupleDomain, candidateColumns.get(), timeZone);
 
         // Page stats is finer grained but relatively more expensive, so we do the filtering after above block filtering.
-        if (columnIndexStore.isPresent() && !parquetPredicate.matches(block.getRowCount(), columnIndexStore.get(), dataSource.getId())) {
+        if (columnIndexStore.isPresent() && !indexPredicate.matches(block.getRowCount(), columnIndexStore.get(), dataSource.getId())) {
             return false;
         }
 
-        return dictionaryPredicatesMatch(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain);
+        return dictionaryPredicatesMatch(indexPredicate, block, dataSource, descriptorsByPath, ImmutableSet.copyOf(candidateColumns.get()));
     }
 
     private static Map<ColumnDescriptor, Statistics<?>> getStatistics(BlockMetaData blockMetadata, Map<List<String>, ColumnDescriptor> descriptorsByPath)
@@ -157,23 +165,29 @@ public final class PredicateUtils
         return statistics.buildOrThrow();
     }
 
-    private static boolean dictionaryPredicatesMatch(Predicate parquetPredicate, BlockMetaData blockMetadata, ParquetDataSource dataSource, Map<List<String>, ColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain)
+    private static boolean dictionaryPredicatesMatch(
+            Predicate parquetPredicate,
+            BlockMetaData blockMetadata,
+            ParquetDataSource dataSource,
+            Map<List<String>, ColumnDescriptor> descriptorsByPath,
+            Set<ColumnDescriptor> candidateColumns)
             throws IOException
     {
         for (ColumnChunkMetaData columnMetaData : blockMetadata.getColumns()) {
             ColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
-            if (descriptor != null) {
-                if (isOnlyDictionaryEncodingPages(columnMetaData) && isColumnPredicate(descriptor, parquetTupleDomain)) {
-                    Statistics<?> columnStatistics = columnMetaData.getStatistics();
-                    boolean nullAllowed = columnStatistics == null || columnStatistics.getNumNulls() != 0;
-                    Slice buffer = dataSource.readFully(columnMetaData.getStartingPos(), toIntExact(columnMetaData.getTotalSize()));
-                    //  Early abort, predicate already filters block so no more dictionaries need be read
-                    if (!parquetPredicate.matches(new DictionaryDescriptor(
-                            descriptor,
-                            nullAllowed,
-                            readDictionaryPage(buffer, columnMetaData.getCodec())))) {
-                        return false;
-                    }
+            if (descriptor == null || !candidateColumns.contains(descriptor)) {
+                continue;
+            }
+            if (isOnlyDictionaryEncodingPages(columnMetaData)) {
+                Statistics<?> columnStatistics = columnMetaData.getStatistics();
+                boolean nullAllowed = columnStatistics == null || columnStatistics.getNumNulls() != 0;
+                Slice buffer = dataSource.readFully(columnMetaData.getStartingPos(), toIntExact(columnMetaData.getTotalSize()));
+                //  Early abort, predicate already filters block so no more dictionaries need be read
+                if (!parquetPredicate.matches(new DictionaryDescriptor(
+                        descriptor,
+                        nullAllowed,
+                        readDictionaryPage(buffer, columnMetaData.getCodec())))) {
+                    return false;
                 }
             }
         }
@@ -200,12 +214,6 @@ public final class PredicateUtils
         catch (IOException ignored) {
             return Optional.empty();
         }
-    }
-
-    private static boolean isColumnPredicate(ColumnDescriptor columnDescriptor, TupleDomain<ColumnDescriptor> parquetTupleDomain)
-    {
-        verify(parquetTupleDomain.getDomains().isPresent(), "parquetTupleDomain is empty");
-        return parquetTupleDomain.getDomains().get().containsKey(columnDescriptor);
     }
 
     @VisibleForTesting
