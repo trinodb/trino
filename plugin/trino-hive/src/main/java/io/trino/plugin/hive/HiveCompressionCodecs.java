@@ -42,7 +42,10 @@ public final class HiveCompressionCodecs
             case LZ4 -> HiveCompressionCodec.LZ4;
             case ZSTD -> HiveCompressionCodec.ZSTD;
             case GZIP -> HiveCompressionCodec.GZIP;
-            case DEFAULT -> HiveCompressionCodec.GZIP;
+            case DEFAULT -> switch (storageFormat) {
+                case PARQUET -> HiveCompressionCodec.ZSTD;
+                default -> HiveCompressionCodec.GZIP;
+            };
         };
 
         // perform codec vs format validation
