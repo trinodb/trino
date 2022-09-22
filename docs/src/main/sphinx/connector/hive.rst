@@ -557,7 +557,7 @@ Property Name                              Description
    * - ``hive.metastore.username``
      - The username Trino uses to access the Hive metastore.
    * - ``hive.metastore.authentication.type``
-     - Hive metastore authentication type. Possivel values are ``NONE`` or
+     - Hive metastore authentication type. Possible values are ``NONE`` or
        ``KERBEROS``. Default is ``NONE``.
    * - ``hive.metastore.thrift.impersonation.enabled``
      - Enable Hive metastore end user impersonation.
