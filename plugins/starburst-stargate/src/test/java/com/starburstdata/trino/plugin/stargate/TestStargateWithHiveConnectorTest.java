@@ -111,6 +111,15 @@ public class TestStargateWithHiveConnectorTest
         throw new SkipException("not supported");
     }
 
+    @Override
+    public void testCommentColumnSpecialCharacter(String comment)
+    {
+        // TODO (https://starburstdata.atlassian.net/browse/SEP-4832) make sure this is tested
+        assertThatThrownBy(() -> super.testCommentColumnSpecialCharacter(comment))
+                .hasMessageStartingWith("This connector does not support creating tables");
+        throw new SkipException("not supported");
+    }
+
     @Test
     public void testReadFromRemoteHiveView()
     {

@@ -243,7 +243,7 @@ public class StargateClient
                 "COMMENT ON COLUMN %s.%s IS %s",
                 quoted(handle.asPlainTable().getRemoteTableName()),
                 quoted(column.getColumnName()),
-                comment.isPresent() ? format("'%s'", comment.get()) : "NULL");
+                comment.map(BaseJdbcClient::varcharLiteral).orElse("NULL"));
         execute(session, sql);
     }
 
