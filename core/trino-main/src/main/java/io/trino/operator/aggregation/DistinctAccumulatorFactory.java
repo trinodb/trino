@@ -22,7 +22,6 @@ import io.trino.operator.Work;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.type.BlockTypeOperators;
@@ -34,7 +33,6 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 public class DistinctAccumulatorFactory
@@ -137,24 +135,25 @@ public class DistinctAccumulatorFactory
         }
 
         @Override
-        public void addInput(Page arguments, Optional<Block> mask)
+        public void addInput(Page arguments, AggregationMask mask)
         {
             // 1. filter out positions based on mask, if present
-            Page filtered = mask
-                    .map(maskBlock -> filter(arguments, maskBlock))
-                    .orElse(arguments);
+            Page filtered = mask.filterPage(arguments);
 
-            if (filtered.getPositionCount() == 0) {
-                return;
-            }
-
-            // 2. compute a distinct mask
+            // 2. compute a distinct mask block
             Work<Block> work = hash.markDistinctRows(filtered);
             checkState(work.process());
             Block distinctMask = work.getResult();
 
-            // 3. feed a Page with a new mask to the underlying aggregation
-            accumulator.addInput(filtered, Optional.of(distinctMask));
+            // 3. update original mask to the new distinct mask block
+            mask.reset(filtered.getPositionCount());
+            mask.applyMaskBlock(distinctMask);
+            if (mask.isSelectNone()) {
+                return;
+            }
+
+            // 4. feed a Page with a new mask to the underlying aggregation
+            accumulator.addInput(filtered, mask);
         }
 
         @Override
@@ -216,21 +215,26 @@ public class DistinctAccumulatorFactory
         }
 
         @Override
-        public void addInput(GroupByIdBlock groupIdsBlock, Page page, Optional<Block> mask)
+        public void addInput(GroupByIdBlock groupIdsBlock, Page page, AggregationMask mask)
         {
             Page withGroup = page.prependColumn(groupIdsBlock);
 
             // 1. filter out positions based on mask, if present
-            Page filteredWithGroup = mask
-                    .map(maskBlock -> filter(withGroup, maskBlock))
-                    .orElse(withGroup);
+            Page filteredWithGroup = mask.filterPage(withGroup);
 
             // 2. compute a mask for the distinct rows (including the group id)
             Work<Block> work = hash.markDistinctRows(filteredWithGroup);
             checkState(work.process());
             Block distinctMask = work.getResult();
 
-            // 3. feed a Page with a new mask to the underlying aggregation
+            // 3. update original mask to the new distinct mask block
+            mask.reset(filteredWithGroup.getPositionCount());
+            mask.applyMaskBlock(distinctMask);
+            if (mask.isSelectNone()) {
+                return;
+            }
+
+            // 4. feed a Page with a new mask to the underlying aggregation
             GroupByIdBlock groupIds = new GroupByIdBlock(groupIdsBlock.getGroupCount(), filteredWithGroup.getBlock(0));
 
             // drop the group id column and prepend the distinct mask column
@@ -240,7 +244,7 @@ public class DistinctAccumulatorFactory
             }
             Page filtered = filteredWithGroup.getColumns(columnIndexes);
             // NOTE: the accumulator must be called even if the filtered page is empty to inform the accumulator about the group count
-            accumulator.addInput(groupIds, filtered, Optional.of(distinctMask));
+            accumulator.addInput(groupIds, filtered, mask);
         }
 
         @Override
@@ -263,31 +267,5 @@ public class DistinctAccumulatorFactory
 
         @Override
         public void prepareFinal() {}
-    }
-
-    private static Page filter(Page page, Block mask)
-    {
-        int positions = mask.getPositionCount();
-        if (positions > 0 && mask instanceof RunLengthEncodedBlock) {
-            // must have at least 1 position to be able to check the value at position 0
-            if (!mask.isNull(0) && BOOLEAN.getBoolean(mask, 0)) {
-                return page;
-            }
-            return page.getPositions(new int[0], 0, 0);
-        }
-        boolean mayHaveNull = mask.mayHaveNull();
-        int[] ids = new int[positions];
-        int next = 0;
-        for (int i = 0; i < ids.length; ++i) {
-            boolean isNull = mayHaveNull && mask.isNull(i);
-            if (!isNull && BOOLEAN.getBoolean(mask, i)) {
-                ids[next++] = i;
-            }
-        }
-
-        if (next == ids.length) {
-            return page; // no rows were eliminated by the filter
-        }
-        return page.getPositions(ids, 0, next);
     }
 }

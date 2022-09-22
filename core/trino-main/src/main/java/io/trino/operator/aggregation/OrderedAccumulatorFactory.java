@@ -27,12 +27,10 @@ import io.trino.spi.type.Type;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.lang.Long.max;
 import static java.util.Objects.requireNonNull;
 
@@ -133,12 +131,9 @@ public class OrderedAccumulatorFactory
         }
 
         @Override
-        public void addInput(Page page, Optional<Block> mask)
+        public void addInput(Page page, AggregationMask mask)
         {
-            if (mask.isPresent()) {
-                page = filter(page, mask.orElseThrow());
-            }
-            pagesIndex.addPage(page);
+            pagesIndex.addPage(mask.filterPage(page));
         }
 
         @Override
@@ -158,7 +153,11 @@ public class OrderedAccumulatorFactory
         {
             pagesIndex.sort(orderByChannels, orderings);
             Iterator<Page> pagesIterator = pagesIndex.getSortedPages();
-            pagesIterator.forEachRemaining(arguments -> accumulator.addInput(arguments.getColumns(argumentChannels), Optional.empty()));
+            AggregationMask mask = AggregationMask.createSelectAll(0);
+            pagesIterator.forEachRemaining(arguments -> {
+                mask.reset(arguments.getPositionCount());
+                accumulator.addInput(arguments.getColumns(argumentChannels), mask);
+            });
             accumulator.evaluateFinal(blockBuilder);
         }
     }
@@ -207,20 +206,17 @@ public class OrderedAccumulatorFactory
         }
 
         @Override
-        public void addInput(GroupByIdBlock groupIdsBlock, Page page, Optional<Block> mask)
+        public void addInput(GroupByIdBlock groupIdsBlock, Page page, AggregationMask mask)
         {
-            groupCount = max(groupCount, groupIdsBlock.getGroupCount());
+            if (mask.isSelectNone()) {
+                return;
+            }
 
             // Add group id block
             page = page.appendColumn(groupIdsBlock);
 
             // mask page
-            if (mask.isPresent()) {
-                page = filter(page, mask.orElseThrow());
-            }
-            if (page.getPositionCount() > 0) {
-                pagesIndex.addPage(page);
-            }
+            pagesIndex.addPage(mask.filterPage(page));
         }
 
         @Override
@@ -246,23 +242,14 @@ public class OrderedAccumulatorFactory
         {
             pagesIndex.sort(orderByChannels, orderings);
             Iterator<Page> pagesIterator = pagesIndex.getSortedPages();
-            pagesIterator.forEachRemaining(page -> accumulator.addInput(
-                    new GroupByIdBlock(groupCount, page.getBlock(page.getChannelCount() - 1)),
-                    page.getColumns(argumentChannels),
-                    Optional.empty()));
+            AggregationMask mask = AggregationMask.createSelectAll(0);
+            pagesIterator.forEachRemaining(page -> {
+                mask.reset(page.getPositionCount());
+                accumulator.addInput(
+                        new GroupByIdBlock(groupCount, page.getBlock(page.getChannelCount() - 1)),
+                        page.getColumns(argumentChannels),
+                        mask);
+            });
         }
-    }
-
-    private static Page filter(Page page, Block mask)
-    {
-        int[] ids = new int[mask.getPositionCount()];
-        int next = 0;
-        for (int i = 0; i < page.getPositionCount(); ++i) {
-            if (BOOLEAN.getBoolean(mask, i)) {
-                ids[next++] = i;
-            }
-        }
-
-        return page.getPositions(ids, 0, next);
     }
 }

@@ -43,6 +43,7 @@ public class TestingAggregationFunction
 
     private final AccumulatorFactory factory;
     private final DistinctAccumulatorFactory distinctFactory;
+    private final FunctionNullability functionNullability;
 
     public TestingAggregationFunction(BoundSignature signature, FunctionNullability functionNullability, AggregationImplementation aggregationImplementation)
     {
@@ -59,9 +60,10 @@ public class TestingAggregationFunction
                 new JoinCompiler(TYPE_OPERATORS),
                 new BlockTypeOperators(TYPE_OPERATORS),
                 TEST_SESSION);
+        this.functionNullability = requireNonNull(functionNullability, "functionNullability is null");
     }
 
-    public TestingAggregationFunction(List<Type> parameterTypes, List<Type> intermediateTypes, Type finalType, AccumulatorFactory factory)
+    public TestingAggregationFunction(List<Type> parameterTypes, List<Type> intermediateTypes, Type finalType, AccumulatorFactory factory, FunctionNullability functionNullability)
     {
         this.parameterTypes = ImmutableList.copyOf(requireNonNull(parameterTypes, "parameterTypes is null"));
         requireNonNull(intermediateTypes, "intermediateTypes is null");
@@ -74,6 +76,7 @@ public class TestingAggregationFunction
                 new JoinCompiler(TYPE_OPERATORS),
                 new BlockTypeOperators(TYPE_OPERATORS),
                 TEST_SESSION);
+        this.functionNullability = requireNonNull(functionNullability, "functionNullability is null");
     }
 
     public int getParameterCount()
@@ -116,6 +119,7 @@ public class TestingAggregationFunction
                 inputChannels,
                 maskChannel,
                 true,
-                ImmutableList.of());
+                ImmutableList.of(),
+                functionNullability);
     }
 }
