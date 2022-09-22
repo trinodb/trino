@@ -177,7 +177,7 @@ public enum BigQueryType
     public static String dateToStringConverter(Object value)
     {
         LocalDate date = LocalDate.ofEpochDay(((Long) value).longValue());
-        return quote(date.toString());
+        return "'" + date + "'";
     }
 
     private static String datetimeToStringConverter(Object value)
@@ -223,8 +223,9 @@ public enum BigQueryType
     static String stringToStringConverter(Object value)
     {
         Slice slice = (Slice) value;
-        // TODO (https://github.com/trinodb/trino/issues/7900) Add support for all String and Bytes literals
-        return quote(slice.toStringUtf8().replace("'", "\\'"));
+        return "'%s'".formatted(slice.toStringUtf8()
+                .replace("\\", "\\\\")
+                .replace("'", "\\'"));
     }
 
     static String numericToStringConverter(Object value)
@@ -312,11 +313,6 @@ public enum BigQueryType
             return StandardSQLTypeName.STRUCT;
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
-    }
-
-    private static String quote(String value)
-    {
-        return "'" + value + "'";
     }
 
     public Optional<String> convertToString(Type type, Object value)
