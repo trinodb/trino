@@ -176,7 +176,7 @@ public enum BigQueryType
     @VisibleForTesting
     public static String dateToStringConverter(Object value)
     {
-        LocalDate date = LocalDate.ofEpochDay(((Long) value).longValue());
+        LocalDate date = LocalDate.ofEpochDay((long) value);
         return "'" + date + "'";
     }
 
