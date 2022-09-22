@@ -4877,8 +4877,9 @@ public abstract class BaseConnectorTest
         @Override
         public String toString()
         {
-            // toString is brief because it's used for test case labels in IDE
-            return trinoTypeName + (unsupportedType ? "!" : "");
+            // Used for test case labels in IDE
+            return trinoTypeName + (unsupportedType ? "!" : "") +
+                    ":" + sampleValueLiteral.replaceAll("[^a-zA-Z0-9_-]", "");
         }
     }
 }
