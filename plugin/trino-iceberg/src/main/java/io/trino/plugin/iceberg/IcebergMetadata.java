@@ -34,6 +34,8 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.hive.HiveApplyProjectionUtil;
 import io.trino.plugin.hive.HiveApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.trino.plugin.hive.HiveWrittenPartitions;
+import io.trino.plugin.iceberg.aggregation.DataSketchStateSerializer;
+import io.trino.plugin.iceberg.aggregation.IcebergThetaSketchForStats;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.procedure.IcebergDropExtendedStatsHandle;
 import io.trino.plugin.iceberg.procedure.IcebergExpireSnapshotsHandle;
@@ -94,6 +96,7 @@ import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
+import org.apache.datasketches.theta.CompactSketch;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
@@ -229,7 +232,6 @@ import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
-import static io.trino.spi.predicate.Utils.blockToNativeValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.UuidType.UUID;
@@ -264,7 +266,7 @@ public class IcebergMetadata
     public static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
 
     private static final String NUMBER_OF_DISTINCT_VALUES_NAME = "NUMBER_OF_DISTINCT_VALUES";
-    private static final FunctionName NUMBER_OF_DISTINCT_VALUES_FUNCTION = new FunctionName("approx_distinct");
+    private static final FunctionName NUMBER_OF_DISTINCT_VALUES_FUNCTION = new FunctionName(IcebergThetaSketchForStats.NAME);
 
     private final TypeManager typeManager;
     private final TypeOperators typeOperators;
@@ -1468,8 +1470,9 @@ public class IcebergMetadata
         }
 
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle);
-        Set<String> allDataColumnNames = tableMetadata.getColumns().stream()
+        Set<String> allScalarColumnNames = tableMetadata.getColumns().stream()
                 .filter(column -> !column.isHidden())
+                .filter(column -> column.getType().getTypeParameters().isEmpty()) // is scalar type
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableSet());
 
@@ -1479,18 +1482,17 @@ public class IcebergMetadata
                     if (columnNames.isEmpty()) {
                         throw new TrinoException(INVALID_ANALYZE_PROPERTY, "Cannot specify empty list of columns for analysis");
                     }
-                    if (!allDataColumnNames.containsAll(columnNames)) {
+                    if (!allScalarColumnNames.containsAll(columnNames)) {
                         throw new TrinoException(
                                 INVALID_ANALYZE_PROPERTY,
-                                format("Invalid columns specified for analysis: %s", Sets.difference(columnNames, allDataColumnNames)));
+                                format("Invalid columns specified for analysis: %s", Sets.difference(columnNames, allScalarColumnNames)));
                     }
                     return columnNames;
                 })
-                .orElse(allDataColumnNames);
+                .orElse(allScalarColumnNames);
 
         Set<ColumnStatisticMetadata> columnStatistics = tableMetadata.getColumns().stream()
                 .filter(column -> analyzeColumnNames.contains(column.getName()))
-                // TODO: add support for NDV summary/sketch, but using Theta sketch, not HLL; see https://github.com/apache/iceberg-docs/pull/69
                 .map(column -> new ColumnStatisticMetadata(column.getName(), NUMBER_OF_DISTINCT_VALUES_NAME, NUMBER_OF_DISTINCT_VALUES_FUNCTION))
                 .collect(toImmutableSet());
 
@@ -1537,12 +1539,13 @@ public class IcebergMetadata
             for (Map.Entry<ColumnStatisticMetadata, Block> entry : computedStatistic.getColumnStatistics().entrySet()) {
                 ColumnStatisticMetadata statisticMetadata = entry.getKey();
                 if (statisticMetadata.getConnectorAggregationId().equals(NUMBER_OF_DISTINCT_VALUES_NAME)) {
-                    long ndv = (long) blockToNativeValue(BIGINT, entry.getValue());
                     Integer columnId = verifyNotNull(
                             columnNameToId.get(statisticMetadata.getColumnName()),
                             "Column not found in table: [%s]",
                             statisticMetadata.getColumnName());
-                    updateProperties.set(TRINO_STATS_NDV_FORMAT.formatted(columnId), Long.toString(ndv));
+                    CompactSketch sketch = DataSketchStateSerializer.deserialize(entry.getValue(), 0);
+                    // TODO: store whole sketch to support updates, see also https://github.com/apache/iceberg-docs/pull/69
+                    updateProperties.set(TRINO_STATS_NDV_FORMAT.formatted(columnId), Long.toString((long) sketch.getEstimate()));
                 }
                 else {
                     throw new UnsupportedOperationException("Unsupported statistic: " + statisticMetadata);

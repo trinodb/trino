@@ -3998,9 +3998,9 @@ public abstract class BaseIcebergConnectorTest
                             "  ('a_timestamp', NULL, 1e0, 0.5e0, NULL, " + (format == ORC ? "'2021-07-24 03:43:57.987000', '2021-07-24 03:43:57.987999'" : "'2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'") + "), " +
                             "  ('a_timestamptz', NULL, 1e0, 0.5e0, NULL, '2021-07-24 04:43:57.987 UTC', '2021-07-24 04:43:57.987 UTC'), " +
                             "  ('a_uuid', NULL, 1e0, 0.5e0, NULL, NULL, NULL), " +
-                            "  ('a_row', NULL, 1e0, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
-                            "  ('an_array', NULL, 1e0, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
-                            "  ('a_map', NULL, 1e0, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
+                            "  ('a_row', NULL, NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
+                            "  ('an_array', NULL, NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
+                            "  ('a_map', NULL, NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
                             "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
         }
         else {
@@ -4021,9 +4021,9 @@ public abstract class BaseIcebergConnectorTest
                             "  ('a_timestamp', NULL, 1e0, NULL, NULL, NULL, NULL), " +
                             "  ('a_timestamptz', NULL, 1e0, NULL, NULL, NULL, NULL), " +
                             "  ('a_uuid', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_row', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('an_array', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_map', NULL, 1e0, NULL, NULL, NULL, NULL), " +
+                            "  ('a_row', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                            "  ('an_array', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                            "  ('a_map', NULL, NULL, NULL, NULL, NULL, NULL), " +
                             "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
         }
 
