@@ -31,15 +31,19 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataTask;
+import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.transforms.Transforms;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
@@ -117,18 +121,28 @@ public abstract class AbstractFilesTable
         PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
         Map<Integer, Type> idToTypeMapping = getIcebergIdToTypeMapping(icebergTable.schema());
         TableScan tableScan = buildTableScan();
-
-        tableScan.planFiles().forEach(fileScanTask -> {
-            DataTask dataTask = (DataTask) fileScanTask;
-            dataTask.rows().forEach(dataTaskRow -> addRow(pagesBuilder, idToTypeMapping, dataTaskRow));
-        });
-
+        try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
+            fileScanTasks.forEach(fileScanTask -> addRows(pagesBuilder, idToTypeMapping, (DataTask) fileScanTask));
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
         return pagesBuilder.build();
     }
 
-    private static void addRow(PageListBuilder pagesBuilder, Map<Integer, Type> idToTypeMapping, StructLike dataTaskRow)
+    private static void addRows(PageListBuilder pagesBuilder, Map<Integer, Type> idToTypeMapping, DataTask dataTask)
     {
-        DataFile dataFile = (DataFile) dataTaskRow;
+        try (CloseableIterable<StructLike> dataRows = dataTask.rows()) {
+            dataRows.forEach(dataTaskRow -> addRow(pagesBuilder, idToTypeMapping, dataTaskRow));
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static void addRow(PageListBuilder pagesBuilder, Map<Integer, Type> idToTypeMapping, StructLike structLike)
+    {
+        DataFile dataFile = (DataFile) structLike;
 
         pagesBuilder.beginRow();
 
