@@ -125,7 +125,7 @@ public class RaptorPageSource
         return new Page(page.getPositionCount(), blocks);
     }
 
-    static TrinoException handleException(Exception exception)
+    public static TrinoException handleException(Exception exception)
     {
         if (exception instanceof TrinoException) {
             return (TrinoException) exception;
