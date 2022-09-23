@@ -18,7 +18,6 @@ import com.google.inject.Key;
 import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.google.inject.multibindings.MapBinder;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.CatalogName;
@@ -36,9 +35,7 @@ import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
-import io.trino.plugin.deltalake.transactionlog.writer.AzureTransactionLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.NoIsolationSynchronizer;
-import io.trino.plugin.deltalake.transactionlog.writer.S3TransactionLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizerManager;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
@@ -131,15 +128,7 @@ public class DeltaLakeModule
         binder.bind(TransactionLogWriterFactory.class).in(Scopes.SINGLETON);
         binder.bind(TransactionLogSynchronizerManager.class).in(Scopes.SINGLETON);
         binder.bind(NoIsolationSynchronizer.class).in(Scopes.SINGLETON);
-        MapBinder<String, TransactionLogSynchronizer> logSynchronizerMapBinder = newMapBinder(binder, String.class, TransactionLogSynchronizer.class);
-        // S3
-        jsonCodecBinder(binder).bindJsonCodec(S3TransactionLogSynchronizer.LockFileContents.class);
-        logSynchronizerMapBinder.addBinding("s3").to(S3TransactionLogSynchronizer.class).in(Scopes.SINGLETON);
-        logSynchronizerMapBinder.addBinding("s3a").to(S3TransactionLogSynchronizer.class).in(Scopes.SINGLETON);
-        logSynchronizerMapBinder.addBinding("s3n").to(S3TransactionLogSynchronizer.class).in(Scopes.SINGLETON);
-        // Azure
-        logSynchronizerMapBinder.addBinding("abfs").to(AzureTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
-        logSynchronizerMapBinder.addBinding("abfss").to(AzureTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
+        newMapBinder(binder, String.class, TransactionLogSynchronizer.class);
 
         newOptionalBinder(binder, DeltaLakeRedirectionsProvider.class)
                 .setDefault().toInstance(DeltaLakeRedirectionsProvider.NOOP);
