@@ -255,7 +255,7 @@ public final class JdbcTableHandle
         else if (!constraint.isAll()) {
             builder.append(" constraint on ");
             builder.append(constraint.getDomains().orElseThrow().keySet().stream()
-                    // TODO constraint should be defined on JdbcTableHandle
+                    // TODO constraint should be defined on JdbcColumnHandle
                     .map(columnHandle -> ((JdbcColumnHandle) columnHandle).getColumnName())
                     .collect(Collectors.joining(", ", "[", "]")));
         }
