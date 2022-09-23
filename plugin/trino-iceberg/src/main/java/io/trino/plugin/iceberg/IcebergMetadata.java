@@ -116,6 +116,8 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.Transaction;
@@ -125,6 +127,8 @@ import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.expressions.Term;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.IntegerType;
@@ -133,6 +137,7 @@ import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StringType;
 import org.apache.iceberg.types.Types.StructType;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayDeque;
@@ -171,6 +176,7 @@ import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.replaceWithNewVariables;
+import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.plugin.iceberg.ConstraintExtractor.extractTupleDomain;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
@@ -200,6 +206,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERT
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.IcebergUtil.canEnforceColumnConstraintInSpecs;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
@@ -233,6 +240,7 @@ import static io.trino.spi.predicate.Utils.blockToNativeValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.UuidType.UUID;
+import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -248,6 +256,7 @@ import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
+import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 import static org.apache.iceberg.util.SnapshotUtil.schemaFor;
 
 public class IcebergMetadata
@@ -264,6 +273,10 @@ public class IcebergMetadata
     public static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
 
     private static final FunctionName NUMBER_OF_DISTINCT_VALUES = new FunctionName("approx_distinct");
+
+    private static final String METADATA_FOLDER_NAME = "metadata";
+    private static final String METADATA_FILE_EXTENSION = ".metadata.json";
+    public static final String EXISTING_LATEST_METADATA_LOCATION = "existingLatestMetadataLocation";
 
     private final TypeManager typeManager;
     private final TypeOperators typeOperators;
@@ -670,20 +683,45 @@ public class IcebergMetadata
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
         verify(transaction == null, "transaction already set");
-        transaction = newCreateTableTransaction(catalog, tableMetadata, session);
-        String location = transaction.table().location();
+        Optional<String> providedLocation = getTableLocation(tableMetadata.getProperties());
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        try {
-            if (fileSystem.listFiles(location).hasNext()) {
-                throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("" +
-                        "Cannot create a table on a non-empty location: %s, set 'iceberg.unique-table-location=true' in your Iceberg catalog properties " +
-                        "to use unique table locations for every table.", location));
+
+        if (providedLocation.isPresent()) {
+            try {
+                boolean locationExists = fileSystem.newInputFile(providedLocation.get()).exists();
+                if (locationExists) {
+                    Optional<String> latestMetadataLocation = getLatestMetadataLocation(fileSystem, providedLocation.get());
+                    if (latestMetadataLocation.isPresent()) {
+                        ConnectorTableMetadata connectorTableMetadata = createConnectorMetadataWithExistingMetadata(fileSystem, tableMetadata, latestMetadataLocation.get());
+                        transaction = newCreateTableTransaction(catalog, connectorTableMetadata, session);
+                    }
+                    else {
+                        throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "No metadata file exists at location: " + providedLocation.get());
+                    }
+                }
+                else {
+                    transaction = newCreateTableTransaction(catalog, tableMetadata, session);
+                }
             }
-            return newWritableTableHandle(tableMetadata.getTable(), transaction.table(), retryMode);
+            catch (IOException e) {
+                throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to create table with provided location: " + providedLocation.get());
+            }
         }
-        catch (IOException e) {
-            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed checking new table's location: " + location, e);
+        else {
+            transaction = newCreateTableTransaction(catalog, tableMetadata, session);
+            String location = transaction.table().location();
+            try {
+                if (fileSystem.listFiles(location).hasNext()) {
+                    throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("" +
+                            "Cannot create a table on a non-empty location: %s, set 'iceberg.unique-table-location=true' in your Iceberg catalog properties " +
+                            "to use unique table locations for every table.", location));
+                }
+            }
+            catch (IOException e) {
+                throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed checking new table's location: " + location, e);
+            }
         }
+        return newWritableTableHandle(tableMetadata.getTable(), transaction.table(), retryMode);
     }
 
     @Override
@@ -1448,6 +1486,63 @@ public class IcebergMetadata
         columns.add(pathColumnMetadata());
         columns.add(fileModifiedTimeColumnMetadata());
         return columns.build();
+    }
+
+    private ConnectorTableMetadata createConnectorMetadataWithExistingMetadata(TrinoFileSystem fileSystem, ConnectorTableMetadata tableMetadata, String metadataLocation)
+    {
+        FileIO fileIO = fileSystem.toFileIo();
+        InputFile metadataFile = fileIO.newInputFile(metadataLocation);
+        TableMetadata existingMetadata = TableMetadataParser.read(fileIO, metadataFile);
+
+        Map<String, Object> existingTableMetadataProps = new HashMap<>();
+        existingTableMetadataProps.putAll(tableMetadata.getProperties());
+        for (Map.Entry<String, String> entry : existingMetadata.properties().entrySet()) {
+            existingTableMetadataProps.put(entry.getKey(), (Object) entry.getValue());
+        }
+        existingTableMetadataProps.put(EXISTING_LATEST_METADATA_LOCATION, metadataLocation);
+
+        Optional<String> comment = Optional.ofNullable((String) existingTableMetadataProps.get(TABLE_COMMENT));
+        return new ConnectorTableMetadata(tableMetadata.getTable(), getColumnMetadatas(existingMetadata.schema()), existingTableMetadataProps, comment);
+    }
+
+    private static Optional<String> getLatestMetadataLocation(TrinoFileSystem fileSystem, String location)
+    {
+        String latestMetadataLocation = null;
+        try {
+            if (fileSystem.listFiles(location).hasNext()) {
+                String metadataDirectoryLocation = stripTrailingSlash(location) + File.separator + METADATA_FOLDER_NAME;
+                FileIterator fileIterator = fileSystem.listFiles(metadataDirectoryLocation);
+                int latestMetadataVersion = -1;
+                while (fileIterator.hasNext()) {
+                    FileEntry fileEntry = fileIterator.next();
+                    if (fileEntry.path().endsWith(METADATA_FILE_EXTENSION)) {
+                        int version = parseVersion(fileEntry.path());
+                        if (version > latestMetadataVersion) {
+                            latestMetadataVersion = version;
+                            latestMetadataLocation = fileEntry.path();
+                        }
+                    }
+                }
+            }
+        }
+        catch (IOException e) {
+            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed checking table's location: " + location, e);
+        }
+        return Optional.ofNullable(latestMetadataLocation);
+    }
+
+    // TODO duplicate of AbstractIcebergTableOperations#parseVersion
+    private static int parseVersion(String metadataLocation)
+    {
+        int versionStart = metadataLocation.lastIndexOf('/') + 1; // if '/' isn't found, this will be 0
+        int versionEnd = metadataLocation.indexOf('-', versionStart);
+        try {
+            return parseInt(metadataLocation.substring(versionStart, versionEnd));
+        }
+        catch (NumberFormatException | IndexOutOfBoundsException e) {
+            log.warn(e, "Unable to parse version from metadata location: %s", metadataLocation);
+            return -1;
+        }
     }
 
     @Override

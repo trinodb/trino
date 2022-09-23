@@ -35,6 +35,7 @@ import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static io.trino.plugin.iceberg.IcebergMetadata.EXISTING_LATEST_METADATA_LOCATION;
 import static io.trino.plugin.iceberg.IcebergUtil.isIcebergTable;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -88,7 +89,10 @@ public abstract class AbstractMetastoreTableOperations
     @Override
     protected final void commitNewTable(TableMetadata metadata)
     {
-        String newMetadataLocation = writeNewMetadata(metadata, version + 1);
+        String newMetadataLocation = metadata.properties().get(EXISTING_LATEST_METADATA_LOCATION);
+        if (newMetadataLocation == null) {
+            newMetadataLocation = writeNewMetadata(metadata, version + 1);
+        }
 
         Table.Builder builder = Table.builder()
                 .setDatabaseName(database)

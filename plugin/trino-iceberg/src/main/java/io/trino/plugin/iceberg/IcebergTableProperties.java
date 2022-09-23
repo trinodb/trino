@@ -28,6 +28,7 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.IcebergConfig.FORMAT_VERSION_SUPPORT_MAX;
 import static io.trino.plugin.iceberg.IcebergConfig.FORMAT_VERSION_SUPPORT_MIN;
+import static io.trino.plugin.iceberg.IcebergMetadata.EXISTING_LATEST_METADATA_LOCATION;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
@@ -116,6 +117,11 @@ public class IcebergTableProperties
     {
         List<String> partitioning = (List<String>) tableProperties.get(PARTITIONING_PROPERTY);
         return partitioning == null ? ImmutableList.of() : ImmutableList.copyOf(partitioning);
+    }
+
+    public static Optional<String> getExistingLatestMetadataLocation(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((String) tableProperties.get(EXISTING_LATEST_METADATA_LOCATION));
     }
 
     public static Optional<String> getTableLocation(Map<String, Object> tableProperties)
