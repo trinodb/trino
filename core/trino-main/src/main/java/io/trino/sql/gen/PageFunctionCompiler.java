@@ -174,14 +174,12 @@ public class PageFunctionCompiler
     {
         requireNonNull(projection, "projection is null");
 
-        if (projection instanceof InputReferenceExpression) {
-            InputReferenceExpression input = (InputReferenceExpression) projection;
+        if (projection instanceof InputReferenceExpression input) {
             InputPageProjection projectionFunction = new InputPageProjection(input.getField(), input.getType());
             return () -> projectionFunction;
         }
 
-        if (projection instanceof ConstantExpression) {
-            ConstantExpression constant = (ConstantExpression) projection;
+        if (projection instanceof ConstantExpression constant) {
             ConstantPageProjection projectionFunction = new ConstantPageProjection(constant.getValue(), constant.getType());
             return () -> projectionFunction;
         }
