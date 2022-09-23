@@ -42,7 +42,7 @@ public class TestPartitionDrops
 
         assertQueryFails(
                 "DELETE FROM test_partitioned_table WHERE b <= 6",
-                "Failed to drop partitions. The number of partitions to be dropped \\(5\\) is greater than the maximum allowed partitions \\(4\\).");
+                "Failed to drop partitions. The number of partitions to be dropped is greater than the maximum allowed partitions \\(4\\).");
         assertQuery("SELECT * FROM test_partitioned_table", "VALUES (1,1), (2,2), (3,3), (4,4), (5,5)");
 
         assertUpdate("DELETE FROM test_partitioned_table WHERE b <= 4");
