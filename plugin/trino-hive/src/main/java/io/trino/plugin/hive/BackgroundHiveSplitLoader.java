@@ -83,7 +83,9 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
@@ -102,6 +104,7 @@ import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.hdfs.ConfigurationUtils.toJobConf;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_EXCEEDED_PARTITION_LIMIT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -167,6 +170,7 @@ public class BackgroundHiveSplitLoader
     private final Deque<Iterator<InternalHiveSplit>> fileIterators = new ConcurrentLinkedDeque<>();
     private final Optional<ValidWriteIdList> validWriteIds;
     private final Optional<Long> maxSplitFileSize;
+    private final int maxPartitions;
 
     // Purpose of this lock:
     // * Write lock: when you need a consistent view across partitions, fileIterators, and hiveSplitSource.
@@ -188,10 +192,12 @@ public class BackgroundHiveSplitLoader
     private HiveSplitSource hiveSplitSource;
     private Stopwatch stopwatch;
     private volatile boolean stopped;
+    private final AtomicInteger activeLoaderCount = new AtomicInteger();
+    private final AtomicInteger partitionCount = new AtomicInteger();
 
     public BackgroundHiveSplitLoader(
             Table table,
-            Iterable<HivePartitionMetadata> partitions,
+            Iterator<HivePartitionMetadata> partitions,
             TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
             DynamicFilter dynamicFilter,
             Duration dynamicFilteringWaitTimeout,
@@ -207,7 +213,8 @@ public class BackgroundHiveSplitLoader
             boolean ignoreAbsentPartitions,
             boolean optimizeSymlinkListing,
             Optional<ValidWriteIdList> validWriteIds,
-            Optional<Long> maxSplitFileSize)
+            Optional<Long> maxSplitFileSize,
+            int maxPartitions)
     {
         this.table = table;
         this.compactEffectivePredicate = compactEffectivePredicate;
@@ -224,11 +231,15 @@ public class BackgroundHiveSplitLoader
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
         this.ignoreAbsentPartitions = ignoreAbsentPartitions;
         this.optimizeSymlinkListing = optimizeSymlinkListing;
+        requireNonNull(executor, "executor is null");
+        // direct executor is not supported in this implementation due to locking specifics
+        checkExecutorIsNotDirectExecutor(executor);
         this.executor = executor;
         this.partitions = new ConcurrentLazyQueue<>(partitions);
         this.hdfsContext = new HdfsContext(session);
         this.validWriteIds = requireNonNull(validWriteIds, "validWriteIds is null");
         this.maxSplitFileSize = requireNonNull(maxSplitFileSize, "maxSplitFileSize is null");
+        this.maxPartitions = maxPartitions;
     }
 
     @Override
@@ -236,10 +247,21 @@ public class BackgroundHiveSplitLoader
     {
         this.hiveSplitSource = splitSource;
         this.stopwatch = Stopwatch.createStarted();
-        for (int i = 0; i < loaderConcurrency; i++) {
-            ListenableFuture<Void> future = ResumableTasks.submit(executor, new HiveSplitLoaderTask());
-            addExceptionCallback(future, hiveSplitSource::fail); // best effort; hiveSplitSource could be already completed
+        addLoaderIfNecessary();
+    }
+
+    private void addLoaderIfNecessary()
+    {
+        // opportunistic check to avoid incrementing indefinitely
+        if (activeLoaderCount.get() >= loaderConcurrency) {
+            return;
         }
+        if (activeLoaderCount.incrementAndGet() > loaderConcurrency) {
+            return;
+        }
+        ListenableFuture<Void> future = ResumableTasks.submit(executor, new HiveSplitLoaderTask());
+        // best effort; hiveSplitSource could be already completed
+        addExceptionCallback(future, hiveSplitSource::fail);
     }
 
     @Override
@@ -348,7 +370,22 @@ public class BackgroundHiveSplitLoader
             if (partition == null) {
                 return COMPLETED_FUTURE;
             }
+            if (partitionCount.incrementAndGet() > maxPartitions) {
+                throw new TrinoException(HIVE_EXCEEDED_PARTITION_LIMIT, format(
+                        "Query over table '%s' can potentially read more than %s partitions",
+                        partition.getHivePartition().getTableName(),
+                        maxPartitions));
+            }
+            // this is racy and sometimes more loaders can be added than necessary, but this is fine
+            if (!partitions.isEmpty()) {
+                addLoaderIfNecessary();
+            }
             return loadPartition(partition);
+        }
+
+        // this is racy and sometimes more loaders can be added than necessary, but this is fine
+        if (!fileIterators.isEmpty()) {
+            addLoaderIfNecessary();
         }
 
         while (splits.hasNext() && !stopped) {
@@ -1038,6 +1075,18 @@ public class BackgroundHiveSplitLoader
         public boolean isTableBucketEnabled(int tableBucketNumber)
         {
             return bucketFilter.test(tableBucketNumber);
+        }
+    }
+
+    private static void checkExecutorIsNotDirectExecutor(Executor executor)
+    {
+        ReentrantLock lock = new ReentrantLock();
+        lock.lock();
+        try {
+            executor.execute(() -> checkState(!lock.isHeldByCurrentThread(), "executor is a direct executor"));
+        }
+        finally {
+            lock.unlock();
         }
     }
 }
