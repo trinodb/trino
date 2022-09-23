@@ -611,15 +611,6 @@ public class PageFunctionCompiler
         return getInputChannels(ImmutableList.of(expression));
     }
 
-    private static List<Parameter> toBlockParameters(List<Integer> inputChannels)
-    {
-        ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
-        for (int channel : inputChannels) {
-            parameters.add(arg("block_" + channel, Block.class));
-        }
-        return parameters.build();
-    }
-
     private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(CallSiteBinder callSiteBinder)
     {
         return new InputReferenceCompiler(
