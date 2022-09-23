@@ -302,29 +302,40 @@ public class SqlServerClient
     protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
             throws SQLException
     {
+        // sp_rename treats first argument as SQL object name, so it needs to be properly quoted and escaped.
+        // The second argument is treated literally.
         if (!remoteSchemaName.equals(newRemoteSchemaName)) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
+        String fullTableFromName = DOT_JOINER.join(
+                quoted(catalogName),
+                quoted(remoteSchemaName),
+                quoted(remoteTableName));
 
-        execute(connection, format(
-                "sp_rename %s, %s",
-                singleQuote(catalogName, remoteSchemaName, remoteTableName),
-                singleQuote(newRemoteTableName)));
+        try (CallableStatement renameTable = connection.prepareCall("exec sp_rename ?, ?")) {
+            renameTable.setString(1, fullTableFromName);
+            renameTable.setString(2, newRemoteTableName);
+            renameTable.execute();
+        }
     }
 
     @Override
     protected void renameColumn(ConnectorSession session, Connection connection, RemoteTableName remoteTableName, String remoteColumnName, String newRemoteColumnName)
             throws SQLException
     {
-        execute(connection, format(
-                "sp_rename %s, %s, 'COLUMN'",
-                singleQuote(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName(), "[" + escape(remoteColumnName) + "]"),
-                "[" + newRemoteColumnName + "]"));
-    }
+        // sp_rename treats first argument as SQL object name, so it needs to be properly quoted and escaped.
+        // The second arqgument is treated literally.
+        String columnFrom = DOT_JOINER.join(
+                quoted(remoteTableName.getCatalogName().orElseThrow()),
+                quoted(remoteTableName.getSchemaName().orElseThrow()),
+                quoted(remoteTableName.getTableName()),
+                quoted(remoteColumnName));
 
-    private static String escape(String name)
-    {
-        return name.replace("'", "''");
+        try (CallableStatement renameColumn = connection.prepareCall("exec sp_rename ?, ?, 'COLUMN'")) {
+            renameColumn.setString(1, columnFrom);
+            renameColumn.setString(2, newRemoteColumnName);
+            renameColumn.execute();
+        }
     }
 
     @Override
@@ -972,16 +983,6 @@ public class SqlServerClient
             throw e;
         }
         return connection;
-    }
-
-    private static String singleQuote(String... objects)
-    {
-        return singleQuote(DOT_JOINER.join(objects));
-    }
-
-    private static String singleQuote(String literal)
-    {
-        return "\'" + literal + "\'";
     }
 
     public static ColumnMapping varbinaryColumnMapping()
