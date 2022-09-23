@@ -40,7 +40,6 @@ import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortingProperty;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 
@@ -109,7 +108,7 @@ public class PhoenixMetadata
                         .collect(toImmutableList()))
                 .orElse(ImmutableList.of());
 
-        return new ConnectorTableProperties(TupleDomain.all(), Optional.empty(), Optional.empty(), Optional.empty(), sortingProperties);
+        return new ConnectorTableProperties(tableHandle.getConstraint(), Optional.empty(), Optional.empty(), Optional.empty(), sortingProperties);
     }
 
     @Override
