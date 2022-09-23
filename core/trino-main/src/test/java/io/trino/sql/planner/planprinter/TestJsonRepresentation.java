@@ -86,14 +86,14 @@ public class TestJsonRepresentation
                         ImmutableList.of(),
                         ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 0, 0, 0)),
                         ImmutableList.of(new JsonRenderedNode(
-                                "98",
+                                "88",
                                 "Limit",
                                 ImmutableMap.of("count", "10", "withTies", "", "inputPreSortedBy", "[]"),
                                 ImmutableList.of(typedSymbol("quantity", "double")),
                                 ImmutableList.of(),
                                 ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 90, 0, 0)),
                                 ImmutableList.of(new JsonRenderedNode(
-                                        "147",
+                                        "137",
                                         "LocalExchange",
                                         ImmutableMap.of(
                                                 "partitioning", "SINGLE",
@@ -129,14 +129,14 @@ public class TestJsonRepresentation
                 ImmutableList.of(),
                 ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 0, 0, 0)),
                 ImmutableList.of(new JsonRenderedNode(
-                        "98",
+                        "88",
                         "Limit",
                         ImmutableMap.of("count", "10", "withTies", "", "inputPreSortedBy", "[]"),
                         ImmutableList.of(typedSymbol("quantity", "double")),
                         ImmutableList.of(),
                         ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 90, 0, 0)),
                         ImmutableList.of(new JsonRenderedNode(
-                                "147",
+                                "137",
                                 "LocalExchange",
                                 ImmutableMap.of(
                                         "partitioning", "SINGLE",

@@ -175,6 +175,7 @@ public final class SystemSessionProperties
     public static final String USE_EXACT_PARTITIONING = "use_exact_partitioning";
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
     public static final String FAULT_TOLERANT_EXECUTION_EVENT_DRIVEN_SCHEDULER_ENABLED = "fault_tolerant_execution_event_driven_scheduler_enabled";
+    public static final String COMBINE_SIMILAR_SUB_PLANS = "combine_similar_sub_plans";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -865,7 +866,12 @@ public final class SystemSessionProperties
                         FAULT_TOLERANT_EXECUTION_EVENT_DRIVEN_SCHEDULER_ENABLED,
                         "Enable event driven scheduler for fault tolerant execution",
                         queryManagerConfig.isFaultTolerantExecutionEventDrivenSchedulerEnabled(),
-                        true));
+                        true),
+                booleanProperty(
+                        COMBINE_SIMILAR_SUB_PLANS,
+                        "Enables optimizer rules that combine similar sub-plans",
+                        optimizerConfig.isCombineSimilarSubPlans(),
+                        false));
     }
 
     @Override
@@ -1547,5 +1553,10 @@ public final class SystemSessionProperties
     public static boolean isFaultTolerantExecutionEventDriverSchedulerEnabled(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_EVENT_DRIVEN_SCHEDULER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isCombineSimilarSubPlans(Session session)
+    {
+        return session.getSystemProperty(COMBINE_SIMILAR_SUB_PLANS, Boolean.class);
     }
 }

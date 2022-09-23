@@ -244,6 +244,7 @@ import io.trino.sql.planner.iterative.rule.UnwrapDateTruncInComparison;
 import io.trino.sql.planner.iterative.rule.UnwrapRowSubscript;
 import io.trino.sql.planner.iterative.rule.UnwrapSingleColumnRowInApply;
 import io.trino.sql.planner.iterative.rule.UseNonPartitionedJoinLookupSource;
+import io.trino.sql.planner.iterative.rule.fuse.FuseCrossJoinedGlobalAggregations;
 import io.trino.sql.planner.optimizations.AddExchanges;
 import io.trino.sql.planner.optimizations.AddLocalExchanges;
 import io.trino.sql.planner.optimizations.BeginTableWrite;
@@ -420,6 +421,18 @@ public class PlanOptimizers
                                 .addAll(new CanonicalizeExpressions(plannerContext, typeAnalyzer).rules())
                                 .add(new OptimizeRowPattern())
                                 .build()),
+                // Run FuseCrossJoinedGlobalAggregations before columnPruningOptimizer, PushPredicateIntoTableScan, AddExchanges
+                // because columnPruningOptimizer and PushPredicateIntoTableScan can modify table scans in a way
+                // that two table scans on the same table could not be fused.
+                // Also fusing operation does not support exchanges and partial aggregation
+                new IterativeOptimizer(
+                        plannerContext,
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
+                        ImmutableSet.of(
+                                new RemoveRedundantIdentityProjections(),
+                                new FuseCrossJoinedGlobalAggregations())),
                 new IterativeOptimizer(
                         plannerContext,
                         ruleStats,

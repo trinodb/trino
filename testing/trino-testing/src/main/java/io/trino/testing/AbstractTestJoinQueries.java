@@ -19,6 +19,8 @@ import io.trino.SystemSessionProperties;
 import io.trino.execution.QueryStats;
 import io.trino.operator.OperatorStats;
 import io.trino.spi.type.Decimals;
+import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.tests.QueryTemplate;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
@@ -30,6 +32,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
+import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.tests.QueryTemplate.parameter;
@@ -2347,6 +2350,30 @@ public abstract class AbstractTestJoinQueries
                 2);
     }
 
+    @Test
+    public void testFuseCrossJoinOnGlobalAggregation()
+    {
+        // not partitioned table
+        assertQuery(
+                "SELECT * from (SELECT count(*) c_1 FROM customer WHERE nationkey = 1), (SELECT count(*) c_2 FROM customer WHERE nationkey = 3)",
+                "SELECT * from (SELECT count(*) c_1 FROM customer WHERE nationkey = 1), (SELECT count(*) c_2 FROM customer WHERE nationkey = 3)",
+                plan -> assertEquals(numberOfTableScans(plan), 1));
+        // partitioned table
+        assertQuery(
+                "SELECT * from (SELECT count(*) c_1 FROM orders WHERE orderstatus = 'F'), (SELECT count(*) c_2 FROM orders WHERE orderstatus = 'O')",
+                "SELECT * from (SELECT count(*) c_1 FROM orders WHERE orderstatus = 'F'), (SELECT count(*) c_2 FROM orders WHERE orderstatus = 'O')",
+                plan -> assertEquals(numberOfTableScans(plan), 1));
+    }
+
+    @Test
+    public void testFuseCrossJoinOnGlobalAggregationWithDuplicatedAggregation()
+    {
+        assertQuery(
+                "SELECT * from (SELECT count(*) c_1 FROM customer WHERE nationkey = 3), (SELECT count(*) c_2 FROM customer WHERE nationkey = 3)",
+                "SELECT * from (SELECT count(*) c_1 FROM customer WHERE nationkey = 3), (SELECT count(*) c_2 FROM customer WHERE nationkey = 3)",
+                plan -> assertEquals(numberOfTableScans(plan), 1));
+    }
+
     private void assertJoinOutputPositions(@Language("SQL") String sql, int expectedJoinOutputPositions)
     {
         MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
@@ -2367,5 +2394,10 @@ public abstract class AbstractTestJoinQueries
                 .mapToInt(Math::toIntExact)
                 .sum();
         assertEquals(actualJoinOutputPositions, expectedJoinOutputPositions);
+    }
+
+    private static int numberOfTableScans(Plan plan)
+    {
+        return searchFrom(plan.getRoot()).where(node -> node instanceof TableScanNode).count();
     }
 }

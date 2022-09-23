@@ -99,8 +99,8 @@ public class TestDereferencePushDown
                                         project(filter(
                                                 "b_y = 2e0",
                                                 values(
-                                                        ImmutableList.of("b_x", "b_y"),
-                                                        ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral("2e0"))))))))));
+                                                        ImmutableList.of("b_y", "b_x"),
+                                                        ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0"), new GenericLiteral("BIGINT", "1"))))))))));
     }
 
     @Test
@@ -133,8 +133,8 @@ public class TestDereferencePushDown
                         "FROM t ",
                 anyTree(
                         project(values(
-                                ImmutableList.of("x", "y"),
-                                ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral("2e0")))))));
+                                ImmutableList.of("y", "x"),
+                                ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0"), new GenericLiteral("BIGINT", "1")))))));
 
         assertPlanWithSession(
                 "WITH t(msg1, msg2, msg3, msg4, msg5) AS (VALUES " +
@@ -247,8 +247,8 @@ public class TestDereferencePushDown
                                         project(filter(
                                                 "b_y = 2e0",
                                                 values(
-                                                        ImmutableList.of("b_x", "b_y"),
-                                                        ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral("2e0"))))))))));
+                                                        ImmutableList.of("b_y", "b_x"),
+                                                        ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0"), new GenericLiteral("BIGINT", "1"))))))))));
     }
 
     @Test
@@ -267,7 +267,7 @@ public class TestDereferencePushDown
                                                         project(
                                                                 filter(
                                                                         "a_y = 2e0",
-                                                                        values("array", "a_x", "a_y"))))
+                                                                        values("array", "a_y", "a_x"))))
                                                 .right(
                                                         project(
                                                                 filter(
