@@ -155,7 +155,7 @@ public class TestSqlServerConnectorTest
         }
     }
 
-    // TODO move test to BaseConnectorTest
+    // TODO move test to BaseConnectorTest https://github.com/trinodb/trino/issues/14517
     @Test(dataProvider = "testTableNameDataProvider")
     public void testCreateAndDropTableWithSpecialCharacterName(String tableName)
     {
@@ -168,6 +168,39 @@ public class TestSqlServerConnectorTest
 
         assertUpdate("DROP TABLE " + tableNameInSql);
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    // TODO remove this test after https://github.com/trinodb/trino/issues/14517
+    @Test(dataProvider = "testTableNameDataProvider")
+    public void testRenameColumnNameAdditionalTests(String columnName)
+    {
+        String nameInSql = "\"" + columnName.replace("\"", "\"\"") + "\"";
+        String tableName = "tcn_" + nameInSql.replaceAll("[^a-z0-9]", "") + randomTableSuffix();
+        // Use complex identifier to test a source column name when renaming columns
+        String sourceColumnName = "a;b$c";
+
+        assertUpdate("CREATE TABLE " + tableName + "(\"" + sourceColumnName + "\" varchar(50))");
+        assertTableColumnNames(tableName, sourceColumnName);
+
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN \"" + sourceColumnName + "\" TO " + nameInSql);
+        assertTableColumnNames(tableName, columnName.toLowerCase(ENGLISH));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    // TODO move this test to BaseConnectorTest https://github.com/trinodb/trino/issues/14517
+    @Test(dataProvider = "testTableNameDataProvider")
+    public void testRenameFromToTableWithSpecialCharacterName(String tableName)
+    {
+        String tableNameInSql = "\"" + tableName.replace("\"", "\"\"") + "\"";
+        String sourceTableName = "test_rename_source_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
+
+        assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + tableNameInSql);
+        assertQuery("SELECT x FROM " + tableNameInSql, "VALUES 123");
+        // test rename back is working properly
+        assertUpdate("ALTER TABLE " + tableNameInSql + " RENAME TO " + sourceTableName);
+        assertUpdate("DROP TABLE " + sourceTableName);
     }
 
     private int getTableOperationsCount(String operation, String table)
