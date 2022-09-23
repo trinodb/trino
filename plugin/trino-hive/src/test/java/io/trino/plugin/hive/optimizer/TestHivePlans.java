@@ -28,7 +28,6 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
-import io.trino.spi.TrinoException;
 import io.trino.spi.security.PrincipalType;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
@@ -64,7 +63,6 @@ import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHivePlans
         extends BasePlanTest
@@ -113,7 +111,7 @@ public class TestHivePlans
     protected LocalQueryRunner createQueryRunner(Session session, HiveMetastore metastore)
     {
         LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
-        queryRunner.createCatalog(HIVE_CATALOG_NAME, new TestingHiveConnectorFactory(metastore), Map.of("hive.max-partitions-per-scan", "5"));
+        queryRunner.createCatalog(HIVE_CATALOG_NAME, new TestingHiveConnectorFactory(metastore), Map.of("hive.max-partitions-for-eager-load", "5"));
         return queryRunner;
     }
 
@@ -308,11 +306,6 @@ public class TestHivePlans
                                         exchange(REMOTE, REPLICATE,
                                                 project(
                                                         tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))));
-
-        // The partitions will be loaded during split creation, so it fails during execution.
-        assertThatThrownBy(() -> getQueryRunner().execute(query))
-                .isInstanceOf(TrinoException.class)
-                .hasMessage("Query over table 'test_schema.table_int_with_too_many_partitions' can potentially read more than 5 partitions");
     }
 
     // Disable join ordering so that expected plans are well defined.
