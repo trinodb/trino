@@ -807,7 +807,7 @@ public class HiveMetadata
         // Note that the computation is not persisted in the table handle, so can be redone many times
         // TODO: https://github.com/trinodb/trino/issues/10980.
         if (partitionManager.canPartitionsBeLoaded(partitionResult)) {
-            List<HivePartition> partitions = partitionManager.getPartitionsAsList(partitionResult);
+            List<HivePartition> partitions = ImmutableList.copyOf(partitionResult.getPartitions());
             return hiveStatisticsProvider.getTableStatistics(session, hiveTableHandle.getSchemaTableName(), columns, columnTypes, partitions);
         }
         return TableStatistics.empty();
@@ -2724,17 +2724,20 @@ public class HiveMetadata
             metastore.truncateUnpartitionedTable(session, handle.getSchemaName(), handle.getTableName());
         }
         else {
-            List<HivePartition> partitionsToBeDropped = partitionManager.getOrLoadPartitions(metastore, handle);
-            if (partitionsToBeDropped.size() > maxPartitionDropsPerQuery) {
-                throw new TrinoException(
-                        NOT_SUPPORTED,
-                        format(
-                                "Failed to drop partitions. The number of partitions to be dropped (%s) is greater than the maximum allowed partitions (%s).",
-                                partitionsToBeDropped.size(),
-                                maxPartitionDropsPerQuery));
+            Iterator<HivePartition> partitions = partitionManager.getPartitions(metastore, handle);
+            List<String> partitionIds = new ArrayList<>();
+            while (partitions.hasNext()) {
+                partitionIds.add(partitions.next().getPartitionId());
+                if (partitionIds.size() > maxPartitionDropsPerQuery) {
+                    throw new TrinoException(
+                            NOT_SUPPORTED,
+                            format(
+                                    "Failed to drop partitions. The number of partitions to be dropped is greater than the maximum allowed partitions (%s).",
+                                    maxPartitionDropsPerQuery));
+                }
             }
-            for (HivePartition hivePartition : partitionsToBeDropped) {
-                metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), toPartitionValues(hivePartition.getPartitionId()), true);
+            for (String partitionId : partitionIds) {
+                metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), toPartitionValues(partitionId), true);
             }
         }
         // it is too expensive to determine the exact number of deleted rows
@@ -2761,7 +2764,7 @@ public class HiveMetadata
                         // TODO: https://github.com/trinodb/trino/issues/10980.
                         HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, table, new Constraint(hiveTable.getEnforcedConstraint()));
                         if (partitionManager.canPartitionsBeLoaded(partitionResult)) {
-                            return Optional.of(partitionManager.getPartitionsAsList(partitionResult));
+                            return Optional.of(ImmutableList.copyOf(partitionResult.getPartitions()));
                         }
                         return Optional.empty();
                     });

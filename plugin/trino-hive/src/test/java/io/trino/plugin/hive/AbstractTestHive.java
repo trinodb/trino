@@ -186,7 +186,6 @@ import static com.google.common.collect.Streams.stream;
 import static com.google.common.hash.Hashing.sha256;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -311,7 +310,6 @@ import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -837,7 +835,7 @@ public abstract class AbstractTestHive
                 NOOP_METADATA_PROVIDER,
                 locationService,
                 partitionUpdateCodec,
-                newFixedThreadPool(2),
+                executor,
                 heartbeatService,
                 TEST_SERVER_VERSION,
                 (session, tableHandle) -> {
@@ -882,7 +880,7 @@ public abstract class AbstractTestHive
                 partitionManager,
                 new NamenodeStats(),
                 hdfsEnvironment,
-                directExecutor(),
+                executor,
                 new CounterStat(),
                 100,
                 hiveConfig.getMaxOutstandingSplitsSize(),
@@ -892,7 +890,8 @@ public abstract class AbstractTestHive
                 hiveConfig.getSplitLoaderConcurrency(),
                 hiveConfig.getMaxSplitsPerSecond(),
                 false,
-                TESTING_TYPE_MANAGER);
+                TESTING_TYPE_MANAGER,
+                hiveConfig.getMaxPartitionsPerScan());
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(hiveConfig, hdfsEnvironment),
                 hdfsEnvironment,
@@ -1562,13 +1561,13 @@ public abstract class AbstractTestHive
                 metadata.beginQuery(session);
 
                 ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
-                getSplits(splitManager, transaction, session, tableHandle);
+                getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
 
                 // directory should be listed initially
                 assertEquals(countingDirectoryLister.getListCount(), initListCount + 1);
 
                 // directory content should be cached
-                getSplits(splitManager, transaction, session, tableHandle);
+                getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
                 assertEquals(countingDirectoryLister.getListCount(), initListCount + 1);
             }
 
@@ -1578,7 +1577,7 @@ public abstract class AbstractTestHive
                 metadata.beginQuery(session);
 
                 ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
-                getSplits(splitManager, transaction, session, tableHandle);
+                getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
 
                 // directory should be listed again in new transaction
                 assertEquals(countingDirectoryLister.getListCount(), initListCount + 2);
