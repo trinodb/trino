@@ -281,13 +281,6 @@ public class DefaultQueryBuilder
         throw new IllegalArgumentException("Unsupported relation: " + baseRelation);
     }
 
-    protected Domain pushDownDomain(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, Domain domain)
-    {
-        return client.toColumnMapping(session, connection, column.getJdbcTypeHandle())
-                .orElseThrow(() -> new IllegalStateException(format("Unsupported type %s with handle %s", column.getColumnType(), column.getJdbcTypeHandle())))
-                .getPredicatePushdownController().apply(session, domain).getPushedDown();
-    }
-
     protected void toConjuncts(
             JdbcClient client,
             ConnectorSession session,
@@ -302,8 +295,7 @@ public class DefaultQueryBuilder
         }
         for (Map.Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
             JdbcColumnHandle column = ((JdbcColumnHandle) entry.getKey());
-            Domain domain = pushDownDomain(client, session, connection, column, entry.getValue());
-            result.add(toPredicate(client, session, connection, column, domain, accumulator));
+            result.add(toPredicate(client, session, connection, column, entry.getValue(), accumulator));
         }
     }
 
