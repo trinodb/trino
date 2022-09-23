@@ -39,7 +39,7 @@ public class TestHiveConfig
         assertRecordedDefaults(recordDefaults(HiveConfig.class)
                 .setSingleStatementWritesOnly(false)
                 .setMaxSplitSize(DataSize.of(64, Unit.MEGABYTE))
-                .setMaxPartitionsPerScan(100_000)
+                .setMaxPartitionsPerScan(1_000_000)
                 .setMaxPartitionsForEagerLoad(100_000)
                 .setMaxOutstandingSplits(1_000)
                 .setMaxOutstandingSplitsSize(DataSize.of(256, Unit.MEGABYTE))
