@@ -98,7 +98,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.io.Resources.getResource;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -520,7 +519,7 @@ public class TestBackgroundHiveSplitLoader
 
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
-                () -> new Iterator<>()
+                new Iterator<>()
                 {
                     private boolean threw;
 
@@ -557,7 +556,8 @@ public class TestBackgroundHiveSplitLoader
                 false,
                 true,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                100);
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
@@ -931,6 +931,94 @@ public class TestBackgroundHiveSplitLoader
         assertTrue(splitIterator.isEmpty());
     }
 
+    @Test
+    public void testMaxPartitions()
+            throws Exception
+    {
+        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(0, TimeUnit.MINUTES), 0, ImmutableList.of());
+        // zero partitions
+        {
+            BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                    ImmutableList.of(),
+                    ImmutableList.of(),
+                    directoryLister,
+                    0);
+            HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+            backgroundHiveSplitLoader.start(hiveSplitSource);
+            assertThat(drainSplits(hiveSplitSource)).isEmpty();
+        }
+
+        // single partition, not crossing the limit
+        {
+            BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                    ImmutableList.of(createPartitionMetadata()),
+                    TEST_FILES,
+                    directoryLister,
+                    1);
+            HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+            backgroundHiveSplitLoader.start(hiveSplitSource);
+            assertThat(drainSplits(hiveSplitSource)).hasSize(TEST_FILES.size());
+        }
+
+        // single partition, crossing the limit
+        {
+            int partitionLimit = 0;
+            BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                    ImmutableList.of(createPartitionMetadata()),
+                    TEST_FILES,
+                    directoryLister,
+                    partitionLimit);
+            HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+            backgroundHiveSplitLoader.start(hiveSplitSource);
+            assertThatThrownBy(() -> drainSplits(hiveSplitSource))
+                    .isInstanceOf(TrinoException.class)
+                    .hasMessage(format(
+                            "Query over table '%s' can potentially read more than %s partitions",
+                            SIMPLE_TABLE.getSchemaTableName(),
+                            partitionLimit));
+        }
+
+        // multiple partitions, not crossing the limit
+        {
+            int partitionLimit = 3;
+            List<HivePartitionMetadata> partitions = ImmutableList.of(createPartitionMetadata(), createPartitionMetadata(), createPartitionMetadata());
+            BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                    partitions,
+                    TEST_FILES,
+                    directoryLister,
+                    partitionLimit);
+            HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+            backgroundHiveSplitLoader.start(hiveSplitSource);
+            assertThat(drainSplits(hiveSplitSource)).hasSize(TEST_FILES.size() * partitions.size());
+        }
+
+        // multiple partitions, crossing the limit
+        {
+            int partitionLimit = 3;
+            BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                    ImmutableList.of(createPartitionMetadata(), createPartitionMetadata(), createPartitionMetadata(), createPartitionMetadata()),
+                    TEST_FILES,
+                    directoryLister,
+                    partitionLimit);
+            HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+            backgroundHiveSplitLoader.start(hiveSplitSource);
+            assertThatThrownBy(() -> drainSplits(hiveSplitSource))
+                    .isInstanceOf(TrinoException.class)
+                    .hasMessage(format(
+                            "Query over table '%s' can potentially read more than %s partitions",
+                            SIMPLE_TABLE.getSchemaTableName(),
+                            partitionLimit));
+        }
+    }
+
+    private static HivePartitionMetadata createPartitionMetadata()
+    {
+        return new HivePartitionMetadata(
+                new HivePartition(SIMPLE_TABLE.getSchemaTableName()),
+                Optional.empty(),
+                TableToPartitionMapping.empty());
+    }
+
     private static void createOrcAcidFile(File file)
             throws IOException
     {
@@ -1073,7 +1161,7 @@ public class TestBackgroundHiveSplitLoader
 
         return new BackgroundHiveSplitLoader(
                 table,
-                hivePartitionMetadatas,
+                hivePartitionMetadatas.iterator(),
                 compactEffectivePredicate,
                 dynamicFilter,
                 dynamicFilteringProbeBlockingTimeout,
@@ -1089,23 +1177,34 @@ public class TestBackgroundHiveSplitLoader
                 false,
                 true,
                 validWriteIds,
-                Optional.empty());
+                Optional.empty(),
+                100);
     }
 
-    private BackgroundHiveSplitLoader backgroundHiveSplitLoader(List<LocatedFileStatus> files, DirectoryLister directoryLister)
+    private BackgroundHiveSplitLoader backgroundHiveSplitLoader(
+            List<LocatedFileStatus> files,
+            DirectoryLister directoryLister)
     {
-        List<HivePartitionMetadata> hivePartitionMetadatas = ImmutableList.of(
+        List<HivePartitionMetadata> partitions = ImmutableList.of(
                 new HivePartitionMetadata(
                         new HivePartition(new SchemaTableName("testSchema", "table_name")),
                         Optional.empty(),
                         TableToPartitionMapping.empty()));
+        return backgroundHiveSplitLoader(partitions, files, directoryLister, 100);
+    }
 
+    private BackgroundHiveSplitLoader backgroundHiveSplitLoader(
+            List<HivePartitionMetadata> partitions,
+            List<LocatedFileStatus> files,
+            DirectoryLister directoryLister,
+            int maxPartitions)
+    {
         ConnectorSession connectorSession = getHiveSession(new HiveConfig()
                 .setMaxSplitSize(DataSize.of(1, GIGABYTE)));
 
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
-                hivePartitionMetadatas,
+                partitions.iterator(),
                 TupleDomain.none(),
                 DynamicFilter.EMPTY,
                 new Duration(0, SECONDS),
@@ -1121,10 +1220,11 @@ public class TestBackgroundHiveSplitLoader
                 false,
                 true,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                maxPartitions);
     }
 
-    private static BackgroundHiveSplitLoader backgroundHiveSplitLoaderOfflinePartitions()
+    private BackgroundHiveSplitLoader backgroundHiveSplitLoaderOfflinePartitions()
     {
         ConnectorSession connectorSession = getHiveSession(new HiveConfig()
                 .setMaxSplitSize(DataSize.of(1, GIGABYTE)));
@@ -1141,19 +1241,20 @@ public class TestBackgroundHiveSplitLoader
                 new TestingHdfsEnvironment(TEST_FILES),
                 new NamenodeStats(),
                 new CachingDirectoryLister(new HiveConfig()),
-                directExecutor(),
+                executor,
                 2,
                 false,
                 false,
                 true,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                100);
     }
 
-    private static Iterable<HivePartitionMetadata> createPartitionMetadataWithOfflinePartitions()
+    private static Iterator<HivePartitionMetadata> createPartitionMetadataWithOfflinePartitions()
             throws RuntimeException
     {
-        return () -> new AbstractIterator<>()
+        return new AbstractIterator<>()
         {
             // This iterator is crafted to return a valid partition for the first calls to
             // hasNext() and next(), and then it should throw for the second call to hasNext()
