@@ -415,7 +415,13 @@ public class DeltaLakeMetadata
     @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return new ConnectorTableProperties();
+        return new ConnectorTableProperties(
+                ((DeltaLakeTableHandle) tableHandle).getEnforcedPartitionConstraint()
+                        .transformKeys(ColumnHandle.class::cast),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of());
     }
 
     @Override
