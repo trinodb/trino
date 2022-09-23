@@ -49,23 +49,23 @@ import static java.util.stream.Collectors.toList;
 
 public class HivePartitionManager
 {
-    private final int maxPartitions;
+    private final int maxPartitionsForEagerLoad;
     private final int domainCompactionThreshold;
 
     @Inject
     public HivePartitionManager(HiveConfig hiveConfig)
     {
         this(
-                hiveConfig.getMaxPartitionsPerScan(),
+                hiveConfig.getMaxPartitionsForEagerLoad(),
                 hiveConfig.getDomainCompactionThreshold());
     }
 
     public HivePartitionManager(
-            int maxPartitions,
+            int maxPartitionsForEagerLoad,
             int domainCompactionThreshold)
     {
-        checkArgument(maxPartitions >= 1, "maxPartitions must be at least 1");
-        this.maxPartitions = maxPartitions;
+        checkArgument(maxPartitionsForEagerLoad >= 1, "maxPartitionsForEagerLoad must be at least 1");
+        this.maxPartitionsForEagerLoad = maxPartitionsForEagerLoad;
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
         this.domainCompactionThreshold = domainCompactionThreshold;
     }
@@ -201,7 +201,7 @@ public class HivePartitionManager
     public boolean canPartitionsBeLoaded(HivePartitionResult partitionResult)
     {
         if (partitionResult.getPartitionNames().isPresent()) {
-            return partitionResult.getPartitionNames().orElseThrow().size() <= maxPartitions;
+            return partitionResult.getPartitionNames().orElseThrow().size() <= maxPartitionsForEagerLoad;
         }
         return true;
     }
