@@ -71,6 +71,7 @@ public class HiveConfig
 
     private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
     private int maxPartitionsPerScan = 100_000;
+    private int maxPartitionsForEagerLoad = 100_000;
     private int maxOutstandingSplits = 1_000;
     private DataSize maxOutstandingSplitsSize = DataSize.of(256, MEGABYTE);
     private int maxSplitIteratorThreads = 1_000;
@@ -399,6 +400,26 @@ public class HiveConfig
     {
         this.maxPartitionsPerScan = maxPartitionsPerScan;
         return this;
+    }
+
+    @Min(1)
+    public int getMaxPartitionsForEagerLoad()
+    {
+        return maxPartitionsForEagerLoad;
+    }
+
+    @Config("hive.max-partitions-for-eager-load")
+    @ConfigDescription("Maximum allowed partitions for a single table scan to be loaded eagerly on coordinator. Certain optimizations are not possible without eager loading.")
+    public HiveConfig setMaxPartitionsForEagerLoad(int maxPartitionsForEagerLoad)
+    {
+        this.maxPartitionsForEagerLoad = maxPartitionsForEagerLoad;
+        return this;
+    }
+
+    @AssertTrue(message = "The value of hive.max-partitions-for-eager-load is expected to be less than or equal to hive.max-partitions-per-scan")
+    public boolean isMaxPartitionsForEagerLoadValid()
+    {
+        return maxPartitionsForEagerLoad <= maxPartitionsPerScan;
     }
 
     @Min(1)
