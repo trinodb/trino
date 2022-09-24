@@ -61,7 +61,6 @@
         <dependency>
             <groupId>com.github.docker-java</groupId>
             <artifactId>docker-java-api</artifactId>
-            <version>${dep.docker-java.version}</version>
         </dependency>
 
         <dependency>
