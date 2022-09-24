@@ -59,12 +59,14 @@ public abstract class BaseElasticsearchConnectorTest
         extends BaseConnectorTest
 {
     private final String image;
+    private final String catalogName;
     private ElasticsearchServer elasticsearch;
     protected RestHighLevelClient client;
 
-    BaseElasticsearchConnectorTest(String image)
+    BaseElasticsearchConnectorTest(String image, String catalogName)
     {
         this.image = image;
+        this.catalogName = catalogName;
     }
 
     @Override
@@ -81,7 +83,8 @@ public abstract class BaseElasticsearchConnectorTest
                 TpchTable.getTables(),
                 ImmutableMap.of(),
                 ImmutableMap.of("elasticsearch.legacy-pass-through-query.enabled", "true"),
-                3);
+                3,
+                catalogName);
     }
 
     @Override
@@ -152,8 +155,8 @@ public abstract class BaseElasticsearchConnectorTest
     {
         assertQuerySucceeds("SELECT * FROM orders");
         // Check that JMX stats show no sign of backpressure
-        assertQueryReturnsEmptyResult("SELECT 1 FROM jmx.current.\"trino.plugin.elasticsearch.client:*\" WHERE \"backpressurestats.alltime.count\" > 0");
-        assertQueryReturnsEmptyResult("SELECT 1 FROM jmx.current.\"trino.plugin.elasticsearch.client:*\" WHERE \"backpressurestats.alltime.max\" > 0");
+        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"trino.plugin.elasticsearch.client:*name=%s*\" WHERE \"backpressurestats.alltime.count\" > 0", catalogName));
+        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"trino.plugin.elasticsearch.client:*name=%s*\" WHERE \"backpressurestats.alltime.max\" > 0", catalogName));
     }
 
     @Test
@@ -214,7 +217,7 @@ public abstract class BaseElasticsearchConnectorTest
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE elasticsearch.tpch.orders (\n" +
+                .isEqualTo(format("CREATE TABLE %s.tpch.orders (\n", catalogName) +
                         "   clerk varchar,\n" +
                         "   comment varchar,\n" +
                         "   custkey bigint,\n" +
@@ -1818,7 +1821,7 @@ public abstract class BaseElasticsearchConnectorTest
                 "FROM data", BaseEncoding.base32().encode(query.getBytes(UTF_8)))))
                 .matches(format("WITH data(r) AS (" +
                         "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
-                        "   FROM TABLE(elasticsearch.system.raw_query(" +
+                        format("   FROM TABLE(%s.system.raw_query(", catalogName) +
                         "                        schema => 'tpch', " +
                         "                        index => 'orders', " +
                         "                        query => '%s'))) " +
@@ -1887,7 +1890,7 @@ public abstract class BaseElasticsearchConnectorTest
     {
         // select single record
         assertQuery("SELECT json_query(result, 'lax $[0][0].hits.hits._source') " +
-                        "FROM TABLE(elasticsearch.system.raw_query(" +
+                        format("FROM TABLE(%s.system.raw_query(", catalogName) +
                         "schema => 'tpch', " +
                         "index => 'nation', " +
                         "query => '{\"query\": {\"match\": {\"name\": \"ALGERIA\"}}}')) t(result)",
@@ -1897,7 +1900,7 @@ public abstract class BaseElasticsearchConnectorTest
         Session session = Session.builder(getSession())
                 .addPreparedStatement(
                         "my_query",
-                        "SELECT json_query(result, 'lax $[0][0].hits.hits._source') FROM TABLE(elasticsearch.system.raw_query(schema => ?, index => ?, query => ?))")
+                        format("SELECT json_query(result, 'lax $[0][0].hits.hits._source') FROM TABLE(%s.system.raw_query(schema => ?, index => ?, query => ?))", catalogName))
                 .build();
         assertQuery(
                 session,
@@ -1906,7 +1909,7 @@ public abstract class BaseElasticsearchConnectorTest
 
         // select multiple records by range. Use array wrapper to wrap multiple results
         assertQuery("SELECT array_sort(CAST(json_parse(json_query(result, 'lax $[0][0].hits.hits._source.name' WITH ARRAY WRAPPER)) AS array(varchar))) " +
-                        "FROM TABLE(elasticsearch.system.raw_query(" +
+                        format("FROM TABLE(%s.system.raw_query(", catalogName) +
                         "schema => 'tpch', " +
                         "index => 'nation', " +
                         "query => '{\"query\": {\"range\": {\"nationkey\": {\"gte\": 0,\"lte\": 3}}}}')) t(result)",
@@ -1914,7 +1917,7 @@ public abstract class BaseElasticsearchConnectorTest
 
         // no matches
         assertQuery("SELECT json_query(result, 'lax $[0][0].hits.hits') " +
-                        "FROM TABLE(elasticsearch.system.raw_query(" +
+                        format("FROM TABLE(%s.system.raw_query(", catalogName) +
                         "schema => 'tpch', " +
                         "index => 'nation', " +
                         "query => '{\"query\": {\"match\": {\"name\": \"UTOPIA\"}}}')) t(result)",
@@ -1922,7 +1925,7 @@ public abstract class BaseElasticsearchConnectorTest
 
         // syntax error
         assertThatThrownBy(() -> query("SELECT * " +
-                "FROM TABLE(elasticsearch.system.raw_query(" +
+                format("FROM TABLE(%s.system.raw_query(", catalogName) +
                 "schema => 'tpch', " +
                 "index => 'nation', " +
                 "query => 'wrong syntax')) t(result)"))
@@ -1933,7 +1936,7 @@ public abstract class BaseElasticsearchConnectorTest
     {
         assertQueryReturnsEmptyResult(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", name));
         assertFalse(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains(name));
-        assertQueryFails("SELECT * FROM " + name, ".*Table 'elasticsearch.tpch." + name + "' does not exist");
+        assertQueryFails("SELECT * FROM " + name, ".*Table '" + catalogName + ".tpch." + name + "' does not exist");
     }
 
     protected abstract String indexEndpoint(String index, String docId);
