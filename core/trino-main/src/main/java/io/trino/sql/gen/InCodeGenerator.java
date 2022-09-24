@@ -177,7 +177,7 @@ public class InCodeGenerator
         SwitchBuilder switchBuilder = new SwitchBuilder().expression(expression);
 
         switch (switchGenerationCase) {
-            case DIRECT_SWITCH:
+            case DIRECT_SWITCH -> {
                 // A white-list is used to select types eligible for DIRECT_SWITCH.
                 // For these types, it's safe to not use Trino HASH_CODE and EQUAL operator.
                 for (Object constantValue : constantValues) {
@@ -192,8 +192,8 @@ public class InCodeGenerator
                                         .gotoLabel(defaultLabel)))
                         .append(expression.set(value.cast(int.class)))
                         .append(switchBuilder.build());
-                break;
-            case HASH_SWITCH:
+            }
+            case HASH_SWITCH -> {
                 for (Map.Entry<Integer, Collection<BytecodeNode>> bucket : hashBuckets.asMap().entrySet()) {
                     Collection<BytecodeNode> testValues = bucket.getValue();
                     BytecodeBlock caseBlock = buildInCase(
@@ -219,8 +219,8 @@ public class InCodeGenerator
                         .invokeStatic(Long.class, "hashCode", int.class, long.class)
                         .putVariable(expression)
                         .append(switchBuilder.build());
-                break;
-            case SET_CONTAINS:
+            }
+            case SET_CONTAINS -> {
                 Set<?> constantValuesSet = toFastutilHashSet(constantValues, type, hashCodeMethodHandle, equalsMethodHandle);
                 Binding constant = generatorContext.getCallSiteBinder().bind(constantValuesSet, constantValuesSet.getClass());
 
@@ -235,9 +235,8 @@ public class InCodeGenerator
                                         // TODO: use invokeVirtual on the set instead. This requires swapping the two elements in the stack
                                         .invokeStatic(FastutilSetHelper.class, "in", boolean.class, javaType.isPrimitive() ? javaType : Object.class, constantValuesSet.getClass()))
                                 .ifTrue(jump(match)));
-                break;
-            default:
-                throw new IllegalArgumentException("Not supported switch generation case: " + switchGenerationCase);
+            }
+            default -> throw new IllegalArgumentException("Not supported switch generation case: " + switchGenerationCase);
         }
 
         BytecodeBlock defaultCaseBlock = buildInCase(
