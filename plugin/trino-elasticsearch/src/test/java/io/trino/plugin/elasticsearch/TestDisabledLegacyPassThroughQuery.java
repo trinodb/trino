@@ -45,7 +45,8 @@ public class TestDisabledLegacyPassThroughQuery
                 TpchTable.getTables(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
-                1);
+                1,
+                "elasticsearch-legacy-pass-through-query");
     }
 
     @AfterClass(alwaysRun = true)
