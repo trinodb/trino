@@ -220,6 +220,20 @@ public class TestSynapseConnectorTest
         assertUpdate("DROP TABLE " + table);
     }
 
+    @Test
+    public void testSpecialCharacterColumnNameFailToRename()
+    {
+        String table = "special_column_name_" + randomTableSuffix();
+        String specialCharacterColumnName = "\"" + "[tricky]" + "\"";
+        String normalColumnName = "normal";
+        Session session = Session.builder(getSession()).build();
+        assertQuerySucceeds(session, format("CREATE TABLE %s (%s bigint)", table, specialCharacterColumnName));
+
+        // check that we are not able to rename column with special character name back,
+        // our test should fail after synapse will fix this issue, we will be able to add support for such cases
+        this.assertQueryFails(format("ALTER TABLE %s RENAME COLUMN %s TO %s", table, specialCharacterColumnName, normalColumnName), "\\QEither the parameter @objname is ambiguous or the claimed @objtype (COLUMN) is wrong.\\E");
+    }
+
     @Test(dataProvider = "doubleTrueFalse")
     public void testInsertWriteBulkiness(boolean nonTransactionalInsert, boolean bulkCopyForWrite)
     {

@@ -32,6 +32,7 @@ import io.trino.spi.type.VarcharType;
 
 import javax.inject.Inject;
 
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -106,13 +107,13 @@ public class StarburstSynapseClient
     protected void renameColumn(ConnectorSession session, Connection connection, RemoteTableName remoteTableName, String remoteColumnName, String newRemoteColumnName)
             throws SQLException
     {
-        execute(connection, format(
-                "sp_rename %s, %s, 'COLUMN'",
-                singleQuote(remoteTableName.getCatalogName().orElse(null),
-                        remoteTableName.getSchemaName().orElse(null),
-                        remoteTableName.getTableName(),
-                        remoteColumnName),
-                singleQuote(newRemoteColumnName)));
+        String columnFrom = DOT_JOINER.join(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName(), remoteColumnName);
+
+        try (CallableStatement renameColumn = connection.prepareCall("exec sp_rename ?, ?, 'COLUMN'")) {
+            renameColumn.setString(1, columnFrom);
+            renameColumn.setString(2, newRemoteColumnName);
+            renameColumn.execute();
+        }
     }
 
     @Override
@@ -232,20 +233,5 @@ public class StarburstSynapseClient
                     .collect(joining(", "));
             return format("SELECT TOP (%d) %s ORDER BY %s", limit, query.substring(start.length()), orderBy);
         });
-    }
-
-    private static String singleQuote(String... objects)
-    {
-        return singleQuote(DOT_JOINER.join(objects));
-    }
-
-    private static String singleQuote(String literal)
-    {
-        return "\'" + escape(literal) + "\'";
-    }
-
-    private static String escape(String name)
-    {
-        return name.replace("'", "''");
     }
 }
