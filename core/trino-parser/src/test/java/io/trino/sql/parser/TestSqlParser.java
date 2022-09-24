@@ -2664,6 +2664,16 @@ public class TestSqlParser
     }
 
     @Test
+    public void testPrepareDropView()
+    {
+        assertStatement("PREPARE statement1 FROM DROP VIEW IF EXISTS \"catalog-test\".\"test\".\"foo\"",
+                new Prepare(identifier("statement1"),
+                        new DropView(QualifiedName.of("catalog-test", "test", "foo"), true)));
+        assertStatementIsInvalid("PREPARE statement1 FROM DROP VIEW IF EXISTS catalog-test.test.foo")
+                .withMessage("line 1:52: mismatched input '-'. Expecting: '.', <EOF>");
+    }
+
+    @Test
     public void testPrepareWithParameters()
     {
         assertStatement("PREPARE myquery FROM SELECT ?, ? FROM foo",
