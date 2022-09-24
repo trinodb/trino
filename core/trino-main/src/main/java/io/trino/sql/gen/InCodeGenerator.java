@@ -29,7 +29,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.relational.ConstantExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
-import io.trino.util.FastutilSetHelper;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;
@@ -228,12 +227,11 @@ public class InCodeGenerator
                         .comment("inListSet.contains(<stackValue>)")
                         .append(new IfStatement()
                                 .condition(new BytecodeBlock()
-                                        .comment("value")
-                                        .getVariable(value)
                                         .comment("set")
                                         .append(loadConstant(constant))
-                                        // TODO: use invokeVirtual on the set instead. This requires swapping the two elements in the stack
-                                        .invokeStatic(FastutilSetHelper.class, "in", boolean.class, javaType.isPrimitive() ? javaType : Object.class, constantValuesSet.getClass()))
+                                        .comment("value")
+                                        .getVariable(value)
+                                        .invokeVirtual(constantValuesSet.getClass(), "contains", boolean.class, javaType.isPrimitive() ? javaType : Object.class))
                                 .ifTrue(jump(match)));
             }
             default -> throw new IllegalArgumentException("Not supported switch generation case: " + switchGenerationCase);

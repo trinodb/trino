@@ -71,26 +71,6 @@ public final class FastutilSetHelper
         throw new UnsupportedOperationException("Unsupported native type in set: " + type.getJavaType() + " with type " + type.getTypeSignature());
     }
 
-    public static boolean in(boolean booleanValue, BooleanOpenHashSet set)
-    {
-        return set.contains(booleanValue);
-    }
-
-    public static boolean in(double doubleValue, DoubleOpenCustomHashSet set)
-    {
-        return set.contains(doubleValue);
-    }
-
-    public static boolean in(long longValue, LongOpenCustomHashSet set)
-    {
-        return set.contains(longValue);
-    }
-
-    public static boolean in(Object objectValue, ObjectOpenCustomHashSet<?> set)
-    {
-        return set.contains(objectValue);
-    }
-
     private static final class LongStrategy
             implements LongHash.Strategy
     {
