@@ -133,17 +133,15 @@ public abstract class AbstractFilesTable
     private static void addRows(PageListBuilder pagesBuilder, Map<Integer, Type> idToTypeMapping, DataTask dataTask)
     {
         try (CloseableIterable<StructLike> dataRows = dataTask.rows()) {
-            dataRows.forEach(dataTaskRow -> addRow(pagesBuilder, idToTypeMapping, dataTaskRow));
+            dataRows.forEach(dataTaskRow -> addRow(pagesBuilder, idToTypeMapping, (DataFile) dataTaskRow));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }
 
-    private static void addRow(PageListBuilder pagesBuilder, Map<Integer, Type> idToTypeMapping, StructLike structLike)
+    private static void addRow(PageListBuilder pagesBuilder, Map<Integer, Type> idToTypeMapping, DataFile dataFile)
     {
-        DataFile dataFile = (DataFile) structLike;
-
         pagesBuilder.beginRow();
 
         pagesBuilder.appendInteger(dataFile.content().id());
