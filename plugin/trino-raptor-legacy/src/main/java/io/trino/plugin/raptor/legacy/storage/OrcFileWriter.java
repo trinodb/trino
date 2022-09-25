@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.raptor.legacy.storage;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -118,12 +117,6 @@ public class OrcFileWriter
 
     public OrcFileWriter(List<Long> columnIds, List<Type> columnTypes, File target)
     {
-        this(columnIds, columnTypes, target, true);
-    }
-
-    @VisibleForTesting
-    OrcFileWriter(List<Long> columnIds, List<Type> columnTypes, File target, boolean writeMetadata)
-    {
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         checkArgument(columnIds.size() == columnTypes.size(), "ids and types mismatch");
         checkArgument(isUnique(columnIds), "ids must be unique");
@@ -139,7 +132,7 @@ public class OrcFileWriter
         properties.setProperty(IOConstants.COLUMNS_TYPES, Joiner.on(':').join(hiveTypeNames));
 
         serializer = createSerializer(properties);
-        recordWriter = createRecordWriter(new Path(target.toURI()), columnIds, columnTypes, writeMetadata);
+        recordWriter = createRecordWriter(new Path(target.toURI()), columnIds, columnTypes);
 
         tableInspector = getStandardStructObjectInspector(columnNames, getJavaObjectInspectors(storageTypes));
         structFields = ImmutableList.copyOf(tableInspector.getAllStructFieldRefs());
@@ -214,7 +207,7 @@ public class OrcFileWriter
         return serde;
     }
 
-    private static RecordWriter createRecordWriter(Path target, List<Long> columnIds, List<Type> columnTypes, boolean writeMetadata)
+    private static RecordWriter createRecordWriter(Path target, List<Long> columnIds, List<Type> columnTypes)
     {
         try {
             OrcFile.WriterOptions options = OrcFile.writerOptions(CONFIGURATION)
@@ -222,9 +215,7 @@ public class OrcFileWriter
                     .fileSystem(new SyncingFileSystem(CONFIGURATION))
                     .compress(SNAPPY);
 
-            if (writeMetadata) {
-                options.callback(createFileMetadataCallback(columnIds, columnTypes));
-            }
+            options.callback(createFileMetadataCallback(columnIds, columnTypes));
 
             return WRITER_CONSTRUCTOR.newInstance(target, options);
         }

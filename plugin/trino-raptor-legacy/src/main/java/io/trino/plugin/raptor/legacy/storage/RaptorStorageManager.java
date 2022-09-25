@@ -32,9 +32,6 @@ import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
 import io.trino.orc.TupleDomainOrcPredicate;
 import io.trino.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
-import io.trino.orc.metadata.ColumnMetadata;
-import io.trino.orc.metadata.OrcColumnId;
-import io.trino.orc.metadata.OrcType;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.raptor.legacy.RaptorColumnHandle;
 import io.trino.plugin.raptor.legacy.backup.BackupManager;
@@ -52,10 +49,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.NamedTypeSignature;
-import io.trino.spi.type.RowFieldName;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.StandardTypes;
@@ -103,7 +97,6 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.Unit.PETABYTE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
-import static io.trino.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.isBucketNumberColumn;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.isHiddenColumn;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.isMergeRowIdColumn;
@@ -115,13 +108,7 @@ import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_RECOVERY_ERRO
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_RECOVERY_TIMEOUT;
 import static io.trino.plugin.raptor.legacy.storage.ShardStats.computeColumnStats;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.CharType.createCharType;
-import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Math.min;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.util.Objects.requireNonNull;
@@ -469,27 +456,7 @@ public class RaptorStorageManager
 
     private List<ColumnInfo> getColumnInfo(OrcReader reader)
     {
-        Optional<OrcFileMetadata> metadata = getOrcFileMetadata(reader);
-        if (metadata.isPresent()) {
-            return getColumnInfoFromOrcUserMetadata(metadata.get());
-        }
-
-        // support for legacy files without metadata
-        return getColumnInfoFromOrcColumnTypes(reader.getColumnNames(), reader.getFooter().getTypes());
-    }
-
-    private List<ColumnInfo> getColumnInfoFromOrcColumnTypes(List<String> orcColumnNames, ColumnMetadata<OrcType> orcColumnTypes)
-    {
-        Type rowType = getType(orcColumnTypes, ROOT_COLUMN);
-        if (orcColumnNames.size() != rowType.getTypeParameters().size()) {
-            throw new TrinoException(RAPTOR_ERROR, "Column names and types do not match");
-        }
-
-        ImmutableList.Builder<ColumnInfo> list = ImmutableList.builder();
-        for (int i = 0; i < orcColumnNames.size(); i++) {
-            list.add(new ColumnInfo(Long.parseLong(orcColumnNames.get(i)), rowType.getTypeParameters().get(i)));
-        }
-        return list.build();
+        return getColumnInfoFromOrcUserMetadata(getOrcFileMetadata(reader));
     }
 
     static long xxhash64(File file)
@@ -502,10 +469,11 @@ public class RaptorStorageManager
         }
     }
 
-    private static Optional<OrcFileMetadata> getOrcFileMetadata(OrcReader reader)
+    private static OrcFileMetadata getOrcFileMetadata(OrcReader reader)
     {
         return Optional.ofNullable(reader.getFooter().getUserMetadata().get(OrcFileMetadata.KEY))
-                .map(slice -> METADATA_CODEC.fromJson(slice.getBytes()));
+                .map(slice -> METADATA_CODEC.fromJson(slice.getBytes()))
+                .orElseThrow(() -> new TrinoException(RAPTOR_ERROR, "No Raptor metadata in file"));
     }
 
     private List<ColumnInfo> getColumnInfoFromOrcUserMetadata(OrcFileMetadata orcFileMetadata)
@@ -515,47 +483,6 @@ public class RaptorStorageManager
                 .sorted(Map.Entry.comparingByKey())
                 .map(entry -> new ColumnInfo(entry.getKey(), typeManager.getType(entry.getValue())))
                 .collect(toList());
-    }
-
-    private Type getType(ColumnMetadata<OrcType> types, OrcColumnId columnId)
-    {
-        OrcType type = types.get(columnId);
-        switch (type.getOrcTypeKind()) {
-            case BOOLEAN:
-                return BOOLEAN;
-            case LONG:
-                return BIGINT;
-            case DOUBLE:
-                return DOUBLE;
-            case STRING:
-                return createUnboundedVarcharType();
-            case VARCHAR:
-                return createVarcharType(type.getLength().get());
-            case CHAR:
-                return createCharType(type.getLength().get());
-            case BINARY:
-                return VARBINARY;
-            case DECIMAL:
-                return DecimalType.createDecimalType(type.getPrecision().get(), type.getScale().get());
-            case LIST:
-                TypeSignature elementType = getType(types, type.getFieldTypeIndex(0)).getTypeSignature();
-                return typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.typeParameter(elementType)));
-            case MAP:
-                TypeSignature keyType = getType(types, type.getFieldTypeIndex(0)).getTypeSignature();
-                TypeSignature valueType = getType(types, type.getFieldTypeIndex(1)).getTypeSignature();
-                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.typeParameter(keyType), TypeSignatureParameter.typeParameter(valueType)));
-            case STRUCT:
-                List<String> fieldNames = type.getFieldNames();
-                ImmutableList.Builder<TypeSignatureParameter> fieldTypes = ImmutableList.builder();
-                for (int i = 0; i < type.getFieldCount(); i++) {
-                    fieldTypes.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(
-                            Optional.of(new RowFieldName(fieldNames.get(i))),
-                            getType(types, type.getFieldTypeIndex(i)).getTypeSignature())));
-                }
-                return typeManager.getParameterizedType(StandardTypes.ROW, fieldTypes.build());
-            default:
-                throw new TrinoException(RAPTOR_ERROR, "Unhandled ORC type: " + type);
-        }
     }
 
     static Type toOrcFileType(Type raptorType, TypeManager typeManager)
