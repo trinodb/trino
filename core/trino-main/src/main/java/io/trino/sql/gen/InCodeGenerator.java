@@ -41,7 +41,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
+import static io.airlift.bytecode.expression.BytecodeExpressions.notEqual;
 import static io.airlift.bytecode.instruction.JumpInstruction.jump;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -186,9 +186,9 @@ public class InCodeGenerator
                 switchBuilder.defaultCase(jump(defaultLabel));
                 switchBlock = new BytecodeBlock()
                         .comment("lookupSwitch(<stackValue>))")
-                        .append(new IfStatement()
-                                .condition(invokeStatic(InCodeGenerator.class, "isInteger", boolean.class, value))
-                                .ifFalse(new BytecodeBlock()
+                        .append(new IfStatement("if (%s != (int) %s)", value.getName(), value.getName())
+                                .condition(notEqual(value, value.cast(int.class).cast(long.class)))
+                                .ifTrue(new BytecodeBlock()
                                         .gotoLabel(defaultLabel)))
                         .append(expression.set(value.cast(int.class)))
                         .append(switchBuilder.build());
@@ -278,11 +278,6 @@ public class InCodeGenerator
         block.visitLabel(end);
 
         return block;
-    }
-
-    public static boolean isInteger(long value)
-    {
-        return value == (int) value;
     }
 
     private static BytecodeBlock buildInCase(
