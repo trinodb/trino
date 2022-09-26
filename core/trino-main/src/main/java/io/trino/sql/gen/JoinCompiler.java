@@ -85,6 +85,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.getStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
+import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.notEqual;
 import static io.airlift.bytecode.expression.BytecodeExpressions.setStatic;
@@ -300,10 +301,7 @@ public class JoinCompiler
             constructor.comment("for(blockIndex = 0; blockIndex < channel.size(); blockIndex++) { size += channel.get(i).getRetainedSizeInBytes() }")
                     .append(new ForLoop()
                             .initialize(blockIndex.set(constantInt(0)))
-                            .condition(new BytecodeBlock()
-                                    .append(blockIndex)
-                                    .append(channel.invoke("size", int.class))
-                                    .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
+                            .condition(lessThan(blockIndex, channel.invoke("size", int.class)))
                             .update(new BytecodeBlock().incrementVariable(blockIndex, (byte) 1))
                             .body(loopBody));
 

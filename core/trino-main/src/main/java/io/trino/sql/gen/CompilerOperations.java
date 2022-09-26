@@ -35,31 +35,6 @@ public final class CompilerOperations
         return value > 0;
     }
 
-    public static boolean and(boolean left, boolean right)
-    {
-        return left && right;
-    }
-
-    public static boolean or(boolean left, boolean right)
-    {
-        return left || right;
-    }
-
-    public static boolean not(boolean value)
-    {
-        return !value;
-    }
-
-    public static boolean lessThan(int left, int right)
-    {
-        return left < right;
-    }
-
-    public static boolean greaterThan(int left, int right)
-    {
-        return left > right;
-    }
-
     public static boolean in(Object value, Set<?> set)
     {
         return set.contains(value);

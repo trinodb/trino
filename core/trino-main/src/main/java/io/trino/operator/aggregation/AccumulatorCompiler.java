@@ -71,6 +71,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantString;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
+import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.not;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
@@ -541,10 +542,7 @@ public final class AccumulatorCompiler
 
         ForLoop forLoop = new ForLoop()
                 .initialize(new BytecodeBlock().putVariable(positionVariable, 0))
-                .condition(new BytecodeBlock()
-                        .getVariable(positionVariable)
-                        .getVariable(rowsVariable)
-                        .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
+                .condition(lessThan(positionVariable, rowsVariable))
                 .update(new BytecodeBlock().incrementVariable(positionVariable, (byte) 1))
                 .body(loopBody);
 
@@ -755,10 +753,7 @@ public final class AccumulatorCompiler
 
         block.append(new ForLoop()
                 .initialize(positionVariable.set(constantInt(0)))
-                .condition(new BytecodeBlock()
-                        .append(positionVariable)
-                        .append(rowsVariable)
-                        .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
+                .condition(lessThan(positionVariable, rowsVariable))
                 .update(new BytecodeBlock().incrementVariable(positionVariable, (byte) 1))
                 .body(ifStatement));
 

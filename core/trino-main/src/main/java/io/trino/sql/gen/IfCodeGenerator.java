@@ -15,6 +15,7 @@ package io.trino.sql.gen;
 
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.OpCode;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.trino.sql.relational.RowExpression;
@@ -24,6 +25,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
+import static io.airlift.bytecode.expression.BytecodeExpressions.not;
 import static java.util.Objects.requireNonNull;
 
 public class IfCodeGenerator
@@ -50,9 +52,10 @@ public class IfCodeGenerator
         BytecodeBlock conditionBlock = new BytecodeBlock()
                 .append(context.generate(condition))
                 .comment("... and condition value was not null")
-                .append(wasNull)
-                .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class)
-                .invokeStatic(CompilerOperations.class, "and", boolean.class, boolean.class, boolean.class)
+                .append(not(wasNull))
+                // Per "JLS - 15.22.2. Boolean Logical Operator":
+                //   for &, the result value is true if both operand values are true; otherwise, the result is false.
+                .append(OpCode.IAND)
                 .append(wasNull.set(constantFalse()));
 
         return new IfStatement()
