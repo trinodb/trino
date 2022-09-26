@@ -62,7 +62,6 @@ import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -184,13 +183,13 @@ public final class LiteralEncoder
             return new GenericLiteral("REAL", value.toString());
         }
 
-        if (type instanceof DecimalType) {
+        if (type instanceof DecimalType decimalType) {
             String string;
-            if (isShortDecimal(type)) {
-                string = Decimals.toString((long) object, ((DecimalType) type).getScale());
+            if (decimalType.isShort()) {
+                string = Decimals.toString((long) object, decimalType.getScale());
             }
             else {
-                string = Decimals.toString((Int128) object, ((DecimalType) type).getScale());
+                string = Decimals.toString((Int128) object, decimalType.getScale());
             }
             return new Cast(new DecimalLiteral(string), toSqlType(type));
         }

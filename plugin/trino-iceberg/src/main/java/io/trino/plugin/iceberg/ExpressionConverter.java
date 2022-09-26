@@ -23,7 +23,6 @@ import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
@@ -222,9 +221,8 @@ public final class ExpressionConverter
             return trinoUuidToJavaUuid(((Slice) trinoNativeValue));
         }
 
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
-            if (Decimals.isShortDecimal(decimalType)) {
+        if (type instanceof DecimalType decimalType) {
+            if (decimalType.isShort()) {
                 return BigDecimal.valueOf((long) trinoNativeValue).movePointLeft(decimalType.getScale());
             }
             return new BigDecimal(((Int128) trinoNativeValue).toBigInteger(), decimalType.getScale());
