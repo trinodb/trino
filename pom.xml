@@ -1648,7 +1648,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.20.0</version>
+                <version>3.25.0</version>
             </dependency>
 
             <dependency>
