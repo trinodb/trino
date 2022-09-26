@@ -14,6 +14,7 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.SqlDataTypeTest;
+import io.trino.testing.sql.TestTable;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.testng.annotations.Test;
 
@@ -27,6 +28,7 @@ import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDistributedSnowflakeTypeMapping
@@ -153,8 +155,28 @@ public class TestDistributedSnowflakeTypeMapping
                 .addRoundTrip("TIMESTAMP", "TIMESTAMP '1582-10-05 00:00:00.000000000'", createTimestampType(3), "TIMESTAMP '1582-10-05 00:00:00.000'") // begin julian->gregorian switch
                 .addRoundTrip("TIMESTAMP", "TIMESTAMP '1582-10-14 00:00:00.000000000'", createTimestampType(3), "TIMESTAMP '1582-10-14 00:00:00.000'") // end julian->gregorian switch
 
+                // smallest value
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '0000-01-01 00:00:00.000000'", createTimestampType(3), "TIMESTAMP '0000-01-01 00:00:00.000'")
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '0000-01-01 00:00:00.000000000'", createTimestampType(3), "TIMESTAMP '0000-01-01 00:00:00.000'")
+
+                // almost smallest value (which is smallest in some other connectors, e.g. teradata)
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '0001-01-01 00:00:00.000000'", createTimestampType(3), "TIMESTAMP '0001-01-01 00:00:00.000'")
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '0001-01-01 00:00:00.000000000'", createTimestampType(3), "TIMESTAMP '0001-01-01 00:00:00.000'")
+
                 .execute(getQueryRunner(), trinoCreateAsSelect())
                 .execute(getQueryRunner(), trinoCreateAndInsert());
+    }
+
+    @Override
+    @Deprecated // TODO https://starburstdata.atlassian.net/browse/SEP-9994
+    @Test
+    public void testTimestampMappingNegative()
+    {
+        super.testTimestampMappingNegative();
+        try (TestTable table = new TestTable(sqls -> getQueryRunner().execute(sqls), "test_schema_2.test_timestamp", "(c1 timestamp(9))")) {
+            assertQueryFails(format("INSERT INTO %s (c1) VALUES (TIMESTAMP '-0001-01-01 00:00:00.000000000')", table.getName()),
+                    "Failed to insert data: Timestamp '-0001-01-01T00:00' is not recognized");
+        }
     }
 
     @Test(dataProvider = "sessionZonesDataProvider")

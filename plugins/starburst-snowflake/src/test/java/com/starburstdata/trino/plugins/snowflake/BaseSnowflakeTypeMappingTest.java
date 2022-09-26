@@ -24,6 +24,7 @@ import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.DataType;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -487,12 +488,37 @@ public abstract class BaseSnowflakeTypeMappingTest
                 .addRoundTrip("CAST('1969-12-31 23:59:59.9999999995' AS TIMESTAMP(9))", "TIMESTAMP '1970-01-01 00:00:00.000000000'")
 
                 // around Julian/Gregorian switch
-                // .addRoundTrip("timestamp(9)", "TIMESTAMP '1582-10-04 00:00:00.000000000'", createTimestampType(9), "TIMESTAMP '1582-10-04 00:00:00.000000000'") // before julian->gregorian switch
-                .addRoundTrip("timestamp(9)", "TIMESTAMP '1582-10-05 00:00:00.000000000'", createTimestampType(9), "TIMESTAMP '1582-10-05 00:00:00.000000000'") // begin julian->gregorian switch
-                .addRoundTrip("timestamp(9)", "TIMESTAMP '1582-10-14 00:00:00.000000000'", createTimestampType(9), "TIMESTAMP '1582-10-14 00:00:00.000000000'") // end julian->gregorian switch
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '1582-10-04 00:00:00.000000000'", createTimestampType(9), "TIMESTAMP '1582-10-04 00:00:00.000000000'") // before julian->gregorian switch
+                // TODO https://starburstdata.atlassian.net/browse/SEP-10094
+                // .addRoundTrip("timestamp(9)", "TIMESTAMP '1582-10-05 00:00:00.000000000'", createTimestampType(9), "TIMESTAMP '1582-10-05 00:00:00.000000000'") // begin julian->gregorian switch
+                // .addRoundTrip("timestamp(9)", "TIMESTAMP '1582-10-14 00:00:00.000000000'", createTimestampType(9), "TIMESTAMP '1582-10-14 00:00:00.000000000'") // end julian->gregorian switch
+
+                // smallest value
+                // TODO support for jdbc connector see TestJdbcSnowflakeTypeMapping#testTimestampMappingDataCorruption https://starburstdata.atlassian.net/browse/SEP-10002
+                // .addRoundTrip("timestamp(6)", "TIMESTAMP '0000-01-01 00:00:00.000000'", createTimestampType(6), "TIMESTAMP '0000-01-01 00:00:00.000000'")
+                // .addRoundTrip("timestamp(9)", "TIMESTAMP '0000-01-01 00:00:00.000000000'", createTimestampType(9), "TIMESTAMP '0000-01-01 00:00:00.000000000'")
+
+                // almost smallest value (which is smallest in some other connectors, e.g. teradata)
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '0001-01-01 00:00:00.000000'", createTimestampType(6), "TIMESTAMP '0001-01-01 00:00:00.000000'")
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '0001-01-01 00:00:00.000000000'", createTimestampType(9), "TIMESTAMP '0001-01-01 00:00:00.000000000'")
 
                 .execute(getQueryRunner(), trinoCreateAsSelect())
                 .execute(getQueryRunner(), trinoCreateAndInsert());
+    }
+
+    @Deprecated // TODO https://starburstdata.atlassian.net/browse/SEP-9994
+    @Test
+    public void testTimestampMappingNegative()
+    {
+        //timestamp(9) -0001-01-01 00:00:00.000000000 has different results in jdbc and distributed connectors
+        try (TestTable table = new TestTable(sqls -> getQueryRunner().execute(sqls), "test_schema_2.test_timestamp", "(c1 timestamp(6))")) {
+            assertQueryFails(format("INSERT INTO %s (c1) VALUES (TIMESTAMP '-0001-01-01 00:00:00.000000')", table.getName()),
+                    "Failed to insert data: Timestamp '-0001-01-01T00:00' is not recognized");
+        }
+        try (TestTable table = new TestTable(sqls -> getQueryRunner().execute(sqls), "test_schema_2.test_timestamp", "(c1 timestamp(3))")) {
+            assertQueryFails(format("INSERT INTO %s (c1) VALUES (TIMESTAMP '-0001-01-01 00:00:00.000')", table.getName()),
+                    "Failed to insert data: Timestamp '-0001-01-01T00:00' is not recognized");
+        }
     }
 
     @Test(dataProvider = "sessionZonesDataProvider")

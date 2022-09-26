@@ -90,7 +90,6 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Time;
-import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -98,14 +97,10 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Calendar;
 import java.util.Collection;
-import java.util.Date;
-import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TimeZone;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -140,6 +135,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.toLongTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.toTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
@@ -158,9 +154,7 @@ import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
-import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
-import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
@@ -182,8 +176,6 @@ import static java.sql.Types.DOUBLE;
 import static java.sql.Types.FLOAT;
 import static java.sql.Types.REAL;
 import static java.sql.Types.VARCHAR;
-import static java.time.ZoneOffset.UTC;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class SnowflakeClient
@@ -193,8 +185,12 @@ public class SnowflakeClient
 
     public static final String DATABASE_SEPARATOR = ".";
     private static final DateTimeFormatter SNOWFLAKE_DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
+    // TODO https://starburstdata.atlassian.net/browse/SEP-9994
+    // TODO https://starburstdata.atlassian.net/browse/SEP-10002
+    // below formatters use `y` for years. `u` has to be used eventually.
     private static final DateTimeFormatter SNOWFLAKE_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX");
     private static final DateTimeFormatter SNOWFLAKE_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd'T'HH:mm:ss.SSSSSSSSS");
+    private static final DateTimeFormatter SNOWFLAKE_TIMESTAMP_READ_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd'T'HH:mm:ss.SSSSSSSSSX");
     private static final int SNOWFLAKE_MAX_TIMESTAMP_PRECISION = 9;
     public static final int SNOWFLAKE_MAX_LIST_EXPRESSIONS = 1000;
 
@@ -209,8 +205,6 @@ public class SnowflakeClient
             .put(VARBINARY, WriteMapping.sliceMapping("varbinary", varbinaryWriteFunction()))
             .put(DateType.DATE, WriteMapping.longMapping("date", dateWriteFunctionUsingString()))
             .buildOrThrow();
-    private static final UtcTimeZoneCalendar UTC_TZ_PASSING_CALENDAR = UtcTimeZoneCalendar.getUtcTimeZoneCalendarInstance();
-    private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone(ZoneId.of("UTC"));
 
     private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
@@ -722,32 +716,15 @@ public class SnowflakeClient
 
         return ColumnMapping.objectMapping(
                 createTimestampType(precision),
-                longTimestampReadFunction(),
+                longTimestampReadFunction(precision),
                 longTimestampWriteFunction(precision));
     }
 
-    private static ObjectReadFunction longTimestampReadFunction()
+    private static ObjectReadFunction longTimestampReadFunction(int precision)
     {
-        return ObjectReadFunction.of(LongTimestamp.class, (resultSet, columnIndex) -> {
-            Timestamp timestamp = resultSet.getTimestamp(columnIndex, newUtcCalendar());
-
-            long epochMillis = timestamp.getTime();
-            int nanosOfSecond = timestamp.getNanos();
-            int nanosOfMilli = nanosOfSecond % NANOSECONDS_PER_MILLISECOND;
-
-            long epochMicros = epochMillis * MICROSECONDS_PER_MILLISECOND + nanosOfMilli / NANOSECONDS_PER_MICROSECOND;
-            int picosOfMicro = nanosOfMilli % NANOSECONDS_PER_MICROSECOND * PICOSECONDS_PER_NANOSECOND;
-
-            return new LongTimestamp(epochMicros, picosOfMicro);
-        });
-    }
-
-    // Note: allocating a new Calendar per row may turn out to be too expensive.
-    private static Calendar newUtcCalendar()
-    {
-        Calendar calendar = new GregorianCalendar(UTC_TIME_ZONE, ENGLISH);
-        calendar.setTime(new Date(0));
-        return calendar;
+        TimestampType timestampType = createTimestampType(precision);
+        return ObjectReadFunction.of(LongTimestamp.class, (resultSet, columnIndex) ->
+                toLongTrinoTimestamp(timestampType, toLocalDateTime(resultSet, columnIndex)));
     }
 
     private static ObjectWriteFunction longTimestampWriteFunction(int precision)
@@ -805,8 +782,8 @@ public class SnowflakeClient
     private static LocalDateTime toLocalDateTime(ResultSet resultSet, int columnIndex)
             throws SQLException
     {
-        Timestamp ts = resultSet.getTimestamp(columnIndex, UTC_TZ_PASSING_CALENDAR);
-        return LocalDateTime.ofEpochSecond(floorDiv(ts.getTime(), MILLISECONDS_PER_SECOND), ts.getNanos(), UTC);
+        String string = resultSet.getString(columnIndex);
+        return LocalDateTime.parse(string, SNOWFLAKE_TIMESTAMP_READ_FORMATTER);
     }
 
     private static long toPrestoTime(Time sqlTime)
