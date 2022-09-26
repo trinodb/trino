@@ -60,7 +60,6 @@ import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_PRE
 import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_SCALE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.TimeWithTimeZoneType.DEFAULT_PRECISION;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
@@ -321,10 +320,10 @@ public enum BigQueryType
         if (type instanceof ArrayType) {
             return Optional.empty();
         }
-        if (type instanceof DecimalType) {
+        if (type instanceof DecimalType decimalType) {
             String bigqueryTypeName = this.toString();
             verify(bigqueryTypeName.equals("NUMERIC") || bigqueryTypeName.equals("BIGNUMERIC"), "Expected NUMERIC or BIGNUMERIC: %s", bigqueryTypeName);
-            if (isShortDecimal(type)) {
+            if (decimalType.isShort()) {
                 return Optional.of(format("%s '%s'", bigqueryTypeName, Decimals.toString((long) value, ((DecimalType) type).getScale())));
             }
             return Optional.of(format("%s '%s'", bigqueryTypeName, Decimals.toString((Int128) value, ((DecimalType) type).getScale())));

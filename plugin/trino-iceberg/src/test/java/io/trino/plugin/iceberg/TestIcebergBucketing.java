@@ -49,8 +49,6 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.isLongDecimal;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -315,12 +313,11 @@ public class TestIcebergBucketing
             return (long) icebergValue;
         }
 
-        if (isShortDecimal(trinoType)) {
-            return Decimals.encodeShortScaledValue((BigDecimal) icebergValue, ((io.trino.spi.type.DecimalType) trinoType).getScale());
-        }
-
-        if (isLongDecimal(trinoType)) {
-            return Decimals.encodeScaledValue((BigDecimal) icebergValue, ((io.trino.spi.type.DecimalType) trinoType).getScale());
+        if (trinoType instanceof io.trino.spi.type.DecimalType trinoDecimalType) {
+            if (trinoDecimalType.isShort()) {
+                return Decimals.encodeShortScaledValue((BigDecimal) icebergValue, trinoDecimalType.getScale());
+            }
+            return Decimals.encodeScaledValue((BigDecimal) icebergValue, trinoDecimalType.getScale());
         }
 
         if (trinoType == VARCHAR) {

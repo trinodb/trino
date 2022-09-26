@@ -32,7 +32,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
@@ -695,11 +694,13 @@ public class OrcTester
             else if (TINYINT.equals(type) || SMALLINT.equals(type) || INTEGER.equals(type) || BIGINT.equals(type)) {
                 type.writeLong(blockBuilder, ((Number) value).longValue());
             }
-            else if (Decimals.isShortDecimal(type)) {
-                type.writeLong(blockBuilder, ((SqlDecimal) value).toBigDecimal().unscaledValue().longValue());
-            }
-            else if (Decimals.isLongDecimal(type)) {
-                type.writeObject(blockBuilder, Int128.valueOf(((SqlDecimal) value).toBigDecimal().unscaledValue()));
+            else if (type instanceof DecimalType decimalType) {
+                if (decimalType.isShort()) {
+                    type.writeLong(blockBuilder, ((SqlDecimal) value).toBigDecimal().unscaledValue().longValue());
+                }
+                else {
+                    type.writeObject(blockBuilder, Int128.valueOf(((SqlDecimal) value).toBigDecimal().unscaledValue()));
+                }
             }
             else if (DOUBLE.equals(type)) {
                 type.writeDouble(blockBuilder, ((Number) value).doubleValue());
