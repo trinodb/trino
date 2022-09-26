@@ -30,6 +30,8 @@ order of steps. Do not skip or combine steps.
      HTTPS, if possible.
    * Use a globally trusted TLS certificate.
 
+   :ref:`Verify this step is working correctly.<verify_tls>`
+
 #. **Configure** a :doc:`a shared secret </security/internal-communication>`
 
 #. **Enable authentication**
