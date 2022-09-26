@@ -13,11 +13,9 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
@@ -46,7 +44,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 
-public class TestBigQueryConnectorTest
+public abstract class BaseBigQueryConnectorTest
         extends BaseConnectorTest
 {
     protected BigQuerySqlExecutor bigQuerySqlExecutor;
@@ -55,16 +53,6 @@ public class TestBigQueryConnectorTest
     public void initBigQueryExecutor()
     {
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
-    }
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return BigQueryQueryRunner.createQueryRunner(
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                REQUIRED_TPCH_TABLES);
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch")

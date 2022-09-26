@@ -41,7 +41,7 @@ public class BigQuerySplit
 
     private final Mode mode;
     private final String streamName;
-    private final String avroSchema;
+    private final String schemaString;
     private final List<BigQueryColumnHandle> columns;
     private final long emptyRowsToGenerate;
     private final Optional<String> filter;
@@ -52,7 +52,7 @@ public class BigQuerySplit
     public BigQuerySplit(
             @JsonProperty("mode") Mode mode,
             @JsonProperty("streamName") String streamName,
-            @JsonProperty("avroSchema") String avroSchema,
+            @JsonProperty("schemaString") String schemaString,
             @JsonProperty("columns") List<BigQueryColumnHandle> columns,
             @JsonProperty("emptyRowsToGenerate") long emptyRowsToGenerate,
             @JsonProperty("filter") Optional<String> filter,
@@ -60,16 +60,16 @@ public class BigQuerySplit
     {
         this.mode = requireNonNull(mode, "mode is null");
         this.streamName = requireNonNull(streamName, "streamName cannot be null");
-        this.avroSchema = requireNonNull(avroSchema, "avroSchema cannot be null");
+        this.schemaString = requireNonNull(schemaString, "schemaString cannot be null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns cannot be null"));
         this.emptyRowsToGenerate = emptyRowsToGenerate;
         this.filter = requireNonNull(filter, "filter is null");
         this.dataSize = requireNonNull(dataSize, "dataSize is null");
     }
 
-    static BigQuerySplit forStream(String streamName, String avroSchema, List<BigQueryColumnHandle> columns, OptionalInt dataSize)
+    static BigQuerySplit forStream(String streamName, String schemaString, List<BigQueryColumnHandle> columns, OptionalInt dataSize)
     {
-        return new BigQuerySplit(STORAGE, streamName, avroSchema, columns, NO_ROWS_TO_GENERATE, Optional.empty(), dataSize);
+        return new BigQuerySplit(STORAGE, streamName, schemaString, columns, NO_ROWS_TO_GENERATE, Optional.empty(), dataSize);
     }
 
     static BigQuerySplit forViewStream(List<BigQueryColumnHandle> columns, Optional<String> filter)
@@ -95,9 +95,9 @@ public class BigQuerySplit
     }
 
     @JsonProperty
-    public String getAvroSchema()
+    public String getSchemaString()
     {
-        return avroSchema;
+        return schemaString;
     }
 
     @JsonProperty
@@ -147,7 +147,7 @@ public class BigQuerySplit
     {
         return INSTANCE_SIZE
                 + estimatedSizeOf(streamName)
-                + estimatedSizeOf(avroSchema)
+                + estimatedSizeOf(schemaString)
                 + estimatedSizeOf(columns, BigQueryColumnHandle::getRetainedSizeInBytes);
     }
 
@@ -163,7 +163,7 @@ public class BigQuerySplit
         BigQuerySplit that = (BigQuerySplit) o;
         return Objects.equals(mode, that.mode) &&
                 Objects.equals(streamName, that.streamName) &&
-                Objects.equals(avroSchema, that.avroSchema) &&
+                Objects.equals(schemaString, that.schemaString) &&
                 Objects.equals(columns, that.columns) &&
                 Objects.equals(emptyRowsToGenerate, that.emptyRowsToGenerate);
     }
@@ -171,7 +171,7 @@ public class BigQuerySplit
     @Override
     public int hashCode()
     {
-        return Objects.hash(mode, streamName, avroSchema, columns, emptyRowsToGenerate);
+        return Objects.hash(mode, streamName, schemaString, columns, emptyRowsToGenerate);
     }
 
     @Override
@@ -180,7 +180,7 @@ public class BigQuerySplit
         return toStringHelper(this)
                 .add("mode", mode)
                 .add("streamName", streamName)
-                .add("avroSchema", avroSchema)
+                .add("schemaString", schemaString)
                 .add("columns", columns)
                 .add("emptyRowsToGenerate", emptyRowsToGenerate)
                 .toString();
