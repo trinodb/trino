@@ -135,13 +135,13 @@ public class TestTimestamp
                 .isEqualTo(timestamp(12, 2020, 5, 1, 12, 34, 56, 123_456_789_012L));
 
         assertThatThrownBy(() -> assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567890123'").evaluate())
-                .hasMessage("line 1:8: TIMESTAMP precision must be in range [0, 12]: 13");
+                .hasMessage("line 1:12: TIMESTAMP precision must be in range [0, 12]: 13");
 
         assertThatThrownBy(() -> assertions.expression("TIMESTAMP '2020-13-01'").evaluate())
-                .hasMessage("line 1:8: '2020-13-01' is not a valid timestamp literal");
+                .hasMessage("line 1:12: '2020-13-01' is not a valid timestamp literal");
 
         assertThatThrownBy(() -> assertions.expression("TIMESTAMP 'xxx'").evaluate())
-                .hasMessage("line 1:8: 'xxx' is not a valid timestamp literal");
+                .hasMessage("line 1:12: 'xxx' is not a valid timestamp literal");
 
         // negative epoch
         assertThat(assertions.expression("TIMESTAMP '1500-05-01 12:34:56'"))
