@@ -41,6 +41,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.cloud.bigquery.TableDefinition.Type.EXTERNAL;
 import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
@@ -139,7 +140,7 @@ public class BigQuerySplitManager
                 .create(session, remoteTableId, projectedColumnsNames, filter, actualParallelism);
 
         return readSession.getStreamsList().stream()
-                .map(stream -> BigQuerySplit.forStream(stream.getName(), readSession.getAvroSchema().getSchema(), columns))
+                .map(stream -> BigQuerySplit.forStream(stream.getName(), readSession.getAvroSchema().getSchema(), columns, OptionalInt.of(stream.getSerializedSize())))
                 .collect(toImmutableList());
     }
 

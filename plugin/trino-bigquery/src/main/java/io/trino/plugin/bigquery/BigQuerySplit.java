@@ -24,6 +24,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -44,6 +45,7 @@ public class BigQuerySplit
     private final List<ColumnHandle> columns;
     private final long emptyRowsToGenerate;
     private final Optional<String> filter;
+    private final OptionalInt dataSize;
 
     // do not use directly, it is public only for Jackson
     @JsonCreator
@@ -53,7 +55,8 @@ public class BigQuerySplit
             @JsonProperty("avroSchema") String avroSchema,
             @JsonProperty("columns") List<ColumnHandle> columns,
             @JsonProperty("emptyRowsToGenerate") long emptyRowsToGenerate,
-            @JsonProperty("filter") Optional<String> filter)
+            @JsonProperty("filter") Optional<String> filter,
+            @JsonProperty("dataSize") OptionalInt dataSize)
     {
         this.mode = requireNonNull(mode, "mode is null");
         this.streamName = requireNonNull(streamName, "streamName cannot be null");
@@ -61,21 +64,22 @@ public class BigQuerySplit
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns cannot be null"));
         this.emptyRowsToGenerate = emptyRowsToGenerate;
         this.filter = requireNonNull(filter, "filter is null");
+        this.dataSize = requireNonNull(dataSize, "dataSize is null");
     }
 
-    static BigQuerySplit forStream(String streamName, String avroSchema, List<ColumnHandle> columns)
+    static BigQuerySplit forStream(String streamName, String avroSchema, List<ColumnHandle> columns, OptionalInt dataSize)
     {
-        return new BigQuerySplit(STORAGE, streamName, avroSchema, columns, NO_ROWS_TO_GENERATE, Optional.empty());
+        return new BigQuerySplit(STORAGE, streamName, avroSchema, columns, NO_ROWS_TO_GENERATE, Optional.empty(), dataSize);
     }
 
     static BigQuerySplit forViewStream(List<ColumnHandle> columns, Optional<String> filter)
     {
-        return new BigQuerySplit(QUERY, "", "", columns, NO_ROWS_TO_GENERATE, filter);
+        return new BigQuerySplit(QUERY, "", "", columns, NO_ROWS_TO_GENERATE, filter, OptionalInt.empty());
     }
 
     static BigQuerySplit emptyProjection(long numberOfRows)
     {
-        return new BigQuerySplit(STORAGE, "", "", ImmutableList.of(), numberOfRows, Optional.empty());
+        return new BigQuerySplit(STORAGE, "", "", ImmutableList.of(), numberOfRows, Optional.empty(), OptionalInt.of(0));
     }
 
     @JsonProperty
@@ -112,6 +116,12 @@ public class BigQuerySplit
     public Optional<String> getFilter()
     {
         return filter;
+    }
+
+    @JsonProperty
+    public OptionalInt getDataSize()
+    {
+        return dataSize;
     }
 
     @Override
