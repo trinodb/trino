@@ -15,13 +15,24 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.execution.QueryStats;
+import io.trino.operator.OperatorStats;
+import io.trino.spi.QueryId;
+import io.trino.spi.metrics.Count;
+import io.trino.spi.metrics.Metric;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.Map;
+
+import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.trino.parquet.reader.ParquetReader.COLUMN_INDEX_ROWS_FILTERED;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
@@ -159,6 +170,57 @@ public class TestParquetPageSkipping
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testFilteringWithColumnIndex()
+    {
+        String tableName = "test_page_filtering_" + randomTableSuffix();
+        String catalog = getSession().getCatalog().orElseThrow();
+        assertUpdate(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty(catalog, "parquet_writer_page_size", "32kB")
+                        .build(),
+                "CREATE TABLE " + tableName + " " +
+                        "WITH (format = 'PARQUET', bucket_count = 1, bucketed_by = ARRAY['suppkey'], sorted_by = ARRAY['suppkey']) AS " +
+                        "SELECT suppkey, extendedprice, shipmode, comment FROM tpch.tiny.lineitem",
+                60175);
+
+        verifyFilteringWithColumnIndex("SELECT * FROM " + tableName + " WHERE suppkey = 10");
+        verifyFilteringWithColumnIndex("SELECT * FROM " + tableName + " WHERE suppkey BETWEEN 25 AND 35");
+        verifyFilteringWithColumnIndex("SELECT * FROM " + tableName + " WHERE suppkey >= 60");
+        verifyFilteringWithColumnIndex("SELECT * FROM " + tableName + " WHERE suppkey <= 40");
+        verifyFilteringWithColumnIndex("SELECT * FROM " + tableName + " WHERE suppkey IN (25, 35, 50, 80)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private void verifyFilteringWithColumnIndex(@Language("SQL") String query)
+    {
+        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
+        MaterializedResultWithQueryId resultWithoutColumnIndex = queryRunner.executeWithQueryId(
+                noParquetColumnIndexFiltering(getSession()),
+                query);
+        QueryStats queryStatsWithoutColumnIndex = getQueryStats(resultWithoutColumnIndex.getQueryId());
+        assertThat(queryStatsWithoutColumnIndex.getPhysicalInputPositions()).isGreaterThan(0);
+        Map<String, Metric<?>> metricsWithoutColumnIndex = getScanOperatorStats(resultWithoutColumnIndex.getQueryId())
+                .getConnectorMetrics()
+                .getMetrics();
+        assertThat(metricsWithoutColumnIndex).doesNotContainKey(COLUMN_INDEX_ROWS_FILTERED);
+
+        MaterializedResultWithQueryId resultWithColumnIndex = queryRunner.executeWithQueryId(getSession(), query);
+        QueryStats queryStatsWithColumnIndex = getQueryStats(resultWithColumnIndex.getQueryId());
+        assertThat(queryStatsWithColumnIndex.getPhysicalInputPositions()).isGreaterThan(0);
+        assertThat(queryStatsWithColumnIndex.getPhysicalInputPositions())
+                .isLessThan(queryStatsWithoutColumnIndex.getPhysicalInputPositions());
+        Map<String, Metric<?>> metricsWithColumnIndex = getScanOperatorStats(resultWithColumnIndex.getQueryId())
+                .getConnectorMetrics()
+                .getMetrics();
+        assertThat(metricsWithColumnIndex).containsKey(COLUMN_INDEX_ROWS_FILTERED);
+        assertThat(((Count<?>) metricsWithColumnIndex.get(COLUMN_INDEX_ROWS_FILTERED)).getTotal())
+                .isGreaterThan(0);
+
+        assertEqualsIgnoreOrder(resultWithColumnIndex.getResult(), resultWithoutColumnIndex.getResult());
+    }
+
     private int assertColumnIndexResults(String query)
     {
         MaterializedResult withColumnIndexing = computeActual(query);
@@ -218,5 +280,22 @@ public class TestParquetPageSkipping
         return Session.builder(session)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "parquet_use_column_index", "false")
                 .build();
+    }
+
+    private QueryStats getQueryStats(QueryId queryId)
+    {
+        return getDistributedQueryRunner().getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(queryId)
+                .getQueryStats();
+    }
+
+    private OperatorStats getScanOperatorStats(QueryId queryId)
+    {
+        return getQueryStats(queryId)
+                .getOperatorSummaries()
+                .stream()
+                .filter(summary -> summary.getOperatorType().startsWith("TableScan") || summary.getOperatorType().startsWith("Scan"))
+                .collect(onlyElement());
     }
 }
