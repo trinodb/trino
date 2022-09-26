@@ -33,7 +33,9 @@ public class TestPhoenixConfig
         assertRecordedDefaults(recordDefaults(PhoenixConfig.class)
                 .setConnectionUrl(null)
                 .setResourceConfigFiles("")
-                .setMaxScansPerSplit(20));
+                .setMaxScansPerSplit(20)
+                .setHbaseKerberosEnabled(false)
+                .setHbaseImpersonationEnabled(false));
     }
 
     @Test
