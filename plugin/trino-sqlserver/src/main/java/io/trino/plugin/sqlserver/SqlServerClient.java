@@ -675,6 +675,26 @@ public class SqlServerClient
         return columnNameToStatisticsName;
     }
 
+    // SQL Server has non-standard LIKE semantics:
+    // https://learn.microsoft.com/en-us/sql/t-sql/language-elements/like-transact-sql?redirectedfrom=MSDN&view=sql-server-ver16#arguments
+    // and apparently this applies to DatabaseMetaData calls too.@Override
+    @Override
+    protected String escapeObjectNameForMetadataQuery(String name, String escape)
+    {
+        requireNonNull(name, "name is null");
+        requireNonNull(escape, "escape is null");
+        checkArgument(!escape.isEmpty(), "Escape string must not be empty");
+        checkArgument(!escape.equals("_"), "Escape string must not be '_'");
+        checkArgument(!escape.equals("%"), "Escape string must not be '%'");
+        name = name.replace(escape, escape + escape);
+        name = name.replace("_", escape + "_");
+        name = name.replace("%", escape + "%");
+        // SQLServer also treats [ and ] as wildcard characters
+        name = name.replace("]", escape + "]");
+        name = name.replace("[", escape + "[");
+        return name;
+    }
+
     @Override
     public Optional<PreparedQuery> implementJoin(
             ConnectorSession session,
