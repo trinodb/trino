@@ -122,7 +122,6 @@ public class TestSharedHiveMetastore
     protected String getExpectedHiveCreateSchema(String catalogName)
     {
         String expectedHiveCreateSchema = "CREATE SCHEMA %s.%s\n" +
-                "AUTHORIZATION USER user\n" +
                 "WITH (\n" +
                 "   location = 'file:%s/%s'\n" +
                 ")";
