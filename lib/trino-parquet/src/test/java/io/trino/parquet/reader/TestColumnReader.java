@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.PrimitiveIterator;
-import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -91,7 +90,7 @@ public class TestColumnReader
         NullPositionsProvider nullPositionsProvider = columnReaderInput.getPageNullPositionsProvider();
         List<TestingPage> testingPages = getTestingPages(nullPositionsProvider, pageRowRanges);
         reader.setPageReader(
-                new TestingPageReader(testingPages, columnReaderInput.dictionaryEncoded()),
+                getPageReader(testingPages, columnReaderInput.dictionaryEncoded()),
                 selectedRows.orElse(null));
 
         int rowCount = selectedRows.map(ranges -> toIntExact(ranges.rowCount()))
@@ -331,118 +330,94 @@ public class TestColumnReader
                 .collect(toImmutableSet());
     }
 
-    private static class TestingPageReader
-            extends PageReader
+    private static PageReader getPageReader(List<TestingPage> testingPages, boolean dictionaryEncoded)
     {
-        private final Queue<DataPage> testingPages;
-        private final Optional<DictionaryPage> dictionaryPage;
-
-        public TestingPageReader(List<TestingPage> testingPages, boolean dictionaryEncoded)
-        {
-            super(
-                    UNCOMPRESSED,
-                    new LinkedList<>(),
-                    null,
-                    pagesRowCount(testingPages));
-            ValuesWriter encoder;
-            if (dictionaryEncoded) {
-                encoder = new DictionaryValuesWriter.PlainIntegerDictionaryValuesWriter(Integer.MAX_VALUE, RLE_DICTIONARY, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
-            }
-            else {
-                encoder = new PlainValuesWriter(1000, 1000, HeapByteBufferAllocator.getInstance());
-            }
-            this.testingPages = new LinkedList<>(createDataPages(testingPages, encoder));
-            if (dictionaryEncoded) {
-                dictionaryPage = Optional.of(toTrinoDictionaryPage(encoder.toDictPageAndClose()));
-            }
-            else {
-                dictionaryPage = Optional.empty();
-            }
+        ValuesWriter encoder;
+        if (dictionaryEncoded) {
+            encoder = new DictionaryValuesWriter.PlainIntegerDictionaryValuesWriter(Integer.MAX_VALUE, RLE_DICTIONARY, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
         }
-
-        @Override
-        public DataPage readPage()
-        {
-            if (testingPages.isEmpty()) {
-                return null;
-            }
-            return testingPages.remove();
+        else {
+            encoder = new PlainValuesWriter(1000, 1000, HeapByteBufferAllocator.getInstance());
         }
-
-        @Override
-        public DictionaryPage readDictionaryPage()
-        {
-            return dictionaryPage.orElse(null);
+        LinkedList<DataPage> inputPages = new LinkedList<>(createDataPages(testingPages, encoder));
+        DictionaryPage dictionaryPage = null;
+        if (dictionaryEncoded) {
+            dictionaryPage = toTrinoDictionaryPage(encoder.toDictPageAndClose());
         }
+        return new PageReader(
+                UNCOMPRESSED,
+                inputPages,
+                dictionaryPage,
+                pagesRowCount(testingPages));
+    }
 
-        private static List<DataPage> createDataPages(List<TestingPage> testingPage, ValuesWriter encoder)
-        {
-            return testingPage.stream()
-                    .map(page -> createDataPage(page, encoder))
-                    .collect(toImmutableList());
+    private static List<DataPage> createDataPages(List<TestingPage> testingPage, ValuesWriter encoder)
+    {
+        return testingPage.stream()
+                .map(page -> createDataPage(page, encoder))
+                .collect(toImmutableList());
+    }
+
+    private static DataPage createDataPage(TestingPage testingPage, ValuesWriter encoder)
+    {
+        int rowCount = testingPage.getRowCount();
+        int[] values = new int[rowCount];
+        int valueCount = getPageValues(testingPage, values);
+        int nullCount = rowCount - valueCount;
+        DataPage dataPage = new DataPageV2(
+                rowCount,
+                nullCount,
+                rowCount,
+                EMPTY_SLICE,
+                Slices.wrappedBuffer(encodeDefinitionLevels(testingPage.getRequiredPositions())),
+                getParquetEncoding(encoder.getEncoding()),
+                Slices.wrappedBuffer(encodePlainValues(encoder, values, valueCount)),
+                rowCount * 4,
+                OptionalLong.of(toIntExact(testingPage.getPageRowRange().getStart())),
+                null,
+                false);
+        encoder.reset();
+        return dataPage;
+    }
+
+    private static int getPageValues(TestingPage testingPage, int[] values)
+    {
+        RowRange pageRowRange = testingPage.getPageRowRange();
+        int start = toIntExact(pageRowRange.getStart());
+        int end = toIntExact(pageRowRange.getEnd()) + 1;
+        boolean[] required = testingPage.getRequiredPositions();
+        int valueCount = 0;
+        for (int i = start; i < end; i++) {
+            values[valueCount] = i;
+            valueCount += required[i - start] ? 1 : 0;
         }
+        return valueCount;
+    }
 
-        private static DataPage createDataPage(TestingPage testingPage, ValuesWriter encoder)
-        {
-            int rowCount = testingPage.getRowCount();
-            int[] values = new int[rowCount];
-            int valueCount = getPageValues(testingPage, values);
-            int nullCount = rowCount - valueCount;
-            DataPage dataPage = new DataPageV2(
-                    rowCount,
-                    nullCount,
-                    rowCount,
-                    EMPTY_SLICE,
-                    Slices.wrappedBuffer(encodeDefinitionLevels(testingPage.getRequiredPositions())),
-                    getParquetEncoding(encoder.getEncoding()),
-                    Slices.wrappedBuffer(encodePlainValues(encoder, values, valueCount)),
-                    rowCount * 4,
-                    OptionalLong.of(toIntExact(testingPage.getPageRowRange().getStart())),
-                    null,
-                    false);
-            encoder.reset();
-            return dataPage;
+    private static byte[] encodeDefinitionLevels(boolean[] values)
+    {
+        RunLengthBitPackingHybridEncoder encoder = new RunLengthBitPackingHybridEncoder(1, values.length, values.length, HeapByteBufferAllocator.getInstance());
+        try {
+            for (boolean value : values) {
+                encoder.writeInt(value ? 1 : 0);
+            }
+            return encoder.toBytes().toByteArray();
         }
-
-        private static int getPageValues(TestingPage testingPage, int[] values)
-        {
-            RowRange pageRowRange = testingPage.getPageRowRange();
-            int start = toIntExact(pageRowRange.getStart());
-            int end = toIntExact(pageRowRange.getEnd()) + 1;
-            boolean[] required = testingPage.getRequiredPositions();
-            int valueCount = 0;
-            for (int i = start; i < end; i++) {
-                values[valueCount] = i;
-                valueCount += required[i - start] ? 1 : 0;
-            }
-            return valueCount;
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
+    }
 
-        private static byte[] encodeDefinitionLevels(boolean[] values)
-        {
-            RunLengthBitPackingHybridEncoder encoder = new RunLengthBitPackingHybridEncoder(1, values.length, values.length, HeapByteBufferAllocator.getInstance());
-            try {
-                for (boolean value : values) {
-                    encoder.writeInt(value ? 1 : 0);
-                }
-                return encoder.toBytes().toByteArray();
+    private static byte[] encodePlainValues(ValuesWriter encoder, int[] values, int valueCount)
+    {
+        try {
+            for (int i = 0; i < valueCount; i++) {
+                encoder.writeInteger(values[i]);
             }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
+            return encoder.getBytes().toByteArray();
         }
-
-        private static byte[] encodePlainValues(ValuesWriter encoder, int[] values, int valueCount)
-        {
-            try {
-                for (int i = 0; i < valueCount; i++) {
-                    encoder.writeInteger(values[i]);
-                }
-                return encoder.getBytes().toByteArray();
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 
