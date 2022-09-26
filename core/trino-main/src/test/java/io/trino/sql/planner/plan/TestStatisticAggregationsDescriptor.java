@@ -52,8 +52,8 @@ public class TestStatisticAggregationsDescriptor
             for (ColumnStatisticType type : ColumnStatisticType.values()) {
                 builder.addColumnStatistic(new ColumnStatisticMetadata(column, type), testSymbol(symbolAllocator));
             }
-            builder.addColumnStatistic(new ColumnStatisticMetadata(column, new FunctionName("count")), testSymbol(symbolAllocator));
-            builder.addColumnStatistic(new ColumnStatisticMetadata(column, new FunctionName("count_if")), testSymbol(symbolAllocator));
+            builder.addColumnStatistic(new ColumnStatisticMetadata(column, "count non null", new FunctionName("count")), testSymbol(symbolAllocator));
+            builder.addColumnStatistic(new ColumnStatisticMetadata(column, "count true", new FunctionName("count_if")), testSymbol(symbolAllocator));
             builder.addGrouping(column, testSymbol(symbolAllocator));
         }
         builder.addTableStatistic(ROW_COUNT, testSymbol(symbolAllocator));
