@@ -263,7 +263,8 @@ public class IcebergMetadata
     public static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
     public static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
 
-    private static final FunctionName NUMBER_OF_DISTINCT_VALUES = new FunctionName("approx_distinct");
+    private static final String NUMBER_OF_DISTINCT_VALUES_NAME = "NUMBER_OF_DISTINCT_VALUES";
+    private static final FunctionName NUMBER_OF_DISTINCT_VALUES_FUNCTION = new FunctionName("approx_distinct");
 
     private final TypeManager typeManager;
     private final TypeOperators typeOperators;
@@ -1490,7 +1491,7 @@ public class IcebergMetadata
         Set<ColumnStatisticMetadata> columnStatistics = tableMetadata.getColumns().stream()
                 .filter(column -> analyzeColumnNames.contains(column.getName()))
                 // TODO: add support for NDV summary/sketch, but using Theta sketch, not HLL; see https://github.com/apache/iceberg-docs/pull/69
-                .map(column -> new ColumnStatisticMetadata(column.getName(), NUMBER_OF_DISTINCT_VALUES))
+                .map(column -> new ColumnStatisticMetadata(column.getName(), NUMBER_OF_DISTINCT_VALUES_NAME, NUMBER_OF_DISTINCT_VALUES_FUNCTION))
                 .collect(toImmutableSet());
 
         return new ConnectorAnalyzeMetadata(
@@ -1535,7 +1536,7 @@ public class IcebergMetadata
             verify(computedStatistic.getTableStatistics().isEmpty(), "Unexpected table statistics");
             for (Map.Entry<ColumnStatisticMetadata, Block> entry : computedStatistic.getColumnStatistics().entrySet()) {
                 ColumnStatisticMetadata statisticMetadata = entry.getKey();
-                if (statisticMetadata.getAggregation().equals(NUMBER_OF_DISTINCT_VALUES)) {
+                if (statisticMetadata.getConnectorAggregationId().equals(NUMBER_OF_DISTINCT_VALUES_NAME)) {
                     long ndv = (long) blockToNativeValue(BIGINT, entry.getValue());
                     Integer columnId = verifyNotNull(
                             columnNameToId.get(statisticMetadata.getColumnName()),

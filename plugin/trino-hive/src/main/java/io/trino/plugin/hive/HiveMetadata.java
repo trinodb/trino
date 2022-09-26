@@ -107,7 +107,6 @@ import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
-import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatisticType;
 import io.trino.spi.statistics.TableStatistics;
@@ -1374,7 +1373,7 @@ public class HiveMetadata
             }
 
             ImmutableMap.Builder<List<String>, PartitionStatistics> partitionStatistics = ImmutableMap.builder();
-            Map<String, Set<ColumnStatisticType>> columnStatisticTypes = hiveColumnHandles.stream()
+            Map<String, Set<HiveColumnStatisticType>> columnStatisticTypes = hiveColumnHandles.stream()
                     .filter(columnHandle -> !partitionColumnNames.contains(columnHandle.getName()))
                     .filter(column -> !column.isHidden())
                     .collect(toImmutableMap(HiveColumnHandle::getName, column -> ImmutableSet.copyOf(metastore.getSupportedColumnStatistics(column.getType()))));
@@ -3275,10 +3274,10 @@ public class HiveMetadata
         return getColumnStatisticMetadata(columnMetadata.getName(), metastore.getSupportedColumnStatistics(columnMetadata.getType()));
     }
 
-    private List<ColumnStatisticMetadata> getColumnStatisticMetadata(String columnName, Set<ColumnStatisticType> statisticTypes)
+    private List<ColumnStatisticMetadata> getColumnStatisticMetadata(String columnName, Set<HiveColumnStatisticType> statisticTypes)
     {
         return statisticTypes.stream()
-                .map(type -> new ColumnStatisticMetadata(columnName, type))
+                .map(type -> type.createColumnStatisticMetadata(columnName))
                 .collect(toImmutableList());
     }
 
