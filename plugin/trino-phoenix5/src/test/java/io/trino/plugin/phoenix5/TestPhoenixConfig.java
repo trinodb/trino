@@ -33,7 +33,9 @@ public class TestPhoenixConfig
         assertRecordedDefaults(recordDefaults(PhoenixConfig.class)
                 .setConnectionUrl(null)
                 .setResourceConfigFiles("")
-                .setMaxScansPerSplit(20));
+                .setMaxScansPerSplit(20)
+                .setHbaseKerberosEnabled(false)
+                .setHbaseImpersonationEnabled(false));
     }
 
     @Test
@@ -46,12 +48,16 @@ public class TestPhoenixConfig
                 .put("phoenix.connection-url", "jdbc:phoenix:localhost:2181:/hbase")
                 .put("phoenix.config.resources", configFile.toString())
                 .put("phoenix.max-scans-per-split", "1")
+                .put("hbase.impersonation.enabled", "true")
+                .put("hbase.kerberos.enabled", "true")
                 .buildOrThrow();
 
         PhoenixConfig expected = new PhoenixConfig()
                 .setConnectionUrl("jdbc:phoenix:localhost:2181:/hbase")
                 .setResourceConfigFiles(configFile.toString())
-                .setMaxScansPerSplit(1);
+                .setMaxScansPerSplit(1)
+                .setHbaseImpersonationEnabled(true)
+                .setHbaseKerberosEnabled(true);
 
         assertFullMapping(properties, expected);
     }
