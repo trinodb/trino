@@ -68,6 +68,7 @@ public class BigQuerySplitManager
     private final BigQueryReadClientFactory bigQueryReadClientFactory;
     private final Optional<Integer> parallelism;
     private final boolean viewEnabled;
+    private final boolean arrowSerializationEnabled;
     private final Duration viewExpiration;
     private final NodeManager nodeManager;
     private final int maxReadRowsRetries;
@@ -83,6 +84,7 @@ public class BigQuerySplitManager
         this.bigQueryReadClientFactory = requireNonNull(bigQueryReadClientFactory, "bigQueryReadClientFactory cannot be null");
         this.parallelism = config.getParallelism();
         this.viewEnabled = config.isViewsEnabled();
+        this.arrowSerializationEnabled = config.isArrowSerializationEnabled();
         this.viewExpiration = config.getViewExpireDuration();
         this.nodeManager = requireNonNull(nodeManager, "nodeManager cannot be null");
         this.maxReadRowsRetries = config.getMaxReadRowsRetries();
@@ -141,11 +143,11 @@ public class BigQuerySplitManager
         if (isSkipViewMaterialization(session) && type == VIEW) {
             return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
         }
-        ReadSession readSession = new ReadSessionCreator(bigQueryClientFactory, bigQueryReadClientFactory, viewEnabled, viewExpiration, maxReadRowsRetries)
-                .create(session, remoteTableId, projectedColumnsNames, filter, actualParallelism);
+        ReadSessionCreator readSessionCreator = new ReadSessionCreator(bigQueryClientFactory, bigQueryReadClientFactory, viewEnabled, arrowSerializationEnabled, viewExpiration, maxReadRowsRetries);
+        ReadSession readSession = readSessionCreator.create(session, remoteTableId, projectedColumnsNames, filter, actualParallelism);
 
         return readSession.getStreamsList().stream()
-                .map(stream -> BigQuerySplit.forStream(stream.getName(), readSession.getAvroSchema().getSchema(), columns, OptionalInt.of(stream.getSerializedSize())))
+                .map(stream -> BigQuerySplit.forStream(stream.getName(), readSessionCreator.getSchemaAsString(readSession), columns, OptionalInt.of(stream.getSerializedSize())))
                 .collect(toImmutableList());
     }
 

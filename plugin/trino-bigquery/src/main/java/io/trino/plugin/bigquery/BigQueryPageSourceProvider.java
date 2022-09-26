@@ -42,6 +42,7 @@ public class BigQueryPageSourceProvider
     private final BigQueryClientFactory bigQueryClientFactory;
     private final BigQueryReadClientFactory bigQueryReadClientFactory;
     private final int maxReadRowsRetries;
+    private final boolean arrowSerializationEnabled;
 
     @Inject
     public BigQueryPageSourceProvider(BigQueryClientFactory bigQueryClientFactory, BigQueryReadClientFactory bigQueryReadClientFactory, BigQueryConfig config)
@@ -49,6 +50,7 @@ public class BigQueryPageSourceProvider
         this.bigQueryClientFactory = requireNonNull(bigQueryClientFactory, "bigQueryClientFactory is null");
         this.bigQueryReadClientFactory = requireNonNull(bigQueryReadClientFactory, "bigQueryReadClientFactory is null");
         this.maxReadRowsRetries = config.getMaxReadRowsRetries();
+        this.arrowSerializationEnabled = config.isArrowSerializationEnabled();
     }
 
     @Override
@@ -93,7 +95,18 @@ public class BigQueryPageSourceProvider
 
     private ConnectorPageSource createStoragePageSource(ConnectorSession session, BigQuerySplit split, List<BigQueryColumnHandle> columnHandles)
     {
-        return new BigQueryStoragePageSource(bigQueryReadClientFactory.create(session), maxReadRowsRetries, split, columnHandles);
+        if (arrowSerializationEnabled) {
+            return new BigQueryStorageArrowPageSource(
+                    bigQueryReadClientFactory.create(session),
+                    maxReadRowsRetries,
+                    split,
+                    columnHandles);
+        }
+        return new BigQueryStorageAvroPageSource(
+                bigQueryReadClientFactory.create(session),
+                maxReadRowsRetries,
+                split,
+                columnHandles);
     }
 
     private ConnectorPageSource createQueryPageSource(ConnectorSession session, BigQueryTableHandle table, List<BigQueryColumnHandle> columnHandles, Optional<String> filter)

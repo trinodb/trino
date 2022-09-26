@@ -14,13 +14,11 @@
 package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
@@ -51,7 +49,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * @see <a href="https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types">BigQuery data types</a>
  */
-public class TestBigQueryTypeMapping
+public abstract class BaseBigQueryTypeMapping
         extends AbstractTestQueryFramework
 {
     private BigQueryQueryRunner.BigQuerySqlExecutor bigQuerySqlExecutor;
@@ -60,16 +58,6 @@ public class TestBigQueryTypeMapping
     public void initBigQueryExecutor()
     {
         bigQuerySqlExecutor = new BigQueryQueryRunner.BigQuerySqlExecutor();
-    }
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return BigQueryQueryRunner.createQueryRunner(
-                ImmutableMap.of(),
-                ImmutableMap.of("bigquery.skip-view-materialization", "true"),
-                ImmutableList.of());
     }
 
     @Test
