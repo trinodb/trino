@@ -128,7 +128,7 @@ public class ParquetPageSource
     @Override
     public Metrics getMetrics()
     {
-        return new Metrics(parquetReader.getCodecMetrics());
+        return parquetReader.getMetrics();
     }
 
     private Page getColumnAdaptationsPage(Page page)
