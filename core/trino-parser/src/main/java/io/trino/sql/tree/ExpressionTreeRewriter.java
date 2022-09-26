@@ -492,14 +492,22 @@ public final class ExpressionTreeRewriter<C>
 
             List<Expression> arguments = rewrite(node.getArguments(), context);
 
+            Optional<OrderBy> orderBy = node.getOrderBy();
+            if (orderBy.isPresent()) {
+                OrderBy rewrittenOrderBy = rewriteOrderBy(orderBy.get(), context);
+                if (rewrittenOrderBy != orderBy.get()) {
+                    orderBy = Optional.of(rewrittenOrderBy);
+                }
+            }
+
             if (!sameElements(node.getArguments(), arguments) || !sameElements(window, node.getWindow())
-                    || !sameElements(filter, node.getFilter())) {
+                    || !sameElements(filter, node.getFilter()) || !sameElements(orderBy, node.getOrderBy())) {
                 return new FunctionCall(
                         node.getLocation(),
                         node.getName(),
                         window,
                         filter,
-                        node.getOrderBy().map(orderBy -> rewriteOrderBy(orderBy, context)),
+                        orderBy,
                         node.isDistinct(),
                         node.getNullTreatment(),
                         node.getProcessingMode(),
