@@ -76,6 +76,6 @@ public class TestArrayFunctions
 
         assertThatThrownBy(() -> assertions.expression("CONCAT(" + Joiner.on(", ").join(nCopies(128, "array[1]")) + ")").evaluate())
                 .isInstanceOf(TrinoException.class)
-                .hasMessage("line 1:8: Too many arguments for function call concat()");
+                .hasMessage("line 1:12: Too many arguments for function call concat()");
     }
 }

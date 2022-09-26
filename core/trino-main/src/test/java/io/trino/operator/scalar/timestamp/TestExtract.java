@@ -326,7 +326,7 @@ public class TestExtract
     {
         assertThatThrownBy(() -> assertions.expression("EXTRACT(MILLISECOND FROM TIMESTAMP '2020-05-10 12:34:56')").evaluate())
                 .isInstanceOf(ParsingException.class)
-                .hasMessage("line 1:8: Invalid EXTRACT field: MILLISECOND");
+                .hasMessage("line 1:12: Invalid EXTRACT field: MILLISECOND");
 
         assertThat(assertions.expression("millisecond(TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '0'");
         assertThat(assertions.expression("millisecond(TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '100'");
@@ -480,7 +480,7 @@ public class TestExtract
     {
         assertThatThrownBy(() -> assertions.expression("EXTRACT(WEEK_OF_YEAR FROM TIMESTAMP '2020-05-10 12:34:56')").evaluate())
                 .isInstanceOf(ParsingException.class)
-                .hasMessage("line 1:8: Invalid EXTRACT field: WEEK_OF_YEAR");
+                .hasMessage("line 1:12: Invalid EXTRACT field: WEEK_OF_YEAR");
 
         assertThat(assertions.expression("week_of_year(TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '19'");
         assertThat(assertions.expression("week_of_year(TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '19'");

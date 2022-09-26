@@ -590,7 +590,7 @@ public class QueryAssertions
         public Result evaluate()
         {
             if (bindings.isEmpty()) {
-                return run("VALUES %s".formatted(expression));
+                return run("VALUES ROW(%s)".formatted(expression));
             }
             else {
                 List<Map.Entry<String, String>> entries = ImmutableList.copyOf(bindings.entrySet());
@@ -610,7 +610,7 @@ public class QueryAssertions
                 Result full = run("""
                         SELECT %s
                         FROM (
-                            VALUES (%s)
+                            VALUES ROW(%s)
                         ) t(%s)
                         WHERE rand() >= 0
                         """
@@ -622,7 +622,7 @@ public class QueryAssertions
                 Result withConstantFolding = run("""
                         SELECT %s
                         FROM (
-                            VALUES (%s)
+                            VALUES ROW(%s)
                         ) t(%s)
                         """
                         .formatted(
