@@ -116,8 +116,6 @@ import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.isLongDecimal;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -473,15 +471,14 @@ public final class IcebergUtil
             if (type.equals(UuidType.UUID)) {
                 return javaUuidToTrinoUuid(UUID.fromString(valueString));
             }
-            if (isShortDecimal(type) || isLongDecimal(type)) {
-                DecimalType decimalType = (DecimalType) type;
+            if (type instanceof DecimalType decimalType) {
                 BigDecimal decimal = new BigDecimal(valueString);
                 decimal = decimal.setScale(decimalType.getScale(), BigDecimal.ROUND_UNNECESSARY);
                 if (decimal.precision() > decimalType.getPrecision()) {
                     throw new IllegalArgumentException();
                 }
                 BigInteger unscaledValue = decimal.unscaledValue();
-                return isShortDecimal(type) ? unscaledValue.longValue() : Int128.valueOf(unscaledValue);
+                return decimalType.isShort() ? unscaledValue.longValue() : Int128.valueOf(unscaledValue);
             }
         }
         catch (IllegalArgumentException e) {

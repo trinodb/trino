@@ -27,7 +27,6 @@ import java.util.UUID;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 
 public final class IcebergTypes
@@ -62,7 +61,7 @@ public final class IcebergTypes
         }
         if (icebergType instanceof Types.DecimalType icebergDecimalType) {
             DecimalType trinoDecimalType = DecimalType.createDecimalType(icebergDecimalType.precision(), icebergDecimalType.scale());
-            if (isShortDecimal(trinoDecimalType)) {
+            if (trinoDecimalType.isShort()) {
                 return Decimals.encodeShortScaledValue((BigDecimal) value, trinoDecimalType.getScale());
             }
             return Decimals.encodeScaledValue((BigDecimal) value, trinoDecimalType.getScale());

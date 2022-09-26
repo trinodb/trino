@@ -390,11 +390,11 @@ public final class MetastoreUtil
             Slice slice = (Slice) value;
             return slice.toStringUtf8();
         }
-        if (type instanceof DecimalType && !((DecimalType) type).isShort()) {
-            return Decimals.toString((Int128) value, ((DecimalType) type).getScale());
+        if (type instanceof DecimalType decimalType && !decimalType.isShort()) {
+            return Decimals.toString((Int128) value, decimalType.getScale());
         }
-        if (type instanceof DecimalType && ((DecimalType) type).isShort()) {
-            return Decimals.toString((long) value, ((DecimalType) type).getScale());
+        if (type instanceof DecimalType decimalType && decimalType.isShort()) {
+            return Decimals.toString((long) value, decimalType.getScale());
         }
         if (type instanceof DateType) {
             DateTimeFormatter dateTimeFormatter = ISODateTimeFormat.date().withZoneUTC();
