@@ -18,15 +18,18 @@ import com.google.common.primitives.Floats;
 import io.airlift.stats.QuantileDigest;
 import io.trino.block.BlockAssertions;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.StandardTypes;
 import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.query.QueryAssertions;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -55,13 +58,30 @@ import static java.lang.Double.NaN;
 import static java.lang.Integer.max;
 import static java.lang.Integer.min;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestQuantileDigestAggregationFunction
-        extends AbstractTestFunctions
 {
     private static final Joiner ARRAY_JOINER = Joiner.on(",");
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
     private static final QualifiedName NAME = QualifiedName.of("qdigest_agg");
+
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
 
     @Test
     public void testDoublesWithWeights()
@@ -339,14 +359,14 @@ public class TestQuantileDigestAggregationFunction
         Number upperBound = getUpperBound(error, rows, percentile);
 
         // Check that the chosen quantile is within the upper and lower bound of the error
-        functionAssertions.assertFunction(
-                format("value_at_quantile(CAST(X'%s' AS qdigest(%s)), %s) >= %s", binary.toString().replaceAll("\\s+", " "), type, percentile, lowerBound),
-                BOOLEAN,
-                true);
-        functionAssertions.assertFunction(
-                format("value_at_quantile(CAST(X'%s' AS qdigest(%s)), %s) <= %s", binary.toString().replaceAll("\\s+", " "), type, percentile, upperBound),
-                BOOLEAN,
-                true);
+        assertThat(assertions.expression(
+                        format("value_at_quantile(CAST(a AS qdigest(%s)), %s) >= %s", type, percentile, lowerBound))
+                .binding("a", "X'%s'".formatted(binary.toString().replaceAll("\\s+", " "))))
+                .isEqualTo(true);
+        assertThat(assertions.expression(
+                        format("value_at_quantile(CAST(a AS qdigest(%s)), %s) <= %s", type, percentile, upperBound))
+                .binding("a", "X'%s'".formatted(binary.toString().replaceAll("\\s+", " "))))
+                .isEqualTo(true);
     }
 
     private void assertPercentilesWithinError(String type, SqlVarbinary binary, double error, List<? extends Number> rows, double[] percentiles)
@@ -356,26 +376,26 @@ public class TestQuantileDigestAggregationFunction
         List<Number> upperBounds = boxedPercentiles.stream().map(percentile -> getUpperBound(error, rows, percentile)).collect(toImmutableList());
 
         // Ensure that the lower bound of each item in the distribution is not greater than the chosen quantiles
-        functionAssertions.assertFunction(
-                format(
-                        "zip_with(values_at_quantiles(CAST(X'%s' AS qdigest(%s)), ARRAY[%s]), ARRAY[%s], (value, lowerbound) -> value >= lowerbound)",
-                        binary.toString().replaceAll("\\s+", " "),
-                        type,
-                        ARRAY_JOINER.join(boxedPercentiles),
-                        ARRAY_JOINER.join(lowerBounds)),
-                new ArrayType(BOOLEAN),
-                Collections.nCopies(percentiles.length, true));
+        assertThat(assertions.expression(
+                        format(
+                                "zip_with(values_at_quantiles(CAST(a AS qdigest(%s)), ARRAY[%s]), ARRAY[%s], (value, lowerbound) -> value >= lowerbound)",
+                                type,
+                                ARRAY_JOINER.join(boxedPercentiles),
+                                ARRAY_JOINER.join(lowerBounds)))
+                .binding("a", "X'%s'".formatted(binary.toString().replaceAll("\\s+", " "))))
+                .hasType(new ArrayType(BOOLEAN))
+                .isEqualTo(Collections.nCopies(percentiles.length, true));
 
         // Ensure that the upper bound of each item in the distribution is not less than the chosen quantiles
-        functionAssertions.assertFunction(
-                format(
-                        "zip_with(values_at_quantiles(CAST(X'%s' AS qdigest(%s)), ARRAY[%s]), ARRAY[%s], (value, upperbound) -> value <= upperbound)",
-                        binary.toString().replaceAll("\\s+", " "),
-                        type,
-                        ARRAY_JOINER.join(boxedPercentiles),
-                        ARRAY_JOINER.join(upperBounds)),
-                new ArrayType(BOOLEAN),
-                Collections.nCopies(percentiles.length, true));
+        assertThat(assertions.expression(
+                        format(
+                                "zip_with(values_at_quantiles(CAST(a AS qdigest(%s)), ARRAY[%s]), ARRAY[%s], (value, upperbound) -> value <= upperbound)",
+                                type,
+                                ARRAY_JOINER.join(boxedPercentiles),
+                                ARRAY_JOINER.join(upperBounds)))
+                .binding("a", "X'%s'".formatted(binary.toString().replaceAll("\\s+", " "))))
+                .hasType(new ArrayType(BOOLEAN))
+                .isEqualTo(Collections.nCopies(percentiles.length, true));
     }
 
     private Number getLowerBound(double error, List<? extends Number> rows, double percentile)
