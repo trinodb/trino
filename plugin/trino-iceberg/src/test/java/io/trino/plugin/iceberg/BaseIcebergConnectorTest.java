@@ -64,6 +64,7 @@ import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -5793,11 +5794,15 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test(dataProvider = "partitionedAndBucketedProvider")
-    public void testMergeUpdateWithVariousLayouts(String partitionPhase)
+    public void testMergeUpdateWithVariousLayouts(int writers, String partioning)
     {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(TASK_WRITER_COUNT, String.valueOf(writers))
+                .build();
+
         String targetTable = "merge_formats_target_" + randomTableSuffix();
         String sourceTable = "merge_formats_source_" + randomTableSuffix();
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) %s", targetTable, partitionPhase));
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) %s", targetTable, partioning));
 
         assertUpdate(format("INSERT INTO %s (customer, purchase) VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')", targetTable), 3);
         assertQuery("SELECT * FROM " + targetTable, "VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')");
@@ -5811,7 +5816,7 @@ public abstract class BaseIcebergConnectorTest
                 "    WHEN MATCHED THEN UPDATE SET customer = CONCAT(t.customer, '_', s.customer)" +
                 "    WHEN NOT MATCHED THEN INSERT (customer, purchase) VALUES(s.customer, s.purchase)";
 
-        assertUpdate(sql, 3);
+        assertUpdate(session, sql, 3);
 
         assertQuery("SELECT * FROM " + targetTable, "VALUES ('Dave', 'dates'), ('Carol_Craig', 'candles'), ('Joe', 'jellybeans')");
         assertUpdate("DROP TABLE " + sourceTable);
@@ -5821,17 +5826,31 @@ public abstract class BaseIcebergConnectorTest
     @DataProvider
     public Object[][] partitionedAndBucketedProvider()
     {
-        return new Object[][] {
-                {"WITH (partitioning = ARRAY['customer'])"},
-                {"WITH (partitioning = ARRAY['purchase'])"},
-                {"WITH (partitioning = ARRAY['bucket(customer, 3)'])"},
-                {"WITH (partitioning = ARRAY['bucket(purchase, 4)'])"},
-        };
+        List<Integer> writerCounts = ImmutableList.of(1, 4);
+        List<String> partitioningTypes = ImmutableList.<String>builder()
+                .add("")
+                .add("WITH (partitioning = ARRAY['customer'])")
+                .add("WITH (partitioning = ARRAY['purchase'])")
+                .add("WITH (partitioning = ARRAY['bucket(customer, 3)'])")
+                .add("WITH (partitioning = ARRAY['bucket(purchase, 4)'])")
+                .build();
+
+        List<Object[]> data = new ArrayList<>();
+        for (int writers : writerCounts) {
+            for (String partitioning : partitioningTypes) {
+                data.add(new Object[] {writers, partitioning});
+            }
+        }
+        return data.toArray(Object[][]::new);
     }
 
     @Test(dataProvider = "partitionedAndBucketedProvider")
-    public void testMergeMultipleOperations(String partitioning)
+    public void testMergeMultipleOperations(int writers, String partitioning)
     {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(TASK_WRITER_COUNT, String.valueOf(writers))
+                .build();
+
         int targetCustomerCount = 32;
         String targetTable = "merge_multiple_" + randomTableSuffix();
         assertUpdate(format("CREATE TABLE %s (purchase INT, zipcode INT, spouse VARCHAR, address VARCHAR, customer VARCHAR) %s", targetTable, partitioning));
@@ -5848,7 +5867,8 @@ public abstract class BaseIcebergConnectorTest
                 .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jill_%s', '%s Eop Ct')", intValue, 3000, 83000, intValue, intValue))
                 .collect(joining(", "));
 
-        assertUpdate(format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, firstMergeSource) +
+        assertUpdate(session,
+                format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, firstMergeSource) +
                         "    ON t.customer = s.customer" +
                         "    WHEN MATCHED THEN UPDATE SET purchase = s.purchase, zipcode = s.zipcode, spouse = s.spouse, address = s.address",
                 targetCustomerCount / 2);
@@ -5867,7 +5887,8 @@ public abstract class BaseIcebergConnectorTest
                 .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jen_%s', '%s Poe Ct')", intValue, 5000, 85000, intValue, intValue))
                 .collect(joining(", "));
 
-        assertUpdate(format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, secondMergeSource) +
+        assertUpdate(session,
+                format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, secondMergeSource) +
                         "    ON t.customer = s.customer" +
                         "    WHEN MATCHED AND t.zipcode = 91000 THEN DELETE" +
                         "    WHEN MATCHED AND s.zipcode = 85000 THEN UPDATE SET zipcode = 60000" +
