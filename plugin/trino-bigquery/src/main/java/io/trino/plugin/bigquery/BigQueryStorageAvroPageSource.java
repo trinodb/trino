@@ -76,10 +76,10 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class BigQueryStoragePageSource
+public class BigQueryStorageAvroPageSource
         implements ConnectorPageSource
 {
-    private static final Logger log = Logger.get(BigQueryStoragePageSource.class);
+    private static final Logger log = Logger.get(BigQueryStorageAvroPageSource.class);
 
     private static final AvroDecimalConverter DECIMAL_CONVERTER = new AvroDecimalConverter();
 
@@ -91,7 +91,7 @@ public class BigQueryStoragePageSource
     private final PageBuilder pageBuilder;
     private final Iterator<ReadRowsResponse> responses;
 
-    public BigQueryStoragePageSource(
+    public BigQueryStorageAvroPageSource(
             BigQueryReadClient bigQueryReadClient,
             int maxReadRowsRetries,
             BigQuerySplit split,
@@ -301,7 +301,7 @@ public class BigQueryStoragePageSource
         byte[] buffer = response.getAvroRows().getSerializedBinaryRows().toByteArray();
         readBytes.addAndGet(buffer.length);
         log.debug("Read %d bytes (total %d) from %s", buffer.length, readBytes.get(), split.getStreamName());
-        Schema avroSchema = new Schema.Parser().parse(split.getAvroSchema());
+        Schema avroSchema = new Schema.Parser().parse(split.getSchema());
         return () -> new AvroBinaryIterator(avroSchema, buffer);
     }
 
