@@ -107,10 +107,10 @@ public class TestTimestampWithTimeZone
                 .isEqualTo(timestampWithTimeZone(12, 2020, 5, 1, 12, 34, 56, 123_456_789_012L, getTimeZoneKey("Asia/Kathmandu")));
 
         assertThatThrownBy(() -> assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567890123 Asia/Kathmandu'").evaluate())
-                .hasMessage("line 1:8: TIMESTAMP WITH TIME ZONE precision must be in range [0, 12]: 13");
+                .hasMessage("line 1:12: TIMESTAMP WITH TIME ZONE precision must be in range [0, 12]: 13");
 
         assertThatThrownBy(() -> assertions.expression("TIMESTAMP '2020-13-01 Asia/Kathmandu'").evaluate())
-                .hasMessage("line 1:8: '2020-13-01 Asia/Kathmandu' is not a valid timestamp literal");
+                .hasMessage("line 1:12: '2020-13-01 Asia/Kathmandu' is not a valid timestamp literal");
 
         // negative epoch
         assertThat(assertions.expression("TIMESTAMP '1500-05-01 12:34:56 Asia/Kathmandu'"))
