@@ -213,7 +213,6 @@ public class TestColumnReader
                     UNCOMPRESSED,
                     new LinkedList<>(),
                     null,
-                    null,
                     pagesRowCount(pageRowRanges));
             this.pageRowRanges = new LinkedList<>(pageRowRanges);
         }
