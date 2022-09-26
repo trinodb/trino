@@ -13,32 +13,45 @@
  */
 package io.trino.plugin.hive;
 
+import io.trino.spi.expression.FunctionName;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ColumnStatisticType;
 
-import static java.util.Objects.requireNonNull;
+import java.util.Optional;
 
 public enum HiveColumnStatisticType
 {
-    MIN_VALUE(ColumnStatisticType.MIN_VALUE),
-    MAX_VALUE(ColumnStatisticType.MAX_VALUE),
-    NUMBER_OF_DISTINCT_VALUES(ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES),
-    NUMBER_OF_NON_NULL_VALUES(ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES),
-    NUMBER_OF_TRUE_VALUES(ColumnStatisticType.NUMBER_OF_TRUE_VALUES),
+    MIN_VALUE(new FunctionName("min")),
+    MAX_VALUE(new FunctionName("max")),
+    NUMBER_OF_DISTINCT_VALUES(new FunctionName("approx_distinct")),
+    NUMBER_OF_NON_NULL_VALUES(new FunctionName("count")),
+    NUMBER_OF_TRUE_VALUES(new FunctionName("count_if")),
     MAX_VALUE_SIZE_IN_BYTES(ColumnStatisticType.MAX_VALUE_SIZE_IN_BYTES),
     TOTAL_SIZE_IN_BYTES(ColumnStatisticType.TOTAL_SIZE_IN_BYTES),
     /**/;
 
-    private final ColumnStatisticType columnStatisticType;
+    private final Optional<ColumnStatisticType> columnStatisticType;
+    private final Optional<FunctionName> aggregationName;
 
     HiveColumnStatisticType(ColumnStatisticType columnStatisticType)
     {
-        this.columnStatisticType = requireNonNull(columnStatisticType, "columnStatisticType is null");
+        this.columnStatisticType = Optional.of(columnStatisticType);
+        this.aggregationName = Optional.empty();
+    }
+
+    HiveColumnStatisticType(FunctionName aggregationName)
+    {
+        this.columnStatisticType = Optional.empty();
+        this.aggregationName = Optional.of(aggregationName);
     }
 
     public ColumnStatisticMetadata createColumnStatisticMetadata(String columnName)
     {
-        return new ColumnStatisticMetadata(columnName, name(), columnStatisticType);
+        String connectorAggregationId = name();
+        if (columnStatisticType.isPresent()) {
+            return new ColumnStatisticMetadata(columnName, connectorAggregationId, columnStatisticType.get());
+        }
+        return new ColumnStatisticMetadata(columnName, connectorAggregationId, aggregationName.orElseThrow());
     }
 
     public static HiveColumnStatisticType from(ColumnStatisticMetadata columnStatisticMetadata)
