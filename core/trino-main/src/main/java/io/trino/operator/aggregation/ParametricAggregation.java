@@ -33,6 +33,7 @@ import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDec
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.Signature;
+import org.apache.bval.util.StringUtils;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;
@@ -59,17 +60,19 @@ public class ParametricAggregation
             Signature signature,
             AggregationHeader details,
             List<AccumulatorStateDetails<?>> stateDetails,
-            ParametricImplementationsGroup<ParametricAggregationImplementation> implementations)
+            ParametricImplementationsGroup<ParametricAggregationImplementation> implementations,
+            String jarName,
+            String jarUrl)
     {
         super(
-                createFunctionMetadata(signature, details, implementations.getFunctionNullability()),
+                createFunctionMetadata(signature, details, implementations.getFunctionNullability(), jarName, jarUrl),
                 createAggregationFunctionMetadata(details, stateDetails));
         this.stateDetails = ImmutableList.copyOf(requireNonNull(stateDetails, "stateDetails is null"));
         checkArgument(implementations.getFunctionNullability().isReturnNullable(), "currently aggregates are required to be nullable");
         this.implementations = requireNonNull(implementations, "implementations is null");
     }
 
-    private static FunctionMetadata createFunctionMetadata(Signature signature, AggregationHeader details, FunctionNullability functionNullability)
+    private static FunctionMetadata createFunctionMetadata(Signature signature, AggregationHeader details, FunctionNullability functionNullability, String jarName, String jarUrl)
     {
         FunctionMetadata.Builder functionMetadata = FunctionMetadata.aggregateBuilder()
                 .signature(signature)
@@ -91,6 +94,12 @@ public class ParametricAggregation
 
         if (functionNullability.isReturnNullable()) {
             functionMetadata.nullable();
+        }
+        if (!StringUtils.isBlank(jarName)) {
+            functionMetadata.namespace(jarName);
+        }
+        if (!StringUtils.isBlank(jarUrl)) {
+            functionMetadata.url(jarUrl);
         }
         functionMetadata.argumentNullability(functionNullability.getArgumentNullable());
 

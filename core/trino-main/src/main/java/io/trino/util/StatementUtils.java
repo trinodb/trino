@@ -16,6 +16,7 @@ package io.trino.util;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.trino.execution.AddColumnTask;
+import io.trino.execution.AddJarTask;
 import io.trino.execution.CallTask;
 import io.trino.execution.CommentTask;
 import io.trino.execution.CommitTask;
@@ -28,6 +29,7 @@ import io.trino.execution.DataDefinitionTask;
 import io.trino.execution.DeallocateTask;
 import io.trino.execution.DenyTask;
 import io.trino.execution.DropColumnTask;
+import io.trino.execution.DropJarTask;
 import io.trino.execution.DropMaterializedViewTask;
 import io.trino.execution.DropRoleTask;
 import io.trino.execution.DropSchemaTask;
@@ -58,6 +60,7 @@ import io.trino.execution.TruncateTableTask;
 import io.trino.execution.UseTask;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.sql.tree.AddColumn;
+import io.trino.sql.tree.AddJar;
 import io.trino.sql.tree.Analyze;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.Comment;
@@ -74,6 +77,7 @@ import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.DropColumn;
+import io.trino.sql.tree.DropJar;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropRole;
 import io.trino.sql.tree.DropSchema;
@@ -221,6 +225,8 @@ public final class StatementUtils
             .add(dataDefinitionStatement(SetViewAuthorization.class, SetViewAuthorizationTask.class))
             .add(dataDefinitionStatement(StartTransaction.class, StartTransactionTask.class))
             .add(dataDefinitionStatement(Use.class, UseTask.class))
+            .add(dataDefinitionStatement(DropJar.class, DropJarTask.class))
+            .add(dataDefinitionStatement(AddJar.class, AddJarTask.class))
             .build().stream()
             .collect(toImmutableMap(StatementTypeInfo::getStatementType, identity()));
 

@@ -29,10 +29,12 @@ import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.planprinter.PlanPrinter;
+import io.trino.sql.tree.AddJar;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateView;
+import io.trino.sql.tree.DropJar;
 import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.ExplainType.Type;
 import io.trino.sql.tree.Expression;
@@ -205,6 +207,12 @@ public class QueryExplainer
         }
         if (statement instanceof Prepare) {
             return Optional.of("PREPARE " + ((Prepare) statement).getName());
+        }
+        if (statement instanceof DropJar) {
+            return Optional.of("DROP JAR " + ((DropJar) statement).getJarName());
+        }
+        if (statement instanceof AddJar) {
+            return Optional.of("ADD JAR " + ((AddJar) statement).getJarName());
         }
 
         StringBuilder builder = new StringBuilder();

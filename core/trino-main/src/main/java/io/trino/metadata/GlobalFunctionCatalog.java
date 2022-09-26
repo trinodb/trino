@@ -13,9 +13,8 @@
  */
 package io.trino.metadata;
 
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.AggregationImplementation;
@@ -37,6 +36,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -71,6 +71,11 @@ public class GlobalFunctionCatalog
             }
         }
         this.functions = new FunctionMap(this.functions, functionBundle);
+    }
+
+    public final synchronized void dropFunctions(List<String> functionIds)
+    {
+        functionIds.forEach(functionId -> this.functions.removeFunction(functionId));
     }
 
     /**
@@ -181,30 +186,28 @@ public class GlobalFunctionCatalog
 
         public FunctionMap()
         {
-            functionBundlesById = ImmutableMap.of();
-            functionsById = ImmutableMap.of();
-            functionsByLowerCaseName = ImmutableListMultimap.of();
+            functionBundlesById = new HashMap<>();
+            functionsById = new HashMap<>();
+            functionsByLowerCaseName = ArrayListMultimap.create();
         }
 
         public FunctionMap(FunctionMap map, FunctionBundle functionBundle)
         {
-            this.functionBundlesById = ImmutableMap.<FunctionId, FunctionBundle>builder()
-                    .putAll(map.functionBundlesById)
-                    .putAll(functionBundle.getFunctions().stream()
-                            .collect(toImmutableMap(FunctionMetadata::getFunctionId, functionMetadata -> functionBundle)))
-                    .buildOrThrow();
+            functionBundlesById = new HashMap<>();
+            functionBundlesById.putAll(map.functionBundlesById);
+            functionBundlesById.putAll(functionBundle.getFunctions().stream()
+                    .collect(toImmutableMap(FunctionMetadata::getFunctionId, functionMetadata -> functionBundle)));
 
-            this.functionsById = ImmutableMap.<FunctionId, FunctionMetadata>builder()
-                    .putAll(map.functionsById)
-                    .putAll(functionBundle.getFunctions().stream()
-                            .collect(toImmutableMap(FunctionMetadata::getFunctionId, Function.identity())))
-                    .buildOrThrow();
+            functionsById = new HashMap<>();
+            functionsById.putAll(map.functionsById);
+            functionsById.putAll(functionBundle.getFunctions().stream()
+                    .collect(toImmutableMap(FunctionMetadata::getFunctionId, Function.identity())));
 
-            ImmutableListMultimap.Builder<String, FunctionMetadata> functionsByName = ImmutableListMultimap.<String, FunctionMetadata>builder()
-                    .putAll(map.functionsByLowerCaseName);
+            functionsByLowerCaseName = ArrayListMultimap.create();
+
+            functionsByLowerCaseName.putAll(map.functionsByLowerCaseName);
             functionBundle.getFunctions()
-                    .forEach(functionMetadata -> functionsByName.put(functionMetadata.getSignature().getName().toLowerCase(ENGLISH), functionMetadata));
-            this.functionsByLowerCaseName = functionsByName.build();
+                    .forEach(functionMetadata -> functionsByLowerCaseName.put(functionMetadata.getSignature().getName().toLowerCase(ENGLISH), functionMetadata));
 
             // Make sure all functions with the same name are aggregations or none of them are
             for (Map.Entry<String, Collection<FunctionMetadata>> entry : this.functionsByLowerCaseName.asMap().entrySet()) {
@@ -239,6 +242,16 @@ public class GlobalFunctionCatalog
             FunctionBundle functionBundle = functionBundlesById.get(functionId);
             checkArgument(functionBundle != null, "Unknown function implementation: " + functionId);
             return functionBundle;
+        }
+
+        public void removeFunction(String functionIdStr)
+        {
+            FunctionId functionId = new FunctionId(functionIdStr);
+            FunctionMetadata functionMetadata = get(functionId);
+
+            functionsByLowerCaseName.remove(functionMetadata.getSignature().getName(), functionMetadata);
+            functionsById.remove(functionId);
+            functionBundlesById.remove(functionId);
         }
     }
 }

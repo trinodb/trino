@@ -19,6 +19,7 @@ import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.WindowFunctionSupplier;
+import org.apache.bval.util.StringUtils;
 
 import java.util.Optional;
 
@@ -30,7 +31,7 @@ public class SqlWindowFunction
     private final WindowFunctionSupplier supplier;
     private final FunctionMetadata functionMetadata;
 
-    public SqlWindowFunction(Signature signature, Optional<String> description, boolean deprecated, WindowFunctionSupplier supplier)
+    public SqlWindowFunction(Signature signature, Optional<String> description, boolean deprecated, WindowFunctionSupplier supplier, String jarName, String jarUrl)
     {
         this.supplier = requireNonNull(supplier, "supplier is null");
         FunctionMetadata.Builder functionMetadata = FunctionMetadata.windowBuilder()
@@ -43,6 +44,12 @@ public class SqlWindowFunction
         }
         if (deprecated) {
             functionMetadata.deprecated();
+        }
+        if (!StringUtils.isBlank(jarName)) {
+            functionMetadata.namespace(jarName);
+        }
+        if (!StringUtils.isBlank(jarUrl)) {
+            functionMetadata.url(jarUrl);
         }
         this.functionMetadata = functionMetadata.build();
     }

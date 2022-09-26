@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.trino.sql.tree.AddColumn;
+import io.trino.sql.tree.AddJar;
 import io.trino.sql.tree.AliasedRelation;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.Analyze;
@@ -38,6 +39,7 @@ import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.DropColumn;
+import io.trino.sql.tree.DropJar;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropRole;
 import io.trino.sql.tree.DropSchema;
@@ -2036,6 +2038,30 @@ public final class SqlFormatter
                 append(indent, elements.get(elements.size() - 1))
                         .append("\n");
             }
+        }
+
+        @Override
+        protected Void visitAddJar(AddJar node, Integer indent)
+        {
+            builder.append("ADD JAR ");
+            if (node.isNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+            builder.append(formatStringLiteral(node.getJarName()));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitDropJar(DropJar node, Integer indent)
+        {
+            builder.append("DROP JAR ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatStringLiteral(node.getJarName()));
+
+            return null;
         }
     }
 

@@ -55,6 +55,7 @@ import io.trino.memory.LocalMemoryManager;
 import io.trino.metadata.AllNodes;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.FunctionBundle;
+import io.trino.metadata.FunctionJarDynamicManager;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.InternalNodeManager;
@@ -149,6 +150,7 @@ public class TestingTrinoServer
     private final QueryExplainer queryExplainer;
     private final SessionPropertyManager sessionPropertyManager;
     private final FunctionManager functionManager;
+    private final FunctionJarDynamicManager functionJarDynamicManager;
     private final GlobalFunctionCatalog globalFunctionCatalog;
     private final StatsCalculator statsCalculator;
     private final ProcedureRegistry procedureRegistry;
@@ -313,6 +315,7 @@ public class TestingTrinoServer
         metadata = injector.getInstance(Metadata.class);
         typeManager = injector.getInstance(TypeManager.class);
         functionManager = injector.getInstance(FunctionManager.class);
+        functionJarDynamicManager = injector.getInstance(FunctionJarDynamicManager.class);
         accessControl = injector.getInstance(TestingAccessControlManager.class);
         groupProvider = injector.getInstance(TestingGroupProvider.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
@@ -504,6 +507,11 @@ public class TestingTrinoServer
     public FunctionManager getFunctionManager()
     {
         return functionManager;
+    }
+
+    public FunctionJarDynamicManager getFunctionJarDynamicManager()
+    {
+        return functionJarDynamicManager;
     }
 
     public void addFunctions(FunctionBundle functionBundle)

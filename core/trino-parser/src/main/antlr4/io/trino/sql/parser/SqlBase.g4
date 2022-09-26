@@ -42,6 +42,9 @@ statement
     : query                                                            #statementDefault
     | USE schema=identifier                                            #use
     | USE catalog=identifier '.' schema=identifier                     #use
+    | ADD JAR (IF NOT EXISTS)? jarPath=string
+            (COMMENT string)?                                          #addJar
+    | DROP JAR (IF EXISTS)? jarName=string                             #dropJar
     | CREATE SCHEMA (IF NOT EXISTS)? qualifiedName
         (AUTHORIZATION principal)?
         (WITH properties)?                                             #createSchema
@@ -854,6 +857,7 @@ nonReserved
     | WINDOW | WITHIN | WITHOUT | WORK | WRAPPER | WRITE
     | YEAR
     | ZONE
+    | JAR
     ;
 
 ABSENT: 'ABSENT';
@@ -1127,6 +1131,7 @@ WRAPPER: 'WRAPPER';
 WRITE: 'WRITE';
 YEAR: 'YEAR';
 ZONE: 'ZONE';
+JAR: 'JAR';
 
 EQ: '=';
 NEQ: '<>' | '!=';

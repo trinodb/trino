@@ -68,6 +68,11 @@ public class FunctionId
         return id;
     }
 
+    public String getId()
+    {
+        return id;
+    }
+
     public static FunctionId toFunctionId(Signature signature)
     {
         return new FunctionId(signature.toString().toLowerCase(Locale.US));

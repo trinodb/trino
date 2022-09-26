@@ -121,6 +121,7 @@ import io.trino.sql.planner.ScopeAware;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.AddColumn;
+import io.trino.sql.tree.AddJar;
 import io.trino.sql.tree.AliasedRelation;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.AllRows;
@@ -141,6 +142,7 @@ import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.DropColumn;
+import io.trino.sql.tree.DropJar;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.DropTable;
@@ -1612,6 +1614,18 @@ class StatementAnalyzer
                     transactionHandle));
 
             return createAndAssignScope(node, scope, fields.build());
+        }
+
+        @Override
+        protected Scope visitAddJar(AddJar node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitDropJar(DropJar node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
         }
 
         private Optional<TableFunctionMetadata> resolveTableFunction(TableFunctionInvocation node)

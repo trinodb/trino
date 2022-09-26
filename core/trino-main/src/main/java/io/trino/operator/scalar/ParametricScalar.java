@@ -29,6 +29,7 @@ import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDec
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.Signature;
+import org.apache.bval.util.StringUtils;
 
 import java.util.Collection;
 import java.util.Optional;
@@ -49,13 +50,16 @@ public class ParametricScalar
             Signature signature,
             ScalarHeader details,
             ParametricImplementationsGroup<ParametricScalarImplementation> implementations,
-            boolean deprecated)
+            boolean deprecated,
+            String namespace,
+            String url)
     {
-        super(createFunctionMetadata(signature, details, deprecated, implementations.getFunctionNullability()));
+        super(createFunctionMetadata(signature, details, deprecated, implementations.getFunctionNullability(), namespace, url));
         this.implementations = requireNonNull(implementations);
     }
 
-    private static FunctionMetadata createFunctionMetadata(Signature signature, ScalarHeader details, boolean deprecated, FunctionNullability functionNullability)
+    private static FunctionMetadata createFunctionMetadata(Signature signature, ScalarHeader details, boolean deprecated,
+                                                           FunctionNullability functionNullability, String namespace, String url)
     {
         FunctionMetadata.Builder functionMetadata = FunctionMetadata.scalarBuilder()
                 .signature(signature);
@@ -81,6 +85,14 @@ public class ParametricScalar
             functionMetadata.nullable();
         }
         functionMetadata.argumentNullability(functionNullability.getArgumentNullable());
+
+        if (!StringUtils.isBlank(namespace)) {
+            functionMetadata.namespace(namespace);
+        }
+
+        if (!StringUtils.isBlank(url)) {
+            functionMetadata.url(url);
+        }
 
         return functionMetadata.build();
     }

@@ -210,49 +210,74 @@ public class InternalFunctionBundle
 
         public InternalFunctionBundleBuilder window(Class<? extends WindowFunction> clazz)
         {
-            functions.addAll(WindowAnnotationsParser.parseFunctionDefinition(clazz));
+            return window(clazz, "internal", "");
+        }
+
+        public InternalFunctionBundleBuilder window(Class<? extends WindowFunction> clazz, String jarName, String jarUrl)
+        {
+            functions.addAll(WindowAnnotationsParser.parseFunctionDefinition(clazz, jarName, jarUrl));
             return this;
         }
 
         public InternalFunctionBundleBuilder aggregates(Class<?> aggregationDefinition)
         {
-            functions.addAll(SqlAggregationFunction.createFunctionsByAnnotations(aggregationDefinition));
+            return aggregates(aggregationDefinition, "internal", "");
+        }
+
+        public InternalFunctionBundleBuilder aggregates(Class<?> aggregationDefinition, String jarName, String jarUrl)
+        {
+            functions.addAll(SqlAggregationFunction.createFunctionsByAnnotations(aggregationDefinition, jarName, jarUrl));
             return this;
         }
 
         public InternalFunctionBundleBuilder scalar(Class<?> clazz)
         {
-            functions.addAll(ScalarFromAnnotationsParser.parseFunctionDefinition(clazz));
+            return scalar(clazz, "internal", "");
+        }
+
+        public InternalFunctionBundleBuilder scalar(Class<?> clazz, String jarName, String jarUrl)
+        {
+            functions.addAll(ScalarFromAnnotationsParser.parseFunctionDefinition(clazz, jarName, jarUrl));
             return this;
         }
 
         public InternalFunctionBundleBuilder scalars(Class<?> clazz)
         {
-            functions.addAll(ScalarFromAnnotationsParser.parseFunctionDefinitions(clazz));
+            return scalars(clazz, "internal", "");
+        }
+
+        public InternalFunctionBundleBuilder scalars(Class<?> clazz, String jarName, String jarUrl)
+        {
+            functions.addAll(ScalarFromAnnotationsParser.parseFunctionDefinitions(clazz, jarName, jarUrl));
             return this;
         }
 
         public InternalFunctionBundleBuilder functions(Class<?> clazz)
         {
+            return functions(clazz, "internal", "");
+        }
+
+        public InternalFunctionBundleBuilder functions(Class<?> clazz, String jarName, String jarUrl)
+        {
             if (WindowFunction.class.isAssignableFrom(clazz)) {
                 @SuppressWarnings("unchecked")
                 Class<? extends WindowFunction> windowClazz = (Class<? extends WindowFunction>) clazz;
-                window(windowClazz);
+                window(windowClazz, jarName, jarUrl);
                 return this;
             }
 
             if (clazz.isAnnotationPresent(AggregationFunction.class)) {
-                aggregates(clazz);
+                aggregates(clazz, jarName, jarUrl);
                 return this;
             }
 
             if (clazz.isAnnotationPresent(ScalarFunction.class) ||
                     clazz.isAnnotationPresent(ScalarOperator.class)) {
-                scalar(clazz);
+                scalar(clazz, jarName, jarUrl);
                 return this;
             }
 
-            scalars(clazz);
+            scalars(clazz, jarName, jarUrl);
             return this;
         }
 

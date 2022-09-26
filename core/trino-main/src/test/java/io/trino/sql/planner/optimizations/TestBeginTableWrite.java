@@ -34,7 +34,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.function.Function;
 
-import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
+import static io.trino.execution.functions.TestFunctionManager.createTestingFunctionManager;
 import static io.trino.sql.planner.TypeProvider.empty;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;

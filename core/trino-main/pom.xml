@@ -313,6 +313,11 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.bval</groupId>
+            <artifactId>bval-jsr</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-math3</artifactId>
         </dependency>
@@ -322,7 +327,6 @@
             <artifactId>lucene-analyzers-common</artifactId>
             <version>8.4.1</version>
         </dependency>
-
         <dependency>
             <groupId>org.gaul</groupId>
             <artifactId>modernizer-maven-annotations</artifactId>

@@ -80,9 +80,11 @@ import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
 import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.metadata.FunctionBundle;
+import io.trino.metadata.FunctionJarDynamicManager;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.HandleResolver;
+import io.trino.metadata.InMemoryFunctionJarStore;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.InternalFunctionBundle;
@@ -266,6 +268,7 @@ public class LocalQueryRunner
     private final TypeRegistry typeRegistry;
     private final GlobalFunctionCatalog globalFunctionCatalog;
     private final FunctionManager functionManager;
+    private final FunctionJarDynamicManager functionJarDynamicManager;
     private final StatsCalculator statsCalculator;
     private final ScalarStatsCalculator scalarStatsCalculator;
     private final CostCalculator costCalculator;
@@ -370,6 +373,8 @@ public class LocalQueryRunner
         InternalBlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(blockEncodingManager, typeManager);
 
         this.globalFunctionCatalog = new GlobalFunctionCatalog();
+        InMemoryFunctionJarStore inMemoryFunctionJarStore = new InMemoryFunctionJarStore();
+        this.functionJarDynamicManager = new FunctionJarDynamicManager(globalFunctionCatalog, null, inMemoryFunctionJarStore);
         globalFunctionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(blockEncodingSerde)));
         globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(featuresConfig, typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion()));
         Metadata metadata = metadataProvider.getMetadata(
@@ -478,7 +483,8 @@ public class LocalQueryRunner
                 typeRegistry,
                 blockEncodingManager,
                 handleResolver,
-                exchangeManagerRegistry);
+                exchangeManagerRegistry,
+                functionJarDynamicManager);
 
         catalogManager.registerGlobalSystemConnector(globalSystemConnector);
 
@@ -643,6 +649,12 @@ public class LocalQueryRunner
     public FunctionManager getFunctionManager()
     {
         return functionManager;
+    }
+
+    @Override
+    public FunctionJarDynamicManager getFunctionJarDynamicManager()
+    {
+        return functionJarDynamicManager;
     }
 
     public TypeOperators getTypeOperators()

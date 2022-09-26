@@ -71,7 +71,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
+import static io.trino.execution.functions.TestFunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.aggregation.AggregationFromAnnotationsParser.parseFunctionDefinitions;
 import static io.trino.operator.aggregation.AggregationFromAnnotationsParser.toAccumulatorStateDetails;

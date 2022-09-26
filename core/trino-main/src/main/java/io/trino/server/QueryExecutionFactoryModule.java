@@ -19,6 +19,7 @@ import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
 import io.trino.execution.AddColumnTask;
+import io.trino.execution.AddJarTask;
 import io.trino.execution.CallTask;
 import io.trino.execution.CommentTask;
 import io.trino.execution.CommitTask;
@@ -32,6 +33,7 @@ import io.trino.execution.DataDefinitionTask;
 import io.trino.execution.DeallocateTask;
 import io.trino.execution.DenyTask;
 import io.trino.execution.DropColumnTask;
+import io.trino.execution.DropJarTask;
 import io.trino.execution.DropMaterializedViewTask;
 import io.trino.execution.DropRoleTask;
 import io.trino.execution.DropSchemaTask;
@@ -63,6 +65,7 @@ import io.trino.execution.StartTransactionTask;
 import io.trino.execution.TruncateTableTask;
 import io.trino.execution.UseTask;
 import io.trino.sql.tree.AddColumn;
+import io.trino.sql.tree.AddJar;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
@@ -74,6 +77,7 @@ import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.Deallocate;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DropColumn;
+import io.trino.sql.tree.DropJar;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropRole;
 import io.trino.sql.tree.DropSchema;
@@ -164,6 +168,8 @@ public class QueryExecutionFactoryModule
         bindDataDefinitionTask(binder, executionBinder, SetViewAuthorization.class, SetViewAuthorizationTask.class);
         bindDataDefinitionTask(binder, executionBinder, StartTransaction.class, StartTransactionTask.class);
         bindDataDefinitionTask(binder, executionBinder, Use.class, UseTask.class);
+        bindDataDefinitionTask(binder, executionBinder, DropJar.class, DropJarTask.class);
+        bindDataDefinitionTask(binder, executionBinder, AddJar.class, AddJarTask.class);
     }
 
     private static <T extends Statement> void bindDataDefinitionTask(

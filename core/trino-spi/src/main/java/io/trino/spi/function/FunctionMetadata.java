@@ -37,6 +37,9 @@ public class FunctionMetadata
     private final FunctionKind kind;
     private final boolean deprecated;
 
+    private final String namespace;
+    private final String url;
+
     private FunctionMetadata(
             FunctionId functionId,
             Signature signature,
@@ -46,7 +49,9 @@ public class FunctionMetadata
             boolean deterministic,
             String description,
             FunctionKind kind,
-            boolean deprecated)
+            boolean deprecated,
+            String namespace,
+            String url)
     {
         this.functionId = requireNonNull(functionId, "functionId is null");
         this.signature = requireNonNull(signature, "signature is null");
@@ -61,6 +66,8 @@ public class FunctionMetadata
         this.description = requireNonNull(description, "description is null");
         this.kind = requireNonNull(kind, "kind is null");
         this.deprecated = deprecated;
+        this.namespace = namespace;
+        this.url = url;
     }
 
     /**
@@ -119,6 +126,16 @@ public class FunctionMetadata
         return deprecated;
     }
 
+    public String getNamespace()
+    {
+        return namespace;
+    }
+
+    public String getUrl()
+    {
+        return url;
+    }
+
     @Override
     public String toString()
     {
@@ -157,6 +174,8 @@ public class FunctionMetadata
         private String description;
         private FunctionId functionId;
         private boolean deprecated;
+        private String namespace;
+        private String url;
 
         private Builder(FunctionKind kind)
         {
@@ -247,6 +266,18 @@ public class FunctionMetadata
             return this;
         }
 
+        public Builder namespace(String namespace)
+        {
+            this.namespace = namespace;
+            return this;
+        }
+
+        public Builder url(String url)
+        {
+            this.url = url;
+            return this;
+        }
+
         public FunctionMetadata build()
         {
             FunctionId functionId = this.functionId;
@@ -268,7 +299,9 @@ public class FunctionMetadata
                     deterministic,
                     description,
                     kind,
-                    deprecated);
+                    deprecated,
+                    namespace,
+                    url);
         }
     }
 }

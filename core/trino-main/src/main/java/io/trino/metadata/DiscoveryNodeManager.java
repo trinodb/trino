@@ -407,4 +407,9 @@ public final class DiscoveryNodeManager
     {
         return Boolean.parseBoolean(service.getProperties().get("coordinator"));
     }
+
+    public HttpClient getHttpClient()
+    {
+        return httpClient;
+    }
 }

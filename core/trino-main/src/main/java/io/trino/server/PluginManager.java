@@ -21,6 +21,8 @@ import io.trino.eventlistener.EventListenerManager;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.metadata.BlockEncodingManager;
+import io.trino.metadata.FunctionJar;
+import io.trino.metadata.FunctionJarDynamicManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InternalFunctionBundle;
@@ -50,6 +52,7 @@ import io.trino.spi.type.Type;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.io.File;
 import java.net.URL;
 import java.util.List;
 import java.util.Optional;
@@ -60,6 +63,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.metadata.FunctionJarDynamicManager.getJarNameBasedType;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
@@ -91,6 +96,7 @@ public class PluginManager
     private final BlockEncodingManager blockEncodingManager;
     private final HandleResolver handleResolver;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
+    private final FunctionJarDynamicManager functionJarDynamicManager;
 
     @Inject
     public PluginManager(
@@ -108,7 +114,8 @@ public class PluginManager
             TypeRegistry typeRegistry,
             BlockEncodingManager blockEncodingManager,
             HandleResolver handleResolver,
-            ExchangeManagerRegistry exchangeManagerRegistry)
+            ExchangeManagerRegistry exchangeManagerRegistry,
+            FunctionJarDynamicManager functionJarDynamicManager)
     {
         this.pluginsProvider = requireNonNull(pluginsProvider, "pluginsProvider is null");
         this.connectorFactory = requireNonNull(connectorFactory, "connectorFactory is null");
@@ -125,6 +132,7 @@ public class PluginManager
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
+        this.functionJarDynamicManager = requireNonNull(functionJarDynamicManager, "functionJarDynamicManager is null");
     }
 
     public void loadPlugins()
@@ -136,6 +144,12 @@ public class PluginManager
         pluginsProvider.loadPlugins(this::loadPlugin, PluginManager::createClassLoader);
 
         typeRegistry.verifyTypes();
+    }
+
+    public void loadFunctionsExcludedInstallPlugin()
+    {
+        //function file load
+        functionJarDynamicManager.getFunctionJarStore().getJars().forEach(jar -> functionJarDynamicManager.addJar(jar.getJarUrl(), true, false));
     }
 
     private void loadPlugin(String plugin, Supplier<PluginClassLoader> createClassLoader)
@@ -200,9 +214,18 @@ public class PluginManager
         Set<Class<?>> functions = plugin.getFunctions();
         if (!functions.isEmpty()) {
             log.info("Registering functions from %s", plugin.getClass().getSimpleName());
+            ClassLoader pluginClassLoader = plugin.getClass().getClassLoader();
+            String pluginClassFile = pluginClassLoader.getResource(plugin.getClass().getName().replace('.', '/') + ".class").getFile();
+            String jarUrl = pluginClassFile.substring(0, pluginClassFile.lastIndexOf("!"));
+            String jarFile = pluginClassFile.substring(pluginClassFile.indexOf(":") + 1, pluginClassFile.lastIndexOf("!"));
+            String jarName = getJarNameBasedType(jarFile);
+
             InternalFunctionBundleBuilder builder = InternalFunctionBundle.builder();
-            functions.forEach(builder::functions);
-            globalFunctionCatalog.addFunctions(builder.build());
+            functions.forEach(v -> builder.functions(v, jarName, jarUrl));
+            InternalFunctionBundle functionBundle = builder.build();
+            globalFunctionCatalog.addFunctions(functionBundle);
+            functionJarDynamicManager.getFunctionJarStore().addJar(
+                    new FunctionJar(jarFile, functionBundle.getFunctions().stream().map(v -> v.getFunctionId().getId()).collect(toImmutableList()), true));
         }
 
         for (SessionPropertyConfigurationManagerFactory sessionConfigFactory : plugin.getSessionPropertyConfigurationManagerFactories()) {
@@ -263,6 +286,8 @@ public class PluginManager
 
     public interface PluginsProvider
     {
+        default void loadFunctions(Loader loader, ClassLoaderFactory createClassLoader, File jarPath) {}
+
         void loadPlugins(Loader loader, ClassLoaderFactory createClassLoader);
 
         interface Loader

@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.metadata.FunctionBundle;
+import io.trino.metadata.FunctionJarDynamicManager;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
@@ -144,6 +145,12 @@ public final class StandaloneQueryRunner
     public FunctionManager getFunctionManager()
     {
         return server.getFunctionManager();
+    }
+
+    @Override
+    public FunctionJarDynamicManager getFunctionJarDynamicManager()
+    {
+        return server.getFunctionJarDynamicManager();
     }
 
     @Override

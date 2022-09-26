@@ -774,7 +774,9 @@ public final class ShowQueriesRewrite
                             new StringLiteral(Joiner.on(", ").join(function.getSignature().getArgumentTypes())),
                             new StringLiteral(getFunctionType(function)),
                             function.isDeterministic() ? TRUE_LITERAL : FALSE_LITERAL,
-                            new StringLiteral(nullToEmpty(function.getDescription()))))
+                            new StringLiteral(nullToEmpty(function.getDescription())),
+                            new StringLiteral(nullToEmpty(function.getNamespace())),
+                            new StringLiteral(nullToEmpty(function.getUrl()))))
                     .collect(toImmutableList());
 
             Map<String, String> columns = ImmutableMap.<String, String>builder()
@@ -784,6 +786,8 @@ public final class ShowQueriesRewrite
                     .put("function_type", "Function Type")
                     .put("deterministic", "Deterministic")
                     .put("description", "Description")
+                    .put("namespace", "Namespace")
+                    .put("url", "Url")
                     .buildOrThrow();
 
             return simpleQuery(

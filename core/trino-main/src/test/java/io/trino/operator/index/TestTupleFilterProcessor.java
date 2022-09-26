@@ -31,8 +31,8 @@ import java.util.OptionalInt;
 
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
+import static io.trino.execution.functions.TestFunctionManager.createTestingFunctionManager;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static io.trino.spi.type.BigintType.BIGINT;

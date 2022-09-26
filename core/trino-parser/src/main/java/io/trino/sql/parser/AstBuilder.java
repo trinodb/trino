@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.trino.sql.tree.AddColumn;
+import io.trino.sql.tree.AddJar;
 import io.trino.sql.tree.AliasedRelation;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.AllRows;
@@ -66,6 +67,7 @@ import io.trino.sql.tree.Descriptor;
 import io.trino.sql.tree.DescriptorField;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.DropColumn;
+import io.trino.sql.tree.DropJar;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropRole;
 import io.trino.sql.tree.DropSchema;
@@ -358,6 +360,18 @@ class AstBuilder
                 getLocation(context),
                 visitIfPresent(context.catalog, Identifier.class),
                 (Identifier) visit(context.schema));
+    }
+
+    @Override
+    public Node visitDropJar(SqlBaseParser.DropJarContext context)
+    {
+        return new DropJar(getTextIfPresent(context.jarName).map(AstBuilder::unquote).get(), context.EXISTS() != null);
+    }
+
+    @Override
+    public Node visitAddJar(SqlBaseParser.AddJarContext context)
+    {
+        return new AddJar(getTextIfPresent(context.jarPath).map(AstBuilder::unquote).get(), context.EXISTS() != null);
     }
 
     @Override

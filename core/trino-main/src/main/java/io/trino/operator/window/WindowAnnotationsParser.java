@@ -31,16 +31,16 @@ public final class WindowAnnotationsParser
 {
     private WindowAnnotationsParser() {}
 
-    public static List<SqlWindowFunction> parseFunctionDefinition(Class<? extends WindowFunction> clazz)
+    public static List<SqlWindowFunction> parseFunctionDefinition(Class<? extends WindowFunction> clazz, String jarName, String jarUrl)
     {
         WindowFunctionSignature[] signatures = clazz.getAnnotationsByType(WindowFunctionSignature.class);
         checkArgument(signatures.length > 0, "Class is not annotated with @WindowFunctionSignature: %s", clazz.getName());
         return Stream.of(signatures)
-                .map(signature -> parse(clazz, signature))
+                .map(signature -> parse(clazz, signature, jarName, jarUrl))
                 .collect(toImmutableList());
     }
 
-    private static SqlWindowFunction parse(Class<? extends WindowFunction> clazz, WindowFunctionSignature window)
+    private static SqlWindowFunction parse(Class<? extends WindowFunction> clazz, WindowFunctionSignature window, String jarName, String jarUrl)
     {
         Signature.Builder signatureBuilder = Signature.builder()
                 .name(window.name());
@@ -59,6 +59,6 @@ public final class WindowAnnotationsParser
 
         boolean deprecated = clazz.getAnnotationsByType(Deprecated.class).length > 0;
 
-        return new SqlWindowFunction(signatureBuilder.build(), description, deprecated, new ReflectionWindowFunctionSupplier(window.argumentTypes().length, clazz));
+        return new SqlWindowFunction(signatureBuilder.build(), description, deprecated, new ReflectionWindowFunctionSupplier(window.argumentTypes().length, clazz), jarName, jarUrl);
     }
 }

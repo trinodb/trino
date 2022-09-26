@@ -31,10 +31,10 @@ public abstract class SqlAggregationFunction
     private final FunctionMetadata functionMetadata;
     private final AggregationFunctionMetadata aggregationFunctionMetadata;
 
-    public static List<SqlAggregationFunction> createFunctionsByAnnotations(Class<?> aggregationDefinition)
+    public static List<SqlAggregationFunction> createFunctionsByAnnotations(Class<?> aggregationDefinition, String jarName, String jarUrl)
     {
         try {
-            return ImmutableList.copyOf(AggregationFromAnnotationsParser.parseFunctionDefinitions(aggregationDefinition));
+            return ImmutableList.copyOf(AggregationFromAnnotationsParser.parseFunctionDefinitions(aggregationDefinition, jarName, jarUrl));
         }
         catch (RuntimeException e) {
             throw new IllegalArgumentException("Invalid aggregation class " + aggregationDefinition.getSimpleName());

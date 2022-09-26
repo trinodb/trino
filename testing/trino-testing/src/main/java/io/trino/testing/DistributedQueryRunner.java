@@ -31,6 +31,7 @@ import io.trino.execution.QueryManager;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AllNodes;
 import io.trino.metadata.FunctionBundle;
+import io.trino.metadata.FunctionJarDynamicManager;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
@@ -349,6 +350,12 @@ public class DistributedQueryRunner
     public FunctionManager getFunctionManager()
     {
         return coordinator.getFunctionManager();
+    }
+
+    @Override
+    public FunctionJarDynamicManager getFunctionJarDynamicManager()
+    {
+        return coordinator.getFunctionJarDynamicManager();
     }
 
     @Override

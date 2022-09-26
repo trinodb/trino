@@ -42,6 +42,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.execution.functions.TestFunctionManager.createTestingFunctionManager;
 import static io.trino.execution.scheduler.StageExecution.State.ABORTED;
 import static io.trino.execution.scheduler.StageExecution.State.FINISHED;
 import static io.trino.execution.scheduler.StageExecution.State.FLUSHING;
@@ -50,7 +51,6 @@ import static io.trino.execution.scheduler.policy.PlanUtils.createBroadcastAndPa
 import static io.trino.execution.scheduler.policy.PlanUtils.createBroadcastJoinPlanFragment;
 import static io.trino.execution.scheduler.policy.PlanUtils.createJoinPlanFragment;
 import static io.trino.execution.scheduler.policy.PlanUtils.createTableScanPlanFragment;
-import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;

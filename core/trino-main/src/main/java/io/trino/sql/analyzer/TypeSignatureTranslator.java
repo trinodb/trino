@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowFieldName;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
@@ -197,6 +198,10 @@ public class TypeSignatureTranslator
                 checkArgument(typeVariables.contains(variable), "Parameter to datetime type must be either a number or a type variable: %s", variable);
                 parameters.add(TypeSignatureParameter.typeVariable(variable));
             }
+        }
+        else {
+            // if no precision, we will set default
+            parameters.add(TypeSignatureParameter.numericParameter(TimestampType.DEFAULT_PRECISION));
         }
         return parameters;
     }

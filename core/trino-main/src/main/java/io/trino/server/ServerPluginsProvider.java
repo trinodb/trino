@@ -24,6 +24,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
@@ -48,6 +49,19 @@ public class ServerPluginsProvider
     }
 
     @Override
+    public void loadFunctions(Loader loader, ClassLoaderFactory createClassLoader, File jarPath)
+    {
+        List<File> jars = jarPath.isDirectory() ? Arrays.asList(jarPath) : Arrays.asList(jarPath.getParentFile());
+        executeUntilFailure(
+                executor,
+                jars.stream().map(file -> (Callable<?>) () -> {
+                    loader.load(file.getAbsolutePath(), () -> createClassLoader.create(file.getName(), buildClassPath(file)));
+                    return null;
+                })
+                        .collect(toImmutableList()));
+    }
+
+    @Override
     public void loadPlugins(Loader loader, ClassLoaderFactory createClassLoader)
     {
         executeUntilFailure(
@@ -64,9 +78,9 @@ public class ServerPluginsProvider
 
     private static List<URL> buildClassPath(File path)
     {
-        return listFiles(path).stream()
+        return path.isDirectory() ? listFiles(path).stream()
                 .map(ServerPluginsProvider::fileToUrl)
-                .collect(toImmutableList());
+                .collect(toImmutableList()) : Arrays.asList(fileToUrl(path));
     }
 
     private static List<File> listFiles(File path)

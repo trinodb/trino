@@ -87,6 +87,11 @@ public class TestDiscoveryNodeManager
         selector.announceNodes(activeNodes, inactiveNodes);
     }
 
+    public DiscoveryNodeManager getManager()
+    {
+        return new DiscoveryNodeManager(selector, nodeInfo, new NoOpFailureDetector(), expectedVersion, testHttpClient, internalCommunicationConfig, new CatalogManagerConfig());
+    }
+
     @Test
     public void testGetAllNodes()
     {

@@ -65,13 +65,19 @@ import io.trino.metadata.DisabledSystemSecurityMetadata;
 import io.trino.metadata.DiscoveryNodeManager;
 import io.trino.metadata.ForNodeManager;
 import io.trino.metadata.FunctionBundle;
+import io.trino.metadata.FunctionJarDynamicManager;
+import io.trino.metadata.FunctionJarStore;
+import io.trino.metadata.FunctionJarStoreConfig;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.HandleJsonModule;
+import io.trino.metadata.InMemoryFunctionJarStore;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.LiteralFunction;
+import io.trino.metadata.LocalFileFunctionJarStore;
+import io.trino.metadata.LocalFileFunctionJarStoreConfig;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ProcedureRegistry;
@@ -367,6 +373,21 @@ public class ServerMainModule
         binder.bind(FunctionManager.class).in(Scopes.SINGLETON);
         newSetBinder(binder, FunctionBundle.class);
         binder.bind(RegisterFunctionBundles.class).asEagerSingleton();
+
+        // dynamic function
+        FunctionJarStoreConfig config = buildConfigObject(FunctionJarStoreConfig.class);
+        switch (config.getFunctionJarStoreKind()) {
+            case MEMORY:
+                binder.bind(FunctionJarStore.class).to(InMemoryFunctionJarStore.class).in(Scopes.SINGLETON);
+                break;
+            case FILE: {
+                binder.bind(FunctionJarStore.class).to(LocalFileFunctionJarStore.class).in(Scopes.SINGLETON);
+                configBinder(binder).bindConfig(LocalFileFunctionJarStoreConfig.class);
+            }
+            break;
+        }
+        binder.bind(FunctionJarDynamicManager.class).in(Scopes.SINGLETON);
+        jaxrsBinder(binder).bind(FunctionJarResource.class);
 
         // type
         binder.bind(TypeAnalyzer.class).in(Scopes.SINGLETON);

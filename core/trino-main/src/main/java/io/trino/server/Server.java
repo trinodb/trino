@@ -134,6 +134,7 @@ public class Server
             logLocation(log, "Etc directory", Paths.get("etc"));
 
             injector.getInstance(PluginManager.class).loadPlugins();
+            injector.getInstance(PluginManager.class).loadFunctionsExcludedInstallPlugin();
 
             ConnectorServicesProvider connectorServicesProvider = injector.getInstance(ConnectorServicesProvider.class);
             connectorServicesProvider.loadInitialCatalogs();

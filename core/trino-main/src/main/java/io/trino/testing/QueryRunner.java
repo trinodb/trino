@@ -18,6 +18,7 @@ import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionBundle;
+import io.trino.metadata.FunctionJarDynamicManager;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
@@ -60,6 +61,8 @@ public interface QueryRunner
     SessionPropertyManager getSessionPropertyManager();
 
     FunctionManager getFunctionManager();
+
+    FunctionJarDynamicManager getFunctionJarDynamicManager();
 
     SplitManager getSplitManager();
 
