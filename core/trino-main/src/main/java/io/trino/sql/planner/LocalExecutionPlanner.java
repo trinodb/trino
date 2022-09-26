@@ -3455,7 +3455,7 @@ public class LocalExecutionPlanner
         private boolean isLocalScaledWriterExchange(PlanNode node)
         {
             Optional<PlanNode> result = searchFrom(node)
-                    .where(planNode -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope() == LOCAL)
+                    .where(planNode -> planNode instanceof ExchangeNode && ((ExchangeNode) planNode).getScope() == LOCAL)
                     .findFirst();
 
             return result.isPresent()
