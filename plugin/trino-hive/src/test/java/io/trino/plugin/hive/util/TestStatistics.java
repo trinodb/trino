@@ -16,6 +16,7 @@ package io.trino.plugin.hive.util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveBasicStatistics;
+import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.metastore.BooleanStatistics;
 import io.trino.plugin.hive.metastore.DateStatistics;
 import io.trino.plugin.hive.metastore.DecimalStatistics;
@@ -23,8 +24,6 @@ import io.trino.plugin.hive.metastore.DoubleStatistics;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.IntegerStatistics;
 import io.trino.spi.block.Block;
-import io.trino.spi.statistics.ColumnStatisticMetadata;
-import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatisticType;
 import io.trino.spi.type.BigintType;
@@ -41,6 +40,10 @@ import java.util.function.Function;
 
 import static io.trino.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
 import static io.trino.plugin.hive.HiveBasicStatistics.createZeroStatistics;
+import static io.trino.plugin.hive.HiveColumnStatisticType.MAX_VALUE;
+import static io.trino.plugin.hive.HiveColumnStatisticType.MIN_VALUE;
+import static io.trino.plugin.hive.HiveColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
+import static io.trino.plugin.hive.HiveColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
@@ -50,10 +53,6 @@ import static io.trino.plugin.hive.util.Statistics.createHiveColumnStatistics;
 import static io.trino.plugin.hive.util.Statistics.merge;
 import static io.trino.plugin.hive.util.Statistics.reduce;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
-import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
-import static io.trino.spi.statistics.ColumnStatisticType.MIN_VALUE;
-import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
-import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -89,7 +88,7 @@ public class TestStatistics
         assertThat(statistics.getDoubleStatistics().get()).isEqualTo(new DoubleStatistics(OptionalDouble.of(-15d), OptionalDouble.of(-0d))); // TODO should we distinguish between -0 and 0?
     }
 
-    private static HiveColumnStatistics createRealColumnStatistics(ImmutableMap<ColumnStatisticType, Block> computedStatistics)
+    private static HiveColumnStatistics createRealColumnStatistics(Map<HiveColumnStatisticType, Block> computedStatistics)
     {
         return createHiveColumnStatistics(computedStatistics, REAL, 1);
     }
@@ -120,7 +119,7 @@ public class TestStatistics
         assertThat(statistics.getDoubleStatistics().get()).isEqualTo(new DoubleStatistics(OptionalDouble.of(-15d), OptionalDouble.of(-0d))); // TODO should we distinguish between -0 and 0?
     }
 
-    private static HiveColumnStatistics createDoubleColumnStatistics(ImmutableMap<ColumnStatisticType, Block> computedStatistics)
+    private static HiveColumnStatistics createDoubleColumnStatistics(Map<HiveColumnStatisticType, Block> computedStatistics)
     {
         return createHiveColumnStatistics(computedStatistics, DOUBLE, 1);
     }
@@ -323,11 +322,11 @@ public class TestStatistics
 
         ComputedStatistics statistics = ComputedStatistics.builder(ImmutableList.of(), ImmutableList.of())
                 .addTableStatistic(TableStatisticType.ROW_COUNT, singleIntegerValueBlock.apply(5))
-                .addColumnStatistic(new ColumnStatisticMetadata("a_column", MIN_VALUE), singleIntegerValueBlock.apply(1))
-                .addColumnStatistic(new ColumnStatisticMetadata("a_column", MAX_VALUE), singleIntegerValueBlock.apply(5))
-                .addColumnStatistic(new ColumnStatisticMetadata("a_column", NUMBER_OF_DISTINCT_VALUES), singleIntegerValueBlock.apply(5))
-                .addColumnStatistic(new ColumnStatisticMetadata("a_column", NUMBER_OF_NON_NULL_VALUES), singleIntegerValueBlock.apply(5))
-                .addColumnStatistic(new ColumnStatisticMetadata("b_column", NUMBER_OF_NON_NULL_VALUES), singleIntegerValueBlock.apply(4))
+                .addColumnStatistic(MIN_VALUE.createColumnStatisticMetadata("a_column"), singleIntegerValueBlock.apply(1))
+                .addColumnStatistic(MAX_VALUE.createColumnStatisticMetadata("a_column"), singleIntegerValueBlock.apply(5))
+                .addColumnStatistic(NUMBER_OF_DISTINCT_VALUES.createColumnStatisticMetadata("a_column"), singleIntegerValueBlock.apply(5))
+                .addColumnStatistic(NUMBER_OF_NON_NULL_VALUES.createColumnStatisticMetadata("a_column"), singleIntegerValueBlock.apply(5))
+                .addColumnStatistic(NUMBER_OF_NON_NULL_VALUES.createColumnStatisticMetadata("b_column"), singleIntegerValueBlock.apply(4))
                 .build();
 
         Map<String, Type> columnTypes = ImmutableMap.of("a_column", INTEGER, "b_column", VARCHAR);

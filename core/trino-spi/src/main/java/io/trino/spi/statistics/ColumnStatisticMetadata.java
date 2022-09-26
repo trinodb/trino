@@ -28,6 +28,7 @@ import static java.util.Objects.requireNonNull;
 public class ColumnStatisticMetadata
 {
     private final String columnName;
+    private final String connectorAggregationId;
     private final Optional<ColumnStatisticType> statisticType;
     private final Optional<FunctionName> aggregation;
 
@@ -35,23 +36,34 @@ public class ColumnStatisticMetadata
             String columnName,
             ColumnStatisticType statisticType)
     {
-        this(columnName, Optional.of(statisticType), Optional.empty());
+        this(columnName, statisticType.name(), statisticType);
+    }
+
+    public ColumnStatisticMetadata(
+            String columnName,
+            String connectorAggregationId,
+            ColumnStatisticType statisticType)
+    {
+        this(columnName, connectorAggregationId, Optional.of(statisticType), Optional.empty());
     }
 
     @Experimental(eta = "2023-01-31")
     public ColumnStatisticMetadata(
             String columnName,
+            String connectorAggregationId,
             FunctionName aggregation)
     {
-        this(columnName, Optional.empty(), Optional.of(aggregation));
+        this(columnName, connectorAggregationId, Optional.empty(), Optional.of(aggregation));
     }
 
     private ColumnStatisticMetadata(
             String columnName,
+            String connectorAggregationId,
             Optional<ColumnStatisticType> statisticType,
             Optional<FunctionName> aggregation)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
+        this.connectorAggregationId = requireNonNull(connectorAggregationId, "connectorAggregationId is null");
         this.statisticType = requireNonNull(statisticType, "statisticType is null");
         this.aggregation = requireNonNull(aggregation, "aggregation is null");
         if (statisticType.isPresent() == aggregation.isPresent()) {
@@ -63,16 +75,24 @@ public class ColumnStatisticMetadata
     @JsonCreator
     public static ColumnStatisticMetadata fromJson(
             @JsonProperty("columnName") String columnName,
+            @JsonProperty("connectorAggregationId") String connectorAggregationId,
             @JsonProperty("statisticType") Optional<ColumnStatisticType> statisticType,
             @JsonProperty("aggregation") Optional<FunctionName> aggregation)
     {
-        return new ColumnStatisticMetadata(columnName, statisticType, aggregation);
+        return new ColumnStatisticMetadata(columnName, connectorAggregationId, statisticType, aggregation);
     }
 
     @JsonProperty
     public String getColumnName()
     {
         return columnName;
+    }
+
+    @Experimental(eta = "2023-01-31")
+    @JsonProperty
+    public String getConnectorAggregationId()
+    {
+        return connectorAggregationId;
     }
 
     @JsonIgnore
@@ -113,6 +133,7 @@ public class ColumnStatisticMetadata
         }
         ColumnStatisticMetadata that = (ColumnStatisticMetadata) o;
         return Objects.equals(columnName, that.columnName) &&
+                Objects.equals(connectorAggregationId, that.connectorAggregationId) &&
                 Objects.equals(statisticType, that.statisticType) &&
                 Objects.equals(aggregation, that.aggregation);
     }
@@ -120,7 +141,7 @@ public class ColumnStatisticMetadata
     @Override
     public int hashCode()
     {
-        return Objects.hash(columnName, statisticType, aggregation);
+        return Objects.hash(columnName, connectorAggregationId, statisticType, aggregation);
     }
 
     @Override
@@ -128,6 +149,7 @@ public class ColumnStatisticMetadata
     {
         return new StringJoiner(", ", ColumnStatisticMetadata.class.getSimpleName() + "[", "]")
                 .add("columnName='" + columnName + "'")
+                .add("connectorAggregationId='" + connectorAggregationId + "'")
                 .add("statisticType=" + statisticType)
                 .add("aggregation=" + aggregation)
                 .toString();
