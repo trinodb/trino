@@ -38,7 +38,10 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.DataFileRecord.toDataFileRecord;
@@ -112,5 +115,38 @@ public class TestIcebergTableWithExternalLocation
         assertThat(metastore.getTable("tpch", tableName)).as("Table should be dropped").isEmpty();
         assertFalse(fileSystem.exists(new Path(dataFile.getFilePath())), "The data file should have been removed");
         assertFalse(fileSystem.exists(tableLocation), "The directory corresponding to the dropped Iceberg table should be removed as we don't allow shared locations.");
+    }
+
+    @Test
+    public void testCreateDropAndRecreateTable()
+    {
+        String tableName = "testCreateDropAndRecreateTableOld_" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean)", tableName));
+        assertUpdate(format("INSERT INTO %s values(1, 'string1', true)", tableName), 1);
+        assertUpdate(format("INSERT INTO %s values(2, 'string2', false)", tableName), 1);
+        assertThat(query(format("SELECT * FROM %s", tableName)))
+                .matches("VALUES ROW(INT '1', VARCHAR 'string1', BOOLEAN 'true'), ROW(INT '2', VARCHAR 'string2', BOOLEAN 'false')");
+
+        String tableLocation = getTableLocation(tableName);
+        metastore.dropTable("tpch", tableName, false);
+        assertThat(metastore.getTable("tpch", tableName)).as("Table metastore in Hive should be dropped").isEmpty();
+
+        String newTableName = "testCreateDropAndRecreateTableNew_" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (dummy int) WITH (location = '%s')", newTableName, tableLocation));
+        assertThat(query(format("SELECT * FROM %s", newTableName)))
+                .matches("VALUES ROW(INT '1', VARCHAR 'string1', BOOLEAN 'true'), ROW(INT '2', VARCHAR 'string2', BOOLEAN 'false')");
+        assertUpdate(format("DROP TABLE %s", newTableName));
+    }
+
+    private String getTableLocation(String tableName)
+    {
+        Pattern locationPattern = Pattern.compile(".*location = '(.*?)'.*", Pattern.DOTALL);
+        Matcher m = locationPattern.matcher((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue());
+        if (m.find()) {
+            String location = m.group(1);
+            verify(!m.find(), "Unexpected second match");
+            return location;
+        }
+        throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
     }
 }

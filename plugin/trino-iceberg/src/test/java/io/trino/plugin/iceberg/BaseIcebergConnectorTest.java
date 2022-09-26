@@ -1239,7 +1239,7 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    public void testCreateTableSucceedsOnEmptyDirectory()
+    public void testCreateTableFailureOnEmptyDirectory()
     {
         File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
         String tmpName = "test_rename_table_tmp_" + randomTableSuffix();
@@ -1247,7 +1247,7 @@ public abstract class BaseIcebergConnectorTest
         File directory = newPath.toFile();
         verify(directory.mkdirs(), "Could not make directory on filesystem");
         try {
-            assertUpdate("CREATE TABLE " + tmpName + " WITH (location='" + directory + "') AS SELECT 1 as a", 1);
+            assertQueryFails("CREATE TABLE " + tmpName + " WITH (location='" + directory + "') AS SELECT 1 as a", "No metadata file exists at location.*");
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tmpName);
@@ -1290,11 +1290,9 @@ public abstract class BaseIcebergConnectorTest
                 format("   format = '%s',\n   format_version = 2,\n   location = '%s'\n)", format, getTableLocation("test_create_table_like_copy2")));
         dropTable("test_create_table_like_copy2");
 
-        assertQueryFails("CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)",
-                "Cannot create a table on a non-empty location.*");
+        assertQuerySucceeds("CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)");
 
-        assertQueryFails(format("CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = '%s')", otherFormat),
-                "Cannot create a table on a non-empty location.*");
+        assertQuerySucceeds(format("CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = '%s')", otherFormat));
     }
 
     private String getTablePropertiesString(String tableName)
