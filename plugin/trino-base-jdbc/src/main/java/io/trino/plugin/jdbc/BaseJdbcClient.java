@@ -345,8 +345,8 @@ public abstract class BaseJdbcClient
         RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
         return metadata.getColumns(
                 remoteTableName.getCatalogName().orElse(null),
-                escapeNamePattern(remoteTableName.getSchemaName(), metadata.getSearchStringEscape()).orElse(null),
-                escapeNamePattern(remoteTableName.getTableName(), metadata.getSearchStringEscape()),
+                escapeObjectNameForMetadataQuery(remoteTableName.getSchemaName(), metadata.getSearchStringEscape()).orElse(null),
+                escapeObjectNameForMetadataQuery(remoteTableName.getTableName(), metadata.getSearchStringEscape()),
                 null);
     }
 
@@ -875,8 +875,8 @@ public abstract class BaseJdbcClient
         DatabaseMetaData metadata = connection.getMetaData();
         return metadata.getTables(
                 connection.getCatalog(),
-                escapeNamePattern(remoteSchemaName, metadata.getSearchStringEscape()).orElse(null),
-                escapeNamePattern(remoteTableName, metadata.getSearchStringEscape()).orElse(null),
+                escapeObjectNameForMetadataQuery(remoteSchemaName, metadata.getSearchStringEscape()).orElse(null),
+                escapeObjectNameForMetadataQuery(remoteTableName, metadata.getSearchStringEscape()).orElse(null),
                 getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
     }
 
@@ -1137,12 +1137,12 @@ public abstract class BaseJdbcClient
         return "'" + value.replace("'", "''") + "'";
     }
 
-    protected static Optional<String> escapeNamePattern(Optional<String> name, String escape)
+    protected Optional<String> escapeObjectNameForMetadataQuery(Optional<String> name, String escape)
     {
-        return name.map(string -> escapeNamePattern(string, escape));
+        return name.map(string -> escapeObjectNameForMetadataQuery(string, escape));
     }
 
-    private static String escapeNamePattern(String name, String escape)
+    protected String escapeObjectNameForMetadataQuery(String name, String escape)
     {
         requireNonNull(name, "name is null");
         requireNonNull(escape, "escape is null");
