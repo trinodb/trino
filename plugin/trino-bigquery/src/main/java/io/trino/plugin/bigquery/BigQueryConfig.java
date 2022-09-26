@@ -44,6 +44,7 @@ public class BigQueryConfig
     private Optional<String> parentProjectId = Optional.empty();
     private Optional<Integer> parallelism = Optional.empty();
     private boolean viewsEnabled;
+    private boolean arrowSerializationEnabled;
     private Duration viewExpireDuration = new Duration(24, HOURS);
     private boolean skipViewMaterialization;
     private Optional<String> viewMaterializationProject = Optional.empty();
@@ -111,6 +112,19 @@ public class BigQueryConfig
     public BigQueryConfig setViewsEnabled(boolean viewsEnabled)
     {
         this.viewsEnabled = viewsEnabled;
+        return this;
+    }
+
+    public boolean isArrowSerializationEnabled()
+    {
+        return arrowSerializationEnabled;
+    }
+
+    @Config("bigquery.experimental.arrow-serialization.enabled")
+    @ConfigDescription("Enables experimental Arrow serialization while reading data")
+    public BigQueryConfig setArrowSerializationEnabled(boolean arrowSerializationEnabled)
+    {
+        this.arrowSerializationEnabled = arrowSerializationEnabled;
         return this;
     }
 

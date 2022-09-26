@@ -95,6 +95,19 @@ of readers supported by the BigQuery Storage API. This can be configured
 explicitly with the ``bigquery.parallelism`` property. BigQuery may limit the
 number of partitions based on server constraints.
 
+Arrow serialization support
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This is an experimental feature which introduces support for using Apache Arrow
+as the serialization format when reading from BigQuery.  Please note there are
+a few caveats:
+
+* Using Apache Arrow serialization is disabled by default. In order to enable
+  it, set the ``bigquery.experimental.arrow-serialization.enabled``
+  configuration property to ``true`` and add
+  ``--add-opens=java.base/java.nio=ALL-UNNAMED`` to the Trino
+  :ref:`jvm_config`.
+
 Reading from views
 ^^^^^^^^^^^^^^^^^^
 
@@ -141,6 +154,10 @@ Property                                              Description               
 ``bigquery.case-insensitive-name-matching``           Match dataset and table names case-insensitively               ``false``
 ``bigquery.query-results-cache.enabled``              Enable `query results cache
                                                       <https://cloud.google.com/bigquery/docs/cached-results>`_      ``false``
+``bigquery.experimental.arrow-serialization.enabled`` Enable using Apache Arrow serialization when reading data      ``false``
+                                                      from BigQuery.
+                                                      Please read this `section <#arrow-serialization-support>`_
+                                                      before enabling this feature.
 ===================================================== ============================================================== ======================================================
 
 .. _bigquery-type-mapping:
