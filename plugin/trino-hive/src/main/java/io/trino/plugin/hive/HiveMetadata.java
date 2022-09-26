@@ -2627,12 +2627,7 @@ public class HiveMetadata
     {
         checkState(!isHiveSystemSchema(schemaName.getSchemaName()), "Schema is not accessible: %s", schemaName);
 
-        Optional<Database> database = metastore.getDatabase(schemaName.getSchemaName());
-        if (database.isPresent()) {
-            return database.flatMap(db -> db.getOwnerName().map(ownerName -> new TrinoPrincipal(db.getOwnerType().orElseThrow(), ownerName)));
-        }
-
-        throw new SchemaNotFoundException(schemaName.getSchemaName());
+        return accessControlMetadata.getSchemaOwner(session, schemaName.getSchemaName()).map(HivePrincipal::toTrinoPrincipal);
     }
 
     @Override

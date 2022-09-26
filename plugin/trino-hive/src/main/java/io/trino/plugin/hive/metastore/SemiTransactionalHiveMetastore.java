@@ -1221,6 +1221,15 @@ public class SemiTransactionalHiveMetastore
     }
 
     @Override
+    public Optional<HivePrincipal> getDatabaseOwner(String databaseName)
+    {
+        Database database = getDatabase(databaseName)
+                .orElseThrow(() -> new SchemaNotFoundException(databaseName));
+
+        return database.getOwnerName().map(ownerName -> new HivePrincipal(database.getOwnerType().orElseThrow(), ownerName));
+    }
+
+    @Override
     public synchronized Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<HivePrincipal> principal)
     {
         checkReadable();

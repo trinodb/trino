@@ -121,6 +121,14 @@ public interface AccessControlMetadata
     }
 
     /**
+     * Get the owner on the specified schema
+     */
+    default Optional<HivePrincipal> getSchemaOwner(ConnectorSession session, String schemaName)
+    {
+        return Optional.empty();
+    }
+
+    /**
      * Revokes the specified privilege on the specified schema from the specified user
      */
     default void revokeSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, HivePrincipal grantee, boolean grantOption)
