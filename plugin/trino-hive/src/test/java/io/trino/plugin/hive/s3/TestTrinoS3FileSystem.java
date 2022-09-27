@@ -87,6 +87,7 @@ import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_CLIENT_RETRIES;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_RETRY_TIME;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_PATH_STYLE_ACCESS;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_PIN_CLIENT_TO_CURRENT_REGION;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_REGION;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SECRET_KEY;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SESSION_TOKEN;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SKIP_GLACIER_OBJECTS;
@@ -168,6 +169,19 @@ public class TestTrinoS3FileSystem
         config.set(S3_PIN_CLIENT_TO_CURRENT_REGION, "true");
         try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             fs.initialize(new URI("s3a://test-bucket/"), config);
+        }
+    }
+
+    @Test
+    public void testEndpointWithExplicitRegionConfiguration()
+            throws Exception
+    {
+        Configuration config = newEmptyConfiguration();
+        config.set(S3_ENDPOINT, "test.example.endpoint.com");
+        config.set(S3_REGION, "region1");
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
+            fs.initialize(new URI("s3a://test-bucket/"), config);
+            assertThat(((AmazonS3Client) fs.getS3Client()).getSignerRegionOverride()).isEqualTo("region1");
         }
     }
 

@@ -192,6 +192,7 @@ public class TrinoS3FileSystem
     public static final String S3_SIGNER_TYPE = "trino.s3.signer-type";
     public static final String S3_SIGNER_CLASS = "trino.s3.signer-class";
     public static final String S3_ENDPOINT = "trino.s3.endpoint";
+    public static final String S3_REGION = "trino.s3.region";
     public static final String S3_SECRET_KEY = "trino.s3.secret-key";
     public static final String S3_ACCESS_KEY = "trino.s3.access-key";
     public static final String S3_SESSION_TOKEN = "trino.s3.session-token";
@@ -920,7 +921,7 @@ public class TrinoS3FileSystem
 
         String endpoint = hadoopConfig.get(S3_ENDPOINT);
         if (endpoint != null) {
-            clientBuilder.setEndpointConfiguration(new EndpointConfiguration(endpoint, null));
+            clientBuilder.setEndpointConfiguration(new EndpointConfiguration(endpoint, hadoopConfig.get(S3_REGION)));
             regionOrEndpointSet = true;
         }
 
