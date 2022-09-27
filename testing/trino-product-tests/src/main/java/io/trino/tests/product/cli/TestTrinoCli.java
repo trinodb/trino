@@ -40,6 +40,7 @@ import static io.trino.tempto.process.CliProcess.trimLines;
 import static io.trino.tests.product.TestGroups.AUTHORIZATION;
 import static io.trino.tests.product.TestGroups.CLI;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.writeString;
@@ -425,6 +426,9 @@ public class TestTrinoCli
         trino.getProcessInput().println("EXPLAIN ANALYZE DELETE FROM iceberg.default.test_print_explain_analyze WHERE n_nationkey = 100;");
         lines = trimLines(trino.readLinesUntilPrompt());
         assertThat(lines).contains("DELETE", "Query Plan");
+
+        // cleanup
+        onTrino().executeQuery("DROP TABLE iceberg.default.test_print_explain_analyze");
     }
 
     private void launchTrinoCliWithServerArgument(String... arguments)
