@@ -30,6 +30,7 @@ import io.trino.spi.QueryId;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
+import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.assertj.core.api.AbstractThrowableAssert;
@@ -48,6 +49,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Functions.identity;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -76,8 +78,10 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.data.Percentage.withPercentage;
 import static org.testng.Assert.assertEquals;
 
 public abstract class BaseFailureRecoveryTest
@@ -644,9 +648,41 @@ public abstract class BaseFailureRecoveryTest
                 assertThat(expected.getUpdatedTableStatistics()).isPresent();
                 assertThat(actual.getUpdatedTableStatistics()).isPresent();
 
-                MaterializedResult expectedUpdatedTableStatistics = expected.getUpdatedTableStatistics().get();
-                MaterializedResult actualUpdatedTableStatistics = actual.getUpdatedTableStatistics().get();
-                assertEqualsIgnoreOrder(actualUpdatedTableStatistics, expectedUpdatedTableStatistics, "For query: \n " + query);
+                MaterializedResult expectedUpdatedTableStatisticsResult = expected.getUpdatedTableStatistics().get();
+                MaterializedResult actualUpdatedTableStatisticsResult = actual.getUpdatedTableStatistics().get();
+                assertEquals(actualUpdatedTableStatisticsResult.getTypes(), expectedUpdatedTableStatisticsResult.getTypes(), "Column types");
+                assertEquals(actualUpdatedTableStatisticsResult.getColumnNames(), expectedUpdatedTableStatisticsResult.getColumnNames(), "Column names");
+                Map<String, MaterializedRow> expectedUpdatedTableStatistics = expectedUpdatedTableStatisticsResult.getMaterializedRows().stream()
+                        .collect(toMap(row -> (String) row.getField(0), identity()));
+                Map<String, MaterializedRow> actualUpdatedTableStatistics = actualUpdatedTableStatisticsResult.getMaterializedRows().stream()
+                        .collect(toMap(row -> (String) row.getField(0), identity()));
+                assertEquals(actualUpdatedTableStatistics.keySet(), expectedUpdatedTableStatistics.keySet(), "Table columns");
+                expectedUpdatedTableStatistics.forEach((key, expectedRow) -> {
+                    MaterializedRow actualRow = actualUpdatedTableStatistics.get(key);
+                    assertEquals(actualRow.getFieldCount(), expectedRow.getFieldCount(), "Unexpected layout of stats");
+                    for (int statsColumnIndex = 0; statsColumnIndex < expectedRow.getFieldCount(); statsColumnIndex++) {
+                        String statsColumnName = actualUpdatedTableStatisticsResult.getColumnNames().get(statsColumnIndex);
+                        String testedFieldDescription = "Field %d '%s' in %s".formatted(statsColumnIndex, statsColumnName, actualRow);
+                        Object expectedValue = expectedRow.getField(statsColumnIndex);
+                        Object actualValue = actualRow.getField(statsColumnIndex);
+                        if (expectedValue == null) {
+                            assertThat(actualValue).as(testedFieldDescription)
+                                    .isNull();
+                        }
+                        else {
+                            switch (statsColumnName) {
+                                case "data_size", "distinct_values_count" -> {
+                                    assertThat((double) actualValue).as(testedFieldDescription)
+                                            .isCloseTo((double) expectedValue, withPercentage(5));
+                                }
+                                default -> {
+                                    assertThat(actualValue).as(testedFieldDescription)
+                                            .isEqualTo(expectedValue);
+                                }
+                            }
+                        }
+                    }
+                });
             }
             else if (isUpdate) {
                 assertEquals(actualQueryResult.getUpdateCount(), expectedQueryResult.getUpdateCount());
