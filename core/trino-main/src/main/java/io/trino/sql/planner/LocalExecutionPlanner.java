@@ -3483,7 +3483,7 @@ public class LocalExecutionPlanner
                     operatorsCount,
                     node.getPartitioningScheme().getPartitioning().getHandle(),
                     ImmutableList.of(),
-                    types,
+                    ImmutableList.of(),
                     Optional.empty(),
                     maxLocalExchangeBufferSize,
                     blockTypeOperators,
@@ -3537,11 +3537,14 @@ public class LocalExecutionPlanner
             }
 
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
-            List<Integer> channels = node.getPartitioningScheme().getPartitioning().getArguments().stream()
+            List<Integer> partitionChannels = node.getPartitioningScheme().getPartitioning().getArguments().stream()
                     .map(argument -> node.getOutputSymbols().indexOf(argument.getColumn()))
                     .collect(toImmutableList());
             Optional<Integer> hashChannel = node.getPartitioningScheme().getHashColumn()
                     .map(symbol -> node.getOutputSymbols().indexOf(symbol));
+            List<Type> partitionChannelTypes = partitionChannels.stream()
+                    .map(types::get)
+                    .collect(toImmutableList());
 
             List<DriverFactoryParameters> driverFactoryParametersList = new ArrayList<>();
             for (int i = 0; i < node.getSources().size(); i++) {
@@ -3557,8 +3560,8 @@ public class LocalExecutionPlanner
                     session,
                     driverInstanceCount,
                     node.getPartitioningScheme().getPartitioning().getHandle(),
-                    channels,
-                    types,
+                    partitionChannels,
+                    partitionChannelTypes,
                     hashChannel,
                     maxLocalExchangeBufferSize,
                     blockTypeOperators,
