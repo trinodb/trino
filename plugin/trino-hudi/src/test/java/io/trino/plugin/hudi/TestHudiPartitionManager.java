@@ -31,6 +31,7 @@ import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hudi.model.HudiTableType.COPY_ON_WRITE;
@@ -78,7 +79,8 @@ public class TestHudiPartitionManager
                 TABLE.getStorage().getLocation(),
                 COPY_ON_WRITE,
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(),
+                getHiveSchema(TABLE));
         List<String> actualPartitions = hudiPartitionManager.getEffectivePartitions(
                 tableHandle,
                 metastore);

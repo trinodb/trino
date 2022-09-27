@@ -20,15 +20,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
+import io.trino.plugin.hudi.files.HudiBaseFile;
+import io.trino.plugin.hudi.files.HudiLogFile;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.toIntExact;
@@ -39,38 +41,28 @@ public class HudiSplit
 {
     private static final int INSTANCE_SIZE = toIntExact(instanceSize(HudiSplit.class));
 
-    private final String location;
-    private final long start;
-    private final long length;
-    private final long fileSize;
-    private final long fileModifiedTime;
     private final TupleDomain<HiveColumnHandle> predicate;
     private final List<HivePartitionKey> partitionKeys;
     private final SplitWeight splitWeight;
+    private final Optional<HudiBaseFile> baseFile;
+    private final List<HudiLogFile> logFiles;
+    private final String commitTime;
 
     @JsonCreator
     public HudiSplit(
-            @JsonProperty("location") String location,
-            @JsonProperty("start") long start,
-            @JsonProperty("length") long length,
-            @JsonProperty("fileSize") long fileSize,
-            @JsonProperty("fileModifiedTime") long fileModifiedTime,
             @JsonProperty("predicate") TupleDomain<HiveColumnHandle> predicate,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
-            @JsonProperty("splitWeight") SplitWeight splitWeight)
+            @JsonProperty("splitWeight") SplitWeight splitWeight,
+            @JsonProperty("baseFile") Optional<HudiBaseFile> baseFile,
+            @JsonProperty("logFiles") List<HudiLogFile> logFiles,
+            @JsonProperty("commitTime") String commitTime)
     {
-        checkArgument(start >= 0, "start must be positive");
-        checkArgument(length >= 0, "length must be positive");
-        checkArgument(start + length <= fileSize, "fileSize must be at least start + length");
-
-        this.location = requireNonNull(location, "location is null");
-        this.start = start;
-        this.length = length;
-        this.fileSize = fileSize;
-        this.fileModifiedTime = fileModifiedTime;
         this.predicate = requireNonNull(predicate, "predicate is null");
         this.partitionKeys = ImmutableList.copyOf(requireNonNull(partitionKeys, "partitionKeys is null"));
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
+        this.baseFile = requireNonNull(baseFile, "baseFile is null");
+        this.logFiles = requireNonNull(logFiles, "logFiles is null");
+        this.commitTime = requireNonNull(commitTime, "commitTime is null");
     }
 
     @Override
@@ -89,13 +81,15 @@ public class HudiSplit
     @Override
     public Object getInfo()
     {
-        return ImmutableMap.builder()
-                .put("location", location)
-                .put("start", start)
-                .put("length", length)
-                .put("fileSize", fileSize)
-                .put("fileModifiedTime", fileModifiedTime)
-                .buildOrThrow();
+        ImmutableMap.Builder<Object, Object> infoMap = ImmutableMap.builder().put("commitTime", commitTime);
+        baseFile.ifPresent(file -> infoMap
+                .put("location", file.getLocation().toString())
+                .put("start", file.getOffset())
+                .put("length", file.getFileLen())
+                .put("fileSize", file.getFileLen())
+                .put("fileModifiedTime", file.getFileModifiedTime()));
+
+        return infoMap.buildOrThrow();
     }
 
     @JsonProperty
@@ -103,36 +97,6 @@ public class HudiSplit
     public SplitWeight getSplitWeight()
     {
         return splitWeight;
-    }
-
-    @JsonProperty
-    public String getLocation()
-    {
-        return location;
-    }
-
-    @JsonProperty
-    public long getStart()
-    {
-        return start;
-    }
-
-    @JsonProperty
-    public long getLength()
-    {
-        return length;
-    }
-
-    @JsonProperty
-    public long getFileSize()
-    {
-        return fileSize;
-    }
-
-    @JsonProperty
-    public long getFileModifiedTime()
-    {
-        return fileModifiedTime;
     }
 
     @JsonProperty
@@ -147,11 +111,29 @@ public class HudiSplit
         return partitionKeys;
     }
 
+    @JsonProperty
+    public Optional<HudiBaseFile> getBaseFile()
+    {
+        return baseFile;
+    }
+
+    @JsonProperty
+    public List<HudiLogFile> getLogFiles()
+    {
+        return logFiles;
+    }
+
+    @JsonProperty
+    public String getCommitTime()
+    {
+        return commitTime;
+    }
+
     @Override
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE
-                + estimatedSizeOf(location)
+                + estimatedSizeOf(baseFile.map(file -> file.getLocation().toString()).orElse(""))
                 + splitWeight.getRetainedSizeInBytes()
                 + predicate.getRetainedSizeInBytes(HiveColumnHandle::getRetainedSizeInBytes)
                 + estimatedSizeOf(partitionKeys, HivePartitionKey::getEstimatedSizeInBytes);
@@ -161,11 +143,9 @@ public class HudiSplit
     public String toString()
     {
         return toStringHelper(this)
-                .addValue(location)
-                .addValue(start)
-                .addValue(length)
-                .addValue(fileSize)
-                .addValue(fileModifiedTime)
+                .add("baseFile", baseFile)
+                .add("logFiles", logFiles)
+                .addValue(commitTime)
                 .toString();
     }
 }

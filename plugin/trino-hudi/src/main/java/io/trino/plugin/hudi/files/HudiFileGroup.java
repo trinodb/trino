@@ -106,12 +106,22 @@ public class HudiFileGroup
 
     public Stream<HudiBaseFile> getAllBaseFiles()
     {
-        return getAllFileSlices().filter(slice -> slice.getBaseFile().isPresent()).map(slice -> slice.getBaseFile().get());
+        return getAllFileSlices()
+                .filter(slice -> slice.getBaseFile().isPresent())
+                .map(slice -> slice.getBaseFile().get());
     }
 
     public Stream<FileSlice> getAllFileSlicesBeforeOn(String maxInstantTime)
     {
-        return fileSlices.values().stream().filter(slice -> compareTimestamps(slice.getBaseInstantTime(), LESSER_THAN_OR_EQUALS, maxInstantTime));
+        return fileSlices.values().stream()
+                .filter(slice -> compareTimestamps(slice.getBaseInstantTime(), LESSER_THAN_OR_EQUALS, maxInstantTime));
+    }
+
+    public Optional<FileSlice> getLatestFileSlicesBeforeOn(String maxInstantTime)
+    {
+        return fileSlices.values().stream()
+                .filter(slice -> compareTimestamps(slice.getBaseInstantTime(), LESSER_THAN_OR_EQUALS, maxInstantTime))
+                .findFirst();
     }
 
     @Override

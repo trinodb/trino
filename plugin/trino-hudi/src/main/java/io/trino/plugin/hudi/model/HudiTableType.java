@@ -13,6 +13,14 @@
  */
 package io.trino.plugin.hudi.model;
 
+import io.trino.spi.TrinoException;
+
+import static io.trino.plugin.hive.util.HiveUtil.HUDI_INPUT_FORMAT;
+import static io.trino.plugin.hive.util.HiveUtil.HUDI_PARQUET_INPUT_FORMAT;
+import static io.trino.plugin.hive.util.HiveUtil.HUDI_PARQUET_REALTIME_INPUT_FORMAT;
+import static io.trino.plugin.hive.util.HiveUtil.HUDI_REALTIME_INPUT_FORMAT;
+import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNSUPPORTED_TABLE_TYPE;
+
 /**
  * Type of the Hoodie Table.
  * <p>
@@ -25,5 +33,19 @@ package io.trino.plugin.hudi.model;
 public enum HudiTableType
 {
     COPY_ON_WRITE,
-    MERGE_ON_READ
+    MERGE_ON_READ;
+
+    public static HudiTableType fromInputFormat(String inputFormat)
+    {
+        switch (inputFormat) {
+            case HUDI_PARQUET_INPUT_FORMAT:
+            case HUDI_INPUT_FORMAT:
+                return COPY_ON_WRITE;
+            case HUDI_PARQUET_REALTIME_INPUT_FORMAT:
+            case HUDI_REALTIME_INPUT_FORMAT:
+                return MERGE_ON_READ;
+            default:
+                throw new TrinoException(HUDI_UNSUPPORTED_TABLE_TYPE, "Unknown hudi table inputFormat: " + inputFormat);
+        }
+    }
 }

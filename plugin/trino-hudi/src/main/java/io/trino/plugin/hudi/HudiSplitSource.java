@@ -22,6 +22,7 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.AsyncQueue;
 import io.trino.plugin.hive.util.ThrottledAsyncQueue;
+import io.trino.plugin.hudi.model.HudiInstant;
 import io.trino.plugin.hudi.query.HudiDirectoryLister;
 import io.trino.plugin.hudi.query.HudiReadOptimizedDirectoryLister;
 import io.trino.plugin.hudi.split.HudiBackgroundSplitLoader;
@@ -74,6 +75,12 @@ public class HudiSplitSource
         HudiTableMetaClient metaClient = buildTableMetaClient(fileSystemFactory.create(session), tableHandle.getBasePath());
         List<HiveColumnHandle> partitionColumnHandles = table.getPartitionColumns().stream()
                 .map(column -> partitionColumnHandleMap.get(column.getName())).collect(toList());
+        String latestCommitTime = metaClient.getActiveTimeline()
+                .getCommitsTimeline()
+                .filterCompletedInstants()
+                .lastInstant()
+                .map(HudiInstant::getTimestamp)
+                .orElseThrow(() -> new TrinoException(HudiErrorCode.HUDI_NO_VALID_COMMIT, "Table has no valid commits"));
 
         HudiDirectoryLister hudiDirectoryLister = new HudiReadOptimizedDirectoryLister(
                 tableHandle,
@@ -91,7 +98,8 @@ public class HudiSplitSource
                 queue,
                 new BoundedExecutor(executor, getSplitGeneratorParallelism(session)),
                 createSplitWeightProvider(session),
-                partitions);
+                partitions,
+                latestCommitTime);
         this.splitLoaderFuture = splitLoaderExecutorService.schedule(splitLoader, 0, TimeUnit.MILLISECONDS);
     }
 

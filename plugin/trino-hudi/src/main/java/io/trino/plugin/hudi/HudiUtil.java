@@ -23,6 +23,7 @@ import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.HivePartitionManager;
 import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hudi.files.HudiFile;
 import io.trino.plugin.hudi.model.HudiFileFormat;
 import io.trino.plugin.hudi.table.HudiTableMetaClient;
 import io.trino.spi.TrinoException;
@@ -171,5 +172,14 @@ public final class HudiUtil
                 .setTrinoFileSystem(fileSystem)
                 .setBasePath(Location.of(basePath))
                 .build();
+    }
+
+    public static HudiFile getHudiBaseFile(HudiSplit hudiSplit)
+    {
+        if (hudiSplit.getBaseFile().isPresent()) {
+            return hudiSplit.getBaseFile().get();
+        }
+        // use first log file as base file for MOR table if it hasn't base file
+        return hudiSplit.getLogFiles().get(0);
     }
 }

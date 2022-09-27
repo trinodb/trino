@@ -54,6 +54,11 @@ public class FileSlice
         return baseFile;
     }
 
+    public TreeSet<HudiLogFile> getLogFiles()
+    {
+        return logFiles;
+    }
+
     public boolean isEmpty()
     {
         return (baseFile == null) && (logFiles.isEmpty());

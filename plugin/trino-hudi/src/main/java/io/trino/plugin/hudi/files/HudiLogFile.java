@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.hudi.files;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.Location;
 
@@ -25,41 +27,79 @@ import static io.trino.plugin.hudi.files.FSUtils.getFileVersionFromLog;
 import static io.trino.plugin.hudi.files.FSUtils.getWriteTokenFromLogPath;
 
 public class HudiLogFile
+        implements HudiFile
 {
     private static final Comparator<HudiLogFile> LOG_FILE_COMPARATOR_REVERSED = new HudiLogFile.LogFileComparator().reversed();
 
     private final String pathStr;
     private final long fileLen;
+    private final long modificationTime;
 
-    public HudiLogFile(FileEntry fileStatus)
+    public HudiLogFile(FileEntry fileEntry)
     {
-        this.pathStr = fileStatus.location().toString();
-        this.fileLen = fileStatus.length();
+        this(fileEntry.location().toString(), fileEntry.length(), fileEntry.lastModified().toEpochMilli());
+    }
+
+    @JsonCreator
+    public HudiLogFile(@JsonProperty("pathStr") String pathStr,
+                       @JsonProperty("fileLen") long fileLen,
+                       @JsonProperty("modificationTime") long modificationTime)
+    {
+        this.pathStr = pathStr;
+        this.fileLen = fileLen;
+        this.modificationTime = modificationTime;
     }
 
     public String getFileId()
     {
-        return getFileIdFromLogPath(getPath());
+        return getFileIdFromLogPath(getLocation());
     }
 
     public String getBaseCommitTime()
     {
-        return getBaseCommitTimeFromLogPath(getPath());
+        return getBaseCommitTimeFromLogPath(getLocation());
     }
 
     public int getLogVersion()
     {
-        return getFileVersionFromLog(getPath());
+        return getFileVersionFromLog(getLocation());
     }
 
     public String getLogWriteToken()
     {
-        return getWriteTokenFromLogPath(getPath());
+        return getWriteTokenFromLogPath(getLocation());
     }
 
-    public Location getPath()
+    @JsonProperty
+    public String getPathStr()
+    {
+        return pathStr;
+    }
+
+    @Override
+    public Location getLocation()
     {
         return Location.of(pathStr);
+    }
+
+    @Override
+    public long getOffset()
+    {
+        return 0L;
+    }
+
+    @JsonProperty
+    @Override
+    public long getFileLen()
+    {
+        return fileLen;
+    }
+
+    @JsonProperty
+    @Override
+    public long getFileModifiedTime()
+    {
+        return modificationTime;
     }
 
     public static Comparator<HudiLogFile> getReverseLogFileComparator()

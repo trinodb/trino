@@ -13,8 +13,11 @@
  */
 package io.trino.plugin.hudi.files;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.Location;
+import io.trino.plugin.hudi.HudiFileStatus;
 
 import java.util.Objects;
 
@@ -22,50 +25,84 @@ import static io.trino.plugin.hudi.files.FSUtils.isLogFile;
 import static java.util.Objects.requireNonNull;
 
 public class HudiBaseFile
+        implements HudiFile
 {
-    private transient FileEntry fileEntry;
+    private final HudiFileStatus fileStatus;
     private final String fullPath;
     private final String fileName;
-    private long fileLen;
+    private final long fileLen;
 
     public HudiBaseFile(FileEntry fileEntry)
     {
-        this(fileEntry,
-                fileEntry.location().path(),
+        this(new HudiFileStatus(
+                false,
                 fileEntry.location().fileName(),
-                fileEntry.length());
+                fileEntry.location().toString(),
+                fileEntry.length(),
+                fileEntry.lastModified().toEpochMilli(),
+                fileEntry.blocks().map(listOfBlocks -> (!listOfBlocks.isEmpty()) ? listOfBlocks.get(0).length() : 0).orElse(0L),
+                fileEntry.blocks().map(listOfBlocks -> (!listOfBlocks.isEmpty()) ? listOfBlocks.get(0).offset() : 0).orElse(0L)));
     }
 
-    private HudiBaseFile(FileEntry fileEntry, String fullPath, String fileName, long fileLen)
+    public HudiBaseFile(HudiFileStatus fileStatus)
     {
-        this.fileEntry = requireNonNull(fileEntry, "fileEntry is null");
+        this(fileStatus, fileStatus.getLocation(), fileStatus.getFileName(), fileStatus.getLength());
+    }
+
+    @JsonCreator
+    public HudiBaseFile(@JsonProperty("fileStatus") HudiFileStatus fileStatus,
+                        @JsonProperty("fullPath") String fullPath,
+                        @JsonProperty("fileName") String fileName,
+                        @JsonProperty("fileLen") long fileLen)
+    {
+        this.fileStatus = requireNonNull(fileStatus, "fileStatus is null");
         this.fullPath = requireNonNull(fullPath, "fullPath is null");
         this.fileLen = fileLen;
         this.fileName = requireNonNull(fileName, "fileName is null");
     }
 
-    public String getPath()
+    @JsonProperty
+    public HudiFileStatus getFileStatus()
+    {
+        return fileStatus;
+    }
+
+    @JsonProperty
+    public String getFullPath()
     {
         return fullPath;
     }
 
-    public Location getFullPath()
+    @Override
+    public Location getLocation()
     {
-        if (fileEntry != null) {
-            return fileEntry.location();
-        }
-
         return Location.of(fullPath);
     }
 
+    @JsonProperty
     public String getFileName()
     {
         return fileName;
     }
 
-    public FileEntry getFileEntry()
+    @Override
+    @JsonProperty
+    public long getFileLen()
     {
-        return fileEntry;
+        return fileLen;
+    }
+
+    @Override
+    public long getOffset()
+    {
+        return fileStatus.getOffset();
+    }
+
+    @JsonProperty
+    @Override
+    public long getFileModifiedTime()
+    {
+        return fileStatus.getModificationTime();
     }
 
     public String getFileId()

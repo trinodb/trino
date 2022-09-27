@@ -23,6 +23,7 @@ import io.trino.filesystem.Location;
 import io.trino.plugin.hudi.compaction.CompactionOperation;
 import io.trino.plugin.hudi.compaction.HudiCompactionOperation;
 import io.trino.plugin.hudi.compaction.HudiCompactionPlan;
+import io.trino.plugin.hudi.files.FileSlice;
 import io.trino.plugin.hudi.files.HudiBaseFile;
 import io.trino.plugin.hudi.files.HudiFileGroup;
 import io.trino.plugin.hudi.files.HudiFileGroupId;
@@ -243,6 +244,19 @@ public class HudiTableFileSystemView
         }
     }
 
+    public final Stream<FileSlice> getLatestFileSlicesBeforeOn(String partitionStr, String commitTime)
+    {
+        try {
+            readLock.lock();
+            String partitionPath = formatPartitionKey(partitionStr);
+            ensurePartitionLoadedCorrectly(partitionPath);
+            return fetchLatestFileSlicesBeforeOn(partitionPath, commitTime);
+        }
+        finally {
+            readLock.unlock();
+        }
+    }
+
     private boolean isFileGroupReplaced(String partitionPath, String fileId)
     {
         return isFileGroupReplaced(new HudiFileGroupId(partitionPath, fileId));
@@ -353,7 +367,7 @@ public class HudiTableFileSystemView
 
         Map<Entry<String, String>, List<HudiLogFile>> logFiles = logFileStream
                 .collect(groupingBy((logFile) -> {
-                    String partitionPathStr = getRelativePartitionPath(metaClient.getBasePath(), logFile.getPath().parentDirectory());
+                    String partitionPathStr = getRelativePartitionPath(metaClient.getBasePath(), logFile.getLocation().parentDirectory());
                     return Map.entry(partitionPathStr, logFile.getFileId());
                 }));
 
@@ -388,7 +402,7 @@ public class HudiTableFileSystemView
 
     private String getPartitionPathFor(HudiBaseFile baseFile)
     {
-        return getRelativePartitionPath(metaClient.getBasePath(), baseFile.getFullPath().parentDirectory());
+        return getRelativePartitionPath(metaClient.getBasePath(), baseFile.getLocation().parentDirectory());
     }
 
     private String getRelativePartitionPath(Location basePath, Location fullPartitionPath)
@@ -426,6 +440,15 @@ public class HudiTableFileSystemView
                 .map(filGroup -> Map.entry(filGroup.getFileGroupId(), getLatestBaseFile(filGroup)))
                 .filter(pair -> pair.getValue().isPresent())
                 .map(pair -> pair.getValue().get());
+    }
+
+    private Stream<FileSlice> fetchLatestFileSlicesBeforeOn(final String partitionPath, final String commitTime)
+    {
+        return fetchAllStoredFileGroups(partitionPath)
+                .filter(filGroup -> !isFileGroupReplaced(filGroup.getFileGroupId()))
+                .map(fileGroup -> fileGroup.getLatestFileSlicesBeforeOn(commitTime))    // TODO: filter file slice which pending Compaction / Clustering
+                .filter(fileSlice -> fileSlice.isPresent())
+                .map(Optional::get);
     }
 
     private Stream<HudiFileGroup> fetchAllStoredFileGroups(String partition)
