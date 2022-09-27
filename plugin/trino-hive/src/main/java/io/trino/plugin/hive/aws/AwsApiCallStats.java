@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue;
+package io.trino.plugin.hive.aws;
 
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.TimeStat;
@@ -25,7 +25,7 @@ import java.util.concurrent.Callable;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @ThreadSafe
-public class GlueMetastoreApiStats
+public class AwsApiCallStats
 {
     private final TimeStat time = new TimeStat(MILLISECONDS);
     private final CounterStat totalFailures = new CounterStat();

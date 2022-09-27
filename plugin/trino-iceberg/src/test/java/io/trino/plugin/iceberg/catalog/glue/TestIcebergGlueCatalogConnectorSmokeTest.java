@@ -20,7 +20,7 @@ import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.metastore.glue.GlueMetastoreApiStats;
+import io.trino.plugin.hive.aws.AwsApiCallStats;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
@@ -95,7 +95,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                 listObjectsRequest,
                 ListObjectsV2Request::setContinuationToken,
                 ListObjectsV2Result::getNextContinuationToken,
-                new GlueMetastoreApiStats())
+                new AwsApiCallStats())
                 .map(ListObjectsV2Result::getObjectSummaries)
                 .flatMap(objectSummaries -> objectSummaries.stream().map(S3ObjectSummary::getKey))
                 .map(DeleteObjectsRequest.KeyVersion::new)

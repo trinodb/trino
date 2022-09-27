@@ -22,7 +22,7 @@ import com.amazonaws.services.glue.model.GetTablesResult;
 import com.amazonaws.services.glue.model.Table;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.metastore.glue.GlueMetastoreApiStats;
+import io.trino.plugin.hive.aws.AwsApiCallStats;
 import io.trino.plugin.iceberg.BaseIcebergMaterializedViewTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
@@ -92,7 +92,7 @@ public class TestIcebergGlueCatalogMaterializedViewTest
                 new GetTablesRequest().withDatabaseName(schema),
                 GetTablesRequest::setNextToken,
                 GetTablesResult::getNextToken,
-                new GlueMetastoreApiStats())
+                new AwsApiCallStats())
                 .map(GetTablesResult::getTableList)
                 .flatMap(Collection::stream)
                 .map(Table::getName)
