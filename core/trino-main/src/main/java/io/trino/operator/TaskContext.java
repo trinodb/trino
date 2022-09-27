@@ -251,6 +251,13 @@ public class TaskContext
         return DataSize.ofBytes(taskMemoryContext.getUserMemory());
     }
 
+    public DataSize getPeakMemoryReservation()
+    {
+        long userMemory = taskMemoryContext.getUserMemory();
+        currentPeakUserMemoryReservation.updateAndGet(oldValue -> max(oldValue, userMemory));
+        return DataSize.ofBytes(currentPeakUserMemoryReservation.get());
+    }
+
     public DataSize getRevocableMemoryReservation()
     {
         return DataSize.ofBytes(taskMemoryContext.getRevocableMemory());
@@ -510,7 +517,6 @@ public class TaskContext
         Duration fullGcTime = getFullGcTime();
 
         long userMemory = taskMemoryContext.getUserMemory();
-        currentPeakUserMemoryReservation.updateAndGet(oldValue -> max(oldValue, userMemory));
 
         synchronized (cumulativeMemoryLock) {
             long currentTimeNanos = System.nanoTime();
@@ -543,7 +549,7 @@ public class TaskContext
                 completedDrivers,
                 cumulativeUserMemory.get(),
                 succinctBytes(userMemory),
-                succinctBytes(currentPeakUserMemoryReservation.get()),
+                getPeakMemoryReservation().succinct(),
                 succinctBytes(taskMemoryContext.getRevocableMemory()),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
