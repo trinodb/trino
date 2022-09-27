@@ -20,10 +20,11 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.io.IOException;
 
-import static io.airlift.slice.Slices.utf8Slice;
+import static com.google.common.io.BaseEncoding.base64;
 
 public final class SliceSerialization
 {
@@ -36,7 +37,14 @@ public final class SliceSerialization
         public void serialize(Slice slice, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
                 throws IOException
         {
-            jsonGenerator.writeString(slice.toStringUtf8());
+            String encoded;
+            if (slice.hasByteArray()) {
+                encoded = base64().encode(slice.byteArray(), slice.byteArrayOffset(), slice.length());
+            }
+            else {
+                encoded = base64().encode(slice.getBytes());
+            }
+            jsonGenerator.writeString(encoded);
         }
     }
 
@@ -47,7 +55,8 @@ public final class SliceSerialization
         public Slice deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
                 throws IOException
         {
-            return utf8Slice(jsonParser.readValueAs(String.class));
+            String encoded = jsonParser.readValueAs(String.class);
+            return Slices.wrappedBuffer(base64().decode(encoded));
         }
     }
 }
