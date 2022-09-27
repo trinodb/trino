@@ -106,6 +106,10 @@ import static io.trino.util.Failures.toFailure;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Deprecated in favor of {@link EventDrivenFaultTolerantQueryScheduler}
+ */
+@Deprecated
 public class FaultTolerantStageScheduler
 {
     private static final Logger log = Logger.get(FaultTolerantStageScheduler.class);
