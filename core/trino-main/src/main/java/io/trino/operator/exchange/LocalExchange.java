@@ -88,7 +88,7 @@ public class LocalExchange
             int defaultConcurrency,
             PartitioningHandle partitioning,
             List<Integer> partitionChannels,
-            List<Type> types,
+            List<Type> partitionChannelTypes,
             Optional<Integer> partitionHashChannel,
             DataSize maxBufferedBytes,
             BlockTypeOperators blockTypeOperators,
@@ -104,10 +104,6 @@ public class LocalExchange
 
         List<Consumer<PageReference>> buffers = this.sources.stream()
                 .map(buffer -> (Consumer<PageReference>) buffer::addPage)
-                .collect(toImmutableList());
-
-        List<Type> partitionChannelTypes = partitionChannels.stream()
-                .map(types::get)
                 .collect(toImmutableList());
 
         this.memoryManager = new LocalExchangeMemoryManager(maxBufferedBytes.toBytes());
