@@ -13,6 +13,10 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
+import com.amazonaws.services.glue.AWSGlueAsync;
+import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
+import com.amazonaws.services.glue.model.DeleteTableRequest;
+import com.amazonaws.services.glue.model.GetTableRequest;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
@@ -51,6 +55,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
 {
     private final String bucketName;
     private final String schemaName;
+    private final AWSGlueAsync glueClient;
 
     @Parameters("s3.bucket")
     public TestIcebergGlueCatalogConnectorSmokeTest(String bucketName)
@@ -58,6 +63,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
         super(FileFormat.PARQUET);
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
         this.schemaName = "test_iceberg_smoke_" + randomTableSuffix();
+        glueClient = AWSGlueAsyncClientBuilder.defaultClient();
     }
 
     @Override
@@ -68,7 +74,8 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                 .setIcebergProperties(
                         ImmutableMap.of(
                                 "iceberg.catalog.type", "glue",
-                                "hive.metastore.glue.default-warehouse-dir", schemaPath()))
+                                "hive.metastore.glue.default-warehouse-dir", schemaPath(),
+                                "iceberg.register-table-procedure.enabled", "true"))
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
                                 .withClonedTpchTables(REQUIRED_TPCH_TABLES)
@@ -184,14 +191,30 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
         }
     }
 
-    private String getTableComment(String tableName)
+    @Override
+    protected void dropTableFromMetastore(String tableName)
     {
-        return (String) computeScalar("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = 'iceberg' AND schema_name = '" + schemaName + "' AND table_name = '" + tableName + "'");
+        DeleteTableRequest deleteTableRequest = new DeleteTableRequest()
+                .withDatabaseName(schemaName)
+                .withName(tableName);
+        glueClient.deleteTable(deleteTableRequest);
+        GetTableRequest getTableRequest = new GetTableRequest()
+                .withDatabaseName(schemaName)
+                .withName(tableName);
+        assertThatThrownBy(() -> glueClient.getTable(getTableRequest))
+                .as("Table in metastore should not exist")
+                .hasMessageMatching(".*Table (.*) not found.*");
     }
 
-    protected String getColumnComment(String tableName, String columnName)
+    @Override
+    protected String getMetadataLocation(String tableName)
     {
-        return (String) computeScalar("SELECT comment FROM information_schema.columns WHERE table_schema = '" + getSession().getSchema().orElseThrow() + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'");
+        GetTableRequest getTableRequest = new GetTableRequest()
+                .withDatabaseName(schemaName)
+                .withName(tableName);
+        return glueClient.getTable(getTableRequest)
+                .getTable()
+                .getParameters().get("metadata_location");
     }
 
     private String schemaPath()
