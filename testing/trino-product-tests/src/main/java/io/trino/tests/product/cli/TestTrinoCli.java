@@ -96,10 +96,10 @@ public class TestTrinoCli
 
     @AfterTestWithContext
     @Override
-    public void stopPresto()
+    public void stopCli()
             throws InterruptedException
     {
-        super.stopPresto();
+        super.stopCli();
     }
 
     @Override
