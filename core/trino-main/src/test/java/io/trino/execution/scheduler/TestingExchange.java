@@ -21,7 +21,6 @@ import io.trino.spi.exchange.ExchangeSinkHandle;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandleSource;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Objects;
@@ -32,7 +31,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.trino.spi.exchange.ExchangeId.createRandomExchangeId;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class TestingExchange
@@ -150,72 +148,6 @@ public class TestingExchange
         public int getAttemptId()
         {
             return attemptId;
-        }
-    }
-
-    public static class TestingExchangeSourceHandle
-            implements ExchangeSourceHandle
-    {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TestingExchangeSourceHandle.class).instanceSize());
-
-        private final int partitionId;
-        private final long sizeInBytes;
-
-        public TestingExchangeSourceHandle(int partitionId, long sizeInBytes)
-        {
-            this.partitionId = partitionId;
-            this.sizeInBytes = sizeInBytes;
-        }
-
-        @Override
-        public int getPartitionId()
-        {
-            return partitionId;
-        }
-
-        @Override
-        public long getDataSizeInBytes()
-        {
-            return sizeInBytes;
-        }
-
-        @Override
-        public long getRetainedSizeInBytes()
-        {
-            return INSTANCE_SIZE;
-        }
-
-        public long getSizeInBytes()
-        {
-            return sizeInBytes;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            TestingExchangeSourceHandle that = (TestingExchangeSourceHandle) o;
-            return partitionId == that.partitionId && sizeInBytes == that.sizeInBytes;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(partitionId, sizeInBytes);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("partitionId", partitionId)
-                    .add("sizeInBytes", sizeInBytes)
-                    .toString();
         }
     }
 
