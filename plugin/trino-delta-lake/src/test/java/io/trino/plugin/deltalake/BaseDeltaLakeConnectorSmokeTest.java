@@ -22,6 +22,7 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.QueryManager;
 import io.trino.operator.OperatorStats;
+import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
@@ -40,11 +41,13 @@ import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.union;
@@ -65,6 +68,7 @@ import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
+import static java.util.Comparator.comparing;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -93,6 +97,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             "old_timestamps",
             "nested_timestamps",
             "nested_timestamps_parquet_stats",
+            "json_stats_on_row_type",
             "parquet_stats_missing",
             "uppercase_columns",
             "default_partitions",
@@ -829,6 +834,59 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         assertQuery("SELECT CAST(col1[1].ts AS VARCHAR) FROM nested_timestamps", "VALUES '2010-02-03 12:11:10.000 UTC'");
         assertQuery("SELECT CAST(col1[1].ts AS VARCHAR) FROM nested_timestamps_parquet_stats LIMIT 1", "VALUES '2010-02-03 12:11:10.000 UTC'");
+    }
+
+    @Test
+    public void testConvertJsonStatisticsToParquetOnRowType()
+            throws Exception
+    {
+        verifySupportsInsert();
+
+        assertQuery("SELECT count(*) FROM json_stats_on_row_type", "VALUES 2");
+        String transactionLogDirectory = "json_stats_on_row_type/_delta_log";
+        String newTransactionFile = getLocationForTable(bucketName, "json_stats_on_row_type") + "/_delta_log/00000000000000000004.json";
+        String newCheckpointFile = getLocationForTable(bucketName, "json_stats_on_row_type") + "/_delta_log/00000000000000000004.checkpoint.parquet";
+        assertThat(getTableFiles(transactionLogDirectory))
+                .doesNotContain(newTransactionFile, newCheckpointFile);
+
+        assertUpdate("INSERT INTO json_stats_on_row_type SELECT CAST(row(3) AS row(x bigint)), CAST(row(row('test insert')) AS row(y row(nested varchar)))", 1);
+        assertThat(getTableFiles(transactionLogDirectory))
+                .contains(newTransactionFile, newCheckpointFile);
+        assertThat(getAddFileEntries("json_stats_on_row_type")).hasSize(3);
+
+        // The first two entries created by Databricks have column stats. The last one doesn't have column stats because the connector doesn't support collecting it on row columns.
+        List<AddFileEntry> addFileEntries = getAddFileEntries("json_stats_on_row_type").stream().sorted(comparing(AddFileEntry::getModificationTime)).collect(toImmutableList());
+        assertThat(addFileEntries).hasSize(3);
+        assertJsonStatistics(
+                addFileEntries.get(0),
+                "{" +
+                        "\"numRecords\":1," +
+                        "\"minValues\":{\"nested_struct_col\":{\"y\":{\"nested\":\"test\"}},\"struct_col\":{\"x\":1}}," +
+                        "\"maxValues\":{\"nested_struct_col\":{\"y\":{\"nested\":\"test\"}},\"struct_col\":{\"x\":1}}," +
+                        "\"nullCount\":{\"struct_col\":{\"x\":0},\"nested_struct_col\":{\"y\":{\"nested\":0}}}" +
+                        "}");
+        assertJsonStatistics(
+                addFileEntries.get(1),
+                "{" +
+                        "\"numRecords\":1," +
+                        "\"minValues\":{\"nested_struct_col\":{\"y\":{}},\"struct_col\":{}}," +
+                        "\"maxValues\":{\"nested_struct_col\":{\"y\":{}},\"struct_col\":{}}," +
+                        "\"nullCount\":{\"struct_col\":{\"x\":1},\"nested_struct_col\":{\"y\":{\"nested\":1}}}" +
+                        "}");
+        assertJsonStatistics(
+                addFileEntries.get(2),
+                "{\"numRecords\":1,\"minValues\":{},\"maxValues\":{},\"nullCount\":{}}");
+    }
+
+    private List<AddFileEntry> getAddFileEntries(String tableName)
+            throws IOException
+    {
+        return TestingDeltaLakeUtils.getAddFileEntries(getLocationForTable(bucketName, tableName));
+    }
+
+    private void assertJsonStatistics(AddFileEntry addFileEntry, @Language("JSON") String jsonStatistics)
+    {
+        assertEquals(addFileEntry.getStatsString().orElseThrow(), jsonStatistics);
     }
 
     @Test
