@@ -115,7 +115,6 @@ public class TrinoGlueCatalog
 {
     private static final Logger LOG = Logger.get(TrinoGlueCatalog.class);
 
-    private final TrinoFileSystemFactory fileSystemFactory;
     private final Optional<String> defaultSchemaLocation;
     private final AWSGlueAsync glueClient;
     private final GlueMetastoreStats stats;
@@ -135,8 +134,7 @@ public class TrinoGlueCatalog
             Optional<String> defaultSchemaLocation,
             boolean useUniqueTableLocation)
     {
-        super(catalogName, typeManager, tableOperationsProvider, trinoVersion, useUniqueTableLocation);
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        super(catalogName, typeManager, tableOperationsProvider, fileSystemFactory, trinoVersion, useUniqueTableLocation);
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.defaultSchemaLocation = requireNonNull(defaultSchemaLocation, "defaultSchemaLocation is null");
@@ -918,5 +916,23 @@ public class TrinoGlueCatalog
             return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, tableName));
         }
         return Optional.empty();
+    }
+
+    @Override
+    protected boolean tableExists(SchemaTableName schemaTableName)
+    {
+        try {
+            glueClient.getTable(new GetTableRequest().withDatabaseName(schemaTableName.getSchemaName()).withName(schemaTableName.getTableName()));
+        }
+        catch (EntityNotFoundException e) {
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    protected Optional<String> getOwner(ConnectorSession session)
+    {
+        return Optional.of(session.getUser());
     }
 }

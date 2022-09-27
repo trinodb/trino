@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HiveMetadata;
 import io.trino.plugin.hive.HiveViewNotSupportedException;
@@ -63,6 +64,11 @@ import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalPropertie
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
+import static io.trino.plugin.iceberg.IcebergUtil.getMetadataLocation;
+import static io.trino.plugin.iceberg.IcebergUtil.readMetadata;
+import static io.trino.plugin.iceberg.IcebergUtil.validateLocation;
+import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -85,6 +91,7 @@ public abstract class AbstractTrinoCatalog
     private final CatalogName catalogName;
     private final TypeManager typeManager;
     protected final IcebergTableOperationsProvider tableOperationsProvider;
+    protected final TrinoFileSystemFactory fileSystemFactory;
     private final String trinoVersion;
     private final boolean useUniqueTableLocation;
 
@@ -92,12 +99,14 @@ public abstract class AbstractTrinoCatalog
             CatalogName catalogName,
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
+            TrinoFileSystemFactory fileSystemFactory,
             String trinoVersion,
             boolean useUniqueTableLocation)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.useUniqueTableLocation = useUniqueTableLocation;
     }
@@ -178,6 +187,41 @@ public abstract class AbstractTrinoCatalog
                 owner,
                 Optional.of(location));
         return createTableTransaction(schemaTableName.toString(), ops, metadata);
+    }
+
+    private boolean namespaceExists(ConnectorSession session, String namespace)
+    {
+        // TODO Improve this when we are improving ConnectorMetadata#schemaExists
+        return listNamespaces(session).contains(namespace);
+    }
+
+    protected abstract boolean tableExists(SchemaTableName schemaTableName);
+
+    protected abstract Optional<String> getOwner(ConnectorSession session);
+
+    @Override
+    public void registerTable(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, Optional<String> metadataFileName)
+    {
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+
+        if (!namespaceExists(session, schemaTableName.getSchemaName())) {
+            throw new TrinoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", schemaTableName.getSchemaName()));
+        }
+        if (tableExists(schemaTableName)) {
+            throw new TrinoException(TABLE_ALREADY_EXISTS, format("Table '%s' already exists in schema '%s'", schemaTableName.getTableName(), schemaTableName.getSchemaName()));
+        }
+        Optional<String> metadataLocation = getMetadataLocation(fileSystem, tableLocation, metadataFileName);
+        validateLocation(fileSystem, metadataLocation.get());
+
+        TableMetadata tableMetadata = readMetadata(fileSystem, metadataLocation.get());
+        IcebergTableOperations operations = tableOperationsProvider.createTableOperations(
+                this,
+                session,
+                schemaTableName.getSchemaName(),
+                schemaTableName.getTableName(),
+                getOwner(session),
+                Optional.of(tableLocation));
+        operations.commit(null, tableMetadata);
     }
 
     protected String createNewTableName(String baseTableName)

@@ -89,7 +89,8 @@ public abstract class AbstractMetastoreTableOperations
     @Override
     protected final void commitNewTable(TableMetadata metadata)
     {
-        String newMetadataLocation = writeNewMetadata(metadata, version + 1);
+        String newMetadataLocation = Optional.ofNullable(metadata.metadataFileLocation())
+                .orElse(writeNewMetadata(metadata, version + 1));
 
         Table.Builder builder = Table.builder()
                 .setDatabaseName(database)

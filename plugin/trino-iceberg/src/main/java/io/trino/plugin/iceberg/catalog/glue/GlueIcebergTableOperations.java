@@ -102,7 +102,9 @@ public class GlueIcebergTableOperations
     protected void commitNewTable(TableMetadata metadata)
     {
         verify(version == -1, "commitNewTable called on a table which already exists");
-        String newMetadataLocation = writeNewMetadata(metadata, 0);
+        String newMetadataLocation = Optional.ofNullable(metadata.metadataFileLocation())
+                .orElse(writeNewMetadata(metadata, 0));
+
         TableInput tableInput = getTableInput(tableName, owner, ImmutableMap.<String, String>builder()
                         .put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
                         .put(METADATA_LOCATION_PROP, newMetadataLocation)

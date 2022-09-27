@@ -101,7 +101,6 @@ public class TrinoHiveCatalog
     public static final String DEPENDS_ON_TABLES = "dependsOnTables";
 
     private final CachingHiveMetastore metastore;
-    private final TrinoFileSystemFactory fileSystemFactory;
     private final boolean isUsingSystemSecurity;
     private final boolean deleteSchemaLocationsFallback;
 
@@ -118,9 +117,8 @@ public class TrinoHiveCatalog
             boolean isUsingSystemSecurity,
             boolean deleteSchemaLocationsFallback)
     {
-        super(catalogName, typeManager, tableOperationsProvider, trinoVersion, useUniqueTableLocation);
+        super(catalogName, typeManager, tableOperationsProvider, fileSystemFactory, trinoVersion, useUniqueTableLocation);
         this.metastore = requireNonNull(metastore, "metastore is null");
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.isUsingSystemSecurity = isUsingSystemSecurity;
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
     }
@@ -625,5 +623,17 @@ public class TrinoHiveCatalog
             return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, tableName));
         }
         return Optional.empty();
+    }
+
+    @Override
+    protected boolean tableExists(SchemaTableName schemaTableName)
+    {
+        return metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName()).isPresent();
+    }
+
+    @Override
+    protected Optional<String> getOwner(ConnectorSession session)
+    {
+        return isUsingSystemSecurity ? Optional.empty() : Optional.of(session.getUser());
     }
 }
