@@ -409,20 +409,20 @@ public class TestTrinoCli
     {
         launchTrinoCliWithServerArgument();
         trino.waitForPrompt();
-        trino.getProcessInput().println("EXPLAIN ANALYZE CREATE TABLE iceberg.default.test_table AS SELECT * FROM hive.default.nation LIMIT 10;");
+        trino.getProcessInput().println("EXPLAIN ANALYZE CREATE TABLE iceberg.default.test_print_explain_analyze AS SELECT * FROM hive.default.nation LIMIT 10;");
         List<String> lines = trimLines(trino.readLinesUntilPrompt());
         // TODO once https://github.com/trinodb/trino/issues/14253 is done this should be assertThat(lines).contains("CREATE TABLE: 1 row", "Query Plan");
         assertThat(lines).contains("CREATE TABLE", "Query Plan");
         // TODO once https://github.com/trinodb/trino/issues/14253 is done this should be assertThat(lines).contains("INSERT: 1 row", "Query Plan");
-        trino.getProcessInput().println("EXPLAIN ANALYZE INSERT INTO iceberg.default.test_table VALUES(100, 'URUGUAY', 3, 'test comment');");
+        trino.getProcessInput().println("EXPLAIN ANALYZE INSERT INTO iceberg.default.test_print_explain_analyze VALUES(100, 'URUGUAY', 3, 'test comment');");
         lines = trimLines(trino.readLinesUntilPrompt());
         assertThat(lines).contains("INSERT", "Query Plan");
         // TODO once https://github.com/trinodb/trino/issues/14253 is done this should be assertThat(lines).contains("UPDATE: 1 row", "Query Plan");
-        trino.getProcessInput().println("EXPLAIN ANALYZE UPDATE iceberg.default.test_table SET n_comment = 'testValue 5' WHERE n_nationkey = 100;");
+        trino.getProcessInput().println("EXPLAIN ANALYZE UPDATE iceberg.default.test_print_explain_analyze SET n_comment = 'testValue 5' WHERE n_nationkey = 100;");
         lines = trimLines(trino.readLinesUntilPrompt());
         assertThat(lines).contains("UPDATE", "Query Plan");
         // TODO once https://github.com/trinodb/trino/issues/14253 is done this should be assertThat(lines).contains("DELETE: 1 row", "Query Plan");
-        trino.getProcessInput().println("EXPLAIN ANALYZE DELETE FROM iceberg.default.test_table WHERE n_nationkey = 100;");
+        trino.getProcessInput().println("EXPLAIN ANALYZE DELETE FROM iceberg.default.test_print_explain_analyze WHERE n_nationkey = 100;");
         lines = trimLines(trino.readLinesUntilPrompt());
         assertThat(lines).contains("DELETE", "Query Plan");
     }
