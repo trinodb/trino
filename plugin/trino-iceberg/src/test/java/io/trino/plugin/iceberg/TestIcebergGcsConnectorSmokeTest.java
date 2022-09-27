@@ -20,6 +20,8 @@ import io.trino.hadoop.ConfigurationInstantiator;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
 import io.trino.plugin.hive.gcs.HiveGcsConfig;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.apache.hadoop.conf.Configuration;
@@ -40,13 +42,14 @@ import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Base64;
 
+import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_SCHEMA;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.FileFormat.ORC;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergGcsConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
@@ -140,6 +143,7 @@ public class TestIcebergGcsConnectorSmokeTest
                         .put("hive.gcs.json-key-file-path", gcpCredentialsFile.toAbsolutePath().toString())
                         .put("hive.metastore.uri", "thrift://" + hiveHadoop.getHiveMetastoreEndpoint())
                         .put("iceberg.file-format", format.name())
+                        .put("iceberg.register-table-procedure.enabled", "true")
                         .buildOrThrow())
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
@@ -169,5 +173,28 @@ public class TestIcebergGcsConnectorSmokeTest
         assertQueryFails(
                 format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomTableSuffix()),
                 "Hive metastore does not support renaming schemas");
+    }
+
+    @Override
+    protected void dropTableFromMetastore(String tableName)
+    {
+        HiveMetastore metastore = new BridgingHiveMetastore(
+                testingThriftHiveMetastoreBuilder()
+                        .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint())
+                        .build());
+        metastore.dropTable(schema, tableName, false);
+        assertThat(metastore.getTable(schema, tableName)).isEmpty();
+    }
+
+    @Override
+    protected String getMetadataLocation(String tableName)
+    {
+        HiveMetastore metastore = new BridgingHiveMetastore(
+                testingThriftHiveMetastoreBuilder()
+                        .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint())
+                        .build());
+        return metastore
+                .getTable(schema, tableName).orElseThrow()
+                .getParameters().get("metadata_location");
     }
 }

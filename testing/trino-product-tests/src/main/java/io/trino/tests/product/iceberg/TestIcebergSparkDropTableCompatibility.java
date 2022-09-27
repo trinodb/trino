@@ -34,6 +34,7 @@ import static io.trino.tests.product.hive.Engine.SPARK;
 import static io.trino.tests.product.hive.Engine.TRINO;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.iceberg.util.IcebergTestUtils.getTableLocation;
+import static io.trino.tests.product.iceberg.util.IcebergTestUtils.stripNamenodeURI;
 import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -74,7 +75,7 @@ public class TestIcebergSparkDropTableCompatibility
         tableCreatorEngine.queryExecutor().executeQuery("CREATE TABLE " + tableName + "(col0 INT, col1 INT)");
         onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1, 2)");
 
-        String tableDirectory = getTableLocation(tableName);
+        String tableDirectory = stripNamenodeURI(getTableLocation(tableName));
         assertFileExistence(tableDirectory, true, "The table directory exists after creating the table");
         List<String> dataFilePaths = getDataFilePaths(tableName);
 

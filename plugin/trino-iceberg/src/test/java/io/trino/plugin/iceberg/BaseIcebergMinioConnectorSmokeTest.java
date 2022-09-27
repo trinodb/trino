@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableMap;
 import io.minio.messages.Event;
 import io.trino.Session;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
@@ -29,6 +31,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_ACCESS_KEY;
 import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_SECRET_KEY;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
@@ -70,6 +73,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
                                 .put("hive.s3.endpoint", "http://" + hiveMinioDataLake.getMinio().getMinioApiEndpoint())
                                 .put("hive.s3.path-style-access", "true")
                                 .put("hive.s3.streaming.part-size", "5MB")
+                                .put("iceberg.register-table-procedure.enabled", "true")
                                 .buildOrThrow())
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
@@ -205,5 +209,28 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
                 .getOnlyColumn()
                 .map(Long.class::cast)
                 .collect(toImmutableList());
+    }
+
+    @Override
+    protected void dropTableFromMetastore(String tableName)
+    {
+        HiveMetastore metastore = new BridgingHiveMetastore(
+                testingThriftHiveMetastoreBuilder()
+                        .metastoreClient(hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+                        .build());
+        metastore.dropTable(schemaName, tableName, false);
+        assertThat(metastore.getTable(schemaName, tableName)).isEmpty();
+    }
+
+    @Override
+    protected String getMetadataLocation(String tableName)
+    {
+        HiveMetastore metastore = new BridgingHiveMetastore(
+                testingThriftHiveMetastoreBuilder()
+                        .metastoreClient(hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+                        .build());
+        return metastore
+                .getTable(schemaName, tableName).orElseThrow()
+                .getParameters().get("metadata_location");
     }
 }
