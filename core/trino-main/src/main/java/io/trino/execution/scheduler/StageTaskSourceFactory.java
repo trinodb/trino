@@ -102,6 +102,10 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Deprecated in favor of {@link EventDrivenTaskSourceFactory}
+ */
+@Deprecated
 public class StageTaskSourceFactory
         implements TaskSourceFactory
 {

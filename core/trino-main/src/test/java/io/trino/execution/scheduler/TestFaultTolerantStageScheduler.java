@@ -36,7 +36,6 @@ import io.trino.execution.TaskState;
 import io.trino.execution.TestingRemoteTaskFactory;
 import io.trino.execution.TestingRemoteTaskFactory.TestingRemoteTask;
 import io.trino.execution.scheduler.TestingExchange.TestingExchangeSinkHandle;
-import io.trino.execution.scheduler.TestingExchange.TestingExchangeSourceHandle;
 import io.trino.execution.scheduler.TestingNodeSelectorFactory.TestingNodeSupplier;
 import io.trino.failuredetector.NoOpFailureDetector;
 import io.trino.metadata.InternalNode;
@@ -200,12 +199,12 @@ public class TestFaultTolerantStageScheduler
             // blocked on first source exchange
             assertBlocked(blocked);
 
-            sourceExchange1.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 1)));
+            sourceExchange1.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 0, 1)));
             // still blocked on the second source exchange
             assertBlocked(blocked);
             assertFalse(scheduler.isBlocked().isDone());
 
-            sourceExchange2.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 1)));
+            sourceExchange2.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(1, 0, 1)));
             // now unblocked
             assertUnblocked(blocked);
             assertUnblocked(scheduler.isBlocked());
@@ -343,8 +342,8 @@ public class TestFaultTolerantStageScheduler
                     2,
                     3); // allow for 3 tasks waiting for nodes before blocking
 
-            sourceExchange1.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 1)));
-            sourceExchange2.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 1)));
+            sourceExchange1.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 0, 1)));
+            sourceExchange2.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(1, 0, 1)));
             scheduler.schedule();
 
             Map<TaskId, TestingRemoteTask> tasks;
@@ -421,8 +420,8 @@ public class TestFaultTolerantStageScheduler
                     0,
                     1);
 
-            sourceExchange1.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 1)));
-            sourceExchange2.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 1)));
+            sourceExchange1.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 0, 1)));
+            sourceExchange2.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(1, 0, 1)));
             assertUnblocked(scheduler.isBlocked());
 
             scheduler.schedule();
@@ -481,8 +480,8 @@ public class TestFaultTolerantStageScheduler
                     6,
                     1);
 
-            sourceExchange1.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 1)));
-            sourceExchange2.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 1)));
+            sourceExchange1.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 0, 1)));
+            sourceExchange2.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(1, 0, 1)));
             assertUnblocked(scheduler.isBlocked());
             scheduler.schedule();
 
@@ -756,8 +755,8 @@ public class TestFaultTolerantStageScheduler
                     0,
                     1);
 
-            sourceExchange1.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 1)));
-            sourceExchange2.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 1)));
+            sourceExchange1.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 0, 1)));
+            sourceExchange2.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(1, 0, 1)));
             assertUnblocked(scheduler.isBlocked());
 
             scheduler.schedule();
@@ -812,8 +811,8 @@ public class TestFaultTolerantStageScheduler
                     2,
                     1);
 
-            sourceExchange1.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 1)));
-            sourceExchange2.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 1)));
+            sourceExchange1.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 0, 1)));
+            sourceExchange2.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(1, 0, 1)));
             assertUnblocked(scheduler.isBlocked());
 
             scheduler.schedule();

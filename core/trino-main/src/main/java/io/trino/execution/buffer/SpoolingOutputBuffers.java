@@ -31,6 +31,7 @@ public class SpoolingOutputBuffers
         return new SpoolingOutputBuffers(0, exchangeSinkInstanceHandle, outputPartitionCount);
     }
 
+    // Visible only for Jackson... Use the "with" methods instead
     @JsonCreator
     public SpoolingOutputBuffers(
             @JsonProperty("version") long version,
@@ -69,5 +70,10 @@ public class SpoolingOutputBuffers
                 "number of output partitions must be the same: %s != %s",
                 getOutputPartitionCount(),
                 newOutputBuffers.getOutputPartitionCount());
+    }
+
+    public SpoolingOutputBuffers withExchangeSinkInstanceHandle(ExchangeSinkInstanceHandle handle)
+    {
+        return new SpoolingOutputBuffers(getVersion() + 1, handle, outputPartitionCount);
     }
 }

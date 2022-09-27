@@ -21,6 +21,10 @@ import io.trino.sql.planner.plan.PlanFragmentId;
 
 import java.util.function.LongConsumer;
 
+/**
+ * Deprecated in favor of {@link EventDrivenTaskSourceFactory}
+ */
+@Deprecated
 public interface TaskSourceFactory
 {
     TaskSource create(
