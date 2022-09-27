@@ -3973,6 +3973,60 @@ public abstract class BaseIcebergConnectorTest
                             "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
         }
 
+        // ANALYZE
+        Session defaultSession = getSession();
+        String catalog = defaultSession.getCatalog().orElseThrow();
+        Session extendedStatisticsEnabled = Session.builder(defaultSession)
+                .setCatalogSessionProperty(catalog, EXTENDED_STATISTICS_ENABLED, "true")
+                .build();
+        assertUpdate(extendedStatisticsEnabled, "ANALYZE test_all_types");
+        if (format != AVRO) {
+            assertThat(query(extendedStatisticsEnabled, "SHOW STATS FOR test_all_types"))
+                    .skippingTypesCheck()
+                    .matches("VALUES " +
+                            "  ('a_boolean', NULL, 1e0, 0.5e0, NULL, 'true', 'true'), " +
+                            "  ('an_integer', NULL, 1e0, 0.5e0, NULL, '1', '1'), " +
+                            "  ('a_bigint', NULL, 1e0, 0.5e0, NULL, '1', '1'), " +
+                            "  ('a_real', NULL, 1e0, 0.5e0, NULL, '1.0', '1.0'), " +
+                            "  ('a_double', NULL, 1e0, 0.5e0, NULL, '1.0', '1.0'), " +
+                            "  ('a_short_decimal', NULL, 1e0, 0.5e0, NULL, '1.0', '1.0'), " +
+                            "  ('a_long_decimal', NULL, 1e0, 0.5e0, NULL, '11.0', '11.0'), " +
+                            "  ('a_varchar', " + (format == PARQUET ? "87e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_varbinary', " + (format == PARQUET ? "82e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_date', NULL, 1e0, 0.5e0, NULL, '2021-07-24', '2021-07-24'), " +
+                            "  ('a_time', NULL, 1e0, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_timestamp', NULL, 1e0, 0.5e0, NULL, " + (format == ORC ? "'2021-07-24 03:43:57.987000', '2021-07-24 03:43:57.987999'" : "'2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'") + "), " +
+                            "  ('a_timestamptz', NULL, 1e0, 0.5e0, NULL, '2021-07-24 04:43:57.987 UTC', '2021-07-24 04:43:57.987 UTC'), " +
+                            "  ('a_uuid', NULL, 1e0, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_row', NULL, 1e0, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
+                            "  ('an_array', NULL, 1e0, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
+                            "  ('a_map', NULL, 1e0, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
+                            "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
+        }
+        else {
+            assertThat(query(extendedStatisticsEnabled, "SHOW STATS FOR test_all_types"))
+                    .skippingTypesCheck()
+                    .matches("VALUES " +
+                            "  ('a_boolean', NULL, 1e0, NULL, NULL, NULL, NULL), " +
+                            "  ('an_integer', NULL, 1e0, NULL, NULL, NULL, NULL), " +
+                            "  ('a_bigint', NULL, 1e0, NULL, NULL, NULL, NULL), " +
+                            "  ('a_real', NULL, 1e0, NULL, NULL, NULL, NULL), " +
+                            "  ('a_double', NULL, 1e0, NULL, NULL, NULL, NULL), " +
+                            "  ('a_short_decimal', NULL, 1e0, NULL, NULL, NULL, NULL), " +
+                            "  ('a_long_decimal', NULL, 1e0, NULL, NULL, NULL, NULL), " +
+                            "  ('a_varchar', NULL, 1e0, NULL, NULL, NULL, NULL), " +
+                            "  ('a_varbinary', NULL, 1e0, NULL, NULL, NULL, NULL), " +
+                            "  ('a_date', NULL, 1e0, NULL, NULL, NULL, NULL), " +
+                            "  ('a_time', NULL, 1e0, NULL, NULL, NULL, NULL), " +
+                            "  ('a_timestamp', NULL, 1e0, NULL, NULL, NULL, NULL), " +
+                            "  ('a_timestamptz', NULL, 1e0, NULL, NULL, NULL, NULL), " +
+                            "  ('a_uuid', NULL, 1e0, NULL, NULL, NULL, NULL), " +
+                            "  ('a_row', NULL, 1e0, NULL, NULL, NULL, NULL), " +
+                            "  ('an_array', NULL, 1e0, NULL, NULL, NULL, NULL), " +
+                            "  ('a_map', NULL, 1e0, NULL, NULL, NULL, NULL), " +
+                            "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
+        }
+
         // $partitions
         String schema = getSession().getSchema().orElseThrow();
         assertThat(query("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = 'test_all_types$partitions' "))
