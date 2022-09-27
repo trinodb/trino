@@ -46,14 +46,11 @@ import static java.util.Objects.requireNonNull;
 @NotThreadSafe
 public class PagesSerde
 {
-    static final int SERIALIZED_PAGE_HEADER_SIZE = /*positionCount*/ Integer.BYTES +
-            // pageCodecMarkers
-            Byte.BYTES +
-            // uncompressedSizeInBytes
-            Integer.BYTES +
-            // sizeInBytes
-            Integer.BYTES;
-    private static final int COMPRESSED_SIZE_OFFSET = SERIALIZED_PAGE_HEADER_SIZE - Integer.BYTES;
+    private static final int SERIALIZED_PAGE_POSITION_COUNT_OFFSET = 0;
+    private static final int SERIALIZED_PAGE_CODEC_MARKERS_OFFSET = SERIALIZED_PAGE_POSITION_COUNT_OFFSET + Integer.BYTES;
+    private static final int SERIALIZED_PAGE_UNCOMPRESSED_SIZE_OFFSET = SERIALIZED_PAGE_CODEC_MARKERS_OFFSET + Byte.BYTES;
+    private static final int SERIALIZED_PAGE_COMPRESSED_SIZE_OFFSET = SERIALIZED_PAGE_UNCOMPRESSED_SIZE_OFFSET + Integer.BYTES;
+    static final int SERIALIZED_PAGE_HEADER_SIZE = SERIALIZED_PAGE_COMPRESSED_SIZE_OFFSET + Integer.BYTES;
     private static final double MINIMUM_COMPRESSION_RATIO = 0.8;
 
     private final BlockEncodingSerde blockEncodingSerde;
@@ -143,7 +140,12 @@ public class PagesSerde
 
     public static int getSerializedPagePositionCount(Slice serializedPage)
     {
-        return serializedPage.getInt(0);
+        return serializedPage.getInt(SERIALIZED_PAGE_POSITION_COUNT_OFFSET);
+    }
+
+    public static int getSerializedPageUncompressedSizeInBytes(Slice serializedPage)
+    {
+        return serializedPage.getInt(SERIALIZED_PAGE_UNCOMPRESSED_SIZE_OFFSET);
     }
 
     public static boolean isSerializedPageEncrypted(Slice serializedPage)
@@ -224,7 +226,7 @@ public class PagesSerde
     {
         checkArgument(headerSlice.length() == SERIALIZED_PAGE_HEADER_SIZE, "headerSlice length should equal to %s", SERIALIZED_PAGE_HEADER_SIZE);
 
-        int compressedSize = getIntUnchecked(headerSlice, COMPRESSED_SIZE_OFFSET);
+        int compressedSize = getIntUnchecked(headerSlice, SERIALIZED_PAGE_COMPRESSED_SIZE_OFFSET);
         byte[] outputBuffer = new byte[SERIALIZED_PAGE_HEADER_SIZE + compressedSize];
         headerSlice.getBytes(0, outputBuffer, 0, SERIALIZED_PAGE_HEADER_SIZE);
         readFully(inputStream, outputBuffer, SERIALIZED_PAGE_HEADER_SIZE, compressedSize);
