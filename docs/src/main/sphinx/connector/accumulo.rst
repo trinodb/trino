@@ -59,7 +59,7 @@ Property name                                    Default value          Required
 ``accumulo.zookeepers``                          (none)                 Yes        ZooKeeper connect string
 ``accumulo.username``                            (none)                 Yes        Accumulo user for Trino
 ``accumulo.password``                            (none)                 Yes        Accumulo password for user
-``accumulo.zookeeper.metadata.root``             ``/presto-accumulo``   No         Root znode for storing metadata. Only relevant if using default Metadata Manager
+``accumulo.zookeeper.metadata.root``             ``/trino-accumulo``    No         Root znode for storing metadata. Only relevant if using default Metadata Manager
 ``accumulo.cardinality.cache.size``              ``100000``             No         Sets the size of the index cardinality cache
 ``accumulo.cardinality.cache.expire.duration``   ``5m``                 No         Sets the expiration duration of the cardinality cache.
 ================================================ ====================== ========== =====================================================================================
@@ -617,7 +617,7 @@ follows:
     /metadata-root/schema/table
 
 Where ``metadata-root`` is the value of ``zookeeper.metadata.root`` in
-the config file (default is ``/presto-accumulo``), ``schema`` is the
+the config file (default is ``/trino-accumulo``), ``schema`` is the
 Trino schema (which is identical to the Accumulo namespace name), and
 ``table`` is the Trino table name (again, identical to Accumulo name).
 The data of the ``table`` ZooKeeper node is a serialized
@@ -666,12 +666,12 @@ when creating the external table.
      c      | date    |       | Accumulo column c:c. Indexed: true
 
 2. Using the ZooKeeper CLI, delete the corresponding znode.  Note this uses the default ZooKeeper
-metadata root of ``/presto-accumulo``
+metadata root of ``/trino-accumulo``
 
 .. code-block:: text
 
     $ zkCli.sh
-    [zk: localhost:2181(CONNECTED) 1] delete /presto-accumulo/foo/bar
+    [zk: localhost:2181(CONNECTED) 1] delete /trino-accumulo/foo/bar
 
 3. Re-create the table using the same DDL as before, but adding the ``external=true`` property.
 Note that if you had not previously defined the column_mapping, you need to add the property
