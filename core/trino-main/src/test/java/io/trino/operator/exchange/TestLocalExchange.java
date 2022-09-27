@@ -26,6 +26,7 @@ import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.PageAssertions;
+import io.trino.operator.PartitionFunctionFactory;
 import io.trino.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
 import io.trino.spi.Page;
 import io.trino.spi.connector.BucketFunction;
@@ -83,7 +84,7 @@ public class TestLocalExchange
     private static final DataSize WRITER_MIN_SIZE = DataSize.of(32, DataSize.Unit.MEGABYTE);
 
     private final ConcurrentMap<CatalogHandle, ConnectorNodePartitioningProvider> partitionManagers = new ConcurrentHashMap<>();
-    private NodePartitioningManager nodePartitioningManager;
+    private PartitionFunctionFactory partitionFunctionFactory;
 
     @BeforeMethod
     public void setUp()
@@ -92,7 +93,7 @@ public class TestLocalExchange
                 new InMemoryNodeManager(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(new FinalizerService())));
-        nodePartitioningManager = new NodePartitioningManager(
+        NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(
                 nodeScheduler,
                 new BlockTypeOperators(new TypeOperators()),
                 catalogHandle -> {
@@ -100,21 +101,21 @@ public class TestLocalExchange
                     checkArgument(result != null, "No partition manager for catalog handle: %s", catalogHandle);
                     return result;
                 });
+        partitionFunctionFactory = new PartitionFunctionFactory(nodePartitioningManager, TYPE_OPERATOR_FACTORY);
     }
 
     @Test
     public void testGatherSingleWriter()
     {
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
                 SESSION,
                 8,
                 SINGLE_DISTRIBUTION,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
+                partitionFunctionFactory,
                 DataSize.ofBytes(retainedSizeOfPages(99)),
-                TYPE_OPERATOR_FACTORY,
                 PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
@@ -180,15 +181,14 @@ public class TestLocalExchange
     public void testBroadcast()
     {
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
                 SESSION,
                 2,
                 FIXED_BROADCAST_DISTRIBUTION,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
+                partitionFunctionFactory,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATOR_FACTORY,
                 PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
@@ -269,15 +269,14 @@ public class TestLocalExchange
     public void testRandom()
     {
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
                 SESSION,
                 2,
                 FIXED_ARBITRARY_DISTRIBUTION,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
+                partitionFunctionFactory,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATOR_FACTORY,
                 PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
@@ -320,15 +319,14 @@ public class TestLocalExchange
     {
         AtomicLong physicalWrittenBytes = new AtomicLong(0);
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
                 SESSION,
                 3,
                 SCALED_WRITER_DISTRIBUTION,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
+                partitionFunctionFactory,
                 DataSize.ofBytes(retainedSizeOfPages(4)),
-                TYPE_OPERATOR_FACTORY,
                 physicalWrittenBytes::get,
                 DataSize.ofBytes(retainedSizeOfPages(2)));
 
@@ -401,15 +399,14 @@ public class TestLocalExchange
     {
         AtomicLong physicalWrittenBytes = new AtomicLong(0);
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
                 SESSION,
                 3,
                 SCALED_WRITER_DISTRIBUTION,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
+                partitionFunctionFactory,
                 DataSize.ofBytes(retainedSizeOfPages(4)),
-                TYPE_OPERATOR_FACTORY,
                 physicalWrittenBytes::get,
                 DataSize.ofBytes(retainedSizeOfPages(2)));
 
@@ -444,15 +441,14 @@ public class TestLocalExchange
     {
         AtomicLong physicalWrittenBytes = new AtomicLong(0);
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
                 SESSION,
                 3,
                 SCALED_WRITER_DISTRIBUTION,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
+                partitionFunctionFactory,
                 DataSize.ofBytes(retainedSizeOfPages(20)),
-                TYPE_OPERATOR_FACTORY,
                 physicalWrittenBytes::get,
                 DataSize.ofBytes(retainedSizeOfPages(2)));
 
@@ -488,15 +484,14 @@ public class TestLocalExchange
     public void testPassthrough()
     {
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
                 SESSION,
                 2,
                 FIXED_PASSTHROUGH_DISTRIBUTION,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
+                partitionFunctionFactory,
                 DataSize.ofBytes(retainedSizeOfPages(1)),
-                TYPE_OPERATOR_FACTORY,
                 PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
@@ -556,15 +551,14 @@ public class TestLocalExchange
     public void testPartition()
     {
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
                 SESSION,
                 2,
                 FIXED_HASH_DISTRIBUTION,
                 ImmutableList.of(0),
                 TYPES,
                 Optional.empty(),
+                partitionFunctionFactory,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATOR_FACTORY,
                 PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
@@ -653,15 +647,14 @@ public class TestLocalExchange
                 Optional.of(TestingTransactionHandle.create()),
                 connectorPartitioningHandle);
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
                 SESSION,
                 2,
                 partitioningHandle,
                 ImmutableList.of(1),
                 ImmutableList.of(BIGINT),
                 Optional.empty(),
+                partitionFunctionFactory,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATOR_FACTORY,
                 PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
@@ -707,15 +700,14 @@ public class TestLocalExchange
         ImmutableList<Type> types = ImmutableList.of(BIGINT);
 
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
                 SESSION,
                 2,
                 FIXED_BROADCAST_DISTRIBUTION,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
+                partitionFunctionFactory,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATOR_FACTORY,
                 PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
@@ -755,15 +747,14 @@ public class TestLocalExchange
     public void writeUnblockWhenAllReadersFinishAndPagesConsumed()
     {
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
                 SESSION,
                 2,
                 FIXED_BROADCAST_DISTRIBUTION,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
+                partitionFunctionFactory,
                 DataSize.ofBytes(1),
-                TYPE_OPERATOR_FACTORY,
                 PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 

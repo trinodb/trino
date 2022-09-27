@@ -15,22 +15,15 @@ package io.trino.operator.exchange;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
-import io.airlift.slice.XxHash64;
 import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.operator.BucketPartitionFunction;
-import io.trino.operator.HashGenerator;
-import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.PartitionFunction;
-import io.trino.operator.PrecomputedHashGenerator;
+import io.trino.operator.PartitionFunctionFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.MergePartitioningHandle;
-import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.SystemPartitioningHandle;
-import io.trino.type.BlockTypeOperators;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -56,7 +49,6 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DI
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 
 @ThreadSafe
 public class LocalExchange
@@ -83,15 +75,14 @@ public class LocalExchange
     private int nextSourceIndex;
 
     public LocalExchange(
-            NodePartitioningManager nodePartitioningManager,
             Session session,
             int defaultConcurrency,
             PartitioningHandle partitioning,
             List<Integer> partitionChannels,
             List<Type> partitionChannelTypes,
             Optional<Integer> partitionHashChannel,
+            PartitionFunctionFactory partitionFunctionFactory,
             DataSize maxBufferedBytes,
-            BlockTypeOperators blockTypeOperators,
             Supplier<Long> physicalWrittenBytesSupplier,
             DataSize writerMinSize)
     {
@@ -134,23 +125,14 @@ public class LocalExchange
         else if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent() ||
                 (partitioning.getConnectorHandle() instanceof MergePartitioningHandle)) {
             exchangerSupplier = () -> {
-                PartitionFunction partitionFunction = createPartitionFunction(
-                        nodePartitioningManager,
+                PartitionFunction partitionFunction = partitionFunctionFactory.create(
                         session,
-                        blockTypeOperators,
                         partitioning,
-                        bufferCount,
                         partitionChannels,
                         partitionChannelTypes,
-                        partitionHashChannel);
-                Function<Page, Page> partitionPagePreparer;
-                if (isSystemPartitioning(partitioning)) {
-                    partitionPagePreparer = identity();
-                }
-                else {
-                    int[] partitionChannelsArray = Ints.toArray(partitionChannels);
-                    partitionPagePreparer = page -> page.getColumns(partitionChannelsArray);
-                }
+                        partitionHashChannel,
+                        bufferCount);
+                Function<Page, Page> partitionPagePreparer = partitionFunctionFactory.createPartitionPagePreparer(partitioning, partitionChannels);
                 return new PartitioningExchanger(
                         buffers,
                         memoryManager,
@@ -193,54 +175,6 @@ public class LocalExchange
     LocalExchangeSource getSource(int partitionIndex)
     {
         return sources.get(partitionIndex);
-    }
-
-    private static PartitionFunction createPartitionFunction(
-            NodePartitioningManager nodePartitioningManager,
-            Session session,
-            BlockTypeOperators blockTypeOperators,
-            PartitioningHandle partitioning,
-            int partitionCount,
-            List<Integer> partitionChannels,
-            List<Type> partitionChannelTypes,
-            Optional<Integer> partitionHashChannel)
-    {
-        checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
-
-        if (isSystemPartitioning(partitioning)) {
-            HashGenerator hashGenerator;
-            if (partitionHashChannel.isPresent()) {
-                hashGenerator = new PrecomputedHashGenerator(partitionHashChannel.get());
-            }
-            else {
-                hashGenerator = new InterpretedHashGenerator(partitionChannelTypes, Ints.toArray(partitionChannels), blockTypeOperators);
-            }
-            return new LocalPartitionGenerator(hashGenerator, partitionCount);
-        }
-
-        // Distribute buckets assigned to this node among threads.
-        // The same bucket function (with the same bucket count) as for node
-        // partitioning must be used. This way rows within a single bucket
-        // will be being processed by single thread.
-        int bucketCount = nodePartitioningManager.getBucketCount(session, partitioning);
-        int[] bucketToPartition = new int[bucketCount];
-
-        for (int bucket = 0; bucket < bucketCount; bucket++) {
-            // mix the bucket bits so we don't use the same bucket number used to distribute between stages
-            int hashedBucket = (int) XxHash64.hash(Long.reverse(bucket));
-            bucketToPartition[bucket] = hashedBucket & (partitionCount - 1);
-        }
-
-        if (partitioning.getConnectorHandle() instanceof MergePartitioningHandle handle) {
-            return handle.getPartitionFunction(
-                    (scheme, types) -> nodePartitioningManager.getPartitionFunction(session, scheme, types, bucketToPartition),
-                    partitionChannelTypes,
-                    bucketToPartition);
-        }
-
-        return new BucketPartitionFunction(
-                nodePartitioningManager.getBucketFunction(session, partitioning, partitionChannelTypes, bucketCount),
-                bucketToPartition);
     }
 
     private static boolean isSystemPartitioning(PartitioningHandle partitioning)

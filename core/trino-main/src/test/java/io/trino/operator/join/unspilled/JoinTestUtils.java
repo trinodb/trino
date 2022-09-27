@@ -21,6 +21,7 @@ import io.trino.operator.DriverContext;
 import io.trino.operator.OperatorFactories;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PagesIndex;
+import io.trino.operator.PartitionFunctionFactory;
 import io.trino.operator.PipelineContext;
 import io.trino.operator.TaskContext;
 import io.trino.operator.ValuesOperator;
@@ -142,15 +143,14 @@ public final class JoinTestUtils
                 .map(types::get)
                 .collect(toImmutableList());
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
                 taskContext.getSession(),
                 partitionCount,
                 FIXED_HASH_DISTRIBUTION,
                 hashChannels,
                 hashChannelTypes,
                 buildPages.getHashChannel(),
+                new PartitionFunctionFactory(nodePartitioningManager, TYPE_OPERATOR_FACTORY),
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
-                TYPE_OPERATOR_FACTORY,
                 taskContext::getPhysicalWrittenDataSize,
                 DataSize.of(32, DataSize.Unit.MEGABYTE));
 

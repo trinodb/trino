@@ -76,6 +76,7 @@ import io.trino.operator.OutputFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesSpatialIndexFactory;
 import io.trino.operator.PartitionFunction;
+import io.trino.operator.PartitionFunctionFactory;
 import io.trino.operator.RefreshMaterializedViewOperator.RefreshMaterializedViewOperatorFactory;
 import io.trino.operator.RetryPolicy;
 import io.trino.operator.RowNumberOperator;
@@ -408,6 +409,7 @@ public class LocalExecutionPlanner
     private final TableExecuteContextManager tableExecuteContextManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final PositionsAppenderFactory positionsAppenderFactory;
+    private final PartitionFunctionFactory partitionFunctionFactory;
 
     private final NonEvictableCache<FunctionKey, AccumulatorFactory> accumulatorFactoryCache = buildNonEvictableCache(CacheBuilder.newBuilder()
             .maximumSize(1000)
@@ -472,6 +474,7 @@ public class LocalExecutionPlanner
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         this.positionsAppenderFactory = new PositionsAppenderFactory(blockTypeOperators);
+        this.partitionFunctionFactory = new PartitionFunctionFactory(nodePartitioningManager, blockTypeOperators);
     }
 
     public LocalExecutionPlan plan(
@@ -3478,15 +3481,14 @@ public class LocalExecutionPlanner
             int operatorsCount = subContext.getDriverInstanceCount().orElse(1);
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
             LocalExchange localExchange = new LocalExchange(
-                    nodePartitioningManager,
                     session,
                     operatorsCount,
                     node.getPartitioningScheme().getPartitioning().getHandle(),
                     ImmutableList.of(),
                     ImmutableList.of(),
                     Optional.empty(),
+                    partitionFunctionFactory,
                     maxLocalExchangeBufferSize,
-                    blockTypeOperators,
                     context.getTaskContext()::getPhysicalWrittenDataSize,
                     getWriterMinSize(session));
 
@@ -3556,15 +3558,14 @@ public class LocalExecutionPlanner
             }
 
             LocalExchange localExchange = new LocalExchange(
-                    nodePartitioningManager,
                     session,
                     driverInstanceCount,
                     node.getPartitioningScheme().getPartitioning().getHandle(),
                     partitionChannels,
                     partitionChannelTypes,
                     hashChannel,
+                    partitionFunctionFactory,
                     maxLocalExchangeBufferSize,
-                    blockTypeOperators,
                     context.getTaskContext()::getPhysicalWrittenDataSize,
                     getWriterMinSize(session));
             for (int i = 0; i < node.getSources().size(); i++) {
