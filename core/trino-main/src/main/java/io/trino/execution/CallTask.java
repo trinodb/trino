@@ -117,6 +117,9 @@ public class CallTask
         Predicate<CallArgument> hasName = argument -> argument.getName().isPresent();
         boolean anyNamed = call.getArguments().stream().anyMatch(hasName);
         boolean allNamed = call.getArguments().stream().allMatch(hasName);
+        if (!allNamed && procedure.requiresNamedArguments()) {
+            throw semanticException(INVALID_ARGUMENTS, call, "Only named arguments are allowed for this procedure");
+        }
         if (anyNamed && !allNamed) {
             throw semanticException(INVALID_ARGUMENTS, call, "Named and positional arguments cannot be mixed");
         }

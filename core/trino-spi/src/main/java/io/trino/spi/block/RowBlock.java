@@ -220,7 +220,7 @@ public class RowBlock
         if (rowIsNull != null) {
             consumer.accept(rowIsNull, sizeOf(rowIsNull));
         }
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override

@@ -54,7 +54,10 @@ public abstract class AbstractDistributedEngineOnlyQueries
     @AfterClass(alwaysRun = true)
     public void shutdown()
     {
-        executorService.shutdownNow();
+        if (executorService != null) {
+            executorService.shutdownNow();
+            executorService = null;
+        }
     }
 
     /**

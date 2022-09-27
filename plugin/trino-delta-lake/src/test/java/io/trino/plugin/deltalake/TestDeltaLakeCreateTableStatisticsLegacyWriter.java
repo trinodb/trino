@@ -41,7 +41,7 @@ public class TestDeltaLakeCreateTableStatisticsLegacyWriter
     @Override
     Map<String, String> additionalProperties()
     {
-        return ImmutableMap.of("parquet.experimental-optimized-writer.enabled", "false");
+        return ImmutableMap.of("parquet.optimized-writer.enabled", "false");
     }
 
     @Override

@@ -134,8 +134,10 @@ public final class IcebergQueryRunner
         }
     }
 
-    public static class IcebergGlueQueryRunnerMain
+    public static final class IcebergGlueQueryRunnerMain
     {
+        private IcebergGlueQueryRunnerMain() {}
+
         public static void main(String[] args)
                 throws Exception
         {

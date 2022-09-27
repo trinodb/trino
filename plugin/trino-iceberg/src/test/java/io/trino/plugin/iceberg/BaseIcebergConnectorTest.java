@@ -64,6 +64,7 @@ import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -1026,7 +1027,7 @@ public abstract class BaseIcebergConnectorTest
         String tableName = "partitioning_" + randomTableSuffix();
         @Language("SQL") String sql = format("CREATE TABLE %s (%s bigint) WITH (partitioning = ARRAY['%s'])", tableName, columnName, partitioningField);
         if (success) {
-            assertThat(query(sql)).matches("VALUES (true)");
+            assertUpdate(sql);
             dropTable(tableName);
         }
         else {
@@ -1315,9 +1316,9 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    public void testHourTransform()
+    public void testHourTransformTimestamp()
     {
-        assertUpdate("CREATE TABLE test_hour_transform (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['hour(d)'])");
+        assertUpdate("CREATE TABLE test_hour_transform_timestamp (d timestamp(6), b bigint) WITH (partitioning = ARRAY['hour(d)'])");
 
         @Language("SQL") String values = "VALUES " +
                 "(NULL, 101)," +
@@ -1332,8 +1333,8 @@ public abstract class BaseIcebergConnectorTest
                 "(TIMESTAMP '2015-05-15 12:21:02.345678', 5)," +
                 "(TIMESTAMP '2020-02-21 13:11:11.876543', 6)," +
                 "(TIMESTAMP '2020-02-21 13:12:12.654321', 7)";
-        assertUpdate("INSERT INTO test_hour_transform " + values, 12);
-        assertQuery("SELECT * FROM test_hour_transform", values);
+        assertUpdate("INSERT INTO test_hour_transform_timestamp " + values, 12);
+        assertQuery("SELECT * FROM test_hour_transform_timestamp", values);
 
         @Language("SQL") String expected = "VALUES " +
                 "(NULL, 1, NULL, NULL, 101, 101), " +
@@ -1369,36 +1370,160 @@ public abstract class BaseIcebergConnectorTest
             expectedBigIntStats = "NULL, NULL, NULL, NULL, NULL, NULL";
         }
 
-        assertQuery("SELECT partition.d_hour, record_count, data.d.min, data.d.max, data.b.min, data.b.max FROM \"test_hour_transform$partitions\"", expected);
+        assertQuery("SELECT partition.d_hour, record_count, data.d.min, data.d.max, data.b.min, data.b.max FROM \"test_hour_transform_timestamp$partitions\"", expected);
 
         // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
         assertQuery(
-                "SELECT * FROM test_hour_transform WHERE day_of_week(d) = 3 AND b % 7 = 3",
+                "SELECT * FROM test_hour_transform_timestamp WHERE day_of_week(d) = 3 AND b % 7 = 3",
                 "VALUES (TIMESTAMP '1969-12-31 23:44:55.567890', 10)");
 
-        assertThat(query("SHOW STATS FOR test_hour_transform"))
+        assertThat(query("SHOW STATS FOR test_hour_transform_timestamp"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
                         "  ('d', " + expectedTimestampStats + "), " +
                         "  ('b', " + expectedBigIntStats + "), " +
                         "  (NULL, NULL, NULL, NULL, 12e0, NULL, NULL)");
 
-        assertThat(query("SELECT * FROM test_hour_transform WHERE d IS NOT NULL"))
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE d IS NOT NULL"))
                 .isFullyPushedDown();
-        assertThat(query("SELECT * FROM test_hour_transform WHERE d IS NULL"))
-                .isFullyPushedDown();
-
-        assertThat(query("SELECT * FROM test_hour_transform WHERE d >= DATE '2015-05-15'"))
-                .isFullyPushedDown();
-        assertThat(query("SELECT * FROM test_hour_transform WHERE CAST(d AS date) >= DATE '2015-05-15'"))
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE d IS NULL"))
                 .isFullyPushedDown();
 
-        assertThat(query("SELECT * FROM test_hour_transform WHERE d >= TIMESTAMP '2015-05-15 12:00:00'"))
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE d >= DATE '2015-05-15'"))
                 .isFullyPushedDown();
-        assertThat(query("SELECT * FROM test_hour_transform WHERE d >= TIMESTAMP '2015-05-15 12:00:00.000001'"))
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE CAST(d AS date) >= DATE '2015-05-15'"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE d >= TIMESTAMP '2015-05-15 12:00:00'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE d >= TIMESTAMP '2015-05-15 12:00:00.000001'"))
                 .isNotFullyPushedDown(FilterNode.class);
 
-        dropTable("test_hour_transform");
+        // date()
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE date(d) = DATE '2015-05-15'"))
+                .isFullyPushedDown();
+
+        // year()
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE year(d) = 2015"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+
+        // date_trunc
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE date_trunc('hour', d) = TIMESTAMP '2015-05-15 12:00:00'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE date_trunc('day', d) = DATE '2015-05-15'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE date_trunc('month', d) = DATE '2015-05-01'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE date_trunc('year', d) = DATE '2015-01-01'"))
+                .isFullyPushedDown();
+
+        assertUpdate("DROP TABLE test_hour_transform_timestamp");
+    }
+
+    @Test
+    public void testHourTransformTimestampWithTimeZone()
+    {
+        assertUpdate("CREATE TABLE test_hour_transform_timestamptz (d timestamp(6) with time zone, b integer) WITH (partitioning = ARRAY['hour(d)'])");
+
+        @Language("SQL") String values = "VALUES " +
+                "(NULL, 101)," +
+                "(TIMESTAMP '1969-12-31 22:22:22.222222 UTC', 8)," +
+                "(TIMESTAMP '1969-12-31 23:33:11.456789 UTC', 9)," +
+                "(TIMESTAMP '1969-12-31 23:44:55.567890 UTC', 10)," +
+                "(TIMESTAMP '1970-01-01 00:55:44.765432 UTC', 11)," +
+                "(TIMESTAMP '2015-01-01 10:01:23.123456 UTC', 1)," +
+                "(TIMESTAMP '2015-01-01 10:10:02.987654 UTC', 2)," +
+                "(TIMESTAMP '2015-01-01 10:55:00.456789 UTC', 3)," +
+                "(TIMESTAMP '2015-05-15 12:05:01.234567 UTC', 4)," +
+                "(TIMESTAMP '2015-05-15 12:21:02.345678 UTC', 5)," +
+                "(TIMESTAMP '2020-02-21 13:11:11.876543 UTC', 6)," +
+                "(TIMESTAMP '2020-02-21 13:12:12.654321 UTC', 7)";
+        assertUpdate("INSERT INTO test_hour_transform_timestamptz " + values, 12);
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz"))
+                .matches(values);
+
+        @Language("SQL") String expected = "VALUES " +
+                "(NULL, BIGINT '1', NULL, NULL, 101, 101), " +
+                "(-2, 1, TIMESTAMP '1969-12-31 22:22:22.222222 UTC', TIMESTAMP '1969-12-31 22:22:22.222222 UTC', 8, 8), " +
+                "(-1, 2, TIMESTAMP '1969-12-31 23:33:11.456789 UTC', TIMESTAMP '1969-12-31 23:44:55.567890 UTC', 9, 10), " +
+                "(0, 1, TIMESTAMP '1970-01-01 00:55:44.765432 UTC', TIMESTAMP '1970-01-01 00:55:44.765432 UTC', 11, 11), " +
+                "(394474, 3, TIMESTAMP '2015-01-01 10:01:23.123456 UTC', TIMESTAMP '2015-01-01 10:55:00.456789 UTC', 1, 3), " +
+                "(397692, 2, TIMESTAMP '2015-05-15 12:05:01.234567 UTC', TIMESTAMP '2015-05-15 12:21:02.345678 UTC', 4, 5), " +
+                "(439525, 2, TIMESTAMP '2020-02-21 13:11:11.876543 UTC', TIMESTAMP '2020-02-21 13:12:12.654321 UTC', 6, 7)";
+        String expectedTimestampStats = "NULL, NULL, 0.0833333e0, NULL, '1969-12-31 22:22:22.222 UTC', '2020-02-21 13:12:12.654 UTC'";
+        String expectedBigIntStats = "NULL, NULL, 0e0, NULL, '1', '101'";
+        if (format == ORC) {
+            expected = "VALUES " +
+                    "(NULL, BIGINT '1', NULL, NULL, 101, 101), " +
+                    "(-2, 1, TIMESTAMP '1969-12-31 22:22:22.222000 UTC', TIMESTAMP '1969-12-31 22:22:22.222999 UTC', 8, 8), " +
+                    "(-1, 2, TIMESTAMP '1969-12-31 23:33:11.456000 UTC', TIMESTAMP '1969-12-31 23:44:55.567999 UTC', 9, 10), " +
+                    "(0, 1, TIMESTAMP '1970-01-01 00:55:44.765000 UTC', TIMESTAMP '1970-01-01 00:55:44.765999 UTC', 11, 11), " +
+                    "(394474, 3, TIMESTAMP '2015-01-01 10:01:23.123000 UTC', TIMESTAMP '2015-01-01 10:55:00.456999 UTC', 1, 3), " +
+                    "(397692, 2, TIMESTAMP '2015-05-15 12:05:01.234000 UTC', TIMESTAMP '2015-05-15 12:21:02.345999 UTC', 4, 5), " +
+                    "(439525, 2, TIMESTAMP '2020-02-21 13:11:11.876000 UTC', TIMESTAMP '2020-02-21 13:12:12.654999 UTC', 6, 7)";
+            expectedTimestampStats = "NULL, NULL, 0.0833333e0, NULL, '1969-12-31 22:22:22.222 UTC', '2020-02-21 13:12:12.654 UTC'";
+        }
+        else if (format == AVRO) {
+            expected = "VALUES " +
+                    "(NULL, BIGINT '1', CAST(NULL AS timestamp(6) with time zone), CAST(NULL AS timestamp(6) with time zone), CAST(NULL AS integer), CAST(NULL AS integer)), " +
+                    "(-2, 1, NULL, NULL, NULL, NULL), " +
+                    "(-1, 2, NULL, NULL, NULL, NULL), " +
+                    "(0, 1, NULL, NULL, NULL, NULL), " +
+                    "(394474, 3, NULL, NULL, NULL, NULL), " +
+                    "(397692, 2, NULL, NULL, NULL, NULL), " +
+                    "(439525, 2, NULL, NULL, NULL, NULL)";
+            expectedTimestampStats = "NULL, NULL, NULL, NULL, NULL, NULL";
+            expectedBigIntStats = "NULL, NULL, NULL, NULL, NULL, NULL";
+        }
+
+        assertThat(query("SELECT partition.d_hour, record_count, data.d.min, data.d.max, data.b.min, data.b.max FROM \"test_hour_transform_timestamptz$partitions\""))
+                .matches(expected);
+
+        // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE day_of_week(d) = 3 AND b % 7 = 3"))
+                .matches("VALUES (TIMESTAMP '1969-12-31 23:44:55.567890 UTC', 10)");
+
+        assertThat(query("SHOW STATS FOR test_hour_transform_timestamptz"))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('d', " + expectedTimestampStats + "), " +
+                        "  ('b', " + expectedBigIntStats + "), " +
+                        "  (NULL, NULL, NULL, NULL, 12e0, NULL, NULL)");
+
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE d IS NULL"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE d >= DATE '2015-05-15'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE CAST(d AS date) >= DATE '2015-05-15'"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE d >= TIMESTAMP '2015-05-15 12:00:00 UTC'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE d >= TIMESTAMP '2015-05-15 12:00:00.000001 UTC'"))
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // date()
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE date(d) = DATE '2015-05-15'"))
+                .isFullyPushedDown();
+
+        // year()
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE year(d) = 2015"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO convert into range
+
+        // date_trunc
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE date_trunc('hour', d) = TIMESTAMP '2015-05-15 12:00:00.000000 UTC'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE date_trunc('day', d) = TIMESTAMP '2015-05-15 00:00:00.000000 UTC'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE date_trunc('month', d) = TIMESTAMP '2015-05-01 00:00:00.000000 UTC'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE date_trunc('year', d) = TIMESTAMP '2015-01-01 00:00:00.000000 UTC'"))
+                .isFullyPushedDown();
+
+        assertUpdate("DROP TABLE test_hour_transform_timestamptz");
     }
 
     @Test
@@ -1431,7 +1556,6 @@ public abstract class BaseIcebergConnectorTest
 
         // The old partition scheme is no longer used so pushdown using the hour transform is allowed
         assertUpdate("DELETE FROM " + tableName + " WHERE year(d) = 1969", 3);
-        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize");
         assertUpdate("INSERT INTO " + tableName + " VALUES " + initialValues, 3);
         assertThat(query(selectQuery))
                 .containsAll("VALUES 1, 8, 9, 10")
@@ -5670,11 +5794,15 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test(dataProvider = "partitionedAndBucketedProvider")
-    public void testMergeUpdateWithVariousLayouts(String partitionPhase)
+    public void testMergeUpdateWithVariousLayouts(int writers, String partioning)
     {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(TASK_WRITER_COUNT, String.valueOf(writers))
+                .build();
+
         String targetTable = "merge_formats_target_" + randomTableSuffix();
         String sourceTable = "merge_formats_source_" + randomTableSuffix();
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) %s", targetTable, partitionPhase));
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) %s", targetTable, partioning));
 
         assertUpdate(format("INSERT INTO %s (customer, purchase) VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')", targetTable), 3);
         assertQuery("SELECT * FROM " + targetTable, "VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')");
@@ -5688,7 +5816,7 @@ public abstract class BaseIcebergConnectorTest
                 "    WHEN MATCHED THEN UPDATE SET customer = CONCAT(t.customer, '_', s.customer)" +
                 "    WHEN NOT MATCHED THEN INSERT (customer, purchase) VALUES(s.customer, s.purchase)";
 
-        assertUpdate(sql, 3);
+        assertUpdate(session, sql, 3);
 
         assertQuery("SELECT * FROM " + targetTable, "VALUES ('Dave', 'dates'), ('Carol_Craig', 'candles'), ('Joe', 'jellybeans')");
         assertUpdate("DROP TABLE " + sourceTable);
@@ -5698,17 +5826,31 @@ public abstract class BaseIcebergConnectorTest
     @DataProvider
     public Object[][] partitionedAndBucketedProvider()
     {
-        return new Object[][] {
-                {"WITH (partitioning = ARRAY['customer'])"},
-                {"WITH (partitioning = ARRAY['purchase'])"},
-                {"WITH (partitioning = ARRAY['bucket(customer, 3)'])"},
-                {"WITH (partitioning = ARRAY['bucket(purchase, 4)'])"},
-        };
+        List<Integer> writerCounts = ImmutableList.of(1, 4);
+        List<String> partitioningTypes = ImmutableList.<String>builder()
+                .add("")
+                .add("WITH (partitioning = ARRAY['customer'])")
+                .add("WITH (partitioning = ARRAY['purchase'])")
+                .add("WITH (partitioning = ARRAY['bucket(customer, 3)'])")
+                .add("WITH (partitioning = ARRAY['bucket(purchase, 4)'])")
+                .build();
+
+        List<Object[]> data = new ArrayList<>();
+        for (int writers : writerCounts) {
+            for (String partitioning : partitioningTypes) {
+                data.add(new Object[] {writers, partitioning});
+            }
+        }
+        return data.toArray(Object[][]::new);
     }
 
     @Test(dataProvider = "partitionedAndBucketedProvider")
-    public void testMergeMultipleOperations(String partitioning)
+    public void testMergeMultipleOperations(int writers, String partitioning)
     {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(TASK_WRITER_COUNT, String.valueOf(writers))
+                .build();
+
         int targetCustomerCount = 32;
         String targetTable = "merge_multiple_" + randomTableSuffix();
         assertUpdate(format("CREATE TABLE %s (purchase INT, zipcode INT, spouse VARCHAR, address VARCHAR, customer VARCHAR) %s", targetTable, partitioning));
@@ -5725,7 +5867,8 @@ public abstract class BaseIcebergConnectorTest
                 .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jill_%s', '%s Eop Ct')", intValue, 3000, 83000, intValue, intValue))
                 .collect(joining(", "));
 
-        assertUpdate(format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, firstMergeSource) +
+        assertUpdate(session,
+                format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, firstMergeSource) +
                         "    ON t.customer = s.customer" +
                         "    WHEN MATCHED THEN UPDATE SET purchase = s.purchase, zipcode = s.zipcode, spouse = s.spouse, address = s.address",
                 targetCustomerCount / 2);
@@ -5744,7 +5887,8 @@ public abstract class BaseIcebergConnectorTest
                 .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jen_%s', '%s Poe Ct')", intValue, 5000, 85000, intValue, intValue))
                 .collect(joining(", "));
 
-        assertUpdate(format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, secondMergeSource) +
+        assertUpdate(session,
+                format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, secondMergeSource) +
                         "    ON t.customer = s.customer" +
                         "    WHEN MATCHED AND t.zipcode = 91000 THEN DELETE" +
                         "    WHEN MATCHED AND s.zipcode = 85000 THEN UPDATE SET zipcode = 60000" +

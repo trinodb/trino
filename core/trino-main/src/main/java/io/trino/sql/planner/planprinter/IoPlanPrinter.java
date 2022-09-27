@@ -56,7 +56,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.lang.String.format;
@@ -205,17 +204,17 @@ public class IoPlanPrinter
         public static class TableColumnInfo
         {
             private final CatalogSchemaTableName table;
-            private final Set<ColumnConstraint> columnConstraints;
+            private final Constraint constraint;
             private final EstimatedStatsAndCost estimate;
 
             @JsonCreator
             public TableColumnInfo(
                     @JsonProperty("table") CatalogSchemaTableName table,
-                    @JsonProperty("columnConstraints") Set<ColumnConstraint> columnConstraints,
+                    @JsonProperty("constraint") Constraint constraint,
                     @JsonProperty("estimate") EstimatedStatsAndCost estimate)
             {
                 this.table = requireNonNull(table, "table is null");
-                this.columnConstraints = requireNonNull(columnConstraints, "columnConstraints is null");
+                this.constraint = requireNonNull(constraint, "constraint is null");
                 this.estimate = requireNonNull(estimate, "estimate is null");
             }
 
@@ -226,9 +225,9 @@ public class IoPlanPrinter
             }
 
             @JsonProperty
-            public Set<ColumnConstraint> getColumnConstraints()
+            public Constraint getConstraint()
             {
-                return columnConstraints;
+                return constraint;
             }
 
             @JsonProperty
@@ -248,14 +247,14 @@ public class IoPlanPrinter
                 }
                 TableColumnInfo o = (TableColumnInfo) obj;
                 return Objects.equals(table, o.table) &&
-                        Objects.equals(columnConstraints, o.columnConstraints) &&
+                        Objects.equals(constraint, o.constraint) &&
                         Objects.equals(estimate, o.estimate);
             }
 
             @Override
             public int hashCode()
             {
-                return Objects.hash(table, columnConstraints, estimate);
+                return Objects.hash(table, constraint, estimate);
             }
 
             @Override
@@ -263,10 +262,66 @@ public class IoPlanPrinter
             {
                 return toStringHelper(this)
                         .add("table", table)
-                        .add("columnConstraints", columnConstraints)
+                        .add("constraint", constraint)
                         .add("estimate", estimate)
                         .toString();
             }
+        }
+    }
+
+    public static class Constraint
+    {
+        private final boolean isNone;
+        private final Set<ColumnConstraint> columnConstraints;
+
+        @JsonCreator
+        public Constraint(
+                @JsonProperty("none") boolean isNone,
+                @JsonProperty("columnConstraints") Set<ColumnConstraint> columnConstraints)
+        {
+            this.isNone = isNone;
+            this.columnConstraints = ImmutableSet.copyOf(requireNonNull(columnConstraints, "columnConstraints is null"));
+        }
+
+        @JsonProperty
+        public boolean isNone()
+        {
+            return isNone;
+        }
+
+        @JsonProperty
+        public Set<ColumnConstraint> getColumnConstraints()
+        {
+            return columnConstraints;
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            Constraint o = (Constraint) obj;
+            return Objects.equals(isNone, o.isNone) &&
+                    Objects.equals(columnConstraints, o.columnConstraints);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(isNone, columnConstraints);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("none", isNone)
+                    .add("columnConstraints", columnConstraints)
+                    .toString();
         }
     }
 
@@ -703,7 +758,7 @@ public class IoPlanPrinter
                                     tableMetadata.getCatalogName(),
                                     tableMetadata.getTable().getSchemaName(),
                                     tableMetadata.getTable().getTableName()),
-                            parseConstraints(table, predicateDomain.intersect(filterDomain)),
+                            parseConstraint(table, predicateDomain.intersect(filterDomain)),
                             estimatedStatsAndCost));
         }
 
@@ -722,18 +777,20 @@ public class IoPlanPrinter
             return estimatedStatsAndCost;
         }
 
-        private Set<ColumnConstraint> parseConstraints(TableHandle tableHandle, TupleDomain<ColumnHandle> constraint)
+        private Constraint parseConstraint(TableHandle tableHandle, TupleDomain<ColumnHandle> constraint)
         {
-            checkArgument(!constraint.isNone());
+            if (constraint.isNone()) {
+                return new Constraint(true, ImmutableSet.of());
+            }
             ImmutableSet.Builder<ColumnConstraint> columnConstraints = ImmutableSet.builder();
-            for (Map.Entry<ColumnHandle, Domain> entry : constraint.getDomains().get().entrySet()) {
+            for (Map.Entry<ColumnHandle, Domain> entry : constraint.getDomains().orElseThrow().entrySet()) {
                 ColumnMetadata columnMetadata = plannerContext.getMetadata().getColumnMetadata(session, tableHandle, entry.getKey());
                 columnConstraints.add(new ColumnConstraint(
                         columnMetadata.getName(),
                         columnMetadata.getType(),
                         parseDomain(entry.getValue().simplify())));
             }
-            return columnConstraints.build();
+            return new Constraint(false, columnConstraints.build());
         }
 
         private FormattedDomain parseDomain(Domain domain)

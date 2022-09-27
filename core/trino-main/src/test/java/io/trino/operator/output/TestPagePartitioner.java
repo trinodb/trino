@@ -71,8 +71,8 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createLongDictionaryBlock;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
-import static io.trino.block.BlockAssertions.createRLEBlock;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
+import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -260,7 +260,7 @@ public class TestPagePartitioner
     public void testPartitionPositionsWithRleNotNull(PartitioningMode partitioningMode)
     {
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT, BIGINT).build();
-        Page page = new Page(createRLEBlock(0, POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
+        Page page = new Page(createRepeatedValuesBlock(0, POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
 
         processPages(pagePartitioner, partitioningMode, page);
 
@@ -275,7 +275,7 @@ public class TestPagePartitioner
     public void testPartitionPositionsWithRleNotNullWithReplication(PartitioningMode partitioningMode)
     {
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT, BIGINT).replicate().build();
-        Page page = new Page(createRLEBlock(0, POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
+        Page page = new Page(createRepeatedValuesBlock(0, POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
 
         processPages(pagePartitioner, partitioningMode, page);
 
@@ -289,7 +289,7 @@ public class TestPagePartitioner
     public void testPartitionPositionsWithRleNullWithNullChannel(PartitioningMode partitioningMode)
     {
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT, BIGINT).withNullChannel(0).build();
-        Page page = new Page(new RunLengthEncodedBlock(createLongsBlock((Long) null), POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
+        Page page = new Page(RunLengthEncodedBlock.create(createLongsBlock((Long) null), POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
 
         processPages(pagePartitioner, partitioningMode, page);
 
@@ -317,7 +317,7 @@ public class TestPagePartitioner
     public void testOutputForOneValueDictionaryBlock(PartitioningMode partitioningMode)
     {
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT).build();
-        Page page = new Page(new DictionaryBlock(createLongsBlock(0), new int[] {0, 0, 0, 0}));
+        Page page = new Page(DictionaryBlock.create(4, createLongsBlock(0), new int[] {0, 0, 0, 0}));
 
         processPages(pagePartitioner, partitioningMode, page);
 
@@ -331,7 +331,7 @@ public class TestPagePartitioner
     public void testOutputForViewDictionaryBlock(PartitioningMode partitioningMode)
     {
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT).build();
-        Page page = new Page(new DictionaryBlock(createLongSequenceBlock(4, 8), new int[] {1, 0, 3, 2}));
+        Page page = new Page(DictionaryBlock.create(4, createLongSequenceBlock(4, 8), new int[] {1, 0, 3, 2}));
 
         processPages(pagePartitioner, partitioningMode, page);
 

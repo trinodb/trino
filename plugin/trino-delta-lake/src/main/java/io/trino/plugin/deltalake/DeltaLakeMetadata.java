@@ -415,7 +415,13 @@ public class DeltaLakeMetadata
     @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return new ConnectorTableProperties();
+        return new ConnectorTableProperties(
+                ((DeltaLakeTableHandle) tableHandle).getEnforcedPartitionConstraint()
+                        .transformKeys(ColumnHandle.class::cast),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of());
     }
 
     @Override
@@ -526,33 +532,34 @@ public class DeltaLakeMetadata
                 .map(ignored -> singletonList(prefix.toSchemaTableName()))
                 .orElseGet(() -> listTables(session, prefix.getSchema()));
 
-        return tables.stream().flatMap(table -> {
-            try {
-                if (redirectTable(session, table).isPresent()) {
-                    // put "redirect marker" for current table
-                    return Stream.of(TableColumnsMetadata.forRedirectedTable(table));
-                }
+        return tables.stream()
+                .flatMap(table -> {
+                    try {
+                        if (redirectTable(session, table).isPresent()) {
+                            // put "redirect marker" for current table
+                            return Stream.of(TableColumnsMetadata.forRedirectedTable(table));
+                        }
 
-                // intentionally skip case when table snapshot is present but it lacks metadata portion
-                return metastore.getMetadata(metastore.getSnapshot(table, session), session).stream().map(metadata -> {
-                    Map<String, String> columnComments = getColumnComments(metadata);
-                    Map<String, Boolean> columnsNullability = getColumnsNullability(metadata);
-                    List<ColumnMetadata> columnMetadata = getColumns(metadata).stream()
-                            .map(column -> getColumnMetadata(column, columnComments.get(column.getName()), columnsNullability.getOrDefault(column.getName(), true)))
-                            .collect(toImmutableList());
-                    return TableColumnsMetadata.forTable(table, columnMetadata);
-                });
-            }
-            catch (NotADeltaLakeTableException e) {
-                return Stream.empty();
-            }
-            catch (RuntimeException e) {
-                // this may happen when table is being deleted concurrently, it still exists in metastore but TL is no longer present
-                // there can be several different exceptions thrown this is why all RTE are caught and ignored here
-                LOG.debug(e, "Ignored exception when trying to list columns from %s", table);
-                return Stream.empty();
-            }
-        })
+                        // intentionally skip case when table snapshot is present but it lacks metadata portion
+                        return metastore.getMetadata(metastore.getSnapshot(table, session), session).stream().map(metadata -> {
+                            Map<String, String> columnComments = getColumnComments(metadata);
+                            Map<String, Boolean> columnsNullability = getColumnsNullability(metadata);
+                            List<ColumnMetadata> columnMetadata = getColumns(metadata).stream()
+                                    .map(column -> getColumnMetadata(column, columnComments.get(column.getName()), columnsNullability.getOrDefault(column.getName(), true)))
+                                    .collect(toImmutableList());
+                            return TableColumnsMetadata.forTable(table, columnMetadata);
+                        });
+                    }
+                    catch (NotADeltaLakeTableException e) {
+                        return Stream.empty();
+                    }
+                    catch (RuntimeException e) {
+                        // this may happen when table is being deleted concurrently, it still exists in metastore but TL is no longer present
+                        // there can be several different exceptions thrown this is why all RTE are caught and ignored here
+                        LOG.debug(e, "Ignored exception when trying to list columns from %s", table);
+                        return Stream.empty();
+                    }
+                })
                 .iterator();
     }
 
@@ -2409,9 +2416,7 @@ public class DeltaLakeMetadata
                 return;
             }
             if (!SUPPORTED_STATISTICS_TYPE.contains(metadata.getStatisticType())) {
-                throw new TrinoException(
-                        GENERIC_INTERNAL_ERROR,
-                        "Unexpected statistics type " + metadata.getStatisticType() + " found for column " + metadata.getColumnName());
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unexpected statistics collection: " + metadata);
             }
 
             result.put(metadata.getColumnName(), metadata.getStatisticType(), block);
@@ -2456,9 +2461,7 @@ public class DeltaLakeMetadata
                 .map(entry -> {
                     ColumnStatisticMetadata columnStatisticMetadata = entry.getKey();
                     if (columnStatisticMetadata.getStatisticType() != MAX_VALUE) {
-                        throw new TrinoException(
-                                GENERIC_INTERNAL_ERROR,
-                                "Unexpected statistics type " + columnStatisticMetadata.getStatisticType() + " found for column " + columnStatisticMetadata.getColumnName());
+                        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unexpected statistics collection: " + columnStatisticMetadata);
                     }
                     if (entry.getValue().isNull(0)) {
                         return Optional.<Instant>empty();

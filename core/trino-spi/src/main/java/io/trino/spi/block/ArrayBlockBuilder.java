@@ -114,7 +114,7 @@ public class ArrayBlockBuilder
         consumer.accept(values, values.getRetainedSizeInBytes());
         consumer.accept(offsets, sizeOf(offsets));
         consumer.accept(valueIsNull, sizeOf(valueIsNull));
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -283,9 +283,9 @@ public class ArrayBlockBuilder
         return super.copyRegion(position, length);
     }
 
-    private RunLengthEncodedBlock nullRle(int positionCount)
+    private Block nullRle(int positionCount)
     {
         ArrayBlock nullValueBlock = createArrayBlockInternal(0, 1, new boolean[] {true}, new int[] {0, 0}, values.newBlockBuilderLike(null).build());
-        return new RunLengthEncodedBlock(nullValueBlock, positionCount);
+        return RunLengthEncodedBlock.create(nullValueBlock, positionCount);
     }
 }

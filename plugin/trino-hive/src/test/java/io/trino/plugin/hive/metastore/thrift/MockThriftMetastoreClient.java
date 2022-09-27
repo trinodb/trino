@@ -340,7 +340,7 @@ public class MockThriftMetastoreClient
     @Override
     public void dropTable(String databaseName, String name, boolean deleteData)
     {
-        throw new UnsupportedOperationException();
+        // No-op, make sure the cache invalidation logic in CachingHiveMetastore will be passed through
     }
 
     @Override

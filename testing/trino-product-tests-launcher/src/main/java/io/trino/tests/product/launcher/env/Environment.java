@@ -69,9 +69,9 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.tests.product.launcher.env.DockerContainer.ensurePathExists;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
 import static io.trino.tests.product.launcher.env.Environments.pruneEnvironment;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.lang.String.format;
 import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
@@ -379,7 +379,7 @@ public final class Environment
 
         public Builder containerDependsOn(String container, String dependencyContainer)
         {
-            checkState(containers.containsKey(container), "Container with name %s is not registered", name);
+            checkState(containers.containsKey(container), "Container with name %s is not registered", container);
             checkState(containers.containsKey(dependencyContainer), "Dependency container with name %s is not registered", dependencyContainer);
             containers.get(container).dependsOn(containers.get(dependencyContainer));
 
@@ -431,7 +431,7 @@ public final class Environment
         {
             requireNonNull(connectorName, "connectorName is null");
             requireNonNull(configFile, "configFile is null");
-            return addConnector(connectorName, configFile, CONTAINER_PRESTO_ETC + "/catalog/" + connectorName + ".properties");
+            return addConnector(connectorName, configFile, CONTAINER_TRINO_ETC + "/catalog/" + connectorName + ".properties");
         }
 
         public Builder addConnector(String connectorName, MountableFile configFile, String containerPath)
@@ -439,7 +439,7 @@ public final class Environment
             requireNonNull(configFile, "configFile is null");
             requireNonNull(containerPath, "containerPath is null");
             configureContainers(container -> {
-                if (isPrestoContainer(container.getLogicalName())) {
+                if (isTrinoContainer(container.getLogicalName())) {
                     container.withCopyFileToContainer(configFile, containerPath);
                 }
             });
@@ -458,7 +458,7 @@ public final class Environment
         {
             requireNonNull(name, "name is null");
             requireNonNull(configFile, "configFile is null");
-            return addPasswordAuthenticator(name, configFile, CONTAINER_PRESTO_ETC + "/password-authenticator.properties");
+            return addPasswordAuthenticator(name, configFile, CONTAINER_TRINO_ETC + "/password-authenticator.properties");
         }
 
         public Builder addPasswordAuthenticator(String name, MountableFile configFile, String containerPath)

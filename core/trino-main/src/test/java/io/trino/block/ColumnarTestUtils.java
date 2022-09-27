@@ -118,10 +118,10 @@ public final class ColumnarTestUtils
         return BLOCK_ENCODING_SERDE.readBlock(sliceOutput.slice().getInput());
     }
 
-    public static DictionaryBlock createTestDictionaryBlock(Block block)
+    public static Block createTestDictionaryBlock(Block block)
     {
         int[] dictionaryIndexes = createTestDictionaryIndexes(block.getPositionCount());
-        return new DictionaryBlock(dictionaryIndexes.length, block, dictionaryIndexes);
+        return DictionaryBlock.create(dictionaryIndexes.length, block, dictionaryIndexes);
     }
 
     public static <T> T[] createTestDictionaryExpectedValues(T[] expectedValues)
@@ -157,6 +157,6 @@ public final class ColumnarTestUtils
 
     public static RunLengthEncodedBlock createTestRleBlock(Block block, int position)
     {
-        return new RunLengthEncodedBlock(block.getRegion(position, 1), 10);
+        return (RunLengthEncodedBlock) RunLengthEncodedBlock.create(block.getRegion(position, 1), 10);
     }
 }

@@ -31,6 +31,15 @@ exec_in_hadoop_master_container sudo -Eu hive beeline -u jdbc:hive2://localhost:
         ROW FORMAT SERDE 'org.apache.hive.hcatalog.data.JsonSerDe'
         LOCATION '${table_path}'"
 
+table_path="s3a://${S3_BUCKET}/${test_directory}/trino_s3select_test_json_scan_range_pushdown/"
+exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
+exec_in_hadoop_master_container /docker/files/hadoop-put.sh /docker/files/test_table_json_scan_range_select_pushdown_{1,2,3}.json "${table_path}"
+exec_in_hadoop_master_container sudo -Eu hive beeline -u jdbc:hive2://localhost:10000/default -n hive -e "
+    CREATE EXTERNAL TABLE trino_s3select_test_json_scan_range_pushdown(col_1 bigint, col_2 string, col_3 string,
+    col_4 string, col_5 string, col_6 string, col_7 string, col_8 string, col_9 string, col_10 string, col_11 string,
+    col_12 string, col_13 string, col_14 string)
+        ROW FORMAT SERDE 'org.apache.hive.hcatalog.data.JsonSerDe'
+        LOCATION '${table_path}'"
 stop_unnecessary_hadoop_services
 
 # restart hive-metastore to apply S3 changes in core-site.xml

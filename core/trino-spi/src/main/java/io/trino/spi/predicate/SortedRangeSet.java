@@ -223,10 +223,7 @@ public final class SortedRangeSet
         return new SortedRangeSet(
                 type,
                 inclusive,
-                new DictionaryBlock(
-                        dictionaryIndex,
-                        block,
-                        dictionary));
+                DictionaryBlock.create(dictionaryIndex, block, dictionary));
     }
 
     /**
@@ -259,7 +256,7 @@ public final class SortedRangeSet
         return new SortedRangeSet(
                 type,
                 new boolean[] {true, true},
-                new RunLengthEncodedBlock(block, 2));
+                RunLengthEncodedBlock.create(block, 2));
     }
 
     static SortedRangeSet copyOf(Type type, Collection<Range> ranges)

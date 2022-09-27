@@ -42,12 +42,12 @@ public class TestRunLengthEncodedBlock
     private void assertRleBlock(int positionCount)
     {
         Slice expectedValue = createExpectedValue(0);
-        Block block = new RunLengthEncodedBlock(createSingleValueBlock(expectedValue), positionCount);
+        Block block = RunLengthEncodedBlock.create(createSingleValueBlock(expectedValue), positionCount);
         Slice[] expectedValues = new Slice[positionCount];
         for (int position = 0; position < positionCount; position++) {
             expectedValues[position] = expectedValue;
         }
-        assertBlock(block, TestRunLengthEncodedBlock::createBlockBuilder, expectedValues);
+        assertBlock(block, expectedValues);
     }
 
     private static Block createSingleValueBlock(Slice expectedValue)
@@ -66,7 +66,7 @@ public class TestRunLengthEncodedBlock
     public void testPositionsSizeInBytes()
     {
         Block valueBlock = createSingleValueBlock(createExpectedValue(10));
-        Block rleBlock = new RunLengthEncodedBlock(valueBlock, 10);
+        Block rleBlock = RunLengthEncodedBlock.create(valueBlock, 10);
         // Size in bytes is not fixed per position
         assertTrue(rleBlock.fixedSizeInBytesPerPosition().isEmpty());
         // Accepts specific position selection
@@ -119,7 +119,7 @@ public class TestRunLengthEncodedBlock
     {
         int positionCount = 10;
         Slice expectedValue = createExpectedValue(5);
-        Block block = new RunLengthEncodedBlock(createSingleValueBlock(expectedValue), positionCount);
+        Block block = RunLengthEncodedBlock.create(createSingleValueBlock(expectedValue), positionCount);
         for (int postition = 0; postition < positionCount; postition++) {
             assertEquals(block.getEstimatedDataSizeForStats(postition), expectedValue.length());
         }

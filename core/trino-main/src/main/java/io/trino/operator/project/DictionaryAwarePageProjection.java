@@ -32,6 +32,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.trino.spi.block.DictionaryBlock.createProjectedDictionaryBlock;
 import static java.util.Objects.requireNonNull;
 
 public class DictionaryAwarePageProjection
@@ -161,7 +162,7 @@ public class DictionaryAwarePageProjection
                 if (block instanceof RunLengthEncodedBlock) {
                     // single value block is always considered effective, but the processing could have thrown
                     // in that case we fallback and process again so the correct error message sent
-                    result = new RunLengthEncodedBlock(dictionaryOutput.get(), selectedPositions.size());
+                    result = RunLengthEncodedBlock.create(dictionaryOutput.get(), selectedPositions.size());
                     return true;
                 }
 
@@ -169,7 +170,7 @@ public class DictionaryAwarePageProjection
                     DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
                     // if dictionary was processed, produce a dictionary block; otherwise do normal processing
                     int[] outputIds = filterDictionaryIds(dictionaryBlock, selectedPositions);
-                    result = new DictionaryBlock(selectedPositions.size(), dictionaryOutput.get(), outputIds, false, sourceIdFunction.apply(dictionaryBlock));
+                    result = createProjectedDictionaryBlock(selectedPositions.size(), dictionaryOutput.get(), outputIds, sourceIdFunction.apply(dictionaryBlock));
                     return true;
                 }
 

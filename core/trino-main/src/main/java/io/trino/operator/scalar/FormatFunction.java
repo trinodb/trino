@@ -56,8 +56,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.isLongDecimal;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -122,8 +120,7 @@ public final class FormatFunction
                 type instanceof TimestampWithTimeZoneType ||
                 type instanceof TimestampType ||
                 type instanceof TimeType ||
-                isShortDecimal(type) ||
-                isLongDecimal(type) ||
+                type instanceof DecimalType ||
                 type instanceof VarcharType ||
                 type instanceof CharType) {
             return;
@@ -215,12 +212,11 @@ public final class FormatFunction
             MethodHandle handle = functionDependencies.getScalarFunctionImplementation(QualifiedFunctionName.of("json_format"), ImmutableList.of(JSON), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
             return (session, block) -> convertToString(handle, type.getSlice(block, position));
         }
-        if (isShortDecimal(type)) {
-            int scale = ((DecimalType) type).getScale();
-            return (session, block) -> BigDecimal.valueOf(type.getLong(block, position), scale);
-        }
-        if (isLongDecimal(type)) {
-            int scale = ((DecimalType) type).getScale();
+        if (type instanceof DecimalType decimalType) {
+            int scale = decimalType.getScale();
+            if (decimalType.isShort()) {
+                return (session, block) -> BigDecimal.valueOf(type.getLong(block, position), scale);
+            }
             return (session, block) -> new BigDecimal(((Int128) type.getObject(block, position)).toBigInteger(), scale);
         }
         if (type instanceof VarcharType) {

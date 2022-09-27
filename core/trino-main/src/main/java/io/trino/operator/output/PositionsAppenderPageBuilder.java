@@ -98,10 +98,6 @@ public class PositionsAppenderPageBuilder
 
     public Page build()
     {
-        if (channelAppenders.length == 0) {
-            return new Page(declaredPositions);
-        }
-
         Block[] blocks = new Block[channelAppenders.length];
         for (int i = 0; i < blocks.length; i++) {
             blocks[i] = channelAppenders[i].build();

@@ -110,7 +110,7 @@ public class SingleRowBlockWriter
         for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
             consumer.accept(fieldBlockBuilder, fieldBlockBuilder.getRetainedSizeInBytes());
         }
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override

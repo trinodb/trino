@@ -13,7 +13,6 @@
  */
 package io.trino.execution.scheduler;
 
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -26,6 +25,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.trino.client.NodeVersion;
+import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.scheduler.StageTaskSourceFactory.ArbitraryDistributionTaskSource;
 import io.trino.execution.scheduler.StageTaskSourceFactory.HashDistributionTaskSource;
@@ -41,6 +41,7 @@ import io.trino.spi.QueryId;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.exchange.ExchangeSourceHandle;
+import io.trino.split.RemoteSplit;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.openjdk.jol.info.ClassLayout;
@@ -54,11 +55,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Multimaps.toMultimap;
 import static com.google.common.collect.Streams.findLast;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getDone;
@@ -67,6 +69,8 @@ import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.trino.execution.scheduler.StageTaskSourceFactory.createRemoteSplits;
+import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -94,7 +98,7 @@ public class TestStageTaskSourceFactory
                 .put(PLAN_NODE_2, new TestingExchangeSourceHandle(0, 321))
                 .put(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 222))
                 .build();
-        TaskSource taskSource = new SingleDistributionTaskSource(sources, DataSize.of(4, GIGABYTE), new InMemoryNodeManager(), false);
+        TaskSource taskSource = new SingleDistributionTaskSource(createRemoteSplits(sources), new InMemoryNodeManager(), false);
 
         assertFalse(taskSource.isFinished());
 
@@ -105,10 +109,9 @@ public class TestStageTaskSourceFactory
         TaskDescriptor task = tasks.get(0);
         assertThat(task.getNodeRequirements().getCatalogHandle()).isEmpty();
         assertThat(task.getNodeRequirements().getAddresses()).isEmpty();
-        assertEquals(task.getNodeRequirements().getMemory(), DataSize.of(4, GIGABYTE));
         assertEquals(task.getPartitionId(), 0);
-        assertEquals(task.getExchangeSourceHandles(), sources);
-        assertEquals(task.getSplits(), ImmutableListMultimap.of());
+        assertEquals(extractSourceHandles(task.getSplits()), sources);
+        assertEquals(extractCatalogSplits(task.getSplits()), ImmutableListMultimap.of());
     }
 
     @Test
@@ -120,7 +123,7 @@ public class TestStageTaskSourceFactory
                 .put(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 222))
                 .build();
         InternalNodeManager nodeManager = new InMemoryNodeManager();
-        TaskSource taskSource = new SingleDistributionTaskSource(sources, DataSize.of(4, GIGABYTE), nodeManager, true);
+        TaskSource taskSource = new SingleDistributionTaskSource(createRemoteSplits(sources), nodeManager, true);
 
         assertFalse(taskSource.isFinished());
 
@@ -131,10 +134,9 @@ public class TestStageTaskSourceFactory
         TaskDescriptor task = tasks.get(0);
         assertThat(task.getNodeRequirements().getCatalogHandle()).isEmpty();
         assertThat(task.getNodeRequirements().getAddresses()).containsExactly(nodeManager.getCurrentNode().getHostAndPort());
-        assertEquals(task.getNodeRequirements().getMemory(), DataSize.of(4, GIGABYTE));
         assertEquals(task.getPartitionId(), 0);
-        assertEquals(task.getExchangeSourceHandles(), sources);
-        assertEquals(task.getSplits(), ImmutableListMultimap.of());
+        assertEquals(extractSourceHandles(task.getSplits()), sources);
+        assertEquals(extractCatalogSplits(task.getSplits()), ImmutableListMultimap.of());
     }
 
     @Test
@@ -143,8 +145,7 @@ public class TestStageTaskSourceFactory
         TaskSource taskSource = new ArbitraryDistributionTaskSource(
                 ImmutableListMultimap.of(),
                 ImmutableListMultimap.of(),
-                DataSize.of(3, BYTE),
-                DataSize.of(4, GIGABYTE));
+                DataSize.of(3, BYTE));
         assertFalse(taskSource.isFinished());
         List<TaskDescriptor> tasks = getFutureValue(taskSource.getMoreTasks());
         assertThat(tasks).isEmpty();
@@ -160,29 +161,24 @@ public class TestStageTaskSourceFactory
         taskSource = new ArbitraryDistributionTaskSource(
                 nonReplicatedSources,
                 ImmutableListMultimap.of(),
-                DataSize.of(3, BYTE),
-                DataSize.of(4, GIGABYTE));
+                DataSize.of(3, BYTE));
         tasks = getFutureValue(taskSource.getMoreTasks());
         assertTrue(taskSource.isFinished());
         assertThat(tasks).hasSize(1);
-        assertEquals(tasks, ImmutableList.of(new TaskDescriptor(
-                0,
-                ImmutableListMultimap.of(),
-                ImmutableListMultimap.of(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 3)),
-                new NodeRequirements(Optional.empty(), ImmutableSet.of(), DataSize.of(4, GIGABYTE)))));
+        assertEquals(tasks.get(0).getPartitionId(), 0);
+        assertEquals(tasks.get(0).getNodeRequirements(), new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+        assertEquals(extractSourceHandles(tasks.get(0).getSplits()), ImmutableListMultimap.of(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 3)));
 
         nonReplicatedSources = ImmutableListMultimap.of(PLAN_NODE_1, sourceHandle123);
         taskSource = new ArbitraryDistributionTaskSource(
                 nonReplicatedSources,
                 ImmutableListMultimap.of(),
-                DataSize.of(3, BYTE),
-                DataSize.of(4, GIGABYTE));
+                DataSize.of(3, BYTE));
         tasks = getFutureValue(taskSource.getMoreTasks());
-        assertEquals(tasks, ImmutableList.of(new TaskDescriptor(
-                0,
-                ImmutableListMultimap.of(),
-                ImmutableListMultimap.of(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 123)),
-                new NodeRequirements(Optional.empty(), ImmutableSet.of(), DataSize.of(4, GIGABYTE)))));
+        assertThat(tasks).hasSize(1);
+        assertEquals(tasks.get(0).getPartitionId(), 0);
+        assertEquals(tasks.get(0).getNodeRequirements(), new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+        assertEquals(extractSourceHandles(tasks.get(0).getSplits()), ImmutableListMultimap.of(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 123)));
 
         nonReplicatedSources = ImmutableListMultimap.of(
                 PLAN_NODE_1, sourceHandle123,
@@ -190,20 +186,15 @@ public class TestStageTaskSourceFactory
         taskSource = new ArbitraryDistributionTaskSource(
                 nonReplicatedSources,
                 ImmutableListMultimap.of(),
-                DataSize.of(3, BYTE),
-                DataSize.of(4, GIGABYTE));
+                DataSize.of(3, BYTE));
         tasks = getFutureValue(taskSource.getMoreTasks());
-        assertEquals(tasks, ImmutableList.of(
-                new TaskDescriptor(
-                        0,
-                        ImmutableListMultimap.of(),
-                        ImmutableListMultimap.of(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 123)),
-                        new NodeRequirements(Optional.empty(), ImmutableSet.of(), DataSize.of(4, GIGABYTE))),
-                new TaskDescriptor(
-                        1,
-                        ImmutableListMultimap.of(),
-                        ImmutableListMultimap.of(PLAN_NODE_2, new TestingExchangeSourceHandle(0, 321)),
-                        new NodeRequirements(Optional.empty(), ImmutableSet.of(), DataSize.of(4, GIGABYTE)))));
+        assertThat(tasks).hasSize(2);
+        assertEquals(tasks.get(0).getPartitionId(), 0);
+        assertEquals(tasks.get(0).getNodeRequirements(), new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+        assertEquals(extractSourceHandles(tasks.get(0).getSplits()), ImmutableListMultimap.of(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 123)));
+        assertEquals(tasks.get(1).getPartitionId(), 1);
+        assertEquals(tasks.get(1).getNodeRequirements(), new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+        assertEquals(extractSourceHandles(tasks.get(1).getSplits()), ImmutableListMultimap.of(PLAN_NODE_2, new TestingExchangeSourceHandle(0, 321)));
 
         nonReplicatedSources = ImmutableListMultimap.of(
                 PLAN_NODE_1, sourceHandle1,
@@ -212,22 +203,20 @@ public class TestStageTaskSourceFactory
         taskSource = new ArbitraryDistributionTaskSource(
                 nonReplicatedSources,
                 ImmutableListMultimap.of(),
-                DataSize.of(3, BYTE),
-                DataSize.of(4, GIGABYTE));
+                DataSize.of(3, BYTE));
         tasks = getFutureValue(taskSource.getMoreTasks());
-        assertEquals(tasks, ImmutableList.of(
-                new TaskDescriptor(
-                        0,
-                        ImmutableListMultimap.of(),
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_1, new TestingExchangeSourceHandle(0, 1),
-                                PLAN_NODE_1, new TestingExchangeSourceHandle(0, 2)),
-                        new NodeRequirements(Optional.empty(), ImmutableSet.of(), DataSize.of(4, GIGABYTE))),
-                new TaskDescriptor(
-                        1,
-                        ImmutableListMultimap.of(),
-                        ImmutableListMultimap.of(PLAN_NODE_2, new TestingExchangeSourceHandle(0, 4)),
-                        new NodeRequirements(Optional.empty(), ImmutableSet.of(), DataSize.of(4, GIGABYTE)))));
+        assertThat(tasks).hasSize(2);
+        assertEquals(tasks.get(0).getPartitionId(), 0);
+        assertEquals(tasks.get(0).getNodeRequirements(), new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+        assertEquals(
+                extractSourceHandles(tasks.get(0).getSplits()),
+                ImmutableListMultimap.of(
+                        PLAN_NODE_1, new TestingExchangeSourceHandle(0, 1),
+                        PLAN_NODE_1, new TestingExchangeSourceHandle(0, 2)));
+        assertEquals(tasks.get(1).getPartitionId(), 1);
+        assertEquals(tasks.get(1).getNodeRequirements(), new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+        assertEquals(extractSourceHandles(tasks.get(1).getSplits()), ImmutableListMultimap.of(PLAN_NODE_2, new TestingExchangeSourceHandle(0, 4)));
+
         nonReplicatedSources = ImmutableListMultimap.of(
                 PLAN_NODE_1, sourceHandle1,
                 PLAN_NODE_1, sourceHandle3,
@@ -235,25 +224,18 @@ public class TestStageTaskSourceFactory
         taskSource = new ArbitraryDistributionTaskSource(
                 nonReplicatedSources,
                 ImmutableListMultimap.of(),
-                DataSize.of(3, BYTE),
-                DataSize.of(4, GIGABYTE));
+                DataSize.of(3, BYTE));
         tasks = getFutureValue(taskSource.getMoreTasks());
-        assertEquals(tasks, ImmutableList.of(
-                new TaskDescriptor(
-                        0,
-                        ImmutableListMultimap.of(),
-                        ImmutableListMultimap.of(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 1)),
-                        new NodeRequirements(Optional.empty(), ImmutableSet.of(), DataSize.of(4, GIGABYTE))),
-                new TaskDescriptor(
-                        1,
-                        ImmutableListMultimap.of(),
-                        ImmutableListMultimap.of(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 3)),
-                        new NodeRequirements(Optional.empty(), ImmutableSet.of(), DataSize.of(4, GIGABYTE))),
-                new TaskDescriptor(
-                        2,
-                        ImmutableListMultimap.of(),
-                        ImmutableListMultimap.of(PLAN_NODE_2, new TestingExchangeSourceHandle(0, 4)),
-                        new NodeRequirements(Optional.empty(), ImmutableSet.of(), DataSize.of(4, GIGABYTE)))));
+        assertThat(tasks).hasSize(3);
+        assertEquals(tasks.get(0).getPartitionId(), 0);
+        assertEquals(tasks.get(0).getNodeRequirements(), new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+        assertEquals(extractSourceHandles(tasks.get(0).getSplits()), ImmutableListMultimap.of(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 1)));
+        assertEquals(tasks.get(1).getPartitionId(), 1);
+        assertEquals(tasks.get(1).getNodeRequirements(), new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+        assertEquals(extractSourceHandles(tasks.get(1).getSplits()), ImmutableListMultimap.of(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 3)));
+        assertEquals(tasks.get(2).getPartitionId(), 2);
+        assertEquals(tasks.get(2).getNodeRequirements(), new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+        assertEquals(extractSourceHandles(tasks.get(2).getSplits()), ImmutableListMultimap.of(PLAN_NODE_2, new TestingExchangeSourceHandle(0, 4)));
 
         // with replicated sources
         nonReplicatedSources = ImmutableListMultimap.of(
@@ -265,25 +247,24 @@ public class TestStageTaskSourceFactory
         taskSource = new ArbitraryDistributionTaskSource(
                 nonReplicatedSources,
                 replicatedSources,
-                DataSize.of(3, BYTE),
-                DataSize.of(4, GIGABYTE));
+                DataSize.of(3, BYTE));
         tasks = getFutureValue(taskSource.getMoreTasks());
-        assertEquals(tasks, ImmutableList.of(
-                new TaskDescriptor(
-                        0,
-                        ImmutableListMultimap.of(),
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_1, new TestingExchangeSourceHandle(0, 1),
-                                PLAN_NODE_1, new TestingExchangeSourceHandle(0, 2),
-                                PLAN_NODE_2, new TestingExchangeSourceHandle(0, 321)),
-                        new NodeRequirements(Optional.empty(), ImmutableSet.of(), DataSize.of(4, GIGABYTE))),
-                new TaskDescriptor(
-                        1,
-                        ImmutableListMultimap.of(),
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_1, new TestingExchangeSourceHandle(0, 4),
-                                PLAN_NODE_2, sourceHandle321),
-                        new NodeRequirements(Optional.empty(), ImmutableSet.of(), DataSize.of(4, GIGABYTE)))));
+        assertThat(tasks).hasSize(2);
+        assertEquals(tasks.get(0).getPartitionId(), 0);
+        assertEquals(tasks.get(0).getNodeRequirements(), new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+        assertEquals(
+                extractSourceHandles(tasks.get(0).getSplits()),
+                ImmutableListMultimap.of(
+                        PLAN_NODE_1, new TestingExchangeSourceHandle(0, 1),
+                        PLAN_NODE_1, new TestingExchangeSourceHandle(0, 2),
+                        PLAN_NODE_2, new TestingExchangeSourceHandle(0, 321)));
+        assertEquals(tasks.get(1).getPartitionId(), 1);
+        assertEquals(tasks.get(1).getNodeRequirements(), new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+        assertEquals(
+                extractSourceHandles(tasks.get(1).getSplits()),
+                ImmutableListMultimap.of(
+                        PLAN_NODE_1, new TestingExchangeSourceHandle(0, 4),
+                        PLAN_NODE_2, sourceHandle321));
     }
 
     @Test
@@ -294,8 +275,7 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(),
                 ImmutableListMultimap.of(),
                 1,
-                new int[] {0, 1, 2, 3},
-                Optional.empty(),
+                createPartitioningScheme(4),
                 0,
                 DataSize.of(3, BYTE));
         assertFalse(taskSource.isFinished());
@@ -312,35 +292,35 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(
                         PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
                 1,
-                new int[] {0, 1, 2, 3},
-                Optional.empty(),
+                createPartitioningScheme(4),
                 0,
                 DataSize.of(0, BYTE));
         assertFalse(taskSource.isFinished());
-        assertEquals(getFutureValue(taskSource.getMoreTasks()), ImmutableList.of(
-                new TaskDescriptor(
-                        0,
-                        ImmutableListMultimap.of(),
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_1, new TestingExchangeSourceHandle(0, 1),
-                                PLAN_NODE_2, new TestingExchangeSourceHandle(0, 1),
-                                PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
-                        new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(), DataSize.of(4, GIGABYTE))),
-                new TaskDescriptor(
-                        1,
-                        ImmutableListMultimap.of(),
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_1, new TestingExchangeSourceHandle(1, 1),
-                                PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
-                        new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(), DataSize.of(4, GIGABYTE))),
-                new TaskDescriptor(
-                        2,
-                        ImmutableListMultimap.of(),
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_2, new TestingExchangeSourceHandle(3, 1),
-                                PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
-                        new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(), DataSize.of(4, GIGABYTE)))));
+        List<TaskDescriptor> tasks = getFutureValue(taskSource.getMoreTasks());
         assertTrue(taskSource.isFinished());
+        assertThat(tasks).hasSize(3);
+        assertEquals(tasks.get(0).getPartitionId(), 0);
+        assertEquals(tasks.get(0).getNodeRequirements(), new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of()));
+        assertEquals(extractSourceHandles(
+                        tasks.get(0).getSplits()),
+                ImmutableListMultimap.of(
+                        PLAN_NODE_1, new TestingExchangeSourceHandle(0, 1),
+                        PLAN_NODE_2, new TestingExchangeSourceHandle(0, 1),
+                        PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)));
+        assertEquals(tasks.get(1).getPartitionId(), 1);
+        assertEquals(tasks.get(1).getNodeRequirements(), new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of()));
+        assertEquals(
+                extractSourceHandles(tasks.get(1).getSplits()),
+                ImmutableListMultimap.of(
+                        PLAN_NODE_1, new TestingExchangeSourceHandle(1, 1),
+                        PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)));
+        assertEquals(tasks.get(2).getPartitionId(), 2);
+        assertEquals(tasks.get(2).getNodeRequirements(), new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of()));
+        assertEquals(
+                extractSourceHandles(tasks.get(2).getSplits()),
+                ImmutableListMultimap.of(
+                        PLAN_NODE_2, new TestingExchangeSourceHandle(3, 1),
+                        PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)));
 
         Split bucketedSplit1 = createBucketedSplit(0, 0);
         Split bucketedSplit2 = createBucketedSplit(0, 2);
@@ -355,41 +335,29 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(
                         PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
                 1,
-                new int[] {0, 1, 2, 3},
-                Optional.of(getTestingBucketNodeMap(4)),
+                createPartitioningScheme(4, 4),
                 0,
                 DataSize.of(0, BYTE));
         assertFalse(taskSource.isFinished());
-        assertEquals(getFutureValue(taskSource.getMoreTasks()), ImmutableList.of(
-                new TaskDescriptor(
-                        0,
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_4, bucketedSplit1),
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
-                        new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS), DataSize.of(4, GIGABYTE))),
-                new TaskDescriptor(
-                        1,
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_5, bucketedSplit4),
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
-                        new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS), DataSize.of(4, GIGABYTE))),
-                new TaskDescriptor(
-                        2,
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_4, bucketedSplit2),
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
-                        new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS), DataSize.of(4, GIGABYTE))),
-                new TaskDescriptor(
-                        3,
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_4, bucketedSplit3),
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
-                        new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS), DataSize.of(4, GIGABYTE)))));
+        tasks = getFutureValue(taskSource.getMoreTasks());
         assertTrue(taskSource.isFinished());
+        assertThat(tasks).hasSize(4);
+        assertEquals(tasks.get(0).getPartitionId(), 0);
+        assertEquals(tasks.get(0).getNodeRequirements(), new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS)));
+        assertEquals(extractCatalogSplits(tasks.get(0).getSplits()), ImmutableListMultimap.of(PLAN_NODE_4, bucketedSplit1));
+        assertEquals(extractSourceHandles(tasks.get(0).getSplits()), ImmutableListMultimap.of(PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)));
+        assertEquals(tasks.get(1).getPartitionId(), 1);
+        assertEquals(tasks.get(1).getNodeRequirements(), new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS)));
+        assertEquals(extractCatalogSplits(tasks.get(1).getSplits()), ImmutableListMultimap.of(PLAN_NODE_5, bucketedSplit4));
+        assertEquals(extractSourceHandles(tasks.get(1).getSplits()), ImmutableListMultimap.of(PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)));
+        assertEquals(tasks.get(2).getPartitionId(), 2);
+        assertEquals(tasks.get(2).getNodeRequirements(), new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS)));
+        assertEquals(extractCatalogSplits(tasks.get(2).getSplits()), ImmutableListMultimap.of(PLAN_NODE_4, bucketedSplit2));
+        assertEquals(extractSourceHandles(tasks.get(2).getSplits()), ImmutableListMultimap.of(PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)));
+        assertEquals(tasks.get(3).getPartitionId(), 3);
+        assertEquals(tasks.get(3).getNodeRequirements(), new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS)));
+        assertEquals(extractCatalogSplits(tasks.get(3).getSplits()), ImmutableListMultimap.of(PLAN_NODE_4, bucketedSplit3));
+        assertEquals(extractSourceHandles(tasks.get(3).getSplits()), ImmutableListMultimap.of(PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)));
 
         taskSource = createHashDistributionTaskSource(
                 ImmutableMap.of(
@@ -403,45 +371,36 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(
                         PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
                 1,
-                new int[] {0, 1, 2, 3},
-                Optional.of(getTestingBucketNodeMap(4)),
+                createPartitioningScheme(4, 4),
                 0,
                 DataSize.of(0, BYTE));
         assertFalse(taskSource.isFinished());
-        assertEquals(getFutureValue(taskSource.getMoreTasks()), ImmutableList.of(
-                new TaskDescriptor(
-                        0,
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_4, bucketedSplit1),
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_1, new TestingExchangeSourceHandle(0, 1),
-                                PLAN_NODE_2, new TestingExchangeSourceHandle(0, 1),
-                                PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
-                        new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS), DataSize.of(4, GIGABYTE))),
-                new TaskDescriptor(
-                        1,
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_5, bucketedSplit4),
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_1, new TestingExchangeSourceHandle(1, 1),
-                                PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
-                        new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS), DataSize.of(4, GIGABYTE))),
-                new TaskDescriptor(
-                        2,
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_4, bucketedSplit2),
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
-                        new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS), DataSize.of(4, GIGABYTE))),
-                new TaskDescriptor(
-                        3,
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_4, bucketedSplit3),
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_2, new TestingExchangeSourceHandle(3, 1),
-                                PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
-                        new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS), DataSize.of(4, GIGABYTE)))));
+        tasks = getFutureValue(taskSource.getMoreTasks());
         assertTrue(taskSource.isFinished());
+        assertThat(tasks).hasSize(4);
+        assertEquals(tasks.get(0).getPartitionId(), 0);
+        assertEquals(tasks.get(0).getNodeRequirements(), new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS)));
+        assertEquals(extractCatalogSplits(tasks.get(0).getSplits()), ImmutableListMultimap.of(PLAN_NODE_4, bucketedSplit1));
+        assertEquals(extractSourceHandles(tasks.get(0).getSplits()), ImmutableListMultimap.of(
+                PLAN_NODE_1, new TestingExchangeSourceHandle(0, 1),
+                PLAN_NODE_2, new TestingExchangeSourceHandle(0, 1),
+                PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)));
+        assertEquals(tasks.get(1).getPartitionId(), 1);
+        assertEquals(tasks.get(1).getNodeRequirements(), new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS)));
+        assertEquals(extractCatalogSplits(tasks.get(1).getSplits()), ImmutableListMultimap.of(PLAN_NODE_5, bucketedSplit4));
+        assertEquals(extractSourceHandles(tasks.get(1).getSplits()), ImmutableListMultimap.of(
+                PLAN_NODE_1, new TestingExchangeSourceHandle(1, 1),
+                PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)));
+        assertEquals(tasks.get(2).getPartitionId(), 2);
+        assertEquals(tasks.get(2).getNodeRequirements(), new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS)));
+        assertEquals(extractCatalogSplits(tasks.get(2).getSplits()), ImmutableListMultimap.of(PLAN_NODE_4, bucketedSplit2));
+        assertEquals(extractSourceHandles(tasks.get(2).getSplits()), ImmutableListMultimap.of(PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)));
+        assertEquals(tasks.get(3).getPartitionId(), 3);
+        assertEquals(tasks.get(3).getNodeRequirements(), new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS)));
+        assertEquals(extractCatalogSplits(tasks.get(3).getSplits()), ImmutableListMultimap.of(PLAN_NODE_4, bucketedSplit3));
+        assertEquals(extractSourceHandles(tasks.get(3).getSplits()), ImmutableListMultimap.of(
+                PLAN_NODE_2, new TestingExchangeSourceHandle(3, 1),
+                PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)));
 
         taskSource = createHashDistributionTaskSource(
                 ImmutableMap.of(
@@ -454,31 +413,29 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(
                         PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
                 2,
-                new int[] {0, 1, 0, 1},
-                Optional.of(getTestingBucketNodeMap(4)),
+                createPartitioningScheme(2, 4),
                 0, DataSize.of(0, BYTE));
         assertFalse(taskSource.isFinished());
-        assertEquals(getFutureValue(taskSource.getMoreTasks()), ImmutableList.of(
-                new TaskDescriptor(
-                        0,
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_4, bucketedSplit1,
-                                PLAN_NODE_4, bucketedSplit2),
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_1, new TestingExchangeSourceHandle(0, 1),
-                                PLAN_NODE_2, new TestingExchangeSourceHandle(0, 1),
-                                PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
-                        new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS), DataSize.of(4, GIGABYTE))),
-                new TaskDescriptor(
-                        1,
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_4, bucketedSplit3,
-                                PLAN_NODE_5, bucketedSplit4),
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_1, new TestingExchangeSourceHandle(1, 1),
-                                PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
-                        new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS), DataSize.of(4, GIGABYTE)))));
+        tasks = getFutureValue(taskSource.getMoreTasks());
         assertTrue(taskSource.isFinished());
+        assertThat(tasks).hasSize(2);
+        assertEquals(tasks.get(0).getPartitionId(), 0);
+        assertEquals(tasks.get(0).getNodeRequirements(), new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS)));
+        assertEquals(extractCatalogSplits(tasks.get(0).getSplits()), ImmutableListMultimap.of(
+                PLAN_NODE_4, bucketedSplit1,
+                PLAN_NODE_4, bucketedSplit2));
+        assertEquals(extractSourceHandles(tasks.get(0).getSplits()), ImmutableListMultimap.of(
+                PLAN_NODE_1, new TestingExchangeSourceHandle(0, 1),
+                PLAN_NODE_2, new TestingExchangeSourceHandle(0, 1),
+                PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)));
+        assertEquals(tasks.get(1).getPartitionId(), 1);
+        assertEquals(tasks.get(1).getNodeRequirements(), new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS)));
+        assertEquals(extractCatalogSplits(tasks.get(1).getSplits()), ImmutableListMultimap.of(
+                PLAN_NODE_4, bucketedSplit3,
+                PLAN_NODE_5, bucketedSplit4));
+        assertEquals(extractSourceHandles(tasks.get(1).getSplits()), ImmutableListMultimap.of(
+                PLAN_NODE_1, new TestingExchangeSourceHandle(1, 1),
+                PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)));
 
         // join based on split target split weight
         taskSource = createHashDistributionTaskSource(
@@ -494,34 +451,32 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(
                         PLAN_NODE_3, new TestingExchangeSourceHandle(17, 1)),
                 2,
-                new int[] {0, 1, 2, 3},
-                Optional.of(getTestingBucketNodeMap(4)),
+                createPartitioningScheme(4, 4),
                 2 * STANDARD_WEIGHT,
                 DataSize.of(100, GIGABYTE));
         assertFalse(taskSource.isFinished());
-        assertEquals(getFutureValue(taskSource.getMoreTasks()), ImmutableList.of(
-                new TaskDescriptor(
-                        0,
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_4, bucketedSplit1,
-                                PLAN_NODE_5, bucketedSplit4),
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_1, new TestingExchangeSourceHandle(0, 1),
-                                PLAN_NODE_1, new TestingExchangeSourceHandle(1, 1),
-                                PLAN_NODE_2, new TestingExchangeSourceHandle(1, 1),
-                                PLAN_NODE_3, new TestingExchangeSourceHandle(17, 1)),
-                        new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS), DataSize.of(4, GIGABYTE))),
-                new TaskDescriptor(
-                        1,
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_4, bucketedSplit2,
-                                PLAN_NODE_4, bucketedSplit3),
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_2, new TestingExchangeSourceHandle(2, 1),
-                                PLAN_NODE_2, new TestingExchangeSourceHandle(3, 1),
-                                PLAN_NODE_3, new TestingExchangeSourceHandle(17, 1)),
-                        new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS), DataSize.of(4, GIGABYTE)))));
+        tasks = getFutureValue(taskSource.getMoreTasks());
         assertTrue(taskSource.isFinished());
+        assertThat(tasks).hasSize(2);
+        assertEquals(tasks.get(0).getPartitionId(), 0);
+        assertEquals(tasks.get(0).getNodeRequirements(), new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS)));
+        assertEquals(extractCatalogSplits(tasks.get(0).getSplits()), ImmutableListMultimap.of(
+                PLAN_NODE_4, bucketedSplit1,
+                PLAN_NODE_5, bucketedSplit4));
+        assertEquals(extractSourceHandles(tasks.get(0).getSplits()), ImmutableListMultimap.of(
+                PLAN_NODE_1, new TestingExchangeSourceHandle(0, 1),
+                PLAN_NODE_1, new TestingExchangeSourceHandle(1, 1),
+                PLAN_NODE_2, new TestingExchangeSourceHandle(1, 1),
+                PLAN_NODE_3, new TestingExchangeSourceHandle(17, 1)));
+        assertEquals(tasks.get(1).getPartitionId(), 1);
+        assertEquals(tasks.get(1).getNodeRequirements(), new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS)));
+        assertEquals(extractCatalogSplits(tasks.get(1).getSplits()), ImmutableListMultimap.of(
+                PLAN_NODE_4, bucketedSplit2,
+                PLAN_NODE_4, bucketedSplit3));
+        assertEquals(extractSourceHandles(tasks.get(1).getSplits()), ImmutableListMultimap.of(
+                PLAN_NODE_2, new TestingExchangeSourceHandle(2, 1),
+                PLAN_NODE_2, new TestingExchangeSourceHandle(3, 1),
+                PLAN_NODE_3, new TestingExchangeSourceHandle(17, 1)));
 
         // join based on target exchange size
         taskSource = createHashDistributionTaskSource(
@@ -537,49 +492,43 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(
                         PLAN_NODE_3, new TestingExchangeSourceHandle(17, 1)),
                 2,
-                new int[] {0, 1, 2, 3},
-                Optional.of(getTestingBucketNodeMap(4)),
+                createPartitioningScheme(4, 4),
                 100 * STANDARD_WEIGHT,
                 DataSize.of(100, BYTE));
         assertFalse(taskSource.isFinished());
-        assertEquals(getFutureValue(taskSource.getMoreTasks()), ImmutableList.of(
-                new TaskDescriptor(
-                        0,
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_4, bucketedSplit1,
-                                PLAN_NODE_5, bucketedSplit4),
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_1, new TestingExchangeSourceHandle(0, 20),
-                                PLAN_NODE_1, new TestingExchangeSourceHandle(1, 30),
-                                PLAN_NODE_2, new TestingExchangeSourceHandle(1, 20),
-                                PLAN_NODE_3, new TestingExchangeSourceHandle(17, 1)),
-                        new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS), DataSize.of(4, GIGABYTE))),
-                new TaskDescriptor(
-                        1,
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_4, bucketedSplit2),
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_2, new TestingExchangeSourceHandle(2, 99),
-                                PLAN_NODE_3, new TestingExchangeSourceHandle(17, 1)),
-                        new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS), DataSize.of(4, GIGABYTE))),
-                new TaskDescriptor(
-                        2,
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_4, bucketedSplit3),
-                        ImmutableListMultimap.of(
-                                PLAN_NODE_2, new TestingExchangeSourceHandle(3, 30),
-                                PLAN_NODE_3, new TestingExchangeSourceHandle(17, 1)),
-                        new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS), DataSize.of(4, GIGABYTE)))));
+        tasks = getFutureValue(taskSource.getMoreTasks());
         assertTrue(taskSource.isFinished());
+        assertThat(tasks).hasSize(3);
+        assertEquals(tasks.get(0).getPartitionId(), 0);
+        assertEquals(tasks.get(0).getNodeRequirements(), new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS)));
+        assertEquals(extractCatalogSplits(tasks.get(0).getSplits()), ImmutableListMultimap.of(
+                PLAN_NODE_4, bucketedSplit1,
+                PLAN_NODE_5, bucketedSplit4));
+        assertEquals(extractSourceHandles(tasks.get(0).getSplits()), ImmutableListMultimap.of(
+                PLAN_NODE_1, new TestingExchangeSourceHandle(0, 20),
+                PLAN_NODE_1, new TestingExchangeSourceHandle(1, 30),
+                PLAN_NODE_2, new TestingExchangeSourceHandle(1, 20),
+                PLAN_NODE_3, new TestingExchangeSourceHandle(17, 1)));
+        assertEquals(tasks.get(1).getPartitionId(), 1);
+        assertEquals(tasks.get(1).getNodeRequirements(), new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS)));
+        assertEquals(extractCatalogSplits(tasks.get(1).getSplits()), ImmutableListMultimap.of(PLAN_NODE_4, bucketedSplit2));
+        assertEquals(extractSourceHandles(tasks.get(1).getSplits()), ImmutableListMultimap.of(
+                PLAN_NODE_2, new TestingExchangeSourceHandle(2, 99),
+                PLAN_NODE_3, new TestingExchangeSourceHandle(17, 1)));
+        assertEquals(tasks.get(2).getPartitionId(), 2);
+        assertEquals(tasks.get(2).getNodeRequirements(), new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(NODE_ADDRESS)));
+        assertEquals(extractCatalogSplits(tasks.get(2).getSplits()), ImmutableListMultimap.of(PLAN_NODE_4, bucketedSplit3));
+        assertEquals(extractSourceHandles(tasks.get(2).getSplits()), ImmutableListMultimap.of(
+                PLAN_NODE_2, new TestingExchangeSourceHandle(3, 30),
+                PLAN_NODE_3, new TestingExchangeSourceHandle(17, 1)));
     }
 
     private static HashDistributionTaskSource createHashDistributionTaskSource(
             Map<PlanNodeId, SplitSource> splitSources,
-            Multimap<PlanNodeId, ExchangeSourceHandle> partitionedExchangeSources,
-            Multimap<PlanNodeId, ExchangeSourceHandle> replicatedExchangeSources,
+            ListMultimap<PlanNodeId, ExchangeSourceHandle> partitionedExchangeSources,
+            ListMultimap<PlanNodeId, ExchangeSourceHandle> replicatedExchangeSources,
             int splitBatchSize,
-            int[] bucketToPartitionMap,
-            Optional<BucketNodeMap> bucketNodeMap,
+            FaultTolerantPartitioningScheme sourcePartitioningScheme,
             long targetPartitionSplitWeight,
             DataSize targetPartitionSourceSize)
     {
@@ -589,12 +538,10 @@ public class TestStageTaskSourceFactory
                 replicatedExchangeSources,
                 splitBatchSize,
                 getSplitsTime -> {},
-                bucketToPartitionMap,
-                bucketNodeMap,
+                sourcePartitioningScheme,
                 Optional.of(TEST_CATALOG_HANDLE),
                 targetPartitionSplitWeight,
                 targetPartitionSourceSize,
-                DataSize.of(4, GIGABYTE),
                 directExecutor());
     }
 
@@ -620,8 +567,7 @@ public class TestStageTaskSourceFactory
         assertEquals(getFutureValue(taskSource.getMoreTasks()), ImmutableList.of(new TaskDescriptor(
                 0,
                 ImmutableListMultimap.of(PLAN_NODE_1, split1),
-                ImmutableListMultimap.of(),
-                new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(), DataSize.of(4, GIGABYTE)))));
+                new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of()))));
         assertTrue(taskSource.isFinished());
 
         taskSource = createSourceDistributionTaskSource(
@@ -636,8 +582,8 @@ public class TestStageTaskSourceFactory
         assertThat(tasks).hasSize(2);
         assertThat(tasks.get(0).getSplits().values()).hasSize(2);
         assertThat(tasks.get(1).getSplits().values()).hasSize(1);
-        assertThat(tasks).allMatch(taskDescriptor -> taskDescriptor.getNodeRequirements().equals(new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(), DataSize.of(4, GIGABYTE))));
-        assertThat(tasks).allMatch(taskDescriptor -> taskDescriptor.getExchangeSourceHandles().isEmpty());
+        assertThat(tasks).allMatch(taskDescriptor -> taskDescriptor.getNodeRequirements().equals(new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of())));
+        assertThat(tasks).allMatch(taskDescriptor -> extractSourceHandles(taskDescriptor.getSplits()).isEmpty());
         assertThat(flattenSplits(tasks)).hasSameEntriesAs(ImmutableMultimap.of(
                 PLAN_NODE_1, split1,
                 PLAN_NODE_1, split2,
@@ -655,11 +601,11 @@ public class TestStageTaskSourceFactory
 
         tasks = readAllTasks(taskSource);
         assertThat(tasks).hasSize(2);
-        assertThat(tasks.get(0).getSplits().values()).hasSize(2);
-        assertThat(tasks.get(1).getSplits().values()).hasSize(1);
-        assertThat(tasks).allMatch(taskDescriptor -> taskDescriptor.getNodeRequirements().equals(new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(), DataSize.of(4, GIGABYTE))));
-        assertThat(tasks).allMatch(taskDescriptor -> taskDescriptor.getExchangeSourceHandles().equals(replicatedSources));
-        assertThat(flattenSplits(tasks)).hasSameEntriesAs(ImmutableMultimap.of(
+        assertThat(tasks.get(0).getSplits().values()).hasSize(3);
+        assertThat(tasks.get(1).getSplits().values()).hasSize(2);
+        assertThat(tasks).allMatch(taskDescriptor -> taskDescriptor.getNodeRequirements().equals(new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of())));
+        assertThat(tasks).allMatch(taskDescriptor -> extractSourceHandles(taskDescriptor.getSplits()).equals(replicatedSources));
+        assertThat(extractCatalogSplits(flattenSplits(tasks))).hasSameEntriesAs(ImmutableMultimap.of(
                 PLAN_NODE_1, split1,
                 PLAN_NODE_1, split2,
                 PLAN_NODE_1, split3));
@@ -679,7 +625,7 @@ public class TestStageTaskSourceFactory
         tasks = readAllTasks(taskSource);
 
         assertThat(tasks).hasSize(4);
-        assertThat(tasks.stream()).allMatch(taskDescriptor -> taskDescriptor.getExchangeSourceHandles().isEmpty());
+        assertThat(tasks.stream()).allMatch(taskDescriptor -> extractSourceHandles(taskDescriptor.getSplits()).isEmpty());
         assertThat(flattenSplits(tasks)).hasSameEntriesAs(Multimaps.index(splits, split -> PLAN_NODE_1));
         assertThat(tasks).allMatch(task -> task.getSplits().values().stream().allMatch(split -> {
             HostAddress requiredAddress = getOnlyElement(task.getNodeRequirements().getAddresses());
@@ -860,8 +806,7 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(
                         PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
                 1,
-                new int[] {0, 1, 2, 3},
-                Optional.of(getTestingBucketNodeMap(4)),
+                createPartitioningScheme(4, 4),
                 0,
                 DataSize.of(0, BYTE));
         ListenableFuture<List<TaskDescriptor>> tasksFuture = taskSource.getMoreTasks();
@@ -877,7 +822,7 @@ public class TestStageTaskSourceFactory
         splitsFuture2.set(ImmutableList.of(bucketedSplit4));
         List<TaskDescriptor> tasks = getDone(tasksFuture);
         assertThat(tasks).hasSize(4);
-        tasks.forEach(task -> assertThat(task.getSplits()).hasSize(1));
+        tasks.forEach(task -> assertThat(task.getSplits()).hasSize(2));
         assertThat(taskSource.isFinished()).isTrue();
     }
 
@@ -911,14 +856,13 @@ public class TestStageTaskSourceFactory
                 PLAN_NODE_1,
                 new TableExecuteContextManager(),
                 splitSource,
-                replicatedSources,
+                createRemoteSplits(replicatedSources),
                 splitBatchSize,
                 getSplitsTime -> {},
                 Optional.of(TEST_CATALOG_HANDLE),
                 minSplitsPerTask,
                 splitWeightPerTask,
                 maxSplitsPerTask,
-                DataSize.of(4, GIGABYTE),
                 directExecutor());
     }
 
@@ -946,11 +890,11 @@ public class TestStageTaskSourceFactory
         return tasks.build();
     }
 
-    private Multimap<PlanNodeId, Split> flattenSplits(List<TaskDescriptor> tasks)
+    private ListMultimap<PlanNodeId, Split> flattenSplits(List<TaskDescriptor> tasks)
     {
         return tasks.stream()
                 .flatMap(taskDescriptor -> taskDescriptor.getSplits().entries().stream())
-                .collect(toMultimap(Map.Entry::getKey, Map.Entry::getValue, HashMultimap::create));
+                .collect(toImmutableListMultimap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     private static Optional<List<HostAddress>> addressesList(String... addresses)
@@ -964,11 +908,50 @@ public class TestStageTaskSourceFactory
                 .collect(toImmutableList()));
     }
 
-    private static BucketNodeMap getTestingBucketNodeMap(int bucketCount)
+    private static FaultTolerantPartitioningScheme createPartitioningScheme(int partitionCount)
     {
-        return new BucketNodeMap(
-                split -> ((TestingConnectorSplit) split.getConnectorSplit()).getBucket().orElseThrow(),
-                nCopies(bucketCount, new InternalNode("local", URI.create("local://" + NODE_ADDRESS), NodeVersion.UNKNOWN, true)));
+        return new FaultTolerantPartitioningScheme(
+                partitionCount,
+                Optional.of(IntStream.range(0, partitionCount).toArray()),
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    private static FaultTolerantPartitioningScheme createPartitioningScheme(int partitionCount, int bucketCount)
+    {
+        int[] bucketToPartitionMap = new int[bucketCount];
+        for (int i = 0; i < bucketCount; i++) {
+            bucketToPartitionMap[i] = i % partitionCount;
+        }
+        return new FaultTolerantPartitioningScheme(
+                partitionCount,
+                Optional.of(bucketToPartitionMap),
+                Optional.of(split -> ((TestingConnectorSplit) split.getConnectorSplit()).getBucket().orElseThrow()),
+                Optional.of(nCopies(partitionCount, new InternalNode("local", URI.create("local://" + NODE_ADDRESS), NodeVersion.UNKNOWN, true))));
+    }
+
+    private static ListMultimap<PlanNodeId, ExchangeSourceHandle> extractSourceHandles(ListMultimap<PlanNodeId, Split> splits)
+    {
+        ImmutableListMultimap.Builder<PlanNodeId, ExchangeSourceHandle> result = ImmutableListMultimap.builder();
+        splits.forEach(((planNodeId, split) -> {
+            if (split.getCatalogHandle().equals(REMOTE_CATALOG_HANDLE)) {
+                RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
+                SpoolingExchangeInput input = (SpoolingExchangeInput) remoteSplit.getExchangeInput();
+                result.putAll(planNodeId, input.getExchangeSourceHandles());
+            }
+        }));
+        return result.build();
+    }
+
+    private static ListMultimap<PlanNodeId, Split> extractCatalogSplits(ListMultimap<PlanNodeId, Split> splits)
+    {
+        ImmutableListMultimap.Builder<PlanNodeId, Split> result = ImmutableListMultimap.builder();
+        splits.forEach((planNodeId, split) -> {
+            if (!split.getCatalogHandle().equals(REMOTE_CATALOG_HANDLE)) {
+                result.put(planNodeId, split);
+            }
+        });
+        return result.build();
     }
 
     private static class TestingConnectorSplit

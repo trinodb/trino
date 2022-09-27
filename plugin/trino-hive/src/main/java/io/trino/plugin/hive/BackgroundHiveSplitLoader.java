@@ -384,7 +384,6 @@ public class BackgroundHiveSplitLoader
         boolean s3SelectPushdownEnabled = S3SelectPushdown.shouldEnablePushdownForTable(session, table, path.toString(), partition.getPartition());
         // S3 Select pushdown works at the granularity of individual S3 objects for compressed files
         // and finer granularity for uncompressed files using scan range feature.
-        // Scan range is currently enabled for CSV.
         boolean shouldEnableSplits = S3SelectPushdown.isSplittable(s3SelectPushdownEnabled, schema, inputFormat, path);
         // Skip header / footer lines are not splittable except for a special case when skip.header.line.count=1
         boolean splittable = shouldEnableSplits && getFooterCount(schema) == 0 && getHeaderCount(schema) <= 1;

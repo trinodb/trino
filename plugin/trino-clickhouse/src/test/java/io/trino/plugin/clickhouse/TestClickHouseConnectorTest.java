@@ -16,8 +16,6 @@ package io.trino.plugin.clickhouse;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 
-import java.util.OptionalInt;
-
 import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -46,49 +44,10 @@ public class TestClickHouseConnectorTest
     }
 
     @Override
-    public void testCreateTableWithTableComment()
-    {
-        // Table comment is unsupported in old ClickHouse version
-        assertThatThrownBy(super::testCreateTableWithTableComment)
-                .hasMessageMatching("(?s).* Syntax error: .* COMMENT 'test comment'.*");
-    }
-
-    @Override
-    public void testCreateTableAsSelectWithTableComment()
-    {
-        // Table comment is unsupported in old ClickHouse version
-        assertThatThrownBy(super::testCreateTableAsSelectWithTableComment)
-                .hasMessageMatching("(?s).* Syntax error: .* COMMENT 'test comment'.*");
-    }
-
-    @Override
-    public void testCreateTableWithTableCommentSpecialCharacter(String comment)
-    {
-        // Table comment is unsupported in old ClickHouse version
-        assertThatThrownBy(() -> super.testCreateTableWithTableCommentSpecialCharacter(comment))
-                .hasMessageMatching("(?s).* Syntax error: .* COMMENT .*");
-    }
-
-    @Override
-    public void testCreateTableAsSelectWithTableCommentSpecialCharacter(String comment)
-    {
-        // Table comment is unsupported in old ClickHouse version
-        assertThatThrownBy(() -> super.testCreateTableAsSelectWithTableCommentSpecialCharacter(comment))
-                .hasMessageMatching("(?s).* Syntax error: .* COMMENT .*");
-    }
-
-    @Override
     public void testCommentTableSpecialCharacter(String comment)
     {
         // Table comment is unsupported in old ClickHouse version
         assertThatThrownBy(() -> super.testCommentTableSpecialCharacter(comment))
                 .hasMessageMatching("(?s).* Syntax error: .* COMMENT .*");
-    }
-
-    @Override
-    protected OptionalInt maxTableNameLength()
-    {
-        // The numeric value depends on file system
-        return OptionalInt.of(255 - ".sql.tmp".length());
     }
 }

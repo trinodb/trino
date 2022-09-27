@@ -60,7 +60,6 @@ import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_PRE
 import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_SCALE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.TimeWithTimeZoneType.DEFAULT_PRECISION;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
@@ -176,8 +175,8 @@ public enum BigQueryType
     @VisibleForTesting
     public static String dateToStringConverter(Object value)
     {
-        LocalDate date = LocalDate.ofEpochDay(((Long) value).longValue());
-        return quote(date.toString());
+        LocalDate date = LocalDate.ofEpochDay((long) value);
+        return "'" + date + "'";
     }
 
     private static String datetimeToStringConverter(Object value)
@@ -223,8 +222,10 @@ public enum BigQueryType
     static String stringToStringConverter(Object value)
     {
         Slice slice = (Slice) value;
-        // TODO (https://github.com/trinodb/trino/issues/7900) Add support for all String and Bytes literals
-        return quote(slice.toStringUtf8().replace("'", "\\'"));
+        return "'%s'".formatted(slice.toStringUtf8()
+                .replace("\\", "\\\\")
+                .replace("\n", "\\n")
+                .replace("'", "\\'"));
     }
 
     static String numericToStringConverter(Object value)
@@ -314,20 +315,15 @@ public enum BigQueryType
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
-    private static String quote(String value)
-    {
-        return "'" + value + "'";
-    }
-
     public Optional<String> convertToString(Type type, Object value)
     {
         if (type instanceof ArrayType) {
             return Optional.empty();
         }
-        if (type instanceof DecimalType) {
+        if (type instanceof DecimalType decimalType) {
             String bigqueryTypeName = this.toString();
             verify(bigqueryTypeName.equals("NUMERIC") || bigqueryTypeName.equals("BIGNUMERIC"), "Expected NUMERIC or BIGNUMERIC: %s", bigqueryTypeName);
-            if (isShortDecimal(type)) {
+            if (decimalType.isShort()) {
                 return Optional.of(format("%s '%s'", bigqueryTypeName, Decimals.toString((long) value, ((DecimalType) type).getScale())));
             }
             return Optional.of(format("%s '%s'", bigqueryTypeName, Decimals.toString((Int128) value, ((DecimalType) type).getScale())));

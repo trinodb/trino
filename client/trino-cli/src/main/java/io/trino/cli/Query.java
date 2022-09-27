@@ -162,8 +162,12 @@ public class Query
         if (client.isRunning() || (client.isFinished() && client.finalStatusInfo().getError() == null)) {
             QueryStatusInfo results = client.isRunning() ? client.currentStatusInfo() : client.finalStatusInfo();
             if (results.getUpdateType() != null) {
-                renderUpdate(errorChannel, results);
+                renderUpdate(errorChannel, results, outputFormat, usePager);
             }
+            // TODO once https://github.com/trinodb/trino/issues/14253 is done this else here should be needed
+            // and should be replaced with just simple:
+            // if there is updateCount print it
+            // if there are columns(resultSet) then print it
             else if (results.getColumns() == null) {
                 errorChannel.printf("Query %s has no columns\n", results.getId());
                 return false;
@@ -220,14 +224,21 @@ public class Query
         warningsPrinter.print(warnings, false, true);
     }
 
-    private void renderUpdate(PrintStream out, QueryStatusInfo results)
+    private void renderUpdate(PrintStream out, QueryStatusInfo results, OutputFormat outputFormat, boolean usePager)
     {
         String status = results.getUpdateType();
         if (results.getUpdateCount() != null) {
             long count = results.getUpdateCount();
             status += format(": %s row%s", count, (count != 1) ? "s" : "");
+            out.println(status);
         }
-        out.println(status);
+        else if (results.getColumns() != null && !results.getColumns().isEmpty()) {
+            out.println(status);
+            renderResults(out, outputFormat, usePager, results.getColumns());
+        }
+        else {
+            out.println(status);
+        }
         discardResults();
     }
 

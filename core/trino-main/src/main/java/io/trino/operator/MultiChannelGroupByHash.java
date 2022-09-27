@@ -972,7 +972,7 @@ public class MultiChannelGroupByHash
 
             return new GroupByIdBlock(
                     nextGroupId,
-                    new RunLengthEncodedBlock(
+                    RunLengthEncodedBlock.create(
                             BIGINT.createFixedSizeBlockBuilder(1).writeLong(groupId).build(),
                             page.getPositionCount()));
         }

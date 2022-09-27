@@ -144,8 +144,6 @@ import static io.trino.spi.type.Chars.trimTrailingSpaces;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.Decimals.isLongDecimal;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -1021,11 +1019,11 @@ public final class HiveUtil
             // used for $file_modified_time
             return NullableValue.of(type, packDateTimeWithZone(floorDiv(timestampPartitionKey(columnValue, name), MICROSECONDS_PER_MILLISECOND), DateTimeZone.getDefault().getID()));
         }
-        if (isShortDecimal(type)) {
-            return NullableValue.of(type, shortDecimalPartitionKey(columnValue, (DecimalType) type, name));
-        }
-        if (isLongDecimal(type)) {
-            return NullableValue.of(type, longDecimalPartitionKey(columnValue, (DecimalType) type, name));
+        if (type instanceof DecimalType decimalType) {
+            if (decimalType.isShort()) {
+                return NullableValue.of(type, shortDecimalPartitionKey(columnValue, decimalType, name));
+            }
+            return NullableValue.of(type, longDecimalPartitionKey(columnValue, decimalType, name));
         }
         if (type.equals(VarbinaryType.VARBINARY)) {
             return NullableValue.of(type, utf8Slice(columnValue));

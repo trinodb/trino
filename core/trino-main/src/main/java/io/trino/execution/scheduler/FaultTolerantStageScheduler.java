@@ -18,7 +18,6 @@ import com.google.common.base.Ticker;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
@@ -28,8 +27,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.SqlStage;
@@ -41,7 +40,6 @@ import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.scheduler.PartitionMemoryEstimator.MemoryRequirements;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.InternalNode;
-import io.trino.metadata.Split;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
@@ -49,7 +47,6 @@ import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeSinkHandle;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
-import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
@@ -81,6 +78,8 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultCoordinatorTaskMemory;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultTaskMemory;
 import static io.trino.SystemSessionProperties.getRetryDelayScaleFactor;
 import static io.trino.SystemSessionProperties.getRetryInitialDelay;
 import static io.trino.SystemSessionProperties.getRetryMaxDelay;
@@ -88,7 +87,6 @@ import static io.trino.execution.buffer.OutputBuffers.createSpoolingExchangeOutp
 import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
 import static io.trino.execution.scheduler.Exchanges.getAllSourceHandles;
 import static io.trino.failuredetector.FailureDetector.State.GONE;
-import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.ErrorType.INTERNAL_ERROR;
 import static io.trino.spi.ErrorType.USER_ERROR;
@@ -115,11 +113,10 @@ public class FaultTolerantStageScheduler
     private final int maxTasksWaitingForNodePerStage;
 
     private final Exchange sinkExchange;
-    private final Optional<int[]> sinkBucketToPartitionMap;
+    private final FaultTolerantPartitioningScheme sinkPartitioningScheme;
 
     private final Map<PlanFragmentId, Exchange> sourceExchanges;
-    private final Optional<int[]> sourceBucketToPartitionMap;
-    private final Optional<BucketNodeMap> sourceBucketNodeMap;
+    private final FaultTolerantPartitioningScheme sourcePartitioningScheme;
 
     private final DelayedFutureCompletor futureCompletor;
 
@@ -187,10 +184,9 @@ public class FaultTolerantStageScheduler
             DelayedFutureCompletor futureCompletor,
             Ticker ticker,
             Exchange sinkExchange,
-            Optional<int[]> sinkBucketToPartitionMap,
+            FaultTolerantPartitioningScheme sinkPartitioningScheme,
             Map<PlanFragmentId, Exchange> sourceExchanges,
-            Optional<int[]> sourceBucketToPartitionMap,
-            Optional<BucketNodeMap> sourceBucketNodeMap,
+            FaultTolerantPartitioningScheme sourcePartitioningScheme,
             AtomicInteger remainingRetryAttemptsOverall,
             int taskRetryAttemptsPerTask,
             int maxTasksWaitingForNodePerStage,
@@ -206,10 +202,9 @@ public class FaultTolerantStageScheduler
         this.taskExecutionStats = requireNonNull(taskExecutionStats, "taskExecutionStats is null");
         this.futureCompletor = requireNonNull(futureCompletor, "futureCompletor is null");
         this.sinkExchange = requireNonNull(sinkExchange, "sinkExchange is null");
-        this.sinkBucketToPartitionMap = requireNonNull(sinkBucketToPartitionMap, "sinkBucketToPartitionMap is null");
+        this.sinkPartitioningScheme = requireNonNull(sinkPartitioningScheme, "sinkPartitioningScheme is null");
         this.sourceExchanges = ImmutableMap.copyOf(requireNonNull(sourceExchanges, "sourceExchanges is null"));
-        this.sourceBucketToPartitionMap = requireNonNull(sourceBucketToPartitionMap, "sourceBucketToPartitionMap is null");
-        this.sourceBucketNodeMap = requireNonNull(sourceBucketNodeMap, "sourceBucketNodeMap is null");
+        this.sourcePartitioningScheme = requireNonNull(sourcePartitioningScheme, "sourcePartitioningScheme is null");
         this.remainingRetryAttemptsOverall = requireNonNull(remainingRetryAttemptsOverall, "remainingRetryAttemptsOverall is null");
         this.maxRetryAttemptsPerTask = taskRetryAttemptsPerTask;
         this.maxTasksWaitingForNodePerStage = maxTasksWaitingForNodePerStage;
@@ -277,8 +272,7 @@ public class FaultTolerantStageScheduler
                     stage.getFragment(),
                     exchangeSources,
                     stage::recordGetSplitTime,
-                    sourceBucketToPartitionMap,
-                    sourceBucketNodeMap);
+                    sourcePartitioningScheme);
         }
 
         while (!pendingPartitions.isEmpty() || !queuedPartitions.isEmpty() || !taskSource.isFinished()) {
@@ -333,12 +327,13 @@ public class FaultTolerantStageScheduler
                     return;
                 }
                 TaskDescriptor taskDescriptor = taskDescriptorOptional.get();
-
-                MemoryRequirements memoryRequirements = partitionMemoryRequirements.computeIfAbsent(partition, ignored -> partitionMemoryEstimator.getInitialMemoryRequirements(session, taskDescriptor.getNodeRequirements().getMemory()));
+                DataSize defaultTaskMemory = stage.getFragment().getPartitioning().equals(COORDINATOR_DISTRIBUTION) ?
+                        getFaultTolerantExecutionDefaultCoordinatorTaskMemory(session) :
+                        getFaultTolerantExecutionDefaultTaskMemory(session);
+                MemoryRequirements memoryRequirements = partitionMemoryRequirements.computeIfAbsent(partition, ignored -> partitionMemoryEstimator.getInitialMemoryRequirements(session, defaultTaskMemory));
                 log.debug("Computed initial memory requirements for task from stage %s; requirements=%s; estimator=%s", stage.getStageId(), memoryRequirements, partitionMemoryEstimator);
                 NodeRequirements nodeRequirements = taskDescriptor.getNodeRequirements();
-                nodeRequirements = nodeRequirements.withMemory(memoryRequirements.getRequiredMemory());
-                NodeAllocator.NodeLease nodeLease = nodeAllocator.acquire(nodeRequirements);
+                NodeAllocator.NodeLease nodeLease = nodeAllocator.acquire(nodeRequirements, memoryRequirements.getRequiredMemory());
 
                 pendingPartitions.add(new PendingPartition(partition, nodeLease));
             }
@@ -367,14 +362,6 @@ public class FaultTolerantStageScheduler
 
         InternalNode node = getFutureValue(nodeLease.getNode());
 
-        Multimap<PlanNodeId, Split> tableScanSplits = taskDescriptor.getSplits();
-        Multimap<PlanNodeId, Split> remoteSplits = createRemoteSplits(taskDescriptor.getExchangeSourceHandles());
-
-        Multimap<PlanNodeId, Split> taskSplits = ImmutableListMultimap.<PlanNodeId, Split>builder()
-                .putAll(tableScanSplits)
-                .putAll(remoteSplits)
-                .build();
-
         int attemptId = getNextAttemptIdForPartition(partition);
 
         ExchangeSinkHandle sinkHandle = partitionToExchangeSinkHandleMap.get(partition);
@@ -393,9 +380,9 @@ public class FaultTolerantStageScheduler
                 node,
                 partition,
                 attemptId,
-                sinkBucketToPartitionMap,
+                sinkPartitioningScheme.getBucketToPartitionMap(),
                 outputBuffers,
-                taskSplits,
+                taskDescriptor.getSplits(),
                 allSourcePlanNodeIds,
                 Optional.of(memoryRequirements.getRequiredMemory())).orElseThrow(() -> new VerifyException("stage execution is expected to be active"));
 
@@ -533,15 +520,6 @@ public class FaultTolerantStageScheduler
                 .max()
                 .orElse(-1);
         return latestAttemptId + 1;
-    }
-
-    private static Multimap<PlanNodeId, Split> createRemoteSplits(Multimap<PlanNodeId, ExchangeSourceHandle> exchangeSourceHandles)
-    {
-        ImmutableListMultimap.Builder<PlanNodeId, Split> result = ImmutableListMultimap.builder();
-        for (PlanNodeId planNodeId : exchangeSourceHandles.keySet()) {
-            result.put(planNodeId, new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.copyOf(exchangeSourceHandles.get(planNodeId))))));
-        }
-        return result.build();
     }
 
     private void updateTaskStatus(TaskStatus taskStatus, ExchangeSinkHandle exchangeSinkHandle)

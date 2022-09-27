@@ -190,7 +190,7 @@ public class TestOrcDeletedRows
         return new Page(
                 size,
                 originalTransaction.build(),
-                new RunLengthEncodedBlock(bucketBlock, size),
-                new RunLengthEncodedBlock(rowIdBlock, size));
+                RunLengthEncodedBlock.create(bucketBlock, size),
+                RunLengthEncodedBlock.create(rowIdBlock, size));
     }
 }

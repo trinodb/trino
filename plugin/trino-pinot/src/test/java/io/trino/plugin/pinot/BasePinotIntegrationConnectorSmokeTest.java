@@ -192,6 +192,7 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                             Arrays.asList(-7.33F + i, Float.POSITIVE_INFINITY, 17.034F + i),
                             Arrays.asList(-17.33D + i, Double.POSITIVE_INFINITY, 10596.034D + i),
                             Arrays.asList(-3147483647L + i, 12L - i, 4147483647L + i),
+                            initialUpdatedAt.minusMillis(offset).toEpochMilli(),
                             initialUpdatedAt.plusMillis(offset).toEpochMilli())));
         }
 
@@ -762,6 +763,7 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
             List<Float> floatArrayColumn,
             List<Double> doubleArrayColumn,
             List<Long> longArrayColumn,
+            long timestampColumn,
             long updatedAtMillis)
     {
         Schema schema = getAllTypesAvroSchema();
@@ -776,11 +778,13 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                 .set("float_array_col", floatArrayColumn)
                 .set("double_array_col", doubleArrayColumn)
                 .set("long_array_col", longArrayColumn)
+                .set("timestamp_col", timestampColumn)
                 .set("int_col", intArrayColumn.get(0))
                 .set("float_col", floatArrayColumn.get(0))
                 .set("double_col", doubleArrayColumn.get(0))
                 .set("long_col", longArrayColumn.get(0))
                 .set("updated_at", updatedAtMillis)
+                .set("ts", updatedAtMillis)
                 .build();
     }
 
@@ -838,11 +842,13 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                 .name("float_array_col").type().optional().array().items().nullable().floatType()
                 .name("double_array_col").type().optional().array().items().nullable().doubleType()
                 .name("long_array_col").type().optional().array().items().nullable().longType()
+                .name("timestamp_col").type().optional().longType()
                 .name("int_col").type().optional().intType()
                 .name("float_col").type().optional().floatType()
                 .name("double_col").type().optional().doubleType()
                 .name("long_col").type().optional().longType()
                 .name("updated_at").type().optional().longType()
+                .name("ts").type().optional().longType()
                 .endRecord();
     }
 
@@ -1335,6 +1341,13 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
     {
         // Verify the null behavior of pinot:
 
+        // Default null value for timestamp single value columns is 0
+        assertThat(query("SELECT timestamp_col" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col = 'null'"))
+                .matches("VALUES(TIMESTAMP '1970-01-01 00:00:00.000')")
+                .isFullyPushedDown();
+
         // Default null value for long single value columns is 0
         assertThat(query("SELECT long_col" +
                         "  FROM " + ALL_TYPES_TABLE +
@@ -1535,6 +1548,19 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                 .isNotFullyPushedDown(LimitNode.class);
     }
 
+    @Test
+    public void testPredicatePushdown()
+    {
+        assertThat(query("SELECT timestamp_col FROM " + ALL_TYPES_TABLE + " WHERE timestamp_col < TIMESTAMP '1971-01-01 00:00:00.000'"))
+                .isFullyPushedDown();
+    }
+
+    @Override
+    public void testCreateTable()
+    {
+        assertQueryFails("CREATE TABLE test_create_table (col INT)", "This connector does not support creating tables");
+    }
+
     /**
      * https://github.com/trinodb/trino/issues/8307
      */
@@ -1557,7 +1583,8 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                 "  MIN(int_col), MAX(int_col)," +
                 "  MIN(long_col), MAX(long_col), AVG(long_col), SUM(long_col)," +
                 "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
-                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)" +
+                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)," +
+                "  MIN(timestamp_col), MAX(timestamp_col)" +
                 "  FROM " + ALL_TYPES_TABLE))
                 .isFullyPushedDown();
 
@@ -1566,7 +1593,8 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                 "  MIN(int_col), MAX(int_col)," +
                 "  MIN(long_col), MAX(long_col), AVG(long_col), SUM(long_col)," +
                 "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
-                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)" +
+                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)," +
+                "  MIN(timestamp_col), MAX(timestamp_col)" +
                 "  FROM " + ALL_TYPES_TABLE +
                 "  LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
                 .isFullyPushedDown();
@@ -1576,7 +1604,8 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                 "  MIN(int_col), MAX(int_col)," +
                 "  MIN(long_col), MAX(long_col), AVG(long_col), SUM(long_col)," +
                 "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
-                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)" +
+                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)," +
+                "  MIN(timestamp_col), MAX(timestamp_col)" +
                 "  FROM " + ALL_TYPES_TABLE + " WHERE long_col < 4147483649"))
                 .isFullyPushedDown();
 
@@ -1585,7 +1614,8 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                 "  MIN(int_col), MAX(int_col)," +
                 "  MIN(long_col), MAX(long_col), AVG(long_col), SUM(long_col)," +
                 "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
-                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)" +
+                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)," +
+                "  MIN(timestamp_col), MAX(timestamp_col)" +
                 "  FROM " + ALL_TYPES_TABLE + " WHERE long_col < 4147483649" +
                 "  LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
                 .isFullyPushedDown();
@@ -1595,7 +1625,8 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                 "  MIN(int_col), MAX(int_col)," +
                 "  MIN(long_col), MAX(long_col), AVG(long_col), SUM(long_col)," +
                 "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
-                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)" +
+                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)," +
+                "  MIN(timestamp_col), MAX(timestamp_col)" +
                 "  FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
                 .isFullyPushedDown();
 
@@ -1604,7 +1635,8 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                 "  MIN(int_col), MAX(int_col)," +
                 "  MIN(long_col), MAX(long_col), AVG(long_col), SUM(long_col)," +
                 "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
-                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)" +
+                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)," +
+                "  MIN(timestamp_col), MAX(timestamp_col)" +
                 "  FROM " + ALL_TYPES_TABLE + " GROUP BY string_col" +
                 "  LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
                 .isFullyPushedDown();
@@ -1614,7 +1646,8 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                 "  MIN(int_col), MAX(int_col)," +
                 "  MIN(long_col), MAX(long_col), AVG(long_col), SUM(long_col)," +
                 "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
-                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)" +
+                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)," +
+                "  MIN(timestamp_col), MAX(timestamp_col)" +
                 "  FROM " + ALL_TYPES_TABLE + " WHERE long_col < 4147483649 GROUP BY bool_col"))
                 .isFullyPushedDown();
 
@@ -1623,7 +1656,8 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                 "  MIN(int_col), MAX(int_col)," +
                 "  MIN(long_col), MAX(long_col), AVG(long_col), SUM(long_col)," +
                 "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
-                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)" +
+                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)," +
+                "  MIN(timestamp_col), MAX(timestamp_col)" +
                 "  FROM " + ALL_TYPES_TABLE + " WHERE long_col < 4147483649 GROUP BY string_col" +
                 "  LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
                 .isFullyPushedDown();
@@ -1634,7 +1668,8 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                 "  MIN(int_col), MAX(int_col)," +
                 "  MIN(long_col), MAX(long_col), AVG(long_col), SUM(long_col)," +
                 "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
-                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)" +
+                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)," +
+                "  MIN(timestamp_col), MAX(timestamp_col)" +
                 "  FROM " + ALL_TYPES_TABLE + " WHERE long_col > 4147483649"))
                 .isFullyPushedDown();
 
@@ -1649,7 +1684,8 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                 "  MIN(int_col), MAX(int_col)," +
                 "  MIN(long_col), MAX(long_col), AVG(long_col), SUM(long_col)," +
                 "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
-                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)" +
+                "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)," +
+                "  MIN(timestamp_col), MAX(timestamp_col)" +
                 "  FROM \"SELECT * FROM " + ALL_TYPES_TABLE + " WHERE long_col > 4147483649" +
                 "  LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + "\"  GROUP BY string_col"))
                 .isFullyPushedDown();
@@ -1709,6 +1745,9 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
         // Distinct on long is pushed down
         assertThat(query("SELECT DISTINCT long_col FROM " + ALL_TYPES_TABLE))
                 .isFullyPushedDown();
+        // Distinct on timestamp is pushed down
+        assertThat(query("SELECT DISTINCT timestamp_col FROM " + ALL_TYPES_TABLE))
+                .isFullyPushedDown();
         // Distinct on int is partially pushed down
         assertThat(query("SELECT DISTINCT int_col FROM " + ALL_TYPES_TABLE))
                 .isNotFullyPushedDown();
@@ -1721,6 +1760,8 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
         assertThat(query("SELECT DISTINCT bool_col, float_col FROM " + ALL_TYPES_TABLE))
                 .isFullyPushedDown();
         assertThat(query("SELECT DISTINCT bool_col, long_col FROM " + ALL_TYPES_TABLE))
+                .isFullyPushedDown();
+        assertThat(query("SELECT DISTINCT bool_col, timestamp_col FROM " + ALL_TYPES_TABLE))
                 .isFullyPushedDown();
         assertThat(query("SELECT DISTINCT bool_col, int_col FROM " + ALL_TYPES_TABLE))
                 .isNotFullyPushedDown();
@@ -2393,6 +2434,13 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                 .matches(expectedValues);
         assertThat(query("SELECT bytes_col FROM \"SELECT bytes_col, string_col FROM alltypes\" WHERE string_col != 'array_null'"))
                 .matches(expectedValues);
+    }
+
+    @Test
+    public void testTimestamp()
+    {
+        assertThat(query("SELECT ts FROM alltypes order by ts LIMIT 1")).matches("VALUES (TIMESTAMP '1970-01-01 00:00:00.000')");
+        assertThat(query("SELECT min(ts) FROM alltypes")).matches("VALUES (TIMESTAMP '1970-01-01 00:00:00.000')");
     }
 
     @Test

@@ -49,7 +49,6 @@ import io.trino.spi.QueryId;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.security.SelectedRole;
-import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 import io.trino.transaction.TransactionId;
 
@@ -343,6 +342,13 @@ class Query
         return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, targetResultSize), resultsProcessorExecutor);
     }
 
+    public synchronized void markResultsConsumedIfReady()
+    {
+        if (!resultsConsumed && exchangeDataSource.isFinished()) {
+            queryManager.resultsConsumed(queryId);
+        }
+    }
+
     private synchronized ListenableFuture<Void> getFutureStateChange()
     {
         // if the exchange client is open, wait for data
@@ -424,7 +430,7 @@ class Query
             updateCount = updatedRowsCount.orElse(null);
         }
 
-        if (queryInfo.getOutputStage().isEmpty() || (exchangeDataSource.isFinished() && resultRows.isEmpty())) {
+        if (queryInfo.getOutputStage().isEmpty() || exchangeDataSource.isFinished()) {
             queryManager.resultsConsumed(queryId);
             resultsConsumed = true;
             // update query since the query might have been transitioned to the FINISHED state
@@ -500,13 +506,11 @@ class Query
 
     private synchronized QueryResultRows removePagesFromExchange(QueryInfo queryInfo, long targetResultBytes)
     {
-        // For queries with no output, return a fake boolean result for clients that require it.
         if (!resultsConsumed && queryInfo.getOutputStage().isEmpty()) {
             return queryResultRowsBuilder(session)
-                    .withSingleBooleanValue(createColumn("result", BooleanType.BOOLEAN, supportsParametricDateTime), true)
+                    .withColumnsAndTypes(ImmutableList.of(), ImmutableList.of())
                     .build();
         }
-
         // Remove as many pages as possible from the exchange until just greater than DESIRED_RESULT_BYTES
         // NOTE: it is critical that query results are created for the pages removed from the exchange
         // client while holding the lock because the query may transition to the finished state when the

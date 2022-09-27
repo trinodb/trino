@@ -379,8 +379,7 @@ public class SingleStoreClient
         if (type == BIGINT) {
             return WriteMapping.longMapping("bigint", bigintWriteFunction());
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
@@ -393,11 +392,10 @@ public class SingleStoreClient
         if (type == DOUBLE) {
             return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
         }
-        if (type instanceof CharType) {
-            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
+        if (type instanceof CharType charType) {
+            return WriteMapping.sliceMapping("char(" + charType.getLength() + ")", charWriteFunction());
         }
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
+        if (type instanceof VarcharType varcharType) {
             String dataType;
             if (varcharType.isUnbounded()) {
                 dataType = "longtext";
@@ -422,8 +420,7 @@ public class SingleStoreClient
         if (type == DATE) {
             return WriteMapping.longMapping("date", dateWriteFunction());
         }
-        if (type instanceof TimeType) {
-            TimeType timeType = (TimeType) type;
+        if (type instanceof TimeType timeType) {
             checkArgument(timeType.getPrecision() <= SINGLESTORE_DATE_TIME_MAX_PRECISION, "The max time precision in SingleStore is 6");
             if (timeType.getPrecision() == 0) {
                 return WriteMapping.longMapping("time", timeWriteFunction(0));
@@ -431,8 +428,7 @@ public class SingleStoreClient
             return WriteMapping.longMapping("time(6)", timeWriteFunction(6));
         }
         // TODO implement TIME type
-        if (type instanceof TimestampType) {
-            TimestampType timestampType = (TimestampType) type;
+        if (type instanceof TimestampType timestampType) {
             checkArgument(timestampType.getPrecision() <= SINGLESTORE_DATE_TIME_MAX_PRECISION, "The max timestamp precision in SingleStore is 6");
             if (timestampType.getPrecision() == 0) {
                 return WriteMapping.longMapping("datetime", timestampWriteFunction(timestampType));

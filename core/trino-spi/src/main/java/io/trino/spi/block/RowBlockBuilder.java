@@ -150,7 +150,7 @@ public class RowBlockBuilder
         }
         consumer.accept(fieldBlockOffsets, sizeOf(fieldBlockOffsets));
         consumer.accept(rowIsNull, sizeOf(rowIsNull));
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -284,7 +284,7 @@ public class RowBlockBuilder
         return super.copyRegion(position, length);
     }
 
-    private RunLengthEncodedBlock nullRle(int length)
+    private Block nullRle(int length)
     {
         Block[] fieldBlocks = new Block[numFields];
         for (int i = 0; i < numFields; i++) {
@@ -292,6 +292,6 @@ public class RowBlockBuilder
         }
 
         RowBlock nullRowBlock = createRowBlockInternal(0, 1, new boolean[] {true}, new int[] {0, 0}, fieldBlocks);
-        return new RunLengthEncodedBlock(nullRowBlock, length);
+        return RunLengthEncodedBlock.create(nullRowBlock, length);
     }
 }

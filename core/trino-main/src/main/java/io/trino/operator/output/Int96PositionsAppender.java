@@ -98,9 +98,8 @@ public class Int96PositionsAppender
     }
 
     @Override
-    public void appendRle(RunLengthEncodedBlock block)
+    public void appendRle(Block block, int rlePositionCount)
     {
-        int rlePositionCount = block.getPositionCount();
         if (rlePositionCount == 0) {
             return;
         }
@@ -132,7 +131,7 @@ public class Int96PositionsAppender
             result = new Int96ArrayBlock(positionCount, hasNullValue ? Optional.of(valueIsNull) : Optional.empty(), high, low);
         }
         else {
-            result = new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+            result = RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positionCount);
         }
         reset();
         return result;

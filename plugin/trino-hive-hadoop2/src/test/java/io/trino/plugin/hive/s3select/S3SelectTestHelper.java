@@ -52,22 +52,32 @@ import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.s3.HiveS3Config;
 import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 import io.trino.plugin.hive.security.SqlStandardAccessControlMetadata;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TestingTypeManager;
+import io.trino.testing.MaterializedResult;
 import org.apache.hadoop.fs.Path;
 
+import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.LongStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.plugin.hive.HiveFileSystemTestUtils.filterTable;
+import static io.trino.plugin.hive.HiveFileSystemTestUtils.getSplitsCount;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProviders;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -230,5 +240,47 @@ public class S3SelectTestHelper
             heartbeatService.shutdownNow();
             heartbeatService = null;
         }
+    }
+
+    int getTableSplitsCount(SchemaTableName table)
+    {
+        return getSplitsCount(
+                table,
+                getTransactionManager(),
+                getHiveConfig(),
+                getSplitManager());
+    }
+
+    MaterializedResult getFilteredTableResult(SchemaTableName table, ColumnHandle column)
+    {
+        try {
+            return filterTable(
+                    table,
+                    List.of(column),
+                    getTransactionManager(),
+                    getHiveConfig(),
+                    getPageSourceProvider(),
+                    getSplitManager());
+        }
+        catch (IOException ignored) {
+        }
+
+        return null;
+    }
+
+    static MaterializedResult expectedResult(ConnectorSession session, int start, int end)
+    {
+        MaterializedResult.Builder builder = MaterializedResult.resultBuilder(session, BIGINT);
+        LongStream.rangeClosed(start, end).forEach(builder::row);
+        return builder.build();
+    }
+
+    static boolean isSplitCountInOpenInterval(int splitCount,
+                                       int lowerBound,
+                                       int upperBound)
+    {
+        // Split number may vary, the minimum number of splits being obtained with
+        // the first split of maxInitialSplitSize and the rest of maxSplitSize
+        return lowerBound < splitCount && splitCount < upperBound;
     }
 }

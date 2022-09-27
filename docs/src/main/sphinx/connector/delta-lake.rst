@@ -219,23 +219,35 @@ connector.
       - A decimal value in the range (0, 1] used as a minimum for weights assigned to each split. A low value may improve performance
         on tables with small files. A higher value may improve performance for queries with highly skewed aggregations or joins.
       - 0.05
+    * - ``parquet.optimized-writer.enabled``
+      - Whether the optimized writer should be used when writing Parquet files.
+        The equivalent catalog session property is
+        ``parquet_optimized_writer_enabled``.
+      - ``true``
 
 The following table describes :ref:`catalog session properties
 <session-properties-definition>` supported by the Delta Lake connector to
 configure processing of Parquet files.
 
 .. list-table:: Parquet catalog session properties
-    :widths: 40, 60
+    :widths: 40, 60, 20
     :header-rows: 1
 
     * - Property name
       - Description
+      - Default
+    * - ``parquet_optimized_writer_enabled``
+      - Whether the optimized writer should be used when writing Parquet files.
+      - ``true``
     * - ``parquet_max_read_block_size``
       - The maximum block size used when reading Parquet files.
+      - ``16MB``
     * - ``parquet_writer_block_size``
       - The maximum block size created by the Parquet writer.
+      - ``128MB``
     * - ``parquet_writer_page_size``
       - The maximum page size created by the Parquet writer.
+      - ``1MB``
 
 .. _delta-lake-authorization:
 
@@ -368,6 +380,16 @@ this table:
     - ``STRUCT(...)``
 
 No other types are supported.
+
+.. _delta-lake-table-redirection:
+
+Table redirection
+-----------------
+
+.. include:: table-redirection.fragment
+
+The connector supports redirection from Delta Lake tables to Hive tables
+with the ``delta.hive-catalog-name`` catalog configuration property.
 
 .. _delta-lake-sql-support:
 

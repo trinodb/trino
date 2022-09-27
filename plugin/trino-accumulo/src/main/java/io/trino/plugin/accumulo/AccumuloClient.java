@@ -330,6 +330,7 @@ public class AccumuloClient
                                 cm.getType(),
                                 ordinal,
                                 "Accumulo row ID",
+                                Optional.ofNullable(cm.getComment()),
                                 false));
             }
             else {
@@ -340,7 +341,7 @@ public class AccumuloClient
                 // Get the mapping for this column
                 Pair<String, String> famqual = mapping.get(cm.getName());
                 boolean indexed = indexedColumns.isPresent() && indexedColumns.get().contains(cm.getName().toLowerCase(Locale.ENGLISH));
-                String comment = format("Accumulo column %s:%s. Indexed: %b", famqual.getLeft(), famqual.getRight(), indexed);
+                String extraInfo = format("Accumulo column %s:%s. Indexed: %b", famqual.getLeft(), famqual.getRight(), indexed);
 
                 // Create a new AccumuloColumnHandle object
                 cBuilder.add(
@@ -350,7 +351,8 @@ public class AccumuloClient
                                 Optional.of(famqual.getRight()),
                                 cm.getType(),
                                 ordinal,
-                                comment,
+                                extraInfo,
+                                Optional.ofNullable(cm.getComment()),
                                 indexed));
             }
         }
@@ -615,6 +617,7 @@ public class AccumuloClient
                         columnHandle.getQualifier(),
                         columnHandle.getType(),
                         columnHandle.getOrdinal(),
+                        columnHandle.getExtraInfo(),
                         columnHandle.getComment(),
                         columnHandle.isIndexed()));
             }

@@ -82,7 +82,6 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -229,9 +228,8 @@ public final class JsonUtil
             if (type instanceof DoubleType) {
                 return (block, position) -> String.valueOf(type.getDouble(block, position));
             }
-            if (type instanceof DecimalType) {
-                DecimalType decimalType = (DecimalType) type;
-                if (isShortDecimal(decimalType)) {
+            if (type instanceof DecimalType decimalType) {
+                if (decimalType.isShort()) {
                     return (block, position) -> Decimals.toString(decimalType.getLong(block, position), decimalType.getScale());
                 }
                 return (block, position) -> Decimals.toString(
@@ -270,11 +268,11 @@ public final class JsonUtil
             if (type instanceof DoubleType) {
                 return new DoubleJsonGeneratorWriter();
             }
-            if (type instanceof DecimalType) {
-                if (isShortDecimal(type)) {
-                    return new ShortDecimalJsonGeneratorWriter((DecimalType) type);
+            if (type instanceof DecimalType decimalType) {
+                if (decimalType.isShort()) {
+                    return new ShortDecimalJsonGeneratorWriter(decimalType);
                 }
-                return new LongDecimalJsonGeneratorWriter((DecimalType) type);
+                return new LongDecimalJsonGeneratorWriter(decimalType);
             }
             if (type instanceof VarcharType) {
                 return new VarcharJsonGeneratorWriter(type);
@@ -925,12 +923,12 @@ public final class JsonUtil
             if (type instanceof DoubleType) {
                 return new DoubleBlockBuilderAppender();
             }
-            if (type instanceof DecimalType) {
-                if (isShortDecimal(type)) {
-                    return new ShortDecimalBlockBuilderAppender((DecimalType) type);
+            if (type instanceof DecimalType decimalType) {
+                if (decimalType.isShort()) {
+                    return new ShortDecimalBlockBuilderAppender(decimalType);
                 }
 
-                return new LongDecimalBlockBuilderAppender((DecimalType) type);
+                return new LongDecimalBlockBuilderAppender(decimalType);
             }
             if (type instanceof VarcharType) {
                 return new VarcharBlockBuilderAppender(type);
