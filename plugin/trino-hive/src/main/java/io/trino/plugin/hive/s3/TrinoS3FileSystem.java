@@ -219,7 +219,7 @@ public class TrinoS3FileSystem
 
     private static final Logger log = Logger.get(TrinoS3FileSystem.class);
     private static final TrinoS3FileSystemStats STATS = new TrinoS3FileSystemStats();
-    private static final RequestMetricCollector METRIC_COLLECTOR = new TrinoS3FileSystemMetricCollector(STATS);
+    private static final RequestMetricCollector METRIC_COLLECTOR = STATS.newRequestMetricCollector();
     private static final String DIRECTORY_SUFFIX = "_$folder$";
     private static final DataSize BLOCK_SIZE = DataSize.of(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = DataSize.of(1, MEGABYTE);

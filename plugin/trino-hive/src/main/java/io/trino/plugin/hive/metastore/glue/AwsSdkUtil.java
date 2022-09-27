@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.metastore.glue;
 
 import com.google.common.collect.AbstractIterator;
+import io.trino.plugin.hive.aws.AwsApiCallStats;
 
 import java.util.Iterator;
 import java.util.function.BiConsumer;
@@ -38,7 +39,7 @@ public final class AwsSdkUtil
             Request request,
             BiConsumer<Request, String> setNextToken,
             Function<Result, String> extractNextToken,
-            GlueMetastoreApiStats stats)
+            AwsApiCallStats stats)
     {
         requireNonNull(submission, "submission is null");
         requireNonNull(request, "request is null");

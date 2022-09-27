@@ -76,6 +76,7 @@ import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.aws.AwsApiCallStats;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
@@ -1128,10 +1129,10 @@ public class GlueHiveMetastore
     static class StatsRecordingAsyncHandler<Request extends AmazonWebServiceRequest, Result>
             implements AsyncHandler<Request, Result>
     {
-        private final GlueMetastoreApiStats stats;
+        private final AwsApiCallStats stats;
         private final Stopwatch stopwatch;
 
-        public StatsRecordingAsyncHandler(GlueMetastoreApiStats stats)
+        public StatsRecordingAsyncHandler(AwsApiCallStats stats)
         {
             this.stats = requireNonNull(stats, "stats is null");
             this.stopwatch = Stopwatch.createStarted();
