@@ -66,6 +66,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -1548,19 +1550,6 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                 .isNotFullyPushedDown(LimitNode.class);
     }
 
-    @Test
-    public void testPredicatePushdown()
-    {
-        assertThat(query("SELECT timestamp_col FROM " + ALL_TYPES_TABLE + " WHERE timestamp_col < TIMESTAMP '1971-01-01 00:00:00.000'"))
-                .isFullyPushedDown();
-    }
-
-    @Override
-    public void testCreateTable()
-    {
-        assertQueryFails("CREATE TABLE test_create_table (col INT)", "This connector does not support creating tables");
-    }
-
     /**
      * https://github.com/trinodb/trino/issues/8307
      */
@@ -2439,8 +2428,20 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
     @Test
     public void testTimestamp()
     {
-        assertThat(query("SELECT ts FROM alltypes order by ts LIMIT 1")).matches("VALUES (TIMESTAMP '1970-01-01 00:00:00.000')");
-        assertThat(query("SELECT min(ts) FROM alltypes")).matches("VALUES (TIMESTAMP '1970-01-01 00:00:00.000')");
+        assertThat(query("SELECT ts FROM " + ALL_TYPES_TABLE + " ORDER BY ts LIMIT 1")).matches("VALUES (TIMESTAMP '1970-01-01 00:00:00.000')");
+        assertThat(query("SELECT min(ts) FROM " + ALL_TYPES_TABLE)).matches("VALUES (TIMESTAMP '1970-01-01 00:00:00.000')");
+        assertThat(query("SELECT max(ts) FROM " + ALL_TYPES_TABLE)).isFullyPushedDown();
+        assertThat(query("SELECT ts FROM " + ALL_TYPES_TABLE + " ORDER BY ts DESC LIMIT 1")).matches("SELECT max(ts) FROM " + ALL_TYPES_TABLE);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(ZoneId.of("UTC"));
+        for (int i = 0, step = 1200; i < MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES - 2; i++) {
+            String initialUpdatedAtStr = formatter.format(initialUpdatedAt.plusMillis(i * step));
+            assertThat(query("SELECT ts FROM " + ALL_TYPES_TABLE + " WHERE ts >= TIMESTAMP '" + initialUpdatedAtStr + "' ORDER BY ts LIMIT 1"))
+                    .matches("SELECT ts FROM " + ALL_TYPES_TABLE + " WHERE ts <= TIMESTAMP '" + initialUpdatedAtStr + "' ORDER BY ts DESC LIMIT 1");
+            assertThat(query("SELECT ts FROM " + ALL_TYPES_TABLE + " WHERE ts = TIMESTAMP '" + initialUpdatedAtStr + "' LIMIT 1"))
+                    .matches("VALUES (TIMESTAMP '" + initialUpdatedAtStr + "')");
+        }
+        assertThat(query("SELECT timestamp_col FROM " + ALL_TYPES_TABLE + " WHERE timestamp_col < TIMESTAMP '1971-01-01 00:00:00.000'")).isFullyPushedDown();
+        assertThat(query("SELECT timestamp_col FROM " + ALL_TYPES_TABLE + " WHERE timestamp_col < TIMESTAMP '1970-01-01 00:00:00.000'")).isFullyPushedDown();
     }
 
     @Test
