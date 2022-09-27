@@ -146,7 +146,6 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -155,6 +154,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -235,6 +235,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.UuidType.UUID;
 import static java.lang.String.format;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.groupingBy;
@@ -629,12 +630,9 @@ public class IcebergMetadata
 
     private static Optional<Long> findLatestSnapshotId(Iterable<Snapshot> snapshots)
     {
-        try {
-            return Optional.of(Iterables.getLast(snapshots).snapshotId());
-        }
-        catch (NoSuchElementException e) {
-            return Optional.empty();
-        }
+        return StreamSupport.stream(snapshots.spliterator(), false)
+                .max(comparing(Snapshot::timestampMillis))
+                .map(Snapshot::snapshotId);
     }
 
     @Override
