@@ -311,6 +311,7 @@ public class SqlTask
             }
             physicalWrittenDataSize = succinctBytes(physicalWrittenBytes);
             userMemoryReservation = taskContext.getMemoryReservation();
+            peakUserMemoryReservation = taskContext.getPeakMemoryReservation();
             revocableMemoryReservation = taskContext.getRevocableMemoryReservation();
             fullGcCount = taskContext.getFullGcCount();
             fullGcTime = taskContext.getFullGcTime();
