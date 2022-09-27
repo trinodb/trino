@@ -260,6 +260,15 @@ and if it is a more complex type (JSON array or JSON object) then the JSON itsel
 
 There is no limit on field descriptions for either key or message.
 
+.. _kinesis-type-mapping:
+
+Type mapping
+------------
+
+Because Trino and Kinesis each support types that the other does not, this
+connector :ref:`maps some types <type-mapping-overview>` when reading data. Type
+mapping depends on the format (Raw, Avro, JSON, CSV).
+
 .. _kinesis-sql-support:
 
 SQL support
