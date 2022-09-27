@@ -134,7 +134,7 @@ function start_docker_containers() {
 
     # pull docker images
     if [[ "${CONTINUOUS_INTEGRATION:-false}" == 'true' ]]; then
-        docker-compose ${compose_args} pull --quiet
+        retry docker-compose ${compose_args} pull --quiet
     fi
 
     # start containers
