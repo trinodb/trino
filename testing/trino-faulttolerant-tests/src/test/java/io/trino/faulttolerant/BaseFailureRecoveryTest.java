@@ -311,7 +311,7 @@ public abstract class BaseFailureRecoveryTest
     }
 
     @Test(invocationCount = INVOCATION_COUNT)
-    public void testAnalyzeStatistics()
+    public void testAnalyzeTable()
     {
         testNonSelect(
                 Optional.empty(),
