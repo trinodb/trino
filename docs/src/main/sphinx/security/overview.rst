@@ -40,6 +40,8 @@ order of steps. Do not skip or combine steps.
      </security/ldap>`.
    * Avoid the complexity of Kerberos for client authentication, if possible.
 
+   :ref:`Verify this step is working correctly.<verify_authentication>`
+
 #. **Enable authorization and access control**
 
    * Start with :doc:`file-based rules <file-system-access-control>`.
