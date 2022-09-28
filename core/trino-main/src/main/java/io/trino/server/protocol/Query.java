@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
@@ -103,6 +104,8 @@ class Query
 
     @GuardedBy("this")
     private final ExchangeDataSource exchangeDataSource;
+    @GuardedBy("this")
+    private ListenableFuture<Void> exchangeDataSourceBlocked;
 
     private final Executor resultsProcessorExecutor;
     private final ScheduledExecutorService timeoutExecutor;
@@ -353,8 +356,19 @@ class Query
     {
         // if the exchange client is open, wait for data
         if (!exchangeDataSource.isFinished()) {
-            return exchangeDataSource.isBlocked();
+            if (exchangeDataSourceBlocked != null && !exchangeDataSourceBlocked.isDone()) {
+                return exchangeDataSourceBlocked;
+            }
+            ListenableFuture<Void> blocked = exchangeDataSource.isBlocked();
+            if (blocked.isDone()) {
+                // not blocked
+                return immediateVoidFuture();
+            }
+            // cache future to avoid accumulation of callbacks on the underlying future
+            exchangeDataSourceBlocked = ignoreCancellation(blocked);
+            return exchangeDataSourceBlocked;
         }
+        exchangeDataSourceBlocked = null;
 
         if (!resultsConsumed) {
             return immediateVoidFuture();
@@ -368,6 +382,29 @@ class Query
         catch (NoSuchElementException e) {
             return immediateVoidFuture();
         }
+    }
+
+    /**
+     * Contrary to {@link Futures#nonCancellationPropagating(ListenableFuture)} this method returns a future that cannot be cancelled
+     * what allows it to be shared between multiple independent callers
+     */
+    private static ListenableFuture<Void> ignoreCancellation(ListenableFuture<Void> future)
+    {
+        return new AbstractFuture<Void>()
+        {
+            public AbstractFuture<Void> propagateFuture(ListenableFuture<? extends Void> future)
+            {
+                setFuture(future);
+                return this;
+            }
+
+            @Override
+            public boolean cancel(boolean mayInterruptIfRunning)
+            {
+                // ignore
+                return false;
+            }
+        }.propagateFuture(future);
     }
 
     private synchronized Optional<QueryResults> getCachedResult(long token)

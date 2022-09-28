@@ -15,6 +15,9 @@ package io.trino.plugin.exchange.filesystem;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.slice.Slice;
 import io.trino.spi.exchange.ExchangeSource;
@@ -39,8 +42,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
-import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static java.util.Objects.requireNonNull;
 
@@ -59,7 +62,7 @@ public class FileSystemExchangeSource
     private SettableFuture<Void> blockedOnSourceHandles = SettableFuture.create();
 
     private final AtomicReference<List<ExchangeStorageReader>> readers = new AtomicReference<>(ImmutableList.of());
-    private final AtomicReference<CompletableFuture<Void>> blocked = new AtomicReference<>();
+    private final AtomicReference<ListenableFuture<Void>> blocked = new AtomicReference<>();
     private final AtomicBoolean closed = new AtomicBoolean();
 
     public FileSystemExchangeSource(
@@ -98,9 +101,9 @@ public class FileSystemExchangeSource
             return NOT_BLOCKED;
         }
 
-        CompletableFuture<Void> blocked = this.blocked.get();
+        ListenableFuture<Void> blocked = this.blocked.get();
         if (blocked != null && !blocked.isDone()) {
-            return blocked;
+            return nonCancellationPropagatingCompletableFuture(blocked);
         }
 
         List<ExchangeStorageReader> readers = this.readers.get();
@@ -114,22 +117,42 @@ public class FileSystemExchangeSource
 
         synchronized (this) {
             if (!blockedOnSourceHandles.isDone()) {
-                blocked = toCompletableFuture(nonCancellationPropagating(blockedOnSourceHandles));
+                blocked = blockedOnSourceHandles;
             }
             else if (readers.isEmpty()) {
-                blocked = NOT_BLOCKED;
+                // not blocked
+                blocked = immediateVoidFuture();
             }
             else {
-                blocked = toCompletableFuture(
-                        nonCancellationPropagating(
-                                whenAnyComplete(readers.stream()
-                                        .map(ExchangeStorageReader::isBlocked)
-                                        .collect(toImmutableList()))));
+                blocked = whenAnyComplete(readers.stream()
+                        .map(ExchangeStorageReader::isBlocked)
+                        .collect(toImmutableList()));
             }
             blocked = stats.getExchangeSourceBlocked().record(blocked);
             this.blocked.set(blocked);
-            return blocked;
         }
+
+        return nonCancellationPropagatingCompletableFuture(blocked);
+    }
+
+    private static CompletableFuture<Void> nonCancellationPropagatingCompletableFuture(ListenableFuture<Void> future)
+    {
+        CompletableFuture<Void> result = new CompletableFuture<>();
+        Futures.addCallback(future, new FutureCallback<>()
+        {
+            @Override
+            public void onSuccess(Void value)
+            {
+                result.complete(value);
+            }
+
+            @Override
+            public void onFailure(Throwable t)
+            {
+                result.completeExceptionally(t);
+            }
+        }, directExecutor());
+        return result;
     }
 
     @Override
