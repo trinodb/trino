@@ -453,6 +453,7 @@ jobs:
             - { modules: plugin/trino-clickhouse }
             - { modules: plugin/trino-delta-lake }
             - { modules: plugin/trino-delta-lake, profile: cloud-tests }
+            - { modules: plugin/trino-delta-lake, profile: gcs-tests }
             - { modules: plugin/trino-druid }
             - { modules: plugin/trino-elasticsearch }
             - { modules: plugin/trino-hive }
@@ -518,7 +519,7 @@ jobs:
       - name: Maven Tests
         if: >-
           matrix.modules != 'plugin/trino-singlestore' &&
-          !((contains(matrix.modules, 'trino-delta-lake') || contains(matrix.modules, 'trino-iceberg')) && contains(matrix.profile, 'cloud-tests'))
+          !((contains(matrix.modules, 'trino-delta-lake') && (contains(matrix.profile, 'cloud-tests') || contains(matrix.profile, 'gcs-tests'))) || (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests')))
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
       # Additional tests for selected modules
       - name: Cloud Delta Lake Tests
@@ -545,7 +546,7 @@ jobs:
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
         # Run tests if any of the secrets is present. Do not skip tests when one secret renamed, or secret name has a typo.
         if: >-
-          contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests') && env.GCP_CREDENTIALS_KEY != ''
+          contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'gcs-tests') && env.GCP_CREDENTIALS_KEY != ''
         run: |
           $MAVEN test ${MAVEN_TEST} -P gcs-tests -pl :trino-delta-lake \
             -Dtesting.gcp-storage-bucket="trino-ci-test-us-east" \
