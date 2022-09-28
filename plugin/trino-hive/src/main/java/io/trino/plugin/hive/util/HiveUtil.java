@@ -166,6 +166,7 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -183,6 +184,12 @@ public final class HiveUtil
 
     public static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
     public static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
+
+    // Input formats class names are listed below as String due to hudi-hadoop-mr dependency is not in the context of trino-hive plugin
+    private static final String HUDI_PARQUET_INPUT_FORMAT = "org.apache.hudi.hadoop.HoodieParquetInputFormat";
+    private static final String HUDI_PARQUET_REALTIME_INPUT_FORMAT = "org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat";
+    private static final String HUDI_INPUT_FORMAT = "com.uber.hoodie.hadoop.HoodieInputFormat";
+    private static final String HUDI_REALTIME_INPUT_FORMAT = "com.uber.hoodie.hadoop.realtime.HoodieRealtimeInputFormat";
 
     private static final LocalDateTime EPOCH_DAY = new LocalDateTime(1970, 1, 1, 0, 0);
     private static final DateTimeFormatter HIVE_DATE_PARSER;
@@ -1127,6 +1134,17 @@ public final class HiveUtil
     public static boolean isIcebergTable(Map<String, String> tableParameters)
     {
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(tableParameters.get(ICEBERG_TABLE_TYPE_NAME));
+    }
+
+    public static boolean isHudiTable(Table table)
+    {
+        requireNonNull(table, "table is null");
+        String inputFormat = table.getStorage().getStorageFormat().getInputFormat();
+
+        return HUDI_PARQUET_INPUT_FORMAT.equals(inputFormat) ||
+                HUDI_PARQUET_REALTIME_INPUT_FORMAT.equals(inputFormat) ||
+                HUDI_INPUT_FORMAT.equals(inputFormat) ||
+                HUDI_REALTIME_INPUT_FORMAT.equals(inputFormat);
     }
 
     public static boolean isSparkBucketedTable(Table table)
