@@ -28,7 +28,7 @@ public class TestKdbTreeCasts
         extends AbstractTestFunctions
 {
     @BeforeClass
-    protected void registerFunctions()
+    public void registerFunctions()
     {
         functionAssertions.installPlugin(new GeoPlugin());
     }

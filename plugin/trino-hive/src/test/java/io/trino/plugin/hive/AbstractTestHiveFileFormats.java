@@ -29,7 +29,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
@@ -40,7 +40,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveChar;
@@ -85,13 +84,13 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveColumnProjectionInfo.generatePartialName;
 import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
-import static io.trino.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.trino.plugin.hive.HiveTestUtils.isDistinctFrom;
 import static io.trino.plugin.hive.HiveTestUtils.mapType;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
@@ -118,6 +117,7 @@ import static io.trino.testing.StructuralTestUtil.decimalMapBlockOf;
 import static io.trino.testing.StructuralTestUtil.mapBlockOf;
 import static io.trino.testing.StructuralTestUtil.rowBlockOf;
 import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -504,7 +504,7 @@ public abstract class AbstractTestHiveFileFormats
 
             if (testColumn.getDereferenceNames().size() == 0) {
                 HiveType hiveType = HiveType.valueOf(testColumn.getObjectInspector().getTypeName());
-                columns.add(createBaseColumn(testColumn.getName(), columnIndex, hiveType, hiveType.getType(TYPE_MANAGER), testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty()));
+                columns.add(createBaseColumn(testColumn.getName(), columnIndex, hiveType, hiveType.getType(TESTING_TYPE_MANAGER), testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty()));
             }
             else {
                 HiveType baseHiveType = HiveType.valueOf(testColumn.getBaseObjectInspector().getTypeName());
@@ -513,12 +513,12 @@ public abstract class AbstractTestHiveFileFormats
                         testColumn.getBaseName(),
                         columnIndex,
                         baseHiveType,
-                        baseHiveType.getType(TYPE_MANAGER),
+                        baseHiveType.getType(TESTING_TYPE_MANAGER),
                         Optional.of(new HiveColumnProjectionInfo(
                                 testColumn.getDereferenceIndices(),
                                 testColumn.getDereferenceNames(),
                                 partialHiveType,
-                                partialHiveType.getType(TYPE_MANAGER))),
+                                partialHiveType.getType(TESTING_TYPE_MANAGER))),
                         testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR,
                         Optional.empty());
                 columns.add(hiveColumnHandle);
@@ -544,7 +544,7 @@ public abstract class AbstractTestHiveFileFormats
         List<Type> types = testColumns.stream()
                 .map(TestColumn::getType)
                 .map(HiveType::valueOf)
-                .map(type -> type.getType(TYPE_MANAGER))
+                .map(type -> type.getType(TESTING_TYPE_MANAGER))
                 .collect(toList());
 
         PageBuilder pageBuilder = new PageBuilder(types);
@@ -562,7 +562,7 @@ public abstract class AbstractTestHiveFileFormats
         }
         Page page = pageBuilder.build();
 
-        JobConf jobConf = new JobConf();
+        JobConf jobConf = new JobConf(newEmptyConfiguration());
         configureCompression(jobConf, compressionCodec);
 
         Properties tableProperties = new Properties();
@@ -608,7 +608,7 @@ public abstract class AbstractTestHiveFileFormats
             throws Exception
     {
         HiveOutputFormat<?, ?> outputFormat = newInstance(storageFormat.getOutputFormat(), HiveOutputFormat.class);
-        Serializer serializer = newInstance(storageFormat.getSerDe(), Serializer.class);
+        Serializer serializer = newInstance(storageFormat.getSerde(), Serializer.class);
 
         // filter out partition keys, which are not written to the file
         testColumns = testColumns.stream()
@@ -626,9 +626,9 @@ public abstract class AbstractTestHiveFileFormats
                 testColumns.stream()
                         .map(TestColumn::getType)
                         .collect(Collectors.joining(",")));
-        serializer.initialize(new Configuration(false), tableProperties);
+        serializer.initialize(newEmptyConfiguration(), tableProperties);
 
-        JobConf jobConf = new JobConf();
+        JobConf jobConf = new JobConf(newEmptyConfiguration());
         configureCompression(jobConf, compressionCodec);
 
         RecordWriter recordWriter = outputFormat.getHiveRecordWriter(
@@ -640,7 +640,7 @@ public abstract class AbstractTestHiveFileFormats
                 () -> {});
 
         try {
-            serializer.initialize(new Configuration(false), tableProperties);
+            serializer.initialize(newEmptyConfiguration(), tableProperties);
 
             SettableStructObjectInspector objectInspector = getStandardStructObjectInspector(
                     testColumns.stream()
@@ -673,7 +673,7 @@ public abstract class AbstractTestHiveFileFormats
 
         // todo to test with compression, the file must be renamed with the compression extension
         Path path = new Path(filePath);
-        path.getFileSystem(new Configuration(false)).setVerifyChecksum(true);
+        path.getFileSystem(newEmptyConfiguration()).setVerifyChecksum(true);
         File file = new File(filePath);
         return new FileSplit(path, 0, file.length(), new String[0]);
     }
@@ -727,9 +727,7 @@ public abstract class AbstractTestHiveFileFormats
             if (decimalType.isShort()) {
                 return BigInteger.valueOf(cursor.getLong(field));
             }
-            else {
-                return Decimals.decodeUnscaledValue(cursor.getSlice(field));
-            }
+            return ((Int128) cursor.getObject(field)).toBigInteger();
         }
         throw new RuntimeException("unknown type");
     }
@@ -738,7 +736,7 @@ public abstract class AbstractTestHiveFileFormats
     {
         List<Type> types = testColumns.stream()
                 .map(column -> column.getObjectInspector().getTypeName())
-                .map(type -> HiveType.valueOf(type).getType(TYPE_MANAGER))
+                .map(type -> HiveType.valueOf(type).getType(TESTING_TYPE_MANAGER))
                 .collect(toImmutableList());
 
         Map<Type, MethodHandle> distinctFromOperators = types.stream().distinct()

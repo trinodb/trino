@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
+import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.CostComparator;
 import io.trino.cost.CostProvider;
 import io.trino.cost.PlanCostEstimate;
@@ -90,7 +91,7 @@ public class TestJoinEnumerator
     public void testDoesNotCreateJoinWhenPartitionedOnCrossJoin()
     {
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        PlanBuilder p = new PlanBuilder(idAllocator, queryRunner.getMetadata());
+        PlanBuilder p = new PlanBuilder(idAllocator, queryRunner.getMetadata(), queryRunner.getDefaultSession());
         Symbol a1 = p.symbol("A1");
         Symbol b1 = p.symbol("B1");
         MultiJoinNode multiJoinNode = new MultiJoinNode(
@@ -117,7 +118,8 @@ public class TestJoinEnumerator
                 Optional.empty(),
                 noLookup(),
                 queryRunner.getDefaultSession(),
-                symbolAllocator.getTypes());
+                symbolAllocator.getTypes(),
+                new CachingTableStatsProvider(queryRunner.getMetadata(), queryRunner.getDefaultSession()));
         CachingCostProvider costProvider = new CachingCostProvider(
                 queryRunner.getCostCalculator(),
                 statsProvider,

@@ -14,10 +14,12 @@
 package io.trino.plugin.kafka;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.trino.plugin.kafka.schema.file.FileTableDescriptionSupplier;
@@ -27,9 +29,12 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
+import java.io.File;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.StreamSupport;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 @DefunctConfig("kafka.connect-timeout")
@@ -44,6 +49,7 @@ public class KafkaConfig
     private int messagesPerSplit = 100_000;
     private boolean timestampUpperBoundPushDownEnabled;
     private String tableDescriptionSupplier = FileTableDescriptionSupplier.NAME;
+    private List<File> resourceConfigFiles = ImmutableList.of();
 
     @Size(min = 1)
     public Set<HostAddress> getNodes()
@@ -150,6 +156,22 @@ public class KafkaConfig
     public KafkaConfig setTimestampUpperBoundPushDownEnabled(boolean timestampUpperBoundPushDownEnabled)
     {
         this.timestampUpperBoundPushDownEnabled = timestampUpperBoundPushDownEnabled;
+        return this;
+    }
+
+    @NotNull
+    public List<@FileExists File> getResourceConfigFiles()
+    {
+        return resourceConfigFiles;
+    }
+
+    @Config("kafka.config.resources")
+    @ConfigDescription("Optional config files")
+    public KafkaConfig setResourceConfigFiles(List<String> files)
+    {
+        this.resourceConfigFiles = files.stream()
+                .map(File::new)
+                .collect(toImmutableList());
         return this;
     }
 }

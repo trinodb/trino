@@ -30,7 +30,9 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.Objects.requireNonNull;
@@ -53,7 +55,7 @@ public class TestHiveSchema
     }
 
     // Note: this test is run on various Hive versions. Hive before 3 did not have `sys` schema, but it does not hurt to run the test there too.
-    @Test(groups = STORAGE_FORMATS)
+    @Test(groups = {STORAGE_FORMATS, HMS_ONLY})
     public void testSysSchemaFilteredOut()
     {
         // SHOW SCHEMAS
@@ -63,20 +65,20 @@ public class TestHiveSchema
                 .doesNotHave(containsFirstColumnValue("sys"));
 
         // SHOW TABLES
-        assertThat(() -> onTrino().executeQuery("SHOW TABLES FROM hive.sys"))
-                .failsWithMessage("line 1:1: Schema 'sys' does not exist");
+        assertQueryFailure(() -> onTrino().executeQuery("SHOW TABLES FROM hive.sys"))
+                .hasMessageContaining("line 1:1: Schema 'sys' does not exist");
 
         // SHOW COLUMNS
-        assertThat(() -> onTrino().executeQuery("SHOW COLUMNS FROM hive.sys.version")) // sys.version exists in Hive 3 and is a view
-                .failsWithMessage("line 1:1: Schema 'sys' does not exist");
-        assertThat(() -> onTrino().executeQuery("SHOW COLUMNS FROM hive.sys.table_params")) // sys.table_params exists in Hive 3 and is a table
-                .failsWithMessage("line 1:1: Schema 'sys' does not exist");
+        assertQueryFailure(() -> onTrino().executeQuery("SHOW COLUMNS FROM hive.sys.version")) // sys.version exists in Hive 3 and is a view
+                .hasMessageContaining("line 1:1: Schema 'sys' does not exist");
+        assertQueryFailure(() -> onTrino().executeQuery("SHOW COLUMNS FROM hive.sys.table_params")) // sys.table_params exists in Hive 3 and is a table
+                .hasMessageContaining("line 1:1: Schema 'sys' does not exist");
 
         // DESCRIBE
-        assertThat(() -> onTrino().executeQuery("DESCRIBE hive.sys.version")) // sys.version exists in Hive 3 and is a view
-                .failsWithMessage("line 1:1: Schema 'sys' does not exist");
-        assertThat(() -> onTrino().executeQuery("DESCRIBE hive.sys.table_params")) // sys.table_params exists in Hive 3 and is a table
-                .failsWithMessage("line 1:1: Schema 'sys' does not exist");
+        assertQueryFailure(() -> onTrino().executeQuery("DESCRIBE hive.sys.version")) // sys.version exists in Hive 3 and is a view
+                .hasMessageContaining("line 1:1: Schema 'sys' does not exist");
+        assertQueryFailure(() -> onTrino().executeQuery("DESCRIBE hive.sys.table_params")) // sys.table_params exists in Hive 3 and is a table
+                .hasMessageContaining("line 1:1: Schema 'sys' does not exist");
 
         // information_schema.schemata
         assertThat(onTrino().executeQuery("SELECT schema_name FROM information_schema.schemata"))
@@ -117,14 +119,14 @@ public class TestHiveSchema
         }
 
         // SELECT
-        assertThat(() -> onTrino().executeQuery("SELECT * FROM hive.sys.version")) // sys.version exists in Hive 3 and is a view
-                .failsWithMessage("line 1:15: Schema 'sys' does not exist");
-        assertThat(() -> onTrino().executeQuery("SELECT * FROM hive.sys.table_params")) // sys.table_params exists in Hive 3 and is a table
-                .failsWithMessage("line 1:15: Schema 'sys' does not exist");
+        assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM hive.sys.version")) // sys.version exists in Hive 3 and is a view
+                .hasMessageContaining("line 1:15: Schema 'sys' does not exist");
+        assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM hive.sys.table_params")) // sys.table_params exists in Hive 3 and is a table
+                .hasMessageContaining("line 1:15: Schema 'sys' does not exist");
     }
 
     // Note: this test is run on various Hive versions. Hive before 3 did not have `information_schema` schema, but it does not hurt to run the test there too.
-    @Test(groups = STORAGE_FORMATS)
+    @Test(groups = {STORAGE_FORMATS, HMS_ONLY})
     public void testHiveInformationSchemaFilteredOut()
     {
         List<String> allInformationSchemaTables = ImmutableList.<String>builder()
@@ -137,17 +139,14 @@ public class TestHiveSchema
                 .add("roles")
                 .add("applicable_roles")
                 .add("enabled_roles")
-                .add("role_authorization_descriptors")
                 .build();
         List<QueryAssert.Row> allInformationSchemaTablesAsRows = allInformationSchemaTables.stream()
                 .map(QueryAssert.Row::row)
                 .collect(toImmutableList());
 
-        // This test is run in various setups and we may or may not have access to hive.information_schema.roles
-        // or hive.information_schema.role_authorization_descriptors tables
+        // This test is run in various setups and we may or may not have access to hive.information_schema.roles table
         List<String> allInformationSchemaTablesExceptRoles = allInformationSchemaTables.stream()
                 .filter(tableName -> !tableName.equals("roles"))
-                .filter(tableName -> !tableName.equals("role_authorization_descriptors"))
                 .collect(toImmutableList());
         List<QueryAssert.Row> allInformationSchemaTablesExceptRolesAsRows = allInformationSchemaTablesExceptRoles.stream()
                 .map(QueryAssert.Row::row)
@@ -170,8 +169,8 @@ public class TestHiveSchema
                 .satisfies(containsFirstColumnValue("table_schema"))
                 .doesNotHave(containsFirstColumnValue("is_updatable")); // Hive 3's information_schema.columns has is_updatable column
 
-        assertThat(() -> onTrino().executeQuery("SHOW COLUMNS FROM hive.information_schema.column_privileges")) // Hive 3's information_schema has column_privileges view
-                .failsWithMessage("line 1:1: Table 'hive.information_schema.column_privileges' does not exist");
+        assertQueryFailure(() -> onTrino().executeQuery("SHOW COLUMNS FROM hive.information_schema.column_privileges")) // Hive 3's information_schema has column_privileges view
+                .hasMessageContaining("line 1:1: Table 'hive.information_schema.column_privileges' does not exist");
 
         // DESCRIBE
         assertThat(onTrino().executeQuery("DESCRIBE hive.information_schema.columns"))
@@ -180,8 +179,8 @@ public class TestHiveSchema
                 .satisfies(containsFirstColumnValue("column_name"))
                 .doesNotHave(containsFirstColumnValue("is_updatable")); // Hive 3's information_schema.columns has is_updatable column
 
-        assertThat(() -> onTrino().executeQuery("DESCRIBE hive.information_schema.column_privileges")) // Hive 3's information_schema has column_privileges view
-                .failsWithMessage("line 1:1: Table 'hive.information_schema.column_privileges' does not exist");
+        assertQueryFailure(() -> onTrino().executeQuery("DESCRIBE hive.information_schema.column_privileges")) // Hive 3's information_schema has column_privileges view
+                .hasMessageContaining("line 1:1: Table 'hive.information_schema.column_privileges' does not exist");
 
         // information_schema.schemata
         assertThat(onTrino().executeQuery("SELECT schema_name FROM information_schema.schemata"))
@@ -203,13 +202,12 @@ public class TestHiveSchema
         // information_schema.columns -- it has a special handling path in metadata, which also depends on query predicates
         assertThat(onTrino().executeQuery("SELECT DISTINCT table_schema FROM information_schema.columns"))
                 .satisfies(containsFirstColumnValue("information_schema"));
-        assertThat(onTrino().executeQuery("SELECT DISTINCT table_name FROM information_schema.columns WHERE table_schema = 'information_schema' AND table_name != 'roles' AND table_name != 'role_authorization_descriptors'"))
+        assertThat(onTrino().executeQuery("SELECT DISTINCT table_name FROM information_schema.columns WHERE table_schema = 'information_schema' AND table_name != 'roles'"))
                 .containsOnly(allInformationSchemaTablesExceptRolesAsRows);
         Assertions.assertThat(onTrino().executeQuery("SELECT table_schema, table_name, column_name FROM information_schema.columns").rows().stream()
                 .filter(row -> row.get(0).equals("information_schema"))
                 .map(row -> (String) row.get(1))
                 .filter(tableName -> !tableName.equals("roles"))
-                .filter(tableName -> !tableName.equals("role_authorization_descriptors"))
                 .distinct())
                 .containsOnly(allInformationSchemaTablesExceptRoles.toArray(new String[0]));
         assertThat(onTrino().executeQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = 'information_schema' AND table_name = 'columns'"))
@@ -246,8 +244,8 @@ public class TestHiveSchema
         }
 
         // SELECT
-        assertThat(() -> onTrino().executeQuery("SELECT * FROM hive.information_schema.column_privileges"))  // information_schema.column_privileges exists in Hive 3
-                .failsWithMessage("line 1:15: Table 'hive.information_schema.column_privileges' does not exist");
+        assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM hive.information_schema.column_privileges"))  // information_schema.column_privileges exists in Hive 3
+                .hasMessageContaining("line 1:15: Table 'hive.information_schema.column_privileges' does not exist");
     }
 
     /**

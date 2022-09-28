@@ -39,9 +39,9 @@ import static java.util.Objects.requireNonNull;
 
 public final class DesugarAtTimeZoneRewriter
 {
-    public static Expression rewrite(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes, Metadata metadata)
+    public static Expression rewrite(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes, Metadata metadata, Session session)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(expressionTypes, metadata), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(expressionTypes, metadata, session), expression);
     }
 
     private DesugarAtTimeZoneRewriter() {}
@@ -56,7 +56,7 @@ public final class DesugarAtTimeZoneRewriter
         }
         Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
 
-        return rewrite(expression, expressionTypes, metadata);
+        return rewrite(expression, expressionTypes, metadata, session);
     }
 
     private static class Visitor
@@ -64,11 +64,13 @@ public final class DesugarAtTimeZoneRewriter
     {
         private final Map<NodeRef<Expression>, Type> expressionTypes;
         private final Metadata metadata;
+        private final Session session;
 
-        public Visitor(Map<NodeRef<Expression>, Type> expressionTypes, Metadata metadata)
+        public Visitor(Map<NodeRef<Expression>, Type> expressionTypes, Metadata metadata, Session session)
         {
             this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
             this.metadata = metadata;
+            this.session = session;
         }
 
         @Override
@@ -81,7 +83,7 @@ public final class DesugarAtTimeZoneRewriter
             Expression timeZone = treeRewriter.rewrite(node.getTimeZone(), context);
 
             if (valueType instanceof TimeType) {
-                return new FunctionCallBuilder(metadata)
+                return FunctionCallBuilder.resolve(session, metadata)
                         .setName(QualifiedName.of("$at_timezone"))
                         .addArgument(createTimeWithTimeZoneType(((TimeType) valueType).getPrecision()), new Cast(value, toSqlType(createTimeWithTimeZoneType(((TimeType) valueType).getPrecision()))))
                         .addArgument(getType(node.getTimeZone()), treeRewriter.rewrite(node.getTimeZone(), context))
@@ -89,7 +91,7 @@ public final class DesugarAtTimeZoneRewriter
             }
 
             if (valueType instanceof TimeWithTimeZoneType) {
-                return new FunctionCallBuilder(metadata)
+                return FunctionCallBuilder.resolve(session, metadata)
                         .setName(QualifiedName.of("$at_timezone"))
                         .addArgument(valueType, value)
                         .addArgument(getType(node.getTimeZone()), treeRewriter.rewrite(node.getTimeZone(), context))
@@ -97,7 +99,7 @@ public final class DesugarAtTimeZoneRewriter
             }
 
             if (valueType instanceof TimestampType) {
-                return new FunctionCallBuilder(metadata)
+                return FunctionCallBuilder.resolve(session, metadata)
                         .setName(QualifiedName.of("at_timezone"))
                         .addArgument(createTimestampWithTimeZoneType(((TimestampType) valueType).getPrecision()), new Cast(value, toSqlType(createTimestampWithTimeZoneType(((TimestampType) valueType).getPrecision()))))
                         .addArgument(timeZoneType, timeZone)
@@ -105,7 +107,7 @@ public final class DesugarAtTimeZoneRewriter
             }
 
             if (valueType instanceof TimestampWithTimeZoneType) {
-                return new FunctionCallBuilder(metadata)
+                return FunctionCallBuilder.resolve(session, metadata)
                         .setName(QualifiedName.of("at_timezone"))
                         .addArgument(valueType, value)
                         .addArgument(timeZoneType, timeZone)

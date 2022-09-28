@@ -38,6 +38,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.operator.join.JoinUtils.getJoinDynamicFilters;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
@@ -139,7 +140,9 @@ final class JoinMatcher
         if (expectedDynamicFilter.isEmpty()) {
             return true;
         }
-        Set<DynamicFilterId> dynamicFilterIds = joinNode.getDynamicFilters().keySet();
+
+        Map<DynamicFilterId, Symbol> idToBuildSymbolMap = getJoinDynamicFilters(joinNode);
+        Set<DynamicFilterId> dynamicFilterIds = idToBuildSymbolMap.keySet();
         List<DynamicFilters.Descriptor> descriptors = searchFrom(joinNode.getLeft())
                 .where(FilterNode.class::isInstance)
                 .findAll()
@@ -149,20 +152,19 @@ final class JoinMatcher
                 .filter(descriptor -> dynamicFilterIds.contains(descriptor.getId()))
                 .collect(toImmutableList());
 
-        Map<DynamicFilterId, Symbol> idToBuildSymbolMap = joinNode.getDynamicFilters();
         Set<Expression> actual = new HashSet<>();
         for (DynamicFilters.Descriptor descriptor : descriptors) {
-            Symbol probe = Symbol.from(descriptor.getInput());
+            Expression probe = descriptor.getInput();
             Symbol build = idToBuildSymbolMap.get(descriptor.getId());
             if (build == null) {
                 return false;
             }
             Expression expression;
             if (descriptor.isNullAllowed()) {
-                expression = new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, probe.toSymbolReference(), build.toSymbolReference()));
+                expression = new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, probe, build.toSymbolReference()));
             }
             else {
-                expression = new ComparisonExpression(descriptor.getOperator(), probe.toSymbolReference(), build.toSymbolReference());
+                expression = new ComparisonExpression(descriptor.getOperator(), probe, build.toSymbolReference());
             }
             actual.add(expression);
         }

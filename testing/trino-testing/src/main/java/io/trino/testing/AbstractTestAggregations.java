@@ -16,10 +16,12 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.spi.type.TimeZoneKey;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
@@ -233,7 +235,17 @@ public abstract class AbstractTestAggregations
     @Test
     public void testDistinctGroupBy()
     {
-        assertQuery("SELECT COUNT(DISTINCT clerk) AS count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
+        @Language("SQL") String query = "" +
+                "SELECT COUNT(DISTINCT clerk) AS count_distinct, COUNT(clerk) AS count, orderdate " +
+                "FROM orders " +
+                "GROUP BY orderdate " +
+                "ORDER BY count_distinct, orderdate";
+        assertQuery(query);
+        assertQuery(
+                Session.builder(getSession())
+                        .setSystemProperty(USE_MARK_DISTINCT, "false")
+                        .build(),
+                query);
     }
 
     @Test
@@ -1387,5 +1399,17 @@ public abstract class AbstractTestAggregations
         assertEquals(actual1.getMaterializedRows().get(1).getFields().get(1), ImmutableMap.of("B", 2L, "E", 1L));
         assertEquals(actual1.getMaterializedRows().get(2).getFields().get(0), "c");
         assertEquals(actual1.getMaterializedRows().get(2).getFields().get(1), ImmutableMap.of("C", 2L));
+    }
+
+    @Test
+    public void testLongDecimalAggregations()
+    {
+        assertQuery("""
+                SELECT avg(value_big), sum(value_big), avg(value_small), sum(value_small)
+                FROM (
+                    SELECT orderkey as id, CAST(power(2, 65) as DECIMAL(38, 0)) as value_big, CAST(1 as DECIMAL(38, 0)) as value_small
+                    FROM orders
+                    LIMIT 10)
+                GROUP BY id""");
     }
 }

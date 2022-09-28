@@ -15,28 +15,30 @@ package io.trino.server.ui;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
-import io.jsonwebtoken.JwtException;
 import io.trino.server.security.UserMapping;
 import io.trino.server.security.UserMappingException;
-import io.trino.server.security.oauth2.NonceCookie;
+import io.trino.server.security.oauth2.ChallengeFailedException;
+import io.trino.server.security.oauth2.ForRefreshTokens;
+import io.trino.server.security.oauth2.OAuth2Client;
 import io.trino.server.security.oauth2.OAuth2Config;
 import io.trino.server.security.oauth2.OAuth2Service;
-import io.trino.server.security.oauth2.OAuth2Service.OAuthChallenge;
+import io.trino.server.security.oauth2.TokenPairSerializer;
+import io.trino.server.security.oauth2.TokenPairSerializer.TokenPair;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
 
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.ResponseBuilder;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static io.jsonwebtoken.Claims.AUDIENCE;
 import static io.trino.server.ServletSecurityUtils.sendErrorMessage;
 import static io.trino.server.ServletSecurityUtils.sendWwwAuthenticate;
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
@@ -55,17 +57,22 @@ public class OAuth2WebUiAuthenticationFilter
 
     private final String principalField;
     private final OAuth2Service service;
+    private final OAuth2Client client;
+    private final TokenPairSerializer tokenPairSerializer;
+    private final Optional<Duration> tokenExpiration;
     private final UserMapping userMapping;
-    private final Optional<String> validAudience;
+    private final Optional<String> groupsField;
 
     @Inject
-    public OAuth2WebUiAuthenticationFilter(OAuth2Service service, OAuth2Config oauth2Config)
+    public OAuth2WebUiAuthenticationFilter(OAuth2Service service, OAuth2Client client, TokenPairSerializer tokenPairSerializer, @ForRefreshTokens Optional<Duration> tokenExpiration, OAuth2Config oauth2Config)
     {
         this.service = requireNonNull(service, "service is null");
-        requireNonNull(oauth2Config, "oauth2Config is null");
+        this.client = requireNonNull(client, "client is null");
+        this.tokenPairSerializer = requireNonNull(tokenPairSerializer, "tokenPairSerializer is null");
+        this.tokenExpiration = requireNonNull(tokenExpiration, "tokenExpiration is null");
         this.userMapping = UserMapping.createUserMapping(oauth2Config.getUserMappingPattern(), oauth2Config.getUserMappingFile());
-        this.validAudience = oauth2Config.getAudience();
         this.principalField = oauth2Config.getPrincipalField();
+        groupsField = requireNonNull(oauth2Config.getGroupsField(), "groupsField is null");
     }
 
     @Override
@@ -87,17 +94,15 @@ public class OAuth2WebUiAuthenticationFilter
             request.abortWith(Response.seeOther(DISABLED_LOCATION_URI).build());
             return;
         }
-        Optional<Claims> claims = getAccessToken(request).map(Jws::getBody);
+        Optional<TokenPair> tokenPair = getTokenPair(request);
+        Optional<Map<String, Object>> claims = tokenPair
+                .filter(this::tokenNotExpired)
+                .flatMap(this::getAccessTokenClaims);
         if (claims.isEmpty()) {
-            needAuthentication(request);
+            needAuthentication(request, tokenPair);
             return;
         }
-        Object audience = claims.get().get(AUDIENCE);
-        if (!hasValidAudience(audience)) {
-            LOG.debug("Invalid audience: %s. Expected audience to be equal to or contain: %s", audience, validAudience);
-            sendErrorMessage(request, UNAUTHORIZED, "Unauthorized");
-            return;
-        }
+
         try {
             Object principal = claims.get().get(principalField);
             if (!isValidPrincipal(principal)) {
@@ -106,60 +111,83 @@ public class OAuth2WebUiAuthenticationFilter
                 return;
             }
             String principalName = (String) principal;
-            setAuthenticatedIdentity(request, Identity.forUser(userMapping.mapUser(principalName))
-                    .withPrincipal(new BasicPrincipal(principalName))
-                    .build());
+            Identity.Builder builder = Identity.forUser(userMapping.mapUser(principalName));
+            builder.withPrincipal(new BasicPrincipal(principalName));
+            groupsField.flatMap(field -> Optional.ofNullable((List<String>) claims.get().get(field)))
+                    .ifPresent(groups -> builder.withGroups(ImmutableSet.copyOf(groups)));
+            setAuthenticatedIdentity(request, builder.build());
         }
         catch (UserMappingException e) {
             sendErrorMessage(request, UNAUTHORIZED, firstNonNull(e.getMessage(), "Unauthorized"));
         }
     }
 
-    private Optional<Jws<Claims>> getAccessToken(ContainerRequestContext request)
+    private Optional<TokenPair> getTokenPair(ContainerRequestContext request)
     {
-        return OAuthWebUiCookie.read(request.getCookies().get(OAUTH2_COOKIE))
-                .flatMap(token -> {
-                    try {
-                        return Optional.ofNullable(service.parseClaimsJws(token));
-                    }
-                    catch (JwtException | IllegalArgumentException e) {
-                        LOG.debug("Unable to parse JWT token: " + e.getMessage(), e);
-                        return Optional.empty();
-                    }
-                });
+        try {
+            return OAuthWebUiCookie.read(request.getCookies().get(OAUTH2_COOKIE))
+                    .map(tokenPairSerializer::deserialize);
+        }
+        catch (Exception e) {
+            LOG.debug(e, "Exception occurred during token pair deserialization");
+            return Optional.empty();
+        }
     }
 
-    private void needAuthentication(ContainerRequestContext request)
+    private boolean tokenNotExpired(TokenPair tokenPair)
+    {
+        return tokenPair.getExpiration().after(Date.from(Instant.now()));
+    }
+
+    private Optional<Map<String, Object>> getAccessTokenClaims(TokenPair tokenPair)
+    {
+        return client.getClaims(tokenPair.getAccessToken());
+    }
+
+    private void needAuthentication(ContainerRequestContext request, Optional<TokenPair> tokenPair)
+    {
+        Optional<String> refreshToken = tokenPair.flatMap(TokenPair::getRefreshToken);
+        if (refreshToken.isPresent()) {
+            try {
+                redirectForNewToken(request, refreshToken.get());
+                return;
+            }
+            catch (Exception e) {
+                LOG.debug(e, "Tokens refresh challenge has failed");
+            }
+        }
+        handleAuthenticationFailure(request);
+    }
+
+    private void redirectForNewToken(ContainerRequestContext request, String refreshToken)
+            throws ChallengeFailedException
+    {
+        OAuth2Client.Response response = client.refreshTokens(refreshToken);
+        String serializedToken = tokenPairSerializer.serialize(TokenPair.fromOAuth2Response(response));
+        request.abortWith(Response.seeOther(request.getUriInfo().getRequestUri())
+                .cookie(OAuthWebUiCookie.create(serializedToken, tokenExpiration.map(expiration -> Instant.now().plus(expiration)).orElse(response.getExpiration())))
+                .build());
+    }
+
+    private void handleAuthenticationFailure(ContainerRequestContext request)
     {
         // send 401 to REST api calls and redirect to others
         if (request.getUriInfo().getRequestUri().getPath().startsWith("/ui/api/")) {
             sendWwwAuthenticate(request, "Unauthorized", ImmutableSet.of(TRINO_FORM_LOGIN));
-            return;
         }
-        OAuthChallenge challenge = service.startWebUiChallenge(request.getUriInfo().getBaseUri().resolve(CALLBACK_ENDPOINT));
-        ResponseBuilder response = Response.seeOther(challenge.getRedirectUrl());
-        challenge.getNonce().ifPresent(nonce -> response.cookie(NonceCookie.create(nonce, challenge.getChallengeExpiration())));
-        request.abortWith(response.build());
+        else {
+            startOAuth2Challenge(request);
+        }
     }
 
-    private boolean hasValidAudience(Object audience)
+    private void startOAuth2Challenge(ContainerRequestContext request)
     {
-        if (validAudience.isEmpty()) {
-            return true;
-        }
-        if (audience == null) {
-            return false;
-        }
-        if (audience instanceof String) {
-            return audience.equals(validAudience.get());
-        }
-        if (audience instanceof List) {
-            return ((List<?>) audience).contains(validAudience.get());
-        }
-        return false;
+        request.abortWith(service.startOAuth2Challenge(
+                request.getUriInfo().getBaseUri().resolve(CALLBACK_ENDPOINT),
+                Optional.empty()));
     }
 
-    private boolean isValidPrincipal(Object principal)
+    private static boolean isValidPrincipal(Object principal)
     {
         return principal instanceof String && !((String) principal).isEmpty();
     }

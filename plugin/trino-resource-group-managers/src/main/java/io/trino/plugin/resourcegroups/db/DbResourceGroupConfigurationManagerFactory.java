@@ -15,6 +15,7 @@ package io.trino.plugin.resourcegroups.db;
 
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
+import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.jmx.PrefixObjectNameGeneratorModule;
@@ -25,6 +26,8 @@ import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
+
+import static io.airlift.configuration.ConfigurationUtils.replaceEnvironmentVariables;
 
 public class DbResourceGroupConfigurationManagerFactory
         implements ResourceGroupConfigurationManagerFactory
@@ -38,6 +41,7 @@ public class DbResourceGroupConfigurationManagerFactory
     @Override
     public ResourceGroupConfigurationManager<?> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
     {
+        FlywayMigration.migrate(new ConfigurationFactory(replaceEnvironmentVariables(config)).build(DbResourceGroupConfig.class));
         Bootstrap app = new Bootstrap(
                 new MBeanModule(),
                 new MBeanServerModule(),
@@ -48,7 +52,6 @@ public class DbResourceGroupConfigurationManagerFactory
                 binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()));
 
         Injector injector = app
-                .strictConfig()
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(config)
                 .initialize();

@@ -18,8 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.SequencePageBuilder;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
-import io.trino.execution.Lifespan;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
@@ -27,17 +26,13 @@ import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.PageAssertions;
-import io.trino.operator.PipelineExecutionStrategy;
-import io.trino.operator.exchange.LocalExchange.LocalExchangeFactory;
 import io.trino.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
-import io.trino.operator.exchange.LocalExchange.LocalExchangeSinkFactoryId;
 import io.trino.spi.Page;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -47,16 +42,17 @@ import io.trino.testing.TestingTransactionHandle;
 import io.trino.type.BlockTypeOperators;
 import io.trino.util.FinalizerService;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import java.util.function.ToIntFunction;
+import java.util.function.Supplier;
 
-import static io.trino.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
-import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -64,9 +60,11 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DIST
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static java.util.stream.IntStream.range;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -81,7 +79,10 @@ public class TestLocalExchange
     private static final DataSize LOCAL_EXCHANGE_MAX_BUFFERED_BYTES = DataSize.of(32, DataSize.Unit.MEGABYTE);
     private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
     private static final Session SESSION = testSessionBuilder().build();
+    private static final Supplier<Long> PHYSICAL_WRITTEN_BYTES_SUPPLIER = () -> DataSize.of(32, DataSize.Unit.MEGABYTE).toBytes();
+    private static final DataSize WRITER_MIN_SIZE = DataSize.of(32, DataSize.Unit.MEGABYTE);
 
+    private final ConcurrentMap<CatalogHandle, ConnectorNodePartitioningProvider> partitionManagers = new ConcurrentHashMap<>();
     private NodePartitioningManager nodePartitioningManager;
 
     @BeforeMethod
@@ -91,44 +92,44 @@ public class TestLocalExchange
                 new InMemoryNodeManager(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(new FinalizerService())));
-        nodePartitioningManager = new NodePartitioningManager(nodeScheduler, new BlockTypeOperators(new TypeOperators()));
+        nodePartitioningManager = new NodePartitioningManager(
+                nodeScheduler,
+                new BlockTypeOperators(new TypeOperators()),
+                catalogHandle -> {
+                    ConnectorNodePartitioningProvider result = partitionManagers.get(catalogHandle);
+                    checkArgument(result != null, "No partition manager for catalog handle: %s", catalogHandle);
+                    return result;
+                });
     }
 
-    @DataProvider
-    public static Object[][] executionStrategy()
+    @Test
+    public void testGatherSingleWriter()
     {
-        return new Object[][] {{UNGROUPED_EXECUTION}, {GROUPED_EXECUTION}};
-    }
-
-    @Test(dataProvider = "executionStrategy")
-    public void testGatherSingleWriter(PipelineExecutionStrategy executionStrategy)
-    {
-        LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+        LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 SESSION,
-                SINGLE_DISTRIBUTION,
                 8,
-                TYPES,
+                SINGLE_DISTRIBUTION,
                 ImmutableList.of(),
+                TYPES,
                 Optional.empty(),
-                executionStrategy,
                 DataSize.ofBytes(retainedSizeOfPages(99)),
-                TYPE_OPERATOR_FACTORY);
-        LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
-        localExchangeFactory.noMoreSinkFactories();
+                TYPE_OPERATOR_FACTORY,
+                PHYSICAL_WRITTEN_BYTES_SUPPLIER,
+                WRITER_MIN_SIZE);
 
-        run(localExchangeFactory, executionStrategy, exchange -> {
+        run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 1);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
-            LocalExchangeSinkFactory sinkFactory = exchange.getSinkFactory(localExchangeSinkFactoryId);
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
 
             LocalExchangeSource source = exchange.getSource(0);
             assertSource(source, 0);
 
             LocalExchangeSink sink = sinkFactory.createSink();
             sinkFactory.close();
-            sinkFactory.noMoreSinkFactories();
 
             assertSinkCanWrite(sink);
             assertSource(source, 0);
@@ -175,34 +176,33 @@ public class TestLocalExchange
         });
     }
 
-    @Test(dataProvider = "executionStrategy")
-    public void testBroadcast(PipelineExecutionStrategy executionStrategy)
+    @Test
+    public void testBroadcast()
     {
-        LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+        LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 SESSION,
-                FIXED_BROADCAST_DISTRIBUTION,
                 2,
-                TYPES,
+                FIXED_BROADCAST_DISTRIBUTION,
                 ImmutableList.of(),
+                TYPES,
                 Optional.empty(),
-                executionStrategy,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATOR_FACTORY);
-        LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
-        localExchangeFactory.noMoreSinkFactories();
+                TYPE_OPERATOR_FACTORY,
+                PHYSICAL_WRITTEN_BYTES_SUPPLIER,
+                WRITER_MIN_SIZE);
 
-        run(localExchangeFactory, executionStrategy, exchange -> {
+        run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
-            LocalExchangeSinkFactory sinkFactory = exchange.getSinkFactory(localExchangeSinkFactoryId);
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
             LocalExchangeSink sinkA = sinkFactory.createSink();
             assertSinkCanWrite(sinkA);
             LocalExchangeSink sinkB = sinkFactory.createSink();
             assertSinkCanWrite(sinkB);
             sinkFactory.close();
-            sinkFactory.noMoreSinkFactories();
 
             LocalExchangeSource sourceA = exchange.getSource(0);
             assertSource(sourceA, 0);
@@ -265,32 +265,31 @@ public class TestLocalExchange
         });
     }
 
-    @Test(dataProvider = "executionStrategy")
-    public void testRandom(PipelineExecutionStrategy executionStrategy)
+    @Test
+    public void testRandom()
     {
-        LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+        LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 SESSION,
-                FIXED_ARBITRARY_DISTRIBUTION,
                 2,
-                TYPES,
+                FIXED_ARBITRARY_DISTRIBUTION,
                 ImmutableList.of(),
+                TYPES,
                 Optional.empty(),
-                executionStrategy,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATOR_FACTORY);
-        LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
-        localExchangeFactory.noMoreSinkFactories();
+                TYPE_OPERATOR_FACTORY,
+                PHYSICAL_WRITTEN_BYTES_SUPPLIER,
+                WRITER_MIN_SIZE);
 
-        run(localExchangeFactory, executionStrategy, exchange -> {
+        run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
-            LocalExchangeSinkFactory sinkFactory = exchange.getSinkFactory(localExchangeSinkFactoryId);
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
             LocalExchangeSink sink = sinkFactory.createSink();
             assertSinkCanWrite(sink);
             sinkFactory.close();
-            sinkFactory.noMoreSinkFactories();
 
             LocalExchangeSource sourceA = exchange.getSource(0);
             assertSource(sourceA, 0);
@@ -316,35 +315,202 @@ public class TestLocalExchange
         });
     }
 
-    @Test(dataProvider = "executionStrategy")
-    public void testPassthrough(PipelineExecutionStrategy executionStrategy)
+    @Test
+    public void testScaleWriter()
     {
-        LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+        AtomicLong physicalWrittenBytes = new AtomicLong(0);
+        LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 SESSION,
-                FIXED_PASSTHROUGH_DISTRIBUTION,
-                2,
-                TYPES,
+                3,
+                SCALED_WRITER_DISTRIBUTION,
                 ImmutableList.of(),
+                TYPES,
                 Optional.empty(),
-                executionStrategy,
+                DataSize.ofBytes(retainedSizeOfPages(4)),
+                TYPE_OPERATOR_FACTORY,
+                physicalWrittenBytes::get,
+                DataSize.ofBytes(retainedSizeOfPages(2)));
+
+        run(localExchange, exchange -> {
+            assertEquals(exchange.getBufferCount(), 3);
+            assertExchangeTotalBufferedBytes(exchange, 0);
+
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
+            LocalExchangeSink sink = sinkFactory.createSink();
+            assertSinkCanWrite(sink);
+            sinkFactory.close();
+
+            LocalExchangeSource sourceA = exchange.getSource(0);
+            assertSource(sourceA, 0);
+
+            LocalExchangeSource sourceB = exchange.getSource(1);
+            assertSource(sourceB, 0);
+
+            LocalExchangeSource sourceC = exchange.getSource(2);
+            assertSource(sourceC, 0);
+
+            sink.addPage(createPage(0));
+            sink.addPage(createPage(0));
+            assertEquals(sourceA.getBufferInfo().getBufferedPages(), 2);
+            assertEquals(sourceB.getBufferInfo().getBufferedPages(), 0);
+            assertEquals(sourceC.getBufferInfo().getBufferedPages(), 0);
+
+            // writer min file and buffered data size limits are exceeded, so we should see pages in sourceB
+            physicalWrittenBytes.set(retainedSizeOfPages(2));
+            sink.addPage(createPage(0));
+            assertEquals(sourceA.getBufferInfo().getBufferedPages(), 2);
+            assertEquals(sourceB.getBufferInfo().getBufferedPages(), 1);
+            assertEquals(sourceC.getBufferInfo().getBufferedPages(), 0);
+
+            assertRemovePage(sourceA, createPage(0));
+            assertRemovePage(sourceA, createPage(0));
+
+            // no limit is breached, so we should see round-robin distribution across sourceA and sourceB
+            physicalWrittenBytes.set(retainedSizeOfPages(3));
+            sink.addPage(createPage(0));
+            sink.addPage(createPage(0));
+            sink.addPage(createPage(0));
+            assertEquals(sourceA.getBufferInfo().getBufferedPages(), 2);
+            assertEquals(sourceB.getBufferInfo().getBufferedPages(), 2);
+            assertEquals(sourceC.getBufferInfo().getBufferedPages(), 0);
+
+            // writer min file and buffered data size limits are exceeded again, but according to
+            // round-robin sourceB should receive a page
+            physicalWrittenBytes.set(retainedSizeOfPages(6));
+            sink.addPage(createPage(0));
+            assertEquals(sourceA.getBufferInfo().getBufferedPages(), 2);
+            assertEquals(sourceB.getBufferInfo().getBufferedPages(), 3);
+            assertEquals(sourceC.getBufferInfo().getBufferedPages(), 0);
+
+            assertSinkWriteBlocked(sink);
+            assertRemoveAllPages(sourceA, createPage(0));
+
+            // sourceC should receive a page
+            physicalWrittenBytes.set(retainedSizeOfPages(7));
+            sink.addPage(createPage(0));
+            assertEquals(sourceA.getBufferInfo().getBufferedPages(), 0);
+            assertEquals(sourceB.getBufferInfo().getBufferedPages(), 3);
+            assertEquals(sourceC.getBufferInfo().getBufferedPages(), 1);
+        });
+    }
+
+    @Test
+    public void testNoWriterScalingWhenOnlyBufferSizeLimitIsExceeded()
+    {
+        AtomicLong physicalWrittenBytes = new AtomicLong(0);
+        LocalExchange localExchange = new LocalExchange(
+                nodePartitioningManager,
+                SESSION,
+                3,
+                SCALED_WRITER_DISTRIBUTION,
+                ImmutableList.of(),
+                TYPES,
+                Optional.empty(),
+                DataSize.ofBytes(retainedSizeOfPages(4)),
+                TYPE_OPERATOR_FACTORY,
+                physicalWrittenBytes::get,
+                DataSize.ofBytes(retainedSizeOfPages(2)));
+
+        run(localExchange, exchange -> {
+            assertEquals(exchange.getBufferCount(), 3);
+            assertExchangeTotalBufferedBytes(exchange, 0);
+
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
+            LocalExchangeSink sink = sinkFactory.createSink();
+            assertSinkCanWrite(sink);
+            sinkFactory.close();
+
+            LocalExchangeSource sourceA = exchange.getSource(0);
+            assertSource(sourceA, 0);
+
+            LocalExchangeSource sourceB = exchange.getSource(1);
+            assertSource(sourceB, 0);
+
+            LocalExchangeSource sourceC = exchange.getSource(2);
+            assertSource(sourceC, 0);
+
+            range(0, 6).forEach(i -> sink.addPage(createPage(0)));
+            assertEquals(sourceA.getBufferInfo().getBufferedPages(), 6);
+            assertEquals(sourceB.getBufferInfo().getBufferedPages(), 0);
+            assertEquals(sourceC.getBufferInfo().getBufferedPages(), 0);
+        });
+    }
+
+    @Test
+    public void testNoWriterScalingWhenOnlyWriterMinSizeLimitIsExceeded()
+    {
+        AtomicLong physicalWrittenBytes = new AtomicLong(0);
+        LocalExchange localExchange = new LocalExchange(
+                nodePartitioningManager,
+                SESSION,
+                3,
+                SCALED_WRITER_DISTRIBUTION,
+                ImmutableList.of(),
+                TYPES,
+                Optional.empty(),
+                DataSize.ofBytes(retainedSizeOfPages(20)),
+                TYPE_OPERATOR_FACTORY,
+                physicalWrittenBytes::get,
+                DataSize.ofBytes(retainedSizeOfPages(2)));
+
+        run(localExchange, exchange -> {
+            assertEquals(exchange.getBufferCount(), 3);
+            assertExchangeTotalBufferedBytes(exchange, 0);
+
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
+            LocalExchangeSink sink = sinkFactory.createSink();
+            assertSinkCanWrite(sink);
+            sinkFactory.close();
+
+            LocalExchangeSource sourceA = exchange.getSource(0);
+            assertSource(sourceA, 0);
+
+            LocalExchangeSource sourceB = exchange.getSource(1);
+            assertSource(sourceB, 0);
+
+            LocalExchangeSource sourceC = exchange.getSource(2);
+            assertSource(sourceC, 0);
+
+            range(0, 8).forEach(i -> sink.addPage(createPage(0)));
+            physicalWrittenBytes.set(retainedSizeOfPages(8));
+            sink.addPage(createPage(0));
+            assertEquals(sourceA.getBufferInfo().getBufferedPages(), 9);
+            assertEquals(sourceB.getBufferInfo().getBufferedPages(), 0);
+            assertEquals(sourceC.getBufferInfo().getBufferedPages(), 0);
+        });
+    }
+
+    @Test
+    public void testPassthrough()
+    {
+        LocalExchange localExchange = new LocalExchange(
+                nodePartitioningManager,
+                SESSION,
+                2,
+                FIXED_PASSTHROUGH_DISTRIBUTION,
+                ImmutableList.of(),
+                TYPES,
+                Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(1)),
-                TYPE_OPERATOR_FACTORY);
+                TYPE_OPERATOR_FACTORY,
+                PHYSICAL_WRITTEN_BYTES_SUPPLIER,
+                WRITER_MIN_SIZE);
 
-        LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
-        localExchangeFactory.noMoreSinkFactories();
-
-        run(localExchangeFactory, executionStrategy, exchange -> {
+        run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
-            LocalExchangeSinkFactory sinkFactory = exchange.getSinkFactory(localExchangeSinkFactoryId);
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
             LocalExchangeSink sinkA = sinkFactory.createSink();
             LocalExchangeSink sinkB = sinkFactory.createSink();
             assertSinkCanWrite(sinkA);
             assertSinkCanWrite(sinkB);
             sinkFactory.close();
-            sinkFactory.noMoreSinkFactories();
 
             LocalExchangeSource sourceA = exchange.getSource(0);
             assertSource(sourceA, 0);
@@ -386,32 +552,31 @@ public class TestLocalExchange
         });
     }
 
-    @Test(dataProvider = "executionStrategy")
-    public void testPartition(PipelineExecutionStrategy executionStrategy)
+    @Test
+    public void testPartition()
     {
-        LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+        LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 SESSION,
-                FIXED_HASH_DISTRIBUTION,
                 2,
-                TYPES,
+                FIXED_HASH_DISTRIBUTION,
                 ImmutableList.of(0),
+                TYPES,
                 Optional.empty(),
-                executionStrategy,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATOR_FACTORY);
-        LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
-        localExchangeFactory.noMoreSinkFactories();
+                TYPE_OPERATOR_FACTORY,
+                PHYSICAL_WRITTEN_BYTES_SUPPLIER,
+                WRITER_MIN_SIZE);
 
-        run(localExchangeFactory, executionStrategy, exchange -> {
+        run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
-            LocalExchangeSinkFactory sinkFactory = exchange.getSinkFactory(localExchangeSinkFactoryId);
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
             LocalExchangeSink sink = sinkFactory.createSink();
             assertSinkCanWrite(sink);
             sinkFactory.close();
-            sinkFactory.noMoreSinkFactories();
 
             LocalExchangeSource sourceA = exchange.getSource(0);
             assertSource(sourceA, 0);
@@ -455,22 +620,16 @@ public class TestLocalExchange
         });
     }
 
-    @Test(dataProvider = "executionStrategy")
-    public void testPartitionCustomPartitioning(PipelineExecutionStrategy executionStrategy)
+    @Test
+    public void testPartitionCustomPartitioning()
     {
         ConnectorPartitioningHandle connectorPartitioningHandle = new ConnectorPartitioningHandle() {};
         ConnectorNodePartitioningProvider connectorNodePartitioningProvider = new ConnectorNodePartitioningProvider()
         {
             @Override
-            public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+            public Optional<ConnectorBucketNodeMap> getBucketNodeMapping(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
             {
-                return createBucketNodeMap(2);
-            }
-
-            @Override
-            public ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
-            {
-                throw new UnsupportedOperationException();
+                return Optional.of(createBucketNodeMap(2));
             }
 
             @Override
@@ -486,36 +645,35 @@ public class TestLocalExchange
             }
         };
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT);
-        nodePartitioningManager.addPartitioningProvider(
-                new CatalogName("foo"),
+        partitionManagers.put(
+                TEST_CATALOG_HANDLE,
                 connectorNodePartitioningProvider);
         PartitioningHandle partitioningHandle = new PartitioningHandle(
-                Optional.of(new CatalogName("foo")),
+                Optional.of(TEST_CATALOG_HANDLE),
                 Optional.of(TestingTransactionHandle.create()),
                 connectorPartitioningHandle);
-        LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+        LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 SESSION,
-                partitioningHandle,
                 2,
-                types,
+                partitioningHandle,
                 ImmutableList.of(1),
+                types,
                 Optional.empty(),
-                executionStrategy,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATOR_FACTORY);
-        LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
-        localExchangeFactory.noMoreSinkFactories();
+                TYPE_OPERATOR_FACTORY,
+                PHYSICAL_WRITTEN_BYTES_SUPPLIER,
+                WRITER_MIN_SIZE);
 
-        run(localExchangeFactory, executionStrategy, exchange -> {
+        run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
-            LocalExchangeSinkFactory sinkFactory = exchange.getSinkFactory(localExchangeSinkFactoryId);
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
             LocalExchangeSink sink = sinkFactory.createSink();
             assertSinkCanWrite(sink);
             sinkFactory.close();
-            sinkFactory.noMoreSinkFactories();
 
             LocalExchangeSource sourceA = exchange.getSource(1);
             assertSource(sourceA, 0);
@@ -543,36 +701,35 @@ public class TestLocalExchange
         });
     }
 
-    @Test(dataProvider = "executionStrategy")
-    public void writeUnblockWhenAllReadersFinish(PipelineExecutionStrategy executionStrategy)
+    @Test
+    public void writeUnblockWhenAllReadersFinish()
     {
         ImmutableList<Type> types = ImmutableList.of(BIGINT);
 
-        LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+        LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 SESSION,
-                FIXED_BROADCAST_DISTRIBUTION,
                 2,
-                types,
+                FIXED_BROADCAST_DISTRIBUTION,
                 ImmutableList.of(),
+                types,
                 Optional.empty(),
-                executionStrategy,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATOR_FACTORY);
-        LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
-        localExchangeFactory.noMoreSinkFactories();
+                TYPE_OPERATOR_FACTORY,
+                PHYSICAL_WRITTEN_BYTES_SUPPLIER,
+                WRITER_MIN_SIZE);
 
-        run(localExchangeFactory, executionStrategy, exchange -> {
+        run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
-            LocalExchangeSinkFactory sinkFactory = exchange.getSinkFactory(localExchangeSinkFactoryId);
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
             LocalExchangeSink sinkA = sinkFactory.createSink();
             assertSinkCanWrite(sinkA);
             LocalExchangeSink sinkB = sinkFactory.createSink();
             assertSinkCanWrite(sinkB);
             sinkFactory.close();
-            sinkFactory.noMoreSinkFactories();
 
             LocalExchangeSource sourceA = exchange.getSource(0);
             assertSource(sourceA, 0);
@@ -594,34 +751,39 @@ public class TestLocalExchange
         });
     }
 
-    @Test(dataProvider = "executionStrategy")
-    public void writeUnblockWhenAllReadersFinishAndPagesConsumed(PipelineExecutionStrategy executionStrategy)
+    @Test
+    public void writeUnblockWhenAllReadersFinishAndPagesConsumed()
     {
-        LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+        LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 SESSION,
-                FIXED_BROADCAST_DISTRIBUTION,
                 2,
-                TYPES,
+                FIXED_BROADCAST_DISTRIBUTION,
                 ImmutableList.of(),
+                TYPES,
                 Optional.empty(),
-                executionStrategy,
                 DataSize.ofBytes(1),
-                TYPE_OPERATOR_FACTORY);
-        LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
-        localExchangeFactory.noMoreSinkFactories();
+                TYPE_OPERATOR_FACTORY,
+                PHYSICAL_WRITTEN_BYTES_SUPPLIER,
+                WRITER_MIN_SIZE);
 
-        run(localExchangeFactory, executionStrategy, exchange -> {
+        run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
-            LocalExchangeSinkFactory sinkFactory = exchange.getSinkFactory(localExchangeSinkFactoryId);
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
             LocalExchangeSink sinkA = sinkFactory.createSink();
             assertSinkCanWrite(sinkA);
+            ListenableFuture<Void> sinkAFinished = sinkA.isFinished();
+            assertFalse(sinkAFinished.isDone());
+
             LocalExchangeSink sinkB = sinkFactory.createSink();
             assertSinkCanWrite(sinkB);
+            ListenableFuture<Void> sinkBFinished = sinkB.isFinished();
+            assertFalse(sinkBFinished.isDone());
+
             sinkFactory.close();
-            sinkFactory.noMoreSinkFactories();
 
             LocalExchangeSource sourceA = exchange.getSource(0);
             assertSource(sourceA, 0);
@@ -655,63 +817,17 @@ public class TestLocalExchange
 
             assertTrue(sinkAFuture.isDone());
             assertTrue(sinkBFuture.isDone());
+            assertTrue(sinkAFinished.isDone());
+            assertTrue(sinkBFinished.isDone());
 
             assertSinkFinished(sinkA);
             assertSinkFinished(sinkB);
         });
     }
 
-    @Test
-    public void testMismatchedExecutionStrategy()
+    private void run(LocalExchange localExchange, Consumer<LocalExchange> test)
     {
-        // If sink/source didn't create a matching set of exchanges, operators will block forever,
-        // waiting for the other half that will never show up.
-        // The most common reason of mismatch is when one of sink/source created the wrong kind of local exchange.
-        // In such case, we want to fail loudly.
-        LocalExchangeFactory ungroupedLocalExchangeFactory = new LocalExchangeFactory(
-                nodePartitioningManager,
-                SESSION,
-                FIXED_HASH_DISTRIBUTION,
-                2,
-                TYPES,
-                ImmutableList.of(0),
-                Optional.empty(),
-                UNGROUPED_EXECUTION,
-                LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATOR_FACTORY);
-        assertThatThrownBy(() -> ungroupedLocalExchangeFactory.getLocalExchange(Lifespan.driverGroup(3)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("LocalExchangeFactory is declared as UNGROUPED_EXECUTION. Driver-group exchange cannot be created.");
-
-        LocalExchangeFactory groupedLocalExchangeFactory = new LocalExchangeFactory(
-                nodePartitioningManager,
-                SESSION,
-                FIXED_HASH_DISTRIBUTION,
-                2,
-                TYPES,
-                ImmutableList.of(0),
-                Optional.empty(),
-                GROUPED_EXECUTION,
-                LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATOR_FACTORY);
-        assertThatThrownBy(() -> groupedLocalExchangeFactory.getLocalExchange(Lifespan.taskWide()))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("LocalExchangeFactory is declared as GROUPED_EXECUTION. Task-wide exchange cannot be created.");
-    }
-
-    private void run(LocalExchangeFactory localExchangeFactory, PipelineExecutionStrategy pipelineExecutionStrategy, Consumer<LocalExchange> test)
-    {
-        switch (pipelineExecutionStrategy) {
-            case UNGROUPED_EXECUTION:
-                test.accept(localExchangeFactory.getLocalExchange(Lifespan.taskWide()));
-                return;
-            case GROUPED_EXECUTION:
-                test.accept(localExchangeFactory.getLocalExchange(Lifespan.driverGroup(1)));
-                test.accept(localExchangeFactory.getLocalExchange(Lifespan.driverGroup(12)));
-                test.accept(localExchangeFactory.getLocalExchange(Lifespan.driverGroup(23)));
-                return;
-        }
-        throw new IllegalArgumentException("Unknown pipelineExecutionStrategy");
+        test.accept(localExchange);
     }
 
     private static void assertSource(LocalExchangeSource source, int pageCount)
@@ -746,6 +862,11 @@ public class TestLocalExchange
         assertTrue(source.isFinished());
     }
 
+    private static void assertRemoveAllPages(LocalExchangeSource source, Page expectedPage)
+    {
+        range(0, source.getBufferInfo().getBufferedPages()).forEach(i -> assertRemovePage(source, expectedPage));
+    }
+
     private static void assertRemovePage(LocalExchangeSource source, Page expectedPage)
     {
         assertRemovePage(TYPES, source, expectedPage);
@@ -775,13 +896,13 @@ public class TestLocalExchange
 
     private static void assertSinkCanWrite(LocalExchangeSink sink)
     {
-        assertFalse(sink.isFinished());
+        assertFalse(sink.isFinished().isDone());
         assertTrue(sink.waitForWriting().isDone());
     }
 
     private static ListenableFuture<Void> assertSinkWriteBlocked(LocalExchangeSink sink)
     {
-        assertFalse(sink.isFinished());
+        assertFalse(sink.isFinished().isDone());
         ListenableFuture<Void> writeFuture = sink.waitForWriting();
         assertFalse(writeFuture.isDone());
         return writeFuture;
@@ -789,12 +910,12 @@ public class TestLocalExchange
 
     private static void assertSinkFinished(LocalExchangeSink sink)
     {
-        assertTrue(sink.isFinished());
+        assertTrue(sink.isFinished().isDone());
         assertTrue(sink.waitForWriting().isDone());
 
         // this will be ignored
         sink.addPage(createPage(0));
-        assertTrue(sink.isFinished());
+        assertTrue(sink.isFinished().isDone());
         assertTrue(sink.waitForWriting().isDone());
     }
 

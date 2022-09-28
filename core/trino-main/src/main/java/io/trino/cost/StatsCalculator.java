@@ -28,16 +28,18 @@ public interface StatsCalculator
      * @param sourceStats The stats provider for any child nodes' stats, if needed to compute stats for the {@code node}
      * @param lookup Lookup to be used when resolving source nodes, allowing stats calculation to work within {@link IterativeOptimizer}
      * @param types The type provider for all symbols in the scope.
+     * @param tableStatsProvider The table stats provider.
      */
     PlanNodeStatsEstimate calculateStats(
             PlanNode node,
             StatsProvider sourceStats,
             Lookup lookup,
             Session session,
-            TypeProvider types);
+            TypeProvider types,
+            TableStatsProvider tableStatsProvider);
 
     static StatsCalculator noopStatsCalculator()
     {
-        return (node, sourceStats, lookup, ignore, types) -> PlanNodeStatsEstimate.unknown();
+        return (node, sourceStats, lookup, ignore, types, tableStatsProvider) -> PlanNodeStatsEstimate.unknown();
     }
 }

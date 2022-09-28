@@ -21,7 +21,7 @@ import io.trino.spi.type.Type;
 
 @AccumulatorStateMetadata(stateSerializerClass = BlockPositionStateSerializer.class)
 public interface BlockPositionState
-        extends AccumulatorState
+        extends AccumulatorState, NullableState
 {
     Block getBlock();
 
@@ -30,6 +30,19 @@ public interface BlockPositionState
     void setBlock(Block value);
 
     void setPosition(int position);
+
+    @Override
+    default boolean isNull()
+    {
+        Block block = getBlock();
+        return block == null || block.isNull(getPosition());
+    }
+
+    default void set(BlockPositionState state)
+    {
+        setBlock(state.getBlock());
+        setPosition(state.getPosition());
+    }
 
     static void write(Type type, BlockPositionState state, BlockBuilder out)
     {

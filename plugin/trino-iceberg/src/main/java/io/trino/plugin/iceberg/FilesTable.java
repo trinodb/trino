@@ -64,6 +64,7 @@ public class FilesTable
 
         tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"),
                 ImmutableList.<ColumnMetadata>builder()
+                        .add(new ColumnMetadata("content", INTEGER))
                         .add(new ColumnMetadata("file_path", VARCHAR))
                         .add(new ColumnMetadata("file_format", VARCHAR))
                         .add(new ColumnMetadata("record_count", BIGINT))
@@ -71,10 +72,12 @@ public class FilesTable
                         .add(new ColumnMetadata("column_sizes", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
                         .add(new ColumnMetadata("value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
                         .add(new ColumnMetadata("null_value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
+                        .add(new ColumnMetadata("nan_value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
                         .add(new ColumnMetadata("lower_bounds", typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
                         .add(new ColumnMetadata("upper_bounds", typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
                         .add(new ColumnMetadata("key_metadata", VARBINARY))
                         .add(new ColumnMetadata("split_offsets", new ArrayType(BIGINT)))
+                        .add(new ColumnMetadata("equality_ids", new ArrayType(INTEGER)))
                         .build());
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
     }
@@ -113,6 +116,7 @@ public class FilesTable
             DataFile dataFile = fileScanTask.file();
 
             pagesBuilder.beginRow();
+            pagesBuilder.appendInteger(dataFile.content().id());
             pagesBuilder.appendVarchar(dataFile.path().toString());
             pagesBuilder.appendVarchar(dataFile.format().name());
             pagesBuilder.appendBigint(dataFile.recordCount());
@@ -126,8 +130,12 @@ public class FilesTable
             if (checkNonNull(dataFile.nullValueCounts(), pagesBuilder)) {
                 pagesBuilder.appendIntegerBigintMap(dataFile.nullValueCounts());
             }
+            if (checkNonNull(dataFile.nanValueCounts(), pagesBuilder)) {
+                pagesBuilder.appendIntegerBigintMap(dataFile.nanValueCounts());
+            }
             if (checkNonNull(dataFile.lowerBounds(), pagesBuilder)) {
                 pagesBuilder.appendIntegerVarcharMap(dataFile.lowerBounds().entrySet().stream()
+                        .filter(entry -> idToTypeMapping.containsKey(entry.getKey()))
                         .collect(toImmutableMap(
                                 Map.Entry<Integer, ByteBuffer>::getKey,
                                 entry -> Transforms.identity(idToTypeMapping.get(entry.getKey())).toHumanString(
@@ -135,6 +143,7 @@ public class FilesTable
             }
             if (checkNonNull(dataFile.upperBounds(), pagesBuilder)) {
                 pagesBuilder.appendIntegerVarcharMap(dataFile.upperBounds().entrySet().stream()
+                        .filter(entry -> idToTypeMapping.containsKey(entry.getKey()))
                         .collect(toImmutableMap(
                                 Map.Entry<Integer, ByteBuffer>::getKey,
                                 entry -> Transforms.identity(idToTypeMapping.get(entry.getKey())).toHumanString(
@@ -145,6 +154,9 @@ public class FilesTable
             }
             if (checkNonNull(dataFile.splitOffsets(), pagesBuilder)) {
                 pagesBuilder.appendBigintArray(dataFile.splitOffsets());
+            }
+            if (checkNonNull(dataFile.equalityFieldIds(), pagesBuilder)) {
+                pagesBuilder.appendIntegerArray(dataFile.equalityFieldIds());
             }
             pagesBuilder.endRow();
         });
@@ -167,7 +179,7 @@ public class FilesTable
         for (Types.NestedField field : schema.columns()) {
             populateIcebergIdToTypeMapping(field, icebergIdToTypeMapping);
         }
-        return icebergIdToTypeMapping.build();
+        return icebergIdToTypeMapping.buildOrThrow();
     }
 
     private static void populateIcebergIdToTypeMapping(Types.NestedField field, ImmutableMap.Builder<Integer, Type> icebergIdToTypeMapping)

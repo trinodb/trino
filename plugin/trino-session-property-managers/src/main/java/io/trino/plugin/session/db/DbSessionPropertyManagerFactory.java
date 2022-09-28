@@ -46,7 +46,6 @@ public class DbSessionPropertyManagerFactory
                     new DbSessionPropertyManagerModule());
 
             Injector injector = app
-                    .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();

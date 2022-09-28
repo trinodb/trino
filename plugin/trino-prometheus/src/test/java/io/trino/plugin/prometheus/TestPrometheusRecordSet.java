@@ -19,24 +19,21 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeOperators;
-import io.trino.type.InternalTypeManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.prometheus.MetadataUtil.METRIC_CODEC;
 import static io.trino.plugin.prometheus.MetadataUtil.varcharMapType;
 import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.trino.plugin.prometheus.PrometheusRecordCursor.getBlockFromMap;
 import static io.trino.plugin.prometheus.PrometheusRecordCursor.getMapFromBlock;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.time.Instant.ofEpochMilli;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -44,16 +41,14 @@ import static org.testng.Assert.assertFalse;
 
 public class TestPrometheusRecordSet
 {
-    private static final TypeManager TYPE_MANAGER = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
-
     private PrometheusHttpServer prometheusHttpServer;
-    private URI dataUri;
+    private String dataUri;
 
     @Test
     public void testCursorSimple()
     {
         RecordSet recordSet = new PrometheusRecordSet(
-                new PrometheusClient(new PrometheusConnectorConfig(), METRIC_CODEC, TYPE_MANAGER),
+                new PrometheusClient(new PrometheusConnectorConfig(), METRIC_CODEC, TESTING_TYPE_MANAGER),
                 new PrometheusSplit(dataUri),
                 ImmutableList.of(
                         new PrometheusColumnHandle("labels", varcharMapType, 0),
@@ -68,7 +63,8 @@ public class TestPrometheusRecordSet
         List<PrometheusStandardizedRow> actual = new ArrayList<>();
         while (cursor.advanceNextPosition()) {
             actual.add(new PrometheusStandardizedRow(
-                    (Block) cursor.getObject(0),
+                    getMapFromBlock(varcharMapType, (Block) cursor.getObject(0)).entrySet().stream()
+                            .collect(toImmutableMap(entry -> (String) entry.getKey(), entry -> (String) entry.getValue())),
                     (Instant) cursor.getObject(1),
                     cursor.getDouble(2)));
             assertFalse(cursor.isNull(0));
@@ -76,14 +72,14 @@ public class TestPrometheusRecordSet
             assertFalse(cursor.isNull(2));
         }
         List<PrometheusStandardizedRow> expected = ImmutableList.<PrometheusStandardizedRow>builder()
-                .add(new PrometheusStandardizedRow(getBlockFromMap(varcharMapType,
-                        ImmutableMap.of("instance", "localhost:9090", "__name__", "up", "job", "prometheus")), ofEpochMilli(1565962969044L), 1.0))
-                .add(new PrometheusStandardizedRow(getBlockFromMap(varcharMapType,
-                        ImmutableMap.of("instance", "localhost:9090", "__name__", "up", "job", "prometheus")), ofEpochMilli(1565962984045L), 1.0))
-                .add(new PrometheusStandardizedRow(getBlockFromMap(varcharMapType,
-                        ImmutableMap.of("instance", "localhost:9090", "__name__", "up", "job", "prometheus")), ofEpochMilli(1565962999044L), 1.0))
-                .add(new PrometheusStandardizedRow(getBlockFromMap(varcharMapType,
-                        ImmutableMap.of("instance", "localhost:9090", "__name__", "up", "job", "prometheus")), ofEpochMilli(1565963014044L), 1.0))
+                .add(new PrometheusStandardizedRow(
+                        ImmutableMap.of("instance", "localhost:9090", "__name__", "up", "job", "prometheus"), ofEpochMilli(1565962969044L), 1.0))
+                .add(new PrometheusStandardizedRow(
+                        ImmutableMap.of("instance", "localhost:9090", "__name__", "up", "job", "prometheus"), ofEpochMilli(1565962984045L), 1.0))
+                .add(new PrometheusStandardizedRow(
+                        ImmutableMap.of("instance", "localhost:9090", "__name__", "up", "job", "prometheus"), ofEpochMilli(1565962999044L), 1.0))
+                .add(new PrometheusStandardizedRow(
+                        ImmutableMap.of("instance", "localhost:9090", "__name__", "up", "job", "prometheus"), ofEpochMilli(1565963014044L), 1.0))
                 .build();
 
         assertThat(actual).as("actual")
@@ -91,7 +87,7 @@ public class TestPrometheusRecordSet
         for (int i = 0; i < actual.size(); i++) {
             PrometheusStandardizedRow actualRow = actual.get(i);
             PrometheusStandardizedRow expectedRow = expected.get(i);
-            assertEquals(getMapFromBlock(varcharMapType, actualRow.getLabels()), getMapFromBlock(varcharMapType, expectedRow.getLabels()));
+            assertEquals(getMapFromBlock(varcharMapType, getBlockFromMap(varcharMapType, actualRow.getLabels())), getMapFromBlock(varcharMapType, getBlockFromMap(varcharMapType, expectedRow.getLabels())));
             assertEquals(actualRow.getTimestamp(), expectedRow.getTimestamp());
             assertEquals(actualRow.getValue(), expectedRow.getValue());
         }
@@ -101,7 +97,7 @@ public class TestPrometheusRecordSet
     public void setUp()
     {
         prometheusHttpServer = new PrometheusHttpServer();
-        dataUri = prometheusHttpServer.resolve("/prometheus-data/up_matrix_response.json");
+        dataUri = prometheusHttpServer.resolve("/prometheus-data/up_matrix_response.json").toString();
     }
 
     @AfterClass(alwaysRun = true)

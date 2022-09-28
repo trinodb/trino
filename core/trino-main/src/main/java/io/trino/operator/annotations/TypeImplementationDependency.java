@@ -13,16 +13,14 @@
  */
 package io.trino.operator.annotations;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.FunctionBinding;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.trino.spi.type.TypeSignature;
 
 import java.util.Objects;
 
 import static io.trino.metadata.SignatureBinder.applyBoundVariables;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 
 public final class TypeImplementationDependency
@@ -30,9 +28,14 @@ public final class TypeImplementationDependency
 {
     private final TypeSignature signature;
 
-    public TypeImplementationDependency(String signature)
+    public TypeImplementationDependency(TypeSignature signature)
     {
-        this.signature = parseTypeSignature(requireNonNull(signature, "signature is null"), ImmutableSet.of());
+        this.signature = requireNonNull(signature, "signature is null");
+    }
+
+    public TypeSignature getSignature()
+    {
+        return signature;
     }
 
     @Override

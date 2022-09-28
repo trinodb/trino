@@ -28,8 +28,8 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import org.skife.jdbi.v2.IDBI;
-import org.skife.jdbi.v2.exceptions.DBIException;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.core.JdbiException;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -61,12 +61,12 @@ public class ColumnRangesSystemTable
     private static final String MAX_COLUMN_SUFFIX = "_max";
     private static final String COLUMN_RANGES_TABLE_SUFFIX = "$column_ranges";
 
-    private final IDBI dbi;
+    private final Jdbi dbi;
     private final RaptorTableHandle sourceTable;
     private final List<TableColumn> indexedRaptorColumns;
     private final ConnectorTableMetadata tableMetadata;
 
-    public ColumnRangesSystemTable(RaptorTableHandle sourceTable, IDBI dbi)
+    public ColumnRangesSystemTable(RaptorTableHandle sourceTable, Jdbi dbi)
     {
         this.sourceTable = requireNonNull(sourceTable, "sourceTable is null");
         this.dbi = requireNonNull(dbi, "dbi is null");
@@ -159,7 +159,7 @@ public class ColumnRangesSystemTable
                 }
             }
         }
-        catch (SQLException | DBIException e) {
+        catch (SQLException | JdbiException e) {
             throw metadataError(e);
         }
 

@@ -14,10 +14,7 @@
 package io.trino.plugin.hive.procedure;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
-import io.trino.plugin.hive.authentication.HiveIdentity;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
@@ -40,32 +37,31 @@ import java.util.List;
 import static io.trino.plugin.hive.procedure.Procedures.checkIsPartitionedTable;
 import static io.trino.plugin.hive.procedure.Procedures.checkPartitionColumns;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
-import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class UnregisterPartitionProcedure
         implements Provider<Procedure>
 {
-    private static final MethodHandle UNREGISTER_PARTITION = methodHandle(
-            UnregisterPartitionProcedure.class,
-            "unregisterPartition",
-            ConnectorSession.class,
-            ConnectorAccessControl.class,
-            String.class,
-            String.class,
-            List.class,
-            List.class);
+    private static final MethodHandle UNREGISTER_PARTITION;
+
+    static {
+        try {
+            UNREGISTER_PARTITION = lookup().unreflect(UnregisterPartitionProcedure.class.getMethod("unregisterPartition", ConnectorSession.class, ConnectorAccessControl.class, String.class, String.class, List.class, List.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
 
     private final TransactionalMetadataFactory hiveMetadataFactory;
-    private final HiveMetastoreClosure metastore;
 
     @Inject
-    public UnregisterPartitionProcedure(TransactionalMetadataFactory hiveMetadataFactory, HiveMetastore metastore)
+    public UnregisterPartitionProcedure(TransactionalMetadataFactory hiveMetadataFactory)
     {
         this.hiveMetadataFactory = requireNonNull(hiveMetadataFactory, "hiveMetadataFactory is null");
-        this.metastore = new HiveMetastoreClosure(requireNonNull(metastore, "metastore is null"));
     }
 
     @Override
@@ -75,10 +71,10 @@ public class UnregisterPartitionProcedure
                 "system",
                 "unregister_partition",
                 ImmutableList.of(
-                        new Procedure.Argument("schema_name", VARCHAR),
-                        new Procedure.Argument("table_name", VARCHAR),
-                        new Procedure.Argument("partition_columns", new ArrayType(VARCHAR)),
-                        new Procedure.Argument("partition_values", new ArrayType(VARCHAR))),
+                        new Procedure.Argument("SCHEMA_NAME", VARCHAR),
+                        new Procedure.Argument("TABLE_NAME", VARCHAR),
+                        new Procedure.Argument("PARTITION_COLUMNS", new ArrayType(VARCHAR)),
+                        new Procedure.Argument("PARTITION_VALUES", new ArrayType(VARCHAR))),
                 UNREGISTER_PARTITION.bindTo(this));
     }
 
@@ -91,10 +87,11 @@ public class UnregisterPartitionProcedure
 
     private void doUnregisterPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValues)
     {
-        HiveIdentity identity = new HiveIdentity(session);
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
 
-        Table table = metastore.getTable(identity, schemaName, tableName)
+        SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create(session.getIdentity(), true).getMetastore();
+
+        Table table = metastore.getTable(schemaName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
 
         accessControl.checkCanDeleteFromTable(null, schemaTableName);
@@ -104,10 +101,8 @@ public class UnregisterPartitionProcedure
 
         String partitionName = FileUtils.makePartName(partitionColumn, partitionValues);
 
-        Partition partition = metastore.getPartition(new HiveIdentity(session), schemaName, tableName, partitionValues)
+        Partition partition = metastore.unsafeGetRawHiveMetastoreClosure().getPartition(schemaName, tableName, partitionValues)
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Partition '%s' does not exist", partitionName)));
-
-        SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create().getMetastore();
 
         metastore.dropPartition(
                 session,

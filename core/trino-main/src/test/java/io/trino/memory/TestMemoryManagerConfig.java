@@ -16,6 +16,8 @@ package io.trino.memory;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.memory.MemoryManagerConfig.LowMemoryQueryKillerPolicy;
+import io.trino.memory.MemoryManagerConfig.LowMemoryTaskKillerPolicy;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -24,8 +26,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.trino.memory.MemoryManagerConfig.LowMemoryKillerPolicy.NONE;
-import static io.trino.memory.MemoryManagerConfig.LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -35,27 +36,45 @@ public class TestMemoryManagerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(MemoryManagerConfig.class)
-                .setLowMemoryKillerPolicy(TOTAL_RESERVATION_ON_BLOCKED_NODES)
+                .setLowMemoryQueryKillerPolicy(LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES)
+                .setLowMemoryTaskKillerPolicy(LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES)
                 .setKillOnOutOfMemoryDelay(new Duration(5, MINUTES))
                 .setMaxQueryMemory(DataSize.of(20, GIGABYTE))
-                .setMaxQueryTotalMemory(DataSize.of(40, GIGABYTE)));
+                .setMaxQueryTotalMemory(DataSize.of(40, GIGABYTE))
+                .setFaultTolerantExecutionCoordinatorTaskMemory(DataSize.of(2, GIGABYTE))
+                .setFaultTolerantExecutionTaskMemory(DataSize.of(5, GIGABYTE))
+                .setFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(DataSize.of(1, GIGABYTE))
+                .setFaultTolerantExecutionTaskMemoryGrowthFactor(3.0)
+                .setFaultTolerantExecutionTaskMemoryEstimationQuantile(0.9));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.low-memory-killer.policy", "none")
+                .put("task.low-memory-killer.policy", "none")
                 .put("query.low-memory-killer.delay", "20s")
                 .put("query.max-memory", "2GB")
                 .put("query.max-total-memory", "3GB")
-                .build();
+                .put("fault-tolerant-execution-coordinator-task-memory", "123GB")
+                .put("fault-tolerant-execution-task-memory", "2GB")
+                .put("fault-tolerant-execution-task-runtime-memory-estimation-overhead", "300MB")
+                .put("fault-tolerant-execution-task-memory-growth-factor", "17.3")
+                .put("fault-tolerant-execution-task-memory-estimation-quantile", "0.7")
+                .buildOrThrow();
 
         MemoryManagerConfig expected = new MemoryManagerConfig()
-                .setLowMemoryKillerPolicy(NONE)
+                .setLowMemoryQueryKillerPolicy(LowMemoryQueryKillerPolicy.NONE)
+                .setLowMemoryTaskKillerPolicy(LowMemoryTaskKillerPolicy.NONE)
                 .setKillOnOutOfMemoryDelay(new Duration(20, SECONDS))
                 .setMaxQueryMemory(DataSize.of(2, GIGABYTE))
-                .setMaxQueryTotalMemory(DataSize.of(3, GIGABYTE));
+                .setMaxQueryTotalMemory(DataSize.of(3, GIGABYTE))
+                .setFaultTolerantExecutionCoordinatorTaskMemory(DataSize.of(123, GIGABYTE))
+                .setFaultTolerantExecutionTaskMemory(DataSize.of(2, GIGABYTE))
+                .setFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(DataSize.of(300, MEGABYTE))
+                .setFaultTolerantExecutionTaskMemoryGrowthFactor(17.3)
+                .setFaultTolerantExecutionTaskMemoryEstimationQuantile(0.7);
 
         assertFullMapping(properties, expected);
     }

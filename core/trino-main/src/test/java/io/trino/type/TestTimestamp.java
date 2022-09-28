@@ -235,7 +235,7 @@ public class TestTimestamp
     }
 
     @Test
-    public void testCastToSlice()
+    public void testCastToVarchar()
     {
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as varchar)", VARCHAR, "2001-01-22 03:04:05.321");
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05' as varchar)", VARCHAR, "2001-01-22 03:04:05");
@@ -258,7 +258,7 @@ public class TestTimestamp
     }
 
     @Test
-    public void testCastFromSlice()
+    public void testCastFromVarchar()
     {
         assertFunction("cast('2001-1-22 03:04:05.321' as timestamp)",
                 TIMESTAMP_MILLIS,

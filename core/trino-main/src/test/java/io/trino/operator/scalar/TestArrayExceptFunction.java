@@ -13,57 +13,112 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.ArrayType;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static java.util.Arrays.asList;
-import static java.util.Collections.singletonList;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestArrayExceptFunction
-        extends AbstractTestFunctions
 {
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
     @Test
     public void testBasic()
     {
-        assertFunction("array_except(ARRAY[1, 5, 3], ARRAY[3])", new ArrayType(INTEGER), ImmutableList.of(1, 5));
-        assertFunction("array_except(ARRAY[CAST(1 as BIGINT), 5, 3], ARRAY[5])", new ArrayType(BIGINT), ImmutableList.of(1L, 3L));
-        assertFunction("array_except(ARRAY[VARCHAR 'x', 'y', 'z'], ARRAY['x'])", new ArrayType(VARCHAR), ImmutableList.of("y", "z"));
-        assertFunction("array_except(ARRAY[true, false, null], ARRAY[true])", new ArrayType(BOOLEAN), asList(false, null));
-        assertFunction("array_except(ARRAY[1.1E0, 5.4E0, 3.9E0], ARRAY[5, 5.4E0])", new ArrayType(DOUBLE), ImmutableList.of(1.1, 3.9));
+        assertThat(assertions.function("array_except", "ARRAY[1, 5, 3]", "ARRAY[3]"))
+                .matches("ARRAY[1, 5]");
+
+        assertThat(assertions.function("array_except", "ARRAY[BIGINT '1', 5, 3]", "ARRAY[5]"))
+                .matches("ARRAY[BIGINT '1', BIGINT '3']");
+
+        assertThat(assertions.function("array_except", "ARRAY[VARCHAR 'x', 'y', 'z']", "ARRAY['x']"))
+                .matches("ARRAY[VARCHAR 'y', VARCHAR 'z']");
+
+        assertThat(assertions.function("array_except", "ARRAY[true, false, null]", "ARRAY[true]"))
+                .matches("ARRAY[false, null]");
+
+        assertThat(assertions.function("array_except", "ARRAY[1.1E0, 5.4E0, 3.9E0]", "ARRAY[5, 5.4E0]"))
+                .matches("ARRAY[1.1E0, 3.9E0]");
     }
 
     @Test
     public void testEmpty()
     {
-        assertFunction("array_except(ARRAY[], ARRAY[])", new ArrayType(UNKNOWN), ImmutableList.of());
-        assertFunction("array_except(ARRAY[], ARRAY[1, 3])", new ArrayType(INTEGER), ImmutableList.of());
-        assertFunction("array_except(ARRAY[VARCHAR 'abc'], ARRAY[])", new ArrayType(VARCHAR), ImmutableList.of("abc"));
+        assertThat(assertions.function("array_except", "ARRAY[]", "ARRAY[]"))
+                .matches("ARRAY[]");
+
+        assertThat(assertions.function("array_except", "ARRAY[]", "ARRAY[1, 3]"))
+                .matches("CAST(ARRAY[] AS array(integer))");
+
+        assertThat(assertions.function("array_except", "ARRAY[VARCHAR 'abc']", "ARRAY[]"))
+                .matches("ARRAY[VARCHAR 'abc']");
     }
 
     @Test
     public void testNull()
     {
-        assertFunction("array_except(ARRAY[NULL], NULL)", new ArrayType(UNKNOWN), null);
-        assertFunction("array_except(NULL, NULL)", new ArrayType(UNKNOWN), null);
-        assertFunction("array_except(NULL, ARRAY[NULL])", new ArrayType(UNKNOWN), null);
-        assertFunction("array_except(ARRAY[NULL], ARRAY[NULL])", new ArrayType(UNKNOWN), ImmutableList.of());
-        assertFunction("array_except(ARRAY[], ARRAY[NULL])", new ArrayType(UNKNOWN), ImmutableList.of());
-        assertFunction("array_except(ARRAY[NULL], ARRAY[])", new ArrayType(UNKNOWN), singletonList(null));
+        assertThat(assertions.function("array_except", "ARRAY[NULL]", "NULL"))
+                .isNull(new ArrayType(UNKNOWN));
+
+        assertThat(assertions.function("array_except", "NULL", "NULL"))
+                .isNull(new ArrayType(UNKNOWN));
+
+        assertThat(assertions.function("array_except", "NULL", "ARRAY[NULL]"))
+                .isNull(new ArrayType(UNKNOWN));
+
+        assertThat(assertions.function("array_except", "ARRAY[NULL]", "ARRAY[NULL]"))
+                .matches("ARRAY[]");
+
+        assertThat(assertions.function("array_except", "ARRAY[]", "ARRAY[NULL]"))
+                .matches("ARRAY[]");
+
+        assertThat(assertions.function("array_except", "ARRAY[NULL]", "ARRAY[]"))
+                .matches("ARRAY[NULL]");
     }
 
     @Test
     public void testDuplicates()
     {
-        assertFunction("array_except(ARRAY[1, 5, 3, 5, 1], ARRAY[3])", new ArrayType(INTEGER), ImmutableList.of(1, 5));
-        assertFunction("array_except(ARRAY[CAST(1 as BIGINT), 5, 5, 3, 3, 3, 1], ARRAY[3, 5])", new ArrayType(BIGINT), ImmutableList.of(1L));
-        assertFunction("array_except(ARRAY[VARCHAR 'x', 'x', 'y', 'z'], ARRAY['x', 'y', 'x'])", new ArrayType(VARCHAR), ImmutableList.of("z"));
-        assertFunction("array_except(ARRAY[true, false, null, true, false, null], ARRAY[true, true, true])", new ArrayType(BOOLEAN), asList(false, null));
+        assertThat(assertions.function("array_except", "ARRAY[1, 5, 3, 5, 1]", "ARRAY[3]"))
+                .matches("ARRAY[1, 5]");
+
+        assertThat(assertions.function("array_except", "ARRAY[BIGINT '1', 5, 5, 3, 3, 3, 1]", "ARRAY[3, 5]"))
+                .matches("ARRAY[BIGINT '1']");
+
+        assertThat(assertions.function("array_except", "ARRAY[VARCHAR 'x', 'x', 'y', 'z']", "ARRAY['x', 'y', 'x']"))
+                .matches("ARRAY[VARCHAR 'z']");
+
+        assertThat(assertions.function("array_except", "ARRAY[true, false, null, true, false, null]", "ARRAY[true, true, true]"))
+                .matches("ARRAY[false, null]");
+    }
+
+    @Test
+    public void testNonDistinctNonEqualValues()
+    {
+        assertThat(assertions.function("array_except", "ARRAY[NaN()]", "ARRAY[NaN()]"))
+                .matches("CAST(ARRAY[] AS array(double))");
+
+        assertThat(assertions.function("array_except", "ARRAY[1, NaN(), 3]", "ARRAY[NaN(), 3]"))
+                .matches("ARRAY[1E0]");
     }
 }

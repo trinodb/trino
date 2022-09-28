@@ -16,14 +16,12 @@ package io.trino.cost;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.DecimalLiteral;
@@ -38,13 +36,13 @@ import io.trino.transaction.TestingTransactionManager;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -52,7 +50,7 @@ import static java.lang.Double.POSITIVE_INFINITY;
 
 public class TestScalarStatsCalculator
 {
-    private Metadata metadata;
+    private TestingFunctionResolution functionResolution;
     private ScalarStatsCalculator calculator;
     private Session session;
     private final SqlParser sqlParser = new SqlParser();
@@ -60,8 +58,8 @@ public class TestScalarStatsCalculator
     @BeforeClass
     public void setUp()
     {
-        metadata = createTestMetadataManager();
-        calculator = new ScalarStatsCalculator(metadata, new TypeAnalyzer(sqlParser, metadata));
+        functionResolution = new TestingFunctionResolution();
+        calculator = new ScalarStatsCalculator(functionResolution.getPlannerContext(), createTestingTypeAnalyzer(functionResolution.getPlannerContext()));
         session = testSessionBuilder().build();
     }
 
@@ -121,8 +119,8 @@ public class TestScalarStatsCalculator
     public void testFunctionCall()
     {
         assertCalculate(
-                new FunctionCallBuilder(metadata)
-                        .setName(QualifiedName.of("length"))
+                functionResolution
+                        .functionCallBuilder(QualifiedName.of("length"))
                         .addArgument(createVarcharType(10), new Cast(new NullLiteral(), toSqlType(createVarcharType(10))))
                         .build())
                 .distinctValuesCount(0.0)
@@ -131,8 +129,8 @@ public class TestScalarStatsCalculator
                 .nullsFraction(1.0);
 
         assertCalculate(
-                new FunctionCallBuilder(metadata)
-                        .setName(QualifiedName.of("length"))
+                functionResolution
+                        .functionCallBuilder(QualifiedName.of("length"))
                         .addArgument(createVarcharType(2), new SymbolReference("x"))
                         .build(),
                 PlanNodeStatsEstimate.unknown(),
@@ -146,8 +144,8 @@ public class TestScalarStatsCalculator
     @Test
     public void testVarbinaryConstant()
     {
-        LiteralEncoder literalEncoder = new LiteralEncoder(metadata);
-        Expression expression = literalEncoder.toExpression(Slices.utf8Slice("ala ma kota"), VARBINARY);
+        LiteralEncoder literalEncoder = new LiteralEncoder(functionResolution.getPlannerContext());
+        Expression expression = literalEncoder.toExpression(session, Slices.utf8Slice("ala ma kota"), VARBINARY);
 
         assertCalculate(expression)
                 .distinctValuesCount(1.0)

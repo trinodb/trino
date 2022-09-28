@@ -24,6 +24,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.joda.time.DateTimeZone;
@@ -41,7 +42,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.decodeUnscaledValue;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.Decimals.encodeShortScaledValue;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -142,12 +142,21 @@ public final class TypeUtils
         }
 
         if (BOOLEAN.equals(type)
-                || TINYINT.equals(type)
-                || SMALLINT.equals(type)
-                || INTEGER.equals(type)
                 || BIGINT.equals(type)
                 || DOUBLE.equals(type)) {
             return jdbcObject;
+        }
+
+        if (TINYINT.equals(type)) {
+            return (long) (byte) jdbcObject;
+        }
+
+        if (SMALLINT.equals(type)) {
+            return (long) (short) jdbcObject;
+        }
+
+        if (INTEGER.equals(type)) {
+            return (long) (int) jdbcObject;
         }
 
         if (type instanceof ArrayType) {
@@ -164,7 +173,7 @@ public final class TypeUtils
         }
 
         if (REAL.equals(type)) {
-            return floatToRawIntBits((float) jdbcObject);
+            return (long) floatToRawIntBits((float) jdbcObject);
         }
 
         if (DATE.equals(type)) {
@@ -202,7 +211,7 @@ public final class TypeUtils
                 BigInteger unscaledValue = BigInteger.valueOf((long) object);
                 return new BigDecimal(unscaledValue, decimalType.getScale(), new MathContext(decimalType.getPrecision()));
             }
-            BigInteger unscaledValue = decodeUnscaledValue((Slice) object);
+            BigInteger unscaledValue = ((Int128) object).toBigInteger();
             return new BigDecimal(unscaledValue, decimalType.getScale(), new MathContext(decimalType.getPrecision()));
         }
 

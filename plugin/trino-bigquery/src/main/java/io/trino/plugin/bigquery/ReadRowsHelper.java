@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageClient;
-import com.google.cloud.bigquery.storage.v1beta1.Storage;
-import com.google.cloud.bigquery.storage.v1beta1.Storage.ReadRowsRequest;
-import com.google.cloud.bigquery.storage.v1beta1.Storage.ReadRowsResponse;
+import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
+import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
+import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
+import io.airlift.log.Logger;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -25,28 +25,34 @@ import static java.util.Objects.requireNonNull;
 
 public class ReadRowsHelper
 {
-    private final BigQueryStorageClient client;
-    private final ReadRowsRequest.Builder request;
+    private static final Logger log = Logger.get(ReadRowsHelper.class);
+
+    private final BigQueryReadClient client;
+    private final String streamName;
     private final int maxReadRowsRetries;
 
-    public ReadRowsHelper(BigQueryStorageClient client, ReadRowsRequest.Builder request, int maxReadRowsRetries)
+    public ReadRowsHelper(BigQueryReadClient client, String streamName, int maxReadRowsRetries)
     {
         this.client = requireNonNull(client, "client cannot be null");
-        this.request = requireNonNull(request, "request cannot be null");
+        this.streamName = requireNonNull(streamName, "streamName cannot be null");
         this.maxReadRowsRetries = maxReadRowsRetries;
     }
 
     public Iterator<ReadRowsResponse> readRows()
     {
-        Iterator<ReadRowsResponse> serverResponses = fetchResponses(request);
-        return new ReadRowsIterator(this, request.getReadPositionBuilder(), serverResponses);
+        Iterator<ReadRowsResponse> serverResponses = fetchResponses(0);
+        return new ReadRowsIterator(this, serverResponses);
     }
 
     // In order to enable testing
-    protected Iterator<ReadRowsResponse> fetchResponses(ReadRowsRequest.Builder readRowsRequest)
+    protected Iterator<ReadRowsResponse> fetchResponses(long offset)
     {
+        log.debug("Reading rows from %s offset %s", streamName, offset);
         return client.readRowsCallable()
-                .call(readRowsRequest.build())
+                .call(ReadRowsRequest.newBuilder()
+                        .setReadStream(streamName)
+                        .setOffset(offset)
+                        .build())
                 .iterator();
     }
 
@@ -55,18 +61,15 @@ public class ReadRowsHelper
             implements Iterator<ReadRowsResponse>
     {
         private final ReadRowsHelper helper;
-        private final Storage.StreamPosition.Builder readPosition;
+        private long nextOffset;
         private Iterator<ReadRowsResponse> serverResponses;
-        private long readRowsCount;
         private int retries;
 
         public ReadRowsIterator(
                 ReadRowsHelper helper,
-                Storage.StreamPosition.Builder readPosition,
                 Iterator<ReadRowsResponse> serverResponses)
         {
             this.helper = helper;
-            this.readPosition = readPosition;
             this.serverResponses = serverResponses;
         }
 
@@ -82,14 +85,15 @@ public class ReadRowsHelper
             do {
                 try {
                     ReadRowsResponse response = serverResponses.next();
-                    readRowsCount += response.getRowCount();
+                    log.debug("ReadRowsResponse from BigQuery: %s", response);
+                    nextOffset += response.getRowCount();
                     return response;
                 }
                 catch (Exception e) {
                     // if relevant, retry the read, from the last read position
                     if (BigQueryUtil.isRetryable(e) && retries < helper.maxReadRowsRetries) {
-                        serverResponses = helper.fetchResponses(helper.request.setReadPosition(
-                                readPosition.setOffset(readRowsCount)));
+                        log.debug("Request failed, retrying: %s", e);
+                        serverResponses = helper.fetchResponses(nextOffset);
                         retries++;
                     }
                     else {

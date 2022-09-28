@@ -17,51 +17,30 @@ import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping;
 import io.trino.plugin.hive.util.ForwardingRecordCursor;
-import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import org.joda.time.DateTimeZone;
 
 import java.util.List;
 
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMappingKind.EMPTY;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMappingKind.REGULAR;
-import static io.trino.plugin.hive.util.HiveUtil.bigintPartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.booleanPartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.charPartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.datePartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.doublePartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.floatPartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.integerPartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.longDecimalPartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.shortDecimalPartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.smallintPartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.timestampPartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.tinyintPartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.varcharPartitionKey;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.isLongDecimal;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class HiveRecordCursor
@@ -104,58 +83,55 @@ public class HiveRecordCursor
                 nulls[columnIndex] = true;
             }
             if (columnMapping.getKind() == PREFILLED) {
-                String columnValue = columnMapping.getPrefilledValue();
-                byte[] bytes = columnValue.getBytes(UTF_8);
-
+                Object prefilledValue = columnMapping.getPrefilledValue().getValue();
                 String name = columnMapping.getHiveColumnHandle().getName();
                 Type type = columnMapping.getHiveColumnHandle().getType();
                 types[columnIndex] = type;
 
-                if (HiveUtil.isHiveNull(bytes)) {
+                if (prefilledValue == null) {
                     nulls[columnIndex] = true;
                 }
                 else if (BOOLEAN.equals(type)) {
-                    booleans[columnIndex] = booleanPartitionKey(columnValue, name);
+                    booleans[columnIndex] = (boolean) prefilledValue;
                 }
                 else if (TINYINT.equals(type)) {
-                    longs[columnIndex] = tinyintPartitionKey(columnValue, name);
+                    longs[columnIndex] = (long) prefilledValue;
                 }
                 else if (SMALLINT.equals(type)) {
-                    longs[columnIndex] = smallintPartitionKey(columnValue, name);
+                    longs[columnIndex] = (long) prefilledValue;
                 }
                 else if (INTEGER.equals(type)) {
-                    longs[columnIndex] = integerPartitionKey(columnValue, name);
+                    longs[columnIndex] = (long) prefilledValue;
                 }
                 else if (BIGINT.equals(type)) {
-                    longs[columnIndex] = bigintPartitionKey(columnValue, name);
+                    longs[columnIndex] = (long) prefilledValue;
                 }
                 else if (REAL.equals(type)) {
-                    longs[columnIndex] = floatPartitionKey(columnValue, name);
+                    longs[columnIndex] = (long) prefilledValue;
                 }
                 else if (DOUBLE.equals(type)) {
-                    doubles[columnIndex] = doublePartitionKey(columnValue, name);
+                    doubles[columnIndex] = (double) prefilledValue;
                 }
                 else if (type instanceof VarcharType) {
-                    slices[columnIndex] = varcharPartitionKey(columnValue, name, type);
+                    slices[columnIndex] = (Slice) prefilledValue;
                 }
                 else if (type instanceof CharType) {
-                    slices[columnIndex] = charPartitionKey(columnValue, name, type);
+                    slices[columnIndex] = (Slice) prefilledValue;
                 }
                 else if (DATE.equals(type)) {
-                    longs[columnIndex] = datePartitionKey(columnValue, name);
+                    longs[columnIndex] = (long) prefilledValue;
                 }
                 else if (TIMESTAMP_MILLIS.equals(type)) {
-                    longs[columnIndex] = timestampPartitionKey(columnValue, name);
+                    longs[columnIndex] = (long) prefilledValue;
                 }
                 else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
-                    // used for $file_modified_time
-                    longs[columnIndex] = packDateTimeWithZone(floorDiv(timestampPartitionKey(columnValue, name), MICROSECONDS_PER_MILLISECOND), DateTimeZone.getDefault().getID());
+                    longs[columnIndex] = (long) prefilledValue;
                 }
-                else if (isShortDecimal(type)) {
-                    longs[columnIndex] = shortDecimalPartitionKey(columnValue, (DecimalType) type, name);
+                else if (type instanceof DecimalType decimalType && decimalType.isShort()) {
+                    longs[columnIndex] = (long) prefilledValue;
                 }
-                else if (isLongDecimal(type)) {
-                    slices[columnIndex] = longDecimalPartitionKey(columnValue, (DecimalType) type, name);
+                else if (type instanceof DecimalType decimalType && !decimalType.isShort()) {
+                    objects[columnIndex] = prefilledValue;
                 }
                 else {
                     throw new TrinoException(NOT_SUPPORTED, format("Unsupported column type %s for prefilled column: %s", type.getDisplayName(), name));

@@ -16,6 +16,7 @@ package io.trino.server.protocol;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import io.trino.Session;
 import io.trino.client.ClientCapabilities;
 import io.trino.client.Column;
@@ -39,8 +40,8 @@ import javax.annotation.Nullable;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -49,8 +50,8 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.SERIALIZATION_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -59,31 +60,24 @@ import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public class QueryResultRows
-        extends AbstractIterator<List<Object>>
         implements Iterable<List<Object>>
 {
     private final ConnectorSession session;
     private final Optional<List<ColumnAndType>> columns;
-    private final Deque<Page> pages;
+    private final List<Page> pages;
     private final Optional<Consumer<Throwable>> exceptionConsumer;
     private final long totalRows;
     private final boolean supportsParametricDateTime;
 
-    private Page currentPage;
-    private int rowPosition = -1;
-    private int inPageIndex = -1;
-
     private QueryResultRows(Session session, Optional<List<ColumnAndType>> columns, List<Page> pages, Consumer<Throwable> exceptionConsumer)
     {
-        this.session = requireNonNull(session, "session is null").toConnectorSession();
+        this.session = session.toConnectorSession();
         this.columns = requireNonNull(columns, "columns is null");
-        this.pages = new ArrayDeque<>(requireNonNull(pages, "pages is null"));
+        this.pages = ImmutableList.copyOf(pages);
         this.exceptionConsumer = Optional.ofNullable(exceptionConsumer);
         this.totalRows = countRows(pages);
-        this.currentPage = this.pages.pollFirst();
         this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
 
         verify(totalRows == 0 || (totalRows > 0 && columns.isPresent()), "data present without columns and types");
@@ -123,157 +117,25 @@ public class QueryResultRows
             return Optional.empty();
         }
 
-        verifyNotNull(currentPage, "currentPage is null");
-        Number value = (Number) columns.get(0).getType().getObjectValue(session, currentPage.getBlock(0), 0);
+        checkState(!pages.isEmpty(), "no data pages available");
+        Number value = (Number) columns.get(0).getType().getObjectValue(session, pages.get(0).getBlock(0), 0);
 
         return Optional.ofNullable(value).map(Number::longValue);
     }
 
     @Override
-    protected List<Object> computeNext()
-    {
-        while (true) {
-            if (currentPage == null) {
-                return endOfData();
-            }
-
-            inPageIndex++;
-
-            if (inPageIndex >= currentPage.getPositionCount()) {
-                currentPage = pages.pollFirst();
-
-                if (currentPage == null) {
-                    return endOfData();
-                }
-
-                inPageIndex = 0;
-            }
-
-            rowPosition++;
-
-            Optional<List<Object>> row = getRowValues();
-            if (row.isEmpty()) {
-                continue;
-            }
-
-            return row.get();
-        }
-    }
-
-    private Optional<List<Object>> getRowValues()
-    {
-        // types are present if data is present
-        List<ColumnAndType> columns = this.columns.orElseThrow();
-        List<Object> row = new ArrayList<>(columns.size());
-
-        for (int channel = 0; channel < currentPage.getChannelCount(); channel++) {
-            ColumnAndType column = columns.get(channel);
-            Type type = column.getType();
-            Block block = currentPage.getBlock(channel);
-
-            try {
-                if (supportsParametricDateTime) {
-                    row.add(channel, type.getObjectValue(session, block, inPageIndex));
-                }
-                else {
-                    row.add(channel, getLegacyValue(type.getObjectValue(session, block, inPageIndex), type));
-                }
-            }
-            catch (Throwable throwable) {
-                propagateException(rowPosition, column, throwable);
-                // skip row as it contains non-serializable value
-                return Optional.empty();
-            }
-        }
-
-        return Optional.of(unmodifiableList(row));
-    }
-
-    private Object getLegacyValue(Object value, Type type)
-    {
-        if (value == null) {
-            return null;
-        }
-
-        if (!supportsParametricDateTime) {
-            // for legacy clients we need to round timestamp and timestamp with timezone to default precision (3)
-
-            if (type instanceof TimestampType) {
-                return ((SqlTimestamp) value).roundTo(3);
-            }
-
-            if (type instanceof TimestampWithTimeZoneType) {
-                return ((SqlTimestampWithTimeZone) value).roundTo(3);
-            }
-
-            if (type instanceof TimeType) {
-                return ((SqlTime) value).roundTo(3);
-            }
-        }
-
-        if (type instanceof ArrayType) {
-            Type elementType = ((ArrayType) type).getElementType();
-
-            if (!(elementType instanceof TimestampType || elementType instanceof TimestampWithTimeZoneType)) {
-                return value;
-            }
-
-            return unmodifiableList(((List<Object>) value).stream()
-                    .map(element -> getLegacyValue(element, elementType))
-                    .collect(toList()));
-        }
-
-        if (type instanceof MapType) {
-            Type keyType = ((MapType) type).getKeyType();
-            Type valueType = ((MapType) type).getValueType();
-
-            Map<Object, Object> result = new HashMap<>();
-            ((Map<Object, Object>) value).forEach((key, val) -> result.put(getLegacyValue(key, keyType), getLegacyValue(val, valueType)));
-            return unmodifiableMap(result);
-        }
-
-        if (type instanceof RowType) {
-            List<RowType.Field> fields = ((RowType) type).getFields();
-            List<Object> values = (List<Object>) value;
-            List<Type> types = fields.stream()
-                    .map(RowType.Field::getType)
-                    .collect(toImmutableList());
-
-            List<Object> result = new ArrayList<>(values.size());
-            for (int i = 0; i < values.size(); i++) {
-                result.add(i, getLegacyValue(values.get(i), types.get(i)));
-            }
-            return result;
-        }
-
-        return value;
-    }
-
-    private void propagateException(int row, ColumnAndType column, Throwable cause)
-    {
-        // columns and rows are 0-indexed
-        String message = format("Could not serialize column '%s' of type '%s' at position %d:%d",
-                column.getColumn().getName(),
-                column.getType(),
-                row + 1,
-                column.getPosition() + 1);
-
-        exceptionConsumer.ifPresent(consumer -> consumer.accept(new TrinoException(SERIALIZATION_ERROR, message, cause)));
-    }
-
-    @Override
     public Iterator<List<Object>> iterator()
     {
-        return this;
+        return new ResultsIterator(this);
     }
 
     private static long countRows(List<Page> pages)
     {
-        return pages.stream()
-                .map(Page::getPositionCount)
-                .map(Integer::longValue)
-                .reduce(Long::sum)
-                .orElse(0L);
+        long rows = 0;
+        for (Page page : pages) {
+            rows += page.getPositionCount();
+        }
+        return rows;
     }
 
     @Override
@@ -359,7 +221,7 @@ public class QueryResultRows
             checkArgument(columns != null && types != null, "columns and types must be present at the same time");
             checkArgument(columns.size() == types.size(), "columns and types size mismatch");
 
-            ImmutableList.Builder<ColumnAndType> builder = ImmutableList.builder();
+            ImmutableList.Builder<ColumnAndType> builder = ImmutableList.builderWithExpectedSize(columns.size());
 
             for (int i = 0; i < columns.size(); i++) {
                 builder.add(new ColumnAndType(i, columns.get(i), types.get(i)));
@@ -405,6 +267,156 @@ public class QueryResultRows
                     .add("type", type)
                     .add("position", position)
                     .toString();
+        }
+    }
+
+    private static class ResultsIterator
+            extends AbstractIterator<List<Object>>
+    {
+        private final Deque<Page> queue;
+        private final QueryResultRows results;
+        private Page currentPage;
+        private int rowPosition = -1;
+        private int inPageIndex = -1;
+
+        public ResultsIterator(QueryResultRows results)
+        {
+            this.queue = new ArrayDeque<>(results.pages);
+            this.results = results;
+            this.currentPage = queue.pollFirst();
+        }
+
+        @Override
+        protected List<Object> computeNext()
+        {
+            while (true) {
+                if (currentPage == null) {
+                    return endOfData();
+                }
+
+                inPageIndex++;
+
+                if (inPageIndex >= currentPage.getPositionCount()) {
+                    currentPage = queue.pollFirst();
+
+                    if (currentPage == null) {
+                        return endOfData();
+                    }
+
+                    inPageIndex = 0;
+                }
+
+                rowPosition++;
+
+                List<Object> row = getRowValues();
+                if (row != null) {
+                    // row is not skipped, return it
+                    return row;
+                }
+            }
+        }
+
+        @Nullable
+        private List<Object> getRowValues()
+        {
+            // types are present if data is present
+            List<ColumnAndType> columns = results.columns.orElseThrow();
+            Object[] row = new Object[currentPage.getChannelCount()];
+
+            for (int channel = 0; channel < currentPage.getChannelCount(); channel++) {
+                ColumnAndType column = columns.get(channel);
+                Type type = column.getType();
+                Block block = currentPage.getBlock(channel);
+
+                try {
+                    Object value = type.getObjectValue(results.session, block, inPageIndex);
+                    if (!results.supportsParametricDateTime) {
+                        value = getLegacyValue(value, type);
+                    }
+                    row[channel] = value;
+                }
+                catch (Throwable throwable) {
+                    propagateException(rowPosition, column, throwable);
+                    // skip row as it contains non-serializable value
+                    return null;
+                }
+            }
+
+            return unmodifiableList(Arrays.asList(row));
+        }
+
+        private Object getLegacyValue(Object value, Type type)
+        {
+            if (value == null) {
+                return null;
+            }
+
+            if (!results.supportsParametricDateTime) {
+                // for legacy clients we need to round timestamp and timestamp with timezone to default precision (3)
+
+                if (type instanceof TimestampType) {
+                    return ((SqlTimestamp) value).roundTo(3);
+                }
+
+                if (type instanceof TimestampWithTimeZoneType) {
+                    return ((SqlTimestampWithTimeZone) value).roundTo(3);
+                }
+
+                if (type instanceof TimeType) {
+                    return ((SqlTime) value).roundTo(3);
+                }
+            }
+
+            if (type instanceof ArrayType) {
+                Type elementType = ((ArrayType) type).getElementType();
+
+                if (!(elementType instanceof TimestampType || elementType instanceof TimestampWithTimeZoneType)) {
+                    return value;
+                }
+
+                List<Object> listValue = (List<Object>) value;
+                List<Object> legacyValues = new ArrayList<>(listValue.size());
+                for (Object element : listValue) {
+                    legacyValues.add(getLegacyValue(element, elementType));
+                }
+
+                return unmodifiableList(legacyValues);
+            }
+
+            if (type instanceof MapType) {
+                Type keyType = ((MapType) type).getKeyType();
+                Type valueType = ((MapType) type).getValueType();
+
+                Map<Object, Object> mapValue = (Map<Object, Object>) value;
+                Map<Object, Object> result = Maps.newHashMapWithExpectedSize(mapValue.size());
+                mapValue.forEach((key, val) -> result.put(getLegacyValue(key, keyType), getLegacyValue(val, valueType)));
+                return unmodifiableMap(result);
+            }
+
+            if (type instanceof RowType) {
+                List<RowType.Field> fields = ((RowType) type).getFields();
+                List<Object> values = (List<Object>) value;
+
+                List<Object> result = new ArrayList<>(values.size());
+                for (int i = 0; i < values.size(); i++) {
+                    result.add(getLegacyValue(values.get(i), fields.get(i).getType()));
+                }
+                return unmodifiableList(result);
+            }
+
+            return value;
+        }
+
+        private void propagateException(int row, ColumnAndType column, Throwable cause)
+        {
+            // columns and rows are 0-indexed
+            String message = format("Could not serialize column '%s' of type '%s' at position %d:%d",
+                    column.getColumn().getName(),
+                    column.getType(),
+                    row + 1,
+                    column.getPosition() + 1);
+
+            results.exceptionConsumer.ifPresent(consumer -> consumer.accept(new TrinoException(SERIALIZATION_ERROR, message, cause)));
         }
     }
 }

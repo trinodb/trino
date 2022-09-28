@@ -13,25 +13,15 @@
  */
 package io.trino.plugin.kinesis;
 
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.trino.decoder.DecoderModule;
 import io.trino.plugin.kinesis.s3config.S3TableConfigClient;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
-import io.trino.spi.type.TypeManager;
 
-import javax.inject.Inject;
-
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
-import static java.util.Objects.requireNonNull;
 
 public class KinesisModule
         implements Module
@@ -50,7 +40,6 @@ public class KinesisModule
 
         configBinder(binder).bindConfig(KinesisConfig.class);
 
-        jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonCodecBinder(binder).bindJsonCodec(KinesisStreamDescription.class);
 
         binder.install(new DecoderModule());
@@ -64,26 +53,5 @@ public class KinesisModule
     {
         Multibinder<KinesisInternalFieldDescription> fieldDescriptionBinder = Multibinder.newSetBinder(binder, KinesisInternalFieldDescription.class);
         fieldDescriptionBinder.addBinding().toInstance(fieldDescription);
-    }
-
-    public static final class TypeDeserializer
-            extends FromStringDeserializer<Type>
-    {
-        private final TypeManager typeManager;
-
-        @Inject
-        public TypeDeserializer(TypeManager typeManager)
-        {
-            super(Type.class);
-            this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        }
-
-        @Override
-        protected Type _deserialize(String value, DeserializationContext context)
-        {
-            Type type = typeManager.getType(TypeId.of(value));
-            checkArgument(type != null, "Unknown type %s", value);
-            return type;
-        }
     }
 }

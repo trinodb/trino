@@ -14,8 +14,8 @@
 package io.trino.parquet.writer;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.parquet.writer.repdef.DefLevelIterable;
-import io.trino.parquet.writer.repdef.DefLevelIterables;
+import io.trino.parquet.writer.repdef.DefLevelWriterProvider;
+import io.trino.parquet.writer.repdef.DefLevelWriterProviders;
 import io.trino.parquet.writer.repdef.RepLevelIterable;
 import io.trino.parquet.writer.repdef.RepLevelIterables;
 import io.trino.spi.block.ColumnarArray;
@@ -49,9 +49,9 @@ public class ArrayColumnWriter
         ColumnarArray columnarArray = ColumnarArray.toColumnarArray(columnChunk.getBlock());
         elementWriter.writeBlock(
                 new ColumnChunk(columnarArray.getElementsBlock(),
-                        ImmutableList.<DefLevelIterable>builder()
-                                .addAll(columnChunk.getDefLevelIterables())
-                                .add(DefLevelIterables.of(columnarArray, maxDefinitionLevel))
+                        ImmutableList.<DefLevelWriterProvider>builder()
+                                .addAll(columnChunk.getDefLevelWriterProviders())
+                                .add(DefLevelWriterProviders.of(columnarArray, maxDefinitionLevel))
                                 .build(),
                         ImmutableList.<RepLevelIterable>builder()
                                 .addAll(columnChunk.getRepLevelIterables())
@@ -82,11 +82,5 @@ public class ArrayColumnWriter
     public long getRetainedBytes()
     {
         return INSTANCE_SIZE + elementWriter.getRetainedBytes();
-    }
-
-    @Override
-    public void reset()
-    {
-        elementWriter.reset();
     }
 }

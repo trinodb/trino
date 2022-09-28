@@ -13,10 +13,9 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.units.DataSize;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -24,72 +23,210 @@ import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 
+import javax.annotation.concurrent.GuardedBy;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.trino.spi.predicate.TupleDomain.columnWiseUnion;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
 public class LocalDynamicFilterConsumer
+        implements DynamicFilterSourceConsumer
 {
     // Mapping from dynamic filter ID to its build channel indices.
     private final Map<DynamicFilterId, Integer> buildChannels;
-
     // Mapping from dynamic filter ID to its build channel type.
     private final Map<DynamicFilterId, Type> filterBuildTypes;
+    private final List<Consumer<Map<DynamicFilterId, Domain>>> collectors;
+    private final long domainSizeLimitInBytes;
 
-    private final SettableFuture<TupleDomain<DynamicFilterId>> resultFuture;
+    // Number of build-side partitions to be collected, must be provided by setPartitionCount
+    @GuardedBy("this")
+    private Integer expectedPartitionCount;
+    @GuardedBy("this")
+    private int collectedPartitionCount;
+    @GuardedBy("this")
+    private volatile boolean collected;
 
-    // Number of build-side partitions to be collected.
-    private final int partitionCount;
+    private final Queue<TupleDomain<DynamicFilterId>> summaryDomains = new ConcurrentLinkedQueue<>();
+    private final AtomicLong summaryDomainsRetainedSizeInBytes = new AtomicLong();
 
-    // The resulting predicates from each build-side partition.
-    private final List<TupleDomain<DynamicFilterId>> partitions;
-
-    public LocalDynamicFilterConsumer(Map<DynamicFilterId, Integer> buildChannels, Map<DynamicFilterId, Type> filterBuildTypes, int partitionCount)
+    public LocalDynamicFilterConsumer(Map<DynamicFilterId, Integer> buildChannels, Map<DynamicFilterId, Type> filterBuildTypes, List<Consumer<Map<DynamicFilterId, Domain>>> collectors, DataSize domainSizeLimit)
     {
         this.buildChannels = requireNonNull(buildChannels, "buildChannels is null");
         this.filterBuildTypes = requireNonNull(filterBuildTypes, "filterBuildTypes is null");
         verify(buildChannels.keySet().equals(filterBuildTypes.keySet()), "filterBuildTypes and buildChannels must have same keys");
-
-        this.resultFuture = SettableFuture.create();
-
-        this.partitionCount = partitionCount;
-        this.partitions = new ArrayList<>(partitionCount);
+        requireNonNull(collectors, "collectors is null");
+        checkArgument(!collectors.isEmpty(), "collectors is empty");
+        this.collectors = ImmutableList.copyOf(collectors);
+        this.domainSizeLimitInBytes = domainSizeLimit.toBytes();
     }
 
-    public ListenableFuture<Map<DynamicFilterId, Domain>> getDynamicFilterDomains()
+    @Override
+    public void addPartition(TupleDomain<DynamicFilterId> domain)
     {
-        return Futures.transform(resultFuture, this::convertTupleDomain, directExecutor());
-    }
+        if (collected) {
+            return;
+        }
 
-    private void addPartition(TupleDomain<DynamicFilterId> tupleDomain)
-    {
-        TupleDomain<DynamicFilterId> result = null;
+        long domainRetainedSizeInBytes = getRetainedSizeInBytes(domain);
+        summaryDomainsRetainedSizeInBytes.addAndGet(domainRetainedSizeInBytes);
+        summaryDomains.add(domain);
+        // Operators collecting dynamic filters tend to finish all at the same time
+        // when filters are collected right before the HashBuilderOperator.
+        // To avoid multiple task executor threads being blocked on waiting
+        // for each other when collecting the filters run the heavy union operation
+        // outside the lock.
+        unionSummaryDomainsIfNecessary(false);
+
+        TupleDomain<DynamicFilterId> result;
         synchronized (this) {
-            // Called concurrently by each DynamicFilterSourceOperator instance (when collection is over).
-            verify(partitions.size() < partitionCount);
-            // NOTE: may result in a bit more relaxed constraint if there are multiple columns and multiple rows.
-            // See the comment at TupleDomain::columnWiseUnion() for more details.
-            partitions.add(tupleDomain);
-            if (partitions.size() == partitionCount || tupleDomain.isAll()) {
-                // No more partitions are left to be processed.
-                result = TupleDomain.columnWiseUnion(partitions);
+            verify(expectedPartitionCount == null || collectedPartitionCount < expectedPartitionCount);
+
+            if (collected) {
+                clearSummaryDomains();
+                return;
             }
+            collectedPartitionCount++;
+
+            boolean allPartitionsCollected = expectedPartitionCount != null && collectedPartitionCount == expectedPartitionCount;
+            if (allPartitionsCollected) {
+                // run final compaction as previous concurrent compactions may have left more than a single domain
+                unionSummaryDomainsIfNecessary(true);
+            }
+
+            boolean sizeLimitExceeded = false;
+            TupleDomain<DynamicFilterId> summary = summaryDomains.poll();
+            // summary can be null as another concurrent summary compaction may be running
+            if (summary != null) {
+                long originalSize = getRetainedSizeInBytes(summary);
+                if (originalSize > domainSizeLimitInBytes) {
+                    summary = summary.simplify(1);
+                }
+                if (getRetainedSizeInBytes(summary) > domainSizeLimitInBytes) {
+                    summaryDomainsRetainedSizeInBytes.addAndGet(-originalSize);
+                    sizeLimitExceeded = true;
+                }
+                else {
+                    summaryDomainsRetainedSizeInBytes.addAndGet(getRetainedSizeInBytes(summary) - originalSize);
+                    summaryDomains.add(summary);
+                }
+            }
+
+            if (!allPartitionsCollected && !sizeLimitExceeded && !domain.isAll()) {
+                return;
+            }
+
+            if (sizeLimitExceeded || domain.isAll()) {
+                clearSummaryDomains();
+                result = TupleDomain.all();
+            }
+            else {
+                verify(expectedPartitionCount != null && collectedPartitionCount == expectedPartitionCount);
+                verify(summaryDomains.size() == 1);
+                result = summaryDomains.poll();
+                verify(result != null);
+                long currentSize = summaryDomainsRetainedSizeInBytes.addAndGet(-getRetainedSizeInBytes(result));
+                verify(currentSize == 0, "currentSize is expected to be zero: %s", currentSize);
+            }
+            collected = true;
         }
 
-        if (result != null) {
-            resultFuture.set(result);
+        collectors.forEach(collector -> collector.accept(convertTupleDomain(result)));
+    }
+
+    @Override
+    public void setPartitionCount(int partitionCount)
+    {
+        TupleDomain<DynamicFilterId> result;
+        synchronized (this) {
+            if (collected) {
+                return;
+            }
+            checkState(expectedPartitionCount == null, "setPartitionCount should be called only once");
+            expectedPartitionCount = partitionCount;
+            if (collectedPartitionCount < expectedPartitionCount) {
+                return;
+            }
+            if (partitionCount == 0) {
+                result = TupleDomain.none();
+            }
+            else {
+                // run final compaction as previous concurrent compactions may have left more than a single domain
+                unionSummaryDomainsIfNecessary(true);
+                verify(summaryDomains.size() == 1);
+                result = summaryDomains.poll();
+                verify(result != null);
+                long currentSize = summaryDomainsRetainedSizeInBytes.addAndGet(-getRetainedSizeInBytes(result));
+                verify(currentSize == 0, "currentSize is expected to be zero: %s", currentSize);
+            }
+            collected = true;
         }
+
+        collectors.forEach(collector -> collector.accept(convertTupleDomain(result)));
+    }
+
+    private void unionSummaryDomainsIfNecessary(boolean force)
+    {
+        if (summaryDomainsRetainedSizeInBytes.get() < domainSizeLimitInBytes && !force) {
+            return;
+        }
+
+        List<TupleDomain<DynamicFilterId>> domains = new ArrayList<>();
+        long domainsRetainedSizeInBytes = 0;
+        while (true) {
+            TupleDomain<DynamicFilterId> domain = summaryDomains.poll();
+            if (domain == null) {
+                break;
+            }
+            domains.add(domain);
+            domainsRetainedSizeInBytes += getRetainedSizeInBytes(domain);
+        }
+
+        if (domains.isEmpty()) {
+            return;
+        }
+
+        TupleDomain<DynamicFilterId> union = columnWiseUnion(domains);
+        summaryDomainsRetainedSizeInBytes.addAndGet(getRetainedSizeInBytes(union) - domainsRetainedSizeInBytes);
+        long currentSize = summaryDomainsRetainedSizeInBytes.get();
+        verify(currentSize >= 0, "currentSize is expected to be greater than or equal to zero: %s", currentSize);
+        summaryDomains.add(union);
+    }
+
+    @Override
+    public synchronized boolean isDomainCollectionComplete()
+    {
+        return collected;
+    }
+
+    private void clearSummaryDomains()
+    {
+        long domainsRetainedSizeInBytes = 0;
+        while (true) {
+            TupleDomain<DynamicFilterId> domain = summaryDomains.poll();
+            if (domain == null) {
+                break;
+            }
+            domainsRetainedSizeInBytes += getRetainedSizeInBytes(domain);
+        }
+        summaryDomainsRetainedSizeInBytes.addAndGet(-domainsRetainedSizeInBytes);
+        long currentSize = summaryDomainsRetainedSizeInBytes.get();
+        verify(currentSize >= 0, "currentSize is expected to be greater than or equal to zero: %s", currentSize);
     }
 
     private Map<DynamicFilterId, Domain> convertTupleDomain(TupleDomain<DynamicFilterId> result)
@@ -109,8 +246,9 @@ public class LocalDynamicFilterConsumer
     public static LocalDynamicFilterConsumer create(
             JoinNode planNode,
             List<Type> buildSourceTypes,
-            int partitionCount,
-            Set<DynamicFilterId> collectedFilters)
+            Set<DynamicFilterId> collectedFilters,
+            List<Consumer<Map<DynamicFilterId, Domain>>> collectors,
+            DataSize domainSizeLimit)
     {
         checkArgument(!planNode.getDynamicFilters().isEmpty(), "Join node dynamicFilters is empty.");
         checkArgument(!collectedFilters.isEmpty(), "Collected dynamic filters set is empty");
@@ -134,7 +272,7 @@ public class LocalDynamicFilterConsumer
                 .collect(toImmutableMap(
                         Map.Entry::getKey,
                         entry -> buildSourceTypes.get(entry.getValue())));
-        return new LocalDynamicFilterConsumer(buildChannels, filterBuildTypes, partitionCount);
+        return new LocalDynamicFilterConsumer(buildChannels, filterBuildTypes, collectors, domainSizeLimit);
     }
 
     public Map<DynamicFilterId, Integer> getBuildChannels()
@@ -142,18 +280,23 @@ public class LocalDynamicFilterConsumer
         return buildChannels;
     }
 
-    public Consumer<TupleDomain<DynamicFilterId>> getTupleDomainConsumer()
-    {
-        return this::addPartition;
-    }
-
     @Override
-    public String toString()
+    public synchronized String toString()
     {
         return toStringHelper(this)
                 .add("buildChannels", buildChannels)
-                .add("partitionCount", partitionCount)
-                .add("partitions", partitions)
+                .add("filterBuildTypes", filterBuildTypes)
+                .add("domainSizeLimitInBytes", domainSizeLimitInBytes)
+                .add("expectedPartitionCount", expectedPartitionCount)
+                .add("collectedPartitionCount", collectedPartitionCount)
+                .add("collected", collected)
+                .add("summaryDomains", summaryDomains)
+                .add("summaryDomainsRetainedSizeInBytes", summaryDomainsRetainedSizeInBytes)
                 .toString();
+    }
+
+    private static long getRetainedSizeInBytes(TupleDomain<DynamicFilterId> summary)
+    {
+        return summary.getRetainedSizeInBytes(DynamicFilterId::getRetainedSizeInBytes);
     }
 }

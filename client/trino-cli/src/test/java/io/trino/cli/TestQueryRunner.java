@@ -14,8 +14,6 @@
 package io.trino.cli;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
@@ -23,6 +21,7 @@ import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
 import io.trino.client.QueryResults;
 import io.trino.client.StatementStats;
+import okhttp3.logging.HttpLoggingInterceptor;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.testng.annotations.AfterMethod;
@@ -43,6 +42,7 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.cli.ClientOptions.OutputFormat.CSV;
 import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.client.ClientStandardTypes.BIGINT;
+import static io.trino.client.auth.external.ExternalRedirectStrategy.PRINT;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -100,27 +100,19 @@ public class TestQueryRunner
 
     static ClientSession createClientSession(MockWebServer server)
     {
-        return new ClientSession(
-                server.url("/").uri(),
-                "user",
-                Optional.empty(),
-                "source",
-                Optional.empty(),
-                ImmutableSet.of(),
-                "clientInfo",
-                "catalog",
-                "schema",
-                "path",
-                ZoneId.of("America/Los_Angeles"),
-                Locale.ENGLISH,
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                null,
-                new Duration(2, MINUTES),
-                true);
+        return ClientSession.builder()
+                .server(server.url("/").uri())
+                .principal(Optional.of("user"))
+                .source("source")
+                .clientInfo("clientInfo")
+                .catalog("catalog")
+                .schema("schema")
+                .timeZone(ZoneId.of("America/Los_Angeles"))
+                .locale(Locale.ENGLISH)
+                .transactionId(null)
+                .clientRequestTimeout(new Duration(2, MINUTES))
+                .compressionDisabled(true)
+                .build();
     }
 
     static String createResults(MockWebServer server)
@@ -146,6 +138,7 @@ public class TestQueryRunner
         return new QueryRunner(
                 clientSession,
                 false,
+                HttpLoggingInterceptor.Level.NONE,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -154,6 +147,7 @@ public class TestQueryRunner
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                false,
                 insecureSsl,
                 Optional.empty(),
                 Optional.empty(),
@@ -165,7 +159,9 @@ public class TestQueryRunner
                 Optional.empty(),
                 Optional.empty(),
                 false,
-                false);
+                false,
+                false,
+                ImmutableList.of(PRINT));
     }
 
     static PrintStream nullPrintStream()

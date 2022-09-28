@@ -35,7 +35,7 @@ public class CreateAsSelectDataSetup
     }
 
     @Override
-    public TestTable setupTestTable(List<ColumnSetup> inputs)
+    public TestTable setupTemporaryRelation(List<ColumnSetup> inputs)
     {
         List<String> columnValues = inputs.stream()
                 .map(this::format)

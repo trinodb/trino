@@ -15,13 +15,7 @@ package io.trino.sql.planner;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import io.trino.Session;
-import io.trino.execution.scheduler.NodeScheduler;
-import io.trino.execution.scheduler.NodeSelector;
-import io.trino.metadata.InternalNode;
 import io.trino.operator.BucketPartitionFunction;
-import io.trino.operator.HashGenerator;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.PrecomputedHashGenerator;
@@ -37,15 +31,12 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.SystemSessionProperties.getHashPartitionCount;
-import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
-import static io.trino.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
 
 public final class SystemPartitioningHandle
         implements ConnectorPartitioningHandle
 {
-    private enum SystemPartitioning
+    enum SystemPartitioning
     {
         SINGLE,
         FIXED,
@@ -94,6 +85,11 @@ public final class SystemPartitioningHandle
         return function;
     }
 
+    public String getPartitioningName()
+    {
+        return partitioning.name();
+    }
+
     @Override
     public boolean isSingleNode()
     {
@@ -135,32 +131,6 @@ public final class SystemPartitioningHandle
         return partitioning.toString();
     }
 
-    public NodePartitionMap getNodePartitionMap(Session session, NodeScheduler nodeScheduler)
-    {
-        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, Optional.empty());
-        List<InternalNode> nodes;
-
-        switch (partitioning) {
-            case COORDINATOR_ONLY:
-                nodes = ImmutableList.of(nodeSelector.selectCurrentNode());
-                break;
-            case SINGLE:
-                nodes = nodeSelector.selectRandomNodes(1);
-                break;
-            case FIXED:
-                nodes = nodeSelector.selectRandomNodes(getHashPartitionCount(session));
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported plan distribution " + partitioning);
-        }
-
-        checkCondition(!nodes.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
-
-        return new NodePartitionMap(nodes, split -> {
-            throw new UnsupportedOperationException("System distribution does not support source splits");
-        });
-    }
-
     public PartitionFunction getPartitionFunction(List<Type> partitionChannelTypes, boolean isHashPrecomputed, int[] bucketToPartition, BlockTypeOperators blockTypeOperators)
     {
         requireNonNull(partitionChannelTypes, "partitionChannelTypes is null");
@@ -187,12 +157,8 @@ public final class SystemPartitioningHandle
                 if (isHashPrecomputed) {
                     return new HashBucketFunction(new PrecomputedHashGenerator(0), bucketCount);
                 }
-                int[] hashChannels = new int[partitionChannelTypes.size()];
-                for (int i = 0; i < partitionChannelTypes.size(); i++) {
-                    hashChannels[i] = i;
-                }
 
-                return new HashBucketFunction(new InterpretedHashGenerator(partitionChannelTypes, hashChannels, blockTypeOperators), bucketCount);
+                return new HashBucketFunction(InterpretedHashGenerator.createPositionalWithTypes(partitionChannelTypes, blockTypeOperators), bucketCount);
             }
         },
         ROUND_ROBIN {
@@ -232,7 +198,7 @@ public final class SystemPartitioningHandle
             }
         }
 
-        private static class RoundRobinBucketFunction
+        public static class RoundRobinBucketFunction
                 implements BucketFunction
         {
             private final int bucketCount;
@@ -256,35 +222,6 @@ public final class SystemPartitioningHandle
             public String toString()
             {
                 return toStringHelper(this)
-                        .add("bucketCount", bucketCount)
-                        .toString();
-            }
-        }
-
-        private static class HashBucketFunction
-                implements BucketFunction
-        {
-            private final HashGenerator generator;
-            private final int bucketCount;
-
-            public HashBucketFunction(HashGenerator generator, int bucketCount)
-            {
-                checkArgument(bucketCount > 0, "partitionCount must be at least 1");
-                this.generator = generator;
-                this.bucketCount = bucketCount;
-            }
-
-            @Override
-            public int getBucket(Page page, int position)
-            {
-                return generator.getPartition(bucketCount, position, page);
-            }
-
-            @Override
-            public String toString()
-            {
-                return toStringHelper(this)
-                        .add("generator", generator)
                         .add("bucketCount", bucketCount)
                         .toString();
             }

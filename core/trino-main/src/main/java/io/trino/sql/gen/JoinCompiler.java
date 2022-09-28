@@ -15,7 +15,6 @@ package io.trino.sql.gen;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
@@ -34,20 +33,25 @@ import io.airlift.bytecode.expression.BytecodeExpressions;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.jmx.CacheStatsMBean;
 import io.trino.Session;
+import io.trino.collect.cache.NonEvictableLoadingCache;
+import io.trino.operator.HashArraySizeSupplier;
 import io.trino.operator.PagesHashStrategy;
+import io.trino.operator.join.BigintPagesHash;
+import io.trino.operator.join.DefaultPagesHash;
 import io.trino.operator.join.JoinHash;
 import io.trino.operator.join.JoinHashSupplier;
 import io.trino.operator.join.LookupSourceSupplier;
 import io.trino.operator.join.PagesHash;
+import io.trino.operator.join.unspilled.PartitionedLookupSource;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import org.assertj.core.util.VisibleForTesting;
 import org.openjdk.jol.info.ClassLayout;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -64,6 +68,7 @@ import java.util.OptionalInt;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.PUBLIC;
@@ -80,10 +85,12 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.getStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.notEqual;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.util.CompilerUtils.defineClass;
@@ -93,23 +100,33 @@ import static java.util.Objects.requireNonNull;
 public class JoinCompiler
 {
     private final TypeOperators typeOperators;
+    private final boolean enableSingleChannelBigintLookupSource;
 
-    private final LoadingCache<CacheKey, LookupSourceSupplierFactory> lookupSourceFactories = CacheBuilder.newBuilder()
-            .recordStats()
-            .maximumSize(1000)
-            .build(CacheLoader.from(key ->
+    private final NonEvictableLoadingCache<CacheKey, LookupSourceSupplierFactory> lookupSourceFactories = buildNonEvictableCache(
+            CacheBuilder.newBuilder()
+                    .recordStats()
+                    .maximumSize(1000),
+            CacheLoader.from(key ->
                     internalCompileLookupSourceFactory(key.getTypes(), key.getOutputChannels(), key.getJoinChannels(), key.getSortChannel())));
 
-    private final LoadingCache<CacheKey, Class<? extends PagesHashStrategy>> hashStrategies = CacheBuilder.newBuilder()
-            .recordStats()
-            .maximumSize(1000)
-            .build(CacheLoader.from(key ->
+    private final NonEvictableLoadingCache<CacheKey, Class<? extends PagesHashStrategy>> hashStrategies = buildNonEvictableCache(
+            CacheBuilder.newBuilder()
+                    .recordStats()
+                    .maximumSize(1000),
+            CacheLoader.from(key ->
                     internalCompileHashStrategy(key.getTypes(), key.getOutputChannels(), key.getJoinChannels(), key.getSortChannel())));
 
     @Inject
     public JoinCompiler(TypeOperators typeOperators)
     {
+        this(typeOperators, true);
+    }
+
+    @VisibleForTesting
+    public JoinCompiler(TypeOperators typeOperators, boolean enableSingleChannelBigintLookupSource)
+    {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+        this.enableSingleChannelBigintLookupSource = enableSingleChannelBigintLookupSource;
     }
 
     @Managed
@@ -164,14 +181,23 @@ public class JoinCompiler
     {
         Class<? extends PagesHashStrategy> pagesHashStrategyClass = internalCompileHashStrategy(types, outputChannels, joinChannels, sortChannel);
 
+        OptionalInt singleBigintJoinChannel = OptionalInt.empty();
+        if (enableSingleChannelBigintLookupSource
+                && joinChannels.size() == 1
+                && types.get(getOnlyElement(joinChannels)) == BIGINT) {
+            singleBigintJoinChannel = OptionalInt.of(getOnlyElement(joinChannels));
+        }
+
         Class<? extends LookupSourceSupplier> joinHashSupplierClass = IsolatedClass.isolateClass(
                 new DynamicClassLoader(getClass().getClassLoader()),
                 LookupSourceSupplier.class,
                 JoinHashSupplier.class,
                 JoinHash.class,
-                PagesHash.class);
-
-        return new LookupSourceSupplierFactory(joinHashSupplierClass, new PagesHashStrategyFactory(pagesHashStrategyClass));
+                PagesHash.class,
+                BigintPagesHash.class,
+                DefaultPagesHash.class,
+                PartitionedLookupSource.class);
+        return new LookupSourceSupplierFactory(joinHashSupplierClass, new PagesHashStrategyFactory(pagesHashStrategyClass), singleBigintJoinChannel);
     }
 
     private static FieldDefinition generateInstanceSize(ClassDefinition definition)
@@ -316,9 +342,9 @@ public class JoinCompiler
     private static void generateGetChannelCountMethod(ClassDefinition classDefinition, int outputChannelCount)
     {
         classDefinition.declareMethod(
-                a(PUBLIC),
-                "getChannelCount",
-                type(int.class))
+                        a(PUBLIC),
+                        "getChannelCount",
+                        type(int.class))
                 .getBody()
                 .push(outputChannelCount)
                 .retInt();
@@ -415,16 +441,16 @@ public class JoinCompiler
 
         Variable thisVariable = hashPositionMethod.getThis();
         BytecodeExpression hashChannel = thisVariable.getField(hashChannelField);
-        BytecodeExpression bigintType = constantType(callSiteBinder, BigintType.BIGINT);
+        BytecodeExpression bigintType = constantType(callSiteBinder, BIGINT);
 
         IfStatement ifStatement = new IfStatement();
         ifStatement.condition(notEqual(hashChannel, constantNull(hashChannelField.getType())));
         ifStatement.ifTrue(
                 bigintType.invoke(
-                        "getLong",
-                        long.class,
-                        hashChannel.invoke("get", Object.class, blockIndex).cast(Block.class),
-                        blockPosition)
+                                "getLong",
+                                long.class,
+                                hashChannel.invoke("get", Object.class, blockIndex).cast(Block.class),
+                                blockPosition)
                         .ret());
 
         hashPositionMethod
@@ -916,7 +942,8 @@ public class JoinCompiler
                 .invoke("get", Object.class, rightBlockIndex)
                 .cast(Block.class);
 
-        MethodHandle comparisonOperator = typeOperators.getComparisonOperator(types.get(index), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+        // choice of placing unordered values first or last does not matter for this code
+        MethodHandle comparisonOperator = typeOperators.getComparisonUnorderedLastOperator(types.get(index), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
         BytecodeNode comparison = invokeDynamic(
                 BOOTSTRAP_METHOD,
                 ImmutableList.of(callSiteBinder.bind(comparisonOperator).getBindingId()),
@@ -1014,16 +1041,18 @@ public class JoinCompiler
     {
         private final Constructor<? extends LookupSourceSupplier> constructor;
         private final PagesHashStrategyFactory pagesHashStrategyFactory;
+        private final OptionalInt singleBigintJoinChannel;
 
-        public LookupSourceSupplierFactory(Class<? extends LookupSourceSupplier> joinHashSupplierClass, PagesHashStrategyFactory pagesHashStrategyFactory)
+        public LookupSourceSupplierFactory(Class<? extends LookupSourceSupplier> joinHashSupplierClass, PagesHashStrategyFactory pagesHashStrategyFactory, OptionalInt singleBigintJoinChannel)
         {
             this.pagesHashStrategyFactory = pagesHashStrategyFactory;
             try {
-                constructor = joinHashSupplierClass.getConstructor(Session.class, PagesHashStrategy.class, LongArrayList.class, List.class, Optional.class, Optional.class, List.class);
+                constructor = joinHashSupplierClass.getConstructor(Session.class, PagesHashStrategy.class, LongArrayList.class, List.class, Optional.class, Optional.class, List.class, HashArraySizeSupplier.class, OptionalInt.class);
             }
             catch (NoSuchMethodException e) {
                 throw new RuntimeException(e);
             }
+            this.singleBigintJoinChannel = requireNonNull(singleBigintJoinChannel, "singleBigintJoinChannel is null");
         }
 
         public LookupSourceSupplier createLookupSourceSupplier(
@@ -1033,11 +1062,12 @@ public class JoinCompiler
                 OptionalInt hashChannel,
                 Optional<JoinFilterFunctionFactory> filterFunctionFactory,
                 Optional<Integer> sortChannel,
-                List<JoinFilterFunctionFactory> searchFunctionFactories)
+                List<JoinFilterFunctionFactory> searchFunctionFactories,
+                HashArraySizeSupplier hashArraySizeSupplier)
         {
             PagesHashStrategy pagesHashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
             try {
-                return constructor.newInstance(session, pagesHashStrategy, addresses, channels, filterFunctionFactory, sortChannel, searchFunctionFactories);
+                return constructor.newInstance(session, pagesHashStrategy, addresses, channels, filterFunctionFactory, sortChannel, searchFunctionFactories, hashArraySizeSupplier, singleBigintJoinChannel);
             }
             catch (ReflectiveOperationException e) {
                 throw new RuntimeException(e);

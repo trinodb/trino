@@ -14,11 +14,14 @@
 package io.trino.execution;
 
 import io.trino.spi.QueryId;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
+import java.time.LocalDateTime;
+
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 
 public class TestQueryIdGenerator
@@ -28,7 +31,7 @@ public class TestQueryIdGenerator
     {
         TestIdGenerator idGenerator = new TestIdGenerator();
 
-        long millis = new DateTime(2001, 7, 14, 1, 2, 3, 4, DateTimeZone.UTC).getMillis();
+        long millis = epochMillis(2001, 7, 14, 1, 2, 3, 4);
         idGenerator.setNow(millis);
 
         // generate ids to 99,999
@@ -43,19 +46,40 @@ public class TestQueryIdGenerator
             assertEquals(idGenerator.createNextQueryId(), new QueryId(format("20010714_010204_%05d_%s", i, idGenerator.getCoordinatorId())));
         }
 
-        // more forward one more second and generate 100 ids
+        // move forward one more second and generate 100 ids
         millis += 1000;
         idGenerator.setNow(millis);
         for (int i = 0; i < 100; i++) {
             assertEquals(idGenerator.createNextQueryId(), new QueryId(format("20010714_010205_%05d_%s", i, idGenerator.getCoordinatorId())));
         }
 
-        // now we move to the start of the next day, and the counter should reset
-        millis = new DateTime(2001, 7, 15, 0, 0, 0, 0, DateTimeZone.UTC).getMillis();
+        // move forward one more second and verify counter not reset
+        millis += 1000;
         idGenerator.setNow(millis);
-        for (int i = 0; i < 100_000; i++) {
+        for (int i = 100; i < 200; i++) {
+            assertEquals(idGenerator.createNextQueryId(), new QueryId(format("20010714_010206_%05d_%s", i, idGenerator.getCoordinatorId())));
+        }
+
+        // now we move to the start of the next day, and the counter should reset
+        millis = epochMillis(2001, 7, 15, 0, 0, 0, 0);
+        idGenerator.setNow(millis);
+        for (int i = 0; i < 90_123; i++) {
             assertEquals(idGenerator.createNextQueryId(), new QueryId(format("20010715_000000_%05d_%s", i, idGenerator.getCoordinatorId())));
         }
+
+        // moving forward one second with counter close to the limit causes it to roll
+        millis += 1000;
+        idGenerator.setNow(millis);
+        for (int i = 0; i < 100_000; i++) {
+            assertEquals(idGenerator.createNextQueryId(), new QueryId(format("20010715_000001_%05d_%s", i, idGenerator.getCoordinatorId())));
+        }
+    }
+
+    private static long epochMillis(int year, int month, int day, int hour, int minute, int second, int milli)
+    {
+        int nano = toIntExact(MILLISECONDS.toNanos(milli));
+        LocalDateTime dateTime = LocalDateTime.of(year, month, day, hour, minute, second, nano);
+        return dateTime.toInstant(UTC).toEpochMilli();
     }
 
     private static class TestIdGenerator

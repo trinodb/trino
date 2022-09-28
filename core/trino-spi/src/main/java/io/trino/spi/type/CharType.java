@@ -29,7 +29,7 @@ import java.util.Objects;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.spi.function.OperatorType.COMPARISON;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.Chars.compareChars;
@@ -207,7 +207,7 @@ public final class CharType
         return block.hash(position, 0, block.getSliceLength(position));
     }
 
-    @ScalarOperator(COMPARISON)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(Slice left, Slice right)
     {
         return compareChars(left, right);

@@ -19,6 +19,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.math.LongMath;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
+import io.trino.plugin.base.aggregation.AggregateFunctionRule;
+import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.BooleanReadFunction;
@@ -29,6 +32,7 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcSortItem;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
@@ -36,28 +40,33 @@ import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.PredicatePushdownController;
+import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.ReadFunction;
+import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceReadFunction;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.plugin.jdbc.WriteMapping;
-import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
-import io.trino.plugin.jdbc.expression.AggregateFunctionRule;
-import io.trino.plugin.jdbc.expression.ImplementAvgDecimal;
-import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
-import io.trino.plugin.jdbc.expression.ImplementCorr;
-import io.trino.plugin.jdbc.expression.ImplementCount;
-import io.trino.plugin.jdbc.expression.ImplementCountAll;
-import io.trino.plugin.jdbc.expression.ImplementCovariancePop;
-import io.trino.plugin.jdbc.expression.ImplementCovarianceSamp;
-import io.trino.plugin.jdbc.expression.ImplementMinMax;
-import io.trino.plugin.jdbc.expression.ImplementRegrIntercept;
-import io.trino.plugin.jdbc.expression.ImplementRegrSlope;
-import io.trino.plugin.jdbc.expression.ImplementStddevPop;
-import io.trino.plugin.jdbc.expression.ImplementStddevSamp;
-import io.trino.plugin.jdbc.expression.ImplementSum;
-import io.trino.plugin.jdbc.expression.ImplementVariancePop;
-import io.trino.plugin.jdbc.expression.ImplementVarianceSamp;
+import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
+import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
+import io.trino.plugin.jdbc.aggregation.ImplementCorr;
+import io.trino.plugin.jdbc.aggregation.ImplementCount;
+import io.trino.plugin.jdbc.aggregation.ImplementCountAll;
+import io.trino.plugin.jdbc.aggregation.ImplementCountDistinct;
+import io.trino.plugin.jdbc.aggregation.ImplementCovariancePop;
+import io.trino.plugin.jdbc.aggregation.ImplementCovarianceSamp;
+import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
+import io.trino.plugin.jdbc.aggregation.ImplementRegrIntercept;
+import io.trino.plugin.jdbc.aggregation.ImplementRegrSlope;
+import io.trino.plugin.jdbc.aggregation.ImplementStddevPop;
+import io.trino.plugin.jdbc.aggregation.ImplementStddevSamp;
+import io.trino.plugin.jdbc.aggregation.ImplementSum;
+import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
+import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
+import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
+import io.trino.plugin.jdbc.expression.RewriteComparison;
+import io.trino.plugin.jdbc.expression.RewriteIn;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
 import io.trino.spi.TrinoException;
@@ -69,8 +78,15 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
+import io.trino.spi.connector.JoinStatistics;
+import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.statistics.ColumnStatistics;
+import io.trino.spi.statistics.Estimate;
+import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -86,6 +102,8 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
 import org.postgresql.core.TypeInfo;
 import org.postgresql.jdbc.PgConnection;
 
@@ -94,6 +112,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.sql.Array;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -110,15 +129,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.base.util.JsonTypeUtil.toJsonValue;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
@@ -126,6 +146,8 @@ import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDef
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.getDomainCompactionThreshold;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
@@ -134,8 +156,8 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMappingUsingLocalDate;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunctionUsingLocalDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
@@ -161,6 +183,7 @@ import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
 import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_JSON;
 import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.DISABLED;
 import static io.trino.plugin.postgresql.PostgreSqlSessionProperties.getArrayMapping;
+import static io.trino.plugin.postgresql.PostgreSqlSessionProperties.isEnableStringPushdownWithCollate;
 import static io.trino.plugin.postgresql.TypeUtils.arrayDepth;
 import static io.trino.plugin.postgresql.TypeUtils.getArrayElementPgTypeName;
 import static io.trino.plugin.postgresql.TypeUtils.getJdbcObjectArray;
@@ -193,16 +216,21 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
+import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.DatabaseMetaData.columnNoNulls;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 
 public class PostgreSqlClient
@@ -216,58 +244,88 @@ public class PostgreSqlClient
     private static final int ARRAY_RESULT_SET_VALUE_COLUMN = 2;
     private static final String DUPLICATE_TABLE_SQLSTATE = "42P07";
     private static final int POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION = 6;
+    private static final int PRECISION_OF_UNSPECIFIED_DECIMAL = 0;
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSS");
+
+    private static final PredicatePushdownController POSTGRESQL_STRING_COLLATION_AWARE_PUSHDOWN = (session, domain) -> {
+        if (domain.isOnlyNull()) {
+            return FULL_PUSHDOWN.apply(session, domain);
+        }
+
+        if (isEnableStringPushdownWithCollate(session)) {
+            return FULL_PUSHDOWN.apply(session, domain);
+        }
+
+        Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
+        if (!simplifiedDomain.getValues().isDiscreteSet()) {
+            // Domain#simplify can turn a discrete set into a range predicate
+            return DISABLE_PUSHDOWN.apply(session, domain);
+        }
+
+        return FULL_PUSHDOWN.apply(session, simplifiedDomain);
+    };
 
     private final Type jsonType;
     private final Type uuidType;
     private final MapType varcharMapType;
     private final List<String> tableTypes;
-    private final AggregateFunctionRewriter aggregateFunctionRewriter;
-
-    private static final PredicatePushdownController POSTGRESQL_CHARACTER_PUSHDOWN = (session, domain) -> {
-        checkArgument(
-                domain.getType() instanceof VarcharType || domain.getType() instanceof CharType,
-                "This PredicatePushdownController can be used only for chars and varchars");
-
-        if (domain.isOnlyNull() ||
-                // PostgreSQL is case sensitive by default
-                domain.getValues().isDiscreteSet()) {
-            return FULL_PUSHDOWN.apply(session, domain);
-        }
-
-        // PostgreSQL by default orders lowercase letters before uppercase, which is different from Trino
-        // TODO We could still push the predicates down if we could inject a PostgreSQL-specific syntax for selecting a collation for given comparison.
-        return DISABLE_PUSHDOWN.apply(session, domain);
-    };
+    private final boolean statisticsEnabled;
+    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
 
     @Inject
     public PostgreSqlClient(
             BaseJdbcConfig config,
             PostgreSqlConfig postgreSqlConfig,
+            JdbcStatisticsConfig statisticsConfig,
             ConnectionFactory connectionFactory,
+            QueryBuilder queryBuilder,
             TypeManager typeManager,
             IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory, identifierMapping);
+        super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
         this.jsonType = typeManager.getType(new TypeSignature(JSON));
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         this.varcharMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
 
         ImmutableList.Builder<String> tableTypes = ImmutableList.builder();
-        tableTypes.add("TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE");
+        tableTypes.add("TABLE", "PARTITIONED TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE");
         if (postgreSqlConfig.isIncludeSystemTables()) {
             tableTypes.add("SYSTEM TABLE", "SYSTEM VIEW");
         }
         this.tableTypes = tableTypes.build();
 
+        this.statisticsEnabled = statisticsConfig.isEnabled();
+
+        this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
+                .addStandardRules(this::quoted)
+                // TODO allow all comparison operators for numeric types
+                .add(new RewriteComparison(ImmutableSet.of(RewriteComparison.ComparisonOperator.EQUAL, RewriteComparison.ComparisonOperator.NOT_EQUAL)))
+                .add(new RewriteIn())
+                .withTypeClass("integer_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint"))
+                .map("$add(left: integer_type, right: integer_type)").to("left + right")
+                .map("$subtract(left: integer_type, right: integer_type)").to("left - right")
+                .map("$multiply(left: integer_type, right: integer_type)").to("left * right")
+                .map("$divide(left: integer_type, right: integer_type)").to("left / right")
+                .map("$modulus(left: integer_type, right: integer_type)").to("left % right")
+                .map("$negate(value: integer_type)").to("-value")
+                .map("$like(value: varchar, pattern: varchar): boolean").to("value LIKE pattern")
+                .map("$like(value: varchar, pattern: varchar, escape: varchar(1)): boolean").to("value LIKE pattern ESCAPE escape")
+                .map("$not($is_null(value))").to("value IS NOT NULL")
+                .map("$not(value: boolean)").to("NOT value")
+                .map("$is_null(value)").to("value IS NULL")
+                .map("$nullif(first, second)").to("NULLIF(first, second)")
+                .build();
+
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-        this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
-                this::quoted,
-                ImmutableSet.<AggregateFunctionRule>builder()
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
+                this.connectorExpressionRewriter,
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression, String>>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
+                        .add(new ImplementMinMax(false))
                         .add(new ImplementCount(bigintTypeHandle))
-                        .add(new ImplementMinMax())
+                        .add(new ImplementCountDistinct(bigintTypeHandle, false))
                         .add(new ImplementSum(PostgreSqlClient::toTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())
@@ -297,17 +355,29 @@ public class PostgreSqlClient
     }
 
     @Override
+    public Optional<String> getTableComment(ResultSet resultSet)
+    {
+        // Don't return a comment until the connector supports creating tables with comment
+        return Optional.empty();
+    }
+
+    @Override
     protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
         if (!schemaName.equals(newTable.getSchemaName())) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
 
-        String sql = format(
+        super.renameTable(session, catalogName, schemaName, tableName, newTable);
+    }
+
+    @Override
+    protected String renameTableSql(String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+    {
+        return format(
                 "ALTER TABLE %s RENAME TO %s",
-                quoted(catalogName, schemaName, tableName),
-                quoted(newTable.getTableName()));
-        execute(session, sql);
+                quoted(catalogName, remoteSchemaName, remoteTableName),
+                quoted(newRemoteTableName));
     }
 
     @Override
@@ -372,7 +442,7 @@ public class PostgreSqlClient
                         UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
                         verify(
                                 unsupportedTypeHandling == IGNORE,
-                                "Unsupported type handling is set to %s, but toTrinoType() returned empty for %s",
+                                "Unsupported type handling is set to %s, but toColumnMapping() returned empty for %s",
                                 unsupportedTypeHandling,
                                 typeHandle);
                     }
@@ -380,8 +450,8 @@ public class PostgreSqlClient
                 if (columns.isEmpty()) {
                     // A table may have no supported columns. In rare cases a table might have no columns at all.
                     throw new TableNotFoundException(
-                            tableHandle.getSchemaTableName(),
-                            format("Table '%s' has no supported columns (all %s columns are not supported)", tableHandle.getSchemaTableName(), allColumns));
+                            schemaTableName,
+                            format("Table '%s' has no supported columns (all %s columns are not supported)", schemaTableName, allColumns));
                 }
                 return ImmutableList.copyOf(columns);
             }
@@ -404,8 +474,9 @@ public class PostgreSqlClient
                 "AND tbl.relname = ? " +
                 "AND attyp.typcategory = 'A' ";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, tableHandle.getSchemaName());
-            statement.setString(2, tableHandle.getTableName());
+            RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
+            statement.setString(1, remoteTableName.getSchemaName().orElse(null));
+            statement.setString(2, remoteTableName.getTableName());
 
             Map<String, Integer> arrayColumnDimensions = new HashMap<>();
             try (ResultSet resultSet = statement.executeQuery()) {
@@ -465,11 +536,10 @@ public class PostgreSqlClient
             case Types.NUMERIC: {
                 int columnSize = typeHandle.getRequiredColumnSize();
                 int precision;
-                int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
+                int decimalDigits = typeHandle.getDecimalDigits().orElse(0);
                 if (getDecimalRounding(session) == ALLOW_OVERFLOW) {
-                    if (columnSize == 131089) {
+                    if (columnSize == PRECISION_OF_UNSPECIFIED_DECIMAL) {
                         // decimal type with unspecified scale - up to 131072 digits before the decimal point; up to 16383 digits after the decimal point)
-                        // 131089 = SELECT LENGTH(pow(10::numeric,131071)::varchar); 131071 = 2^17-1  (org.postgresql.jdbc.TypeInfoCache#getDisplaySize)
                         return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, getDecimalDefaultScale(session)), getDecimalRoundingMode(session)));
                     }
                     precision = columnSize;
@@ -479,7 +549,7 @@ public class PostgreSqlClient
                     }
                 }
                 precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
-                if (precision > Decimals.MAX_PRECISION) {
+                if (columnSize == PRECISION_OF_UNSPECIFIED_DECIMAL || precision > Decimals.MAX_PRECISION) {
                     break;
                 }
                 return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
@@ -499,7 +569,7 @@ public class PostgreSqlClient
                 return Optional.of(varbinaryColumnMapping());
 
             case Types.DATE:
-                return Optional.of(dateColumnMapping());
+                return Optional.of(dateColumnMappingUsingLocalDate());
 
             case Types.TIME:
                 return Optional.of(timeColumnMapping(typeHandle.getRequiredDecimalDigits()));
@@ -512,7 +582,7 @@ public class PostgreSqlClient
                         PostgreSqlClient::shortTimestampWriteFunction));
 
             case Types.ARRAY:
-                Optional<ColumnMapping> columnMapping = arrayToPrestoType(session, connection, typeHandle);
+                Optional<ColumnMapping> columnMapping = arrayToTrinoType(session, connection, typeHandle);
                 if (columnMapping.isPresent()) {
                     return columnMapping;
                 }
@@ -526,7 +596,7 @@ public class PostgreSqlClient
         return Optional.empty();
     }
 
-    private Optional<ColumnMapping> arrayToPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    private Optional<ColumnMapping> arrayToTrinoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         checkArgument(typeHandle.getJdbcType() == Types.ARRAY, "Not array type");
 
@@ -551,13 +621,13 @@ public class PostgreSqlClient
             }
             return baseElementMapping
                     .map(elementMapping -> {
-                        ArrayType prestoArrayType = new ArrayType(elementMapping.getType());
-                        ColumnMapping arrayColumnMapping = arrayColumnMapping(session, prestoArrayType, elementMapping, baseElementTypeName);
+                        ArrayType trinoArrayType = new ArrayType(elementMapping.getType());
+                        ColumnMapping arrayColumnMapping = arrayColumnMapping(session, trinoArrayType, elementMapping, baseElementTypeName);
 
                         int arrayDimensions = typeHandle.getArrayDimensions().get();
                         for (int i = 1; i < arrayDimensions; i++) {
-                            prestoArrayType = new ArrayType(prestoArrayType);
-                            arrayColumnMapping = arrayColumnMapping(session, prestoArrayType, arrayColumnMapping, baseElementTypeName);
+                            trinoArrayType = new ArrayType(trinoArrayType);
+                            arrayColumnMapping = arrayColumnMapping(session, trinoArrayType, arrayColumnMapping, baseElementTypeName);
                         }
                         return arrayColumnMapping;
                     });
@@ -597,21 +667,19 @@ public class PostgreSqlClient
             return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
         }
 
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
-            return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction(decimalType));
+            return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
 
         if (type instanceof CharType) {
             return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
         }
 
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
+        if (type instanceof VarcharType varcharType) {
             String dataType;
             if (varcharType.isUnbounded()) {
                 dataType = "varchar";
@@ -626,19 +694,17 @@ public class PostgreSqlClient
         }
 
         if (type == DATE) {
-            return WriteMapping.longMapping("date", dateWriteFunction());
+            return WriteMapping.longMapping("date", dateWriteFunctionUsingLocalDate());
         }
 
-        if (type instanceof TimeType) {
-            TimeType timeType = (TimeType) type;
+        if (type instanceof TimeType timeType) {
             if (timeType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
                 return WriteMapping.longMapping(format("time(%s)", timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
             }
             return WriteMapping.longMapping(format("time(%s)", POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION), timeWriteFunction(POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION));
         }
 
-        if (type instanceof TimestampType) {
-            TimestampType timestampType = (TimestampType) type;
+        if (type instanceof TimestampType timestampType) {
             if (timestampType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
                 verify(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION);
                 return WriteMapping.longMapping(format("timestamp(%s)", timestampType.getPrecision()), PostgreSqlClient::shortTimestampWriteFunction);
@@ -646,8 +712,7 @@ public class PostgreSqlClient
             verify(timestampType.getPrecision() > TimestampType.MAX_SHORT_PRECISION);
             return WriteMapping.objectMapping(format("timestamp(%s)", POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION), longTimestampWriteFunction());
         }
-        if (type instanceof TimestampWithTimeZoneType) {
-            TimestampWithTimeZoneType timestampWithTimeZoneType = (TimestampWithTimeZoneType) type;
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
             if (timestampWithTimeZoneType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
                 String dataType = format("timestamptz(%d)", timestampWithTimeZoneType.getPrecision());
                 if (timestampWithTimeZoneType.getPrecision() <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
@@ -663,8 +728,8 @@ public class PostgreSqlClient
         if (type.equals(uuidType)) {
             return WriteMapping.sliceMapping("uuid", uuidWriteFunction());
         }
-        if (type instanceof ArrayType && getArrayMapping(session) == AS_ARRAY) {
-            Type elementType = ((ArrayType) type).getElementType();
+        if (type instanceof ArrayType arrayType && getArrayMapping(session) == AS_ARRAY) {
+            Type elementType = arrayType.getElementType();
             String elementDataType = toWriteMapping(session, elementType).getDataType();
             return WriteMapping.objectMapping(elementDataType + "[]", arrayWriteFunction(session, elementType, getArrayElementPgTypeName(session, this, elementType)));
         }
@@ -677,6 +742,19 @@ public class PostgreSqlClient
     {
         // TODO support complex ConnectorExpressions
         return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
+    }
+
+    @Override
+    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
+    {
+        // Postgres sorts textual types differently compared to Trino so we cannot safely pushdown any aggregations which take a text type as an input or as part of grouping set
+        return preventTextualTypeAggregationPushdown(groupingSets);
+    }
+
+    @Override
+    public Optional<String> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return connectorExpressionRewriter.rewrite(session, expression, assignments);
     }
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
@@ -717,17 +795,22 @@ public class PostgreSqlClient
         });
     }
 
-    private boolean isCollatable(JdbcColumnHandle column)
+    protected static boolean isCollatable(JdbcColumnHandle column)
     {
         if (column.getColumnType() instanceof CharType || column.getColumnType() instanceof VarcharType) {
             String jdbcTypeName = column.getJdbcTypeHandle().getJdbcTypeName()
                     .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + column.getJdbcTypeHandle()));
-            // Only char (internally named bpchar)/varchar/text are the built-in collatable types
-            return "bpchar".equals(jdbcTypeName) || "varchar".equals(jdbcTypeName) || "text".equals(jdbcTypeName);
+            return isCollatable(jdbcTypeName);
         }
 
         // non-textual types don't have the concept of collation
         return false;
+    }
+
+    private static boolean isCollatable(String jdbcTypeName)
+    {
+        // Only char (internally named bpchar)/varchar/text are the built-in collatable types
+        return "bpchar".equals(jdbcTypeName) || "varchar".equals(jdbcTypeName) || "text".equals(jdbcTypeName);
     }
 
     @Override
@@ -749,7 +832,160 @@ public class PostgreSqlClient
     }
 
     @Override
-    protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)
+    public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
+    {
+        checkArgument(handle.isNamedRelation(), "Unable to delete from synthetic table: %s", handle);
+        checkArgument(handle.getLimit().isEmpty(), "Unable to delete when limit is set: %s", handle);
+        checkArgument(handle.getSortOrder().isEmpty(), "Unable to delete when sort order is set: %s", handle);
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            verify(connection.getAutoCommit());
+            PreparedQuery preparedQuery = queryBuilder.prepareDeleteQuery(
+                    this,
+                    session,
+                    connection,
+                    handle.getRequiredNamedRelation(),
+                    handle.getConstraint(),
+                    getAdditionalPredicate(handle.getConstraintExpressions(), Optional.empty()));
+            try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery)) {
+                int affectedRowsCount = preparedStatement.executeUpdate();
+                // In getPreparedStatement we set autocommit to false so here we need an explicit commit
+                connection.commit();
+                return OptionalLong.of(affectedRowsCount);
+            }
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
+    {
+        if (!statisticsEnabled) {
+            return TableStatistics.empty();
+        }
+        if (!handle.isNamedRelation()) {
+            return TableStatistics.empty();
+        }
+        try {
+            return readTableStatistics(session, handle);
+        }
+        catch (SQLException | RuntimeException e) {
+            throwIfInstanceOf(e, TrinoException.class);
+            throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
+        }
+    }
+
+    private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
+            throws SQLException
+    {
+        checkArgument(table.isNamedRelation(), "Relation is not a table: %s", table);
+
+        try (Connection connection = connectionFactory.openConnection(session);
+                Handle handle = Jdbi.open(connection)) {
+            StatisticsDao statisticsDao = new StatisticsDao(handle);
+
+            Optional<Long> optionalRowCount = readRowCountTableStat(statisticsDao, table);
+            if (optionalRowCount.isEmpty()) {
+                // Table not found
+                return TableStatistics.empty();
+            }
+            long rowCount = optionalRowCount.get();
+
+            TableStatistics.Builder tableStatistics = TableStatistics.builder();
+            tableStatistics.setRowCount(Estimate.of(rowCount));
+
+            if (rowCount == 0) {
+                return tableStatistics.build();
+            }
+
+            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
+            Map<String, ColumnStatisticsResult> columnStatistics = statisticsDao.getColumnStatistics(remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()).stream()
+                    .collect(toImmutableMap(ColumnStatisticsResult::getColumnName, identity()));
+
+            for (JdbcColumnHandle column : this.getColumns(session, table)) {
+                ColumnStatisticsResult result = columnStatistics.get(column.getColumnName());
+                if (result == null) {
+                    continue;
+                }
+
+                ColumnStatistics statistics = ColumnStatistics.builder()
+                        .setNullsFraction(result.getNullsFraction()
+                                .map(Estimate::of)
+                                .orElseGet(Estimate::unknown))
+                        .setDistinctValuesCount(result.getDistinctValuesIndicator()
+                                .map(distinctValuesIndicator -> {
+                                    if (distinctValuesIndicator >= 0.0) {
+                                        return distinctValuesIndicator;
+                                    }
+                                    return -distinctValuesIndicator * rowCount;
+                                })
+                                .map(Estimate::of)
+                                .orElseGet(Estimate::unknown))
+                        .setDataSize(result.getAverageColumnLength()
+                                .flatMap(averageColumnLength ->
+                                        result.getNullsFraction().map(nullsFraction ->
+                                                Estimate.of(1.0 * averageColumnLength * rowCount * (1 - nullsFraction))))
+                                .orElseGet(Estimate::unknown))
+                        .build();
+
+                tableStatistics.setColumnStatistics(column, statistics);
+            }
+
+            return tableStatistics.build();
+        }
+    }
+
+    private static Optional<Long> readRowCountTableStat(StatisticsDao statisticsDao, JdbcTableHandle table)
+    {
+        RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
+        String schemaName = remoteTableName.getSchemaName().orElse(null);
+        Optional<Long> rowCount = statisticsDao.getRowCountFromPgClass(schemaName, remoteTableName.getTableName());
+        if (rowCount.isEmpty()) {
+            // Table not found
+            return Optional.empty();
+        }
+
+        if (statisticsDao.isPartitionedTable(schemaName, remoteTableName.getTableName())) {
+            Optional<Long> partitionedTableRowCount = statisticsDao.getRowCountPartitionedTableFromPgClass(schemaName, remoteTableName.getTableName());
+            if (partitionedTableRowCount.isPresent()) {
+                return partitionedTableRowCount;
+            }
+
+            return statisticsDao.getRowCountPartitionedTableFromPgStats(schemaName, remoteTableName.getTableName());
+        }
+
+        if (rowCount.get() == 0) {
+            // `pg_class.reltuples = 0` may mean an empty table or a recently populated table (CTAS, LOAD or INSERT)
+            // `pg_stat_all_tables.n_live_tup` can be way off, so we use it only as a fallback
+            rowCount = statisticsDao.getRowCountFromPgStat(schemaName, remoteTableName.getTableName());
+        }
+
+        return rowCount;
+    }
+
+    @Override
+    public Optional<PreparedQuery> implementJoin(
+            ConnectorSession session,
+            JoinType joinType,
+            PreparedQuery leftSource,
+            PreparedQuery rightSource,
+            List<JdbcJoinCondition> joinConditions,
+            Map<JdbcColumnHandle, String> rightAssignments,
+            Map<JdbcColumnHandle, String> leftAssignments,
+            JoinStatistics statistics)
+    {
+        return implementJoinCostAware(
+                session,
+                joinType,
+                leftSource,
+                rightSource,
+                statistics,
+                () -> super.implementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics));
+    }
+
+    @Override
+    protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
         boolean isVarchar = Stream.of(joinCondition.getLeftColumn(), joinCondition.getRightColumn())
                 .map(JdbcColumnHandle::getColumnType)
@@ -762,7 +998,7 @@ public class PostgreSqlClient
                 case LESS_THAN_OR_EQUAL:
                 case GREATER_THAN:
                 case GREATER_THAN_OR_EQUAL:
-                    break;
+                    return isEnableStringPushdownWithCollate(session);
                 case EQUAL:
                 case NOT_EQUAL:
                 case IS_DISTINCT_FROM:
@@ -772,6 +1008,37 @@ public class PostgreSqlClient
         }
 
         return true;
+    }
+
+    @Override
+    protected void verifySchemaName(DatabaseMetaData databaseMetadata, String schemaName)
+            throws SQLException
+    {
+        // PostgreSQL truncates schema name to 63 chars silently
+        if (schemaName.length() > databaseMetadata.getMaxSchemaNameLength()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Schema name must be shorter than or equal to '%s' characters but got '%s'", databaseMetadata.getMaxSchemaNameLength(), schemaName.length()));
+        }
+    }
+
+    @Override
+    protected void verifyTableName(DatabaseMetaData databaseMetadata, String tableName)
+            throws SQLException
+    {
+        // PostgreSQL truncates table name to 63 chars silently
+        if (tableName.length() > databaseMetadata.getMaxTableNameLength()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Table name must be shorter than or equal to '%s' characters but got '%s'", databaseMetadata.getMaxTableNameLength(), tableName.length()));
+        }
+    }
+
+    @Override
+    protected void verifyColumnName(DatabaseMetaData databaseMetadata, String columnName)
+            throws SQLException
+    {
+        // PostgreSQL truncates table name to 63 chars silently
+        // PostgreSQL driver caches the max column name length in a DatabaseMetaData object. The cost to call this method per column is low.
+        if (columnName.length() > databaseMetadata.getMaxColumnNameLength()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Column name must be shorter than or equal to '%s' characters but got '%s': '%s'", databaseMetadata.getMaxColumnNameLength(), columnName.length(), columnName));
+        }
     }
 
     private static ColumnMapping charColumnMapping(int charLength)
@@ -784,7 +1051,7 @@ public class PostgreSqlClient
                 charType,
                 charReadFunction(charType),
                 charWriteFunction(),
-                POSTGRESQL_CHARACTER_PUSHDOWN);
+                POSTGRESQL_STRING_COLLATION_AWARE_PUSHDOWN);
     }
 
     private static ColumnMapping varcharColumnMapping(int varcharLength)
@@ -796,7 +1063,7 @@ public class PostgreSqlClient
                 varcharType,
                 varcharReadFunction(varcharType),
                 varcharWriteFunction(),
-                POSTGRESQL_CHARACTER_PUSHDOWN);
+                POSTGRESQL_STRING_COLLATION_AWARE_PUSHDOWN);
     }
 
     private static ColumnMapping timeColumnMapping(int precision)
@@ -816,11 +1083,11 @@ public class PostgreSqlClient
                     return round(picosOfDay, 12 - precision);
                 },
                 timeWriteFunction(precision),
-                // Pushdown disabled because PostgreSQL distinguishes TIME '24:00:00' and TIME '00:00:00' whereas Presto does not.
+                // Pushdown disabled because PostgreSQL distinguishes TIME '24:00:00' and TIME '00:00:00' whereas Trino does not.
                 DISABLE_PUSHDOWN);
     }
 
-    public static LongWriteFunction timeWriteFunction(int precision)
+    private static LongWriteFunction timeWriteFunction(int precision)
     {
         checkArgument(precision <= 6, "Unsupported precision: %s", precision); // PostgreSQL limit but also assumption within this method
         String bindExpression = format("CAST(? AS time(%s))", precision);
@@ -875,11 +1142,12 @@ public class PostgreSqlClient
     @Override
     public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
+        // PostgreSQL doesn't support prepared statement for COMMENT statement
         String sql = format(
                 "COMMENT ON COLUMN %s.%s IS %s",
                 quoted(handle.asPlainTable().getRemoteTableName()),
                 quoted(column.getColumnName()),
-                comment.isPresent() ? format("'%s'", comment.get()) : "NULL");
+                comment.map(BaseJdbcClient::varcharLiteral).orElse("NULL"));
         execute(session, sql);
     }
 
@@ -887,15 +1155,15 @@ public class PostgreSqlClient
     {
         // PostgreSQL supports timestamptz precision up to microseconds
         checkArgument(precision <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION, "unsupported precision value %s", precision);
-        TimestampWithTimeZoneType prestoType = createTimestampWithTimeZoneType(precision);
+        TimestampWithTimeZoneType trinoType = createTimestampWithTimeZoneType(precision);
         if (precision <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
             return ColumnMapping.longMapping(
-                    prestoType,
+                    trinoType,
                     shortTimestampWithTimeZoneReadFunction(),
                     shortTimestampWithTimeZoneWriteFunction());
         }
         return ColumnMapping.objectMapping(
-                prestoType,
+                trinoType,
                 longTimestampWithTimeZoneReadFunction(),
                 longTimestampWithTimeZoneWriteFunction());
     }
@@ -938,8 +1206,8 @@ public class PostgreSqlClient
                 LongTimestampWithTimeZone.class,
                 (statement, index, value) -> {
                     // PostgreSQL does not store zone information in "timestamp with time zone" data type
-                    long epochSeconds = value.getEpochMillis() / MILLISECONDS_PER_SECOND;
-                    long nanosOfSecond = value.getEpochMillis() % MILLISECONDS_PER_SECOND * NANOSECONDS_PER_MILLISECOND + value.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND;
+                    long epochSeconds = floorDiv(value.getEpochMillis(), MILLISECONDS_PER_SECOND);
+                    long nanosOfSecond = floorMod(value.getEpochMillis(), MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND + value.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND;
                     statement.setObject(index, OffsetDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds, nanosOfSecond), UTC_KEY.getZoneId()));
                 });
     }
@@ -1112,12 +1380,14 @@ public class PostgreSqlClient
         return ColumnMapping.sliceMapping(
                 VARCHAR,
                 (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)),
-                typedVarcharWriteFunction(jdbcTypeName));
+                typedVarcharWriteFunction(jdbcTypeName),
+                POSTGRESQL_STRING_COLLATION_AWARE_PUSHDOWN);
     }
 
     private static SliceWriteFunction typedVarcharWriteFunction(String jdbcTypeName)
     {
         String bindExpression = format("CAST(? AS %s)", requireNonNull(jdbcTypeName, "jdbcTypeName is null"));
+
         return new SliceWriteFunction()
         {
             @Override
@@ -1174,26 +1444,141 @@ public class PostgreSqlClient
 
     private static SliceWriteFunction uuidWriteFunction()
     {
-        return (statement, index, value) -> {
-            long high = Long.reverseBytes(value.getLong(0));
-            long low = Long.reverseBytes(value.getLong(SIZE_OF_LONG));
-            UUID uuid = new UUID(high, low);
-            statement.setObject(index, uuid, Types.OTHER);
-        };
-    }
-
-    private static Slice uuidSlice(UUID uuid)
-    {
-        return wrappedLongArray(
-                Long.reverseBytes(uuid.getMostSignificantBits()),
-                Long.reverseBytes(uuid.getLeastSignificantBits()));
+        return (statement, index, value) -> statement.setObject(index, trinoUuidToJavaUuid(value), Types.OTHER);
     }
 
     private ColumnMapping uuidColumnMapping()
     {
         return ColumnMapping.sliceMapping(
                 uuidType,
-                (resultSet, columnIndex) -> uuidSlice((UUID) resultSet.getObject(columnIndex)),
+                (resultSet, columnIndex) -> javaUuidToTrinoUuid((UUID) resultSet.getObject(columnIndex)),
                 uuidWriteFunction());
+    }
+
+    private static class StatisticsDao
+    {
+        private final Handle handle;
+
+        public StatisticsDao(Handle handle)
+        {
+            this.handle = requireNonNull(handle, "handle is null");
+        }
+
+        Optional<Long> getRowCountFromPgClass(String schema, String tableName)
+        {
+            return handle.createQuery("" +
+                            "SELECT reltuples " +
+                            "FROM pg_class " +
+                            "WHERE relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = :schema) " +
+                            "AND relname = :table_name")
+                    .bind("schema", schema)
+                    .bind("table_name", tableName)
+                    .mapTo(Long.class)
+                    .findOne();
+        }
+
+        Optional<Long> getRowCountFromPgStat(String schema, String tableName)
+        {
+            return handle.createQuery("SELECT n_live_tup FROM pg_stat_all_tables WHERE schemaname = :schema AND relname = :table_name")
+                    .bind("schema", schema)
+                    .bind("table_name", tableName)
+                    .mapTo(Long.class)
+                    .findOne();
+        }
+
+        Optional<Long> getRowCountPartitionedTableFromPgClass(String schema, String tableName)
+        {
+            return handle.createQuery("" +
+                            "SELECT SUM(child.reltuples) " +
+                            "FROM pg_inherits " +
+                            "JOIN pg_class parent ON pg_inherits.inhparent = parent.oid " +
+                            "JOIN pg_class child ON pg_inherits.inhrelid = child.oid " +
+                            "JOIN pg_namespace parent_ns ON parent_ns.oid = parent.relnamespace " +
+                            "JOIN pg_namespace child_ns ON child_ns.oid = child.relnamespace " +
+                            "WHERE parent.oid = :schema_table_name::regclass")
+                    .bind("schema_table_name", format("%s.%s", schema, tableName))
+                    .mapTo(Long.class)
+                    .findOne();
+        }
+
+        Optional<Long> getRowCountPartitionedTableFromPgStats(String schema, String tableName)
+        {
+            return handle.createQuery("" +
+                            "SELECT SUM(stat.n_live_tup) " +
+                            "FROM pg_inherits " +
+                            "JOIN pg_class parent ON pg_inherits.inhparent = parent.oid " +
+                            "JOIN pg_class child ON pg_inherits.inhrelid = child.oid " +
+                            "JOIN pg_namespace parent_ns ON parent_ns.oid = parent.relnamespace " +
+                            "JOIN pg_namespace child_ns ON child_ns.oid = child.relnamespace " +
+                            "JOIN pg_stat_all_tables stat ON stat.schemaname = child_ns.nspname AND stat.relname = child.relname " +
+                            "WHERE parent.oid = :schema_table_name::regclass")
+                    .bind("schema_table_name", format("%s.%s", schema, tableName))
+                    .mapTo(Long.class)
+                    .findOne();
+        }
+
+        List<ColumnStatisticsResult> getColumnStatistics(String schema, String tableName)
+        {
+            return handle.createQuery("SELECT attname, null_frac, n_distinct, avg_width FROM pg_stats WHERE schemaname = :schema AND tablename = :table_name")
+                    .bind("schema", schema)
+                    .bind("table_name", tableName)
+                    .map((rs, ctx) -> new ColumnStatisticsResult(
+                            requireNonNull(rs.getString("attname"), "attname is null"),
+                            Optional.ofNullable(rs.getObject("null_frac", Float.class)),
+                            Optional.ofNullable(rs.getObject("n_distinct", Float.class)),
+                            Optional.ofNullable(rs.getObject("avg_width", Integer.class))))
+                    .list();
+        }
+
+        boolean isPartitionedTable(String schema, String tableName)
+        {
+            return handle.createQuery("" +
+                            "SELECT true " +
+                            "FROM pg_class " +
+                            "WHERE relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = :schema) " +
+                            "AND relname = :table_name " +
+                            "AND relkind = 'p'")
+                    .bind("schema", schema)
+                    .bind("table_name", tableName)
+                    .mapTo(Boolean.class)
+                    .findOne()
+                    .orElse(false);
+        }
+    }
+
+    private static class ColumnStatisticsResult
+    {
+        private final String columnName;
+        private final Optional<Float> nullsFraction;
+        private final Optional<Float> distinctValuesIndicator;
+        private final Optional<Integer> averageColumnLength;
+
+        public ColumnStatisticsResult(String columnName, Optional<Float> nullsFraction, Optional<Float> distinctValuesIndicator, Optional<Integer> averageColumnLength)
+        {
+            this.columnName = columnName;
+            this.nullsFraction = nullsFraction;
+            this.distinctValuesIndicator = distinctValuesIndicator;
+            this.averageColumnLength = averageColumnLength;
+        }
+
+        public String getColumnName()
+        {
+            return columnName;
+        }
+
+        public Optional<Float> getNullsFraction()
+        {
+            return nullsFraction;
+        }
+
+        public Optional<Float> getDistinctValuesIndicator()
+        {
+            return distinctValuesIndicator;
+        }
+
+        public Optional<Integer> getAverageColumnLength()
+        {
+            return averageColumnLength;
+        }
     }
 }

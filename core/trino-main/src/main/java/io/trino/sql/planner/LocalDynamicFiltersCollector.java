@@ -13,18 +13,18 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.plan.DynamicFilterId;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -39,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
@@ -49,18 +50,14 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-class LocalDynamicFiltersCollector
+public class LocalDynamicFiltersCollector
 {
-    private final Metadata metadata;
-    private final TypeOperators typeOperators;
     private final Session session;
     // Each future blocks until its dynamic filter is collected.
     private final Map<DynamicFilterId, SettableFuture<Domain>> futures = new HashMap<>();
 
-    public LocalDynamicFiltersCollector(Metadata metadata, TypeOperators typeOperators, Session session)
+    public LocalDynamicFiltersCollector(Session session)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.session = requireNonNull(session, "session is null");
     }
 
@@ -72,23 +69,32 @@ class LocalDynamicFiltersCollector
                 "LocalDynamicFiltersCollector: duplicate filter %s", filterId));
     }
 
+    public Set<DynamicFilterId> getRegisteredDynamicFilterIds()
+    {
+        return futures.keySet();
+    }
+
     // Used during execution (after build-side dynamic filter collection is over).
     // No need to be synchronized as the futures map doesn't change.
     public void collectDynamicFilterDomains(Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
-        dynamicFilterDomains
-                .entrySet()
-                .forEach(entry -> {
-                    SettableFuture<Domain> future = futures.get(entry.getKey());
-                    // Skip dynamic filters that are not applied locally.
-                    if (future != null) {
-                        verify(future.set(entry.getValue()), "Dynamic filter %s already collected", entry.getKey());
-                    }
-                });
+        dynamicFilterDomains.forEach((key, value) -> {
+            SettableFuture<Domain> future = futures.get(key);
+            // Skip dynamic filters that are not applied locally.
+            if (future != null) {
+                // Coordinator may re-send dynamicFilterDomain if sendUpdate request fails
+                // It's possible that the request failed after the DF was already collected here
+                future.set(value);
+            }
+        });
     }
 
     // Called during TableScan planning (no need to be synchronized as local planning is single threaded)
-    public DynamicFilter createDynamicFilter(List<Descriptor> descriptors, Map<Symbol, ColumnHandle> columnsMap, TypeProvider typeProvider)
+    public DynamicFilter createDynamicFilter(
+            List<Descriptor> descriptors,
+            Map<Symbol, ColumnHandle> columnsMap,
+            TypeProvider typeProvider,
+            PlannerContext plannerContext)
     {
         Multimap<DynamicFilterId, Descriptor> descriptorMap = extractSourceSymbols(descriptors);
 
@@ -113,20 +119,34 @@ class LocalDynamicFiltersCollector
                                                         Type targetType = typeProvider.get(Symbol.from(descriptor.getInput()));
                                                         Domain updatedDomain = descriptor.applyComparison(domain);
                                                         if (!updatedDomain.getType().equals(targetType)) {
-                                                            return applySaturatedCasts(metadata, typeOperators, session, updatedDomain, targetType);
+                                                            return applySaturatedCasts(
+                                                                    plannerContext.getMetadata(),
+                                                                    plannerContext.getFunctionManager(),
+                                                                    plannerContext.getTypeOperators(),
+                                                                    session,
+                                                                    updatedDomain,
+                                                                    targetType);
                                                         }
                                                         return updatedDomain;
                                                     }))),
                             directExecutor());
                 })
                 .collect(toImmutableList());
-        return new TableSpecificDynamicFilter(predicateFutures);
+
+        Set<ColumnHandle> columnsCovered = descriptorMap.values().stream()
+                .map(Descriptor::getInput)
+                .map(Symbol::from)
+                .map(probeSymbol -> requireNonNull(columnsMap.get(probeSymbol), () -> "Missing probe column for " + probeSymbol))
+                .collect(toImmutableSet());
+
+        return new TableSpecificDynamicFilter(columnsCovered, predicateFutures);
     }
 
     // Table-specific dynamic filter (collects all domains for a specific table scan)
     private static class TableSpecificDynamicFilter
             implements DynamicFilter
     {
+        private final Set<ColumnHandle> columnsCovered;
         @GuardedBy("this")
         private CompletableFuture<?> isBlocked;
 
@@ -136,10 +156,11 @@ class LocalDynamicFiltersCollector
         @GuardedBy("this")
         private int futuresLeft;
 
-        private TableSpecificDynamicFilter(List<ListenableFuture<TupleDomain<ColumnHandle>>> predicateFutures)
+        private TableSpecificDynamicFilter(Set<ColumnHandle> columnsCovered, List<ListenableFuture<TupleDomain<ColumnHandle>>> predicateFutures)
         {
+            this.columnsCovered = ImmutableSet.copyOf(requireNonNull(columnsCovered, "columnsCovered is null"));
             this.futuresLeft = predicateFutures.size();
-            this.isBlocked = predicateFutures.isEmpty() ? NOT_BLOCKED : new CompletableFuture();
+            this.isBlocked = predicateFutures.isEmpty() ? NOT_BLOCKED : new CompletableFuture<>();
             this.currentPredicate = TupleDomain.all();
             predicateFutures.stream().forEach(future -> addSuccessCallback(future, this::update, directExecutor()));
         }
@@ -153,10 +174,16 @@ class LocalDynamicFiltersCollector
                 currentPredicate = currentPredicate.intersect(predicate);
                 currentFuture = isBlocked;
                 // create next blocking future (if needed)
-                isBlocked = isComplete() ? NOT_BLOCKED : new CompletableFuture();
+                isBlocked = isComplete() ? NOT_BLOCKED : new CompletableFuture<>();
             }
             // notify readers outside of lock since this may result in a callback
             verify(currentFuture.complete(null));
+        }
+
+        @Override
+        public Set<ColumnHandle> getColumnsCovered()
+        {
+            return columnsCovered;
         }
 
         @Override

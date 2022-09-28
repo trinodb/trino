@@ -61,7 +61,7 @@ public class TestParquetSymlinkInputFormat
 
         saveResourceOnHdfs("data.parquet", dataDir + "/data.parquet");
         hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs:%s/data.parquet", dataDir));
-        assertThat(onTrino().executeQuery("SELECT * FROM " + table)).containsExactly(row(42));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + table)).containsExactlyInOrder(row(42));
 
         onHive().executeQuery("DROP TABLE " + table);
         hdfsClient.delete(dataDir);
@@ -90,7 +90,7 @@ public class TestParquetSymlinkInputFormat
         saveResourceOnHdfs("data.parquet", anotherDataDir + "/data.parquet");
         hdfsClient.saveFile(dataDir + "/dontread.txt", "This file will cause an error if read as avro.");
         hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs:%s/data.parquet\nhdfs:%s/data.parquet", dataDir, anotherDataDir));
-        assertThat(onTrino().executeQuery("SELECT COUNT(*) as cnt FROM " + table)).containsExactly(row(2));
+        assertThat(onTrino().executeQuery("SELECT COUNT(*) as cnt FROM " + table)).containsExactlyInOrder(row(2));
 
         onHive().executeQuery("DROP TABLE " + table);
         hdfsClient.delete(dataDir);

@@ -15,8 +15,8 @@ package io.trino.plugin.hive.s3;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.plugin.hive.DynamicConfigurationProvider;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.hdfs.DynamicConfigurationProvider;
+import io.trino.hdfs.HdfsContext;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveSessionProperties;
 import io.trino.spi.connector.ConnectorSession;
@@ -27,11 +27,11 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.io.Resources.getResource;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.trino.plugin.hive.s3.TestS3SecurityMapping.MappingResult.clusterDefaultRole;
 import static io.trino.plugin.hive.s3.TestS3SecurityMapping.MappingResult.credentials;
@@ -42,6 +42,7 @@ import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACCESS_KEY;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENDPOINT;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_IAM_ROLE;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_KMS_KEY_ID;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ROLE_SESSION_NAME;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SECRET_KEY;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -62,12 +63,13 @@ public class TestS3SecurityMapping
     public void testMapping()
     {
         S3SecurityMappingConfig mappingConfig = new S3SecurityMappingConfig()
-                .setConfigFile(new File(getResource(getClass(), "security-mapping.json").getPath()))
+                .setConfigFilePath(getResource(getClass(), "security-mapping.json").getPath())
                 .setRoleCredentialName(IAM_ROLE_CREDENTIAL_NAME)
                 .setKmsKeyIdCredentialName(KMS_KEY_ID_CREDENTIAL_NAME)
                 .setColonReplacement("#");
 
-        DynamicConfigurationProvider provider = new S3SecurityMappingConfigurationProvider(mappingConfig);
+        DynamicConfigurationProvider provider = new S3SecurityMappingConfigurationProvider(mappingConfig,
+                new FileBasedS3SecurityMappingsProvider(mappingConfig));
 
         // matches prefix -- mapping provides credentials
         assertMapping(
@@ -240,15 +242,22 @@ public class TestS3SecurityMapping
                 provider,
                 path("s3://endpointbucket/bar"),
                 credentials("AKIAxxxaccess", "iXbXxxxsecret").withEndpoint("http://localhost:7753"));
+
+        // matches role session name
+        assertMapping(
+                provider,
+                path("s3://somebucket"),
+                role("arn:aws:iam::1234567891012:role/default").withRoleSessionName("iam-trino-session"));
     }
 
     @Test
     public void testMappingWithFallbackToClusterDefault()
     {
         S3SecurityMappingConfig mappingConfig = new S3SecurityMappingConfig()
-                .setConfigFile(new File(getResource(getClass(), "security-mapping-with-fallback-to-cluster-default.json").getPath()));
+                .setConfigFilePath(getResource(getClass(), "security-mapping-with-fallback-to-cluster-default.json").getPath());
 
-        DynamicConfigurationProvider provider = new S3SecurityMappingConfigurationProvider(mappingConfig);
+        DynamicConfigurationProvider provider = new S3SecurityMappingConfigurationProvider(mappingConfig,
+                new FileBasedS3SecurityMappingsProvider(mappingConfig));
 
         // matches prefix - returns role from the mapping
         assertMapping(
@@ -267,9 +276,10 @@ public class TestS3SecurityMapping
     public void testMappingWithoutFallback()
     {
         S3SecurityMappingConfig mappingConfig = new S3SecurityMappingConfig()
-                .setConfigFile(new File(getResource(getClass(), "security-mapping-without-fallback.json").getPath()));
+                .setConfigFilePath(getResource(getClass(), "security-mapping-without-fallback.json").getPath());
 
-        DynamicConfigurationProvider provider = new S3SecurityMappingConfigurationProvider(mappingConfig);
+        DynamicConfigurationProvider provider = new S3SecurityMappingConfigurationProvider(mappingConfig,
+                new FileBasedS3SecurityMappingsProvider(mappingConfig));
 
         // matches prefix - returns role from the mapping
         assertMapping(
@@ -288,7 +298,7 @@ public class TestS3SecurityMapping
     public void testMappingWithoutRoleCredentialsFallbackShouldFail()
     {
         assertThatThrownBy(() ->
-                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
+                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("must either allow useClusterDefault role or provide role and/or credentials");
     }
@@ -300,7 +310,7 @@ public class TestS3SecurityMapping
         Optional<Boolean> useClusterDefault = Optional.of(true);
 
         assertThatThrownBy(() ->
-                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), iamRole, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), useClusterDefault, Optional.empty()))
+                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), iamRole, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), useClusterDefault, Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("must either allow useClusterDefault role or provide role and/or credentials");
     }
@@ -312,14 +322,25 @@ public class TestS3SecurityMapping
         Optional<String> kmsKeyId = Optional.of("CLIENT_S3CRT_KEY_ID");
 
         assertThatThrownBy(() ->
-                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), kmsKeyId, Optional.empty(), Optional.empty(), Optional.empty(), useClusterDefault, Optional.empty()))
+                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), kmsKeyId, Optional.empty(), Optional.empty(), Optional.empty(), useClusterDefault, Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("KMS key ID cannot be provided together with useClusterDefault");
     }
 
+    @Test
+    public void testMappingWithRoleSessionNameWithoutIamRoleShouldFail()
+    {
+        Optional<String> roleSessionName = Optional.of("iam-trino-session");
+
+        assertThatThrownBy(() ->
+                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), roleSessionName, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("iamRole must be provided when roleSessionName is provided");
+    }
+
     private static void assertMapping(DynamicConfigurationProvider provider, MappingSelector selector, MappingResult mappingResult)
     {
-        Configuration configuration = new Configuration(false);
+        Configuration configuration = newEmptyConfiguration();
 
         assertNull(configuration.get(S3_ACCESS_KEY));
         assertNull(configuration.get(S3_SECRET_KEY));
@@ -333,11 +354,12 @@ public class TestS3SecurityMapping
         assertEquals(configuration.get(S3_IAM_ROLE), mappingResult.getRole().orElse(null));
         assertEquals(configuration.get(S3_KMS_KEY_ID), mappingResult.getKmsKeyId().orElse(null));
         assertEquals(configuration.get(S3_ENDPOINT), mappingResult.getEndpoint().orElse(null));
+        assertEquals(configuration.get(S3_ROLE_SESSION_NAME), mappingResult.getRoleSessionName().orElse(null));
     }
 
     private static void assertMappingFails(DynamicConfigurationProvider provider, MappingSelector selector, String message)
     {
-        Configuration configuration = new Configuration(false);
+        Configuration configuration = newEmptyConfiguration();
 
         assertThatThrownBy(() -> applyMapping(provider, selector, configuration))
                 .isInstanceOf(AccessDeniedException.class)
@@ -410,7 +432,7 @@ public class TestS3SecurityMapping
             ConnectorSession connectorSession = TestingConnectorSession.builder()
                     .setIdentity(ConnectorIdentity.forUser(user)
                             .withGroups(groups)
-                            .withExtraCredentials(extraCredentials.build())
+                            .withExtraCredentials(extraCredentials.buildOrThrow())
                             .build())
                     .setPropertyMetadata(HIVE_SESSION_PROPERTIES.getSessionProperties())
                     .build();
@@ -422,22 +444,22 @@ public class TestS3SecurityMapping
     {
         public static MappingResult credentials(String accessKey, String secretKey)
         {
-            return new MappingResult(Optional.of(accessKey), Optional.of(secretKey), Optional.empty(), Optional.empty(), Optional.empty());
+            return new MappingResult(Optional.of(accessKey), Optional.of(secretKey), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         }
 
         public static MappingResult role(String role)
         {
-            return new MappingResult(Optional.empty(), Optional.empty(), Optional.of(role), Optional.empty(), Optional.empty());
+            return new MappingResult(Optional.empty(), Optional.empty(), Optional.of(role), Optional.empty(), Optional.empty(), Optional.empty());
         }
 
         public static MappingResult clusterDefaultRole()
         {
-            return new MappingResult(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+            return new MappingResult(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         }
 
         public static MappingResult endpoint(String endpoint)
         {
-            return new MappingResult(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(endpoint));
+            return new MappingResult(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(endpoint), Optional.empty());
         }
 
         private final Optional<String> accessKey;
@@ -445,24 +467,31 @@ public class TestS3SecurityMapping
         private final Optional<String> role;
         private final Optional<String> kmsKeyId;
         private final Optional<String> endpoint;
+        private final Optional<String> roleSessionName;
 
-        private MappingResult(Optional<String> accessKey, Optional<String> secretKey, Optional<String> role, Optional<String> kmsKeyId, Optional<String> endpoint)
+        private MappingResult(Optional<String> accessKey, Optional<String> secretKey, Optional<String> role, Optional<String> kmsKeyId, Optional<String> endpoint, Optional<String> roleSessionName)
         {
             this.accessKey = requireNonNull(accessKey, "accessKey is null");
             this.secretKey = requireNonNull(secretKey, "secretKey is null");
             this.role = requireNonNull(role, "role is null");
             this.kmsKeyId = requireNonNull(kmsKeyId, "kmsKeyId is null");
             this.endpoint = requireNonNull(endpoint, "endpoint is null");
+            this.roleSessionName = requireNonNull(roleSessionName, "roleSessionName is null");
         }
 
         public MappingResult withEndpoint(String endpoint)
         {
-            return new MappingResult(accessKey, secretKey, role, kmsKeyId, Optional.of(endpoint));
+            return new MappingResult(accessKey, secretKey, role, kmsKeyId, Optional.of(endpoint), Optional.empty());
         }
 
         public MappingResult withKmsKeyId(String kmsKeyId)
         {
-            return new MappingResult(accessKey, secretKey, role, Optional.of(kmsKeyId), endpoint);
+            return new MappingResult(accessKey, secretKey, role, Optional.of(kmsKeyId), endpoint, Optional.empty());
+        }
+
+        public MappingResult withRoleSessionName(String roleSessionName)
+        {
+            return new MappingResult(accessKey, secretKey, role, kmsKeyId, Optional.empty(), Optional.of(roleSessionName));
         }
 
         public Optional<String> getAccessKey()
@@ -488,6 +517,11 @@ public class TestS3SecurityMapping
         public Optional<String> getEndpoint()
         {
             return endpoint;
+        }
+
+        public Optional<String> getRoleSessionName()
+        {
+            return roleSessionName;
         }
     }
 }

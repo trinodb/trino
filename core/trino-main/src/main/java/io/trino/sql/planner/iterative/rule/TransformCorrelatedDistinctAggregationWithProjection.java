@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.PlanNodeDecorrelator;
@@ -89,11 +89,11 @@ public class TransformCorrelatedDistinctAggregationWithProjection
                             .matching(AggregationDecorrelation::isDistinctOperator)
                             .capturedAs(AGGREGATION)))));
 
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
 
-    public TransformCorrelatedDistinctAggregationWithProjection(Metadata metadata)
+    public TransformCorrelatedDistinctAggregationWithProjection(PlannerContext plannerContext)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
     }
 
     @Override
@@ -106,7 +106,7 @@ public class TransformCorrelatedDistinctAggregationWithProjection
     public Result apply(CorrelatedJoinNode correlatedJoinNode, Captures captures, Context context)
     {
         // decorrelate nested plan
-        PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(metadata, context.getSymbolAllocator(), context.getLookup());
+        PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(plannerContext, context.getSymbolAllocator(), context.getLookup());
         Optional<PlanNodeDecorrelator.DecorrelatedNode> decorrelatedSource = decorrelator.decorrelateFilters(captures.get(AGGREGATION).getSource(), correlatedJoinNode.getCorrelation());
         if (decorrelatedSource.isEmpty()) {
             return Result.empty();

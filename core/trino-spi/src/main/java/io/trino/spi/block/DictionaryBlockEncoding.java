@@ -17,6 +17,10 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
+import java.util.Optional;
+
+import static io.trino.spi.block.DictionaryBlock.createProjectedDictionaryBlock;
+
 public class DictionaryBlockEncoding
         implements BlockEncoding
 {
@@ -34,7 +38,9 @@ public class DictionaryBlockEncoding
         // The down casts here are safe because it is the block itself the provides this encoding implementation.
         DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
 
-        dictionaryBlock = dictionaryBlock.compact();
+        if (!dictionaryBlock.isCompact()) {
+            throw new IllegalArgumentException("Dictionary should be compact");
+        }
 
         // positionCount
         int positionCount = dictionaryBlock.getPositionCount();
@@ -74,6 +80,22 @@ public class DictionaryBlockEncoding
         // We always compact the dictionary before we send it. However, dictionaryBlock comes from sliceInput, which may over-retain memory.
         // As a result, setting dictionaryIsCompacted to true is not appropriate here.
         // TODO: fix DictionaryBlock so that dictionaryIsCompacted can be set to true when the underlying block over-retains memory.
-        return new DictionaryBlock(positionCount, dictionaryBlock, ids, false, new DictionaryId(mostSignificantBits, leastSignificantBits, sequenceId));
+        return createProjectedDictionaryBlock(positionCount, dictionaryBlock, ids, new DictionaryId(mostSignificantBits, leastSignificantBits, sequenceId));
+    }
+
+    @Override
+    public Optional<Block> replacementBlockForWrite(Block block)
+    {
+        DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
+        if (!dictionaryBlock.isCompact()) {
+            return Optional.of(dictionaryBlock.compact());
+        }
+
+        if (dictionaryBlock.getUniqueIds() == dictionaryBlock.getPositionCount() && dictionaryBlock.isSequentialIds()) {
+            // ids mapping is identity
+            return Optional.of(dictionaryBlock.getDictionary());
+        }
+
+        return Optional.empty();
     }
 }

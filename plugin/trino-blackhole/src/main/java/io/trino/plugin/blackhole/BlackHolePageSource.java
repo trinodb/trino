@@ -44,7 +44,7 @@ class BlackHolePageSource
         checkArgument(count >= 0, "count is negative");
         this.pagesLeft = count;
         this.executorService = requireNonNull(executorService, "executorService is null");
-        this.pageProcessingDelayInMillis = requireNonNull(pageProcessingDelay, "pageProcessingDelay is null").toMillis();
+        this.pageProcessingDelayInMillis = pageProcessingDelay.toMillis();
         this.memoryUsageBytes = page.getSizeInBytes();
     }
 
@@ -67,10 +67,8 @@ class BlackHolePageSource
         if (pageProcessingDelayInMillis == 0) {
             return page;
         }
-        else {
-            currentPage = toCompletableFuture(executorService.schedule(() -> page, pageProcessingDelayInMillis, MILLISECONDS));
-            return null;
-        }
+        currentPage = toCompletableFuture(executorService.schedule(() -> page, pageProcessingDelayInMillis, MILLISECONDS));
+        return null;
     }
 
     @Override
@@ -107,7 +105,7 @@ class BlackHolePageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return memoryUsageBytes;
     }

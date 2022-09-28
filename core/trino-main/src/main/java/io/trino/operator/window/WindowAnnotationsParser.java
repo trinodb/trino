@@ -13,20 +13,18 @@
  */
 package io.trino.operator.window;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.metadata.Signature;
-import io.trino.metadata.TypeVariableConstraint;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.Signature;
 import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowFunctionSignature;
-import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 
 public final class WindowAnnotationsParser
@@ -44,24 +42,23 @@ public final class WindowAnnotationsParser
 
     private static SqlWindowFunction parse(Class<? extends WindowFunction> clazz, WindowFunctionSignature window)
     {
-        List<TypeVariableConstraint> typeVariables = ImmutableList.of();
+        Signature.Builder signatureBuilder = Signature.builder()
+                .name(window.name());
+
         if (!window.typeVariable().isEmpty()) {
-            typeVariables = ImmutableList.of(typeVariable(window.typeVariable()));
+            signatureBuilder.typeVariable(window.typeVariable());
         }
 
-        List<TypeSignature> argumentTypes = Stream.of(window.argumentTypes())
+        Stream.of(window.argumentTypes())
                 .map(type -> parseTypeSignature(type, ImmutableSet.of()))
-                .collect(toImmutableList());
+                .forEach(signatureBuilder::argumentType);
 
-        Signature signature = new Signature(
-                window.name(),
-                typeVariables,
-                ImmutableList.of(),
-                parseTypeSignature(window.returnType(), ImmutableSet.of()),
-                argumentTypes,
-                false);
+        signatureBuilder.returnType(parseTypeSignature(window.returnType(), ImmutableSet.of()));
+
+        Optional<String> description = Optional.ofNullable(clazz.getAnnotation(Description.class)).map(Description::value);
 
         boolean deprecated = clazz.getAnnotationsByType(Deprecated.class).length > 0;
-        return new SqlWindowFunction(new ReflectionWindowFunctionSupplier<>(signature, clazz), deprecated);
+
+        return new SqlWindowFunction(signatureBuilder.build(), description, deprecated, new ReflectionWindowFunctionSupplier(window.argumentTypes().length, clazz));
     }
 }

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.execution.Lifespan;
 import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
@@ -66,7 +65,7 @@ public class NestedLoopJoinOperator
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.joinBridgeManager = nestedLoopJoinBridgeManager;
-            this.joinBridgeManager.incrementProbeFactoryCount();
+            joinBridgeManager.incrementProbeFactoryCount();
             this.probeChannels = ImmutableList.copyOf(requireNonNull(probeChannels, "probeChannels is null"));
             this.buildChannels = ImmutableList.copyOf(requireNonNull(buildChannels, "buildChannels is null"));
         }
@@ -84,7 +83,6 @@ public class NestedLoopJoinOperator
 
             // closed is intentionally not copied
             closed = false;
-
             joinBridgeManager.incrementProbeFactoryCount();
         }
 
@@ -92,33 +90,27 @@ public class NestedLoopJoinOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            NestedLoopJoinBridge nestedLoopJoinBridge = joinBridgeManager.getJoinBridge(driverContext.getLifespan());
+            NestedLoopJoinBridge nestedLoopJoinBridge = joinBridgeManager.getJoinBridge();
 
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, NestedLoopJoinOperator.class.getSimpleName());
 
-            joinBridgeManager.probeOperatorCreated(driverContext.getLifespan());
+            joinBridgeManager.probeOperatorCreated();
             return new NestedLoopJoinOperator(
                     operatorContext,
                     nestedLoopJoinBridge,
                     probeChannels,
                     buildChannels,
-                    () -> joinBridgeManager.probeOperatorClosed(driverContext.getLifespan()));
+                    () -> joinBridgeManager.probeOperatorClosed());
         }
 
         @Override
         public void noMoreOperators()
         {
+            joinBridgeManager.probeOperatorFactoryClosed();
             if (closed) {
                 return;
             }
             closed = true;
-            joinBridgeManager.probeOperatorFactoryClosedForAllLifespans();
-        }
-
-        @Override
-        public void noMoreOperators(Lifespan lifespan)
-        {
-            joinBridgeManager.probeOperatorFactoryClosed(lifespan);
         }
 
         @Override
@@ -275,15 +267,13 @@ public class NestedLoopJoinOperator
             Page outputPage = new Page(max(probePositions, buildPositions));
             return new PageRepeatingIterator(outputPage, min(probePositions, buildPositions));
         }
-        else if (probeChannels.length == 0 && probePage.getPositionCount() <= buildPage.getPositionCount()) {
+        if (probeChannels.length == 0 && probePage.getPositionCount() <= buildPage.getPositionCount()) {
             return new PageRepeatingIterator(buildPage.getColumns(buildChannels), probePage.getPositionCount());
         }
-        else if (buildChannels.length == 0 && buildPage.getPositionCount() <= probePage.getPositionCount()) {
+        if (buildChannels.length == 0 && buildPage.getPositionCount() <= probePage.getPositionCount()) {
             return new PageRepeatingIterator(probePage.getColumns(probeChannels), buildPage.getPositionCount());
         }
-        else {
-            return new NestedLoopPageBuilder(probePage, buildPage, probeChannels, buildChannels);
-        }
+        return new NestedLoopPageBuilder(probePage, buildPage, probeChannels, buildChannels);
     }
 
     // bi-morphic parent class for the two implementations allowed. Adding a third implementation will make getOutput megamorphic and
@@ -402,7 +392,7 @@ public class NestedLoopJoinOperator
             // For the page with less rows, create RLE blocks and add them to the blocks array
             for (int i = 0; i < smallPageOutputBlocks.length; i++) {
                 Block block = smallPageOutputBlocks[i].getSingleValueBlock(rowIndex);
-                resultBlockBuffer[indexForRleBlocks + i] = new RunLengthEncodedBlock(block, largePagePositionCount);
+                resultBlockBuffer[indexForRleBlocks + i] = RunLengthEncodedBlock.create(block, largePagePositionCount);
             }
             // Page constructor will create a copy of the block buffer (and must for correctness)
             return new Page(largePagePositionCount, resultBlockBuffer);

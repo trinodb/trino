@@ -23,10 +23,6 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
-import static io.trino.operator.aggregation.AggregationUtils.getRegressionIntercept;
-import static io.trino.operator.aggregation.AggregationUtils.getRegressionSlope;
-import static io.trino.operator.aggregation.AggregationUtils.mergeRegressionState;
-import static io.trino.operator.aggregation.AggregationUtils.updateRegressionState;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 
 @AggregationFunction
@@ -37,20 +33,20 @@ public final class DoubleRegressionAggregation
     @InputFunction
     public static void input(@AggregationState RegressionState state, @SqlType(StandardTypes.DOUBLE) double dependentValue, @SqlType(StandardTypes.DOUBLE) double independentValue)
     {
-        updateRegressionState(state, independentValue, dependentValue);
+        state.update(independentValue, dependentValue);
     }
 
     @CombineFunction
     public static void combine(@AggregationState RegressionState state, @AggregationState RegressionState otherState)
     {
-        mergeRegressionState(state, otherState);
+        state.merge(otherState);
     }
 
     @AggregationFunction("regr_slope")
     @OutputFunction(StandardTypes.DOUBLE)
     public static void regrSlope(@AggregationState RegressionState state, BlockBuilder out)
     {
-        double result = getRegressionSlope(state);
+        double result = state.getRegressionSlope();
         if (Double.isFinite(result)) {
             DOUBLE.writeDouble(out, result);
         }
@@ -63,7 +59,7 @@ public final class DoubleRegressionAggregation
     @OutputFunction(StandardTypes.DOUBLE)
     public static void regrIntercept(@AggregationState RegressionState state, BlockBuilder out)
     {
-        double result = getRegressionIntercept(state);
+        double result = state.getRegressionIntercept();
         if (Double.isFinite(result)) {
             DOUBLE.writeDouble(out, result);
         }

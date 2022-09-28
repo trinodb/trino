@@ -30,6 +30,7 @@ import io.trino.server.security.jwt.JwtAuthenticator;
 import io.trino.server.security.jwt.JwtAuthenticatorSupportModule;
 import io.trino.server.security.oauth2.OAuth2AuthenticationSupportModule;
 import io.trino.server.security.oauth2.OAuth2Authenticator;
+import io.trino.server.security.oauth2.OAuth2Client;
 
 import java.util.List;
 import java.util.Map;
@@ -38,7 +39,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.airlift.http.server.HttpServer.ClientCertificate.REQUESTED;
@@ -63,7 +64,7 @@ public class ServerSecurityModule
 
         newOptionalBinder(binder, PasswordAuthenticatorManager.class);
         binder.bind(CertificateAuthenticatorManager.class).in(Scopes.SINGLETON);
-
+        newOptionalBinder(binder, HeaderAuthenticatorManager.class);
         insecureHttpAuthenticationDefaults();
 
         authenticatorBinder(binder); // create empty map binder
@@ -77,8 +78,13 @@ public class ServerSecurityModule
             configBinder(binder).bindConfig(PasswordAuthenticatorConfig.class);
             binder.bind(PasswordAuthenticatorManager.class).in(Scopes.SINGLETON);
         }));
+        install(authenticatorModule("header", HeaderAuthenticator.class, headerBinder -> {
+            configBinder(headerBinder).bindConfig(HeaderAuthenticatorConfig.class);
+            headerBinder.bind(HeaderAuthenticatorManager.class).in(Scopes.SINGLETON);
+        }));
         install(authenticatorModule("jwt", JwtAuthenticator.class, new JwtAuthenticatorSupportModule()));
         install(authenticatorModule("oauth2", OAuth2Authenticator.class, new OAuth2AuthenticationSupportModule()));
+        newOptionalBinder(binder, OAuth2Client.class);
 
         configBinder(binder).bindConfig(InsecureAuthenticatorConfig.class);
         binder.bind(InsecureAuthenticator.class).in(Scopes.SINGLETON);
@@ -103,7 +109,7 @@ public class ServerSecurityModule
     {
         checkArgument(name.toLowerCase(ENGLISH).equals(name), "name is not lower case: %s", name);
         Module authModule = binder -> authenticatorBinder(binder).addBinding(name).to(clazz).in(Scopes.SINGLETON);
-        return installModuleIf(
+        return conditionalModule(
                 SecurityConfig.class,
                 config -> authenticationTypes(config).contains(name),
                 combine(module, authModule));

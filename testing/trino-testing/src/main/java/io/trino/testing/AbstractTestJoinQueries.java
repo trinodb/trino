@@ -19,19 +19,27 @@ import io.trino.SystemSessionProperties;
 import io.trino.execution.QueryStats;
 import io.trino.operator.OperatorStats;
 import io.trino.spi.type.Decimals;
-import io.trino.sql.analyzer.FeaturesConfig;
-import io.trino.testng.services.Flaky;
 import io.trino.tests.QueryTemplate;
+import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.tests.QueryTemplate.parameter;
 import static io.trino.tests.QueryTemplate.queryTemplate;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.LINE_ITEM;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.PART;
+import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -39,6 +47,14 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestJoinQueries
         extends AbstractTestQueryFramework
 {
+    protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(
+            CUSTOMER,
+            LINE_ITEM,
+            NATION,
+            ORDERS,
+            PART,
+            REGION);
+
     @Test
     public void testJoinWithMultiFieldGroupBy()
     {
@@ -877,7 +893,7 @@ public abstract class AbstractTestJoinQueries
                 condition);
 
         queryTemplate.replaceAll(
-                (query) -> assertQueryFails(query, "line .*: Reference to column 'x' from outer scope not allowed in this context"),
+                query -> assertQueryFails(query, "line .*: Reference to column 'x' from outer scope not allowed in this context"),
                 ImmutableList.of(type.of("left"), type.of("right"), type.of("full")),
                 ImmutableList.of(
                         condition.of("EXISTS(SELECT 1 WHERE x = y)"),
@@ -1460,7 +1476,7 @@ public abstract class AbstractTestJoinQueries
         // Stateful function is placed in LEFT JOIN's ON clause and involves left & right symbols to prevent any kind of push down/pull down.
         Session session = Session.builder(getSession())
                 // With broadcast join, lineitem would be source-distributed and not executed concurrently.
-                .setSystemProperty(SystemSessionProperties.JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.PARTITIONED.toString())
+                .setSystemProperty(SystemSessionProperties.JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.toString())
                 .build();
         long joinOutputRowCount = 60175;
         assertQuery(
@@ -2286,7 +2302,6 @@ public abstract class AbstractTestJoinQueries
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = ".*expected.*but found.*")
     public void testOutputDuplicatesInsensitiveJoin()
     {
         assertJoinOutputPositions(
@@ -2334,7 +2349,7 @@ public abstract class AbstractTestJoinQueries
 
     private void assertJoinOutputPositions(@Language("SQL") String sql, int expectedJoinOutputPositions)
     {
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
                 Session.builder(getSession())
                         .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
                         .build(),

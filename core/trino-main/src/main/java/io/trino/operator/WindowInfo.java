@@ -17,7 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.window.WindowPartition;
-import io.trino.util.Mergeable;
+import io.trino.spi.Mergeable;
 
 import javax.annotation.concurrent.Immutable;
 

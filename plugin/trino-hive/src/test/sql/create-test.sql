@@ -1,3 +1,7 @@
+set hive.exec.dynamic.partition.mode=nonstrict;
+
+CREATE TABLE dummy (dummy varchar(1));
+
 CREATE TABLE trino_test_sequence (
   n INT
 )
@@ -26,19 +30,19 @@ COMMENT 'Presto test data'
 STORED AS TEXTFILE
 ;
 
+CREATE TABLE trino_test_partitioned_with_null (
+    a_value STRING
+)
+PARTITIONED BY (p_string STRING, p_integer int)
+STORED AS TEXTFILE
+;
+
 CREATE TABLE trino_test_offline (
   t_string STRING
 )
 COMMENT 'Presto test data'
 PARTITIONED BY (ds STRING)
 TBLPROPERTIES ('PROTECT_MODE'='OFFLINE')
-;
-
-CREATE TABLE trino_test_offline_partition (
-  t_string STRING
-)
-COMMENT 'Presto test data'
-PARTITIONED BY (ds STRING)
 ;
 
 CREATE TABLE trino_test_not_readable (
@@ -124,6 +128,8 @@ LOAD DATA LOCAL INPATH '/docker/files/words'
 INTO TABLE tmp_trino_test_load
 ;
 
+INSERT INTO dummy VALUES ('x');
+
 INSERT OVERWRITE TABLE trino_test_sequence
 SELECT TRANSFORM(word)
 USING 'awk "BEGIN { n = 0 } { print ++n }"' AS n
@@ -193,11 +199,9 @@ SELECT
 , 1 + n
 FROM trino_test_sequence LIMIT 100;
 
-INSERT INTO TABLE trino_test_offline_partition PARTITION (ds='2012-12-29')
-SELECT 'test' FROM trino_test_sequence LIMIT 100;
-
-INSERT INTO TABLE trino_test_offline_partition PARTITION (ds='2012-12-30')
-SELECT 'test' FROM trino_test_sequence LIMIT 100;
+INSERT INTO TABLE trino_test_partitioned_with_null PARTITION (p_string, p_integer) SELECT 'NULL row', NULL, NULL FROM dummy;
+INSERT INTO TABLE trino_test_partitioned_with_null PARTITION (p_string, p_integer) SELECT 'value row', 'abc', 123 FROM dummy;
+INSERT INTO TABLE trino_test_partitioned_with_null PARTITION (p_string, p_integer) SELECT 'another value row', 'def', 456 FROM dummy;
 
 SET hive.enforce.bucketing = true;
 

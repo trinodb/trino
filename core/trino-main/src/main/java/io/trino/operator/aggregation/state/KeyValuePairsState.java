@@ -18,7 +18,11 @@ import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateMetadata;
 import io.trino.spi.type.Type;
 
-@AccumulatorStateMetadata(stateFactoryClass = KeyValuePairsStateFactory.class, stateSerializerClass = KeyValuePairStateSerializer.class)
+@AccumulatorStateMetadata(
+        stateFactoryClass = KeyValuePairsStateFactory.class,
+        stateSerializerClass = KeyValuePairStateSerializer.class,
+        typeParameters = {"K", "V"},
+        serializedType = "MAP(K, V)")
 public interface KeyValuePairsState
         extends AccumulatorState
 {

@@ -99,6 +99,7 @@ public class TimestampStatisticsBuilder
                 null,
                 null,
                 null,
+                null,
                 timestampStatistics.orElse(null),
                 null,
                 null,

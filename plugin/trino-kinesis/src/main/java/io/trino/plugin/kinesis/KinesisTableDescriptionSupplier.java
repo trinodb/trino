@@ -47,6 +47,7 @@ public class KinesisTableDescriptionSupplier
 {
     private static final Logger log = Logger.get(KinesisTableDescriptionSupplier.class);
 
+    @Deprecated // TODO do not keep mutable config instance on a field
     private final KinesisConfig kinesisConfig;
     private final JsonCodec<KinesisStreamDescription> streamDescriptionCodec;
     private final S3TableConfigClient s3TableConfigClient;
@@ -85,7 +86,7 @@ public class KinesisTableDescriptionSupplier
                 }
             }
 
-            Map<SchemaTableName, KinesisStreamDescription> tableDefinitions = builder.build();
+            Map<SchemaTableName, KinesisStreamDescription> tableDefinitions = builder.buildOrThrow();
             log.debug("Loaded table definitions: %s", tableDefinitions.keySet());
 
             return tableDefinitions;

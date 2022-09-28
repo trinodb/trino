@@ -13,12 +13,14 @@
  */
 package io.trino.plugin.pinot.decoders;
 
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 
 import java.util.function.Supplier;
 
+import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static java.lang.Boolean.parseBoolean;
+import static java.lang.String.format;
 
 public class BooleanDecoder
         implements Decoder
@@ -26,6 +28,15 @@ public class BooleanDecoder
     @Override
     public void decode(Supplier<Object> getter, BlockBuilder output)
     {
-        BOOLEAN.writeBoolean(output, parseBoolean(getter.get().toString()));
+        Object value = getter.get();
+        if (value == null) {
+            output.appendNull();
+        }
+        else if (value instanceof Boolean) {
+            BOOLEAN.writeBoolean(output, (Boolean) value);
+        }
+        else {
+            throw new TrinoException(TYPE_MISMATCH, format("Expected a boolean value of type BOOLEAN: %s [%s]", value, value.getClass().getSimpleName()));
+        }
     }
 }

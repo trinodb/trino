@@ -26,19 +26,21 @@ import io.trino.sql.tree.Expression;
 import io.trino.util.MoreMath;
 
 import java.util.Collection;
-import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Queue;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.difference;
+import static io.trino.SystemSessionProperties.getJoinMultiClauseIndependenceFactor;
 import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
+import static io.trino.cost.PlanNodeStatsEstimateMath.estimateCorrelatedConjunctionRowCount;
 import static io.trino.cost.SymbolStatsEstimate.buildFrom;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
 import static io.trino.sql.planner.plan.Patterns.join;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.trino.util.MoreMath.firstNonNaN;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.min;
@@ -76,7 +78,7 @@ public class JoinStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(JoinNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(JoinNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
     {
         PlanNodeStatsEstimate leftStats = sourceStats.getStats(node.getLeft());
         PlanNodeStatsEstimate rightStats = sourceStats.getStats(node.getRight());
@@ -180,84 +182,64 @@ public class JoinStatsRule
             TypeProvider types)
     {
         checkArgument(!clauses.isEmpty(), "clauses is empty");
-        PlanNodeStatsEstimate result = PlanNodeStatsEstimate.unknown();
-        // Join equality clauses are usually correlated. Therefore we shouldn't treat each join equality
-        // clause separately because stats estimates would be way off. Instead we choose so called
-        // "driving clause" which mostly reduces join output rows cardinality and apply UNKNOWN_FILTER_COEFFICIENT
-        // for other (auxiliary) clauses.
-        Queue<EquiJoinClause> remainingClauses = new LinkedList<>(clauses);
-        EquiJoinClause drivingClause = remainingClauses.poll();
-        for (int i = 0; i < clauses.size(); i++) {
-            PlanNodeStatsEstimate estimate = filterByEquiJoinClauses(stats, drivingClause, remainingClauses, session, types);
-            if (result.isOutputRowCountUnknown() || (!estimate.isOutputRowCountUnknown() && estimate.getOutputRowCount() < result.getOutputRowCount())) {
-                result = estimate;
-            }
-            remainingClauses.add(drivingClause);
-            drivingClause = remainingClauses.poll();
-        }
+        // Join equality clauses are usually correlated. Therefore, we shouldn't treat each join equality
+        // clause separately because stats estimates would be way off.
+        List<PlanNodeStatsEstimateWithClause> knownEstimates = clauses.stream()
+                .map(clause -> {
+                    ComparisonExpression predicate = new ComparisonExpression(EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toSymbolReference());
+                    return new PlanNodeStatsEstimateWithClause(filterStatsCalculator.filterStats(stats, predicate, session, types), clause);
+                })
+                .collect(toImmutableList());
 
-        return result;
+        double outputRowCount = estimateCorrelatedConjunctionRowCount(
+                stats,
+                knownEstimates.stream().map(PlanNodeStatsEstimateWithClause::getEstimate).collect(toImmutableList()),
+                getJoinMultiClauseIndependenceFactor(session));
+        if (isNaN(outputRowCount)) {
+            return PlanNodeStatsEstimate.unknown();
+        }
+        return normalizer.normalize(new PlanNodeStatsEstimate(outputRowCount, intersectCorrelatedJoinClause(stats, knownEstimates)), types);
     }
 
-    private PlanNodeStatsEstimate filterByEquiJoinClauses(
+    private static Map<Symbol, SymbolStatsEstimate> intersectCorrelatedJoinClause(
             PlanNodeStatsEstimate stats,
-            EquiJoinClause drivingClause,
-            Collection<EquiJoinClause> remainingClauses,
-            Session session,
-            TypeProvider types)
+            List<PlanNodeStatsEstimateWithClause> equiJoinClauseEstimates)
     {
-        ComparisonExpression drivingPredicate = new ComparisonExpression(EQUAL, drivingClause.getLeft().toSymbolReference(), drivingClause.getRight().toSymbolReference());
-        PlanNodeStatsEstimate filteredStats = filterStatsCalculator.filterStats(stats, drivingPredicate, session, types);
-        for (EquiJoinClause clause : remainingClauses) {
-            filteredStats = filterByAuxiliaryClause(filteredStats, clause, types);
+        // Add initial statistics (including stats for columns which are not part of equi-join clauses)
+        PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder()
+                .addSymbolStatistics(stats.getSymbolStatistics());
+
+        for (PlanNodeStatsEstimateWithClause estimateWithClause : equiJoinClauseEstimates) {
+            EquiJoinClause clause = estimateWithClause.getClause();
+            // we just clear null fraction and adjust ranges here, selectivity is handled outside this function
+            SymbolStatsEstimate leftStats = stats.getSymbolStatistics(clause.getLeft());
+            SymbolStatsEstimate rightStats = stats.getSymbolStatistics(clause.getRight());
+            StatisticRange leftRange = StatisticRange.from(leftStats);
+            StatisticRange rightRange = StatisticRange.from(rightStats);
+
+            StatisticRange intersect = leftRange.intersect(rightRange);
+            double leftFilterValue = firstNonNaN(leftRange.overlapPercentWith(intersect), 1);
+            double rightFilterValue = firstNonNaN(rightRange.overlapPercentWith(intersect), 1);
+            double leftNdvInRange = leftFilterValue * leftRange.getDistinctValuesCount();
+            double rightNdvInRange = rightFilterValue * rightRange.getDistinctValuesCount();
+            double retainedNdv = MoreMath.min(leftNdvInRange, rightNdvInRange);
+
+            SymbolStatsEstimate newLeftStats = buildFrom(leftStats)
+                    .setNullsFraction(0)
+                    .setStatisticsRange(intersect)
+                    .setDistinctValuesCount(retainedNdv)
+                    .build();
+
+            SymbolStatsEstimate newRightStats = buildFrom(rightStats)
+                    .setNullsFraction(0)
+                    .setStatisticsRange(intersect)
+                    .setDistinctValuesCount(retainedNdv)
+                    .build();
+
+            result.addSymbolStatistics(clause.getLeft(), newLeftStats)
+                    .addSymbolStatistics(clause.getRight(), newRightStats);
         }
-        return filteredStats;
-    }
-
-    private PlanNodeStatsEstimate filterByAuxiliaryClause(PlanNodeStatsEstimate stats, EquiJoinClause clause, TypeProvider types)
-    {
-        // we just clear null fraction and adjust ranges here
-        // selectivity is mostly handled by driving clause. We just scale heuristically by UNKNOWN_FILTER_COEFFICIENT here.
-
-        SymbolStatsEstimate leftStats = stats.getSymbolStatistics(clause.getLeft());
-        SymbolStatsEstimate rightStats = stats.getSymbolStatistics(clause.getRight());
-        StatisticRange leftRange = StatisticRange.from(leftStats);
-        StatisticRange rightRange = StatisticRange.from(rightStats);
-
-        StatisticRange intersect = leftRange.intersect(rightRange);
-        double leftFilterValue = firstNonNaN(leftRange.overlapPercentWith(intersect), 1);
-        double rightFilterValue = firstNonNaN(rightRange.overlapPercentWith(intersect), 1);
-        double leftNdvInRange = leftFilterValue * leftRange.getDistinctValuesCount();
-        double rightNdvInRange = rightFilterValue * rightRange.getDistinctValuesCount();
-        double retainedNdv = MoreMath.min(leftNdvInRange, rightNdvInRange);
-
-        SymbolStatsEstimate newLeftStats = buildFrom(leftStats)
-                .setNullsFraction(0)
-                .setStatisticsRange(intersect)
-                .setDistinctValuesCount(retainedNdv)
-                .build();
-
-        SymbolStatsEstimate newRightStats = buildFrom(rightStats)
-                .setNullsFraction(0)
-                .setStatisticsRange(intersect)
-                .setDistinctValuesCount(retainedNdv)
-                .build();
-
-        PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(stats)
-                .setOutputRowCount(stats.getOutputRowCount() * UNKNOWN_FILTER_COEFFICIENT)
-                .addSymbolStatistics(clause.getLeft(), newLeftStats)
-                .addSymbolStatistics(clause.getRight(), newRightStats);
-        return normalizer.normalize(result.build(), types);
-    }
-
-    private static double firstNonNaN(double... values)
-    {
-        for (double value : values) {
-            if (!isNaN(value)) {
-                return value;
-            }
-        }
-        throw new IllegalArgumentException("All values are NaN");
+        return result.build().getSymbolStatistics();
     }
 
     /**
@@ -409,5 +391,27 @@ public class JoinStatsRule
         return node.getCriteria().stream()
                 .map(EquiJoinClause::flip)
                 .collect(toImmutableList());
+    }
+
+    private static class PlanNodeStatsEstimateWithClause
+    {
+        private final PlanNodeStatsEstimate estimate;
+        private final EquiJoinClause clause;
+
+        private PlanNodeStatsEstimateWithClause(PlanNodeStatsEstimate estimate, EquiJoinClause clause)
+        {
+            this.estimate = requireNonNull(estimate, "estimate is null");
+            this.clause = requireNonNull(clause, "clause is null");
+        }
+
+        private PlanNodeStatsEstimate getEstimate()
+        {
+            return estimate;
+        }
+
+        private EquiJoinClause getClause()
+        {
+            return clause;
+        }
     }
 }

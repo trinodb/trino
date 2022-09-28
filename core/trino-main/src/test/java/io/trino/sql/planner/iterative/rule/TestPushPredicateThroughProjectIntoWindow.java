@@ -30,6 +30,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -53,7 +54,7 @@ public class TestPushPredicateThroughProjectIntoWindow
 
     private void assertRankingSymbolPruned(Function rankingFunction)
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
@@ -80,12 +81,12 @@ public class TestPushPredicateThroughProjectIntoWindow
 
     private void assertNoUpperBoundForRankingSymbol(Function rankingFunction)
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            PlanBuilder.expression("a = 1"),
+                            PlanBuilder.expression("a = BIGINT '1'"),
                             p.project(
                                     Assignments.identity(a, ranking),
                                     p.window(
@@ -107,12 +108,12 @@ public class TestPushPredicateThroughProjectIntoWindow
 
     private void assertNonPositiveUpperBoundForRankingSymbol(Function rankingFunction)
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            PlanBuilder.expression("a = 1 AND ranking < -10"),
+                            PlanBuilder.expression("a = BIGINT '1' AND ranking < BIGINT '-10'"),
                             p.project(
                                     Assignments.identity(a, ranking),
                                     p.window(
@@ -134,12 +135,12 @@ public class TestPushPredicateThroughProjectIntoWindow
 
     private void assertPredicateNotSatisfied(Function rankingFunction, RankingType rankingType)
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            PlanBuilder.expression("ranking > 2 AND ranking < 5"),
+                            PlanBuilder.expression("ranking > BIGINT '2' AND ranking < BIGINT '5'"),
                             p.project(
                                     Assignments.identity(ranking),
                                     p.window(
@@ -150,7 +151,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                             p.values(a))));
                 })
                 .matches(filter(
-                        "ranking > 2 AND ranking < 5",
+                        "ranking > BIGINT '2' AND ranking < BIGINT '5'",
                         project(
                                 ImmutableMap.of("ranking", expression("ranking")),
                                 topNRanking(
@@ -175,12 +176,12 @@ public class TestPushPredicateThroughProjectIntoWindow
 
     private void assertPredicateSatisfied(Function rankingFunction, RankingType rankingType)
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            PlanBuilder.expression("ranking < 5"),
+                            PlanBuilder.expression("ranking < BIGINT '5'"),
                             p.project(
                                     Assignments.identity(ranking),
                                     p.window(
@@ -214,12 +215,12 @@ public class TestPushPredicateThroughProjectIntoWindow
 
     private void assertPredicatePartiallySatisfied(Function rankingFunction, RankingType rankingType)
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            PlanBuilder.expression("ranking < 5 AND a > 0"),
+                            PlanBuilder.expression("ranking < BIGINT '5' AND a > BIGINT '0'"),
                             p.project(
                                     Assignments.identity(ranking, a),
                                     p.window(
@@ -230,7 +231,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                             p.values(a))));
                 })
                 .matches(filter(
-                        "a > 0",
+                        "a > BIGINT '0'",
                         project(
                                 ImmutableMap.of("ranking", expression("ranking"), "a", expression("a")),
                                 topNRanking(
@@ -245,12 +246,12 @@ public class TestPushPredicateThroughProjectIntoWindow
                                         values(ImmutableList.of("a")))
                                         .withAlias("ranking", new TopNRankingSymbolMatcher()))));
 
-        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            PlanBuilder.expression("ranking < 5 AND ranking % 2 = 0"),
+                            PlanBuilder.expression("ranking < BIGINT '5' AND ranking % 2 = BIGINT '0'"),
                             p.project(
                                     Assignments.identity(ranking),
                                     p.window(
@@ -261,7 +262,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                             p.values(a))));
                 })
                 .matches(filter(
-                        "ranking % 2 = 0",
+                        "ranking % 2 = BIGINT '0'",
                         project(
                                 ImmutableMap.of("ranking", expression("ranking")),
                                 topNRanking(
@@ -280,7 +281,7 @@ public class TestPushPredicateThroughProjectIntoWindow
     private Function rowNumberFunction()
     {
         return new Function(
-                tester().getMetadata().resolveFunction(QualifiedName.of("row_number"), fromTypes()),
+                tester().getMetadata().resolveFunction(TEST_SESSION, QualifiedName.of("row_number"), fromTypes()),
                 ImmutableList.of(),
                 DEFAULT_FRAME,
                 false);
@@ -289,7 +290,7 @@ public class TestPushPredicateThroughProjectIntoWindow
     private Function rankFunction()
     {
         return new Function(
-                tester().getMetadata().resolveFunction(QualifiedName.of("rank"), fromTypes()),
+                tester().getMetadata().resolveFunction(TEST_SESSION, QualifiedName.of("rank"), fromTypes()),
                 ImmutableList.of(),
                 DEFAULT_FRAME,
                 false);

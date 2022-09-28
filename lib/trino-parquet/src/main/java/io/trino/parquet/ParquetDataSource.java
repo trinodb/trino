@@ -13,11 +13,11 @@
  */
 package io.trino.parquet;
 
+import com.google.common.collect.ListMultimap;
 import io.airlift.slice.Slice;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Map;
 
 public interface ParquetDataSource
         extends Closeable
@@ -30,11 +30,13 @@ public interface ParquetDataSource
 
     long getEstimatedSize();
 
-    Slice readTail(int length);
+    Slice readTail(int length)
+            throws IOException;
 
-    Slice readFully(long position, int length);
+    Slice readFully(long position, int length)
+            throws IOException;
 
-    <K> Map<K, ChunkReader> planRead(Map<K, DiskRange> diskRanges);
+    <K> ListMultimap<K, ChunkReader> planRead(ListMultimap<K, DiskRange> diskRanges);
 
     @Override
     default void close()

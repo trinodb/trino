@@ -2,6 +2,45 @@
 Release notes
 *************
 
+.. _releases_2022:
+
+2022
+====
+
+.. toctree::
+    :maxdepth: 1
+
+    release/release-397
+    release/release-396
+    release/release-395
+    release/release-394
+    release/release-393
+    release/release-392
+    release/release-391
+    release/release-390
+    release/release-389
+    release/release-388
+    release/release-387
+    release/release-386
+    release/release-385
+    release/release-384
+    release/release-383
+    release/release-382
+    release/release-381
+    release/release-380
+    release/release-379
+    release/release-378
+    release/release-377
+    release/release-376
+    release/release-375
+    release/release-374
+    release/release-373
+    release/release-372
+    release/release-371
+    release/release-370
+    release/release-369
+    release/release-368
+
 .. _releases_2021:
 
 2021
@@ -10,6 +49,15 @@ Release notes
 .. toctree::
     :maxdepth: 1
 
+    release/release-367
+    release/release-366
+    release/release-365
+    release/release-364
+    release/release-363
+    release/release-362
+    release/release-361
+    release/release-360
+    release/release-359
     release/release-358
     release/release-357
     release/release-356

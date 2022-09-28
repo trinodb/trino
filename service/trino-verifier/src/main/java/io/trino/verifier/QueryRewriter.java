@@ -110,7 +110,7 @@ public class QueryRewriter
             if (statement instanceof CreateTableAsSelect) {
                 return rewriteCreateTableAsSelect(connection, query, (CreateTableAsSelect) statement);
             }
-            else if (statement instanceof Insert) {
+            if (statement instanceof Insert) {
                 return rewriteInsertQuery(connection, query, (Insert) statement);
             }
         }
@@ -135,7 +135,7 @@ public class QueryRewriter
         QualifiedName temporaryTableName = generateTemporaryTableName(statement.getTarget());
         Statement createTemporaryTable = new CreateTable(temporaryTableName, ImmutableList.of(new LikeClause(statement.getTarget(), Optional.of(INCLUDING))), true, ImmutableList.of(), Optional.empty());
         String createTemporaryTableSql = formatSql(createTemporaryTable);
-        String insertSql = formatSql(new Insert(temporaryTableName, statement.getColumns(), statement.getQuery()));
+        String insertSql = formatSql(new Insert(new Table(temporaryTableName), statement.getColumns(), statement.getQuery()));
         String checksumSql = checksumSql(getColumnsForTable(connection, query.getCatalog(), query.getSchema(), statement.getTarget().toString()), temporaryTableName);
         String dropTableSql = dropTableSql(temporaryTableName);
         return new Query(query.getCatalog(), query.getSchema(), ImmutableList.of(createTemporaryTableSql, insertSql), checksumSql, ImmutableList.of(dropTableSql), query.getUsername(), query.getPassword(), query.getSessionProperties());
@@ -178,7 +178,7 @@ public class QueryRewriter
             throws SQLException
     {
         ResultSet columns = connection.getMetaData().getColumns(catalog, escapeLikeExpression(connection, schema), escapeLikeExpression(connection, table), null);
-        ImmutableList.Builder<Column> columnBuilder = new ImmutableList.Builder<>();
+        ImmutableList.Builder<Column> columnBuilder = ImmutableList.builder();
         while (columns.next()) {
             String name = columns.getString("COLUMN_NAME");
             int type = columns.getInt("DATA_TYPE");

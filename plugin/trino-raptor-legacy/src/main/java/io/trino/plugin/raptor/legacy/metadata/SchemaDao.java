@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.raptor.legacy.metadata;
 
-import org.skife.jdbi.v2.sqlobject.SqlUpdate;
+import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 public interface SchemaDao
 {

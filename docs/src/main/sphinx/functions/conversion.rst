@@ -28,7 +28,7 @@ Formatting
 .. function:: format(format, args...) -> varchar
 
     Returns a formatted string using the specified `format string
-    <https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/Formatter.html#syntax>`_
+    <https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Formatter.html#syntax>`_
     and arguments::
 
         SELECT format('%s%%', 123);
@@ -62,7 +62,7 @@ Formatting
 Data size
 ---------
 
-The ``parse_presto_data_size`` function supports the following units:
+The ``parse_data_size`` function supports the following units:
 
 ======= ============= ==============
 Unit    Description   Value
@@ -78,15 +78,15 @@ Unit    Description   Value
 ``YB``  Yottabytes    1024\ :sup:`8`
 ======= ============= ==============
 
-.. function:: parse_presto_data_size(string) -> decimal(38)
+.. function:: parse_data_size(string) -> decimal(38)
 
     Parses ``string`` of format ``value unit`` into a number, where
     ``value`` is the fractional number of ``unit`` values::
 
-        SELECT parse_presto_data_size('1B'); -- 1
-        SELECT parse_presto_data_size('1kB'); -- 1024
-        SELECT parse_presto_data_size('1MB'); -- 1048576
-        SELECT parse_presto_data_size('2.3MB'); -- 2411724
+        SELECT parse_data_size('1B'); -- 1
+        SELECT parse_data_size('1kB'); -- 1024
+        SELECT parse_data_size('1MB'); -- 1048576
+        SELECT parse_data_size('2.3MB'); -- 2411724
 
 Miscellaneous
 -------------

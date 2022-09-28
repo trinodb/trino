@@ -148,7 +148,7 @@ public class GroupedTopNRankBuilder
 
         ResultIterator()
         {
-            ImmutableList.Builder<Type> sourceTypesBuilders = new ImmutableList.Builder<Type>().addAll(sourceTypes);
+            ImmutableList.Builder<Type> sourceTypesBuilders = ImmutableList.<Type>builder().addAll(sourceTypes);
             if (produceRanking) {
                 sourceTypesBuilders.add(BIGINT);
             }

@@ -19,7 +19,6 @@ import io.trino.geospatial.KdbTreeUtils;
 import io.trino.geospatial.Rectangle;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
-import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
@@ -76,12 +75,6 @@ public final class SpatialPartitioningInternalAggregateFunction
         }
 
         state.setCount(state.getCount() + 1);
-    }
-
-    @CombineFunction
-    public static void combine(SpatialPartitioningState state, SpatialPartitioningState otherState)
-    {
-        throw new UnsupportedOperationException("spatial_partitioning must run on a single node");
     }
 
     @OutputFunction(StandardTypes.VARCHAR)

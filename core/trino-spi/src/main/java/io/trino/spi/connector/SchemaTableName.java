@@ -15,14 +15,18 @@ package io.trino.spi.connector;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.trino.spi.connector.SchemaUtil.checkNotEmpty;
 import static java.util.Locale.ENGLISH;
 
 public final class SchemaTableName
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SchemaTableName.class).instanceSize();
+
     private final String schemaName;
     private final String tableName;
 
@@ -79,5 +83,12 @@ public final class SchemaTableName
     public SchemaTablePrefix toSchemaTablePrefix()
     {
         return new SchemaTablePrefix(schemaName, tableName);
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(schemaName)
+                + estimatedSizeOf(tableName);
     }
 }

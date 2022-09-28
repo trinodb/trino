@@ -22,16 +22,12 @@ import io.trino.Session;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.memory.VersionedMemoryPoolId;
-import io.trino.metadata.Metadata;
-import io.trino.security.AccessControl;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.QueryId;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Statement;
-import io.trino.transaction.TransactionManager;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
@@ -54,9 +50,6 @@ public class DataDefinitionExecution<T extends Statement>
     private final DataDefinitionTask<T> task;
     private final T statement;
     private final Slug slug;
-    private final TransactionManager transactionManager;
-    private final Metadata metadata;
-    private final AccessControl accessControl;
     private final QueryStateMachine stateMachine;
     private final List<Expression> parameters;
     private final WarningCollector warningCollector;
@@ -65,9 +58,6 @@ public class DataDefinitionExecution<T extends Statement>
             DataDefinitionTask<T> task,
             T statement,
             Slug slug,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
@@ -75,9 +65,6 @@ public class DataDefinitionExecution<T extends Statement>
         this.task = requireNonNull(task, "task is null");
         this.statement = requireNonNull(statement, "statement is null");
         this.slug = requireNonNull(slug, "slug is null");
-        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.parameters = parameters;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -87,18 +74,6 @@ public class DataDefinitionExecution<T extends Statement>
     public Slug getSlug()
     {
         return slug;
-    }
-
-    @Override
-    public VersionedMemoryPoolId getMemoryPool()
-    {
-        return stateMachine.getMemoryPool();
-    }
-
-    @Override
-    public void setMemoryPool(VersionedMemoryPoolId poolId)
-    {
-        stateMachine.setMemoryPool(poolId);
     }
 
     @Override
@@ -167,7 +142,7 @@ public class DataDefinitionExecution<T extends Statement>
                 return;
             }
 
-            ListenableFuture<Void> future = task.execute(statement, transactionManager, metadata, accessControl, stateMachine, parameters, warningCollector);
+            ListenableFuture<Void> future = task.execute(statement, stateMachine, parameters, warningCollector);
             Futures.addCallback(future, new FutureCallback<>()
             {
                 @Override
@@ -190,9 +165,21 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
-    public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
+    public void setOutputInfoListener(Consumer<QueryOutputInfo> listener)
     {
         // DDL does not have an output
+    }
+
+    @Override
+    public void outputTaskFailed(TaskId taskId, Throwable failure)
+    {
+        // DDL does not have an output
+    }
+
+    @Override
+    public void resultsConsumed()
+    {
+        stateMachine.resultsConsumed();
     }
 
     @Override
@@ -233,6 +220,12 @@ public class DataDefinitionExecution<T extends Statement>
 
     @Override
     public void cancelStage(StageId stageId)
+    {
+        // no-op
+    }
+
+    @Override
+    public void failTask(TaskId taskId, Exception reason)
     {
         // no-op
     }
@@ -293,21 +286,11 @@ public class DataDefinitionExecution<T extends Statement>
     public static class DataDefinitionExecutionFactory
             implements QueryExecutionFactory<DataDefinitionExecution<?>>
     {
-        private final TransactionManager transactionManager;
-        private final Metadata metadata;
-        private final AccessControl accessControl;
         private final Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks;
 
         @Inject
-        public DataDefinitionExecutionFactory(
-                TransactionManager transactionManager,
-                Metadata metadata,
-                AccessControl accessControl,
-                Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks)
+        public DataDefinitionExecutionFactory(Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks)
         {
-            this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-            this.metadata = requireNonNull(metadata, "metadata is null");
-            this.accessControl = requireNonNull(accessControl, "accessControl is null");
             this.tasks = requireNonNull(tasks, "tasks is null");
         }
 
@@ -333,7 +316,7 @@ public class DataDefinitionExecution<T extends Statement>
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
             stateMachine.setUpdateType(task.getName());
-            return new DataDefinitionExecution<>(task, statement, slug, transactionManager, metadata, accessControl, stateMachine, parameters, warningCollector);
+            return new DataDefinitionExecution<>(task, statement, slug, stateMachine, parameters, warningCollector);
         }
     }
 }

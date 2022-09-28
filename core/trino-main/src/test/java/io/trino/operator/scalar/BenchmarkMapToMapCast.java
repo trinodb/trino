@@ -15,15 +15,13 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.jmh.Benchmarks;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.MapType;
-import io.trino.sql.gen.ExpressionCompiler;
-import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.RowExpression;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -45,7 +43,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.relational.Expressions.field;
@@ -86,13 +83,13 @@ public class BenchmarkMapToMapCast
         @Setup
         public void setup()
         {
-            Metadata metadata = createTestMetadataManager();
+            TestingFunctionResolution functionResolution = new TestingFunctionResolution();
 
             List<RowExpression> projections = ImmutableList.of(new CallExpression(
-                    metadata.getCoercion(mapType(DOUBLE, BIGINT), mapType(BIGINT, DOUBLE)),
+                    functionResolution.getCoercion(mapType(DOUBLE, BIGINT), mapType(BIGINT, DOUBLE)),
                     ImmutableList.of(field(0, mapType(DOUBLE, BIGINT)))));
 
-            pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
+            pageProcessor = functionResolution.getExpressionCompiler()
                     .compilePageProcessor(Optional.empty(), projections)
                     .get();
 

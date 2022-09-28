@@ -26,13 +26,14 @@ import io.trino.operator.WorkProcessor.ProcessState;
 import io.trino.operator.WorkProcessor.Transformation;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.operator.window.FrameInfo;
-import io.trino.operator.window.FramedWindowFunction;
 import io.trino.operator.window.Partitioner;
 import io.trino.operator.window.PartitionerSupplier;
+import io.trino.operator.window.PatternRecognitionPartitioner;
 import io.trino.operator.window.WindowPartition;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.SortOrder;
+import io.trino.spi.function.WindowFunction;
 import io.trino.spi.type.Type;
 import io.trino.spiller.Spiller;
 import io.trino.spiller.SpillerFactory;
@@ -169,7 +170,7 @@ public class WindowOperator
                     spillerFactory,
                     orderingCompiler,
                     measureTypes,
-                    partitionerSupplier.get());
+                    partitionerSupplier.get(operatorContext.aggregateUserMemoryContext()));
         }
 
         @Override
@@ -205,7 +206,8 @@ public class WindowOperator
     private final OperatorContext operatorContext;
     private final List<Type> outputTypes;
     private final int[] outputChannels;
-    private final List<FramedWindowFunction> windowFunctions;
+    private final List<WindowFunction> windowFunctions;
+    private final List<FrameInfo> frames;
     private final WindowInfo.DriverWindowInfoBuilder windowInfo;
     private final AtomicReference<WindowInfo> driverWindowInfo = new AtomicReference<>(WindowInfo.emptyInfo());
 
@@ -237,6 +239,10 @@ public class WindowOperator
         requireNonNull(operatorContext, "operatorContext is null");
         requireNonNull(outputChannels, "outputChannels is null");
         requireNonNull(windowFunctionDefinitions, "windowFunctionDefinitions is null");
+        checkArgument(
+                windowFunctionDefinitions.stream().allMatch(definition -> definition.getFrameInfo().isPresent()) ||
+                        windowFunctionDefinitions.stream().allMatch(definition -> definition.getFrameInfo().isEmpty()),
+                "FrameInfo must be equally present or empty for all window functions");
         requireNonNull(partitionChannels, "partitionChannels is null");
         requireNonNull(preGroupedChannels, "preGroupedChannels is null");
         checkArgument(partitionChannels.containsAll(preGroupedChannels), "preGroupedChannels must be a subset of partitionChannels");
@@ -249,12 +255,23 @@ public class WindowOperator
         checkArgument(preSortedChannelPrefix == 0 || ImmutableSet.copyOf(preGroupedChannels).equals(ImmutableSet.copyOf(partitionChannels)), "preSortedChannelPrefix can only be greater than zero if all partition channels are pre-grouped");
         requireNonNull(measureTypes, "measureTypes is null");
         requireNonNull(partitioner, "partitioner is null");
+        checkArgument(
+                windowFunctionDefinitions.stream().noneMatch(definition -> definition.getFrameInfo().isEmpty()) || partitioner instanceof PatternRecognitionPartitioner,
+                "Missing FrameInfo for a window function outside pattern recognition context");
 
         this.operatorContext = operatorContext;
         this.outputChannels = Ints.toArray(outputChannels);
         this.windowFunctions = windowFunctionDefinitions.stream()
-                .map(functionDefinition -> new FramedWindowFunction(functionDefinition.createWindowFunction(), functionDefinition.getFrameInfo()))
+                .map(WindowFunctionDefinition::createWindowFunction)
                 .collect(toImmutableList());
+        if (windowFunctionDefinitions.stream().anyMatch(definition -> definition.getFrameInfo().isPresent())) {
+            this.frames = windowFunctionDefinitions.stream()
+                    .map(functionDefinition -> functionDefinition.getFrameInfo().get())
+                    .collect(toImmutableList());
+        }
+        else {
+            this.frames = ImmutableList.of();
+        }
 
         ImmutableList.Builder<Type> outputTypes = ImmutableList.builder();
         outputTypes.addAll(outputChannels.stream()
@@ -447,8 +464,9 @@ public class WindowOperator
         ImmutableMap.Builder<FrameBoundKey, PagesIndexComparator> builder = ImmutableMap.builder();
 
         for (int i = 0; i < windowFunctionDefinitions.size(); i++) {
-            FrameInfo frameInfo = windowFunctionDefinitions.get(i).getFrameInfo();
-            if (frameInfo.getType() == RANGE) {
+            Optional<FrameInfo> frame = windowFunctionDefinitions.get(i).getFrameInfo();
+            if (frame.isPresent() && frame.get().getType() == RANGE) {
+                FrameInfo frameInfo = frame.get();
                 if (frameInfo.getStartType() == PRECEDING || frameInfo.getStartType() == FOLLOWING) {
                     PagesIndexComparator comparator = pagesIndex.createChannelComparator(frameInfo.getSortKeyChannelForStartComparison(), frameInfo.getStartChannel());
                     builder.put(new FrameBoundKey(i, FrameBoundKey.Type.START), comparator);
@@ -460,7 +478,7 @@ public class WindowOperator
             }
         }
 
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     public static class FrameBoundKey
@@ -587,8 +605,10 @@ public class WindowOperator
                         partitionEnd,
                         outputChannels,
                         windowFunctions,
+                        frames,
                         pagesIndexWithHashStrategies.peerGroupHashStrategy,
-                        pagesIndexWithHashStrategies.frameBoundComparators);
+                        pagesIndexWithHashStrategies.frameBoundComparators,
+                        operatorContext.aggregateUserMemoryContext());
 
                 windowInfo.addPartition(partition);
                 partitionStart = partitionEnd;
@@ -770,7 +790,7 @@ public class WindowOperator
                 spiller = Optional.of(spillerFactory.create(
                         sourceTypes,
                         operatorContext.getSpillContext(),
-                        operatorContext.newAggregateSystemMemoryContext()));
+                        operatorContext.newAggregateUserMemoryContext()));
             }
 
             verify(inMemoryPagesIndexWithHashStrategies.pagesIndex.getPositionCount() > 0);

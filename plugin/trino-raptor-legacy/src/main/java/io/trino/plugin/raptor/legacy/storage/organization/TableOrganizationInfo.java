@@ -13,14 +13,10 @@
  */
 package io.trino.plugin.raptor.legacy.storage.organization;
 
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
+import org.jdbi.v3.core.mapper.reflect.ColumnName;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.OptionalLong;
 
-import static io.trino.plugin.raptor.legacy.util.DatabaseUtil.getOptionalLong;
 import static java.util.Objects.requireNonNull;
 
 public class TableOrganizationInfo
@@ -28,7 +24,7 @@ public class TableOrganizationInfo
     private final long tableId;
     private final OptionalLong lastStartTimeMillis;
 
-    public TableOrganizationInfo(long tableId, OptionalLong lastStartTimeMillis)
+    public TableOrganizationInfo(long tableId, @ColumnName("last_start_time") OptionalLong lastStartTimeMillis)
     {
         this.tableId = tableId;
         this.lastStartTimeMillis = requireNonNull(lastStartTimeMillis, "lastStartTimeMillis is null");
@@ -42,18 +38,5 @@ public class TableOrganizationInfo
     public OptionalLong getLastStartTimeMillis()
     {
         return lastStartTimeMillis;
-    }
-
-    public static class Mapper
-            implements ResultSetMapper<TableOrganizationInfo>
-    {
-        @Override
-        public TableOrganizationInfo map(int index, ResultSet r, StatementContext ctx)
-                throws SQLException
-        {
-            return new TableOrganizationInfo(
-                    r.getLong("table_id"),
-                    getOptionalLong(r, "last_start_time"));
-        }
     }
 }

@@ -14,13 +14,16 @@
 package io.trino.client;
 
 import com.google.common.base.CharMatcher;
+import com.google.common.base.StandardSystemProperty;
 import com.google.common.net.HostAndPort;
-import io.airlift.security.pem.PemReader;
+import io.trino.client.auth.kerberos.ContextBasedSubjectProvider;
+import io.trino.client.auth.kerberos.LoginBasedSubjectProvider;
+import io.trino.client.auth.kerberos.SpnegoHandler;
+import io.trino.client.auth.kerberos.SubjectProvider;
 import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
-import okhttp3.Request;
 import okhttp3.internal.tls.LegacyHostnameVerifier;
 
 import javax.net.ssl.KeyManager;
@@ -49,7 +52,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
@@ -92,16 +94,6 @@ public final class OkHttpUtil
         return chain -> chain.proceed(chain.request().newBuilder()
                 .addHeader(AUTHORIZATION, "Bearer " + accessToken)
                 .build());
-    }
-
-    public static Interceptor interceptRequest(Consumer<Request> consumer)
-    {
-        requireNonNull(consumer, "consumer is null");
-
-        return chain -> {
-            consumer.accept(chain.request());
-            return chain.proceed(chain.request());
-        };
     }
 
     public static void setupTimeouts(OkHttpClient.Builder clientBuilder, int timeout, TimeUnit unit)
@@ -181,9 +173,10 @@ public final class OkHttpUtil
             Optional<String> keyStoreType,
             Optional<String> trustStorePath,
             Optional<String> trustStorePassword,
-            Optional<String> trustStoreType)
+            Optional<String> trustStoreType,
+            boolean useSystemTrustStore)
     {
-        if (!keyStorePath.isPresent() && !trustStorePath.isPresent()) {
+        if (!keyStorePath.isPresent() && !trustStorePath.isPresent() && !useSystemTrustStore) {
             return;
         }
 
@@ -215,7 +208,10 @@ public final class OkHttpUtil
 
             // load TrustStore if configured, otherwise use KeyStore
             KeyStore trustStore = keyStore;
-            if (trustStorePath.isPresent()) {
+            if (useSystemTrustStore) {
+                trustStore = loadSystemTrustStore(trustStoreType);
+            }
+            else if (trustStorePath.isPresent()) {
                 trustStore = loadTrustStore(new File(trustStorePath.get()), trustStorePassword, trustStoreType);
             }
 
@@ -291,6 +287,25 @@ public final class OkHttpUtil
         return trustStore;
     }
 
+    private static KeyStore loadSystemTrustStore(Optional<String> trustStoreType)
+            throws IOException, GeneralSecurityException
+    {
+        String osName = Optional.ofNullable(StandardSystemProperty.OS_NAME.value()).orElse("");
+        Optional<String> systemTrustStoreType = trustStoreType;
+        if (!systemTrustStoreType.isPresent()) {
+            if (osName.contains("Windows")) {
+                systemTrustStoreType = Optional.of("Windows-ROOT");
+            }
+            else if (osName.contains("Mac")) {
+                systemTrustStoreType = Optional.of("KeychainStore");
+            }
+        }
+
+        KeyStore trustStore = KeyStore.getInstance(systemTrustStoreType.orElse(KeyStore.getDefaultType()));
+        trustStore.load(null, null);
+        return trustStore;
+    }
+
     public static void setupKerberos(
             OkHttpClient.Builder clientBuilder,
             String servicePrincipalPattern,
@@ -299,9 +314,17 @@ public final class OkHttpUtil
             Optional<String> principal,
             Optional<File> kerberosConfig,
             Optional<File> keytab,
-            Optional<File> credentialCache)
+            Optional<File> credentialCache,
+            boolean delegatedKerberos)
     {
-        SpnegoHandler handler = new SpnegoHandler(servicePrincipalPattern, remoteServiceName, useCanonicalHostname, principal, kerberosConfig, keytab, credentialCache);
+        SubjectProvider subjectProvider;
+        if (delegatedKerberos) {
+            subjectProvider = new ContextBasedSubjectProvider();
+        }
+        else {
+            subjectProvider = new LoginBasedSubjectProvider(principal, kerberosConfig, keytab, credentialCache);
+        }
+        SpnegoHandler handler = new SpnegoHandler(servicePrincipalPattern, remoteServiceName, useCanonicalHostname, subjectProvider);
         clientBuilder.addInterceptor(handler);
         clientBuilder.authenticator(handler);
     }

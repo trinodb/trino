@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
+import io.trino.client.auth.external.ExternalRedirectStrategy;
 
 import java.io.File;
 import java.util.List;
@@ -28,8 +29,10 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.StreamSupport;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.immutableEntry;
 import static io.trino.client.ClientSelectedRole.Type.ALL;
@@ -56,6 +59,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String> APPLICATION_NAME_PREFIX = new ApplicationNamePrefix();
     public static final ConnectionProperty<Boolean> DISABLE_COMPRESSION = new DisableCompression();
     public static final ConnectionProperty<Boolean> ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS = new AssumeLiteralNamesInMetadataCallsForNonConformingClients();
+    public static final ConnectionProperty<Boolean> ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS = new AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients();
     public static final ConnectionProperty<Boolean> SSL = new Ssl();
     public static final ConnectionProperty<SslVerificationMode> SSL_VERIFICATION = new SslVerification();
     public static final ConnectionProperty<String> SSL_KEY_STORE_PATH = new SslKeyStorePath();
@@ -64,6 +68,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String> SSL_TRUST_STORE_PATH = new SslTrustStorePath();
     public static final ConnectionProperty<String> SSL_TRUST_STORE_PASSWORD = new SslTrustStorePassword();
     public static final ConnectionProperty<String> SSL_TRUST_STORE_TYPE = new SslTrustStoreType();
+    public static final ConnectionProperty<Boolean> SSL_USE_SYSTEM_TRUST_STORE = new SslUseSystemTrustStore();
     public static final ConnectionProperty<String> KERBEROS_SERVICE_PRINCIPAL_PATTERN = new KerberosServicePrincipalPattern();
     public static final ConnectionProperty<String> KERBEROS_REMOTE_SERVICE_NAME = new KerberosRemoteServiceName();
     public static final ConnectionProperty<Boolean> KERBEROS_USE_CANONICAL_HOSTNAME = new KerberosUseCanonicalHostname();
@@ -71,9 +76,11 @@ final class ConnectionProperties
     public static final ConnectionProperty<File> KERBEROS_CONFIG_PATH = new KerberosConfigPath();
     public static final ConnectionProperty<File> KERBEROS_KEYTAB_PATH = new KerberosKeytabPath();
     public static final ConnectionProperty<File> KERBEROS_CREDENTIAL_CACHE_PATH = new KerberosCredentialCachePath();
+    public static final ConnectionProperty<Boolean> KERBEROS_DELEGATION = new KerberosDelegation();
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
     public static final ConnectionProperty<Boolean> EXTERNAL_AUTHENTICATION = new ExternalAuthentication();
     public static final ConnectionProperty<Duration> EXTERNAL_AUTHENTICATION_TIMEOUT = new ExternalAuthenticationTimeout();
+    public static final ConnectionProperty<List<ExternalRedirectStrategy>> EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS = new ExternalAuthenticationRedirectHandlers();
     public static final ConnectionProperty<KnownTokenCache> EXTERNAL_AUTHENTICATION_TOKEN_CACHE = new ExternalAuthenticationTokenCache();
     public static final ConnectionProperty<Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
     public static final ConnectionProperty<String> CLIENT_INFO = new ClientInfo();
@@ -92,6 +99,7 @@ final class ConnectionProperties
             .add(APPLICATION_NAME_PREFIX)
             .add(DISABLE_COMPRESSION)
             .add(ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS)
+            .add(ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS)
             .add(SSL)
             .add(SSL_VERIFICATION)
             .add(SSL_KEY_STORE_PATH)
@@ -100,6 +108,7 @@ final class ConnectionProperties
             .add(SSL_TRUST_STORE_PATH)
             .add(SSL_TRUST_STORE_PASSWORD)
             .add(SSL_TRUST_STORE_TYPE)
+            .add(SSL_USE_SYSTEM_TRUST_STORE)
             .add(KERBEROS_REMOTE_SERVICE_NAME)
             .add(KERBEROS_SERVICE_PRINCIPAL_PATTERN)
             .add(KERBEROS_USE_CANONICAL_HOSTNAME)
@@ -107,6 +116,7 @@ final class ConnectionProperties
             .add(KERBEROS_CONFIG_PATH)
             .add(KERBEROS_KEYTAB_PATH)
             .add(KERBEROS_CREDENTIAL_CACHE_PATH)
+            .add(KERBEROS_DELEGATION)
             .add(ACCESS_TOKEN)
             .add(EXTRA_CREDENTIALS)
             .add(CLIENT_INFO)
@@ -117,6 +127,7 @@ final class ConnectionProperties
             .add(EXTERNAL_AUTHENTICATION)
             .add(EXTERNAL_AUTHENTICATION_TIMEOUT)
             .add(EXTERNAL_AUTHENTICATION_TOKEN_CACHE)
+            .add(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -129,7 +140,7 @@ final class ConnectionProperties
         for (ConnectionProperty<?> property : ALL_PROPERTIES) {
             property.getDefault().ifPresent(value -> defaults.put(property.getKey(), value));
         }
-        DEFAULTS = defaults.build();
+        DEFAULTS = defaults.buildOrThrow();
     }
 
     private ConnectionProperties() {}
@@ -154,7 +165,7 @@ final class ConnectionProperties
     {
         public User()
         {
-            super("user", REQUIRED, ALLOWED, NON_EMPTY_STRING_CONVERTER);
+            super("user", NOT_REQUIRED, ALLOWED, NON_EMPTY_STRING_CONVERTER);
         }
     }
 
@@ -277,12 +288,40 @@ final class ConnectionProperties
         }
     }
 
+    /**
+     * @deprecated use {@link AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients}
+     */
     private static class AssumeLiteralNamesInMetadataCallsForNonConformingClients
             extends AbstractConnectionProperty<Boolean>
     {
+        private static final Predicate<Properties> IS_ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS_NOT_ENABLED =
+                checkedPredicate(properties -> !ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS.getValue(properties).orElse(false));
+
         public AssumeLiteralNamesInMetadataCallsForNonConformingClients()
         {
-            super("assumeLiteralNamesInMetadataCallsForNonConformingClients", NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+            super(
+                    "assumeLiteralNamesInMetadataCallsForNonConformingClients",
+                    NOT_REQUIRED,
+                    AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients.IS_ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS_NOT_ENABLED
+                            .or(IS_ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS_NOT_ENABLED),
+                    BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients
+            extends AbstractConnectionProperty<Boolean>
+    {
+        private static final Predicate<Properties> IS_ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS_NOT_ENABLED =
+                checkedPredicate(properties -> !ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS.getValue(properties).orElse(false));
+
+        public AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients()
+        {
+            super(
+                    "assumeLiteralUnderscoreInMetadataCallsForNonConformingClients",
+                    NOT_REQUIRED,
+                    AssumeLiteralNamesInMetadataCallsForNonConformingClients.IS_ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS_NOT_ENABLED
+                            .or(IS_ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS_NOT_ENABLED),
+                    BOOLEAN_CONVERTER);
         }
     }
 
@@ -346,9 +385,12 @@ final class ConnectionProperties
     private static class SslTrustStorePath
             extends AbstractConnectionProperty<String>
     {
+        private static final Predicate<Properties> IF_SYSTEM_TRUST_STORE_NOT_ENABLED =
+                checkedPredicate(properties -> !SSL_USE_SYSTEM_TRUST_STORE.getValue(properties).orElse(false));
+
         public SslTrustStorePath()
         {
-            super("SSLTrustStorePath", NOT_REQUIRED, SslVerification.IF_SSL_VERIFICATION_ENABLED, STRING_CONVERTER);
+            super("SSLTrustStorePath", NOT_REQUIRED, IF_SYSTEM_TRUST_STORE_NOT_ENABLED.and(SslVerification.IF_SSL_VERIFICATION_ENABLED), STRING_CONVERTER);
         }
     }
 
@@ -368,11 +410,20 @@ final class ConnectionProperties
             extends AbstractConnectionProperty<String>
     {
         private static final Predicate<Properties> IF_TRUST_STORE =
-                checkedPredicate(properties -> SSL_TRUST_STORE_PATH.getValue(properties).isPresent());
+                checkedPredicate(properties -> SSL_TRUST_STORE_PATH.getValue(properties).isPresent() || SSL_USE_SYSTEM_TRUST_STORE.getValue(properties).orElse(false));
 
         public SslTrustStoreType()
         {
             super("SSLTrustStoreType", NOT_REQUIRED, IF_TRUST_STORE.and(SslVerification.IF_SSL_VERIFICATION_ENABLED), STRING_CONVERTER);
+        }
+    }
+
+    private static class SslUseSystemTrustStore
+            extends AbstractConnectionProperty<Boolean>
+    {
+        public SslUseSystemTrustStore()
+        {
+            super("SSLUseSystemTrustStore", NOT_REQUIRED, SslVerification.IF_SSL_VERIFICATION_ENABLED, BOOLEAN_CONVERTER);
         }
     }
 
@@ -390,6 +441,11 @@ final class ConnectionProperties
         return checkedPredicate(properties -> KERBEROS_REMOTE_SERVICE_NAME.getValue(properties).isPresent());
     }
 
+    private static Predicate<Properties> isKerberosWithoutDelegation()
+    {
+        return isKerberosEnabled().and(checkedPredicate(properties -> !KERBEROS_DELEGATION.getValue(properties).orElse(false)));
+    }
+
     private static class KerberosServicePrincipalPattern
             extends AbstractConnectionProperty<String>
     {
@@ -404,7 +460,7 @@ final class ConnectionProperties
     {
         public KerberosPrincipal()
         {
-            super("KerberosPrincipal", NOT_REQUIRED, isKerberosEnabled(), STRING_CONVERTER);
+            super("KerberosPrincipal", NOT_REQUIRED, isKerberosWithoutDelegation(), STRING_CONVERTER);
         }
     }
 
@@ -422,7 +478,7 @@ final class ConnectionProperties
     {
         public KerberosConfigPath()
         {
-            super("KerberosConfigPath", NOT_REQUIRED, isKerberosEnabled(), FILE_CONVERTER);
+            super("KerberosConfigPath", NOT_REQUIRED, isKerberosWithoutDelegation(), FILE_CONVERTER);
         }
     }
 
@@ -431,7 +487,7 @@ final class ConnectionProperties
     {
         public KerberosKeytabPath()
         {
-            super("KerberosKeytabPath", NOT_REQUIRED, isKerberosEnabled(), FILE_CONVERTER);
+            super("KerberosKeytabPath", NOT_REQUIRED, isKerberosWithoutDelegation(), FILE_CONVERTER);
         }
     }
 
@@ -440,7 +496,16 @@ final class ConnectionProperties
     {
         public KerberosCredentialCachePath()
         {
-            super("KerberosCredentialCachePath", NOT_REQUIRED, isKerberosEnabled(), FILE_CONVERTER);
+            super("KerberosCredentialCachePath", NOT_REQUIRED, isKerberosWithoutDelegation(), FILE_CONVERTER);
+        }
+    }
+
+    private static class KerberosDelegation
+            extends AbstractConnectionProperty<Boolean>
+    {
+        public KerberosDelegation()
+        {
+            super("KerberosDelegation", Optional.of("false"), isKerberosEnabled(), ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 
@@ -459,6 +524,24 @@ final class ConnectionProperties
         public ExternalAuthentication()
         {
             super("externalAuthentication", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class ExternalAuthenticationRedirectHandlers
+            extends AbstractConnectionProperty<List<ExternalRedirectStrategy>>
+    {
+        private static final Splitter ENUM_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+
+        public ExternalAuthenticationRedirectHandlers()
+        {
+            super("externalAuthenticationRedirectHandlers", Optional.of("OPEN"), NOT_REQUIRED, ALLOWED, ExternalAuthenticationRedirectHandlers::parse);
+        }
+
+        public static List<ExternalRedirectStrategy> parse(String value)
+        {
+            return StreamSupport.stream(ENUM_SPLITTER.split(value).spliterator(), false)
+                    .map(ExternalRedirectStrategy::valueOf)
+                    .collect(toImmutableList());
         }
     }
 

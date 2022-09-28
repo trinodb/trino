@@ -74,11 +74,13 @@ public final class ProtoUtils
 
     public static Database fromProto(alluxio.grpc.table.Database db)
     {
+        Optional<String> owner = Optional.ofNullable(db.getOwnerName());
+        Optional<io.trino.spi.security.PrincipalType> ownerType = owner.map(name -> db.getOwnerType() == PrincipalType.USER ? io.trino.spi.security.PrincipalType.USER : io.trino.spi.security.PrincipalType.ROLE);
         return Database.builder()
                 .setDatabaseName(db.getDbName())
                 .setLocation(db.hasLocation() ? Optional.of(db.getLocation()) : Optional.empty())
-                .setOwnerName(db.getOwnerName())
-                .setOwnerType(db.getOwnerType() == PrincipalType.USER ? io.trino.spi.security.PrincipalType.USER : io.trino.spi.security.PrincipalType.ROLE)
+                .setOwnerName(owner)
+                .setOwnerType(ownerType)
                 .setComment(db.hasComment() ? Optional.of(db.getComment()) : Optional.empty())
                 .setParameters(db.getParameterMap())
                 .build();
@@ -108,7 +110,7 @@ public final class ProtoUtils
             Table.Builder builder = Table.builder()
                     .setDatabaseName(table.getDbName())
                     .setTableName(table.getTableName())
-                    .setOwner(table.getOwner())
+                    .setOwner(Optional.ofNullable(table.getOwner()))
                     .setTableType(table.getType().toString())
                     .setDataColumns(dataColumns.stream()
                             .map(ProtoUtils::fromProto)
@@ -248,9 +250,7 @@ public final class ProtoUtils
                     getTotalSizeInBytes(averageColumnLength, rowCount, nullsCount),
                     nullsCount);
         }
-        else {
-            throw new TrinoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
-        }
+        throw new TrinoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
     }
 
     static Column fromProto(alluxio.grpc.table.FieldSchema column)

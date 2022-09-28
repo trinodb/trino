@@ -16,7 +16,6 @@ package io.trino.plugin.mysql;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -61,7 +60,6 @@ public final class MySqlQueryRunner
             connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
             connectorProperties.putIfAbsent("connection-user", server.getUsername());
             connectorProperties.putIfAbsent("connection-password", server.getPassword());
-            connectorProperties.putIfAbsent("allow-drop-table", "true");
 
             queryRunner.installPlugin(new MySqlPlugin());
             queryRunner.createCatalog("mysql", "mysql", connectorProperties);
@@ -87,8 +85,6 @@ public final class MySqlQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
-
         DistributedQueryRunner queryRunner = createMySqlQueryRunner(
                 new TestingMySqlServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),

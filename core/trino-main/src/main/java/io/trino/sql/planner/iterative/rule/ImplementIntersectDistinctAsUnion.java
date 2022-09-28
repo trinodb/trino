@@ -83,7 +83,7 @@ public class ImplementIntersectDistinctAsUnion
     @Override
     public Result apply(IntersectNode node, Captures captures, Context context)
     {
-        SetOperationNodeTranslator translator = new SetOperationNodeTranslator(metadata, context.getSymbolAllocator(), context.getIdAllocator());
+        SetOperationNodeTranslator translator = new SetOperationNodeTranslator(context.getSession(), metadata, context.getSymbolAllocator(), context.getIdAllocator());
         SetOperationNodeTranslator.TranslationResult result = translator.makeSetContainmentPlanForDistinct(node);
 
         // intersect predicate: the row must be present in every source

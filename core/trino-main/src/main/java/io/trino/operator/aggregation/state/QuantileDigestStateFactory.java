@@ -30,21 +30,9 @@ public class QuantileDigestStateFactory
     }
 
     @Override
-    public Class<? extends QuantileDigestState> getSingleStateClass()
-    {
-        return SingleQuantileDigestState.class;
-    }
-
-    @Override
     public QuantileDigestState createGroupedState()
     {
         return new GroupedQuantileDigestState();
-    }
-
-    @Override
-    public Class<? extends QuantileDigestState> getGroupedStateClass()
-    {
-        return GroupedQuantileDigestState.class;
     }
 
     public static class GroupedQuantileDigestState

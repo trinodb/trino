@@ -79,29 +79,25 @@ public class ResourceGroupSpec
 
         softConcurrencyLimit.ifPresent(soft -> checkArgument(soft >= 0, "softConcurrencyLimit is negative"));
         softConcurrencyLimit.ifPresent(soft -> checkArgument(this.hardConcurrencyLimit >= soft, "hardConcurrencyLimit must be greater than or equal to softConcurrencyLimit"));
-        this.schedulingPolicy = requireNonNull(schedulingPolicy, "schedulingPolicy is null").map(value -> SchedulingPolicy.valueOf(value.toUpperCase(ENGLISH)));
+        this.schedulingPolicy = schedulingPolicy.map(value -> SchedulingPolicy.valueOf(value.toUpperCase(ENGLISH)));
         this.schedulingWeight = requireNonNull(schedulingWeight, "schedulingWeight is null");
 
         requireNonNull(softMemoryLimit, "softMemoryLimit is null");
-        Optional<DataSize> absoluteSize;
-        Optional<Double> fraction;
         Matcher matcher = PERCENT_PATTERN.matcher(softMemoryLimit);
         if (matcher.matches()) {
-            absoluteSize = Optional.empty();
-            fraction = Optional.of(Double.parseDouble(matcher.group(1)) / 100.0);
+            this.softMemoryLimit = Optional.empty();
+            this.softMemoryLimitFraction = Optional.of(Double.parseDouble(matcher.group(1)) / 100.0);
+            checkArgument(softMemoryLimitFraction.get() <= 1.0, "softMemoryLimit percentage is over 100%");
         }
         else {
-            absoluteSize = Optional.of(DataSize.valueOf(softMemoryLimit));
-            fraction = Optional.empty();
+            this.softMemoryLimit = Optional.of(DataSize.valueOf(softMemoryLimit));
+            this.softMemoryLimitFraction = Optional.empty();
         }
-        this.softMemoryLimit = absoluteSize;
-        this.softMemoryLimitFraction = fraction;
 
-        this.subGroups = ImmutableList.copyOf(requireNonNull(subGroups, "subGroups is null").orElse(ImmutableList.of()));
+        this.subGroups = ImmutableList.copyOf(subGroups.orElse(ImmutableList.of()));
         Set<ResourceGroupNameTemplate> names = new HashSet<>();
         for (ResourceGroupSpec subGroup : this.subGroups) {
-            checkArgument(!names.contains(subGroup.getName()), "Duplicated sub group: %s", subGroup.getName());
-            names.add(subGroup.getName());
+            checkArgument(names.add(subGroup.getName()), "Duplicated sub group: %s", subGroup.getName());
         }
     }
 

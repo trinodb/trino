@@ -404,7 +404,7 @@ pre {
 
 .tinystat {
     display: inline-block;
-    width: 100px;
+    width: 94px;
 }
 
 .stat-row {
@@ -556,6 +556,10 @@ pre {
     color: #fff;
 }
 
+.info-failed {
+    color: #aaa;
+}
+
 .table > tbody > tr > .info-sparkline-text {
     color: #fff;
     border-top: none;
@@ -578,6 +582,10 @@ pre {
 #stage-list {
     margin-top: 5px;
     text-align: right;
+}
+
+#stage-list #tasks {
+    text-align: left;
 }
 
 .stage-id {

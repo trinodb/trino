@@ -93,9 +93,22 @@ public class PageBuilder
 
         declaredPositions = 0;
 
-        for (int i = 0; i < types.size(); i++) {
+        for (int i = 0; i < blockBuilders.length; i++) {
             blockBuilders[i] = blockBuilders[i].newBlockBuilderLike(pageBuilderStatus.createBlockBuilderStatus());
         }
+    }
+
+    public void reset(int expectedEntries)
+    {
+        if (isEmpty()) {
+            return;
+        }
+        pageBuilderStatus = new PageBuilderStatus(pageBuilderStatus.getMaxPageSizeInBytes());
+
+        for (int i = 0; i < blockBuilders.length; i++) {
+            blockBuilders[i] = blockBuilders[i].newBlockBuilderLike(expectedEntries, pageBuilderStatus.createBlockBuilderStatus());
+        }
+        declaredPositions = 0;
     }
 
     public PageBuilder newPageBuilderLike()

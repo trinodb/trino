@@ -23,6 +23,8 @@ import java.util.Optional;
 public class ProtocolConfig
 {
     private String alternateHeaderName;
+    private int preparedStatementCompressionThreshold = 2 * 1024;
+    private int preparedStatementCompressionMinimalGain = 512;
 
     @Deprecated
     public Optional<@Pattern(regexp = "[A-Za-z]+") String> getAlternateHeaderName()
@@ -36,6 +38,32 @@ public class ProtocolConfig
     public ProtocolConfig setAlternateHeaderName(String alternateHeaderName)
     {
         this.alternateHeaderName = alternateHeaderName;
+        return this;
+    }
+
+    public int getPreparedStatementCompressionThreshold()
+    {
+        return preparedStatementCompressionThreshold;
+    }
+
+    @Config("protocol.v1.prepared-statement-compression.length-threshold")
+    @ConfigDescription("Compression is applied to prepared statements longer than the configured value")
+    public ProtocolConfig setPreparedStatementCompressionThreshold(int preparedStatementCompressionThreshold)
+    {
+        this.preparedStatementCompressionThreshold = preparedStatementCompressionThreshold;
+        return this;
+    }
+
+    public int getPreparedStatementCompressionMinimalGain()
+    {
+        return preparedStatementCompressionMinimalGain;
+    }
+
+    @Config("protocol.v1.prepared-statement-compression.min-gain")
+    @ConfigDescription("Prepared statement compression is not applied if the size gain is less than the configured value")
+    public ProtocolConfig setPreparedStatementCompressionMinimalGain(int preparedStatementCompressionMinimalGain)
+    {
+        this.preparedStatementCompressionMinimalGain = preparedStatementCompressionMinimalGain;
         return this;
     }
 }

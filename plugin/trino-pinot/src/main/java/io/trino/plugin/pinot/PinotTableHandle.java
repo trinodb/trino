@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.pinot.query.DynamicTable;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Objects;
@@ -26,7 +25,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class PinotTableHandle
@@ -53,7 +51,7 @@ public class PinotTableHandle
 
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null").toLowerCase(ENGLISH);
+        this.tableName = requireNonNull(tableName, "tableName is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.limit = requireNonNull(limit, "limit is null");
         this.query = requireNonNull(query, "query is null");
@@ -87,11 +85,6 @@ public class PinotTableHandle
     public Optional<DynamicTable> getQuery()
     {
         return query;
-    }
-
-    public SchemaTableName toSchemaTableName()
-    {
-        return new SchemaTableName(schemaName, tableName);
     }
 
     @Override

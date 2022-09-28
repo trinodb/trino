@@ -19,8 +19,8 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
-import io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
+import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -44,8 +44,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.getJoinReorderingStrategy;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.AUTOMATIC;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
+import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.AUTOMATIC;
+import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.plan.Patterns.join;
 import static java.util.Comparator.comparing;
@@ -55,12 +55,12 @@ public class EliminateCrossJoins
         implements Rule<JoinNode>
 {
     private static final Pattern<JoinNode> PATTERN = join();
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final TypeAnalyzer typeAnalyzer;
 
-    public EliminateCrossJoins(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    public EliminateCrossJoins(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
     {
-        this.metadata = metadata;
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
@@ -81,7 +81,7 @@ public class EliminateCrossJoins
     @Override
     public Result apply(JoinNode node, Captures captures, Context context)
     {
-        JoinGraph joinGraph = JoinGraph.buildFrom(metadata, node, context.getLookup(), context.getIdAllocator(), context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes());
+        JoinGraph joinGraph = JoinGraph.buildFrom(plannerContext, node, context.getLookup(), context.getIdAllocator(), context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes());
         if (joinGraph.size() < 3 || !joinGraph.isContainsCrossJoin()) {
             return Result.empty();
         }

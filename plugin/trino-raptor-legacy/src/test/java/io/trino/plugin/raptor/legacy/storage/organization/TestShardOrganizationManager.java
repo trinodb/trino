@@ -19,9 +19,8 @@ import io.airlift.units.Duration;
 import io.trino.plugin.raptor.legacy.metadata.MetadataDao;
 import io.trino.plugin.raptor.legacy.metadata.Table;
 import io.trino.spi.type.Type;
-import org.skife.jdbi.v2.DBI;
-import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.IDBI;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -32,10 +31,10 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.Duration.nanosSince;
+import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
 import static io.trino.plugin.raptor.legacy.storage.organization.ShardOrganizationManager.createOrganizationSets;
@@ -53,7 +52,7 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestShardOrganizationManager
 {
-    private IDBI dbi;
+    private Jdbi dbi;
     private Handle dummyHandle;
     private MetadataDao metadataDao;
     private ShardOrganizerDao organizerDao;
@@ -66,7 +65,7 @@ public class TestShardOrganizationManager
     @BeforeMethod
     public void setup()
     {
-        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
+        dbi = createTestingJdbi();
         dummyHandle = dbi.open();
         metadataDao = dbi.onDemand(MetadataDao.class);
         organizerDao = dbi.onDemand(ShardOrganizerDao.class);

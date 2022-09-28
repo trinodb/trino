@@ -1,0 +1,47 @@
+[
+  {
+    "name": "orderkey",
+    "type": "INTEGER",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "custkey",
+    "type": "INTEGER",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "orderstatus",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "totalprice",
+    "type": "FLOAT",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "orderdate",
+    "type": "DATE",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "orderpriority",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "clerk",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "shippriority",
+    "type": "INTEGER",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "comment",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  }
+]

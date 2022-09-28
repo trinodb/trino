@@ -16,6 +16,7 @@ package io.trino.operator.aggregation.arrayagg;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 
@@ -25,7 +26,7 @@ public class ArrayAggregationStateSerializer
     private final Type elementType;
     private final Type arrayType;
 
-    public ArrayAggregationStateSerializer(Type elementType)
+    public ArrayAggregationStateSerializer(@TypeParameter("T") Type elementType)
     {
         this.elementType = elementType;
         this.arrayType = new ArrayType(elementType);

@@ -25,9 +25,10 @@ import static java.lang.String.format;
 
 public final class ImmutableLdapObjectDefinitions
 {
-    private static final String DOMAIN = "dc=presto,dc=testldap,dc=com";
+    private static final String DOMAIN = "dc=trino,dc=testldap,dc=com";
     private static final String AMERICA_DISTINGUISHED_NAME = format("ou=America,%s", DOMAIN);
     private static final String ASIA_DISTINGUISHED_NAME = format("ou=Asia,%s", DOMAIN);
+    private static final String EUROPE_DISTINGUISHED_NAME = format("ou=Europe,%s", DOMAIN);
     private static final String LDAP_PASSWORD = "LDAPPass123";
     private static final String MEMBER_OF = "memberOf";
     private static final String MEMBER = "member";
@@ -38,6 +39,8 @@ public final class ImmutableLdapObjectDefinitions
     public static final LdapObjectDefinition AMERICA_ORG = buildLdapOrganizationObject("America", AMERICA_DISTINGUISHED_NAME, "America");
 
     public static final LdapObjectDefinition ASIA_ORG = buildLdapOrganizationObject("Asia", ASIA_DISTINGUISHED_NAME, "Asia");
+
+    public static final LdapObjectDefinition EUROPE_ORG = buildLdapOrganizationObject("Europe", EUROPE_DISTINGUISHED_NAME, "Europe");
 
     public static final LdapObjectDefinition DEFAULT_GROUP = buildLdapGroupObject("DefaultGroup", "DefaultGroupUser", Optional.of(Arrays.asList("ChildGroup")));
 
@@ -57,6 +60,10 @@ public final class ImmutableLdapObjectDefinitions
 
     public static final LdapObjectDefinition USER_IN_MULTIPLE_GROUPS = buildLdapUserObject("UserInMultipleGroups", Optional.of(Arrays.asList("DefaultGroup", "ParentGroup")), LDAP_PASSWORD);
 
+    public static final LdapObjectDefinition USER_IN_EUROPE = buildLdapUserObject("EuropeUser", EUROPE_DISTINGUISHED_NAME, Optional.of(Arrays.asList("DefaultGroup")), Optional.of(AMERICA_DISTINGUISHED_NAME), LDAP_PASSWORD);
+
+    public static final LdapObjectDefinition USER_IN_AMERICA = buildLdapUserObject("AmericanUser", AMERICA_DISTINGUISHED_NAME, Optional.of(Arrays.asList("DefaultGroup")), Optional.of(AMERICA_DISTINGUISHED_NAME), LDAP_PASSWORD);
+
     public static LdapObjectDefinition buildLdapOrganizationObject(String id, String distinguishedName, String unit)
     {
         return LdapObjectDefinition.builder(id)
@@ -71,10 +78,8 @@ public final class ImmutableLdapObjectDefinitions
         if (childGroupNames.isPresent()) {
             return buildLdapGroupObject(groupName, AMERICA_DISTINGUISHED_NAME, userName, ASIA_DISTINGUISHED_NAME, childGroupNames, Optional.of(AMERICA_DISTINGUISHED_NAME));
         }
-        else {
-            return buildLdapGroupObject(groupName, AMERICA_DISTINGUISHED_NAME, userName, ASIA_DISTINGUISHED_NAME,
-                    Optional.empty(), Optional.empty());
-        }
+        return buildLdapGroupObject(groupName, AMERICA_DISTINGUISHED_NAME, userName, ASIA_DISTINGUISHED_NAME,
+                Optional.empty(), Optional.empty());
     }
 
     public static LdapObjectDefinition buildLdapGroupObject(String groupName, String groupOrganizationName,
@@ -90,15 +95,13 @@ public final class ImmutableLdapObjectDefinitions
                     .setObjectClasses(Arrays.asList("groupOfNames"))
                     .build();
         }
-        else {
-            return LdapObjectDefinition.builder(groupName)
-                    .setDistinguishedName(format("cn=%s,%s", groupName, groupOrganizationName))
-                    .setAttributes(ImmutableMap.of(
-                            "cn", groupName,
-                            "member", format("uid=%s,%s", userName, userOrganizationName)))
-                    .setObjectClasses(Arrays.asList("groupOfNames"))
-                    .build();
-        }
+        return LdapObjectDefinition.builder(groupName)
+                .setDistinguishedName(format("cn=%s,%s", groupName, groupOrganizationName))
+                .setAttributes(ImmutableMap.of(
+                        "cn", groupName,
+                        "member", format("uid=%s,%s", userName, userOrganizationName)))
+                .setObjectClasses(Arrays.asList("groupOfNames"))
+                .build();
     }
 
     public static LdapObjectDefinition buildLdapUserObject(String userName, Optional<List<String>> groupNames, String password)
@@ -107,10 +110,8 @@ public final class ImmutableLdapObjectDefinitions
             return buildLdapUserObject(userName, ASIA_DISTINGUISHED_NAME,
                     groupNames, Optional.of(AMERICA_DISTINGUISHED_NAME), password);
         }
-        else {
-            return buildLdapUserObject(userName, ASIA_DISTINGUISHED_NAME,
-                    Optional.empty(), Optional.empty(), password);
-        }
+        return buildLdapUserObject(userName, ASIA_DISTINGUISHED_NAME,
+                Optional.empty(), Optional.empty(), password);
     }
 
     public static LdapObjectDefinition buildLdapUserObject(String userName, String userOrganizationName,
@@ -127,16 +128,14 @@ public final class ImmutableLdapObjectDefinitions
                     .setModificationAttributes(getAttributes(groupNames.get(), groupOrganizationName.get(), MEMBER_OF))
                     .build();
         }
-        else {
-            return LdapObjectDefinition.builder(userName)
-                    .setDistinguishedName(format("uid=%s,%s", userName, userOrganizationName))
-                    .setAttributes(ImmutableMap.of(
-                            "cn", userName,
-                            "sn", userName,
-                            "userPassword", password))
-                    .setObjectClasses(Arrays.asList("person", "inetOrgPerson"))
-                    .build();
-        }
+        return LdapObjectDefinition.builder(userName)
+                .setDistinguishedName(format("uid=%s,%s", userName, userOrganizationName))
+                .setAttributes(ImmutableMap.of(
+                        "cn", userName,
+                        "sn", userName,
+                        "userPassword", password))
+                .setObjectClasses(Arrays.asList("person", "inetOrgPerson"))
+                .build();
     }
 
     private static ImmutableMap<String, List<String>> getAttributes(List<String> groupNames, String groupOrganizationName, String relation)

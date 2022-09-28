@@ -17,37 +17,36 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionBinding;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionDependencyDeclaration;
-import io.trino.metadata.FunctionInvoker;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.SqlOperator;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SingleMapBlock;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.Signature;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.InterpretedFunctionInvoker;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.SUBSCRIPT;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.Reflection.methodHandle;
-import static java.lang.String.format;
 
 public class MapSubscriptOperator
-        extends SqlOperator
+        extends SqlScalarFunction
 {
     private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapSubscriptOperator.class, "subscript", MissingKeyExceptionFactory.class, Type.class, Type.class, ConnectorSession.class, Block.class, boolean.class);
     private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapSubscriptOperator.class, "subscript", MissingKeyExceptionFactory.class, Type.class, Type.class, ConnectorSession.class, Block.class, long.class);
@@ -56,12 +55,17 @@ public class MapSubscriptOperator
 
     public MapSubscriptOperator()
     {
-        super(SUBSCRIPT,
-                ImmutableList.of(typeVariable("K"), typeVariable("V")),
-                ImmutableList.of(),
-                new TypeSignature("V"),
-                ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V")), new TypeSignature("K")),
-                true);
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .operatorType(SUBSCRIPT)
+                        .typeVariable("K")
+                        .typeVariable("V")
+                        .returnType(new TypeSignature("V"))
+                        .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                        .argumentType(new TypeSignature("K"))
+                        .build())
+                .nullable()
+                .build());
     }
 
     @Override
@@ -73,10 +77,11 @@ public class MapSubscriptOperator
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        Type keyType = functionBinding.getTypeVariable("K");
-        Type valueType = functionBinding.getTypeVariable("V");
+        MapType mapType = (MapType) boundSignature.getArgumentType(0);
+        Type keyType = mapType.getKeyType();
+        Type valueType = mapType.getValueType();
 
         MethodHandle methodHandle;
         if (keyType.getJavaType() == boolean.class) {
@@ -95,8 +100,8 @@ public class MapSubscriptOperator
         methodHandle = methodHandle.bindTo(missingKeyExceptionFactory).bindTo(keyType).bindTo(valueType);
         methodHandle = methodHandle.asType(methodHandle.type().changeReturnType(Primitives.wrap(valueType.getJavaType())));
 
-        return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+        return new ChoicesSpecializedSqlScalarFunction(
+                boundSignature,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 methodHandle);
@@ -148,35 +153,37 @@ public class MapSubscriptOperator
 
     private static class MissingKeyExceptionFactory
     {
-        private final FunctionMetadata castMetadata;
-        private final FunctionInvoker castFunction;
+        private final MethodHandle castMethod;
 
         public MissingKeyExceptionFactory(FunctionDependencies functionDependencies, Type keyType)
         {
-            FunctionMetadata castMetadata = null;
-            FunctionInvoker castFunction = null;
+            MethodHandle castMethod = null;
             try {
-                castMetadata = functionDependencies.getCastMetadata(keyType, VARCHAR);
-                castFunction = functionDependencies.getCastInvoker(keyType, VARCHAR, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
+                InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(BOXED_NULLABLE), NULLABLE_RETURN, true, false);
+                castMethod = functionDependencies.getCastImplementation(keyType, VARCHAR, invocationConvention).getMethodHandle();
+                if (!castMethod.type().parameterType(0).equals(ConnectorSession.class)) {
+                    castMethod = MethodHandles.dropArguments(castMethod, 0, ConnectorSession.class);
+                }
             }
             catch (TrinoException ignored) {
             }
-            this.castMetadata = castMetadata;
-            this.castFunction = castFunction;
+            this.castMethod = castMethod;
         }
 
         public TrinoException create(ConnectorSession session, Object value)
         {
-            if (castFunction != null) {
+            String additionalInfo = "";
+            if (castMethod != null) {
+                Slice varcharValue = null;
                 try {
-                    Slice varcharValue = (Slice) InterpretedFunctionInvoker.invoke(castMetadata, castFunction, session, ImmutableList.of(value));
+                    varcharValue = (Slice) castMethod.invokeWithArguments(session, value);
+                }
+                catch (Throwable ignored) {
+                }
 
-                    return new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Key not present in map: %s", varcharValue == null ? "NULL" : varcharValue.toStringUtf8()));
-                }
-                catch (RuntimeException ignored) {
-                }
+                additionalInfo = ": " + (varcharValue == null ? "NULL" : varcharValue.toStringUtf8());
             }
-            return new TrinoException(INVALID_FUNCTION_ARGUMENT, "Key not present in map");
+            return new TrinoException(INVALID_FUNCTION_ARGUMENT, "Key not present in map" + additionalInfo);
         }
     }
 }

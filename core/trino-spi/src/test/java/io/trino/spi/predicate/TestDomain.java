@@ -487,6 +487,16 @@ public class TestDomain
         assertUnion(Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L)), true),
                 Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false),
                 Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), true));
+
+        assertUnion(
+                Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 20L)), true),
+                Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 10L)), true),
+                Domain.all(BIGINT));
+
+        assertUnion(
+                Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 20L)), false),
+                Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 10L)), false),
+                Domain.create(ValueSet.all(BIGINT), false));
     }
 
     @Test

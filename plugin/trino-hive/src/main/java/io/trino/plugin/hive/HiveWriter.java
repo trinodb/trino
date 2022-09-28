@@ -57,14 +57,19 @@ public class HiveWriter
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
     }
 
+    public FileWriter getFileWriter()
+    {
+        return fileWriter;
+    }
+
     public long getWrittenBytes()
     {
         return fileWriter.getWrittenBytes();
     }
 
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return fileWriter.getSystemMemoryUsage();
+        return fileWriter.getMemoryUsage();
     }
 
     public long getRowCount()

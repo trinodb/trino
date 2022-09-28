@@ -23,7 +23,6 @@ import java.util.Optional;
 final class EcCurve
 {
     public static final ECParameterSpec P_256;
-    public static final ECParameterSpec SECP256K1;
     public static final ECParameterSpec P_384;
     public static final ECParameterSpec P_521;
 
@@ -41,17 +40,6 @@ final class EcCurve
                         new BigInteger("48439561293906451759052585252797914202762949526041747995844080717082404635286"),
                         new BigInteger("36134250956749795798585127919587881956611106672985015071877198253568414405109")),
                 new BigInteger("115792089210356248762697446949407573529996955224135760342422259061068512044369"),
-                1);
-
-        SECP256K1 = new ECParameterSpec(
-                new EllipticCurve(
-                        new ECFieldFp(new BigInteger("115792089237316195423570985008687907853269984665640564039457584007908834671663")),
-                        new BigInteger("0"),
-                        new BigInteger("7")),
-                new ECPoint(
-                        new BigInteger("55066263022277343669578718895168534326250603453777594175500187360389116729240"),
-                        new BigInteger("32670510020758816978083085130507043184471273380659243275938904335757337482424")),
-                new BigInteger("115792089237316195423570985008687907852837564279074904382605163141518161494337"),
                 1);
 
         P_384 = new ECParameterSpec(
@@ -87,9 +75,6 @@ final class EcCurve
     {
         if ("P-256".equals(name)) {
             return Optional.of(P_256);
-        }
-        if ("secp256k1".equals(name)) {
-            return Optional.of(SECP256K1);
         }
         if ("P-384".equals(name)) {
             return Optional.of(P_384);

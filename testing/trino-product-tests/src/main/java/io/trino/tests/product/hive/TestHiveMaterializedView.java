@@ -18,6 +18,7 @@ import io.trino.tempto.BeforeTestWithContext;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
@@ -44,11 +45,6 @@ public class TestHiveMaterializedView
                 "STORED AS ORC " +
                 "TBLPROPERTIES('transactional'='true')");
         onHive().executeQuery("INSERT INTO test_materialized_view_table VALUES ('a'), ('a'), ('b')");
-        onHive().executeQuery("" +
-                "CREATE MATERIALIZED VIEW test_materialized_view_view " +
-                "PARTITIONED ON (x) " +
-                "STORED AS ORC " +
-                "AS SELECT x, count(*) c FROM test_materialized_view_table GROUP BY x");
     }
 
     @AfterTestWithContext
@@ -58,48 +54,55 @@ public class TestHiveMaterializedView
             return;
         }
 
-        onHive().executeQuery("DROP MATERIALIZED VIEW IF EXISTS test_materialized_view_view");
         onHive().executeQuery("DROP TABLE IF EXISTS test_materialized_view_table");
     }
 
     @Test(groups = STORAGE_FORMATS)
-    public void testMetadata()
+    public void testMaterializedView()
+    {
+        testMaterializedView(false);
+    }
+
+    @Test(groups = STORAGE_FORMATS)
+    public void testPartitionedMaterializedView()
+    {
+        testMaterializedView(true);
+    }
+
+    private void testMaterializedView(boolean partitioned)
     {
         if (!isTestEnabled()) {
             return;
         }
 
+        onHive().executeQuery("DROP MATERIALIZED VIEW test_materialized_view_view");
+        onHive().executeQuery("" +
+                "CREATE MATERIALIZED VIEW test_materialized_view_view " +
+                (partitioned ? "PARTITIONED ON (x) " : "") +
+                "STORED AS ORC " +
+                "AS SELECT x, count(*) c FROM test_materialized_view_table GROUP BY x");
+
+        // metadata
         assertThat(onTrino().executeQuery("SHOW TABLES"))
-                .contains(row("test_materialized_view_table"), row("test_materialized_view_view"));
+                .contains(
+                        row("test_materialized_view_table"),
+                        row("test_materialized_view_view"));
 
         assertThat(onTrino().executeQuery("SHOW COLUMNS FROM test_materialized_view_view"))
                 .containsOnly(
                         row("c", "bigint", "", ""),
-                        row("x", "varchar", "partition key", ""));
-    }
+                        row("x", "varchar", partitioned ? "partition key" : "", ""));
 
-    @Test(groups = STORAGE_FORMATS)
-    public void testRead()
-    {
-        if (!isTestEnabled()) {
-            return;
-        }
-
+        // read
         assertThat(onTrino().executeQuery("SELECT x, c FROM test_materialized_view_view"))
                 .containsOnly(row("a", 2), row("b", 1));
-
         assertThat(onTrino().executeQuery("SELECT x, c FROM test_materialized_view_view WHERE x = 'a'"))
                 .containsOnly(row("a", 2));
-    }
 
-    @Test(groups = STORAGE_FORMATS)
-    public void testWrite()
-    {
-        if (!isTestEnabled()) {
-            return;
-        }
+        // write
+        assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO test_materialized_view_view(x, c) VALUES ('x', 42)"))
+                .hasMessageContaining("Cannot write to Hive materialized view");
 
-        assertThat(() -> onTrino().executeQuery("INSERT INTO test_materialized_view_view(x, c) VALUES ('x', 42)"))
-                .failsWithMessage("Cannot write to Hive materialized view");
+        onHive().executeQuery("DROP MATERIALIZED VIEW test_materialized_view_view");
     }
 }

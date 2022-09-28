@@ -14,8 +14,8 @@
 package io.trino.operator;
 
 import io.trino.metadata.FunctionBinding;
-import io.trino.metadata.FunctionDependencies;
 import io.trino.operator.annotations.ImplementationDependency;
+import io.trino.spi.function.FunctionDependencies;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -25,7 +25,10 @@ public final class ParametricFunctionHelpers
 {
     private ParametricFunctionHelpers() {}
 
-    public static MethodHandle bindDependencies(MethodHandle handle, List<ImplementationDependency> dependencies, FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public static MethodHandle bindDependencies(MethodHandle handle,
+            List<ImplementationDependency> dependencies,
+            FunctionBinding functionBinding,
+            FunctionDependencies functionDependencies)
     {
         for (ImplementationDependency dependency : dependencies) {
             handle = MethodHandles.insertArguments(handle, 0, dependency.resolve(functionBinding, functionDependencies));

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LambdaExpression;
@@ -40,7 +41,8 @@ public final class PartialTranslator
             Expression inputExpression,
             Session session,
             TypeAnalyzer typeAnalyzer,
-            TypeProvider typeProvider)
+            TypeProvider typeProvider,
+            PlannerContext plannerContext)
     {
         requireNonNull(inputExpression, "inputExpression is null");
         requireNonNull(session, "session is null");
@@ -48,7 +50,7 @@ public final class PartialTranslator
         requireNonNull(typeProvider, "typeProvider is null");
 
         Map<NodeRef<Expression>, ConnectorExpression> partialTranslations = new HashMap<>();
-        new Visitor(typeAnalyzer.getTypes(session, typeProvider, inputExpression), partialTranslations).process(inputExpression);
+        new Visitor(session, typeAnalyzer.getTypes(session, typeProvider, inputExpression), partialTranslations, plannerContext).process(inputExpression);
         return ImmutableMap.copyOf(partialTranslations);
     }
 
@@ -58,11 +60,11 @@ public final class PartialTranslator
         private final Map<NodeRef<Expression>, ConnectorExpression> translatedSubExpressions;
         private final ConnectorExpressionTranslator.SqlToConnectorExpressionTranslator translator;
 
-        Visitor(Map<NodeRef<Expression>, Type> types, Map<NodeRef<Expression>, ConnectorExpression> translatedSubExpressions)
+        Visitor(Session session, Map<NodeRef<Expression>, Type> types, Map<NodeRef<Expression>, ConnectorExpression> translatedSubExpressions, PlannerContext plannerContext)
         {
             requireNonNull(types, "types is null");
             this.translatedSubExpressions = requireNonNull(translatedSubExpressions, "translatedSubExpressions is null");
-            this.translator = new ConnectorExpressionTranslator.SqlToConnectorExpressionTranslator(types);
+            this.translator = new ConnectorExpressionTranslator.SqlToConnectorExpressionTranslator(session, types, plannerContext);
         }
 
         @Override

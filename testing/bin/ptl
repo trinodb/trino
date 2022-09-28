@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+exec "${BASH_SOURCE%/*}/../trino-product-tests-launcher/bin/run-launcher" "$@"

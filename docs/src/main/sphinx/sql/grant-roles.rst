@@ -11,11 +11,12 @@ Synopsis
     TO ( user | USER user | ROLE role) [, ...]
     [ GRANTED BY ( user | USER user | ROLE role | CURRENT_USER | CURRENT_ROLE ) ]
     [ WITH ADMIN OPTION ]
+    [ IN catalog ]
 
 Description
 -----------
 
-Grants the specified role(s) to the specified principal(s) in the current catalog.
+Grants the specified role(s) to the specified principal(s).
 
 If the ``WITH ADMIN OPTION`` clause is specified, the role(s) are granted
 to the users with ``GRANT`` option.
@@ -26,6 +27,9 @@ be the role admin or should possess the ``GRANT`` option for the given role.
 The optional ``GRANTED BY`` clause causes the role(s) to be granted with
 the specified principal as a grantor. If the ``GRANTED BY`` clause is not
 specified, the roles are granted with the current user as a grantor.
+
+The optional ``IN catalog`` clause grants the roles in a catalog as opposed
+to a system roles.
 
 Examples
 --------

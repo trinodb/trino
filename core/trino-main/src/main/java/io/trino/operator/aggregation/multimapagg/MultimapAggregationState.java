@@ -17,7 +17,11 @@ import io.trino.spi.block.Block;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateMetadata;
 
-@AccumulatorStateMetadata(stateFactoryClass = MultimapAggregationStateFactory.class, stateSerializerClass = MultimapAggregationStateSerializer.class)
+@AccumulatorStateMetadata(
+        stateFactoryClass = MultimapAggregationStateFactory.class,
+        stateSerializerClass = MultimapAggregationStateSerializer.class,
+        typeParameters = {"K", "V"},
+        serializedType = "array(row(V, K))")
 public interface MultimapAggregationState
         extends AccumulatorState
 {

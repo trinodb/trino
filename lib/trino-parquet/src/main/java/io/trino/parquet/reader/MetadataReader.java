@@ -13,9 +13,13 @@
  */
 package io.trino.parquet.reader;
 
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
+import io.trino.parquet.ParquetDataSourceId;
+import io.trino.parquet.ParquetWriteValidation;
 import org.apache.parquet.CorruptStatistics;
 import org.apache.parquet.column.statistics.BinaryStatistics;
 import org.apache.parquet.format.ColumnChunk;
@@ -33,6 +37,7 @@ import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.internal.hadoop.metadata.IndexReference;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
@@ -59,11 +64,14 @@ import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriteSupport.WRITER_TIMEZONE;
 import static org.apache.parquet.format.Util.readFileMetaData;
 import static org.apache.parquet.format.converter.ParquetMetadataConverterUtil.getLogicalTypeAnnotation;
 
 public final class MetadataReader
 {
+    private static final Logger log = Logger.get(MetadataReader.class);
+
     private static final Slice MAGIC = Slices.utf8Slice("PAR1");
     private static final int POST_SCRIPT_SIZE = Integer.BYTES + MAGIC.length();
     private static final int EXPECTED_FOOTER_SIZE = 16 * 1024;
@@ -71,7 +79,7 @@ public final class MetadataReader
 
     private MetadataReader() {}
 
-    public static ParquetMetadata readFooter(ParquetDataSource dataSource)
+    public static ParquetMetadata readFooter(ParquetDataSource dataSource, Optional<ParquetWriteValidation> parquetWriteValidation)
             throws IOException
     {
         // Parquet File Layout:
@@ -145,6 +153,8 @@ public final class MetadataReader
                             metaData.num_values,
                             metaData.total_compressed_size,
                             metaData.total_uncompressed_size);
+                    column.setColumnIndexReference(toColumnIndexReference(columnChunk));
+                    column.setOffsetIndexReference(toOffsetIndexReference(columnChunk));
                     blockMetaData.addColumn(column);
                 }
                 blockMetaData.setPath(filePath);
@@ -159,7 +169,12 @@ public final class MetadataReader
                 keyValueMetaData.put(keyValue.key, keyValue.value);
             }
         }
-        return new ParquetMetadata(new org.apache.parquet.hadoop.metadata.FileMetaData(messageType, keyValueMetaData, fileMetaData.getCreated_by()), blocks);
+        org.apache.parquet.hadoop.metadata.FileMetaData parquetFileMetadata = new org.apache.parquet.hadoop.metadata.FileMetaData(
+                messageType,
+                keyValueMetaData,
+                fileMetaData.getCreated_by());
+        validateFileMetadata(dataSource.getId(), parquetFileMetadata, parquetWriteValidation);
+        return new ParquetMetadata(parquetFileMetadata, blocks);
     }
 
     private static MessageType readParquetSchema(List<SchemaElement> schema)
@@ -173,6 +188,7 @@ public final class MetadataReader
 
     private static void readTypeSchema(Types.GroupBuilder<?> builder, Iterator<SchemaElement> schemaIterator, int typeCount)
     {
+        ParquetMetadataConverter parquetMetadataConverter = new ParquetMetadataConverter();
         for (int i = 0; i < typeCount; i++) {
             SchemaElement element = schemaIterator.next();
             Types.Builder<?, ?> typeBuilder;
@@ -194,9 +210,38 @@ public final class MetadataReader
                 typeBuilder = primitiveBuilder;
             }
 
-            if (element.isSetConverted_type()) {
-                typeBuilder.as(getLogicalTypeAnnotation(new ParquetMetadataConverter(), element.converted_type, element));
+            // Reading of element.logicalType and element.converted_type corresponds to parquet-mr's code at
+            // https://github.com/apache/parquet-mr/blob/apache-parquet-1.12.0/parquet-hadoop/src/main/java/org/apache/parquet/format/converter/ParquetMetadataConverter.java#L1568-L1582
+            LogicalTypeAnnotation annotationFromLogicalType = null;
+            if (element.isSetLogicalType()) {
+                annotationFromLogicalType = getLogicalTypeAnnotation(parquetMetadataConverter, element.logicalType);
+                typeBuilder.as(annotationFromLogicalType);
             }
+            if (element.isSetConverted_type()) {
+                LogicalTypeAnnotation annotationFromConvertedType = getLogicalTypeAnnotation(parquetMetadataConverter, element.converted_type, element);
+                if (annotationFromLogicalType != null) {
+                    // Both element.logicalType and element.converted_type set
+                    if (annotationFromLogicalType.toOriginalType() == annotationFromConvertedType.toOriginalType()) {
+                        // element.converted_type matches element.logicalType, even though annotationFromLogicalType may differ from annotationFromConvertedType
+                        // Following parquet-mr behavior, we favor LogicalTypeAnnotation derived from element.logicalType, as potentially containing more information.
+                    }
+                    else {
+                        // Following parquet-mr behavior, issue warning and let converted_type take precedence.
+                        log.warn("Converted type and logical type metadata map to different OriginalType (convertedType: %s, logical type: %s). Using value in converted type.",
+                                element.converted_type, element.logicalType);
+                        // parquet-mr reads only OriginalType from converted_type. We retain full LogicalTypeAnnotation
+                        // 1. for compatibility, as previous Trino reader code would read LogicalTypeAnnotation from element.converted_type and some additional fields.
+                        // 2. so that we override LogicalTypeAnnotation annotation read from element.logicalType in case of mismatch detected.
+                        typeBuilder.as(annotationFromConvertedType);
+                    }
+                }
+                else {
+                    // parquet-mr reads only OriginalType from converted_type. We retain full LogicalTypeAnnotation for compatibility, as previous
+                    // Trino reader code would read LogicalTypeAnnotation from element.converted_type and some additional fields.
+                    typeBuilder.as(annotationFromConvertedType);
+                }
+            }
+
             if (element.isSetField_id()) {
                 typeBuilder.id(element.field_id);
             }
@@ -327,5 +372,34 @@ public final class MetadataReader
                 return PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
         }
         throw new IllegalArgumentException("Unknown type " + type);
+    }
+
+    private static IndexReference toColumnIndexReference(ColumnChunk columnChunk)
+    {
+        if (columnChunk.isSetColumn_index_offset() && columnChunk.isSetColumn_index_length()) {
+            return new IndexReference(columnChunk.getColumn_index_offset(), columnChunk.getColumn_index_length());
+        }
+        return null;
+    }
+
+    private static IndexReference toOffsetIndexReference(ColumnChunk columnChunk)
+    {
+        if (columnChunk.isSetOffset_index_offset() && columnChunk.isSetOffset_index_length()) {
+            return new IndexReference(columnChunk.getOffset_index_offset(), columnChunk.getOffset_index_length());
+        }
+        return null;
+    }
+
+    private static void validateFileMetadata(ParquetDataSourceId dataSourceId, org.apache.parquet.hadoop.metadata.FileMetaData fileMetaData, Optional<ParquetWriteValidation> parquetWriteValidation)
+            throws ParquetCorruptionException
+    {
+        if (parquetWriteValidation.isEmpty()) {
+            return;
+        }
+        ParquetWriteValidation writeValidation = parquetWriteValidation.get();
+        writeValidation.validateTimeZone(
+                dataSourceId,
+                Optional.ofNullable(fileMetaData.getKeyValueMetaData().get(WRITER_TIMEZONE)));
+        writeValidation.validateColumns(dataSourceId, fileMetaData.getSchema());
     }
 }

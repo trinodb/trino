@@ -18,8 +18,6 @@ import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwsHeader;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.trino.server.security.jwt.JwkDecoder.JwkEcPublicKey;
 import io.trino.server.security.jwt.JwkDecoder.JwkRsaPublicKey;
@@ -38,6 +36,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.server.security.jwt.JwkDecoder.decodeKeys;
+import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
+import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -186,19 +186,19 @@ public class TestJwkDecoder
         RSAPublicKey publicKey = (RSAPublicKey) keys.get("test-rsa");
         assertNotNull(publicKey);
 
-        RSAPublicKey expectedPublicKey = (RSAPublicKey) PemReader.loadPublicKey(new File(Resources.getResource("jwk/jwk-rsa-public.pem").getPath()));
+        RSAPublicKey expectedPublicKey = (RSAPublicKey) PemReader.loadPublicKey(new File(Resources.getResource("jwk/jwk-rsa-public.pem").toURI()));
         assertEquals(publicKey.getPublicExponent(), expectedPublicKey.getPublicExponent());
         assertEquals(publicKey.getModulus(), expectedPublicKey.getModulus());
 
-        PrivateKey privateKey = PemReader.loadPrivateKey(new File(Resources.getResource("jwk/jwk-rsa-private.pem").getPath()), Optional.empty());
-        String jwt = Jwts.builder()
-                .signWith(SignatureAlgorithm.RS256, privateKey)
+        PrivateKey privateKey = PemReader.loadPrivateKey(new File(Resources.getResource("jwk/jwk-rsa-private.pem").toURI()), Optional.empty());
+        String jwt = newJwtBuilder()
+                .signWith(privateKey)
                 .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
                 .setSubject("test-user")
                 .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                 .compact();
 
-        Jws<Claims> claimsJws = Jwts.parser()
+        Jws<Claims> claimsJws = newJwtParserBuilder()
                 .setSigningKeyResolver(new SigningKeyResolver()
                 {
                     @Override
@@ -220,6 +220,7 @@ public class TestJwkDecoder
                         return publicKey;
                     }
                 })
+                .build()
                 .parseClaimsJws(jwt);
 
         assertEquals(claimsJws.getBody().getSubject(), "test-user");
@@ -302,13 +303,12 @@ public class TestJwkDecoder
     public void testJwtEc()
             throws Exception
     {
-        assertJwtEc("jwk-ec-p256", SignatureAlgorithm.ES256, EcCurve.P_256);
-        assertJwtEc("jwk-ec-p384", SignatureAlgorithm.ES384, EcCurve.P_384);
-        assertJwtEc("jwk-ec-p512", SignatureAlgorithm.ES512, EcCurve.P_521);
-        assertJwtEc("jwk-ec-secp256k1", SignatureAlgorithm.ES256, EcCurve.SECP256K1);
+        assertJwtEc("jwk-ec-p256", EcCurve.P_256);
+        assertJwtEc("jwk-ec-p384", EcCurve.P_384);
+        assertJwtEc("jwk-ec-p512", EcCurve.P_521);
     }
 
-    private static void assertJwtEc(String keyName, SignatureAlgorithm signatureAlgorithm, ECParameterSpec expectedSpec)
+    private static void assertJwtEc(String keyName, ECParameterSpec expectedSpec)
             throws Exception
     {
         String jwkKeys = Resources.toString(Resources.getResource("jwk/jwk-public.json"), UTF_8);
@@ -319,22 +319,22 @@ public class TestJwkDecoder
 
         assertSame(publicKey.getParams(), expectedSpec);
 
-        ECPublicKey expectedPublicKey = (ECPublicKey) PemReader.loadPublicKey(new File(Resources.getResource("jwk/" + keyName + "-public.pem").getPath()));
+        ECPublicKey expectedPublicKey = (ECPublicKey) PemReader.loadPublicKey(new File(Resources.getResource("jwk/" + keyName + "-public.pem").toURI()));
         assertEquals(publicKey.getW(), expectedPublicKey.getW());
         assertEquals(publicKey.getParams().getCurve(), expectedPublicKey.getParams().getCurve());
         assertEquals(publicKey.getParams().getGenerator(), expectedPublicKey.getParams().getGenerator());
         assertEquals(publicKey.getParams().getOrder(), expectedPublicKey.getParams().getOrder());
         assertEquals(publicKey.getParams().getCofactor(), expectedPublicKey.getParams().getCofactor());
 
-        PrivateKey privateKey = PemReader.loadPrivateKey(new File(Resources.getResource("jwk/" + keyName + "-private.pem").getPath()), Optional.empty());
-        String jwt = Jwts.builder()
-                .signWith(signatureAlgorithm, privateKey)
+        PrivateKey privateKey = PemReader.loadPrivateKey(new File(Resources.getResource("jwk/" + keyName + "-private.pem").toURI()), Optional.empty());
+        String jwt = newJwtBuilder()
+                .signWith(privateKey)
                 .setHeaderParam(JwsHeader.KEY_ID, keyName)
                 .setSubject("test-user")
                 .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                 .compact();
 
-        Jws<Claims> claimsJws = Jwts.parser()
+        Jws<Claims> claimsJws = newJwtParserBuilder()
                 .setSigningKeyResolver(new SigningKeyResolver()
                 {
                     @Override
@@ -356,6 +356,7 @@ public class TestJwkDecoder
                         return publicKey;
                     }
                 })
+                .build()
                 .parseClaimsJws(jwt);
 
         assertEquals(claimsJws.getBody().getSubject(), "test-user");

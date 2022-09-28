@@ -14,8 +14,7 @@
 package io.trino.sql.gen;
 
 import io.airlift.slice.Slices;
-import io.trino.metadata.Metadata;
-import io.trino.metadata.MetadataManager;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.RowExpression;
 import org.testng.annotations.Test;
@@ -38,7 +37,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestInCodeGenerator
 {
-    private final Metadata metadata = MetadataManager.createTestMetadataManager();
+    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
 
     @Test
     public void testInteger()
@@ -52,16 +51,15 @@ public class TestInCodeGenerator
         values.add(constant(null, INTEGER));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
         values.add(new CallExpression(
-                metadata.getCoercion(DOUBLE, INTEGER),
+                functionResolution.getCoercion(DOUBLE, INTEGER),
                 Collections.singletonList(constant(12345678901234.0, DOUBLE))));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
 
-        for (int i = 6; i <= 15; ++i) {
-            values.add(constant(i, INTEGER));
-        }
+        values.add(constant(6, BIGINT));
+        values.add(constant(7, BIGINT));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
 
-        values.add(constant(16, INTEGER));
+        values.add(constant(8, INTEGER));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), SET_CONTAINS);
     }
 
@@ -77,16 +75,15 @@ public class TestInCodeGenerator
         values.add(constant(null, BIGINT));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
         values.add(new CallExpression(
-                metadata.getCoercion(DOUBLE, BIGINT),
+                functionResolution.getCoercion(DOUBLE, BIGINT),
                 Collections.singletonList(constant(12345678901234.0, DOUBLE))));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
 
-        for (long i = 6; i <= 15; ++i) {
-            values.add(constant(i, BIGINT));
-        }
+        values.add(constant(6L, BIGINT));
+        values.add(constant(7L, BIGINT));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
 
-        values.add(constant(16L, BIGINT));
+        values.add(constant(8L, BIGINT));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), SET_CONTAINS);
     }
 
@@ -99,7 +96,7 @@ public class TestInCodeGenerator
         values.add(constant(3L, DATE));
         assertEquals(checkSwitchGenerationCase(DATE, values), DIRECT_SWITCH);
 
-        for (long i = 4; i <= 15; ++i) {
+        for (long i = 4; i <= 7; ++i) {
             values.add(constant(i, DATE));
         }
         assertEquals(checkSwitchGenerationCase(DATE, values), DIRECT_SWITCH);

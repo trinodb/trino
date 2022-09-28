@@ -25,6 +25,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -67,6 +68,29 @@ public class TestRowBlock
         }
     }
 
+    @Test
+    public void testFromFieldBlocksNoNullsDetection()
+    {
+        Block emptyBlock = new ByteArrayBlock(0, Optional.empty(), new byte[0]);
+        Block fieldBlock = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(5).getBytes());
+
+        boolean[] rowIsNull = new boolean[fieldBlock.getPositionCount()];
+        Arrays.fill(rowIsNull, false);
+
+        // Blocks may discard the null mask during creation if no values are null
+        assertFalse(fromFieldBlocks(5, Optional.of(rowIsNull), new Block[]{fieldBlock}).mayHaveNull());
+        // Last position is null must retain the nulls mask
+        rowIsNull[rowIsNull.length - 1] = true;
+        assertTrue(fromFieldBlocks(5, Optional.of(rowIsNull), new Block[]{fieldBlock}).mayHaveNull());
+        // Empty blocks have no nulls and can also discard their null mask
+        assertFalse(fromFieldBlocks(0, Optional.of(new boolean[0]), new Block[]{emptyBlock}).mayHaveNull());
+
+        // Normal blocks should have null masks preserved
+        List<Type> fieldTypes = ImmutableList.of(VARCHAR, BIGINT);
+        Block hasNullsBlock = createBlockBuilderWithValues(fieldTypes, alternatingNullValues(generateTestRows(fieldTypes, 100))).build();
+        assertTrue(hasNullsBlock.mayHaveNull());
+    }
+
     private int getExpectedEstimatedDataSize(List<Object> row)
     {
         if (row == null) {
@@ -101,12 +125,12 @@ public class TestRowBlock
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(fieldTypes, expectedValues);
 
-        assertBlock(blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
-        assertBlock(blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
+        assertBlock(blockBuilder, expectedValues);
+        assertBlock(blockBuilder.build(), expectedValues);
 
         IntArrayList positionList = generatePositionList(expectedValues.length, expectedValues.length / 2);
-        assertBlockFilteredPositions(expectedValues, blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), positionList.toIntArray());
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), positionList.toIntArray());
+        assertBlockFilteredPositions(expectedValues, blockBuilder, positionList.toIntArray());
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), positionList.toIntArray());
     }
 
     private BlockBuilder createBlockBuilderWithValues(List<Type> fieldTypes, List<Object>[] rows)

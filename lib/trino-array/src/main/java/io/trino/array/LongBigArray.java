@@ -74,6 +74,16 @@ public final class LongBigArray
         return array[segment(index)][offset(index)];
     }
 
+    public long[] getSegment(long index)
+    {
+        return array[segment(index)];
+    }
+
+    public int getOffset(long index)
+    {
+        return offset(index);
+    }
+
     /**
      * Sets the element of this big array at specified index.
      *

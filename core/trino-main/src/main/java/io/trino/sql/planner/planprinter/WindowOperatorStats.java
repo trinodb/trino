@@ -15,7 +15,7 @@ package io.trino.sql.planner.planprinter;
 
 import io.trino.operator.WindowInfo;
 import io.trino.operator.WindowInfo.DriverWindowInfo;
-import io.trino.util.Mergeable;
+import io.trino.spi.Mergeable;
 
 class WindowOperatorStats
         implements Mergeable<WindowOperatorStats>

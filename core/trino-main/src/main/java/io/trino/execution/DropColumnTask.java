@@ -18,15 +18,16 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.Expression;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -35,10 +36,21 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class DropColumnTask
         implements DataDefinitionTask<DropColumn>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+
+    @Inject
+    public DropColumnTask(Metadata metadata, AccessControl accessControl)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public String getName()
     {
@@ -48,28 +60,24 @@ public class DropColumnTask
     @Override
     public ListenableFuture<Void> execute(
             DropColumn statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
-        Optional<TableHandle> tableHandleOptional = metadata.getTableHandle(session, tableName);
-
-        if (tableHandleOptional.isEmpty()) {
+        RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
+        if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
             if (!statement.isTableExists()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
             }
             return immediateVoidFuture();
         }
-        TableHandle tableHandle = tableHandleOptional.get();
+        TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
 
         String column = statement.getColumn().getValue().toLowerCase(ENGLISH);
 
-        accessControl.checkCanDropColumn(session.toSecurityContext(), tableName);
+        accessControl.checkCanDropColumn(session.toSecurityContext(), redirectionAwareTableHandle.getRedirectedTableName().orElse(tableName));
 
         ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(column);
         if (columnHandle == null) {

@@ -15,12 +15,11 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.RowPagesBuilder;
-import io.trino.metadata.Metadata;
-import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.Page;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
-import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.MaterializedResult;
@@ -29,19 +28,19 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.lang.String.format;
@@ -51,10 +50,9 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 @Test(singleThreaded = true)
 public class TestStreamingAggregationOperator
 {
-    private static final Metadata metadata = createTestMetadataManager();
-
-    private static final InternalAggregationFunction LONG_SUM = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(BIGINT)));
-    private static final InternalAggregationFunction COUNT = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of()));
+    private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
+    private static final TestingAggregationFunction LONG_SUM = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("sum"), fromTypes(BIGINT));
+    private static final TestingAggregationFunction COUNT = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("count"), ImmutableList.of());
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -77,9 +75,8 @@ public class TestStreamingAggregationOperator
                 ImmutableList.of(BOOLEAN, VARCHAR, BIGINT),
                 ImmutableList.of(VARCHAR),
                 ImmutableList.of(1),
-                AggregationNode.Step.SINGLE,
-                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                        LONG_SUM.bind(ImmutableList.of(2), Optional.empty())),
+                ImmutableList.of(COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()),
+                        LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(2), OptionalInt.empty())),
                 new JoinCompiler(new TypeOperators()));
     }
 
@@ -99,9 +96,8 @@ public class TestStreamingAggregationOperator
                 ImmutableList.of(BOOLEAN, DOUBLE, BIGINT),
                 ImmutableList.of(DOUBLE),
                 ImmutableList.of(1),
-                AggregationNode.Step.SINGLE,
-                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                        LONG_SUM.bind(ImmutableList.of(2), Optional.empty())),
+                ImmutableList.of(COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()),
+                        LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(2), OptionalInt.empty())),
                 new JoinCompiler(new TypeOperators()));
 
         RowPagesBuilder rowPagesBuilder = RowPagesBuilder.rowPagesBuilder(BOOLEAN, DOUBLE, BIGINT);

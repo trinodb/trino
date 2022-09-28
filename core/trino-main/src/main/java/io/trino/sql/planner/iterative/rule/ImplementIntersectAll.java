@@ -89,12 +89,12 @@ public class ImplementIntersectAll
     @Override
     public Result apply(IntersectNode node, Captures captures, Context context)
     {
-        SetOperationNodeTranslator translator = new SetOperationNodeTranslator(metadata, context.getSymbolAllocator(), context.getIdAllocator());
+        SetOperationNodeTranslator translator = new SetOperationNodeTranslator(context.getSession(), metadata, context.getSymbolAllocator(), context.getIdAllocator());
         SetOperationNodeTranslator.TranslationResult result = translator.makeSetContainmentPlanForAll(node);
 
         // compute expected multiplicity for every row
         checkState(result.getCountSymbols().size() > 0, "IntersectNode translation result has no count symbols");
-        ResolvedFunction least = metadata.resolveFunction(QualifiedName.of("least"), fromTypes(BIGINT, BIGINT));
+        ResolvedFunction least = metadata.resolveFunction(context.getSession(), QualifiedName.of("least"), fromTypes(BIGINT, BIGINT));
 
         Expression minCount = result.getCountSymbols().get(0).toSymbolReference();
         for (int i = 1; i < result.getCountSymbols().size(); i++) {

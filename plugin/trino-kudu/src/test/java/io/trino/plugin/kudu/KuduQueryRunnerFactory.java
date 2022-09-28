@@ -16,6 +16,8 @@ package io.trino.plugin.kudu;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -151,5 +153,20 @@ public final class KuduQueryRunnerFactory
                 .setCatalog("kudu")
                 .setSchema(schema)
                 .build();
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        Logging.initialize();
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) createKuduQueryRunnerTpch(
+                new TestingKuduServer(),
+                Optional.empty(),
+                ImmutableMap.of(),
+                ImmutableMap.of("http-server.http.port", "8080"),
+                TpchTable.getTables());
+        Logger log = Logger.get(KuduQueryRunnerFactory.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }

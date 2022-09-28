@@ -2,13 +2,21 @@
 Pinot connector
 ===============
 
+.. raw:: html
+
+  <img src="../_static/img/pinot.png" class="connector-logo">
+
 The Pinot connector allows Trino to query data stored in
 `Apache Pinot™ <https://pinot.apache.org/>`_.
 
-Compatibility
--------------
+Requirements
+------------
 
-The Pinot connector is compatible with all Pinot versions starting from 0.1.0.
+To connect to Pinot, you need:
+
+* Pinot 0.9.3 or higher.
+* Network access from the Trino coordinator and workers to the Pinot controller
+  nodes. Port 8098 is the default port.
 
 Configuration
 -------------
@@ -19,28 +27,85 @@ e.g. ``etc/catalog/pinot.properties`` with at least the following contents:
 .. code-block:: text
 
     connector.name=pinot
-    pinot.controller-urls=host1:9000,host2:9000
+    pinot.controller-urls=host1:8098,host2:8098
 
-Replace ``host1:9000,host2:9000`` with a comma-separated list of Pinot Controller nodes.
+Replace ``host1:8098,host2:8098`` with a comma-separated list of Pinot controller nodes.
 This can be the ip or the FDQN, the url scheme (``http://``) is optional.
 
 Configuration properties
 ------------------------
 
-The following configuration properties are available:
+General configuration properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-============================== ========== ==============================================================================
-Property Name                  Required   Description
-============================== ========== ==============================================================================
-``pinot.controller-urls``      Yes        A comma separated list of controller hosts. If Pinot is deployed via
-                                          `Kubernetes <https://kubernetes.io/>`_ this needs to point to the controller
-                                          service endpoint. The Pinot broker and server must be accessible via DNS as
-                                          Pinot returns hostnames and not IP addresses.
-``pinot.segments-per-split``   No         The number of segments processed in a split. Setting this higher reduces the
-                                          number of requests made to Pinot. This is useful for smaller Pinot clusters.
-``pinot.request-timeout``      No         The timeout for Pinot requests. Increasing this can reduce timeouts if DNS
-                                          resolution is slow.
-============================== ========== ==============================================================================
+========================================================= ========== ==============================================================================
+Property name                                             Required   Description
+========================================================= ========== ==============================================================================
+``pinot.controller-urls``                                 Yes        A comma separated list of controller hosts. If Pinot is deployed via
+                                                                     `Kubernetes <https://kubernetes.io/>`_ this needs to point to the controller
+                                                                     service endpoint. The Pinot broker and server must be accessible via DNS as
+                                                                     Pinot returns hostnames and not IP addresses.
+``pinot.connection-timeout``                              No         Pinot connection timeout, default is ``15s``.
+``pinot.metadata-expiry``                                 No         Pinot metadata expiration time, default is ``2m``.
+``pinot.request-timeout``                                 No         The timeout for Pinot requests. Increasing this can reduce timeouts if DNS
+                                                                     resolution is slow.
+``pinot.controller.authentication.type``                  No         Pinot authentication method for controller requests. Allowed values are
+                                                                     ``NONE`` and ``PASSWORD`` - defaults to ``NONE`` which is no authentication.
+``pinot.controller.authentication.user``                  No         Controller username for basic authentication method.
+``pinot.controller.authentication.password``              No         Controller password for basic authentication method.
+``pinot.broker.authentication.type``                      No         Pinot authentication method for broker requests. Allowed values are
+                                                                     ``NONE`` and ``PASSWORD`` - defaults to ``NONE`` which is no
+                                                                     authentication.
+``pinot.broker.authentication.user``                      No         Broker username for basic authentication method.
+``pinot.broker.authentication.password``                  No         Broker password for basic authentication method.
+``pinot.max-rows-per-split-for-segment-queries``          No         Fail query if Pinot server split returns more rows than configured, default to
+                                                                     ``50,000`` for non-gRPC connection, ``2,147,483,647`` for gRPC connection.
+``pinot.estimated-size-in-bytes-for-non-numeric-column``  No         Estimated byte size for non-numeric column for page pre-allocation in non-gRPC
+                                                                     connection, default is ``20``.
+``pinot.prefer-broker-queries``                           No         Pinot query plan prefers to query Pinot broker, default is ``true``.
+``pinot.forbid-segment-queries``                          No         Forbid parallel querying and force all querying to happen via the broker,
+                                                                     default is ``false``.
+``pinot.segments-per-split``                              No         The number of segments processed in a split. Setting this higher reduces the
+                                                                     number of requests made to Pinot. This is useful for smaller Pinot clusters,
+                                                                     default is ``1``.
+``pinot.fetch-retry-count``                               No         Retry count for retriable Pinot data fetch calls, default is ``2``.
+``pinot.non-aggregate-limit-for-broker-queries``          No         Max limit for non aggregate queries to the Pinot broker, default is ``25,000``.
+``pinot.max-rows-for-broker-queries``                     No         Max rows for a broker query can return, default is ``50,000``.
+``pinot.aggregation-pushdown.enabled``                    No         Push down aggregation queries, default is ``true``.
+``pinot.count-distinct-pushdown.enabled``                 No         Push down count distinct queries to Pinot, default is ``true``.
+``pinot.target-segment-page-size``                        No         Max allowed page size for segment query, default is ``1MB``.
+========================================================= ========== ==============================================================================
+
+If ``pinot.controller.authentication.type`` is set to ``PASSWORD`` then both ``pinot.controller.authentication.user`` and
+``pinot.controller.authentication.password`` are required.
+
+If ``pinot.broker.authentication.type`` is set to ``PASSWORD`` then both ``pinot.broker.authentication.user`` and
+``pinot.broker.authentication.password`` are required.
+
+If ``pinot.controller-urls`` uses ``https`` scheme then TLS is enabled for all connections including brokers.
+
+gRPC configuration properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+========================================================= ========== ==============================================================================
+Property name                                             Required   Description
+========================================================= ========== ==============================================================================
+``pinot.grpc.enabled``                                    No         Use gRPC endpoint for Pinot server queries, default is ``true``.
+``pinot.grpc.port``                                       No         Pinot gRPC port, default to ``8090``.
+``pinot.grpc.max-inbound-message-size``                   No         Max inbound message bytes when init gRPC client, default is ``128MB``.
+``pinot.grpc.use-plain-text``                             No         Use plain text for gRPC communication, default to ``true``.
+``pinot.grpc.tls.keystore-type``                          No         TLS keystore type for gRPC connection, default is ``JKS``.
+``pinot.grpc.tls.keystore-path``                          No         TLS keystore file location for gRPC connection, default is empty.
+``pinot.grpc.tls.keystore-password``                      No         TLS keystore password, default is empty.
+``pinot.grpc.tls.truststore-type``                        No         TLS truststore type for gRPC connection, default is ``JKS``.
+``pinot.grpc.tls.truststore-path``                        No         TLS truststore file location for gRPC connection, default is empty.
+``pinot.grpc.tls.truststore-password``                    No         TLS truststore password, default is empty.
+``pinot.grpc.tls.ssl-provider``                           No         SSL provider, default is ``JDK``.
+========================================================= ========== ==============================================================================
+
+For more Apache Pinot TLS configurations, please also refer to `Configuring TLS/SSL <https://docs.pinot.apache.org/operators/tutorials/configuring-tls-ssl>`_.
+
+You can use :doc:`secrets </security/secrets>` to avoid actual values in the catalog properties files.
 
 Querying Pinot tables
 ---------------------
@@ -95,18 +160,56 @@ Data types
 
 Pinot does not allow null values in any data type and supports the following primitive types:
 
-==========================   ============
+==========================   ==============
 Pinot                        Trino
-==========================   ============
+==========================   ==============
 ``INT``                      ``INTEGER``
 ``LONG``                     ``BIGINT``
 ``FLOAT``                    ``REAL``
 ``DOUBLE``                   ``DOUBLE``
 ``STRING``                   ``VARCHAR``
+``BYTES``                    ``VARBINARY``
+``JSON``                     ``JSON``
+``TIMESTAMP``                ``TIMESTAMP``
 ``INT_ARRAY``                ``VARCHAR``
 ``LONG_ARRAY``               ``VARCHAR``
 ``FLOAT_ARRAY``              ``VARCHAR``
 ``DOUBLE_ARRAY``             ``VARCHAR``
 ``STRING_ARRAY``             ``VARCHAR``
-==========================   ============
+==========================   ==============
 
+.. _pinot-sql-support:
+
+SQL support
+-----------
+
+The connector provides :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements to access data and
+metadata in Pinot.
+
+.. _pinot-pushdown:
+
+Pushdown
+--------
+
+The connector supports pushdown for a number of operations:
+
+* :ref:`limit-pushdown`
+
+:ref:`Aggregate pushdown <aggregation-pushdown>` for the following functions:
+
+* :func:`avg`
+* :func:`approx_distinct`
+* ``count(*)`` and ``count(distinct)`` variations of :func:`count`
+* :func:`max`
+* :func:`min`
+* :func:`sum`
+
+Aggregate function pushdown is enabled by default, but can be disabled with the
+catalog property ``pinot.aggregation-pushdown.enabled`` or the catalog session
+property ``aggregation_pushdown_enabled``.
+
+A ``count(distint)`` pushdown may cause Pinot to run a full table scan with
+significant performance impact. If you encounter this problem, you can disable
+it with the catalog property ``pinot.count-distinct-pushdown.enabled`` or the
+catalog session property ``count_distinct_pushdown_enabled``.

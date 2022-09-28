@@ -4,9 +4,6 @@ hdfs:
     uri: http://${databases.hive.host}:50070
 
 databases:
-  default:
-    alias: presto
-
   hive:
     host: hadoop-master
     jdbc_driver_class: org.apache.hive.jdbc.HiveDriver
@@ -131,13 +128,14 @@ databases:
   cassandra:
     host: cassandra
     port: 9042
+    local_datacenter: datacenter1
     default_schema: test
     skip_create_schema: false
     table_manager_type: cassandra
 
   sqlserver:
     jdbc_driver_class: com.microsoft.sqlserver.jdbc.SQLServerDriver
-    jdbc_url: jdbc:sqlserver://sqlserver
+    jdbc_url: jdbc:sqlserver://sqlserver;encrypt=false
     jdbc_user: sa
     jdbc_password: SQLServerPass1
     jdbc_pooling: true
@@ -166,6 +164,16 @@ databases:
     presto_kafka_catalog: kafka
     table_manager_type: kafka
 
+  delta:
+      jdbc_driver_class: org.apache.hive.jdbc.HiveDriver
+      schema: default
+      prepare_statement:
+          - USE ${databases.delta.schema}
+      table_manager_type: jdbc
+      jdbc_url: jdbc:hive2://spark:10213
+      jdbc_user: hive
+      jdbc_password: na
+
 tests:
   hdfs:
     path: /tmp/product-test
@@ -174,6 +182,6 @@ tests:
 
 ldap:
    admin:
-       dn: cn=admin,dc=presto,dc=testldap,dc=com
+       dn: cn=admin,dc=trino,dc=testldap,dc=com
        password: admin
    url: ldap://ldapserver

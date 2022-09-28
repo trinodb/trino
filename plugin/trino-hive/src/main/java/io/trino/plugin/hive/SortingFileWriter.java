@@ -111,7 +111,7 @@ public class SortingFileWriter
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return INSTANCE_SIZE + sortBuffer.getRetainedBytes();
     }
@@ -260,7 +260,7 @@ public class SortingFileWriter
             }
         }
         catch (IOException e) {
-            log.warn(e, "Failed to delete temporary file: " + file);
+            log.warn(e, "Failed to delete temporary file: %s", file);
         }
     }
 

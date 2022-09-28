@@ -13,7 +13,10 @@
  */
 package io.trino.plugin.elasticsearch.decoders;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.primitives.Longs;
+import io.trino.plugin.elasticsearch.DecoderDescriptor;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import org.elasticsearch.common.document.DocumentField;
@@ -46,7 +49,7 @@ public class TimestampDecoder
     public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
         DocumentField documentField = hit.getFields().get(path);
-        Object value = null;
+        Object value;
 
         if (documentField != null) {
             if (documentField.getValues().size() > 1) {
@@ -87,6 +90,30 @@ public class TimestampDecoder
             long epochMicros = timestamp.atOffset(UTC).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
 
             TIMESTAMP_MILLIS.writeLong(output, epochMicros);
+        }
+    }
+
+    public static class Descriptor
+            implements DecoderDescriptor
+    {
+        private final String path;
+
+        @JsonCreator
+        public Descriptor(String path)
+        {
+            this.path = path;
+        }
+
+        @JsonProperty
+        public String getPath()
+        {
+            return path;
+        }
+
+        @Override
+        public Decoder createDecoder()
+        {
+            return new TimestampDecoder(path);
         }
     }
 }

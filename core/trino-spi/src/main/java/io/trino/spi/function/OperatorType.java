@@ -22,7 +22,14 @@ public enum OperatorType
     MODULUS("%", 2),
     NEGATION("-", 1),
     EQUAL("=", 2),
-    COMPARISON("COMPARISON", 2),
+    /**
+     * Normal comparison operator, but unordered values such as NaN are placed after all normal values.
+     */
+    COMPARISON_UNORDERED_LAST("COMPARISON_UNORDERED_LAST", 2),
+    /**
+     * Normal comparison operator, but unordered values such as NaN are placed before all normal values.
+     */
+    COMPARISON_UNORDERED_FIRST("COMPARISON_UNORDERED_FIRST", 2),
     LESS_THAN("<", 2),
     LESS_THAN_OR_EQUAL("<=", 2),
     CAST("CAST", 1),

@@ -20,6 +20,7 @@ import org.testcontainers.containers.BindMode;
 
 import javax.inject.Inject;
 
+import java.time.Duration;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -38,7 +39,10 @@ public class KafkaSsl
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer(Kafka.KAFKA, container -> container.withEnv("KAFKA_ADVERTISED_LISTENERS", "SSL://kafka:9092")
+        builder.configureContainer(Kafka.KAFKA, container -> container
+                .withStartupAttempts(3)
+                .withStartupTimeout(Duration.ofMinutes(5))
+                .withEnv("KAFKA_ADVERTISED_LISTENERS", "SSL://kafka:9092")
                 .withEnv("KAFKA_SSL_KEYSTORE_FILENAME", "kafka.broker1.keystore")
                 .withEnv("KAFKA_SSL_KEYSTORE_CREDENTIALS", "broker1_keystore_creds")
                 .withEnv("KAFKA_SSL_KEYSTORE_TYPE", "JKS")
@@ -49,8 +53,12 @@ public class KafkaSsl
                 .withEnv("KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM", "https")
                 .withEnv("KAFKA_SSL_CLIENT_AUTH", "required")
                 .withEnv("KAFKA_SECURITY_INTER_BROKER_PROTOCOL", "SSL")
+                .withEnv("KAFKA_SECURITY_PROTOCOL", "SSL")
                 .withClasspathResourceMapping("docker/presto-product-tests/conf/environment/multinode-kafka-ssl/secrets", "/etc/kafka/secrets", BindMode.READ_ONLY));
-        builder.configureContainer(Kafka.SCHEMA_REGISTRY, container -> container.withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "SSL://kafka:9092")
+        builder.configureContainer(Kafka.SCHEMA_REGISTRY, container -> container
+                .withStartupAttempts(3)
+                .withStartupTimeout(Duration.ofMinutes(5))
+                .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "SSL://kafka:9092")
                 .withEnv("SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL", "SSL")
                 .withEnv("SCHEMA_REGISTRY_KAFKASTORE_SSL_KEYSTORE_LOCATION", "/var/private/ssl/kafka.client.keystore")
                 .withEnv("SCHEMA_REGISTRY_KAFKASTORE_SSL_KEYSTORE_PASSWORD", "confluent")

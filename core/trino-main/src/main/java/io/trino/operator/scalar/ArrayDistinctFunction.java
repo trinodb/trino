@@ -41,6 +41,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 @Description("Remove duplicate values from the given array")
 public final class ArrayDistinctFunction
 {
+    public static final String NAME = "array_distinct";
     private final PageBuilder pageBuilder;
 
     @TypeParameter("E")
@@ -75,25 +76,27 @@ public final class ArrayDistinctFunction
             return array.getSingleValueBlock(0);
         }
 
-        TypedSet typedSet = createDistinctTypedSet(type, elementIsDistinctFrom, elementHashCode, array.getPositionCount(), "array_distinct");
-        int distinctCount = 0;
-
         if (pageBuilder.isFull()) {
             pageBuilder.reset();
         }
 
-        BlockBuilder distinctElementBlockBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder distinctElementsBlockBuilder = pageBuilder.getBlockBuilder(0);
+        TypedSet distinctElements = createDistinctTypedSet(
+                type,
+                elementIsDistinctFrom,
+                elementHashCode,
+                distinctElementsBlockBuilder,
+                array.getPositionCount(),
+                "array_distinct");
+
         for (int i = 0; i < array.getPositionCount(); i++) {
-            if (!typedSet.contains(array, i)) {
-                typedSet.add(array, i);
-                distinctCount++;
-                type.appendTo(array, i, distinctElementBlockBuilder);
-            }
+            distinctElements.add(array, i);
         }
 
-        pageBuilder.declarePositions(distinctCount);
-
-        return distinctElementBlockBuilder.getRegion(distinctElementBlockBuilder.getPositionCount() - distinctCount, distinctCount);
+        pageBuilder.declarePositions(distinctElements.size());
+        return distinctElementsBlockBuilder.getRegion(
+                distinctElementsBlockBuilder.getPositionCount() - distinctElements.size(),
+                distinctElements.size());
     }
 
     @SqlType("array(bigint)")
@@ -131,6 +134,8 @@ public final class ArrayDistinctFunction
 
         pageBuilder.declarePositions(distinctCount);
 
-        return distinctElementBlockBuilder.getRegion(distinctElementBlockBuilder.getPositionCount() - distinctCount, distinctCount);
+        return distinctElementBlockBuilder.getRegion(
+                distinctElementBlockBuilder.getPositionCount() - distinctCount,
+                distinctCount);
     }
 }

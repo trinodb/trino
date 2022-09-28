@@ -38,7 +38,8 @@ public class DesugarArrayConstructor
                 projectExpressionRewrite(),
                 filterExpressionRewrite(),
                 joinExpressionRewrite(),
-                valuesExpressionRewrite());
+                valuesExpressionRewrite(),
+                patternRecognitionExpressionRewrite());
     }
 
     private static ExpressionRewriter createRewrite(Metadata metadata, TypeAnalyzer typeAnalyzer)

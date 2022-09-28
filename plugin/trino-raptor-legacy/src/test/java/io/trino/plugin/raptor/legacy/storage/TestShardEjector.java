@@ -28,29 +28,30 @@ import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.TestingNodeManager;
-import org.skife.jdbi.v2.DBI;
-import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.IDBI;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.stream.Collectors.toSet;
@@ -61,22 +62,23 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestShardEjector
 {
-    private IDBI dbi;
+    private Jdbi dbi;
     private Handle dummyHandle;
     private ShardManager shardManager;
-    private File dataDir;
+    private Path dataDir;
     private StorageService storageService;
 
     @BeforeMethod
     public void setup()
+            throws IOException
     {
-        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
+        dbi = createTestingJdbi();
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
         shardManager = createShardManager(dbi);
 
-        dataDir = createTempDir();
-        storageService = new FileStorageService(dataDir);
+        dataDir = createTempDirectory(null);
+        storageService = new FileStorageService(dataDir.toFile());
         storageService.start();
     }
 
@@ -88,7 +90,7 @@ public class TestShardEjector
             dummyHandle.close();
         }
         if (dataDir != null) {
-            deleteRecursively(dataDir.toPath(), ALLOW_INSECURE);
+            deleteRecursively(dataDir, ALLOW_INSECURE);
         }
     }
 

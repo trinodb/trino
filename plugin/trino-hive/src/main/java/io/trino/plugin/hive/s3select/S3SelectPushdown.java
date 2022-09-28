@@ -19,7 +19,6 @@ import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.io.compress.BZip2Codec;
 import org.apache.hadoop.io.compress.GzipCodec;
@@ -36,6 +35,7 @@ import static io.trino.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveSessionProperties.isS3SelectPushdownEnabled;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
+import static io.trino.plugin.hive.s3select.S3SelectSerDeDataTypeMapper.getDataType;
 import static io.trino.plugin.hive.util.HiveUtil.getCompressionCodec;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.HiveUtil.getInputFormatName;
@@ -56,15 +56,13 @@ import static org.apache.hadoop.hive.serde.serdeConstants.TINYINT_TYPE_NAME;
 public final class S3SelectPushdown
 {
     private static final Set<String> SUPPORTED_S3_PREFIXES = ImmutableSet.of("s3://", "s3a://", "s3n://");
-    private static final Set<String> SUPPORTED_SERDES = ImmutableSet.of(LazySimpleSerDe.class.getName());
 
     /*
      * Double and Real Types lose precision. Thus, they are not pushed down to S3. Please use Decimal Type if push down is desired.
      *
-     * Pushing down timestamp to s3select is problematic due to following reasons:
-     * 1) Presto bug: TIMESTAMP behaviour does not match sql standard (https://github.com/trinodb/trino/issues/37)
-     * 2) Presto uses the timezone from client to convert the timestamp if no timezone is provided, however, s3select is a different service and this could lead to unexpected results.
-     * 3) ION SQL compare timestamps using precision, timestamps with different precisions are not equal even actually they present the same instant of time. This could lead to unexpected results.
+     * When S3 select support was added, Trino did not properly implement TIMESTAMP semantic. This was fixed in 2020, and TIMESTAMPS may be supportable now
+     * (https://github.com/trinodb/trino/issues/10962). Pushing down timestamps to s3select maybe still be problematic due to ION SQL comparing timestamps
+     * using precision.  This means timestamps with different precisions are not equal even actually they present the same instant of time.
      */
     private static final Set<String> SUPPORTED_COLUMN_TYPES = ImmutableSet.of(
             BOOLEAN_TYPE_NAME,
@@ -78,10 +76,10 @@ public final class S3SelectPushdown
 
     private S3SelectPushdown() {}
 
-    private static boolean isSerdeSupported(Properties schema)
+    private static boolean isSerDeSupported(Properties schema)
     {
         String serdeName = getDeserializerClassName(schema);
-        return SUPPORTED_SERDES.contains(serdeName);
+        return S3SelectSerDeDataTypeMapper.doesSerDeExist(serdeName);
     }
 
     private static boolean isInputFormatSupported(Properties schema)
@@ -106,10 +104,37 @@ public final class S3SelectPushdown
 
     public static boolean isCompressionCodecSupported(InputFormat<?, ?> inputFormat, Path path)
     {
-        if (inputFormat instanceof TextInputFormat) {
-            return getCompressionCodec((TextInputFormat) inputFormat, path)
+        if (inputFormat instanceof TextInputFormat textInputFormat) {
+            // S3 Select supports the following formats: uncompressed, GZIP and BZIP2.
+            return getCompressionCodec(textInputFormat, path)
                     .map(codec -> (codec instanceof GzipCodec) || (codec instanceof BZip2Codec))
-                    .orElse(false); // TODO (https://github.com/trinodb/trino/issues/2475) fix S3 Select when file not compressed
+                    .orElse(true);
+        }
+
+        return false;
+    }
+
+    public static boolean isSplittable(boolean s3SelectPushdownEnabled,
+                                       Properties schema,
+                                       InputFormat<?, ?> inputFormat,
+                                       Path path)
+    {
+        if (!s3SelectPushdownEnabled) {
+            return true;
+        }
+
+        if (isUncompressed(inputFormat, path)) {
+            return getDataType(getDeserializerClassName(schema)).isPresent();
+        }
+
+        return false;
+    }
+
+    private static boolean isUncompressed(InputFormat<?, ?> inputFormat, Path path)
+    {
+        if (inputFormat instanceof TextInputFormat textInputFormat) {
+            // S3 Select supports splitting uncompressed files
+            return getCompressionCodec(textInputFormat, path).isEmpty();
         }
 
         return false;
@@ -163,7 +188,7 @@ public final class S3SelectPushdown
     private static boolean shouldEnablePushdownForTable(Table table, String path, Properties schema)
     {
         return isS3Storage(path) &&
-                isSerdeSupported(schema) &&
+                isSerDeSupported(schema) &&
                 isInputFormatSupported(schema) &&
                 areColumnTypesSupported(table.getDataColumns());
     }

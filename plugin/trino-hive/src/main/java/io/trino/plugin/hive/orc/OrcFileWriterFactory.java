@@ -14,6 +14,8 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hive.orc.OrcConf;
 import io.trino.orc.OrcDataSink;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcDataSourceId;
@@ -24,8 +26,8 @@ import io.trino.orc.OutputStreamOrcDataSink;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.FileWriter;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveFileWriterFactory;
+import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.acid.AcidTransaction;
@@ -38,7 +40,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.orc.OrcConf;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
@@ -66,6 +67,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterVa
 import static io.trino.plugin.hive.HiveSessionProperties.getOrcStringStatisticsLimit;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveSessionProperties.isOrcOptimizedWriterValidate;
+import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_NAMES;
 import static io.trino.plugin.hive.acid.AcidSchema.createAcidColumnPrestoTypes;
 import static io.trino.plugin.hive.acid.AcidSchema.createRowType;
@@ -99,7 +101,7 @@ public class OrcFileWriterFactory
                 typeManager,
                 nodeVersion,
                 readStats,
-                requireNonNull(config, "config is null").toOrcWriterOptions());
+                config.toOrcWriterOptions());
     }
 
     public OrcFileWriterFactory(
@@ -158,7 +160,7 @@ public class OrcFileWriterFactory
         }
 
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), path, configuration);
             OrcDataSink orcDataSink = createOrcDataSink(fileSystem, path);
 
             Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();
@@ -214,7 +216,7 @@ public class OrcFileWriterFactory
                     ImmutableMap.<String, String>builder()
                             .put(PRESTO_VERSION_NAME, nodeVersion.toString())
                             .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
-                            .build(),
+                            .buildOrThrow(),
                     validationInputFactory,
                     getOrcOptimizedWriterValidateMode(session),
                     stats));
@@ -224,10 +226,21 @@ public class OrcFileWriterFactory
         }
     }
 
+    public static HiveType createHiveRowType(Properties schema, TypeManager typeManager, ConnectorSession session)
+    {
+        List<String> dataColumnNames = getColumnNames(schema);
+        List<Type> dataColumnTypes = getColumnTypes(schema).stream()
+                .map(hiveType -> hiveType.getType(typeManager, getTimestampPrecision(session)))
+                .collect(toList());
+        Type dataRowType = createRowType(dataColumnNames, dataColumnTypes);
+        Type acidRowType = createRowType(ACID_COLUMN_NAMES, createAcidColumnPrestoTypes(dataRowType));
+        return toHiveType(acidRowType);
+    }
+
     public static OrcDataSink createOrcDataSink(FileSystem fileSystem, Path path)
             throws IOException
     {
-        return new OutputStreamOrcDataSink(fileSystem.create(path));
+        return new OutputStreamOrcDataSink(fileSystem.create(path, false));
     }
 
     private static CompressionKind getCompression(Properties schema, JobConf configuration)

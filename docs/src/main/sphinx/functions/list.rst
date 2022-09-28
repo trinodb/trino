@@ -114,6 +114,7 @@ C
 - :func:`crc32`
 - :func:`cume_dist`
 - :data:`current_date`
+- :func:`current_groups`
 - :data:`current_time`
 - :data:`current_timestamp`
 - :func:`current_timezone`
@@ -158,9 +159,10 @@ F
 - :func:`flatten`
 - :func:`floor`
 - :func:`format`
-- ``format_datetime``
+- :func:`format_datetime`
 - :func:`format_number`
 - :func:`from_base`
+- :func:`from_base32`
 - :func:`from_base64`
 - :func:`from_base64url`
 - :func:`from_big_endian_32`
@@ -183,6 +185,7 @@ G
 - :func:`geometric_mean`
 - :func:`geometry_from_hadoop_shape`
 - :func:`geometry_invalid_reason`
+- :func:`geometry_nearest_points`
 - :func:`geometry_to_bing_tiles`
 - :func:`geometry_union`
 - :func:`geometry_union_agg`
@@ -193,7 +196,7 @@ H
 -
 
 - :func:`hamming_distance`
-- ``hash_counts``
+- :func:`hash_counts`
 - :func:`histogram`
 - :func:`hmac_md5`
 - :func:`hmac_sha1`
@@ -208,7 +211,7 @@ I
 - :ref:`if <if_function>`
 - :func:`index`
 - :func:`infinity`
-- ``intersection_cardinality``
+- :func:`intersection_cardinality`
 - :func:`inverse_beta_cdf`
 - :func:`inverse_normal_cdf`
 - :func:`is_finite`
@@ -223,15 +226,18 @@ I
 J
 -
 
-- ``jaccard_index``
+- :func:`jaccard_index`
 - :func:`json_array_contains`
 - :func:`json_array_get`
 - :func:`json_array_length`
+- :ref:`json_exists() <json_exists>`
 - :func:`json_extract`
 - :func:`json_extract_scalar`
 - :func:`json_format`
 - :func:`json_parse`
+- :ref:`json_query() <json_query>`
 - :func:`json_size`
+- :ref:`json_value() <json_value>`
 
 K
 -
@@ -254,6 +260,8 @@ L
 - :func:`levenshtein_distance`
 - :func:`line_interpolate_point`
 - :func:`line_interpolate_points`
+- :func:`line_locate_point`
+- :func:`listagg`
 - :func:`ln`
 - :data:`localtime`
 - :data:`localtimestamp`
@@ -268,7 +276,7 @@ L
 M
 -
 
-- ``make_set_digest``
+- :func:`make_set_digest`
 - :func:`map`
 - :func:`map_agg`
 - :func:`map_concat`
@@ -283,7 +291,7 @@ M
 - :func:`max_by`
 - :func:`md5`
 - :func:`merge`
-- ``merge_set_digest``
+- :func:`merge_set_digest`
 - :func:`millisecond`
 - :func:`min`
 - :func:`min_by`
@@ -314,7 +322,7 @@ O
 -
 
 - ``objectid``
-- ``objectid_timestamp``
+- :func:`objectid_timestamp`
 - :ref:`OR <logical_operators>`
 
 P
@@ -322,7 +330,7 @@ P
 
 - :func:`parse_datetime`
 - :func:`parse_duration`
-- :func:`parse_presto_data_size`
+- :func:`parse_data_size`
 - :func:`percent_rank`
 - :func:`pi`
 - :func:`position`
@@ -461,9 +469,11 @@ T
 - :func:`tan`
 - :func:`tanh`
 - :func:`tdigest_agg`
+- :func:`timestamp_objectid`
 - :func:`timezone_hour`
 - :func:`timezone_minute`
 - :func:`to_base`
+- :func:`to_base32`
 - :func:`to_base64`
 - :func:`to_base64url`
 - :func:`to_big_endian_32`
@@ -487,6 +497,7 @@ T
 - :func:`transform_values`
 - :func:`translate`
 - :func:`trim`
+- :func:`trim_array`
 - :func:`truncate`
 - :ref:`try <try_function>`
 - :func:`try_cast`
@@ -545,4 +556,3 @@ Z
 
 - :func:`zip`
 - :func:`zip_with`
-

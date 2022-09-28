@@ -15,8 +15,10 @@ package io.trino.plugin.redis;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Objects;
 
@@ -45,19 +47,23 @@ public final class RedisTableHandle
 
     private final String valueDataFormat;
 
+    private final TupleDomain<ColumnHandle> constraint;
+
     @JsonCreator
     public RedisTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("keyDataFormat") String keyDataFormat,
             @JsonProperty("valueDataFormat") String valueDataFormat,
-            @JsonProperty("keyName") String keyName)
+            @JsonProperty("keyName") String keyName,
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.keyDataFormat = requireNonNull(keyDataFormat, "keyDataFormat is null");
         this.valueDataFormat = requireNonNull(valueDataFormat, "valueDataFormat is null");
         this.keyName = keyName;
+        this.constraint = requireNonNull(constraint, "constraint is null");
     }
 
     @JsonProperty
@@ -90,6 +96,12 @@ public final class RedisTableHandle
         return valueDataFormat;
     }
 
+    @JsonProperty
+    public TupleDomain<ColumnHandle> getConstraint()
+    {
+        return constraint;
+    }
+
     public SchemaTableName toSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -98,7 +110,7 @@ public final class RedisTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, keyDataFormat, valueDataFormat, keyName);
+        return Objects.hash(schemaName, tableName, keyDataFormat, valueDataFormat, keyName, constraint);
     }
 
     @Override
@@ -116,7 +128,8 @@ public final class RedisTableHandle
                 && Objects.equals(this.tableName, other.tableName)
                 && Objects.equals(this.keyDataFormat, other.keyDataFormat)
                 && Objects.equals(this.valueDataFormat, other.valueDataFormat)
-                && Objects.equals(this.keyName, other.keyName);
+                && Objects.equals(this.keyName, other.keyName)
+                && Objects.equals(this.constraint, other.constraint);
     }
 
     @Override
@@ -128,6 +141,7 @@ public final class RedisTableHandle
                 .add("keyDataFormat", keyDataFormat)
                 .add("valueDataFormat", valueDataFormat)
                 .add("keyName", keyName)
+                .add("constraint", constraint)
                 .toString();
     }
 }

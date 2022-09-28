@@ -37,7 +37,7 @@ public class TestReplaceWindowWithRowNumber
     @Test
     public void test()
     {
-        ResolvedFunction rowNumberFunction = tester().getMetadata().resolveFunction(QualifiedName.of("row_number"), fromTypes());
+        ResolvedFunction rowNumberFunction = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("row_number"), fromTypes());
         tester().assertThat(new ReplaceWindowWithRowNumber(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
@@ -72,7 +72,7 @@ public class TestReplaceWindowWithRowNumber
     @Test
     public void testDoNotFire()
     {
-        ResolvedFunction rank = tester().getMetadata().resolveFunction(QualifiedName.of("rank"), fromTypes());
+        ResolvedFunction rank = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("rank"), fromTypes());
         tester().assertThat(new ReplaceWindowWithRowNumber(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
@@ -84,7 +84,7 @@ public class TestReplaceWindowWithRowNumber
                 })
                 .doesNotFire();
 
-        ResolvedFunction rowNumber = tester().getMetadata().resolveFunction(QualifiedName.of("row_number"), fromTypes());
+        ResolvedFunction rowNumber = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("row_number"), fromTypes());
         tester().assertThat(new ReplaceWindowWithRowNumber(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");

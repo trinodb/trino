@@ -15,7 +15,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.jmh.Benchmarks;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
@@ -24,8 +24,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.gen.ExpressionCompiler;
-import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.RowExpression;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -45,7 +43,6 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.block.RowBlock.fromFieldBlocks;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -87,13 +84,13 @@ public class BenchmarkRowToRowCast
         @Setup
         public void setup()
         {
-            Metadata metadata = createTestMetadataManager();
+            TestingFunctionResolution functionResolution = new TestingFunctionResolution();
 
             List<RowExpression> projections = ImmutableList.of(new CallExpression(
-                    metadata.getCoercion(RowType.anonymous(toFieldTypes), RowType.anonymous(fromFieldTypes)),
+                    functionResolution.getCoercion(RowType.anonymous(toFieldTypes), RowType.anonymous(fromFieldTypes)),
                     ImmutableList.of(field(0, RowType.anonymous(toFieldTypes)))));
 
-            pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
+            pageProcessor = functionResolution.getExpressionCompiler()
                     .compilePageProcessor(Optional.empty(), projections)
                     .get();
 

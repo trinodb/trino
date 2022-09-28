@@ -24,7 +24,7 @@ WHERE ("cr_call_center_sk" = "cc_call_center_sk")
          AND ("cd_education_status" = 'Unknown'))
       OR (("cd_marital_status" = 'W')
          AND ("cd_education_status" = 'Advanced Degree')))
-   AND ("hd_buy_potential" LIKE 'Unknown')
+   AND ("hd_buy_potential" LIKE 'Unknown%')
    AND ("ca_gmt_offset" = -7)
 GROUP BY "cc_call_center_id", "cc_name", "cc_manager", "cd_marital_status", "cd_education_status"
 ORDER BY "sum"("cr_net_loss") DESC

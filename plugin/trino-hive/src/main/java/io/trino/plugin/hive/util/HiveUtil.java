@@ -17,7 +17,9 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.airlift.compress.lzo.LzoCodec;
 import io.airlift.compress.lzo.LzopCodec;
 import io.airlift.slice.Slice;
@@ -36,12 +38,12 @@ import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -75,12 +77,15 @@ import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hadoop.util.ReflectionUtils;
+import org.joda.time.DateTimeZone;
+import org.joda.time.Days;
+import org.joda.time.LocalDateTime;
+import org.joda.time.LocalTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.DateTimePrinter;
-import org.joda.time.format.ISODateTimeFormat;
 
 import javax.annotation.Nullable;
 
@@ -89,19 +94,23 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Lists.newArrayList;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.hdfs.ConfigurationUtils.copy;
+import static io.trino.hdfs.ConfigurationUtils.toJobConf;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.bucketColumnHandle;
@@ -121,22 +130,23 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static io.trino.plugin.hive.HiveMetadata.ORC_BLOOM_FILTER_COLUMNS_KEY;
+import static io.trino.plugin.hive.HiveMetadata.ORC_BLOOM_FILTER_FPP_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
-import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
+import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.trino.plugin.hive.HiveType.toHiveTypes;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
-import static io.trino.plugin.hive.util.ConfigurationUtils.copy;
-import static io.trino.plugin.hive.util.ConfigurationUtils.toJobConf;
-import static io.trino.plugin.hive.util.HiveBucketing.bucketedOnTimestamp;
+import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.trimTrailingSpaces;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -144,6 +154,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Byte.parseByte;
@@ -152,11 +163,12 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
 import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
+import static java.lang.Math.floorDiv;
 import static java.lang.Short.parseShort;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_UNNECESSARY;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -169,7 +181,15 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Cate
 
 public final class HiveUtil
 {
-    private static final DateTimeFormatter HIVE_DATE_PARSER = ISODateTimeFormat.date().withZoneUTC();
+    public static final String SPARK_TABLE_PROVIDER_KEY = "spark.sql.sources.provider";
+    public static final String DELTA_LAKE_PROVIDER = "delta";
+    public static final String SPARK_TABLE_BUCKET_NUMBER_KEY = "spark.sql.sources.schema.numBuckets";
+
+    public static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
+    public static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
+
+    private static final LocalDateTime EPOCH_DAY = new LocalDateTime(1970, 1, 1, 0, 0);
+    private static final DateTimeFormatter HIVE_DATE_PARSER;
     private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
     private static final Field COMPRESSION_CODECS_FIELD;
 
@@ -192,6 +212,7 @@ public final class HiveUtil
         };
         DateTimePrinter timestampWithoutTimeZonePrinter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS").getPrinter();
         HIVE_TIMESTAMP_PARSER = new DateTimeFormatterBuilder().append(timestampWithoutTimeZonePrinter, timestampWithoutTimeZoneParser).toFormatter().withZoneUTC();
+        HIVE_DATE_PARSER = new DateTimeFormatterBuilder().append(timestampWithoutTimeZonePrinter, timestampWithoutTimeZoneParser).toFormatter().withZoneUTC();
 
         try {
             COMPRESSION_CODECS_FIELD = TextInputFormat.class.getDeclaredField("compressionCodecs");
@@ -236,6 +257,7 @@ public final class HiveUtil
         configureCompressionCodecs(jobConf);
 
         try {
+            @SuppressWarnings({"rawtypes", "unchecked"}) // raw type on WritableComparable can't be fixed because Utilities#skipHeader takes them raw
             RecordReader<WritableComparable, Writable> recordReader = (RecordReader<WritableComparable, Writable>) inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
 
             int headerCount = getHeaderCount(schema);
@@ -312,14 +334,20 @@ public final class HiveUtil
 
             Class<? extends InputFormat<?, ?>> inputFormatClass = getInputFormatClass(jobConf, inputFormatName);
             if (symlinkTarget && inputFormatClass == SymlinkTextInputFormat.class) {
-                String serDe = getDeserializerClassName(schema);
+                String serde = getDeserializerClassName(schema);
+                // LazySimpleSerDe is used by TEXTFILE and SEQUENCEFILE. Default to TEXTFILE
+                // per Hive spec (https://hive.apache.org/javadocs/r2.1.1/api/org/apache/hadoop/hive/ql/io/SymlinkTextInputFormat.html)
+                if (serde.equals(TEXTFILE.getSerde())) {
+                    inputFormatClass = getInputFormatClass(jobConf, TEXTFILE.getInputFormat());
+                    return ReflectionUtils.newInstance(inputFormatClass, jobConf);
+                }
                 for (HiveStorageFormat format : HiveStorageFormat.values()) {
-                    if (serDe.equals(format.getSerDe())) {
+                    if (serde.equals(format.getSerde())) {
                         inputFormatClass = getInputFormatClass(jobConf, format.getInputFormat());
                         return ReflectionUtils.newInstance(inputFormatClass, jobConf);
                     }
                 }
-                throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Unknown SerDe for SymlinkTextInputFormat: " + serDe);
+                throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Unknown SerDe for SymlinkTextInputFormat: " + serde);
             }
 
             return ReflectionUtils.newInstance(inputFormatClass, jobConf);
@@ -333,7 +361,7 @@ public final class HiveUtil
     private static Class<? extends InputFormat<?, ?>> getInputFormatClass(JobConf conf, String inputFormatName)
             throws ClassNotFoundException
     {
-        // CDH uses different names for Parquet
+        // legacy names for Parquet
         if ("parquet.hive.DeprecatedParquetInputFormat".equals(inputFormatName) ||
                 "parquet.hive.MapredParquetInputFormat".equals(inputFormatName)) {
             return MapredParquetInputFormat.class;
@@ -352,8 +380,11 @@ public final class HiveUtil
 
     public static long parseHiveDate(String value)
     {
-        long millis = HIVE_DATE_PARSER.parseMillis(value);
-        return TimeUnit.MILLISECONDS.toDays(millis);
+        LocalDateTime date = HIVE_DATE_PARSER.parseLocalDateTime(value);
+        if (!date.toLocalTime().equals(LocalTime.MIDNIGHT)) {
+            throw new IllegalArgumentException(format("The value should be a whole round date: '%s'", value));
+        }
+        return Days.daysBetween(EPOCH_DAY, date).getDays();
     }
 
     public static long parseHiveTimestamp(String value)
@@ -434,7 +465,7 @@ public final class HiveUtil
 
     private static Class<? extends Deserializer> getDeserializerClass(String name)
     {
-        // CDH uses different names for Parquet
+        // legacy name for Parquet
         if ("parquet.hive.serde.ParquetHiveSerDe".equals(name)) {
             return ParquetHiveSerDe.class;
         }
@@ -528,12 +559,10 @@ public final class HiveUtil
                 }
                 return NullableValue.of(decimalType, shortDecimalPartitionKey(value, decimalType, partitionName));
             }
-            else {
-                if (value.isEmpty()) {
-                    return NullableValue.of(decimalType, Decimals.encodeUnscaledValue(BigInteger.ZERO));
-                }
-                return NullableValue.of(decimalType, longDecimalPartitionKey(value, decimalType, partitionName));
+            if (value.isEmpty()) {
+                return NullableValue.of(decimalType, Int128.ZERO);
             }
+            return NullableValue.of(decimalType, longDecimalPartitionKey(value, decimalType, partitionName));
         }
 
         if (BOOLEAN.equals(type)) {
@@ -657,9 +686,7 @@ public final class HiveUtil
             int scale = parseInt(matcher.group(DECIMAL_SCALE_GROUP));
             return Optional.of(createDecimalType(precision, scale));
         }
-        else {
-            return Optional.empty();
-        }
+        return Optional.empty();
     }
 
     public static boolean isArrayType(Type type)
@@ -783,9 +810,9 @@ public final class HiveUtil
         return decimalPartitionKey(value, type, name).unscaledValue().longValue();
     }
 
-    public static Slice longDecimalPartitionKey(String value, DecimalType type, String name)
+    public static Int128 longDecimalPartitionKey(String value, DecimalType type, String name)
     {
-        return Decimals.encodeUnscaledValue(decimalPartitionKey(value, type, name).unscaledValue());
+        return Int128.valueOf(decimalPartitionKey(value, type, name).unscaledValue());
     }
 
     private static BigDecimal decimalPartitionKey(String value, DecimalType type, String name)
@@ -798,12 +825,12 @@ public final class HiveUtil
             BigDecimal decimal = new BigDecimal(value);
             decimal = decimal.setScale(type.getScale(), ROUND_UNNECESSARY);
             if (decimal.precision() > type.getPrecision()) {
-                throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, type.toString(), name));
+                throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, type, name));
             }
             return decimal;
         }
         catch (NumberFormatException e) {
-            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, type.toString(), name));
+            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, type, name));
         }
     }
 
@@ -812,7 +839,7 @@ public final class HiveUtil
         Slice partitionKey = Slices.utf8Slice(value);
         VarcharType varcharType = (VarcharType) columnType;
         if (!varcharType.isUnbounded() && SliceUtf8.countCodePoints(partitionKey) > varcharType.getBoundedLength()) {
-            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType.toString(), name));
+            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType, name));
         }
         return partitionKey;
     }
@@ -822,7 +849,7 @@ public final class HiveUtil
         Slice partitionKey = trimTrailingSpaces(Slices.utf8Slice(value));
         CharType charType = (CharType) columnType;
         if (SliceUtf8.countCodePoints(partitionKey) > charType.getLength()) {
-            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType.toString(), name));
+            throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType, name));
         }
         return partitionKey;
     }
@@ -840,7 +867,7 @@ public final class HiveUtil
         // add hidden columns
         columns.add(pathColumnHandle());
         if (table.getStorage().getBucketProperty().isPresent()) {
-            if (!bucketedOnTimestamp(table.getStorage().getBucketProperty().get(), table)) {
+            if (isSupportedBucketing(table)) {
                 columns.add(bucketColumnHandle());
             }
         }
@@ -922,7 +949,7 @@ public final class HiveUtil
         return resultBuilder.build();
     }
 
-    public static String getPrefilledColumnValue(
+    public static NullableValue getPrefilledColumnValue(
             HiveColumnHandle columnHandle,
             HivePartitionKey partitionKey,
             Path path,
@@ -931,40 +958,83 @@ public final class HiveUtil
             long fileModifiedTime,
             String partitionName)
     {
+        String columnValue;
         if (partitionKey != null) {
-            return partitionKey.getValue();
+            columnValue = partitionKey.getValue();
         }
-        if (isPathColumnHandle(columnHandle)) {
-            return path.toString();
+        else if (isPathColumnHandle(columnHandle)) {
+            columnValue = path.toString();
         }
-        if (isBucketColumnHandle(columnHandle)) {
-            return String.valueOf(bucketNumber.getAsInt());
+        else if (isBucketColumnHandle(columnHandle)) {
+            columnValue = String.valueOf(bucketNumber.getAsInt());
         }
-        if (isFileSizeColumnHandle(columnHandle)) {
-            return String.valueOf(fileSize);
+        else if (isFileSizeColumnHandle(columnHandle)) {
+            columnValue = String.valueOf(fileSize);
         }
-        if (isFileModifiedTimeColumnHandle(columnHandle)) {
-            return HIVE_TIMESTAMP_PARSER.print(fileModifiedTime);
+        else if (isFileModifiedTimeColumnHandle(columnHandle)) {
+            columnValue = HIVE_TIMESTAMP_PARSER.print(fileModifiedTime);
         }
-        if (isPartitionColumnHandle(columnHandle)) {
-            return partitionName;
+        else if (isPartitionColumnHandle(columnHandle)) {
+            columnValue = partitionName;
         }
-        throw new TrinoException(NOT_SUPPORTED, "unsupported hidden column: " + columnHandle);
-    }
+        else {
+            throw new TrinoException(NOT_SUPPORTED, "unsupported hidden column: " + columnHandle);
+        }
 
-    public static void closeWithSuppression(RecordCursor recordCursor, Throwable throwable)
-    {
-        requireNonNull(recordCursor, "recordCursor is null");
-        requireNonNull(throwable, "throwable is null");
-        try {
-            recordCursor.close();
+        byte[] bytes = columnValue.getBytes(UTF_8);
+        String name = columnHandle.getName();
+        Type type = columnHandle.getType();
+        if (isHiveNull(bytes)) {
+            return NullableValue.asNull(type);
         }
-        catch (RuntimeException e) {
-            // Self-suppression not permitted
-            if (throwable != e) {
-                throwable.addSuppressed(e);
+        if (type.equals(BOOLEAN)) {
+            return NullableValue.of(type, booleanPartitionKey(columnValue, name));
+        }
+        if (type.equals(BIGINT)) {
+            return NullableValue.of(type, bigintPartitionKey(columnValue, name));
+        }
+        if (type.equals(INTEGER)) {
+            return NullableValue.of(type, integerPartitionKey(columnValue, name));
+        }
+        if (type.equals(SMALLINT)) {
+            return NullableValue.of(type, smallintPartitionKey(columnValue, name));
+        }
+        if (type.equals(TINYINT)) {
+            return NullableValue.of(type, tinyintPartitionKey(columnValue, name));
+        }
+        if (type.equals(REAL)) {
+            return NullableValue.of(type, floatPartitionKey(columnValue, name));
+        }
+        if (type.equals(DOUBLE)) {
+            return NullableValue.of(type, doublePartitionKey(columnValue, name));
+        }
+        if (type instanceof VarcharType) {
+            return NullableValue.of(type, varcharPartitionKey(columnValue, name, type));
+        }
+        if (type instanceof CharType) {
+            return NullableValue.of(type, charPartitionKey(columnValue, name, type));
+        }
+        if (type.equals(DATE)) {
+            return NullableValue.of(type, datePartitionKey(columnValue, name));
+        }
+        if (type.equals(TIMESTAMP_MILLIS)) {
+            return NullableValue.of(type, timestampPartitionKey(columnValue, name));
+        }
+        if (type.equals(TIMESTAMP_TZ_MILLIS)) {
+            // used for $file_modified_time
+            return NullableValue.of(type, packDateTimeWithZone(floorDiv(timestampPartitionKey(columnValue, name), MICROSECONDS_PER_MILLISECOND), DateTimeZone.getDefault().getID()));
+        }
+        if (type instanceof DecimalType decimalType) {
+            if (decimalType.isShort()) {
+                return NullableValue.of(type, shortDecimalPartitionKey(columnValue, decimalType, name));
             }
+            return NullableValue.of(type, longDecimalPartitionKey(columnValue, decimalType, name));
         }
+        if (type.equals(VarbinaryType.VARBINARY)) {
+            return NullableValue.of(type, utf8Slice(columnValue));
+        }
+
+        throw new TrinoException(NOT_SUPPORTED, format("Unsupported column type %s for prefilled column: %s", type.getDisplayName(), name));
     }
 
     public static List<HiveType> extractStructFieldTypes(HiveType hiveType)
@@ -1011,21 +1081,18 @@ public final class HiveUtil
 
     public static OrcWriterOptions getOrcWriterOptions(Properties schema, OrcWriterOptions orcWriterOptions)
     {
-        if (schema.contains(ORC_BLOOM_FILTER_COLUMNS)) {
-            if (!schema.contains(ORC_BLOOM_FILTER_FPP)) {
-                throw new TrinoException(HIVE_INVALID_METADATA, format("FPP for bloom filter is missing"));
+        if (schema.containsKey(ORC_BLOOM_FILTER_COLUMNS_KEY)) {
+            if (!schema.containsKey(ORC_BLOOM_FILTER_FPP_KEY)) {
+                throw new TrinoException(HIVE_INVALID_METADATA, "FPP for bloom filter is missing");
             }
             try {
-                double fpp = parseDouble(schema.getProperty(ORC_BLOOM_FILTER_FPP));
-                if (fpp > 0.0 && fpp < 1.0) {
-                    throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("Invalid value for bloom filter: %f", fpp));
-                }
+                double fpp = parseDouble(schema.getProperty(ORC_BLOOM_FILTER_FPP_KEY));
                 return orcWriterOptions
-                        .withBloomFilterColumns(ImmutableSet.copyOf(COLUMN_NAMES_SPLITTER.splitToList(schema.getProperty(ORC_BLOOM_FILTER_COLUMNS))))
+                        .withBloomFilterColumns(ImmutableSet.copyOf(COLUMN_NAMES_SPLITTER.splitToList(schema.getProperty(ORC_BLOOM_FILTER_COLUMNS_KEY))))
                         .withBloomFilterFpp(fpp);
             }
             catch (NumberFormatException e) {
-                throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("Invalid value for %s property: %s", ORC_BLOOM_FILTER_FPP, schema.getProperty(ORC_BLOOM_FILTER_FPP)));
+                throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("Invalid value for %s property: %s", ORC_BLOOM_FILTER_FPP, schema.getProperty(ORC_BLOOM_FILTER_FPP_KEY)));
             }
         }
         return orcWriterOptions;
@@ -1048,5 +1115,80 @@ public final class HiveUtil
     public static String sortingColumnToString(SortingColumn column)
     {
         return column.getColumnName() + ((column.getOrder() == DESCENDING) ? " DESC" : "");
+    }
+
+    public static boolean isHiveSystemSchema(String schemaName)
+    {
+        if ("information_schema".equals(schemaName)) {
+            // For things like listing columns in information_schema.columns table, we need to explicitly filter out Hive's own information_schema.
+            // TODO https://github.com/trinodb/trino/issues/1559 this should be filtered out in engine.
+            return true;
+        }
+        if ("sys".equals(schemaName)) {
+            // Hive 3's `sys` schema contains no objects we can handle, so there is no point in exposing it.
+            // Also, exposing it may require proper handling in access control.
+            return true;
+        }
+        return false;
+    }
+
+    public static boolean isDeltaLakeTable(Table table)
+    {
+        return isDeltaLakeTable(table.getParameters());
+    }
+
+    public static boolean isDeltaLakeTable(Map<String, String> tableParameters)
+    {
+        return tableParameters.containsKey(SPARK_TABLE_PROVIDER_KEY)
+                && tableParameters.get(SPARK_TABLE_PROVIDER_KEY).toLowerCase(ENGLISH).equals(DELTA_LAKE_PROVIDER);
+    }
+
+    public static boolean isIcebergTable(Table table)
+    {
+        return isIcebergTable(table.getParameters());
+    }
+
+    public static boolean isIcebergTable(Map<String, String> tableParameters)
+    {
+        return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(tableParameters.get(ICEBERG_TABLE_TYPE_NAME));
+    }
+
+    public static boolean isSparkBucketedTable(Table table)
+    {
+        return table.getParameters().containsKey(SPARK_TABLE_PROVIDER_KEY)
+                && table.getParameters().containsKey(SPARK_TABLE_BUCKET_NUMBER_KEY);
+    }
+
+    public static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table)
+    {
+        ImmutableList.Builder<String> columnNames = ImmutableList.builder();
+        table.getPartitionColumns().stream().map(Column::getName).forEach(columnNames::add);
+        table.getDataColumns().stream().map(Column::getName).forEach(columnNames::add);
+        List<String> allColumnNames = columnNames.build();
+        if (allColumnNames.size() > Sets.newHashSet(allColumnNames).size()) {
+            throw new TrinoException(HIVE_INVALID_METADATA,
+                    format("Hive metadata for table %s is invalid: Table descriptor contains duplicate columns", table.getTableName()));
+        }
+
+        List<Column> tableColumns = table.getDataColumns();
+        ImmutableMap.Builder<String, Optional<String>> builder = ImmutableMap.builder();
+        for (Column field : concat(tableColumns, table.getPartitionColumns())) {
+            if (field.getComment().isPresent() && !field.getComment().get().equals("from deserializer")) {
+                builder.put(field.getName(), field.getComment());
+            }
+            else {
+                builder.put(field.getName(), Optional.empty());
+            }
+        }
+
+        Map<String, Optional<String>> columnComment = builder.buildOrThrow();
+
+        return handle -> ColumnMetadata.builder()
+                .setName(handle.getName())
+                .setType(handle.getType())
+                .setComment(handle.isHidden() ? Optional.empty() : columnComment.get(handle.getName()))
+                .setExtraInfo(Optional.ofNullable(columnExtraInfo(handle.isPartitionKey())))
+                .setHidden(handle.isHidden())
+                .build();
     }
 }

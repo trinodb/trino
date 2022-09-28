@@ -32,15 +32,15 @@ public class HivePrincipal
 {
     public static HivePrincipal from(ConnectorIdentity identity)
     {
-        if (identity.getRole().isEmpty()) {
+        if (identity.getConnectorRole().isEmpty()) {
             return ofUser(identity.getUser());
         }
-        SelectedRole.Type type = identity.getRole().get().getType();
+        SelectedRole.Type type = identity.getConnectorRole().get().getType();
         if (type == SelectedRole.Type.ALL) {
             return ofUser(identity.getUser());
         }
         checkArgument(type == SelectedRole.Type.ROLE, "Expected role type to be ALL or ROLE, but got: %s", type);
-        return ofRole(identity.getRole().get().getRole().get());
+        return ofRole(identity.getConnectorRole().get().getRole().get());
     }
 
     private static HivePrincipal ofUser(String user)

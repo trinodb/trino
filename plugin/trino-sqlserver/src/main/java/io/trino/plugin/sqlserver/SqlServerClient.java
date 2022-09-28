@@ -15,11 +15,16 @@ package io.trino.plugin.sqlserver;
 
 import com.google.common.base.Enums;
 import com.google.common.base.Joiner;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.microsoft.sqlserver.jdbc.SQLServerConnection;
+import com.microsoft.sqlserver.jdbc.SQLServerException;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
+import io.trino.plugin.base.aggregation.AggregateFunctionRule;
+import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -29,22 +34,23 @@ import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSortItem;
-import io.trino.plugin.jdbc.JdbcSplit;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.ObjectReadFunction;
+import io.trino.plugin.jdbc.ObjectWriteFunction;
+import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
-import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
-import io.trino.plugin.jdbc.expression.AggregateFunctionRule;
-import io.trino.plugin.jdbc.expression.ImplementAvgDecimal;
-import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
-import io.trino.plugin.jdbc.expression.ImplementCount;
-import io.trino.plugin.jdbc.expression.ImplementCountAll;
-import io.trino.plugin.jdbc.expression.ImplementMinMax;
-import io.trino.plugin.jdbc.expression.ImplementSum;
+import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
+import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
+import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
+import io.trino.plugin.jdbc.aggregation.ImplementSum;
+import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -52,38 +58,59 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
+import io.trino.spi.connector.JoinStatistics;
+import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.statistics.ColumnStatistics;
+import io.trino.spi.statistics.Estimate;
+import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
 import javax.inject.Inject;
 
+import java.sql.CallableStatement;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.microsoft.sqlserver.jdbc.SQLServerConnection.TRANSACTION_SNAPSHOT;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
@@ -98,78 +125,104 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTime;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longTimestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
+import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.sqlserver.SqlServerSessionProperties.isBulkCopyForWrite;
+import static io.trino.plugin.sqlserver.SqlServerSessionProperties.isBulkCopyForWriteLockDestinationTable;
 import static io.trino.plugin.sqlserver.SqlServerTableProperties.DATA_COMPRESSION;
 import static io.trino.plugin.sqlserver.SqlServerTableProperties.getDataCompression;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.math.RoundingMode.UNNECESSARY;
-import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 public class SqlServerClient
         extends BaseJdbcClient
 {
+    private static final Logger log = Logger.get(SqlServerClient.class);
+
     // SqlServer supports 2100 parameters in prepared statement, let's create a space for about 4 big IN predicates
     public static final int SQL_SERVER_MAX_LIST_EXPRESSIONS = 500;
 
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    public static final JdbcTypeHandle BIGINT_TYPE = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
 
     private static final Joiner DOT_JOINER = Joiner.on(".");
 
-    private final boolean snapshotIsolationDisabled;
-    private final Cache<SnapshotIsolationEnabledCacheKey, Boolean> snapshotIsolationEnabled = CacheBuilder.newBuilder()
-            .maximumSize(1)
-            .expireAfterWrite(ofMinutes(5))
-            .build();
+    private final boolean statisticsEnabled;
 
-    private final AggregateFunctionRewriter aggregateFunctionRewriter;
+    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
 
     private static final int MAX_SUPPORTED_TEMPORAL_PRECISION = 7;
 
     @Inject
-    public SqlServerClient(BaseJdbcConfig config, SqlServerConfig sqlServerConfig, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
+    public SqlServerClient(
+            BaseJdbcConfig config,
+            JdbcStatisticsConfig statisticsConfig,
+            ConnectionFactory connectionFactory,
+            QueryBuilder queryBuilder,
+            IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory, identifierMapping);
+        super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
 
-        requireNonNull(sqlServerConfig, "sqlServerConfig is null");
-        snapshotIsolationDisabled = sqlServerConfig.isSnapshotIsolationDisabled();
+        this.statisticsEnabled = statisticsConfig.isEnabled();
 
-        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-        this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
-                this::quoted,
-                ImmutableSet.<AggregateFunctionRule>builder()
-                        .add(new ImplementCountAll(bigintTypeHandle))
-                        .add(new ImplementCount(bigintTypeHandle))
-                        .add(new ImplementMinMax())
+        this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
+                .addStandardRules(this::quoted)
+                .build();
+
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
+                this.connectorExpressionRewriter,
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression, String>>builder()
+                        .add(new ImplementSqlServerCountBigAll())
+                        .add(new ImplementSqlServerCountBig())
+                        .add(new ImplementMinMax(false))
                         .add(new ImplementSum(SqlServerClient::toTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())
@@ -183,27 +236,107 @@ public class SqlServerClient
     }
 
     @Override
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        JdbcOutputTableHandle table = super.beginCreateTable(session, tableMetadata);
+        enableTableLockOnBulkLoadTableOption(session, table);
+        return table;
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
+    {
+        JdbcOutputTableHandle table = super.beginInsertTable(session, tableHandle, columns);
+        enableTableLockOnBulkLoadTableOption(session, table);
+        return table;
+    }
+
+    protected void enableTableLockOnBulkLoadTableOption(ConnectorSession session, JdbcOutputTableHandle table)
+    {
+        if (!isTableLockNeeded(session)) {
+            return;
+        }
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            // 'table lock on bulk load' table option causes the bulk load processes on user-defined tables to obtain a bulk update lock
+            // note: this is not a request to lock a table immediately
+            String sql = format("EXEC sp_tableoption '%s', 'table lock on bulk load', '1'",
+                    quoted(table.getCatalogName(), table.getSchemaName(), table.getTemporaryTableName().orElseGet(table::getTableName)));
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    /**
+     * Table lock is a prerequisite for `minimal logging` in SQL Server
+     *
+     * @see <a href="https://docs.microsoft.com/en-us/sql/relational-databases/import-export/prerequisites-for-minimal-logging-in-bulk-import">minimal logging</a>
+     */
+    protected boolean isTableLockNeeded(ConnectorSession session)
+    {
+        return isBulkCopyForWrite(session) && isBulkCopyForWriteLockDestinationTable(session);
+    }
+
+    @Override
+    protected void verifyTableName(DatabaseMetaData databaseMetadata, String tableName)
+            throws SQLException
+    {
+        // SQL Server truncates table name to the max length silently when renaming a table
+        if (tableName.length() > databaseMetadata.getMaxTableNameLength()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Table name must be shorter than or equal to '%s' characters but got '%s'", databaseMetadata.getMaxTableNameLength(), tableName.length()));
+        }
+    }
+
+    @Override
+    protected void verifyColumnName(DatabaseMetaData databaseMetadata, String columnName)
+            throws SQLException
+    {
+        // SQL Server truncates table name to the max length silently when renaming a column
+        // SQL Server driver doesn't communicate with a server in getMaxColumnNameLength. The cost to call this method per column is low.
+        if (columnName.length() > databaseMetadata.getMaxColumnNameLength()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Column name must be shorter than or equal to '%s' characters but got '%s': '%s'", databaseMetadata.getMaxColumnNameLength(), columnName.length(), columnName));
+        }
+    }
+
+    @Override
     protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
         if (!schemaName.equals(newTable.getSchemaName())) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
 
-        String sql = format(
-                "sp_rename %s, %s",
-                singleQuote(catalogName, schemaName, tableName),
-                singleQuote(newTable.getTableName()));
-        execute(session, sql);
+        super.renameTable(session, catalogName, schemaName, tableName, newTable);
     }
 
     @Override
-    public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    protected String renameTableSql(String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
     {
-        String sql = format(
+        return format(
+                "sp_rename %s, %s",
+                singleQuote(catalogName, remoteSchemaName, remoteTableName),
+                singleQuote(newRemoteTableName));
+    }
+
+    @Override
+    protected String renameColumnSql(JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newRemoteColumnName)
+    {
+        RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
+        return format(
                 "sp_rename %s, %s, 'COLUMN'",
-                singleQuote(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), jdbcColumn.getColumnName()),
-                singleQuote(newColumnName));
-        execute(session, sql);
+                singleQuote(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName(), "[" + escape(jdbcColumn.getColumnName()) + "]"),
+                "[" + newRemoteColumnName + "]");
+    }
+
+    private static String escape(String name)
+    {
+        return name.replace("'", "''");
+    }
+
+    @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
     }
 
     @Override
@@ -233,6 +366,8 @@ public class SqlServerClient
         switch (jdbcTypeName) {
             case "varbinary":
                 return Optional.of(varbinaryColumnMapping());
+            case "datetimeoffset":
+                return Optional.of(timestampWithTimeZoneColumnMapping(typeHandle.getRequiredDecimalDigits()));
         }
 
         switch (typeHandle.getJdbcType()) {
@@ -240,7 +375,10 @@ public class SqlServerClient
                 return Optional.of(booleanColumnMapping());
 
             case Types.TINYINT:
-                return Optional.of(tinyintColumnMapping());
+                // Map SQL Server TINYINT to Trino SMALLINT because SQL Server TINYINT is actually "unsigned tinyint"
+                // We don't check the range of values, because SQL Server will do it for us, and this behavior has already
+                // been tested in `BaseSqlServerTypeMapping#testUnsupportedTinyint`
+                return Optional.of(smallintColumnMapping());
 
             case Types.SMALLINT:
                 return Optional.of(smallintColumnMapping());
@@ -277,6 +415,10 @@ public class SqlServerClient
             case Types.NVARCHAR:
                 return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
 
+            case Types.LONGVARCHAR:
+            case Types.LONGNVARCHAR:
+                return Optional.of(longVarcharColumnMapping(typeHandle.getRequiredColumnSize()));
+
             case Types.BINARY:
             case Types.VARBINARY:
             case Types.LONGVARBINARY:
@@ -300,8 +442,10 @@ public class SqlServerClient
                 return Optional.of(timestampColumnMapping(createTimestampType(precision)));
         }
 
-        // TODO (https://github.com/trinodb/trino/issues/4593) implement proper type mapping
-        return legacyColumnMapping(session, connection, typeHandle);
+        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
+            return mapToUnboundedVarchar(typeHandle);
+        }
+        return Optional.empty();
     }
 
     @Override
@@ -311,21 +455,32 @@ public class SqlServerClient
             return WriteMapping.booleanMapping("bit", booleanWriteFunction());
         }
 
-        if (type == BIGINT) {
-            return WriteMapping.longMapping("bigint", bigintWriteFunction());
-        }
-        if (type == INTEGER) {
-            return WriteMapping.longMapping("integer", integerWriteFunction());
+        if (type == TINYINT) {
+            return WriteMapping.longMapping("tinyint", tinyintWriteFunction());
         }
         if (type == SMALLINT) {
             return WriteMapping.longMapping("smallint", smallintWriteFunction());
         }
-        if (type == TINYINT) {
-            return WriteMapping.longMapping("tinyint", tinyintWriteFunction());
+        if (type == INTEGER) {
+            return WriteMapping.longMapping("integer", integerWriteFunction());
+        }
+        if (type == BIGINT) {
+            return WriteMapping.longMapping("bigint", bigintWriteFunction());
         }
 
+        if (type == REAL) {
+            return WriteMapping.longMapping("real", realWriteFunction());
+        }
         if (type == DOUBLE) {
             return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
+        }
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            if (decimalType.isShort()) {
+                return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
+            }
+            return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
 
         if (type instanceof VarcharType) {
@@ -369,15 +524,175 @@ public class SqlServerClient
 
         if (type instanceof TimestampType) {
             TimestampType timestampType = (TimestampType) type;
-            String dataType = format("datetime2(%d)", min(timestampType.getPrecision(), MAX_SUPPORTED_TEMPORAL_PRECISION));
+            int precision = min(timestampType.getPrecision(), MAX_SUPPORTED_TEMPORAL_PRECISION);
+            String dataType = format("datetime2(%d)", precision);
             if (timestampType.getPrecision() <= MAX_SHORT_PRECISION) {
                 return WriteMapping.longMapping(dataType, timestampWriteFunction(timestampType));
             }
-            return WriteMapping.objectMapping(dataType, longTimestampWriteFunction(timestampType));
+            return WriteMapping.objectMapping(dataType, longTimestampWriteFunction(timestampType, precision));
         }
 
-        // TODO implement proper type mapping
-        return legacyToWriteMapping(session, type);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
+    {
+        if (!statisticsEnabled) {
+            return TableStatistics.empty();
+        }
+        if (!handle.isNamedRelation()) {
+            return TableStatistics.empty();
+        }
+        try {
+            return readTableStatistics(session, handle);
+        }
+        catch (SQLException | RuntimeException e) {
+            throwIfInstanceOf(e, TrinoException.class);
+            throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
+        }
+    }
+
+    private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
+            throws SQLException
+    {
+        checkArgument(table.isNamedRelation(), "Relation is not a table: %s", table);
+
+        try (Connection connection = connectionFactory.openConnection(session);
+                Handle handle = Jdbi.open(connection)) {
+            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
+            String catalog = remoteTableName.getCatalogName().orElse(null);
+            String schema = remoteTableName.getSchemaName().orElse(null);
+            String tableName = remoteTableName.getTableName();
+
+            StatisticsDao statisticsDao = new StatisticsDao(handle);
+            Long tableObjectId = statisticsDao.getTableObjectId(catalog, schema, tableName);
+            if (tableObjectId == null) {
+                // Table not found
+                return TableStatistics.empty();
+            }
+
+            Long rowCount = statisticsDao.getRowCount(tableObjectId);
+            if (rowCount == null) {
+                // Table disappeared
+                return TableStatistics.empty();
+            }
+
+            if (rowCount == 0) {
+                return TableStatistics.empty();
+            }
+
+            TableStatistics.Builder tableStatistics = TableStatistics.builder();
+            tableStatistics.setRowCount(Estimate.of(rowCount));
+
+            Map<String, String> columnNameToStatisticsName = getColumnNameToStatisticsName(table, statisticsDao, tableObjectId);
+
+            for (JdbcColumnHandle column : this.getColumns(session, table)) {
+                String statisticName = columnNameToStatisticsName.get(column.getColumnName());
+                if (statisticName == null) {
+                    // No statistic for column
+                    continue;
+                }
+
+                double averageColumnLength;
+                long notNullValues = 0;
+                long nullValues = 0;
+                long distinctValues = 0;
+
+                try (CallableStatement showStatistics = handle.getConnection().prepareCall("DBCC SHOW_STATISTICS (?, ?)")) {
+                    showStatistics.setString(1, format("%s.%s.%s", catalog, schema, tableName));
+                    showStatistics.setString(2, statisticName);
+
+                    boolean isResultSet = showStatistics.execute();
+                    checkState(isResultSet, "Expected SHOW_STATISTICS to return a result set");
+                    try (ResultSet resultSet = showStatistics.getResultSet()) {
+                        checkState(resultSet.next(), "No rows in result set");
+
+                        averageColumnLength = resultSet.getDouble("Average Key Length"); // NULL values are accounted for with length 0
+
+                        checkState(!resultSet.next(), "More than one row in result set");
+                    }
+
+                    isResultSet = showStatistics.getMoreResults();
+                    checkState(isResultSet, "Expected SHOW_STATISTICS to return second result set");
+                    showStatistics.getResultSet().close();
+
+                    isResultSet = showStatistics.getMoreResults();
+                    checkState(isResultSet, "Expected SHOW_STATISTICS to return third result set");
+                    try (ResultSet resultSet = showStatistics.getResultSet()) {
+                        while (resultSet.next()) {
+                            resultSet.getObject("RANGE_HI_KEY");
+                            if (resultSet.wasNull()) {
+                                // Null fraction
+                                checkState(resultSet.getLong("RANGE_ROWS") == 0, "Unexpected RANGE_ROWS for null fraction");
+                                checkState(resultSet.getLong("DISTINCT_RANGE_ROWS") == 0, "Unexpected DISTINCT_RANGE_ROWS for null fraction");
+                                checkState(nullValues == 0, "Multiple null fraction entries");
+                                nullValues += resultSet.getLong("EQ_ROWS");
+                            }
+                            else {
+                                // TODO discover min/max from resultSet.getXxx("RANGE_HI_KEY")
+                                notNullValues += resultSet.getLong("RANGE_ROWS") // rows strictly within a bucket
+                                        + resultSet.getLong("EQ_ROWS"); // rows equal to RANGE_HI_KEY
+                                distinctValues += resultSet.getLong("DISTINCT_RANGE_ROWS") // NDV strictly within a bucket
+                                        + (resultSet.getLong("EQ_ROWS") > 0 ? 1 : 0);
+                            }
+                        }
+                    }
+                }
+
+                ColumnStatistics statistics = ColumnStatistics.builder()
+                        .setNullsFraction(Estimate.of(
+                                (notNullValues + nullValues == 0)
+                                        ? 1
+                                        : (1.0 * nullValues / (notNullValues + nullValues))))
+                        .setDistinctValuesCount(Estimate.of(distinctValues))
+                        .setDataSize(Estimate.of(rowCount * averageColumnLength))
+                        .build();
+
+                tableStatistics.setColumnStatistics(column, statistics);
+            }
+
+            return tableStatistics.build();
+        }
+    }
+
+    private static Map<String, String> getColumnNameToStatisticsName(JdbcTableHandle table, StatisticsDao statisticsDao, Long tableObjectId)
+    {
+        List<String> singleColumnStatistics = statisticsDao.getSingleColumnStatistics(tableObjectId);
+
+        Map<String, String> columnNameToStatisticsName = new HashMap<>();
+        for (String statisticName : singleColumnStatistics) {
+            String columnName = statisticsDao.getSingleColumnStatisticsColumnName(tableObjectId, statisticName);
+            if (columnName == null) {
+                // Table or statistics disappeared
+                continue;
+            }
+
+            if (columnNameToStatisticsName.putIfAbsent(columnName, statisticName) != null) {
+                log.debug("Multiple statistics for %s in %s: %s and %s", columnName, table, columnNameToStatisticsName.get(columnName), statisticName);
+            }
+        }
+        return columnNameToStatisticsName;
+    }
+
+    @Override
+    public Optional<PreparedQuery> implementJoin(
+            ConnectorSession session,
+            JoinType joinType,
+            PreparedQuery leftSource,
+            PreparedQuery rightSource,
+            List<JdbcJoinCondition> joinConditions,
+            Map<JdbcColumnHandle, String> rightAssignments,
+            Map<JdbcColumnHandle, String> leftAssignments,
+            JoinStatistics statistics)
+    {
+        return implementJoinCostAware(
+                session,
+                joinType,
+                leftSource,
+                rightSource,
+                statistics,
+                () -> super.implementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics));
     }
 
     private LongWriteFunction sqlServerTimeWriteFunction(int precision)
@@ -416,11 +731,78 @@ public class SqlServerClient
         return (resultSet, index) -> LocalDate.parse(resultSet.getString(index), DATE_FORMATTER).toEpochDay();
     }
 
+    private static ColumnMapping timestampWithTimeZoneColumnMapping(int precision)
+    {
+        checkArgument(precision <= MAX_SUPPORTED_TEMPORAL_PRECISION, "Unsupported datetimeoffset precision %s", precision);
+        if (precision <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
+            return ColumnMapping.longMapping(
+                    createTimestampWithTimeZoneType(precision),
+                    shortTimestampWithTimeZoneReadFunction(),
+                    shortTimestampWithTimeZoneWriteFunction());
+        }
+        return ColumnMapping.objectMapping(
+                createTimestampWithTimeZoneType(precision),
+                longTimestampWithTimeZoneReadFunction(),
+                longTimestampWithTimeZoneWriteFunction());
+    }
+
+    private static LongReadFunction shortTimestampWithTimeZoneReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            OffsetDateTime offsetDateTime = resultSet.getObject(columnIndex, OffsetDateTime.class);
+            ZonedDateTime zonedDateTime = offsetDateTime.toZonedDateTime();
+            return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), zonedDateTime.getZone().getId());
+        };
+    }
+
+    private static LongWriteFunction shortTimestampWithTimeZoneWriteFunction()
+    {
+        return (statement, index, value) -> {
+            long millisUtc = unpackMillisUtc(value);
+            TimeZoneKey timeZoneKey = unpackZoneKey(value);
+            statement.setObject(index, OffsetDateTime.ofInstant(Instant.ofEpochMilli(millisUtc), timeZoneKey.getZoneId()));
+        };
+    }
+
+    private static ObjectReadFunction longTimestampWithTimeZoneReadFunction()
+    {
+        return ObjectReadFunction.of(
+                LongTimestampWithTimeZone.class,
+                (resultSet, columnIndex) -> {
+                    OffsetDateTime offsetDateTime = resultSet.getObject(columnIndex, OffsetDateTime.class);
+                    return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(
+                            offsetDateTime.toEpochSecond(),
+                            (long) offsetDateTime.getNano() * PICOSECONDS_PER_NANOSECOND,
+                            TimeZoneKey.getTimeZoneKey(offsetDateTime.toZonedDateTime().getZone().getId()));
+                });
+    }
+
+    private static ObjectWriteFunction longTimestampWithTimeZoneWriteFunction()
+    {
+        return ObjectWriteFunction.of(
+                LongTimestampWithTimeZone.class,
+                (statement, index, value) -> {
+                    long epochMillis = value.getEpochMillis();
+                    long epochSeconds = floorDiv(epochMillis, MILLISECONDS_PER_SECOND);
+                    int nanoAdjustment = floorMod(epochMillis, MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND + value.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND;
+                    ZoneId zoneId = getTimeZoneKey(value.getTimeZoneKey()).getZoneId();
+                    Instant instant = Instant.ofEpochSecond(epochSeconds, nanoAdjustment);
+                    statement.setObject(index, OffsetDateTime.ofInstant(instant, zoneId));
+                });
+    }
+
     @Override
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
         // TODO support complex ConnectorExpressions
         return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
+    }
+
+    @Override
+    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
+    {
+        // Remote database can be case insensitive.
+        return preventTextualTypeAggregationPushdown(groupingSets);
     }
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
@@ -492,7 +874,7 @@ public class SqlServerClient
     }
 
     @Override
-    protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)
+    protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
         if (joinCondition.getOperator() == JoinCondition.Operator.IS_DISTINCT_FROM) {
             // Not supported in SQL Server
@@ -508,6 +890,9 @@ public class SqlServerClient
     @Override
     protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
+        if (tableMetadata.getComment().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
+        }
         return format(
                 "CREATE TABLE %s (%s) %s",
                 quoted(remoteTableName),
@@ -518,14 +903,28 @@ public class SqlServerClient
     }
 
     @Override
+    protected String buildInsertSql(ConnectorSession session, RemoteTableName targetTable, RemoteTableName sourceTable, List<String> columnNames)
+    {
+        String columns = columnNames.stream()
+                .map(this::quoted)
+                .collect(joining(", "));
+        return format("INSERT INTO %s %s (%s) SELECT %s FROM %s",
+                targetTable,
+                isTableLockNeeded(session) ? "WITH (TABLOCK)" : "", // TABLOCK is a prerequisite for minimal logging in SQL Server
+                columns,
+                columns,
+                sourceTable);
+    }
+
+    @Override
     public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         if (!tableHandle.isNamedRelation()) {
             return ImmutableMap.of();
         }
-        try (Connection connection = configureConnectionTransactionIsolation(connectionFactory.openConnection(session));
+        try (Connection connection = connectionFactory.openConnection(session);
                 Handle handle = Jdbi.open(connection)) {
-            return getTableDataCompression(handle, tableHandle)
+            return getTableDataCompressionWithRetries(handle, tableHandle)
                     .map(dataCompression -> ImmutableMap.<String, Object>of(DATA_COMPRESSION, dataCompression))
                     .orElseGet(ImmutableMap::of);
         }
@@ -535,64 +934,30 @@ public class SqlServerClient
     }
 
     @Override
-    public void abortReadConnection(Connection connection)
+    public void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {
-        // Abort connection before closing. Without this, the SQL Server driver
-        // attempts to drain the connection by reading all the results.
-        connection.abort(directExecutor());
+        if (!resultSet.isAfterLast()) {
+            // Abort connection before closing. Without this, the SQL Server driver
+            // attempts to drain the connection by reading all the results.
+            connection.abort(directExecutor());
+        }
     }
 
     @Override
     public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
             throws SQLException
     {
-        return configureConnectionTransactionIsolation(super.getConnection(session, handle));
-    }
-
-    @Override
-    public Connection getConnection(ConnectorSession session, JdbcSplit split)
-            throws SQLException
-    {
-        return configureConnectionTransactionIsolation(super.getConnection(session, split));
-    }
-
-    private Connection configureConnectionTransactionIsolation(Connection connection)
-            throws SQLException
-    {
-        if (snapshotIsolationDisabled) {
-            return connection;
-        }
+        Connection connection = super.getConnection(session, handle);
         try {
-            if (hasSnapshotIsolationEnabled(connection)) {
-                // SQL Server's READ COMMITTED + SNAPSHOT ISOLATION is equivalent to ordinary READ COMMITTED in e.g. Oracle, PostgreSQL.
-                connection.setTransactionIsolation(TRANSACTION_SNAPSHOT);
-            }
+            connection.unwrap(SQLServerConnection.class)
+                    .setUseBulkCopyForBatchInsert(isBulkCopyForWrite(session));
         }
         catch (SQLException e) {
             connection.close();
             throw e;
         }
-
         return connection;
-    }
-
-    private boolean hasSnapshotIsolationEnabled(Connection connection)
-            throws SQLException
-    {
-        try {
-            return snapshotIsolationEnabled.get(SnapshotIsolationEnabledCacheKey.INSTANCE, () -> {
-                Handle handle = Jdbi.open(connection);
-                return handle.createQuery("SELECT snapshot_isolation_state FROM sys.databases WHERE name = :name")
-                        .bind("name", connection.getCatalog())
-                        .mapTo(Boolean.class)
-                        .findOne()
-                        .orElse(false);
-            });
-        }
-        catch (ExecutionException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
-        }
     }
 
     private static String singleQuote(String... objects)
@@ -634,28 +999,117 @@ public class SqlServerClient
         };
     }
 
+    private static ColumnMapping longVarcharColumnMapping(int columnSize)
+    {
+        // Disable pushdown to avoid "The data types ntext and nvarchar are incompatible in the equal to operator." error
+        if (columnSize > VarcharType.MAX_LENGTH) {
+            return ColumnMapping.sliceMapping(createUnboundedVarcharType(), varcharReadFunction(createUnboundedVarcharType()), nvarcharWriteFunction(), DISABLE_PUSHDOWN);
+        }
+        return ColumnMapping.sliceMapping(createVarcharType(columnSize), varcharReadFunction(createVarcharType(columnSize)), nvarcharWriteFunction(), DISABLE_PUSHDOWN);
+    }
+
+    private static SliceWriteFunction nvarcharWriteFunction()
+    {
+        return (statement, index, value) -> statement.setNString(index, value.toStringUtf8());
+    }
+
     private static Optional<DataCompression> getTableDataCompression(Handle handle, JdbcTableHandle table)
     {
+        RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
         return handle.createQuery("" +
-                "SELECT data_compression_desc FROM sys.partitions p " +
-                "INNER JOIN sys.tables t ON p.object_id = t.object_id " +
-                "INNER JOIN sys.schemas s ON t.schema_id = s.schema_id " +
-                "INNER JOIN sys.indexes i ON t.object_id = i.object_id " +
-                "WHERE s.name = :schema AND t.name = :table_name " +
-                "AND p.index_id = 0 " + // Heap
-                "AND i.type = 0 " + // Heap index type
-                "AND i.data_space_id NOT IN (SELECT data_space_id FROM sys.partition_schemes)")
-                .bind("schema", table.getSchemaName())
-                .bind("table_name", table.getTableName())
+                        "SELECT data_compression_desc FROM sys.partitions p " +
+                        "INNER JOIN sys.tables t ON p.object_id = t.object_id " +
+                        "INNER JOIN sys.schemas s ON t.schema_id = s.schema_id " +
+                        "INNER JOIN sys.indexes i ON t.object_id = i.object_id " +
+                        "WHERE s.name = :schema AND t.name = :table_name " +
+                        "AND p.index_id = 0 " + // Heap
+                        "AND i.type = 0 " + // Heap index type
+                        "AND i.data_space_id NOT IN (SELECT data_space_id FROM sys.partition_schemes)")
+                .bind("schema", remoteTableName.getSchemaName().orElse(null))
+                .bind("table_name", remoteTableName.getTableName())
                 .mapTo(String.class)
                 .findOne()
                 .flatMap(dataCompression -> Enums.getIfPresent(DataCompression.class, dataCompression).toJavaUtil());
     }
 
-    private enum SnapshotIsolationEnabledCacheKey
+    private static Optional<DataCompression> getTableDataCompressionWithRetries(Handle handle, JdbcTableHandle table)
     {
-        // The snapshot isolation can be enabled or disabled on database level. We connect to single
-        // database, so from our perspective, this is a global property.
-        INSTANCE
+        // DDL operations can take out locks against system tables causing the `getTableDataCompression` query to deadlock
+        final int maxAttemptCount = 3;
+        RetryPolicy<Optional<DataCompression>> retryPolicy = new RetryPolicy<Optional<DataCompression>>()
+                .withMaxAttempts(maxAttemptCount)
+                .handleIf(throwable ->
+                {
+                    final int deadlockErrorCode = 1205;
+                    Throwable rootCause = Throwables.getRootCause(throwable);
+                    return rootCause instanceof SQLServerException &&
+                            ((SQLServerException) (rootCause)).getSQLServerError().getErrorNumber() == deadlockErrorCode;
+                })
+                .onFailedAttempt(event -> log.warn(event.getLastFailure(), "Attempt %d of %d: error when getting table compression info for '%s'", event.getAttemptCount(), maxAttemptCount, table));
+
+        return Failsafe
+                .with(retryPolicy)
+                .get(() -> getTableDataCompression(handle, table));
+    }
+
+    private static class StatisticsDao
+    {
+        private final Handle handle;
+
+        public StatisticsDao(Handle handle)
+        {
+            this.handle = requireNonNull(handle, "handle is null");
+        }
+
+        Long getTableObjectId(String catalog, String schema, String tableName)
+        {
+            return handle.createQuery("SELECT object_id(:table)")
+                    .bind("table", format("%s.%s.%s", catalog, schema, tableName))
+                    .mapTo(Long.class)
+                    .findOnly();
+        }
+
+        Long getRowCount(long tableObjectId)
+        {
+            return handle.createQuery("" +
+                            "SELECT sum(rows) row_count " +
+                            "FROM sys.partitions " +
+                            "WHERE object_id = :object_id " +
+                            "AND index_id IN (0, 1)") // 0 = heap, 1 = clustered index, 2 or greater = non-clustered index
+                    .bind("object_id", tableObjectId)
+                    .mapTo(Long.class)
+                    .findOnly();
+        }
+
+        List<String> getSingleColumnStatistics(long tableObjectId)
+        {
+            return handle.createQuery("" +
+                            "SELECT s.name " +
+                            "FROM sys.stats AS s " +
+                            "JOIN sys.stats_columns AS sc ON s.object_id = sc.object_id AND s.stats_id = sc.stats_id " +
+                            "WHERE s.object_id = :object_id " +
+                            "GROUP BY s.name " +
+                            "HAVING count(*) = 1 " +
+                            "ORDER BY s.name")
+                    .bind("object_id", tableObjectId)
+                    .mapTo(String.class)
+                    .list();
+        }
+
+        String getSingleColumnStatisticsColumnName(long tableObjectId, String statisticsName)
+        {
+            return handle.createQuery("" +
+                            "SELECT c.name " +
+                            "FROM sys.stats AS s " +
+                            "JOIN sys.stats_columns AS sc ON s.object_id = sc.object_id AND s.stats_id = sc.stats_id " +
+                            "JOIN sys.columns AS c ON sc.object_id = c.object_id AND c.column_id = sc.column_id " +
+                            "WHERE s.object_id = :object_id " +
+                            "AND s.name = :statistics_name")
+                    .bind("object_id", tableObjectId)
+                    .bind("statistics_name", statisticsName)
+                    .mapTo(String.class)
+                    .collect(toOptional()) // verify there is no more than 1 column name returned
+                    .orElse(null);
+        }
     }
 }

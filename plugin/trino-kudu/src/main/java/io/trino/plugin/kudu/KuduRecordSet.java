@@ -34,6 +34,8 @@ public class KuduRecordSet
     private final KuduSplit kuduSplit;
     private final List<? extends ColumnHandle> columns;
 
+    private KuduTable kuduTable;
+
     public KuduRecordSet(KuduClientSession clientSession, KuduSplit kuduSplit, List<? extends ColumnHandle> columns)
     {
         this.clientSession = clientSession;
@@ -65,12 +67,15 @@ public class KuduRecordSet
             }
         }
 
-        return new KuduRecordCursor(scanner, getTable(), getColumnTypes(), builder.build());
+        return new KuduRecordCursor(scanner, getTable(), getColumnTypes(), builder.buildOrThrow());
     }
 
     KuduTable getTable()
     {
-        return kuduSplit.getTableHandle().getTable(clientSession);
+        if (kuduTable == null) {
+            kuduTable = clientSession.openTable(kuduSplit.getSchemaTableName());
+        }
+        return kuduTable;
     }
 
     KuduClientSession getClientSession()

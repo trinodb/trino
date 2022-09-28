@@ -24,7 +24,7 @@ import static io.trino.operator.Operator.NOT_BLOCKED;
 import static io.trino.operator.WorkProcessor.ProcessState.blocked;
 import static io.trino.operator.WorkProcessor.ProcessState.finished;
 import static io.trino.operator.WorkProcessor.ProcessState.ofResult;
-import static io.trino.operator.WorkProcessor.ProcessState.yield;
+import static io.trino.operator.WorkProcessor.ProcessState.yielded;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -67,7 +67,7 @@ public class PageBuffer
                 return ofResult(result);
             }
 
-            return yield();
+            return yielded();
         });
     }
 

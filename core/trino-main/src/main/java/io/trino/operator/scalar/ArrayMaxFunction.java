@@ -27,7 +27,7 @@ import java.lang.invoke.MethodHandle;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.OperatorType.COMPARISON;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.util.Failures.internalError;
@@ -44,7 +44,7 @@ public final class ArrayMaxFunction
     @SqlNullable
     public static Long longArrayMax(
             @OperatorDependency(
-                    operator = COMPARISON,
+                    operator = COMPARISON_UNORDERED_FIRST,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
@@ -62,7 +62,7 @@ public final class ArrayMaxFunction
     @SqlNullable
     public static Boolean booleanArrayMax(
             @OperatorDependency(
-                    operator = COMPARISON,
+                    operator = COMPARISON_UNORDERED_FIRST,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
@@ -80,7 +80,7 @@ public final class ArrayMaxFunction
     @SqlNullable
     public static Double doubleArrayMax(
             @OperatorDependency(
-                    operator = COMPARISON,
+                    operator = COMPARISON_UNORDERED_FIRST,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
@@ -98,7 +98,7 @@ public final class ArrayMaxFunction
     @SqlNullable
     public static Object objectArrayMax(
             @OperatorDependency(
-                    operator = COMPARISON,
+                    operator = COMPARISON_UNORDERED_FIRST,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,

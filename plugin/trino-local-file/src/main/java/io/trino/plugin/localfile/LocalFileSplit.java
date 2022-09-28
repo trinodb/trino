@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
@@ -27,6 +28,8 @@ import static java.util.Objects.requireNonNull;
 public class LocalFileSplit
         implements ConnectorSplit
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LocalFileSplit.class).instanceSize();
+
     private final HostAddress address;
 
     @JsonCreator
@@ -57,6 +60,13 @@ public class LocalFileSplit
     public Object getInfo()
     {
         return this;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + address.getRetainedSizeInBytes();
     }
 
     @Override

@@ -106,17 +106,17 @@ public enum HiveStorageFormat
     private final String serde;
     private final String inputFormat;
     private final String outputFormat;
-    private final DataSize estimatedWriterSystemMemoryUsage;
+    private final DataSize estimatedWriterMemoryUsage;
 
-    HiveStorageFormat(String serde, String inputFormat, String outputFormat, DataSize estimatedWriterSystemMemoryUsage)
+    HiveStorageFormat(String serde, String inputFormat, String outputFormat, DataSize estimatedWriterMemoryUsage)
     {
         this.serde = requireNonNull(serde, "serde is null");
         this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
         this.outputFormat = requireNonNull(outputFormat, "outputFormat is null");
-        this.estimatedWriterSystemMemoryUsage = requireNonNull(estimatedWriterSystemMemoryUsage, "estimatedWriterSystemMemoryUsage is null");
+        this.estimatedWriterMemoryUsage = requireNonNull(estimatedWriterMemoryUsage, "estimatedWriterMemoryUsage is null");
     }
 
-    public String getSerDe()
+    public String getSerde()
     {
         return serde;
     }
@@ -131,9 +131,9 @@ public enum HiveStorageFormat
         return outputFormat;
     }
 
-    public DataSize getEstimatedWriterSystemMemoryUsage()
+    public DataSize getEstimatedWriterMemoryUsage()
     {
-        return estimatedWriterSystemMemoryUsage;
+        return estimatedWriterMemoryUsage;
     }
 
     public void validateColumns(List<HiveColumnHandle> handles)
@@ -168,16 +168,16 @@ public enum HiveStorageFormat
     }
 
     private static final Map<SerdeAndInputFormat, HiveStorageFormat> HIVE_STORAGE_FORMAT_FROM_STORAGE_FORMAT = Arrays.stream(HiveStorageFormat.values())
-            .collect(toImmutableMap(format -> new SerdeAndInputFormat(format.getSerDe(), format.getInputFormat()), identity()));
+            .collect(toImmutableMap(format -> new SerdeAndInputFormat(format.getSerde(), format.getInputFormat()), identity()));
 
     private static final class SerdeAndInputFormat
     {
-        private final String serDe;
+        private final String serde;
         private final String inputFormat;
 
-        public SerdeAndInputFormat(String serDe, String inputFormat)
+        public SerdeAndInputFormat(String serde, String inputFormat)
         {
-            this.serDe = serDe;
+            this.serde = serde;
             this.inputFormat = inputFormat;
         }
 
@@ -191,19 +191,19 @@ public enum HiveStorageFormat
                 return false;
             }
             SerdeAndInputFormat that = (SerdeAndInputFormat) o;
-            return serDe.equals(that.serDe) && inputFormat.equals(that.inputFormat);
+            return serde.equals(that.serde) && inputFormat.equals(that.inputFormat);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(serDe, inputFormat);
+            return Objects.hash(serde, inputFormat);
         }
     }
 
     public static Optional<HiveStorageFormat> getHiveStorageFormat(StorageFormat storageFormat)
     {
-        return Optional.ofNullable(HIVE_STORAGE_FORMAT_FROM_STORAGE_FORMAT.get(new SerdeAndInputFormat(storageFormat.getSerDe(), storageFormat.getInputFormat())));
+        return Optional.ofNullable(HIVE_STORAGE_FORMAT_FROM_STORAGE_FORMAT.get(new SerdeAndInputFormat(storageFormat.getSerde(), storageFormat.getInputFormat())));
     }
 
     private static PrimitiveTypeInfo primitiveTypeInfo(TypeInfo typeInfo)

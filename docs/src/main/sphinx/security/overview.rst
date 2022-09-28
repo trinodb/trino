@@ -23,12 +23,14 @@ Suggested configuration workflow
 To configure security for a new Trino cluster, follow this best practice
 order of steps. Do not skip or combine steps.
 
-#. **Enable** :doc:`HTTPS/TLS </security/tls>`
+#. **Enable** :doc:`TLS/HTTPS </security/tls>`
 
    * Work with your security team.
    * Use a :ref:`load balancer or proxy <https-load-balancer>` to terminate
      HTTPS, if possible.
    * Use a globally trusted TLS certificate.
+
+#. **Configure** a :doc:`a shared secret </security/internal-communication>`
 
 #. **Enable authentication**
 
@@ -51,9 +53,9 @@ change, and verify the results before proceeding.
 Securing client access to the cluster
 -------------------------------------
 
-Trino :doc:`clients </client>` include the Trino :doc:`CLI </installation/cli>`,
+Trino :doc:`clients </client>` include the Trino :doc:`CLI </client/cli>`,
 the :doc:`Web UI </admin/web-interface>`, the :doc:`JDBC driver
-</installation/jdbc>`, `Python, Go, or other clients
+</client/jdbc>`, `Python, Go, or other clients
 <https://trino.io/resources.html>`_, and any applications using these tools.
 
 All access to the Trino cluster is managed by the coordinator. Thus, securing
@@ -85,8 +87,10 @@ provider.
 
 * :doc:`Password file authentication <password-file>`
 * :doc:`LDAP authentication <ldap>`
-* :doc:`OAuth 2.0 authentication <oauth2>`
 * :doc:`Salesforce authentication <salesforce>`
+* :doc:`OAuth 2.0 authentication <oauth2>`
+* :doc:`Certificate authentication <certificate>`
+* :doc:`JSON Web Token (JWT) authentication <jwt>`
 * :doc:`Kerberos authentication <kerberos>`
 
 .. _user-name-management:
@@ -98,8 +102,9 @@ Trino provides ways to map the user and group names from authentication
 providers to Trino user names.
 
 * :doc:`User mapping <user-mapping>` applies to all authentication systems,
-  and allows for JSON files to specify rules to map complex user names from
-  other systems (``alice@example.com``) to simple user names (``alice``).
+  and allows for regular expression rules to be specified that map complex user
+  names from other systems (``alice@example.com``) to simple user names
+  (``alice``).
 * :doc:`File group provider <group-file>` provides a way to assign a set
   of user names to a group name to ease access control.
 
@@ -120,6 +125,18 @@ To implement access control, use:
 In addition, Trino :doc:`provides an API </develop/system-access-control>` that
 allows you to create a custom access control method, or to extend an existing
 one.
+
+Access control can limit access to columns of a table. The default behavior
+of a query to all columns with a ``SELECT *`` statement is to show an error
+denying access to any inaccessible columns.
+
+You can change this behavior to silently hide inaccessible columns with the
+global property ``hide-inaccessible-columns`` configured in
+:ref:`config_properties`:
+
+.. code-block:: properties
+
+    hide-inaccessible-columns = true
 
 .. _security-inside-cluster:
 

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
@@ -40,7 +41,6 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -55,7 +55,7 @@ import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 public class TestPruneWindowColumns
         extends BaseRuleTest
 {
-    private static final ResolvedFunction MIN_FUNCTION = createTestMetadataManager().resolveFunction(QualifiedName.of("min"), fromTypes(BIGINT));
+    private static final ResolvedFunction MIN_FUNCTION = new TestingFunctionResolution().resolveFunction(QualifiedName.of("min"), fromTypes(BIGINT));
 
     private static final List<String> inputSymbolNameList =
             ImmutableList.of("orderKey", "partitionKey", "hash", "startValue1", "startValue2", "endValue1", "endValue2", "input1", "input2", "unused");

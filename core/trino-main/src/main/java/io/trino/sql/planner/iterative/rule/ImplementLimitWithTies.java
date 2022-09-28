@@ -16,6 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
@@ -87,7 +88,7 @@ public class ImplementLimitWithTies
     {
         PlanNode child = captures.get(CHILD);
 
-        PlanNode rewritten = rewriteLimitWithTies(parent, child, metadata, context.getIdAllocator(), context.getSymbolAllocator());
+        PlanNode rewritten = rewriteLimitWithTies(parent, child, context.getSession(), metadata, context.getIdAllocator(), context.getSymbolAllocator());
 
         ProjectNode projectNode = new ProjectNode(
                 context.getIdAllocator().getNextId(),
@@ -97,9 +98,9 @@ public class ImplementLimitWithTies
         return Result.ofPlanNode(projectNode);
     }
 
-    private static PlanNode rewriteLimitWithTies(LimitNode limitNode, PlanNode source, Metadata metadata, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
+    private static PlanNode rewriteLimitWithTies(LimitNode limitNode, PlanNode source, Session session, Metadata metadata, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
     {
-        return rewriteLimitWithTiesWithPartitioning(limitNode, source, metadata, idAllocator, symbolAllocator, ImmutableList.of());
+        return rewriteLimitWithTiesWithPartitioning(limitNode, source, session, metadata, idAllocator, symbolAllocator, ImmutableList.of());
     }
 
     /**
@@ -112,14 +113,14 @@ public class ImplementLimitWithTies
      * de-correlated join.
      * It is the responsibility of the caller to prune redundant outputs.
      */
-    public static PlanNode rewriteLimitWithTiesWithPartitioning(LimitNode limitNode, PlanNode source, Metadata metadata, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, List<Symbol> partitionBy)
+    public static PlanNode rewriteLimitWithTiesWithPartitioning(LimitNode limitNode, PlanNode source, Session session, Metadata metadata, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, List<Symbol> partitionBy)
     {
         checkArgument(limitNode.isWithTies(), "Expected LimitNode with ties");
 
         Symbol rankSymbol = symbolAllocator.newSymbol("rank_num", BIGINT);
 
         WindowNode.Function rankFunction = new WindowNode.Function(
-                metadata.resolveFunction(QualifiedName.of("rank"), ImmutableList.of()),
+                metadata.resolveFunction(session, QualifiedName.of("rank"), ImmutableList.of()),
                 ImmutableList.of(),
                 DEFAULT_FRAME,
                 false);

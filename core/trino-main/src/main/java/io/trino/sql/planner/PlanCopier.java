@@ -18,6 +18,7 @@ import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExceptNode;
 import io.trino.sql.planner.plan.FilterNode;
@@ -79,7 +80,10 @@ public final class PlanCopier
         @Override
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Void> context)
         {
-            return new AggregationNode(idAllocator.getNextId(), context.rewrite(node.getSource()), node.getAggregations(), node.getGroupingSets(), node.getPreGroupedSymbols(), node.getStep(), node.getHashSymbol(), node.getGroupIdSymbol());
+            return AggregationNode.builderFrom(node)
+                    .setId(idAllocator.getNextId())
+                    .setSource(context.rewrite(node.getSource()))
+                    .build();
         }
 
         @Override
@@ -160,6 +164,12 @@ public final class PlanCopier
         }
 
         @Override
+        public PlanNode visitDynamicFilterSource(DynamicFilterSourceNode node, RewriteContext<Void> context)
+        {
+            return new DynamicFilterSourceNode(idAllocator.getNextId(), node.getSource(), node.getDynamicFilters());
+        }
+
+        @Override
         public PlanNode visitSort(SortNode node, RewriteContext<Void> context)
         {
             return new SortNode(idAllocator.getNextId(), context.rewrite(node.getSource()), node.getOrderingScheme(), node.isPartial());
@@ -181,6 +191,7 @@ public final class PlanCopier
                     node.getHashSymbol(),
                     node.getPrePartitionedInputs(),
                     node.getPreSortedOrderPrefix(),
+                    node.getWindowFunctions(),
                     node.getMeasures(),
                     node.getCommonBaseFrame(),
                     node.getRowsPerMatch(),

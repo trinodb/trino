@@ -101,7 +101,7 @@ public class StreamingIndexedData
             if (driver.isFinished()) {
                 return false;
             }
-            driver.process();
+            driver.processForNumberOfIterations(1);
             nextPage = extractNonEmptyPage(pageBuffer);
         }
         currentPage = nextPage;

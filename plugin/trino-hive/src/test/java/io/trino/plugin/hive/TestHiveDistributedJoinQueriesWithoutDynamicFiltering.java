@@ -18,8 +18,6 @@ import io.trino.testing.AbstractTestJoinQueries;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static io.trino.tpch.TpchTable.getTables;
-
 /**
  * @see TestHiveDistributedJoinQueries for tests with dynamic filtering enabled
  */
@@ -32,7 +30,7 @@ public class TestHiveDistributedJoinQueriesWithoutDynamicFiltering
     {
         return HiveQueryRunner.builder()
                 .setExtraProperties(ImmutableMap.of("enable-dynamic-filtering", "false"))
-                .setInitialTables(getTables())
+                .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
 

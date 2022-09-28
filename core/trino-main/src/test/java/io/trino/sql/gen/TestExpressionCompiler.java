@@ -24,6 +24,7 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
+import io.trino.likematcher.LikeMatcher;
 import io.trino.operator.scalar.BitwiseFunctions;
 import io.trino.operator.scalar.FunctionAssertions;
 import io.trino.operator.scalar.JoniRegexpFunctions;
@@ -49,7 +50,6 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.tree.Extract.Field;
-import io.trino.type.JoniRegexp;
 import io.trino.type.LikeFunctions;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -321,8 +321,8 @@ public class TestExpressionCompiler
         assertExecute("nullif(cast(null as boolean), true)", BOOLEAN, null);
         for (Boolean left : booleanValues) {
             for (Boolean right : booleanValues) {
-                assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : left == right);
-                assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : left != right);
+                assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : left.equals(right));
+                assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : !left.equals(right));
 
                 assertExecute(generateExpression("nullif(%s, %s)", left, right), BOOLEAN, nullIf(left, right));
                 assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN, !Objects.equals(left, right));
@@ -832,13 +832,14 @@ public class TestExpressionCompiler
             assertExecute(generateExpression("cast(%s as varchar)", value), VARCHAR, value == null ? null : String.valueOf(value));
         }
 
+        DecimalFormat doubleFormat = new DecimalFormat("0.0###################E0");
         for (Double value : doubleLefts) {
             assertExecute(generateExpression("cast(%s as boolean)", value), BOOLEAN, value == null ? null : (value != 0.0 ? true : false));
             if (value == null || (value >= Long.MIN_VALUE && value < Long.MAX_VALUE)) {
                 assertExecute(generateExpression("cast(%s as bigint)", value), BIGINT, value == null ? null : value.longValue());
             }
             assertExecute(generateExpression("cast(%s as double)", value), DOUBLE, value == null ? null : value);
-            assertExecute(generateExpression("cast(%s as varchar)", value), VARCHAR, value == null ? null : String.valueOf(value));
+            assertExecute(generateExpression("cast(%s as varchar)", value), VARCHAR, value == null ? null : doubleFormat.format(value));
         }
 
         assertExecute("cast('true' as boolean)", BOOLEAN, true);
@@ -1589,8 +1590,8 @@ public class TestExpressionCompiler
             for (String pattern : stringLefts) {
                 Boolean expected = null;
                 if (value != null && pattern != null) {
-                    JoniRegexp regex = LikeFunctions.likePattern(utf8Slice(pattern), utf8Slice("\\"));
-                    expected = LikeFunctions.likeVarchar(utf8Slice(value), regex);
+                    LikeMatcher matcher = LikeFunctions.likePattern(utf8Slice(pattern), utf8Slice("\\"));
+                    expected = LikeFunctions.likeVarchar(utf8Slice(value), matcher);
                 }
                 assertExecute(generateExpression("%s like %s", value, pattern), BOOLEAN, expected);
             }

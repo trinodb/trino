@@ -23,7 +23,7 @@ import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.plugin.tpch.TpchPartitioningHandle;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.ConnectorNewTableLayout;
+import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.MatchResult;
 import io.trino.sql.planner.assertions.Matcher;
@@ -37,6 +37,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
+import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
 import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -79,22 +80,22 @@ public class TestInsert
                                 new ColumnMetadata("column2", INTEGER)))
                         .withGetInsertLayout((session, tableName) -> {
                             if (tableName.getTableName().equals("test_table_preferred_partitioning")) {
-                                return Optional.of(new ConnectorNewTableLayout(ImmutableList.of("column1")));
+                                return Optional.of(new ConnectorTableLayout(ImmutableList.of("column1")));
                             }
 
                             if (tableName.getTableName().equals("test_table_required_partitioning")) {
-                                return Optional.of(new ConnectorNewTableLayout(new TpchPartitioningHandle("orders", 10), ImmutableList.of("column1")));
+                                return Optional.of(new ConnectorTableLayout(new TpchPartitioningHandle("orders", 10), ImmutableList.of("column1")));
                             }
 
                             return Optional.empty();
                         })
                         .withGetNewTableLayout((session, tableMetadata) -> {
                             if (tableMetadata.getTable().getTableName().equals("new_test_table_preferred_partitioning")) {
-                                return Optional.of(new ConnectorNewTableLayout(ImmutableList.of("column1")));
+                                return Optional.of(new ConnectorTableLayout(ImmutableList.of("column1")));
                             }
 
                             if (tableMetadata.getTable().getTableName().equals("new_test_table_required_partitioning")) {
-                                return Optional.of(new ConnectorNewTableLayout(new TpchPartitioningHandle("orders", 10), ImmutableList.of("column1")));
+                                return Optional.of(new ConnectorTableLayout(new TpchPartitioningHandle("orders", 10), ImmutableList.of("column1")));
                             }
 
                             if (tableMetadata.getTable().getTableName().equals("new_test_table_unpartitioned")) {
@@ -276,6 +277,7 @@ public class TestInsert
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "1")
+                .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
                 .setSystemProperty(TASK_WRITER_COUNT, "16")
                 .build();
     }
@@ -285,6 +287,7 @@ public class TestInsert
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "2")
+                .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
                 .setSystemProperty(TASK_WRITER_COUNT, "16")
                 .build();
     }
@@ -293,6 +296,7 @@ public class TestInsert
     {
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "false")
+                .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
                 .setSystemProperty(TASK_WRITER_COUNT, "16")
                 .build();
     }

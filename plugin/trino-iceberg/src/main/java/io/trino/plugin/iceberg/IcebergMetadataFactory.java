@@ -14,10 +14,11 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.json.JsonCodec;
-import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeOperators;
 
 import javax.inject.Inject;
 
@@ -25,44 +26,29 @@ import static java.util.Objects.requireNonNull;
 
 public class IcebergMetadataFactory
 {
-    private final CatalogName catalogName;
-    private final HiveMetastore metastore;
-    private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
+    private final TypeOperators typeOperators;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
-    private final HiveTableOperationsProvider tableOperationsProvider;
+    private final TrinoCatalogFactory catalogFactory;
+    private final TrinoFileSystemFactory fileSystemFactory;
 
     @Inject
     public IcebergMetadataFactory(
-            CatalogName catalogName,
-            IcebergConfig config,
-            HiveMetastore metastore,
-            HdfsEnvironment hdfsEnvironment,
-            TypeManager typeManager,
-            JsonCodec<CommitTaskData> commitTaskDataJsonCodec,
-            HiveTableOperationsProvider tableOperationsProvider)
-    {
-        this(catalogName, metastore, hdfsEnvironment, typeManager, commitTaskDataJsonCodec, tableOperationsProvider);
-    }
-
-    public IcebergMetadataFactory(
-            CatalogName catalogName,
-            HiveMetastore metastore,
-            HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
-            HiveTableOperationsProvider tableOperationsProvider)
+            TrinoCatalogFactory catalogFactory,
+            TrinoFileSystemFactory fileSystemFactory)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
-        this.metastore = requireNonNull(metastore, "metastore is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        // TODO consider providing TypeOperators in ConnectorContext to increase cache reuse
+        this.typeOperators = new TypeOperators();
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
-        this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
+        this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
     }
 
-    public IcebergMetadata create()
+    public IcebergMetadata create(ConnectorIdentity identity)
     {
-        return new IcebergMetadata(catalogName, metastore, hdfsEnvironment, typeManager, commitTaskCodec, tableOperationsProvider);
+        return new IcebergMetadata(typeManager, typeOperators, commitTaskCodec, catalogFactory.create(identity), fileSystemFactory);
     }
 }

@@ -33,7 +33,8 @@ public class TestS3SecurityMappingConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(S3SecurityMappingConfig.class)
-                .setConfigFile(null)
+                .setJsonPointer("")
+                .setConfigFilePath(null)
                 .setRoleCredentialName(null)
                 .setKmsKeyIdCredentialName(null)
                 .setRefreshPeriod(null)
@@ -41,21 +42,46 @@ public class TestS3SecurityMappingConfig
     }
 
     @Test
-    public void testExplicitPropertyMappings()
+    public void testExplicitPropertyMappingsWithFile()
             throws IOException
     {
         Path securityMappingConfigFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.s3.security-mapping.config-file", securityMappingConfigFile.toString())
+                .put("hive.s3.security-mapping.json-pointer", "/data")
                 .put("hive.s3.security-mapping.iam-role-credential-name", "iam-role-credential-name")
                 .put("hive.s3.security-mapping.kms-key-id-credential-name", "kms-key-id-credential-name")
                 .put("hive.s3.security-mapping.refresh-period", "1s")
                 .put("hive.s3.security-mapping.colon-replacement", "#")
-                .build();
+                .buildOrThrow();
 
         S3SecurityMappingConfig expected = new S3SecurityMappingConfig()
-                .setConfigFile(securityMappingConfigFile.toFile())
+                .setConfigFilePath(securityMappingConfigFile.toString())
+                .setJsonPointer("/data")
+                .setRoleCredentialName("iam-role-credential-name")
+                .setKmsKeyIdCredentialName("kms-key-id-credential-name")
+                .setRefreshPeriod(new Duration(1, SECONDS))
+                .setColonReplacement("#");
+
+        assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testExplicitPropertyMappingsWithUrl()
+    {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("hive.s3.security-mapping.config-file", "http://test:1234/example")
+                .put("hive.s3.security-mapping.json-pointer", "/data")
+                .put("hive.s3.security-mapping.iam-role-credential-name", "iam-role-credential-name")
+                .put("hive.s3.security-mapping.kms-key-id-credential-name", "kms-key-id-credential-name")
+                .put("hive.s3.security-mapping.refresh-period", "1s")
+                .put("hive.s3.security-mapping.colon-replacement", "#")
+                .buildOrThrow();
+
+        S3SecurityMappingConfig expected = new S3SecurityMappingConfig()
+                .setConfigFilePath("http://test:1234/example")
+                .setJsonPointer("/data")
                 .setRoleCredentialName("iam-role-credential-name")
                 .setKmsKeyIdCredentialName("kms-key-id-credential-name")
                 .setRefreshPeriod(new Duration(1, SECONDS))

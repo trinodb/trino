@@ -42,7 +42,7 @@ public final class IsolatedClass
         }
 
         // load classes into a private class loader
-        Map<String, Class<?>> isolatedClasses = dynamicClassLoader.defineClasses(builder.build());
+        Map<String, Class<?>> isolatedClasses = dynamicClassLoader.defineClasses(builder.buildOrThrow());
         Class<?> isolatedClass = isolatedClasses.get(implementationClass.getName());
 
         // verify the isolated class

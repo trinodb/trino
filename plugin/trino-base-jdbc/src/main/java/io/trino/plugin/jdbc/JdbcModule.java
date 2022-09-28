@@ -22,11 +22,13 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.mapping.IdentifierMappingModule;
+import io.trino.plugin.jdbc.procedure.FlushJdbcMetadataCacheProcedure;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.ptf.ConnectorTableFunction;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Provider;
@@ -37,6 +39,7 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class JdbcModule
         extends AbstractConfigurationAwareModule
@@ -56,24 +59,40 @@ public class JdbcModule
         install(new IdentifierMappingModule());
 
         newOptionalBinder(binder, ConnectorAccessControl.class);
+        newOptionalBinder(binder, QueryBuilder.class).setDefault().to(DefaultQueryBuilder.class).in(Scopes.SINGLETON);
 
         procedureBinder(binder);
         tablePropertiesProviderBinder(binder);
 
         newOptionalBinder(binder, JdbcMetadataFactory.class).setDefault().to(DefaultJdbcMetadataFactory.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, ConnectorSplitManager.class).setDefault().to(JdbcSplitManager.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, Key.get(ConnectorSplitManager.class, ForJdbcDynamicFiltering.class)).setDefault().to(JdbcSplitManager.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, ConnectorSplitManager.class).setDefault().to(JdbcDynamicFilteringSplitManager.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorRecordSetProvider.class).setDefault().to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorPageSinkProvider.class).setDefault().to(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
+
+        binder.bind(JdbcTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(JdbcConnector.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(JdbcMetadataConfig.class);
+        configBinder(binder).bindConfig(JdbcWriteConfig.class);
         configBinder(binder).bindConfig(BaseJdbcConfig.class);
+        configBinder(binder).bindConfig(JdbcDynamicFilteringConfig.class);
 
         configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
         bindSessionPropertiesProvider(binder, TypeHandlingJdbcSessionProperties.class);
         bindSessionPropertiesProvider(binder, JdbcMetadataSessionProperties.class);
+        bindSessionPropertiesProvider(binder, JdbcWriteSessionProperties.class);
+        bindSessionPropertiesProvider(binder, JdbcDynamicFilteringSessionProperties.class);
+
+        binder.bind(DynamicFilteringStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(DynamicFilteringStats.class)
+                .as(generator -> generator.generatedNameOf(DynamicFilteringStats.class, catalogName));
 
         binder.bind(CachingJdbcClient.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class).to(Key.get(CachingJdbcClient.class)).in(Scopes.SINGLETON);
+
+        newSetBinder(binder, Procedure.class).addBinding().toProvider(FlushJdbcMetadataCacheProcedure.class).in(Scopes.SINGLETON);
+
+        newSetBinder(binder, ConnectorTableFunction.class);
 
         binder.bind(ConnectionFactory.class)
                 .annotatedWith(ForLazyConnectionFactory.class)

@@ -13,7 +13,6 @@
  */
 package io.trino.spi.block;
 
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -71,6 +70,9 @@ public class DictionaryId
     @Override
     public int hashCode()
     {
-        return Objects.hash(mostSignificantBits, leastSignificantBits, sequenceId);
+        int hashCode = 31 + Long.hashCode(mostSignificantBits);
+        hashCode = (hashCode * 31) + Long.hashCode(leastSignificantBits);
+        hashCode = (hashCode * 31) + Long.hashCode(sequenceId);
+        return hashCode;
     }
 }

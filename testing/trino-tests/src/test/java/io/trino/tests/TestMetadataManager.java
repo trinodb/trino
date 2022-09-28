@@ -140,7 +140,7 @@ public class TestMetadataManager
         dispatchManager.createQuery(
                 queryId,
                 Slug.createNew(),
-                new TestingSessionContext(TEST_SESSION),
+                TestingSessionContext.fromSession(TEST_SESSION),
                 "SELECT * FROM lineitem")
                 .get();
 
@@ -186,6 +186,23 @@ public class TestMetadataManager
                 .isEmpty();
         // TODO (https://github.com/trinodb/trino/issues/17) this should return 1 row
         assertThat(queryRunner.execute("SELECT * FROM system.jdbc.tables WHERE TABLE_NAME = 'UPPER_CASE_TABLE'"))
+                .isEmpty();
+    }
+
+    @Test
+    public void testColumnsQueryWithUpperCaseFilter()
+    {
+        // TODO (https://github.com/trinodb/trino/issues/17) this should return no rows
+        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.columns WHERE table_schem = 'upper_case_schema' AND table_name = 'upper_case_table'"))
+                .hasSize(100);
+        // TODO (https://github.com/trinodb/trino/issues/17) this should return 100 rows
+        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.columns WHERE table_schem = 'UPPER_CASE_SCHEMA'"))
+                .isEmpty();
+        // TODO (https://github.com/trinodb/trino/issues/17) this should return 100 rows
+        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.columns WHERE table_name = 'UPPER_CASE_TABLE'"))
+                .isEmpty();
+        // TODO (https://github.com/trinodb/trino/issues/17) this should return 100 rows
+        assertThat(queryRunner.execute("SELECT * FROM system.jdbc.columns WHERE table_schem = 'UPPER_CASE_TABLE' AND table_name = 'UPPER_CASE_TABLE'"))
                 .isEmpty();
     }
 

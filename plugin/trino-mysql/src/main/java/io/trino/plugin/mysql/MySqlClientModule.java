@@ -14,34 +14,42 @@
 package io.trino.plugin.mysql;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.mysql.jdbc.Driver;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DecimalModule;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.plugin.jdbc.ptf.Query;
+import io.trino.spi.ptf.ConnectorTableFunction;
 
 import java.sql.SQLException;
 import java.util.Properties;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class MySqlClientModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    protected void setup(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(MySqlClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(MySqlJdbcConfig.class);
         configBinder(binder).bindConfig(MySqlConfig.class);
-        binder.install(new DecimalModule());
+        configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
+        install(new DecimalModule());
+        install(new JdbcJoinPushdownSupportModule());
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
     @Provides
@@ -50,12 +58,21 @@ public class MySqlClientModule
     public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, MySqlConfig mySqlConfig)
             throws SQLException
     {
+        return new DriverConnectionFactory(
+                new Driver(),
+                config.getConnectionUrl(),
+                getConnectionProperties(mySqlConfig),
+                credentialProvider);
+    }
+
+    public static Properties getConnectionProperties(MySqlConfig mySqlConfig)
+    {
         Properties connectionProperties = new Properties();
         connectionProperties.setProperty("useInformationSchema", Boolean.toString(mySqlConfig.isDriverUseInformationSchema()));
-        connectionProperties.setProperty("nullCatalogMeansCurrent", "false");
         connectionProperties.setProperty("useUnicode", "true");
         connectionProperties.setProperty("characterEncoding", "utf8");
         connectionProperties.setProperty("tinyInt1isBit", "false");
+        connectionProperties.setProperty("rewriteBatchedStatements", "true");
         if (mySqlConfig.isAutoReconnect()) {
             connectionProperties.setProperty("autoReconnect", String.valueOf(mySqlConfig.isAutoReconnect()));
             connectionProperties.setProperty("maxReconnects", String.valueOf(mySqlConfig.getMaxReconnects()));
@@ -63,11 +80,6 @@ public class MySqlClientModule
         if (mySqlConfig.getConnectionTimeout() != null) {
             connectionProperties.setProperty("connectTimeout", String.valueOf(mySqlConfig.getConnectionTimeout().toMillis()));
         }
-
-        return new DriverConnectionFactory(
-                new Driver(),
-                config.getConnectionUrl(),
-                connectionProperties,
-                credentialProvider);
+        return connectionProperties;
     }
 }

@@ -21,15 +21,20 @@
 
 ## Development
 
-See [DEVELOPMENT](DEVELOPMENT.md) for information about code style,
+See [DEVELOPMENT](.github/DEVELOPMENT.md) for information about code style,
 development process, and guidelines.
 
-See [CONTRIBUTING](CONTRIBUTING.md) for contribution requirements.
+See [CONTRIBUTING](.github/CONTRIBUTING.md) for contribution requirements.
+
+## Security
+
+See the project [security policy](.github/SECURITY.md) for
+information about reporting vulnerabilities.
 
 ## Build requirements
 
 * Mac OS X or Linux
-* Java 11.0.7+, 64-bit
+* Java 17.0.4+, 64-bit
 * Docker
 
 ## Building Trino
@@ -63,8 +68,8 @@ After opening the project in IntelliJ, double check that the Java SDK is
 properly configured for the project:
 
 * Open the File menu and select Project Structure
-* In the SDKs section, ensure that JDK 11 is selected (create one if none exist)
-* In the Project section, ensure the Project language level is set to 11
+* In the SDKs section, ensure that JDK 17 is selected (create one if none exist)
+* In the Project section, ensure the Project language level is set to 17
 
 ### Running a testing server
 
@@ -86,6 +91,9 @@ development. Use the following options to create a run configuration:
 
 The working directory should be the `trino-server-dev` subdirectory. In
 IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
+
+If `VM options` doesn't exist in the dialog, you need to select `Modify options`
+and enable `Add VM options`.
 
 ### Running the CLI
 

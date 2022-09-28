@@ -15,18 +15,20 @@ package io.trino.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
-import io.trino.execution.QueryInfo;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TestView;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -34,9 +36,10 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public abstract class BaseOracleConnectorTest
         extends BaseJdbcConnectorTest
@@ -45,14 +48,15 @@ public abstract class BaseOracleConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_LIMIT_PUSHDOWN:
-                return false;
-
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
             case SUPPORTS_AGGREGATION_PUSHDOWN:
-                return false;
+            case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
+                return true;
 
             case SUPPORTS_JOIN_PUSHDOWN:
                 return true;
@@ -60,10 +64,18 @@ public abstract class BaseOracleConnectorTest
             case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
                 return false;
 
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+                return false;
+
             case SUPPORTS_COMMENT_ON_TABLE:
                 return false;
 
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
+                return false;
+
             case SUPPORTS_ARRAY:
+            case SUPPORTS_ROW_TYPE:
                 return false;
 
             case SUPPORTS_CREATE_SCHEMA:
@@ -78,13 +90,6 @@ public abstract class BaseOracleConnectorTest
     }
 
     @Override
-    public void testCreateSchema()
-    {
-        // schema creation is not supported
-        assertQueryFails("CREATE SCHEMA test_schema_create", "This connector does not support creating schemas");
-    }
-
-    @Override
     protected String dataMappingTableName(String trinoTypeName)
     {
         return "tmp_trino_" + System.nanoTime();
@@ -94,8 +99,20 @@ public abstract class BaseOracleConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("time")) {
-            return Optional.empty();
+        if (typeName.equals("date")) {
+            // TODO (https://github.com/trinodb/trino/issues) Oracle connector stores wrong result when the date value <= 1582-10-14
+            if (dataMappingTestSetup.getSampleValueLiteral().equals("DATE '0001-01-01'")
+                    || dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-04'")
+                    || dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-05'")
+                    || dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-14'")) {
+                return Optional.empty();
+            }
+        }
+        if (typeName.equals("time") ||
+                typeName.equals("time(6)") ||
+                typeName.equals("timestamp(6)") ||
+                typeName.equals("timestamp(6) with time zone")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
         }
         if (typeName.equals("boolean")) {
             // Oracle does not have native support for boolean however usually it is represented as number(1)
@@ -110,7 +127,7 @@ public abstract class BaseOracleConnectorTest
     {
         return new TestTable(
                 onRemoteDatabase(),
-                "test_default_columns",
+                "test_default_cols",
                 "(col_required decimal(20,0) NOT NULL," +
                         "col_nullable decimal(20,0)," +
                         "col_default decimal(20,0) DEFAULT 43," +
@@ -129,64 +146,6 @@ public abstract class BaseOracleConnectorTest
 
     @Test
     @Override
-    public void testSymbolAliasing()
-    {
-        // Replace tablename to less than 30chars, max size naming on oracle
-        String tableName = "symbol_aliasing" + System.currentTimeMillis();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 foo_1, 2 foo_2_4", 1);
-        assertQuery("SELECT foo_1, foo_2_4 FROM " + tableName, "SELECT 1, 2");
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    @Override
-    public void testRenameColumn()
-    {
-        // Replace tablename to less than 30chars, max size naming on oracle
-        String tableName = "test_renamecol_" + System.currentTimeMillis();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 'some value' x", 1);
-
-        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN x TO y");
-        assertQuery("SELECT y FROM " + tableName, "VALUES 'some value'");
-
-        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN y TO Z"); // 'Z' is upper-case, not delimited
-        assertQuery(
-                "SELECT z FROM " + tableName, // 'z' is lower-case, not delimited
-                "VALUES 'some value'");
-
-        // There should be exactly one column
-        assertQuery("SELECT * FROM " + tableName, "VALUES 'some value'");
-
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    @Override
-    public void testWrittenStats()
-    {
-        // Replace tablename to fetch max size naming on oracle
-        String tableName = "written_stats_" + System.currentTimeMillis();
-        String sql = "CREATE TABLE " + tableName + " AS SELECT * FROM nation";
-        ResultWithQueryId<MaterializedResult> resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
-        QueryInfo queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
-
-        assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
-        assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 25L);
-        assertTrue(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L);
-
-        sql = "INSERT INTO " + tableName + " SELECT * FROM nation LIMIT 10";
-        resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
-        queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
-
-        assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
-        assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 10L);
-        assertTrue(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L);
-
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    @Override
     public void testShowColumns()
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
@@ -195,7 +154,7 @@ public abstract class BaseOracleConnectorTest
                 .row("custkey", "decimal(19,0)", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
                 .row("totalprice", "double", "", "")
-                .row("orderdate", "timestamp(3)", "", "")
+                .row("orderdate", "timestamp(0)", "", "")
                 .row("orderpriority", "varchar(15)", "", "")
                 .row("clerk", "varchar(15)", "", "")
                 .row("shippriority", "decimal(10,0)", "", "")
@@ -220,6 +179,18 @@ public abstract class BaseOracleConnectorTest
         assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'new comment'");
         // without remarksReporting Oracle does not return comments set
         assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).doesNotContain("COMMENT 'new comment'");
+    }
+
+    /**
+     * See {@link TestOraclePoolRemarksReportingConnectorSmokeTest#testCommentColumnSpecialCharacter(String comment)}
+     */
+    @Override
+    public void testCommentColumnSpecialCharacter(String comment)
+    {
+        // Oracle connector doesn't return column comments by default
+        assertThatThrownBy(() -> super.testCommentColumnSpecialCharacter(comment))
+                .hasMessageContaining("expected [%s] but found [null]".formatted(comment));
+        throw new SkipException("The test is covered in TestOraclePoolRemarksReportingConnectorSmokeTest");
     }
 
     @Override
@@ -252,7 +223,7 @@ public abstract class BaseOracleConnectorTest
                 .row("custkey", "decimal(19,0)", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
                 .row("totalprice", "double", "", "")
-                .row("orderdate", "timestamp(3)", "", "")
+                .row("orderdate", "timestamp(0)", "", "")
                 .row("orderpriority", "varchar(15)", "", "")
                 .row("clerk", "varchar(15)", "", "")
                 .row("shippriority", "decimal(10,0)", "", "")
@@ -273,12 +244,65 @@ public abstract class BaseOracleConnectorTest
                         "   custkey decimal(19, 0),\n" +
                         "   orderstatus varchar(1),\n" +
                         "   totalprice double,\n" +
-                        "   orderdate timestamp(3),\n" +
+                        "   orderdate timestamp(0),\n" +
                         "   orderpriority varchar(15),\n" +
                         "   clerk varchar(15),\n" +
                         "   shippriority decimal(10, 0),\n" +
                         "   comment varchar(79)\n" +
                         ")");
+    }
+
+    @Override
+    public void testCharVarcharComparison()
+    {
+        // test overridden because super uses all-space char values ('  ') that are null-out by Oracle
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_char_varchar",
+                "(k, v) AS VALUES" +
+                        "   (-1, CAST(NULL AS char(3))), " +
+                        "   (3, CAST('x  ' AS char(3)))")) {
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(2))",
+                    // The value is included because both sides of the comparison are coerced to char(3)
+                    "VALUES (3, 'x  ')");
+
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(4))",
+                    // The value is included because both sides of the comparison are coerced to char(4)
+                    "VALUES (3, 'x  ')");
+        }
+    }
+
+    @Override
+    public void testVarcharCharComparison()
+    {
+        // test overridden because Oracle nulls-out '' varchar value, impacting results
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_varchar_char",
+                "(k, v) AS VALUES" +
+                        "   (-1, CAST(NULL AS varchar(3))), " +
+                        "   (0, CAST('' AS varchar(3)))," + // '' gets replaced with null in Oracle
+                        "   (1, CAST(' ' AS varchar(3))), " +
+                        "   (2, CAST('  ' AS varchar(3))), " +
+                        "   (3, CAST('   ' AS varchar(3)))," +
+                        "   (4, CAST('x' AS varchar(3)))," +
+                        "   (5, CAST('x ' AS varchar(3)))," +
+                        "   (6, CAST('x  ' AS varchar(3)))")) {
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS char(2))",
+                    // The 3-spaces value is included because both sides of the comparison are coerced to char(3)
+                    "VALUES (1, ' '), (2, '  '), (3, '   ')");
+
+            // value that's not all-spaces
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS char(2))",
+                    // The 3-spaces value is included because both sides of the comparison are coerced to char(3)
+                    "VALUES (4, 'x'), (5, 'x '), (6, 'x  ')");
+        }
     }
 
     @Override
@@ -297,21 +321,23 @@ public abstract class BaseOracleConnectorTest
         assertThat(query("SELECT approx_set(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class, ProjectNode.class);
     }
 
-    @Test
-    public void testDropTable()
+    @Override
+    protected TestTable createAggregationTestTable(String name, List<String> rows)
     {
-        String tableName = "test_drop" + randomTableSuffix();
-        assertUpdate(format("CREATE TABLE %s AS SELECT 1 test_drop", tableName), 1);
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        return new TestTable(onRemoteDatabase(), name, "(short_decimal number(9, 3), long_decimal number(30, 10), a_bigint number(19), t_double binary_double)", rows);
+    }
 
-        assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
 
     @Test
     public void testViews()
     {
-        try (TestView view = new TestView(onRemoteDatabase(), getUser() + ".test_view", "AS SELECT 'O' as status FROM dual")) {
+        try (TestView view = new TestView(onRemoteDatabase(), getUser() + ".test_view", "SELECT 'O' as status FROM dual")) {
             assertQuery("SELECT status FROM " + view.getName(), "SELECT 'O'");
         }
     }
@@ -350,12 +376,12 @@ public abstract class BaseOracleConnectorTest
         // predicate over aggregation key (likely to be optimized before being pushed down into the connector)
         assertThat(query("SELECT * FROM (SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey) WHERE regionkey = 3"))
                 .matches("VALUES (CAST(3 AS decimal(19,0)), CAST(77 AS decimal(38,0)))")
-                .isNotFullyPushedDown(AggregationNode.class, ProjectNode.class);
+                .isFullyPushedDown();
 
         // predicate over aggregation result
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey HAVING sum(nationkey) = 77"))
                 .matches("VALUES (CAST(3 AS decimal(19,0)), CAST(77 AS decimal(38,0)))")
-                .isNotFullyPushedDown(AggregationNode.class, ProjectNode.class);
+                .isFullyPushedDown();
     }
 
     @Test
@@ -407,9 +433,108 @@ public abstract class BaseOracleConnectorTest
                 "SELECT * from nation", "Domain compaction threshold \\(10000\\) cannot exceed 1000");
     }
 
+    @Override
+    public void testNativeQuerySimple()
+    {
+        // override because Oracle requires the FROM clause, and it needs explicit type
+        assertQuery("SELECT * FROM TABLE(system.query(query => 'SELECT CAST(1 AS number(2, 1)) FROM DUAL'))", ("VALUES 1"));
+    }
+
+    @Override
+    public void testNativeQueryParameters()
+    {
+        // override because Oracle requires the FROM clause, and it needs explicit type
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query_simple", "SELECT * FROM TABLE(system.query(query => ?))")
+                .addPreparedStatement("my_query", "SELECT * FROM TABLE(system.query(query => format('SELECT %s FROM %s', ?, ?)))")
+                .build();
+        assertQuery(session, "EXECUTE my_query_simple USING 'SELECT CAST(1 AS number(2, 1)) a FROM DUAL'", "VALUES 1");
+        assertQuery(session, "EXECUTE my_query USING 'a', '(SELECT CAST(2 AS number(2, 1)) a FROM DUAL) t'", "VALUES 2");
+    }
+
+    @Override
+    public void testNativeQueryInsertStatementTableDoesNotExist()
+    {
+        // override because Oracle succeeds in preparing query, and then fails because of no metadata available
+        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
+    }
+
+    @Override
+    public void testNativeQueryIncorrectSyntax()
+    {
+        // override because Oracle succeeds in preparing query, and then fails because of no metadata available
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
+    }
+
+    @Override
+    protected TestTable simpleTable()
+    {
+        // override because Oracle does not support type bigint
+        return new TestTable(onRemoteDatabase(), format("%s.simple_table", getSession().getSchema().orElseThrow()), "(col decimal(2, 1))", ImmutableList.of("1", "2"));
+    }
+
+    @Override
+    protected String errorMessageForInsertIntoNotNullColumn(String columnName)
+    {
+        return format("ORA-01400: cannot insert NULL into \\(.*\"%s\"\\)\n", columnName.toUpperCase(ENGLISH));
+    }
+
+    @Override
+    protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessage("ORA-01758: table must be empty to add mandatory (NOT NULL) column\n");
+    }
+
+    @Override
+    protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
+    {
+        assertThat(e)
+                .hasMessage("ORA-14411: The DDL cannot be run concurrently with other DDLs\n");
+    }
+
+    @Override
+    protected OptionalInt maxSchemaNameLength()
+    {
+        return OptionalInt.of(30);
+    }
+
+    @Override
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessage("ORA-00972: identifier is too long\n");
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(30);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessage("ORA-00972: identifier is too long\n");
+    }
+
+    @Override
+    protected OptionalInt maxColumnNameLength()
+    {
+        return OptionalInt.of(30);
+    }
+
+    @Override
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessage("ORA-00972: identifier is too long\n");
+    }
+
     private void predicatePushdownTest(String oracleType, String oracleLiteral, String operator, String filterLiteral)
     {
-        String tableName = "test_pdown_" + oracleType.replaceAll("[^a-zA-Z0-9]", "");
+        String tableName = ("test_pdown_" + oracleType.replaceAll("[^a-zA-Z0-9]", ""))
+                .replaceFirst("^(.{18}).*", "$1__");
         try (TestTable table = new TestTable(onRemoteDatabase(), getUser() + "." + tableName, format("(c %s)", oracleType))) {
             onRemoteDatabase().execute(format("INSERT INTO %s VALUES (%s)", table.getName(), oracleLiteral));
 

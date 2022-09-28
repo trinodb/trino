@@ -14,7 +14,6 @@
 package io.trino.tests.product.cli;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.Files;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.tempto.AfterTestWithContext;
@@ -26,6 +25,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Arrays;
 
 import static io.trino.tempto.Requirements.compose;
@@ -38,17 +38,20 @@ import static io.trino.tests.product.ImmutableLdapObjectDefinitions.CHILD_GROUP;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.CHILD_GROUP_USER;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.DEFAULT_GROUP;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.DEFAULT_GROUP_USER;
+import static io.trino.tests.product.ImmutableLdapObjectDefinitions.EUROPE_ORG;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.ORPHAN_USER;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.PARENT_GROUP;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.PARENT_GROUP_USER;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.SPECIAL_USER;
+import static io.trino.tests.product.ImmutableLdapObjectDefinitions.USER_IN_AMERICA;
+import static io.trino.tests.product.ImmutableLdapObjectDefinitions.USER_IN_EUROPE;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.USER_IN_MULTIPLE_GROUPS;
 import static io.trino.tests.product.TestGroups.LDAP;
 import static io.trino.tests.product.TestGroups.LDAP_AND_FILE_CLI;
 import static io.trino.tests.product.TestGroups.LDAP_CLI;
+import static io.trino.tests.product.TestGroups.LDAP_MULTIPLE_BINDS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -92,10 +95,10 @@ public class TestTrinoLdapCli
 
     @AfterTestWithContext
     @Override
-    public void stopPresto()
+    public void stopCli()
             throws InterruptedException
     {
-        super.stopPresto();
+        super.stopCli();
     }
 
     @Override
@@ -103,9 +106,9 @@ public class TestTrinoLdapCli
     {
         return compose(new LdapObjectRequirement(
                         Arrays.asList(
-                                AMERICA_ORG, ASIA_ORG,
+                                AMERICA_ORG, ASIA_ORG, EUROPE_ORG,
                                 DEFAULT_GROUP, PARENT_GROUP, CHILD_GROUP,
-                                DEFAULT_GROUP_USER, PARENT_GROUP_USER, CHILD_GROUP_USER, ORPHAN_USER, SPECIAL_USER, USER_IN_MULTIPLE_GROUPS)),
+                                DEFAULT_GROUP_USER, PARENT_GROUP_USER, CHILD_GROUP_USER, ORPHAN_USER, SPECIAL_USER, USER_IN_MULTIPLE_GROUPS, USER_IN_AMERICA, USER_IN_EUROPE)),
                 immutableTable(NATION));
     }
 
@@ -133,7 +136,7 @@ public class TestTrinoLdapCli
     {
         File temporayFile = File.createTempFile("test-sql", null);
         temporayFile.deleteOnExit();
-        Files.write(SELECT_FROM_NATION + "\n", temporayFile, UTF_8);
+        Files.writeString(temporayFile.toPath(), SELECT_FROM_NATION + "\n");
 
         launchTrinoCliWithServerArgument("--file", temporayFile.getAbsolutePath());
         assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
@@ -144,6 +147,16 @@ public class TestTrinoLdapCli
             throws IOException
     {
         ldapUserName = USER_IN_MULTIPLE_GROUPS.getAttributes().get("cn");
+
+        launchTrinoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", SELECT_FROM_NATION);
+        assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+    }
+
+    @Test(groups = {LDAP, LDAP_CLI, LDAP_MULTIPLE_BINDS, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    public void shouldPassQueryForAlternativeLdapBind()
+            throws IOException
+    {
+        ldapUserName = USER_IN_AMERICA.getAttributes().get("cn");
 
         launchTrinoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", SELECT_FROM_NATION);
         assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
@@ -177,6 +190,16 @@ public class TestTrinoLdapCli
         launchTrinoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", SELECT_FROM_NATION);
         assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
                 assertThat(line).contains(format("User [%s] not a member of an authorized group", ldapUserName)));
+    }
+
+    @Test(groups = {LDAP, LDAP_CLI, LDAP_MULTIPLE_BINDS, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    public void shouldFailQueryForFailedBind()
+            throws IOException
+    {
+        ldapUserName = USER_IN_EUROPE.getAttributes().get("cn");
+        launchTrinoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", SELECT_FROM_NATION);
+        assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
+                assertThat(line).contains("Invalid credentials"));
     }
 
     @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -240,7 +263,7 @@ public class TestTrinoLdapCli
         ldapTruststorePassword = "wrong_password";
         launchTrinoCliWithServerArgument("--execute", SELECT_FROM_NATION);
         assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
-                assertThat(line).contains("Keystore was tampered with, or password was incorrect"));
+                assertThat(line).contains("Error setting up SSL: keystore password was incorrect"));
         skipAfterTestWithContext();
     }
 

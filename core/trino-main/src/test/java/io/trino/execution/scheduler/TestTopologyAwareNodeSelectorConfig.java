@@ -34,10 +34,10 @@ public class TestTopologyAwareNodeSelectorConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("node-scheduler.network-topology.type", "FILE")
                 .put("node-scheduler.network-topology.segments", "rack,machine")
-                .build();
+                .buildOrThrow();
 
         TopologyAwareNodeSelectorConfig expected = new TopologyAwareNodeSelectorConfig()
                 .setType(TopologyType.FILE)

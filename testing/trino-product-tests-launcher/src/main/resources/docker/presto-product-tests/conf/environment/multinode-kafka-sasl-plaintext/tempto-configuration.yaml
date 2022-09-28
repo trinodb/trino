@@ -1,0 +1,11 @@
+schema-registry:
+  url: http://schema-registry:8081
+
+databases:
+  kafka:
+    broker:
+      host: kafka
+      port: 9092
+      security.protocol: "SASL_PLAINTEXT"
+      sasl.mechanism: "PLAIN"
+      sasl.jaas.config: "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"admin\" password=\"admin-secret\";"

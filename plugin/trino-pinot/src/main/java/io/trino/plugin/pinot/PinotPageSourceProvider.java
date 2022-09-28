@@ -14,9 +14,9 @@
 package io.trino.plugin.pinot;
 
 import io.trino.plugin.pinot.client.PinotClient;
-import io.trino.plugin.pinot.client.PinotQueryClient;
+import io.trino.plugin.pinot.client.PinotDataFetcher;
 import io.trino.plugin.pinot.query.DynamicTable;
-import io.trino.plugin.pinot.query.PinotQuery;
+import io.trino.plugin.pinot.query.PinotQueryInfo;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -38,22 +38,23 @@ import static java.util.Objects.requireNonNull;
 public class PinotPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final PinotQueryClient pinotQueryClient;
     private final PinotClient clusterInfoFetcher;
     private final int limitForSegmentQueries;
-    private final int estimatedNonNumericColumnSize;
+    private final int limitForBrokerQueries;
+    private final long targetSegmentPageSizeBytes;
+    private final PinotDataFetcher.Factory pinotDataFetcherFactory;
 
     @Inject
     public PinotPageSourceProvider(
             PinotConfig pinotConfig,
             PinotClient clusterInfoFetcher,
-            PinotQueryClient pinotQueryClient)
+            PinotDataFetcher.Factory pinotDataFetcherFactory)
     {
-        requireNonNull(pinotConfig, "pinotConfig is null");
-        this.pinotQueryClient = requireNonNull(pinotQueryClient, "pinotQueryClient is null");
         this.clusterInfoFetcher = requireNonNull(clusterInfoFetcher, "clusterInfoFetcher is null");
-        this.limitForSegmentQueries = pinotConfig.getMaxRowsPerSplitForSegmentQueries();
-        estimatedNonNumericColumnSize = pinotConfig.getEstimatedSizeInBytesForNonNumericColumn();
+        this.pinotDataFetcherFactory = requireNonNull(pinotDataFetcherFactory, "pinotDataFetcherFactory is null");
+        this.limitForSegmentQueries = pinotDataFetcherFactory.getRowLimit();
+        this.limitForBrokerQueries = pinotConfig.getMaxRowsForBrokerQueries();
+        this.targetSegmentPageSizeBytes = pinotConfig.getTargetSegmentPageSize().toBytes();
     }
 
     @Override
@@ -78,31 +79,29 @@ public class PinotPageSourceProvider
 
         switch (pinotSplit.getSplitType()) {
             case SEGMENT:
+                PinotDataFetcher pinotDataFetcher = pinotDataFetcherFactory.create(session, query, pinotSplit);
                 return new PinotSegmentPageSource(
-                        session,
-                        estimatedNonNumericColumnSize,
-                        limitForSegmentQueries,
-                        this.pinotQueryClient,
-                        pinotSplit,
+                        targetSegmentPageSizeBytes,
                         handles,
-                        query);
+                        pinotDataFetcher);
             case BROKER:
-                PinotQuery pinotQuery;
+                PinotQueryInfo pinotQueryInfo;
                 if (pinotTableHandle.getQuery().isPresent()) {
                     DynamicTable dynamicTable = pinotTableHandle.getQuery().get();
-                    pinotQuery = new PinotQuery(dynamicTable.getTableName(),
-                            extractPql(dynamicTable, pinotTableHandle.getConstraint(), handles),
+                    pinotQueryInfo = new PinotQueryInfo(dynamicTable.getTableName(),
+                            extractPql(dynamicTable, pinotTableHandle.getConstraint()),
                             dynamicTable.getGroupingColumns().size());
                 }
                 else {
-                    pinotQuery = new PinotQuery(pinotTableHandle.getTableName(), query, 0);
+                    pinotQueryInfo = new PinotQueryInfo(pinotTableHandle.getTableName(), query, 0);
                 }
 
                 return new PinotBrokerPageSource(
                         session,
-                        pinotQuery,
+                        pinotQueryInfo,
                         handles,
-                        clusterInfoFetcher);
+                        clusterInfoFetcher,
+                        limitForBrokerQueries);
         }
         throw new UnsupportedOperationException("Unknown Pinot split type: " + pinotSplit.getSplitType());
     }

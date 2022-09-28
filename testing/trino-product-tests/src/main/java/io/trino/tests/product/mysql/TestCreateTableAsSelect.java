@@ -21,10 +21,10 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.MYSQL;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onMySql;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 public class TestCreateTableAsSelect
@@ -42,7 +42,7 @@ public class TestCreateTableAsSelect
     @Test(groups = {MYSQL, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableAsSelect()
     {
-        QueryResult queryResult = query(format("CREATE TABLE mysql.%s AS SELECT * FROM tpch.tiny.nation", TABLE_NAME));
+        QueryResult queryResult = onTrino().executeQuery(format("CREATE TABLE mysql.%s AS SELECT * FROM tpch.tiny.nation", TABLE_NAME));
         assertThat(queryResult).containsOnly(row(25));
     }
 }

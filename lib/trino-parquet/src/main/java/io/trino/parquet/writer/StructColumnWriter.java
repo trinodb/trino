@@ -14,8 +14,8 @@
 package io.trino.parquet.writer;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.parquet.writer.repdef.DefLevelIterable;
-import io.trino.parquet.writer.repdef.DefLevelIterables;
+import io.trino.parquet.writer.repdef.DefLevelWriterProvider;
+import io.trino.parquet.writer.repdef.DefLevelWriterProviders;
 import io.trino.parquet.writer.repdef.RepLevelIterable;
 import io.trino.parquet.writer.repdef.RepLevelIterables;
 import io.trino.spi.block.Block;
@@ -50,9 +50,9 @@ public class StructColumnWriter
         ColumnarRow columnarRow = toColumnarRow(columnChunk.getBlock());
         checkArgument(columnarRow.getFieldCount() == columnWriters.size(), "ColumnarRow field size %s is not equal to columnWriters size %s", columnarRow.getFieldCount(), columnWriters.size());
 
-        List<DefLevelIterable> defLevelIterables = ImmutableList.<DefLevelIterable>builder()
-                .addAll(columnChunk.getDefLevelIterables())
-                .add(DefLevelIterables.of(columnarRow, maxDefinitionLevel))
+        List<DefLevelWriterProvider> defLevelWriterProviders = ImmutableList.<DefLevelWriterProvider>builder()
+                .addAll(columnChunk.getDefLevelWriterProviders())
+                .add(DefLevelWriterProviders.of(columnarRow, maxDefinitionLevel))
                 .build();
         List<RepLevelIterable> repLevelIterables = ImmutableList.<RepLevelIterable>builder()
                 .addAll(columnChunk.getRepLevelIterables())
@@ -62,7 +62,7 @@ public class StructColumnWriter
         for (int i = 0; i < columnWriters.size(); ++i) {
             ColumnWriter columnWriter = columnWriters.get(i);
             Block block = columnarRow.getField(i);
-            columnWriter.writeBlock(new ColumnChunk(block, defLevelIterables, repLevelIterables));
+            columnWriter.writeBlock(new ColumnChunk(block, defLevelWriterProviders, repLevelIterables));
         }
     }
 
@@ -86,7 +86,12 @@ public class StructColumnWriter
     @Override
     public long getBufferedBytes()
     {
-        return columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum();
+        // Avoid using streams here for performance reasons
+        long bufferedBytes = 0;
+        for (ColumnWriter columnWriter : columnWriters) {
+            bufferedBytes += columnWriter.getBufferedBytes();
+        }
+        return bufferedBytes;
     }
 
     @Override
@@ -94,11 +99,5 @@ public class StructColumnWriter
     {
         return INSTANCE_SIZE +
                 columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum();
-    }
-
-    @Override
-    public void reset()
-    {
-        columnWriters.forEach(ColumnWriter::reset);
     }
 }

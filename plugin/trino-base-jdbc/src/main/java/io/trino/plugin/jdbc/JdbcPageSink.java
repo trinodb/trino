@@ -33,8 +33,10 @@ import java.util.concurrent.CompletableFuture;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
+import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.getWriteBatchSize;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -46,6 +48,7 @@ public class JdbcPageSink
 
     private final List<Type> columnTypes;
     private final List<WriteFunction> columnWriters;
+    private final int maxBatchSize;
     private int batchSize;
 
     public JdbcPageSink(ConnectorSession session, JdbcOutputTableHandle handle, JdbcClient jdbcClient)
@@ -54,6 +57,19 @@ public class JdbcPageSink
             connection = jdbcClient.getConnection(session, handle);
         }
         catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+
+        try {
+            // According to JDBC javadocs "If a connection is in auto-commit mode, then all its SQL statements will be
+            // executed and committed as individual transactions." Notably MySQL and SQL Server respect this which
+            // leads to multiple commits when we close the connection leading to slow performance. Explicit commits
+            // where needed to ensure that all the submitted statements are committed as a single transaction and
+            // performs better.
+            connection.setAutoCommit(false);
+        }
+        catch (SQLException e) {
+            closeAllSuppress(e, connection);
             throw new TrinoException(JDBC_ERROR, e);
         }
 
@@ -84,14 +100,15 @@ public class JdbcPageSink
         }
 
         try {
-            // Per JDBC specification, auto-commit mode is the default. Verify that in case pooling or custom ConnectionFactory is used.
-            verify(connection.getAutoCommit(), "Connection not in auto-commit");
             statement = connection.prepareStatement(jdbcClient.buildInsertSql(handle, columnWriters));
         }
         catch (SQLException e) {
-            closeWithSuppression(connection, e);
+            closeAllSuppress(e, connection);
             throw new TrinoException(JDBC_ERROR, e);
         }
+
+        // Making batch size configurable allows performance tuning for insert/write-heavy workloads over multiple connections.
+        this.maxBatchSize = getWriteBatchSize(session);
     }
 
     @Override
@@ -106,8 +123,10 @@ public class JdbcPageSink
                 statement.addBatch();
                 batchSize++;
 
-                if (batchSize >= 1000) {
+                if (batchSize >= maxBatchSize) {
                     statement.executeBatch();
+                    connection.commit();
+                    connection.setAutoCommit(false);
                     batchSize = 0;
                 }
             }
@@ -157,13 +176,14 @@ public class JdbcPageSink
                 PreparedStatement statement = this.statement) {
             if (batchSize > 0) {
                 statement.executeBatch();
+                connection.commit();
             }
         }
         catch (SQLNonTransientException e) {
             throw new TrinoException(JDBC_NON_TRANSIENT_ERROR, e);
         }
         catch (SQLException e) {
-            // Convert chained SQLExceptions to suppressed exceptions so they are visible in the stack trace
+            // Convert chained SQLExceptions to suppressed exceptions, so they are visible in the stack trace
             SQLException nextException = e.getNextException();
             while (nextException != null) {
                 if (e != nextException) {
@@ -177,29 +197,20 @@ public class JdbcPageSink
         return completedFuture(ImmutableList.of());
     }
 
+    @SuppressWarnings("unused")
     @Override
     public void abort()
     {
-        // close statement and connection
-        try (connection) {
-            statement.close();
+        // rollback and close
+        try (Connection connection = this.connection;
+                PreparedStatement statement = this.statement) {
+            // skip rollback if implicitly closed due to an error
+            if (!connection.isClosed()) {
+                connection.rollback();
+            }
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
-        }
-    }
-
-    @SuppressWarnings("ObjectEquality")
-    private static void closeWithSuppression(Connection connection, Throwable throwable)
-    {
-        try {
-            connection.close();
-        }
-        catch (Throwable t) {
-            // Self-suppression not permitted
-            if (throwable != t) {
-                throwable.addSuppressed(t);
-            }
         }
     }
 }

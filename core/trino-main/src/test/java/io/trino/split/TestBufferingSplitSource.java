@@ -15,7 +15,6 @@ package io.trino.split;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.execution.Lifespan;
 import io.trino.split.SplitSource.SplitBatch;
 import org.testng.annotations.Test;
 
@@ -23,7 +22,6 @@ import java.util.concurrent.Future;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.split.MockSplitSource.Action.FAIL;
 import static io.trino.split.MockSplitSource.Action.FINISH;
 import static java.util.Objects.requireNonNull;
@@ -238,7 +236,7 @@ public class TestBufferingSplitSource
 
     private static ListenableFuture<NextBatchResult> getNextBatch(SplitSource splitSource, int maxSize)
     {
-        ListenableFuture<SplitBatch> future = splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), maxSize);
+        ListenableFuture<SplitBatch> future = splitSource.getNextBatch(maxSize);
         return Futures.transform(future, NextBatchResult::new, directExecutor());
     }
 

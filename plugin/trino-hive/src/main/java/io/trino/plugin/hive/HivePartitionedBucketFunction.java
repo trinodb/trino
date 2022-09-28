@@ -53,7 +53,7 @@ public class HivePartitionedBucketFunction
     {
         this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
         this.hiveBucketCount = hiveBucketCount;
-        this.bucketTypeInfos = requireNonNull(hiveBucketTypes, "hiveBucketTypes is null").stream()
+        this.bucketTypeInfos = hiveBucketTypes.stream()
                 .map(HiveType::getTypeInfo)
                 .collect(toImmutableList());
         this.firstPartitionColumnIndex = hiveBucketTypes.size();

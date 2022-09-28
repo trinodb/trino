@@ -14,6 +14,7 @@
 package io.trino.server;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 
 import javax.validation.constraints.NotNull;
@@ -25,6 +26,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class ServerConfig
 {
     private boolean coordinator = true;
+    private boolean concurrentStartup;
     private boolean includeExceptionInResponse = true;
     private Duration gracePeriod = new Duration(2, MINUTES);
     private boolean queryResultsCompressionEnabled = true;
@@ -39,6 +41,19 @@ public class ServerConfig
     public ServerConfig setCoordinator(boolean coordinator)
     {
         this.coordinator = coordinator;
+        return this;
+    }
+
+    public boolean isConcurrentStartup()
+    {
+        return concurrentStartup;
+    }
+
+    @Config("experimental.concurrent-startup")
+    @ConfigDescription("Parallelize work during server startup")
+    public ServerConfig setConcurrentStartup(boolean concurrentStartup)
+    {
+        this.concurrentStartup = concurrentStartup;
         return this;
     }
 

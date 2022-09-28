@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -61,7 +62,8 @@ public class TestBlackHoleMetadata
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
                 new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), tableProperties),
-                Optional.empty());
+                Optional.empty(),
+                NO_RETRIES);
 
         assertThatNoTableIsCreated();
 
@@ -76,7 +78,7 @@ public class TestBlackHoleMetadata
     public void testCreateTableInNotExistSchema()
     {
         SchemaTableName schemaTableName = new SchemaTableName("schema1", "test_table");
-        assertTrinoExceptionThrownBy(() -> metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), tableProperties), Optional.empty()))
+        assertTrinoExceptionThrownBy(() -> metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), tableProperties), Optional.empty(), NO_RETRIES))
                 .hasErrorCode(NOT_FOUND)
                 .hasMessage("Schema schema1 not found");
     }

@@ -16,9 +16,11 @@ package io.trino.spi;
 import io.trino.spi.block.BlockEncoding;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.eventlistener.EventListenerFactory;
+import io.trino.spi.exchange.ExchangeManagerFactory;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import io.trino.spi.security.CertificateAuthenticatorFactory;
 import io.trino.spi.security.GroupProviderFactory;
+import io.trino.spi.security.HeaderAuthenticatorFactory;
 import io.trino.spi.security.PasswordAuthenticatorFactory;
 import io.trino.spi.security.SystemAccessControlFactory;
 import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
@@ -72,6 +74,11 @@ public interface Plugin
         return emptyList();
     }
 
+    default Iterable<HeaderAuthenticatorFactory> getHeaderAuthenticatorFactories()
+    {
+        return emptyList();
+    }
+
     default Iterable<CertificateAuthenticatorFactory> getCertificateAuthenticatorFactories()
     {
         return emptyList();
@@ -88,6 +95,11 @@ public interface Plugin
     }
 
     default Iterable<SessionPropertyConfigurationManagerFactory> getSessionPropertyConfigurationManagerFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<ExchangeManagerFactory> getExchangeManagerFactories()
     {
         return emptyList();
     }

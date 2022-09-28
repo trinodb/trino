@@ -15,7 +15,6 @@ package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.jmx.JmxPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -56,8 +55,8 @@ public final class PostgreSqlQueryRunner
             connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
             connectorProperties.putIfAbsent("connection-user", server.getUser());
             connectorProperties.putIfAbsent("connection-password", server.getPassword());
-            connectorProperties.putIfAbsent("allow-drop-table", "true");
             connectorProperties.putIfAbsent("postgresql.include-system-tables", "true");
+            //connectorProperties.putIfAbsent("postgresql.experimental.enable-string-pushdown-with-collate", "true");
 
             queryRunner.installPlugin(new PostgreSqlPlugin());
             queryRunner.createCatalog("postgresql", "postgresql", connectorProperties);
@@ -83,10 +82,8 @@ public final class PostgreSqlQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
-
         DistributedQueryRunner queryRunner = createPostgreSqlQueryRunner(
-                new TestingPostgreSqlServer(),
+                new TestingPostgreSqlServer(true),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
                 TpchTable.getTables());

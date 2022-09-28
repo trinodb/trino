@@ -13,7 +13,7 @@
  */
 package io.trino.server;
 
-import com.google.common.base.Joiner;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
@@ -38,19 +38,29 @@ import io.airlift.log.Logger;
 import io.airlift.node.NodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.client.NodeVersion;
+import io.trino.connector.CatalogHandle;
+import io.trino.connector.CatalogManagerConfig;
+import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
+import io.trino.connector.CatalogManagerModule;
+import io.trino.connector.ConnectorServices;
+import io.trino.connector.ConnectorServicesProvider;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.eventlistener.EventListenerModule;
+import io.trino.exchange.ExchangeManagerModule;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.warnings.WarningCollectorModule;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
-import io.trino.metadata.StaticCatalogStore;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AccessControlModule;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.security.CertificateAuthenticatorManager;
+import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
+import io.trino.server.security.oauth2.OAuth2Client;
+import io.trino.transaction.TransactionManagerModule;
 import io.trino.version.EmbedVersion;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -58,17 +68,18 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static io.trino.server.TrinoSystemRequirements.verifyJvmRequirements;
 import static io.trino.server.TrinoSystemRequirements.verifySystemTimeIsReasonable;
 import static java.lang.String.format;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
+import static java.util.stream.Collectors.joining;
 
 public class Server
 {
@@ -103,7 +114,10 @@ public class Server
                 new ServerSecurityModule(),
                 new AccessControlModule(),
                 new EventListenerModule(),
+                new ExchangeManagerModule(),
                 new CoordinatorDiscoveryModule(),
+                new CatalogManagerModule(),
+                new TransactionManagerModule(),
                 new ServerMainModule(trinoVersion),
                 new GracefulShutdownModule(),
                 new WarningCollectorModule());
@@ -113,7 +127,7 @@ public class Server
         Bootstrap app = new Bootstrap(modules.build());
 
         try {
-            Injector injector = app.strictConfig().initialize();
+            Injector injector = app.initialize();
 
             log.info("Trino version: %s", injector.getInstance(NodeVersion.class).getVersion());
             logLocation(log, "Working directory", Paths.get("."));
@@ -121,10 +135,22 @@ public class Server
 
             injector.getInstance(PluginManager.class).loadPlugins();
 
-            injector.getInstance(StaticCatalogStore.class).loadCatalogs();
+            ConnectorServicesProvider connectorServicesProvider = injector.getInstance(ConnectorServicesProvider.class);
+            connectorServicesProvider.loadInitialCatalogs();
 
-            // TODO: remove this huge hack
-            updateConnectorIds(injector.getInstance(Announcer.class), injector.getInstance(CatalogManager.class));
+            // Only static catalog manager announces catalogs
+            // Connector event listeners are only supported for statically loaded catalogs
+            // TODO: remove connector event listeners or add support for dynamic loading from connector
+            if (injector.getInstance(CatalogManagerConfig.class).getCatalogMangerKind() == CatalogMangerKind.STATIC) {
+                CatalogManager catalogManager = injector.getInstance(CatalogManager.class);
+                addConnectorEventListeners(
+                        catalogManager,
+                        injector.getInstance(ConnectorServicesProvider.class),
+                        injector.getInstance(EventListenerManager.class));
+
+                // TODO: remove this huge hack
+                updateConnectorIds(injector.getInstance(Announcer.class), catalogManager);
+            }
 
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
@@ -133,11 +159,16 @@ public class Server
                     .ifPresent(PasswordAuthenticatorManager::loadPasswordAuthenticator);
             injector.getInstance(EventListenerManager.class).loadEventListeners();
             injector.getInstance(GroupProviderManager.class).loadConfiguredGroupProvider();
+            injector.getInstance(ExchangeManagerRegistry.class).loadExchangeManager();
             injector.getInstance(CertificateAuthenticatorManager.class).loadCertificateAuthenticator();
+            injector.getInstance(optionalKey(HeaderAuthenticatorManager.class))
+                    .ifPresent(HeaderAuthenticatorManager::loadHeaderAuthenticator);
+
+            injector.getInstance(optionalKey(OAuth2Client.class)).ifPresent(OAuth2Client::load);
 
             injector.getInstance(Announcer.class).start();
 
-            injector.getInstance(ServerInfoResource.class).startupComplete();
+            injector.getInstance(StartupStatus.class).startupComplete();
 
             log.info("======== SERVER STARTED ========");
         }
@@ -149,13 +180,29 @@ public class Server
             addMessages(message, "Warnings", ImmutableList.copyOf(e.getWarnings()));
             message.append("\n");
             message.append("==========");
-            log.error(message.toString());
+            log.error("%s", message);
             System.exit(1);
         }
         catch (Throwable e) {
             log.error(e);
             System.exit(1);
         }
+    }
+
+    @VisibleForTesting
+    public static void addConnectorEventListeners(
+            CatalogManager catalogManager,
+            ConnectorServicesProvider connectorServicesProvider,
+            EventListenerManager eventListenerManager)
+    {
+        catalogManager.getCatalogNames().stream()
+                .map(catalogManager::getCatalog)
+                .flatMap(Optional::stream)
+                .map(Catalog::getCatalogHandle)
+                .map(connectorServicesProvider::getConnectorServices)
+                .map(ConnectorServices::getEventListeners)
+                .flatMap(Collection::stream)
+                .forEach(eventListenerManager::addEventListener);
     }
 
     @SuppressWarnings("unchecked")
@@ -180,21 +227,25 @@ public class Server
         return ImmutableList.of();
     }
 
-    private static void updateConnectorIds(Announcer announcer, CatalogManager metadata)
+    private static void updateConnectorIds(Announcer announcer, CatalogManager catalogManager)
     {
         // get existing announcement
         ServiceAnnouncement announcement = getTrinoAnnouncement(announcer.getServiceAnnouncements());
 
-        // automatically build connectorIds if not configured
-        Set<String> connectorIds = metadata.getCatalogs().stream()
-                .map(Catalog::getConnectorCatalogName)
-                .map(Object::toString)
-                .collect(toImmutableSet());
+        // automatically build catalogHandleIds if not configured
+        String catalogHandleIds = catalogManager.getCatalogNames().stream()
+                .map(catalogManager::getCatalog)
+                .flatMap(Optional::stream)
+                .map(Catalog::getCatalogHandle)
+                .map(CatalogHandle::getId)
+                .distinct()
+                .sorted()
+                .collect(joining(","));
 
         // build announcement with updated sources
         ServiceAnnouncementBuilder builder = serviceAnnouncement(announcement.getType());
         builder.addProperties(announcement.getProperties());
-        builder.addProperty("connectorIds", Joiner.on(',').join(connectorIds));
+        builder.addProperty("catalogHandleIds", catalogHandleIds);
 
         // update announcement
         announcer.removeServiceAnnouncement(announcement.getId());

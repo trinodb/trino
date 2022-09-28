@@ -14,6 +14,7 @@
 package io.trino.server;
 
 import io.trino.Session;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.QueryId;
@@ -21,7 +22,6 @@ import io.trino.spi.security.Identity;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.SqlPath;
-import io.trino.transaction.TransactionManager;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -33,6 +33,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.Session.SessionBuilder;
 import static io.trino.SystemSessionProperties.TIME_ZONE_ID;
+import static io.trino.server.HttpRequestSessionContextFactory.addEnabledRoles;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
@@ -41,26 +42,25 @@ import static java.util.Objects.requireNonNull;
 public class QuerySessionSupplier
         implements SessionSupplier
 {
-    private final TransactionManager transactionManager;
+    private final Metadata metadata;
     private final AccessControl accessControl;
     private final SessionPropertyManager sessionPropertyManager;
-    private final Optional<String> path;
+    private final Optional<String> defaultPath;
     private final Optional<TimeZoneKey> forcedSessionTimeZone;
     private final Optional<String> defaultCatalog;
     private final Optional<String> defaultSchema;
 
     @Inject
     public QuerySessionSupplier(
-            TransactionManager transactionManager,
+            Metadata metadata,
             AccessControl accessControl,
             SessionPropertyManager sessionPropertyManager,
             SqlEnvironmentConfig config)
     {
-        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
-        requireNonNull(config, "config is null");
-        this.path = requireNonNull(config.getPath(), "path is null");
+        this.defaultPath = requireNonNull(config.getPath(), "path is null");
         this.forcedSessionTimeZone = requireNonNull(config.getForcedSessionTimeZone(), "forcedSessionTimeZone is null");
         this.defaultCatalog = requireNonNull(config.getDefaultCatalog(), "defaultCatalog is null");
         this.defaultSchema = requireNonNull(config.getDefaultSchema(), "defaultSchema is null");
@@ -75,18 +75,24 @@ public class QuerySessionSupplier
         accessControl.checkCanSetUser(identity.getPrincipal(), identity.getUser());
 
         // authenticated identity is not present for HTTP or if authentication is not setup
-        context.getAuthenticatedIdentity().ifPresent(authenticatedIdentity -> {
+        if (context.getAuthenticatedIdentity().isPresent()) {
+            Identity authenticatedIdentity = context.getAuthenticatedIdentity().get();
             // only check impersonation if authenticated user is not the same as the explicitly set user
             if (!authenticatedIdentity.getUser().equals(identity.getUser())) {
+                // add enabled roles for authenticated identity, so impersonation permissions can be assigned to roles
+                authenticatedIdentity = addEnabledRoles(authenticatedIdentity, context.getSelectedRole(), metadata);
                 accessControl.checkCanImpersonateUser(authenticatedIdentity, identity.getUser());
             }
-        });
+        }
+
+        // add the enabled roles
+        identity = addEnabledRoles(identity, context.getSelectedRole(), metadata);
 
         SessionBuilder sessionBuilder = Session.builder(sessionPropertyManager)
                 .setQueryId(queryId)
                 .setIdentity(identity)
+                .setPath(context.getPath().or(() -> defaultPath).map(SqlPath::new))
                 .setSource(context.getSource())
-                .setPath(new SqlPath(path))
                 .setRemoteUserAddress(context.getRemoteUserAddress())
                 .setUserAgent(context.getUserAgent())
                 .setClientInfo(context.getClientInfo())
@@ -96,19 +102,13 @@ public class QuerySessionSupplier
                 .setResourceEstimates(context.getResourceEstimates())
                 .setProtocolHeaders(context.getProtocolHeaders());
 
-        defaultCatalog.ifPresent(sessionBuilder::setCatalog);
-        defaultSchema.ifPresent(sessionBuilder::setSchema);
-
-        if (context.getCatalog() != null) {
+        if (context.getCatalog().isPresent()) {
             sessionBuilder.setCatalog(context.getCatalog());
-        }
-
-        if (context.getSchema() != null) {
             sessionBuilder.setSchema(context.getSchema());
         }
-
-        if (context.getPath() != null) {
-            sessionBuilder.setPath(new SqlPath(Optional.of(context.getPath())));
+        else {
+            defaultCatalog.ifPresent(sessionBuilder::setCatalog);
+            defaultSchema.ifPresent(sessionBuilder::setSchema);
         }
 
         if (forcedSessionTimeZone.isPresent()) {
@@ -119,14 +119,12 @@ public class QuerySessionSupplier
             if (sessionTimeZoneId != null) {
                 sessionBuilder.setTimeZoneKey(getTimeZoneKey(sessionTimeZoneId));
             }
-            else if (context.getTimeZoneId() != null) {
-                sessionBuilder.setTimeZoneKey(getTimeZoneKey(context.getTimeZoneId()));
+            else {
+                sessionBuilder.setTimeZoneKey(context.getTimeZoneId().map(TimeZoneKey::getTimeZoneKey));
             }
         }
 
-        if (context.getLanguage() != null) {
-            sessionBuilder.setLocale(Locale.forLanguageTag(context.getLanguage()));
-        }
+        context.getLanguage().ifPresent(s -> sessionBuilder.setLocale(Locale.forLanguageTag(s)));
 
         for (Entry<String, String> entry : context.getSystemProperties().entrySet()) {
             sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
@@ -146,11 +144,6 @@ public class QuerySessionSupplier
             sessionBuilder.setClientTransactionSupport();
         }
 
-        Session session = sessionBuilder.build();
-        if (context.getTransactionId().isPresent()) {
-            session = session.beginTransactionId(context.getTransactionId().get(), transactionManager, accessControl);
-        }
-
-        return session;
+        return sessionBuilder.build();
     }
 }

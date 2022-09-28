@@ -15,9 +15,11 @@ package io.trino.operator.aggregation.multimapagg;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+import static io.trino.operator.aggregation.BlockBuilderCopier.copyBlockBuilder;
 import static io.trino.type.TypeUtils.expectedValueSize;
 import static java.util.Objects.requireNonNull;
 
@@ -38,6 +40,15 @@ public class SingleMultimapAggregationState
         this.valueType = requireNonNull(valueType);
         keyBlockBuilder = keyType.createBlockBuilder(null, EXPECTED_ENTRIES, expectedValueSize(keyType, EXPECTED_ENTRY_SIZE));
         valueBlockBuilder = valueType.createBlockBuilder(null, EXPECTED_ENTRIES, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
+    }
+
+    // for copying
+    private SingleMultimapAggregationState(Type keyType, Type valueType, BlockBuilder keyBlockBuilder, BlockBuilder valueBlockBuilder)
+    {
+        this.keyType = keyType;
+        this.valueType = valueType;
+        this.keyBlockBuilder = keyBlockBuilder;
+        this.valueBlockBuilder = valueBlockBuilder;
     }
 
     @Override
@@ -80,5 +91,11 @@ public class SingleMultimapAggregationState
         // Thus reset() will be called for each group (via MultimapAggregationStateSerializer#deserialize)
         keyBlockBuilder = keyBlockBuilder.newBlockBuilderLike(null);
         valueBlockBuilder = valueBlockBuilder.newBlockBuilderLike(null);
+    }
+
+    @Override
+    public AccumulatorState copy()
+    {
+        return new SingleMultimapAggregationState(keyType, valueType, copyBlockBuilder(keyType, keyBlockBuilder), copyBlockBuilder(valueType, valueBlockBuilder));
     }
 }

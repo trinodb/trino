@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
@@ -48,6 +49,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
@@ -63,13 +65,13 @@ public class SetOperationNodeTranslator
     private final ResolvedFunction countFunction;
     private final ResolvedFunction rowNumberFunction;
 
-    public SetOperationNodeTranslator(Metadata metadata, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public SetOperationNodeTranslator(Session session, Metadata metadata, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         this.symbolAllocator = requireNonNull(symbolAllocator, "SymbolAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(metadata, "metadata is null");
-        this.countFunction = metadata.resolveFunction(QualifiedName.of("count"), fromTypes(BOOLEAN));
-        this.rowNumberFunction = metadata.resolveFunction(QualifiedName.of("row_number"), ImmutableList.of());
+        this.countFunction = metadata.resolveFunction(session, QualifiedName.of("count"), fromTypes(BOOLEAN));
+        this.rowNumberFunction = metadata.resolveFunction(session, QualifiedName.of("row_number"), ImmutableList.of());
     }
 
     public TranslationResult makeSetContainmentPlanForDistinct(SetOperationNode node)
@@ -179,14 +181,10 @@ public class SetOperationNodeTranslator
                     Optional.empty()));
         }
 
-        return new AggregationNode(idAllocator.getNextId(),
+        return singleAggregation(idAllocator.getNextId(),
                 sourceNode,
-                aggregations.build(),
-                singleGroupingSet(originalColumns),
-                ImmutableList.of(),
-                AggregationNode.Step.SINGLE,
-                Optional.empty(),
-                Optional.empty());
+                aggregations.buildOrThrow(),
+                singleGroupingSet(originalColumns));
     }
 
     private WindowNode appendCounts(UnionNode sourceNode, List<Symbol> originalColumns, List<Symbol> markers, List<Symbol> countOutputs, Symbol rowNumberSymbol)
@@ -213,7 +211,7 @@ public class SetOperationNodeTranslator
                 idAllocator.getNextId(),
                 sourceNode,
                 new Specification(originalColumns, Optional.empty()),
-                functions.build(),
+                functions.buildOrThrow(),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0);

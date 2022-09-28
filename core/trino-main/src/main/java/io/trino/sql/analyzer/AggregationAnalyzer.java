@@ -14,6 +14,7 @@
 package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.StandardErrorCode;
 import io.trino.sql.planner.ScopeAware;
@@ -42,10 +43,18 @@ import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
+import io.trino.sql.tree.JsonArray;
+import io.trino.sql.tree.JsonExists;
+import io.trino.sql.tree.JsonObject;
+import io.trino.sql.tree.JsonPathInvocation;
+import io.trino.sql.tree.JsonPathParameter;
+import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Literal;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -58,10 +67,14 @@ import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
+import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
+import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.Window;
 import io.trino.sql.tree.WindowFrame;
+import io.trino.sql.tree.WindowOperation;
+import io.trino.sql.tree.WindowReference;
 import io.trino.sql.tree.WindowSpecification;
 
 import javax.annotation.Nullable;
@@ -86,7 +99,7 @@ import static io.trino.spi.StandardErrorCode.NESTED_AGGREGATION;
 import static io.trino.spi.StandardErrorCode.NESTED_WINDOW;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
-import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
+import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowExpressions;
 import static io.trino.sql.analyzer.FreeLambdaReferenceExtractor.hasFreeReferencesToLambdaArgument;
 import static io.trino.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope;
 import static io.trino.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
@@ -106,6 +119,7 @@ class AggregationAnalyzer
     private final Set<ScopeAware<Expression>> expressions;
     private final Map<NodeRef<Expression>, FieldId> columnReferences;
 
+    private final Session session;
     private final Metadata metadata;
     private final Analysis analysis;
 
@@ -116,10 +130,11 @@ class AggregationAnalyzer
             List<Expression> groupByExpressions,
             Scope sourceScope,
             Expression expression,
+            Session session,
             Metadata metadata,
             Analysis analysis)
     {
-        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.empty(), metadata, analysis);
+        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.empty(), session, metadata, analysis);
         analyzer.analyze(expression);
     }
 
@@ -128,23 +143,32 @@ class AggregationAnalyzer
             Scope sourceScope,
             Scope orderByScope,
             Expression expression,
+            Session session,
             Metadata metadata,
             Analysis analysis)
     {
-        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.of(orderByScope), metadata, analysis);
+        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.of(orderByScope), session, metadata, analysis);
         analyzer.analyze(expression);
     }
 
-    private AggregationAnalyzer(List<Expression> groupByExpressions, Scope sourceScope, Optional<Scope> orderByScope, Metadata metadata, Analysis analysis)
+    private AggregationAnalyzer(
+            List<Expression> groupByExpressions,
+            Scope sourceScope,
+            Optional<Scope> orderByScope,
+            Session session,
+            Metadata metadata,
+            Analysis analysis)
     {
         requireNonNull(groupByExpressions, "groupByExpressions is null");
         requireNonNull(sourceScope, "sourceScope is null");
         requireNonNull(orderByScope, "orderByScope is null");
+        requireNonNull(session, "session is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(analysis, "analysis is null");
 
         this.sourceScope = sourceScope;
         this.orderByScope = orderByScope;
+        this.session = session;
         this.metadata = metadata;
         this.analysis = analysis;
         this.expressions = groupByExpressions.stream()
@@ -325,6 +349,12 @@ class AggregationAnalyzer
         }
 
         @Override
+        protected Boolean visitTrim(Trim node, Void context)
+        {
+            return process(node.getTrimSource(), context) && (node.getTrimCharacter().isEmpty() || process(node.getTrimCharacter().get(), context));
+        }
+
+        @Override
         protected Boolean visitFormat(Format node, Void context)
         {
             return node.getArguments().stream().allMatch(expression -> process(expression, context));
@@ -333,10 +363,10 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitFunctionCall(FunctionCall node, Void context)
         {
-            if (metadata.isAggregationFunction(node.getName())) {
+            if (metadata.isAggregationFunction(session, node.getName())) {
                 if (node.getWindow().isEmpty()) {
-                    List<FunctionCall> aggregateFunctions = extractAggregateFunctions(node.getArguments(), metadata);
-                    List<FunctionCall> windowFunctions = extractWindowFunctions(node.getArguments());
+                    List<FunctionCall> aggregateFunctions = extractAggregateFunctions(node.getArguments(), session, metadata);
+                    List<Expression> windowExpressions = extractWindowExpressions(node.getArguments());
 
                     if (!aggregateFunctions.isEmpty()) {
                         throw semanticException(NESTED_AGGREGATION,
@@ -346,12 +376,12 @@ class AggregationAnalyzer
                                 aggregateFunctions);
                     }
 
-                    if (!windowFunctions.isEmpty()) {
+                    if (!windowExpressions.isEmpty()) {
                         throw semanticException(NESTED_WINDOW,
                                 node,
-                                "Cannot nest window functions inside aggregation '%s': %s",
+                                "Cannot nest window functions or row pattern measures inside aggregation '%s': %s",
                                 node.getName(),
-                                windowFunctions);
+                                windowExpressions);
                     }
 
                     if (node.getOrderBy().isPresent()) {
@@ -423,6 +453,12 @@ class AggregationAnalyzer
         }
 
         @Override
+        protected Boolean visitWindowOperation(WindowOperation node, Void context)
+        {
+            return node.getWindow() instanceof WindowReference || process((WindowSpecification) node.getWindow(), context);
+        }
+
+        @Override
         protected Boolean visitLambdaExpression(LambdaExpression node, Void context)
         {
             return process(node.getBody(), context);
@@ -483,6 +519,16 @@ class AggregationAnalyzer
                     throw semanticException(EXPRESSION_NOT_AGGREGATE, endValue, "Window frame end must be an aggregate expression or appear in GROUP BY clause");
                 }
             }
+            for (MeasureDefinition measure : node.getMeasures()) {
+                if (!process(measure.getExpression(), context)) {
+                    throw semanticException(EXPRESSION_NOT_AGGREGATE, measure, "Row pattern measure must be an aggregate expression or appear in GROUP BY clause");
+                }
+            }
+            for (VariableDefinition variableDefinition : node.getVariableDefinitions()) {
+                if (!process(variableDefinition.getExpression(), context)) {
+                    throw semanticException(EXPRESSION_NOT_AGGREGATE, variableDefinition, "Row pattern variable definition must be an aggregate expression or appear in GROUP BY clause");
+                }
+            }
 
             return true;
         }
@@ -505,6 +551,11 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitDereferenceExpression(DereferenceExpression node, Void context)
         {
+            ExpressionAnalyzer.LabelPrefixedReference labelDereference = analysis.getLabelDereference(node);
+            if (labelDereference != null) {
+                return labelDereference.getColumn().map(this::process).orElse(true);
+            }
+
             if (!hasReferencesToScope(node, analysis, sourceScope)) {
                 // reference to outer scope is group-invariant
                 return true;
@@ -571,9 +622,10 @@ class AggregationAnalyzer
         }
 
         @Override
-        protected Boolean visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
+        protected Boolean visitLogicalExpression(LogicalExpression node, Void context)
         {
-            return process(node.getLeft(), context) && process(node.getRight(), context);
+            return node.getTerms().stream()
+                    .allMatch(item -> process(item, context));
         }
 
         @Override
@@ -668,6 +720,49 @@ class AggregationAnalyzer
                         argumentNotInGroupBy.get());
             }
             return true;
+        }
+
+        @Override
+        protected Boolean visitJsonExists(JsonExists node, Void context)
+        {
+            return process(node.getJsonPathInvocation(), context);
+        }
+
+        @Override
+        protected Boolean visitJsonValue(JsonValue node, Void context)
+        {
+            return process(node.getJsonPathInvocation(), context) &&
+                    node.getEmptyDefault().map(expression -> process(expression, context)).orElse(true) &&
+                    node.getErrorDefault().map(expression -> process(expression, context)).orElse(true);
+        }
+
+        @Override
+        protected Boolean visitJsonQuery(JsonQuery node, Void context)
+        {
+            return process(node.getJsonPathInvocation(), context);
+        }
+
+        @Override
+        protected Boolean visitJsonPathInvocation(JsonPathInvocation node, Void context)
+        {
+            return process(node.getInputExpression(), context) &&
+                    node.getPathParameters().stream()
+                            .map(JsonPathParameter::getParameter)
+                            .allMatch(expression -> process(expression, context));
+        }
+
+        @Override
+        protected Boolean visitJsonObject(JsonObject node, Void context)
+        {
+            return node.getMembers().stream()
+                    .allMatch(member -> process(member.getKey(), context) && process(member.getValue(), context));
+        }
+
+        @Override
+        protected Boolean visitJsonArray(JsonArray node, Void context)
+        {
+            return node.getElements().stream()
+                    .allMatch(element -> process(element.getValue(), context));
         }
 
         @Override

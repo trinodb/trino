@@ -14,32 +14,49 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
-import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SetViewAuthorization;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.trino.metadata.MetadataUtil.checkRoleExists;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.trino.spi.StandardErrorCode.NOT_FOUND;
-import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
+import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class SetViewAuthorizationTask
         implements DataDefinitionTask<SetViewAuthorization>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+    private final boolean isAllowSetViewAuthorization;
+
+    @Inject
+    public SetViewAuthorizationTask(Metadata metadata, AccessControl accessControl, FeaturesConfig featuresConfig)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.isAllowSetViewAuthorization = featuresConfig.isAllowSetViewAuthorization();
+    }
+
     @Override
     public String getName()
     {
@@ -49,27 +66,26 @@ public class SetViewAuthorizationTask
     @Override
     public ListenableFuture<Void> execute(
             SetViewAuthorization statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource());
-        CatalogName catalogName = metadata.getCatalogHandle(session, viewName.getCatalogName())
-                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + viewName.getCatalogName()));
-        if (metadata.getView(session, viewName).isEmpty()) {
-            throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);
-        }
+        getRequiredCatalogHandle(metadata, session, statement, viewName.getCatalogName());
+        ViewDefinition view = metadata.getView(session, viewName)
+                .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName));
 
         TrinoPrincipal principal = createPrincipal(statement.getPrincipal());
-        if (principal.getType() == PrincipalType.ROLE
-                && !metadata.listRoles(session, catalogName.getCatalogName()).contains(principal.getName())) {
-            throw semanticException(ROLE_NOT_FOUND, statement, "Role '%s' does not exist", principal.getName());
-        }
+        checkRoleExists(session, statement, metadata, principal, Optional.of(viewName.getCatalogName()).filter(catalog -> metadata.isCatalogManagedSecurity(session, catalog)));
 
+        if (!view.isRunAsInvoker() && !isAllowSetViewAuthorization) {
+            throw new TrinoException(
+                    NOT_SUPPORTED,
+                    format(
+                            "Cannot set authorization for view %s to %s: this feature is disabled",
+                            viewName.getCatalogName() + '.' + viewName.getSchemaName() + '.' + viewName.getObjectName(), principal));
+        }
         accessControl.checkCanSetViewAuthorization(session.toSecurityContext(), viewName, principal);
 
         metadata.setViewAuthorization(session, viewName.asCatalogSchemaTableName(), principal);

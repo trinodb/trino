@@ -17,9 +17,11 @@ import io.airlift.configuration.Config;
 
 import javax.validation.constraints.NotNull;
 
+import static io.trino.plugin.hive.security.HiveSecurityModule.LEGACY;
+
 public class SecurityConfig
 {
-    private String securitySystem = "legacy";
+    private String securitySystem = LEGACY;
 
     @NotNull
     public String getSecuritySystem()

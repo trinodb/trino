@@ -60,7 +60,10 @@ public class TestVariableWidthBlock
     {
         Slice[] expectedValues = alternatingNullValues(createExpectedValues(100));
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), 0, 2, 4, 6, 7, 9, 10, 16);
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 0, 2, 4, 6, 7, 9, 10, 16);
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build());
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 1, 2, 3, 7, 8, 9, 10, 11, 50);
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 7, 6, 6, 50, 11, 50);
     }
 
     @Test
@@ -134,8 +137,8 @@ public class TestVariableWidthBlock
     private void assertVariableWithValues(Slice[] expectedValues)
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-        assertBlock(blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
-        assertBlock(blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
+        assertBlock(blockBuilder, expectedValues);
+        assertBlock(blockBuilder.build(), expectedValues);
     }
 
     private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues)

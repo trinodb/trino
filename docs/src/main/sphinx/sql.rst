@@ -11,6 +11,7 @@ Trino also provides :doc:`numerous SQL functions and operators<functions>`.
 .. toctree::
     :maxdepth: 1
 
+    sql/alter-materialized-view
     sql/alter-schema
     sql/alter-table
     sql/alter-view
@@ -18,6 +19,7 @@ Trino also provides :doc:`numerous SQL functions and operators<functions>`.
     sql/call
     sql/comment
     sql/commit
+    sql/create-materialized-view
     sql/create-role
     sql/create-schema
     sql/create-table
@@ -28,6 +30,7 @@ Trino also provides :doc:`numerous SQL functions and operators<functions>`.
     sql/describe
     sql/describe-input
     sql/describe-output
+    sql/drop-materialized-view
     sql/drop-role
     sql/drop-schema
     sql/drop-table
@@ -39,7 +42,10 @@ Trino also provides :doc:`numerous SQL functions and operators<functions>`.
     sql/grant-roles
     sql/insert
     sql/match-recognize
+    sql/merge
+    sql/pattern-recognition-in-window
     sql/prepare
+    sql/refresh-materialized-view
     sql/reset-session
     sql/revoke
     sql/revoke-roles
@@ -50,6 +56,7 @@ Trino also provides :doc:`numerous SQL functions and operators<functions>`.
     sql/set-time-zone
     sql/show-catalogs
     sql/show-columns
+    sql/show-create-materialized-view
     sql/show-create-schema
     sql/show-create-table
     sql/show-create-view
@@ -62,6 +69,7 @@ Trino also provides :doc:`numerous SQL functions and operators<functions>`.
     sql/show-stats
     sql/show-tables
     sql/start-transaction
+    sql/truncate
     sql/update
     sql/use
     sql/values

@@ -16,7 +16,9 @@ package io.trino.plugin.hive;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.Variable;
 
@@ -25,9 +27,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-final class HiveApplyProjectionUtil
+public final class HiveApplyProjectionUtil
 {
     private HiveApplyProjectionUtil() {}
 
@@ -47,8 +50,8 @@ final class HiveApplyProjectionUtil
         }
 
         // If the whole expression is not supported, look for a partially supported projection
-        if (expression instanceof FieldDereference) {
-            fillSupportedProjectedColumns(((FieldDereference) expression).getTarget(), supportedSubExpressions);
+        for (ConnectorExpression child : expression.getChildren()) {
+            fillSupportedProjectedColumns(child, supportedSubExpressions);
         }
     }
 
@@ -69,7 +72,7 @@ final class HiveApplyProjectionUtil
                 target = (Variable) expression;
                 break;
             }
-            else if (expression instanceof FieldDereference) {
+            if (expression instanceof FieldDereference) {
                 FieldDereference dereference = (FieldDereference) expression;
                 ordinals.add(dereference.getField());
                 expression = dereference.getTarget();
@@ -92,12 +95,28 @@ final class HiveApplyProjectionUtil
             return expressionToVariableMappings.get(expression);
         }
 
+        if (expression instanceof Constant || expression instanceof Variable) {
+            return expression;
+        }
+
         if (expression instanceof FieldDereference) {
             ConnectorExpression newTarget = replaceWithNewVariables(((FieldDereference) expression).getTarget(), expressionToVariableMappings);
             return new FieldDereference(expression.getType(), newTarget, ((FieldDereference) expression).getField());
         }
 
-        return expression;
+        if (expression instanceof Call) {
+            Call call = (Call) expression;
+            return new Call(
+                    call.getType(),
+                    call.getFunctionName(),
+                    call.getArguments().stream()
+                            .map(argument -> replaceWithNewVariables(argument, expressionToVariableMappings))
+                            .collect(toImmutableList()));
+        }
+
+        // We cannot skip processing for unsupported expression shapes. This may lead to variables being left in ProjectionApplicationResult
+        // which are no longer bound.
+        throw new UnsupportedOperationException("Unsupported expression: " + expression);
     }
 
     /**

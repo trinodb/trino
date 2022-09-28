@@ -1,0 +1,31 @@
+{
+    "tableName": "json_table",
+    "tableType": "OFFLINE",
+    "segmentsConfig": {
+        "timeColumnName": "updated_at_seconds",
+        "retentionTimeUnit": "DAYS",
+        "retentionTimeValue": "365",
+        "segmentPushType": "APPEND",
+        "segmentPushFrequency": "daily",
+        "segmentAssignmentStrategy": "BalanceNumSegmentAssignmentStrategy",
+        "replication": "1"
+    },
+    "tenants": {
+        "broker": "DefaultTenant",
+        "server": "DefaultTenant"
+    },
+    "tableIndexConfig": {
+        "loadMode": "MMAP",
+        "invertedIndexColumns": ["string_col"],
+        "sortedColumn": ["updated_at_seconds"],
+        "noDictionaryColumns": ["json_col"],
+        "starTreeIndexConfigs": [],
+        "aggregateMetrics": "true",
+        "nullHandlingEnabled": "true"
+    },
+    "metadata": {
+        "customConfigs": {
+            "owner": "analytics@example.com"
+        }
+    }
+}

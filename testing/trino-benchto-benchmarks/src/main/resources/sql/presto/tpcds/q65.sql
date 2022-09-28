@@ -43,5 +43,7 @@ WHERE ("sb"."ss_store_sk" = "sc"."ss_store_sk")
    AND ("sc"."revenue" <= (DECIMAL '0.1' * "sb"."ave"))
    AND ("s_store_sk" = "sc"."ss_store_sk")
    AND ("i_item_sk" = "sc"."ss_item_sk")
-ORDER BY "s_store_name" ASC, "i_item_desc" ASC
+ORDER BY "s_store_name" ASC, "i_item_desc" ASC,
+   -- additional columns to assure results stability for larger scale factors; this is a deviation from TPC-DS specification
+   "i_brand" ASC, "sc"."revenue" ASC
 LIMIT 100

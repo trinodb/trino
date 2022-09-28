@@ -15,43 +15,35 @@ package io.trino.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.ConnectorTableLayoutHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
 import java.util.Objects;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public final class TableHandle
 {
-    private final CatalogName catalogName;
+    private final CatalogHandle catalogHandle;
     private final ConnectorTableHandle connectorHandle;
     private final ConnectorTransactionHandle transaction;
 
-    // Table layouts are deprecated, but we keep this here to hide the notion of layouts
-    // from the engine. TODO: it should be removed once table layouts are finally deleted
-    private final Optional<ConnectorTableLayoutHandle> layout;
-
     @JsonCreator
     public TableHandle(
-            @JsonProperty("catalogName") CatalogName catalogName,
+            @JsonProperty("catalogHandle") CatalogHandle catalogHandle,
             @JsonProperty("connectorHandle") ConnectorTableHandle connectorHandle,
-            @JsonProperty("transaction") ConnectorTransactionHandle transaction,
-            @JsonProperty("layout") Optional<ConnectorTableLayoutHandle> layout)
+            @JsonProperty("transaction") ConnectorTransactionHandle transaction)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
         this.transaction = requireNonNull(transaction, "transaction is null");
-        this.layout = requireNonNull(layout, "layout is null");
     }
 
     @JsonProperty
-    public CatalogName getCatalogName()
+    public CatalogHandle getCatalogHandle()
     {
-        return catalogName;
+        return catalogHandle;
     }
 
     @JsonProperty
@@ -61,21 +53,23 @@ public final class TableHandle
     }
 
     @JsonProperty
-    public Optional<ConnectorTableLayoutHandle> getLayout()
-    {
-        return layout;
-    }
-
-    @JsonProperty
     public ConnectorTransactionHandle getTransaction()
     {
         return transaction;
     }
 
+    public TableHandle withConnectorHandle(ConnectorTableHandle connectorHandle)
+    {
+        return new TableHandle(
+                catalogHandle,
+                connectorHandle,
+                transaction);
+    }
+
     @Override
     public String toString()
     {
-        return catalogName + ":" + connectorHandle;
+        return catalogHandle + ":" + connectorHandle;
     }
 
     @Override
@@ -88,15 +82,14 @@ public final class TableHandle
             return false;
         }
         TableHandle other = (TableHandle) o;
-        return Objects.equals(catalogName, other.catalogName) &&
+        return Objects.equals(catalogHandle, other.catalogHandle) &&
                 Objects.equals(connectorHandle, other.connectorHandle) &&
-                Objects.equals(transaction, other.transaction) &&
-                Objects.equals(layout, other.layout);
+                Objects.equals(transaction, other.transaction);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogName, connectorHandle, transaction, layout);
+        return Objects.hash(catalogHandle, connectorHandle, transaction);
     }
 }

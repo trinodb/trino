@@ -17,10 +17,10 @@ import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
@@ -29,6 +29,7 @@ import java.util.Map;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.plugin.base.Versions.checkSpiVersion;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.Integer.parseInt;
 
@@ -55,26 +56,22 @@ public class TpcdsConnectorFactory
     }
 
     @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new TpcdsHandleResolver();
-    }
-
-    @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
+        checkSpiVersion(context, this);
+
         int splitsPerNode = getSplitsPerNode(config);
         NodeManager nodeManager = context.getNodeManager();
         return new Connector()
         {
             @Override
-            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
             {
                 return TpcdsTransactionHandle.INSTANCE;
             }
 
             @Override
-            public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
+            public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
             {
                 return new TpcdsMetadata();
             }

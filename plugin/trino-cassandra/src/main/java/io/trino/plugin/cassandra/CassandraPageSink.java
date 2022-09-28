@@ -13,12 +13,16 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.datastax.driver.core.BatchStatement;
-import com.datastax.driver.core.LocalDate;
-import com.datastax.driver.core.PreparedStatement;
-import com.datastax.driver.core.ProtocolVersion;
-import com.datastax.driver.core.querybuilder.Insert;
+import com.datastax.oss.driver.api.core.ProtocolVersion;
+import com.datastax.oss.driver.api.core.cql.BatchStatement;
+import com.datastax.oss.driver.api.core.cql.BatchStatementBuilder;
+import com.datastax.oss.driver.api.core.cql.DefaultBatchType;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.querybuilder.term.Term;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.net.InetAddresses;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
@@ -27,21 +31,21 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarcharType;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
-import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
-import static com.datastax.driver.core.querybuilder.QueryBuilder.bindMarker;
-import static com.datastax.driver.core.querybuilder.QueryBuilder.insertInto;
+import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.bindMarker;
+import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.insertInto;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.ID_COLUMN_NAME;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.validColumnName;
@@ -58,6 +62,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -67,17 +72,17 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 public class CassandraPageSink
         implements ConnectorPageSink
 {
-    private static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date().withZoneUTC();
-
+    private final CassandraTypeManager cassandraTypeManager;
     private final CassandraSession cassandraSession;
     private final PreparedStatement insert;
     private final List<Type> columnTypes;
     private final boolean generateUuid;
     private final int batchSize;
     private final Function<Long, Object> toCassandraDate;
-    private final BatchStatement batchStatement = new BatchStatement();
+    private final BatchStatementBuilder batchStatement = BatchStatement.builder(DefaultBatchType.LOGGED);
 
     public CassandraPageSink(
+            CassandraTypeManager cassandraTypeManager,
             CassandraSession cassandraSession,
             ProtocolVersion protocolVersion,
             String schemaName,
@@ -87,6 +92,7 @@ public class CassandraPageSink
             boolean generateUuid,
             int batchSize)
     {
+        this.cassandraTypeManager = requireNonNull(cassandraTypeManager, "cassandraTypeManager is null");
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession");
         requireNonNull(schemaName, "schemaName is null");
         requireNonNull(tableName, "tableName is null");
@@ -95,23 +101,26 @@ public class CassandraPageSink
         this.generateUuid = generateUuid;
         this.batchSize = batchSize;
 
-        if (protocolVersion.toInt() <= ProtocolVersion.V3.toInt()) {
-            this.toCassandraDate = value -> DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(value));
+        if (protocolVersion.getCode() <= ProtocolVersion.V3.getCode()) {
+            toCassandraDate = value -> DateTimeFormatter.ISO_LOCAL_DATE.format(LocalDate.ofEpochDay(toIntExact(value)));
         }
         else {
-            this.toCassandraDate = value -> LocalDate.fromDaysSinceEpoch(toIntExact(value));
+            toCassandraDate = value -> LocalDate.ofEpochDay(toIntExact(value));
         }
 
-        Insert insert = insertInto(validSchemaName(schemaName), validTableName(tableName));
+        ImmutableMap.Builder<String, Term> parameters = ImmutableMap.builder();
         if (generateUuid) {
-            insert.value(ID_COLUMN_NAME, bindMarker());
+            parameters.put(ID_COLUMN_NAME, bindMarker());
         }
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             checkArgument(columnName != null, "columnName is null at position: %s", i);
-            insert.value(validColumnName(columnName), bindMarker());
+            parameters.put(validColumnName(columnName), bindMarker());
         }
-        this.insert = cassandraSession.prepare(insert);
+        SimpleStatement insertStatement = insertInto(validSchemaName(schemaName), validTableName(tableName))
+                .values(parameters.buildOrThrow())
+                .build();
+        this.insert = cassandraSession.prepare(insertStatement);
     }
 
     @Override
@@ -127,11 +136,11 @@ public class CassandraPageSink
                 appendColumn(values, page, position, channel);
             }
 
-            batchStatement.add(insert.bind(values.toArray()));
+            batchStatement.addStatement(insert.bind(values.toArray()));
 
-            if (batchStatement.size() >= batchSize) {
-                cassandraSession.execute(batchStatement);
-                batchStatement.clear();
+            if (batchStatement.getStatementsCount() >= batchSize) {
+                cassandraSession.execute(batchStatement.build());
+                batchStatement.clearStatements();
             }
         }
         return NOT_BLOCKED;
@@ -169,13 +178,19 @@ public class CassandraPageSink
             values.add(toCassandraDate.apply(type.getLong(block, position)));
         }
         else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
-            values.add(new Timestamp(unpackMillisUtc(type.getLong(block, position))));
+            values.add(Instant.ofEpochMilli(unpackMillisUtc(type.getLong(block, position))));
         }
         else if (type instanceof VarcharType) {
             values.add(type.getSlice(block, position).toStringUtf8());
         }
         else if (VARBINARY.equals(type)) {
             values.add(type.getSlice(block, position).toByteBuffer());
+        }
+        else if (UuidType.UUID.equals(type)) {
+            values.add(trinoUuidToJavaUuid(type.getSlice(block, position)));
+        }
+        else if (cassandraTypeManager.isIpAddressType(type)) {
+            values.add(InetAddresses.forString((String) type.getObjectValue(null, block, position)));
         }
         else {
             throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
@@ -185,9 +200,9 @@ public class CassandraPageSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        if (batchStatement.size() > 0) {
-            cassandraSession.execute(batchStatement);
-            batchStatement.clear();
+        if (batchStatement.getStatementsCount() > 0) {
+            cassandraSession.execute(batchStatement.build());
+            batchStatement.clearStatements();
         }
 
         // the committer does not need any additional info

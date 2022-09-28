@@ -19,11 +19,12 @@ import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
+import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
@@ -39,8 +40,6 @@ import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.hive.metastore.api.DataOperationType;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -71,10 +70,9 @@ public class BridgingHiveMetastore
 {
     private final ThriftMetastore delegate;
 
-    @Inject
     public BridgingHiveMetastore(ThriftMetastore delegate)
     {
-        this.delegate = delegate;
+        this.delegate = requireNonNull(delegate, "delegate is null");
     }
 
     @Override
@@ -90,11 +88,11 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public Optional<Table> getTable(HiveIdentity identity, String databaseName, String tableName)
+    public Optional<Table> getTable(String databaseName, String tableName)
     {
-        return delegate.getTable(identity, databaseName, tableName).map(table -> {
+        return delegate.getTable(databaseName, tableName).map(table -> {
             if (isAvroTableWithSchemaSet(table)) {
-                return fromMetastoreApiTable(table, delegate.getFields(identity, databaseName, tableName).orElseThrow());
+                return fromMetastoreApiTable(table, delegate.getFields(databaseName, tableName).orElseThrow());
             }
             if (isCsvTable(table)) {
                 return fromMetastoreApiTable(table, csvSchemaFields(table.getSd().getCols()));
@@ -110,16 +108,15 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public PartitionStatistics getTableStatistics(HiveIdentity identity, Table table)
+    public PartitionStatistics getTableStatistics(Table table)
     {
-        return delegate.getTableStatistics(identity, toMetastoreApiTable(table));
+        return delegate.getTableStatistics(toMetastoreApiTable(table));
     }
 
     @Override
-    public Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, Table table, List<Partition> partitions)
+    public Map<String, PartitionStatistics> getPartitionStatistics(Table table, List<Partition> partitions)
     {
         return delegate.getPartitionStatistics(
-                identity,
                 toMetastoreApiTable(table),
                 partitions.stream()
                         .map(ThriftMetastoreUtil::toMetastoreApiPartition)
@@ -127,15 +124,16 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
     {
-        delegate.updateTableStatistics(identity, databaseName, tableName, transaction, update);
+        delegate.updateTableStatistics(databaseName, tableName, transaction, update);
     }
 
     @Override
-    public void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
-        delegate.updatePartitionStatistics(identity, toMetastoreApiTable(table), partitionName, update);
+        org.apache.hadoop.hive.metastore.api.Table metastoreTable = toMetastoreApiTable(table);
+        updates.forEach((partitionName, update) -> delegate.updatePartitionStatistics(metastoreTable, partitionName, update));
     }
 
     @Override
@@ -157,24 +155,24 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void createDatabase(HiveIdentity identity, Database database)
+    public void createDatabase(Database database)
     {
-        delegate.createDatabase(identity, toMetastoreApiDatabase(database));
+        delegate.createDatabase(toMetastoreApiDatabase(database));
     }
 
     @Override
-    public void dropDatabase(HiveIdentity identity, String databaseName)
+    public void dropDatabase(String databaseName, boolean deleteData)
     {
-        delegate.dropDatabase(identity, databaseName);
+        delegate.dropDatabase(databaseName, deleteData);
     }
 
     @Override
-    public void renameDatabase(HiveIdentity identity, String databaseName, String newDatabaseName)
+    public void renameDatabase(String databaseName, String newDatabaseName)
     {
         org.apache.hadoop.hive.metastore.api.Database database = delegate.getDatabase(databaseName)
                 .orElseThrow(() -> new SchemaNotFoundException(databaseName));
         database.setName(newDatabaseName);
-        delegate.alterDatabase(identity, databaseName, database);
+        delegate.alterDatabase(databaseName, database);
 
         delegate.getDatabase(databaseName).ifPresent(newDatabase -> {
             if (newDatabase.getName().equals(databaseName)) {
@@ -184,58 +182,52 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
+    public void setDatabaseOwner(String databaseName, HivePrincipal principal)
     {
         Database database = fromMetastoreApiDatabase(delegate.getDatabase(databaseName)
                 .orElseThrow(() -> new SchemaNotFoundException(databaseName)));
 
         Database newDatabase = Database.builder(database)
-                .setOwnerName(principal.getName())
-                .setOwnerType(principal.getType())
+                .setOwnerName(Optional.of(principal.getName()))
+                .setOwnerType(Optional.of(principal.getType()))
                 .build();
 
-        delegate.alterDatabase(identity, databaseName, toMetastoreApiDatabase(newDatabase));
+        delegate.alterDatabase(databaseName, toMetastoreApiDatabase(newDatabase));
     }
 
     @Override
-    public void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges)
+    public void createTable(Table table, PrincipalPrivileges principalPrivileges)
     {
-        delegate.createTable(identity, toMetastoreApiTable(table, principalPrivileges));
+        delegate.createTable(toMetastoreApiTable(table, principalPrivileges));
     }
 
     @Override
-    public void dropTable(HiveIdentity identity, String databaseName, String tableName, boolean deleteData)
+    public void dropTable(String databaseName, String tableName, boolean deleteData)
     {
-        delegate.dropTable(identity, databaseName, tableName, deleteData);
+        delegate.dropTable(databaseName, tableName, deleteData);
     }
 
     @Override
-    public void replaceTable(HiveIdentity identity, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
+    public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
-        alterTable(identity, databaseName, tableName, toMetastoreApiTable(newTable, principalPrivileges));
+        alterTable(databaseName, tableName, toMetastoreApiTable(newTable, principalPrivileges));
     }
 
     @Override
-    public void renameTable(HiveIdentity identity, String databaseName, String tableName, String newDatabaseName, String newTableName)
+    public void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName)
     {
-        Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(identity, databaseName, tableName);
-        if (source.isEmpty()) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-        }
-        org.apache.hadoop.hive.metastore.api.Table table = source.get();
+        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         table.setDbName(newDatabaseName);
         table.setTableName(newTableName);
-        alterTable(identity, databaseName, tableName, table);
+        alterTable(databaseName, tableName, table);
     }
 
     @Override
-    public void commentTable(HiveIdentity identity, String databaseName, String tableName, Optional<String> comment)
+    public void commentTable(String databaseName, String tableName, Optional<String> comment)
     {
-        Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(identity, databaseName, tableName);
-        if (source.isEmpty()) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-        }
-        org.apache.hadoop.hive.metastore.api.Table table = source.get();
+        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
 
         Map<String, String> parameters = table.getParameters().entrySet().stream()
                 .filter(entry -> !entry.getKey().equals(TABLE_COMMENT))
@@ -243,35 +235,32 @@ public class BridgingHiveMetastore
         comment.ifPresent(value -> parameters.put(TABLE_COMMENT, value));
 
         table.setParameters(parameters);
-        alterTable(identity, databaseName, tableName, table);
+        alterTable(databaseName, tableName, table);
     }
 
     @Override
-    public void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal)
+    public void setTableOwner(String databaseName, String tableName, HivePrincipal principal)
     {
         // TODO Add role support https://github.com/trinodb/trino/issues/5706
         if (principal.getType() != USER) {
             throw new TrinoException(NOT_SUPPORTED, "Setting table owner type as a role is not supported");
         }
 
-        Table table = fromMetastoreApiTable(delegate.getTable(identity, databaseName, tableName)
+        Table table = fromMetastoreApiTable(delegate.getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName))));
 
         Table newTable = Table.builder(table)
-                .setOwner(principal.getName())
+                .setOwner(Optional.of(principal.getName()))
                 .build();
 
-        delegate.alterTable(identity, databaseName, tableName, toMetastoreApiTable(newTable));
+        delegate.alterTable(databaseName, tableName, toMetastoreApiTable(newTable));
     }
 
     @Override
-    public void commentColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, Optional<String> comment)
+    public void commentColumn(String databaseName, String tableName, String columnName, Optional<String> comment)
     {
-        Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(identity, databaseName, tableName);
-        if (source.isEmpty()) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-        }
-        org.apache.hadoop.hive.metastore.api.Table table = source.get();
+        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
 
         for (FieldSchema fieldSchema : table.getSd().getCols()) {
             if (fieldSchema.getName().equals(columnName)) {
@@ -284,30 +273,24 @@ public class BridgingHiveMetastore
             }
         }
 
-        alterTable(identity, databaseName, tableName, table);
+        alterTable(databaseName, tableName, table);
     }
 
     @Override
-    public void addColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
+    public void addColumn(String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
-        Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(identity, databaseName, tableName);
-        if (source.isEmpty()) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-        }
-        org.apache.hadoop.hive.metastore.api.Table table = source.get();
+        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         table.getSd().getCols().add(
                 new FieldSchema(columnName, columnType.getHiveTypeName().toString(), columnComment));
-        alterTable(identity, databaseName, tableName, table);
+        alterTable(databaseName, tableName, table);
     }
 
     @Override
-    public void renameColumn(HiveIdentity identity, String databaseName, String tableName, String oldColumnName, String newColumnName)
+    public void renameColumn(String databaseName, String tableName, String oldColumnName, String newColumnName)
     {
-        Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(identity, databaseName, tableName);
-        if (source.isEmpty()) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-        }
-        org.apache.hadoop.hive.metastore.api.Table table = source.get();
+        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         for (FieldSchema fieldSchema : table.getPartitionKeys()) {
             if (fieldSchema.getName().equals(oldColumnName)) {
                 throw new TrinoException(NOT_SUPPORTED, "Renaming partition columns is not supported");
@@ -318,43 +301,42 @@ public class BridgingHiveMetastore
                 fieldSchema.setName(newColumnName);
             }
         }
-        alterTable(identity, databaseName, tableName, table);
+        alterTable(databaseName, tableName, table);
     }
 
     @Override
-    public void dropColumn(HiveIdentity identity, String databaseName, String tableName, String columnName)
+    public void dropColumn(String databaseName, String tableName, String columnName)
     {
-        verifyCanDropColumn(this, identity, databaseName, tableName, columnName);
-        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(identity, databaseName, tableName)
+        verifyCanDropColumn(this, databaseName, tableName, columnName);
+        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         table.getSd().getCols().removeIf(fieldSchema -> fieldSchema.getName().equals(columnName));
-        alterTable(identity, databaseName, tableName, table);
+        alterTable(databaseName, tableName, table);
     }
 
-    private void alterTable(HiveIdentity identity, String databaseName, String tableName, org.apache.hadoop.hive.metastore.api.Table table)
+    private void alterTable(String databaseName, String tableName, org.apache.hadoop.hive.metastore.api.Table table)
     {
-        delegate.alterTable(identity, databaseName, tableName, table);
+        delegate.alterTable(databaseName, tableName, table);
     }
 
     @Override
-    public Optional<Partition> getPartition(HiveIdentity identity, Table table, List<String> partitionValues)
+    public Optional<Partition> getPartition(Table table, List<String> partitionValues)
     {
-        return delegate.getPartition(identity, table.getDatabaseName(), table.getTableName(), partitionValues).map(partition -> fromMetastoreApiPartition(table, partition));
+        return delegate.getPartition(table.getDatabaseName(), table.getTableName(), partitionValues).map(partition -> fromMetastoreApiPartition(table, partition));
     }
 
     @Override
     public Optional<List<String>> getPartitionNamesByFilter(
-            HiveIdentity identity,
             String databaseName,
             String tableName,
             List<String> columnNames,
             TupleDomain<String> partitionKeysFilter)
     {
-        return delegate.getPartitionNamesByFilter(identity, databaseName, tableName, columnNames, partitionKeysFilter);
+        return delegate.getPartitionNamesByFilter(databaseName, tableName, columnNames, partitionKeysFilter);
     }
 
     @Override
-    public Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, Table table, List<String> partitionNames)
+    public Map<String, Optional<Partition>> getPartitionsByNames(Table table, List<String> partitionNames)
     {
         requireNonNull(partitionNames, "partitionNames is null");
         if (partitionNames.isEmpty()) {
@@ -363,7 +345,7 @@ public class BridgingHiveMetastore
 
         Map<String, List<String>> partitionNameToPartitionValuesMap = partitionNames.stream()
                 .collect(Collectors.toMap(identity(), HiveUtil::toPartitionValues));
-        Map<List<String>, Partition> partitionValuesToPartitionMap = delegate.getPartitionsByNames(identity, table.getDatabaseName(), table.getTableName(), partitionNames).stream()
+        Map<List<String>, Partition> partitionValuesToPartitionMap = delegate.getPartitionsByNames(table.getDatabaseName(), table.getTableName(), partitionNames).stream()
                 .map(partition -> fromMetastoreApiPartition(table, partition))
                 .collect(Collectors.toMap(Partition::getValues, identity()));
         ImmutableMap.Builder<String, Optional<Partition>> resultBuilder = ImmutableMap.builder();
@@ -371,10 +353,10 @@ public class BridgingHiveMetastore
             Partition partition = partitionValuesToPartitionMap.get(entry.getValue());
             resultBuilder.put(entry.getKey(), Optional.ofNullable(partition));
         }
-        return resultBuilder.build();
+        return resultBuilder.buildOrThrow();
     }
 
-    private Partition fromMetastoreApiPartition(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
+    private static Partition fromMetastoreApiPartition(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
     {
         if (isAvroTableWithSchemaSet(table)) {
             List<FieldSchema> schema = table.getDataColumns().stream()
@@ -387,21 +369,21 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void addPartitions(HiveIdentity identity, String databaseName, String tableName, List<PartitionWithStatistics> partitions)
+    public void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions)
     {
-        delegate.addPartitions(identity, databaseName, tableName, partitions);
+        delegate.addPartitions(databaseName, tableName, partitions);
     }
 
     @Override
-    public void dropPartition(HiveIdentity identity, String databaseName, String tableName, List<String> parts, boolean deleteData)
+    public void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData)
     {
-        delegate.dropPartition(identity, databaseName, tableName, parts, deleteData);
+        delegate.dropPartition(databaseName, tableName, parts, deleteData);
     }
 
     @Override
-    public void alterPartition(HiveIdentity identity, String databaseName, String tableName, PartitionWithStatistics partition)
+    public void alterPartition(String databaseName, String tableName, PartitionWithStatistics partition)
     {
-        delegate.alterPartition(identity, databaseName, tableName, partition);
+        delegate.alterPartition(databaseName, tableName, partition);
     }
 
     @Override
@@ -447,27 +429,21 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
-        delegate.grantTablePrivileges(databaseName, tableName, tableOwner, grantee, privileges);
+        delegate.grantTablePrivileges(databaseName, tableName, tableOwner, grantee, grantor, privileges, grantOption);
     }
 
     @Override
-    public void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
-        delegate.revokeTablePrivileges(databaseName, tableName, tableOwner, grantee, privileges);
+        delegate.revokeTablePrivileges(databaseName, tableName, tableOwner, grantee, grantor, privileges, grantOption);
     }
 
     @Override
-    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal)
+    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal)
     {
         return delegate.listTablePrivileges(databaseName, tableName, tableOwner, principal);
-    }
-
-    @Override
-    public boolean isImpersonationEnabled()
-    {
-        return delegate.isImpersonationEnabled();
     }
 
     @Override
@@ -477,72 +453,90 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public long openTransaction(HiveIdentity identity)
+    public long openTransaction(AcidTransactionOwner transactionOwner)
     {
-        return delegate.openTransaction(identity);
+        return delegate.openTransaction(transactionOwner);
     }
 
     @Override
-    public void commitTransaction(HiveIdentity identity, long transactionId)
+    public void commitTransaction(long transactionId)
     {
-        delegate.commitTransaction(identity, transactionId);
+        delegate.commitTransaction(transactionId);
     }
 
     @Override
-    public void sendTransactionHeartbeat(HiveIdentity identity, long transactionId)
+    public void abortTransaction(long transactionId)
     {
-        delegate.sendTransactionHeartbeat(identity, transactionId);
+        delegate.abortTransaction(transactionId);
     }
 
     @Override
-    public void acquireSharedReadLock(HiveIdentity identity, String queryId, long transactionId, List<SchemaTableName> fullTables, List<HivePartition> partitions)
+    public void sendTransactionHeartbeat(long transactionId)
     {
-        delegate.acquireSharedReadLock(identity, queryId, transactionId, fullTables, partitions);
+        delegate.sendTransactionHeartbeat(transactionId);
     }
 
     @Override
-    public String getValidWriteIds(HiveIdentity identity, List<SchemaTableName> tables, long currentTransactionId)
+    public void acquireSharedReadLock(
+            AcidTransactionOwner transactionOwner,
+            String queryId,
+            long transactionId,
+            List<SchemaTableName> fullTables,
+            List<HivePartition> partitions)
     {
-        return delegate.getValidWriteIds(identity, tables, currentTransactionId);
+        delegate.acquireSharedReadLock(transactionOwner, queryId, transactionId, fullTables, partitions);
     }
 
     @Override
-    public long allocateWriteId(HiveIdentity identity, String dbName, String tableName, long transactionId)
+    public String getValidWriteIds(List<SchemaTableName> tables, long currentTransactionId)
     {
-        return delegate.allocateWriteId(identity, dbName, tableName, transactionId);
+        return delegate.getValidWriteIds(tables, currentTransactionId);
     }
 
     @Override
-    public void acquireTableWriteLock(HiveIdentity identity, String queryId, long transactionId, String dbName, String tableName, DataOperationType operation, boolean isDynamicPartitionWrite)
+    public long allocateWriteId(String dbName, String tableName, long transactionId)
     {
-        delegate.acquireTableWriteLock(identity, queryId, transactionId, dbName, tableName, operation, isDynamicPartitionWrite);
+        return delegate.allocateWriteId(dbName, tableName, transactionId);
     }
 
     @Override
-    public void updateTableWriteId(HiveIdentity identity, String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
+    public void acquireTableWriteLock(
+            AcidTransactionOwner transactionOwner,
+            String queryId,
+            long transactionId,
+            String dbName,
+            String tableName,
+            DataOperationType operation,
+            boolean isDynamicPartitionWrite)
     {
-        delegate.updateTableWriteId(identity, dbName, tableName, transactionId, writeId, rowCountChange);
+        delegate.acquireTableWriteLock(transactionOwner, queryId, transactionId, dbName, tableName, operation, isDynamicPartitionWrite);
     }
 
     @Override
-    public void alterPartitions(HiveIdentity identity, String dbName, String tableName, List<Partition> partitions, long writeId)
+    public void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
+    {
+        delegate.updateTableWriteId(dbName, tableName, transactionId, writeId, rowCountChange);
+    }
+
+    @Override
+    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
     {
         List<org.apache.hadoop.hive.metastore.api.Partition> hadoopPartitions = partitions.stream()
                 .map(ThriftMetastoreUtil::toMetastoreApiPartition)
                 .peek(partition -> partition.setWriteId(writeId))
                 .collect(toImmutableList());
-        delegate.alterPartitions(identity, dbName, tableName, hadoopPartitions, writeId);
+        delegate.alterPartitions(dbName, tableName, hadoopPartitions, writeId);
     }
 
     @Override
-    public void addDynamicPartitions(HiveIdentity identity, String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+    public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
     {
-        delegate.addDynamicPartitions(identity, dbName, tableName, partitionNames, transactionId, writeId, operation);
+        delegate.addDynamicPartitions(dbName, tableName, partitionNames, transactionId, writeId, operation);
     }
 
     @Override
-    public void alterTransactionalTable(HiveIdentity identity, Table table, long transactionId, long writeId, PrincipalPrivileges principalPrivileges)
+    public void alterTransactionalTable(Table table, long transactionId, long writeId, PrincipalPrivileges principalPrivileges)
     {
-        delegate.alterTransactionalTable(identity, toMetastoreApiTable(table, principalPrivileges), transactionId, writeId);
+        delegate.alterTransactionalTable(toMetastoreApiTable(table, principalPrivileges), transactionId, writeId);
     }
 }

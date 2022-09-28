@@ -19,11 +19,12 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
-import java.util.function.BiConsumer;
+import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.ArrayBlock.createArrayBlockInternal;
-import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
+import static io.trino.spi.block.BlockUtil.checkArrayRange;
+import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
@@ -43,6 +44,7 @@ public class ArrayBlockBuilder
     private int[] offsets = new int[1];
     private boolean[] valueIsNull = new boolean[0];
     private boolean hasNullValue;
+    private boolean hasNonNullRow;
 
     private final BlockBuilder values;
     private boolean currentEntryOpened;
@@ -107,12 +109,12 @@ public class ArrayBlockBuilder
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(values, values.getRetainedSizeInBytes());
         consumer.accept(offsets, sizeOf(offsets));
         consumer.accept(valueIsNull, sizeOf(valueIsNull));
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -133,63 +135,24 @@ public class ArrayBlockBuilder
         return 0;
     }
 
+    @Nullable
     @Override
     protected boolean[] getValueIsNull()
     {
-        return valueIsNull;
+        return hasNullValue ? valueIsNull : null;
     }
 
     @Override
-    public BlockBuilder appendStructure(Block block)
+    public boolean mayHaveNull()
     {
-        if (currentEntryOpened) {
-            throw new IllegalStateException("Expected current entry to be closed but was opened");
-        }
-        currentEntryOpened = true;
-
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            if (block.isNull(i)) {
-                values.appendNull();
-            }
-            else {
-                block.writePositionTo(i, values);
-            }
-        }
-
-        closeEntry();
-        return this;
-    }
-
-    @Override
-    public BlockBuilder appendStructureInternal(Block block, int position)
-    {
-        if (!(block instanceof AbstractArrayBlock)) {
-            throw new IllegalArgumentException();
-        }
-
-        AbstractArrayBlock arrayBlock = (AbstractArrayBlock) block;
-        BlockBuilder entryBuilder = beginBlockEntry();
-
-        int startValueOffset = arrayBlock.getOffset(position);
-        int endValueOffset = arrayBlock.getOffset(position + 1);
-        for (int i = startValueOffset; i < endValueOffset; i++) {
-            if (arrayBlock.getRawElementBlock().isNull(i)) {
-                entryBuilder.appendNull();
-            }
-            else {
-                arrayBlock.getRawElementBlock().writePositionTo(i, entryBuilder);
-            }
-        }
-
-        closeEntry();
-        return this;
+        return hasNullValue;
     }
 
     @Override
     public SingleArrayBlockWriter beginBlockEntry()
     {
         if (currentEntryOpened) {
-            throw new IllegalStateException("Expected current entry to be closed but was closed");
+            throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
         currentEntryOpened = true;
         return new SingleArrayBlockWriter(values, values.getPositionCount());
@@ -226,6 +189,7 @@ public class ArrayBlockBuilder
         offsets[positionCount + 1] = values.getPositionCount();
         valueIsNull[positionCount] = isNull;
         hasNullValue |= isNull;
+        hasNonNullRow |= !isNull;
         positionCount++;
 
         if (blockBuilderStatus != null) {
@@ -258,19 +222,21 @@ public class ArrayBlockBuilder
     }
 
     @Override
-    public ArrayBlock build()
+    public Block build()
     {
         if (currentEntryOpened) {
             throw new IllegalStateException("Current entry must be closed before the block can be built");
+        }
+        if (!hasNonNullRow) {
+            return nullRle(positionCount);
         }
         return createArrayBlockInternal(0, positionCount, hasNullValue ? valueIsNull : null, offsets, values.build());
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
     {
-        int newSize = calculateBlockResetSize(getPositionCount());
-        return new ArrayBlockBuilder(blockBuilderStatus, values.newBlockBuilderLike(blockBuilderStatus), newSize);
+        return new ArrayBlockBuilder(blockBuilderStatus, values.newBlockBuilderLike(blockBuilderStatus), expectedEntries);
     }
 
     @Override
@@ -280,5 +246,46 @@ public class ArrayBlockBuilder
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();
+    }
+
+    @Override
+    public Block copyPositions(int[] positions, int offset, int length)
+    {
+        checkArrayRange(positions, offset, length);
+
+        if (!hasNonNullRow) {
+            return nullRle(length);
+        }
+        return super.copyPositions(positions, offset, length);
+    }
+
+    @Override
+    public Block getRegion(int position, int length)
+    {
+        int positionCount = getPositionCount();
+        checkValidRegion(positionCount, position, length);
+
+        if (!hasNonNullRow) {
+            return nullRle(length);
+        }
+        return super.getRegion(position, length);
+    }
+
+    @Override
+    public Block copyRegion(int position, int length)
+    {
+        int positionCount = getPositionCount();
+        checkValidRegion(positionCount, position, length);
+
+        if (!hasNonNullRow) {
+            return nullRle(length);
+        }
+        return super.copyRegion(position, length);
+    }
+
+    private Block nullRle(int positionCount)
+    {
+        ArrayBlock nullValueBlock = createArrayBlockInternal(0, 1, new boolean[] {true}, new int[] {0, 0}, values.newBlockBuilderLike(null).build());
+        return RunLengthEncodedBlock.create(nullValueBlock, positionCount);
     }
 }

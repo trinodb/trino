@@ -18,6 +18,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.trino.plugin.base.CatalogNameModule;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.raptor.legacy.backup.BackupModule;
@@ -28,7 +29,6 @@ import io.trino.spi.PageSorter;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -36,6 +36,7 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.trino.plugin.base.Versions.checkSpiVersion;
 import static java.util.Objects.requireNonNull;
 
 public class RaptorConnectorFactory
@@ -60,15 +61,12 @@ public class RaptorConnectorFactory
     }
 
     @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new RaptorHandleResolver();
-    }
-
-    @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
+        checkSpiVersion(context, this);
+
         Bootstrap app = new Bootstrap(
+                new CatalogNameModule(catalogName),
                 new JsonModule(),
                 new MBeanModule(),
                 new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.raptor.legacy", "trino.plugin.raptor.legacy"),
@@ -81,11 +79,10 @@ public class RaptorConnectorFactory
                 metadataModule,
                 new BackupModule(backupProviders),
                 new StorageModule(),
-                new RaptorModule(catalogName),
-                new RaptorSecurityModule(catalogName));
+                new RaptorModule(),
+                new RaptorSecurityModule());
 
         Injector injector = app
-                .strictConfig()
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(config)
                 .initialize();

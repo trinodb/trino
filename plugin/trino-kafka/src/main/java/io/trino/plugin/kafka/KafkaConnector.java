@@ -14,10 +14,12 @@
 package io.trino.plugin.kafka;
 
 import io.airlift.bootstrap.LifeCycleManager;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.session.PropertyMetadata;
@@ -57,20 +59,20 @@ public class KafkaConnector
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
-        this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null").stream()
+        this.sessionProperties = sessionProperties.stream()
                 .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
                 .collect(toImmutableList());
     }
 
     @Override
-    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
         checkConnectorSupports(READ_COMMITTED, isolationLevel);
         return KafkaTransactionHandle.INSTANCE;
     }
 
     @Override
-    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
+    public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
     {
         return metadata;
     }

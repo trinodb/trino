@@ -13,14 +13,18 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import com.google.inject.Key;
-import com.google.inject.util.Types;
+import com.google.inject.Module;
+import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.hdfs.HdfsFileSystemModule;
+import io.trino.hdfs.HdfsModule;
+import io.trino.hdfs.authentication.HdfsAuthenticationModule;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
@@ -28,34 +32,36 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
-import io.trino.plugin.base.security.AllowAllAccessControl;
-import io.trino.plugin.hive.HiveHdfsModule;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.authentication.HiveAuthenticationModule;
 import io.trino.plugin.hive.azure.HiveAzureModule;
 import io.trino.plugin.hive.gcs.HiveGcsModule;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreModule;
 import io.trino.plugin.hive.s3.HiveS3Module;
-import io.trino.plugin.iceberg.testing.TrackingFileIoModule;
+import io.trino.plugin.iceberg.catalog.IcebergCatalogModule;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
-import static com.google.inject.Scopes.SINGLETON;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public final class InternalIcebergConnectorFactory
 {
@@ -65,8 +71,9 @@ public final class InternalIcebergConnectorFactory
             String catalogName,
             Map<String, String> config,
             ConnectorContext context,
-            Optional<HiveMetastore> metastore,
-            boolean trackMetadataIo)
+            Module module,
+            Optional<Module> icebergCatalogModule,
+            Optional<TrinoFileSystemFactory> fileSystemFactory)
     {
         ClassLoader classLoader = InternalIcebergConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -76,56 +83,64 @@ public final class InternalIcebergConnectorFactory
                     new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.iceberg", "trino.plugin.iceberg"),
                     new JsonModule(),
                     new IcebergModule(),
-                    new IcebergMetastoreModule(),
-                    new HiveHdfsModule(),
+                    new IcebergSecurityModule(),
+                    icebergCatalogModule.orElse(new IcebergCatalogModule()),
+                    new HdfsModule(),
                     new HiveS3Module(),
                     new HiveGcsModule(),
                     new HiveAzureModule(),
-                    new HiveAuthenticationModule(),
-                    new HiveMetastoreModule(metastore),
+                    new HdfsAuthenticationModule(),
                     new MBeanServerModule(),
-                    trackMetadataIo
-                            ? new TrackingFileIoModule()
-                            : binder -> binder.bind(FileIoProvider.class).to(HdfsFileIoProvider.class).in(SINGLETON),
                     binder -> {
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
-                    });
+                        fileSystemFactory.ifPresentOrElse(
+                                factory -> binder.bind(TrinoFileSystemFactory.class).toInstance(factory),
+                                () -> binder.install(new HdfsFileSystemModule()));
+                    },
+                    module);
 
             Injector injector = app
-                    .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();
 
             LifeCycleManager lifeCycleManager = injector.getInstance(LifeCycleManager.class);
             IcebergTransactionManager transactionManager = injector.getInstance(IcebergTransactionManager.class);
-            IcebergMetadataFactory metadataFactory = injector.getInstance(IcebergMetadataFactory.class);
             ConnectorSplitManager splitManager = injector.getInstance(ConnectorSplitManager.class);
             ConnectorPageSourceProvider connectorPageSource = injector.getInstance(ConnectorPageSourceProvider.class);
             ConnectorPageSinkProvider pageSinkProvider = injector.getInstance(ConnectorPageSinkProvider.class);
             ConnectorNodePartitioningProvider connectorDistributionProvider = injector.getInstance(ConnectorNodePartitioningProvider.class);
-            IcebergSessionProperties icebergSessionProperties = injector.getInstance(IcebergSessionProperties.class);
+            Set<SessionPropertiesProvider> sessionPropertiesProviders = injector.getInstance(Key.get(new TypeLiteral<Set<SessionPropertiesProvider>>() {}));
             IcebergTableProperties icebergTableProperties = injector.getInstance(IcebergTableProperties.class);
-            Set<Procedure> procedures = injector.getInstance((Key<Set<Procedure>>) Key.get(Types.setOf(Procedure.class)));
+            IcebergMaterializedViewAdditionalProperties materializedViewAdditionalProperties = injector.getInstance(IcebergMaterializedViewAdditionalProperties.class);
+            IcebergAnalyzeProperties icebergAnalyzeProperties = injector.getInstance(IcebergAnalyzeProperties.class);
+            Set<Procedure> procedures = injector.getInstance(Key.get(new TypeLiteral<Set<Procedure>>() {}));
+            Set<TableProcedureMetadata> tableProcedures = injector.getInstance(Key.get(new TypeLiteral<Set<TableProcedureMetadata>>() {}));
+            Optional<ConnectorAccessControl> accessControl = injector.getInstance(Key.get(new TypeLiteral<Optional<ConnectorAccessControl>>() {}));
+            // Materialized view should allow configuring all the supported iceberg table properties for the storage table
+            List<PropertyMetadata<?>> materializedViewProperties = Stream.of(icebergTableProperties.getTableProperties(), materializedViewAdditionalProperties.getMaterializedViewProperties())
+                    .flatMap(Collection::stream)
+                    .collect(toImmutableList());
 
             return new IcebergConnector(
                     lifeCycleManager,
                     transactionManager,
-                    metadataFactory,
                     new ClassLoaderSafeConnectorSplitManager(splitManager, classLoader),
                     new ClassLoaderSafeConnectorPageSourceProvider(connectorPageSource, classLoader),
                     new ClassLoaderSafeConnectorPageSinkProvider(pageSinkProvider, classLoader),
                     new ClassLoaderSafeNodePartitioningProvider(connectorDistributionProvider, classLoader),
-                    ImmutableSet.of(),
-                    icebergSessionProperties.getSessionProperties(),
+                    sessionPropertiesProviders,
                     IcebergSchemaProperties.SCHEMA_PROPERTIES,
                     icebergTableProperties.getTableProperties(),
-                    new AllowAllAccessControl(),
-                    procedures);
+                    materializedViewProperties,
+                    icebergAnalyzeProperties.getAnalyzeProperties(),
+                    accessControl,
+                    procedures,
+                    tableProcedures);
         }
     }
 }

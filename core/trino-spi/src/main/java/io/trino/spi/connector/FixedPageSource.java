@@ -17,8 +17,6 @@ import io.trino.spi.Page;
 
 import java.util.Iterator;
 
-import static java.util.Objects.requireNonNull;
-
 public class FixedPageSource
         implements ConnectorPageSource
 {
@@ -30,7 +28,7 @@ public class FixedPageSource
 
     public FixedPageSource(Iterable<Page> pages)
     {
-        this.pages = requireNonNull(pages, "pages is null").iterator();
+        this.pages = pages.iterator();
 
         long memoryUsageBytes = 0;
         for (Page page : pages) {
@@ -75,7 +73,7 @@ public class FixedPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return memoryUsageBytes;
     }

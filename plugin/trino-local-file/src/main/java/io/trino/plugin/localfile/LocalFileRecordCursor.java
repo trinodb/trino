@@ -59,6 +59,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTim
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.nio.charset.Charset.defaultCharset;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -197,10 +198,8 @@ public class LocalFileRecordCursor
         if (getType(field).equals(createTimestampWithTimeZoneType(3))) {
             return parseTimestamp(getFieldValue(field));
         }
-        else {
-            checkFieldType(field, BIGINT, INTEGER);
-            return Long.parseLong(getFieldValue(field));
-        }
+        checkFieldType(field, BIGINT, INTEGER);
+        return Long.parseLong(getFieldValue(field));
     }
 
     @Override
@@ -309,7 +308,7 @@ public class LocalFileRecordCursor
             FileInputStream fileInputStream = new FileInputStream(file);
 
             InputStream in = isGZipped(file) ? new GZIPInputStream(fileInputStream) : fileInputStream;
-            return new BufferedReader(new InputStreamReader(in));
+            return new BufferedReader(new InputStreamReader(in, defaultCharset()));
         }
 
         public static boolean isGZipped(File file)

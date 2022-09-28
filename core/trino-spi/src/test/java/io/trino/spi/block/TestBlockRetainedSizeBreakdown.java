@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BiConsumer;
+import java.util.function.ObjLongConsumer;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -65,7 +65,7 @@ public class TestBlockRetainedSizeBreakdown
         for (int i = 0; i < keyIds.length; i++) {
             keyIds[i] = i;
         }
-        checkRetainedSize(new DictionaryBlock(EXPECTED_ENTRIES, keyDictionaryBlock, keyIds), false);
+        checkRetainedSize(DictionaryBlock.create(EXPECTED_ENTRIES, keyDictionaryBlock, keyIds), false);
     }
 
     @Test
@@ -89,7 +89,7 @@ public class TestBlockRetainedSizeBreakdown
     {
         BlockBuilder blockBuilder = new LongArrayBlockBuilder(null, 1);
         writeEntries(1, blockBuilder, BIGINT);
-        checkRetainedSize(new RunLengthEncodedBlock(blockBuilder.build(), 1), false);
+        checkRetainedSize(RunLengthEncodedBlock.create(blockBuilder.build(), 1), false);
     }
 
     @Test
@@ -140,7 +140,7 @@ public class TestBlockRetainedSizeBreakdown
         AtomicLong objectSize = new AtomicLong();
         Object2LongOpenCustomHashMap<Object> trackedObjects = new Object2LongOpenCustomHashMap<>(new ObjectStrategy());
 
-        BiConsumer<Object, Long> consumer = (object, size) -> {
+        ObjLongConsumer<Object> consumer = (object, size) -> {
             objectSize.addAndGet(size);
             trackedObjects.addTo(object, 1);
         };

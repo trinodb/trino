@@ -102,7 +102,7 @@ public class RcFileFileWriter
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return INSTANCE_SIZE + rcFileWriter.getRetainedSizeInBytes();
     }
@@ -114,7 +114,7 @@ public class RcFileFileWriter
         for (int i = 0; i < fileInputColumnIndexes.length; i++) {
             int inputColumnIndex = fileInputColumnIndexes[i];
             if (inputColumnIndex < 0) {
-                blocks[i] = new RunLengthEncodedBlock(nullBlocks.get(i), dataPage.getPositionCount());
+                blocks[i] = RunLengthEncodedBlock.create(nullBlocks.get(i), dataPage.getPositionCount());
             }
             else {
                 blocks[i] = dataPage.getBlock(inputColumnIndex);

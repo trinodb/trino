@@ -1,0 +1,5 @@
+{"commitInfo":{"timestamp":1579266311821,"operation":"UPDATE","operationParameters":{"predicate":"name#2367 LIKE B%"},"readVersion":5,"isBlindAppend":false}}
+{"remove":{"path":"age=42/part-00000-5488e09a-9998-4662-b5f4-e86e75cf68c6.c000.snappy.parquet","deletionTimestamp":1579266311602,"dataChange":true}}
+{"remove":{"path":"age=42/part-00000-4869f9d0-efdb-4e6d-a7ab-1c7f2cb0d8fa.c000.snappy.parquet","deletionTimestamp":1579266311602,"dataChange":true}}
+{"add":{"path":"age=21/part-00000-89dcee5a-b180-433c-aa1c-1973ae8e1920.c000.snappy.parquet","partitionValues":{"age":"21"},"size":2569,"modificationTime":1579266311000,"dataChange":true}}
+{"add":{"path":"age=21/part-00001-8f0c8ce9-cf36-47f2-8d5e-80d80c9d047b.c000.snappy.parquet","partitionValues":{"age":"21"},"size":2542,"modificationTime":1579266311000,"dataChange":true}}

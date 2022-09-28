@@ -23,10 +23,10 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 public class TimeColumnReader
         extends LongColumnReader
 {
-    public TimeColumnReader(Type type, OrcColumn column, LocalMemoryContext systemMemoryContext)
+    public TimeColumnReader(Type type, OrcColumn column, LocalMemoryContext memoryContext)
             throws OrcCorruptionException
     {
-        super(type, column, systemMemoryContext);
+        super(type, column, memoryContext);
     }
 
     @Override

@@ -19,14 +19,14 @@ import io.trino.tempto.RequirementsProvider;
 import io.trino.tempto.configuration.Configuration;
 import org.testng.annotations.Test;
 
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.CASSANDRA;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.cassandra.CassandraTpchTableDefinitions.CASSANDRA_NATION;
 import static io.trino.tests.product.cassandra.TestConstants.CONNECTOR_NAME;
 import static io.trino.tests.product.cassandra.TestConstants.KEY_SPACE;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 public class TestInvalidSelect
@@ -43,23 +43,23 @@ public class TestInvalidSelect
     public void testInvalidTable()
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, "bogus");
-        assertThat(() -> query(format("SELECT * FROM %s", tableName)))
-                .failsWithMessage(format("Table '%s' does not exist", tableName));
+        assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM %s", tableName)))
+                .hasMessageContaining("Table '%s' does not exist", tableName);
     }
 
     @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testInvalidSchema()
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, "does_not_exist", "bogus");
-        assertThat(() -> query(format("SELECT * FROM %s", tableName)))
-                .failsWithMessage("Schema 'does_not_exist' does not exist");
+        assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM %s", tableName)))
+                .hasMessageContaining("Schema 'does_not_exist' does not exist");
     }
 
     @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testInvalidColumn()
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, CASSANDRA_NATION.getName());
-        assertThat(() -> query(format("SELECT bogus FROM %s", tableName)))
-                .failsWithMessage("Column 'bogus' cannot be resolved");
+        assertQueryFailure(() -> onTrino().executeQuery(format("SELECT bogus FROM %s", tableName)))
+                .hasMessageContaining("Column 'bogus' cannot be resolved");
     }
 }

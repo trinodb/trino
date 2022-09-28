@@ -34,6 +34,7 @@ import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static java.lang.String.format;
@@ -128,7 +129,7 @@ public class RcFilePageSource
             Block[] blocks = new Block[hiveColumnIndexes.length];
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
                 if (constantBlocks[fieldId] != null) {
-                    blocks[fieldId] = new RunLengthEncodedBlock(constantBlocks[fieldId], currentPageSize);
+                    blocks[fieldId] = RunLengthEncodedBlock.create(constantBlocks[fieldId], currentPageSize);
                 }
                 else {
                     blocks[fieldId] = createBlock(currentPageSize, fieldId);
@@ -138,15 +139,15 @@ public class RcFilePageSource
             return new Page(currentPageSize, blocks);
         }
         catch (TrinoException e) {
-            closeWithSuppression(e);
+            closeAllSuppress(e, this);
             throw e;
         }
         catch (RcFileCorruptionException e) {
-            closeWithSuppression(e);
+            closeAllSuppress(e, this);
             throw new TrinoException(HIVE_BAD_DATA, format("Corrupted RC file: %s", rcFileReader.getId()), e);
         }
         catch (IOException | RuntimeException e) {
-            closeWithSuppression(e);
+            closeAllSuppress(e, this);
             throw new TrinoException(HIVE_CURSOR_ERROR, format("Failed to read RC file: %s", rcFileReader.getId()), e);
         }
     }
@@ -174,22 +175,9 @@ public class RcFilePageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return GUESSED_MEMORY_USAGE;
-    }
-
-    private void closeWithSuppression(Throwable throwable)
-    {
-        requireNonNull(throwable, "throwable is null");
-        try {
-            close();
-        }
-        catch (Exception e) {
-            if (e != throwable) {
-                throwable.addSuppressed(e);
-            }
-        }
     }
 
     private Block createBlock(int currentPageSize, int fieldId)
@@ -214,7 +202,7 @@ public class RcFilePageSource
         }
 
         @Override
-        public final Block load()
+        public Block load()
         {
             checkState(!loaded, "Already loaded");
             checkState(pageId == expectedBatchId);

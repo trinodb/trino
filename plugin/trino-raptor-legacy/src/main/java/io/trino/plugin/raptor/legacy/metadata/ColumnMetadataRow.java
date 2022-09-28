@@ -13,14 +13,8 @@
  */
 package io.trino.plugin.raptor.legacy.metadata;
 
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
-
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.OptionalInt;
 
-import static io.trino.plugin.raptor.legacy.util.DatabaseUtil.getOptionalInt;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnMetadataRow
@@ -63,21 +57,5 @@ public class ColumnMetadataRow
     public OptionalInt getBucketOrdinalPosition()
     {
         return bucketOrdinalPosition;
-    }
-
-    public static class Mapper
-            implements ResultSetMapper<ColumnMetadataRow>
-    {
-        @Override
-        public ColumnMetadataRow map(int index, ResultSet rs, StatementContext context)
-                throws SQLException
-        {
-            return new ColumnMetadataRow(
-                    rs.getLong("table_id"),
-                    rs.getLong("column_id"),
-                    rs.getString("column_name"),
-                    getOptionalInt(rs, "sort_ordinal_position"),
-                    getOptionalInt(rs, "bucket_ordinal_position"));
-        }
     }
 }

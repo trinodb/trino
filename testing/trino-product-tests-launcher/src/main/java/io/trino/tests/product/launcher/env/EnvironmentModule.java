@@ -21,10 +21,13 @@ import com.google.inject.multibindings.MapBinder;
 import io.trino.tests.product.launcher.env.common.Hadoop;
 import io.trino.tests.product.launcher.env.common.HadoopKerberos;
 import io.trino.tests.product.launcher.env.common.HadoopKerberosKms;
+import io.trino.tests.product.launcher.env.common.HadoopKerberosKmsWithImpersonation;
 import io.trino.tests.product.launcher.env.common.HydraIdentityProvider;
 import io.trino.tests.product.launcher.env.common.Kafka;
+import io.trino.tests.product.launcher.env.common.KafkaSaslPlaintext;
 import io.trino.tests.product.launcher.env.common.KafkaSsl;
-import io.trino.tests.product.launcher.env.common.SeleniumChrome;
+import io.trino.tests.product.launcher.env.common.Kerberos;
+import io.trino.tests.product.launcher.env.common.Minio;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
@@ -33,7 +36,10 @@ import java.io.File;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
-import static io.trino.tests.product.launcher.env.Environments.nameForConfigClass;
+import static io.trino.tests.product.launcher.Configurations.findConfigsByBasePackage;
+import static io.trino.tests.product.launcher.Configurations.findEnvironmentsByBasePackage;
+import static io.trino.tests.product.launcher.Configurations.nameForConfigClass;
+import static io.trino.tests.product.launcher.Configurations.nameForEnvironmentClass;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -55,7 +61,6 @@ public final class EnvironmentModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(PortBinder.class).in(SINGLETON);
         binder.bind(EnvironmentFactory.class).in(SINGLETON);
         binder.bind(EnvironmentConfigFactory.class).in(SINGLETON);
         binder.bind(EnvironmentOptions.class).toInstance(environmentOptions);
@@ -63,18 +68,21 @@ public final class EnvironmentModule
         binder.bind(Hadoop.class).in(SINGLETON);
         binder.bind(HadoopKerberos.class).in(SINGLETON);
         binder.bind(HadoopKerberosKms.class).in(SINGLETON);
+        binder.bind(HadoopKerberosKmsWithImpersonation.class).in(SINGLETON);
         binder.bind(HydraIdentityProvider.class).in(SINGLETON);
         binder.bind(Kafka.class).in(SINGLETON);
         binder.bind(KafkaSsl.class).in(SINGLETON);
-        binder.bind(SeleniumChrome.class).in(SINGLETON);
+        binder.bind(KafkaSaslPlaintext.class).in(SINGLETON);
         binder.bind(Standard.class).in(SINGLETON);
         binder.bind(StandardMultinode.class).in(SINGLETON);
+        binder.bind(Kerberos.class).in(SINGLETON);
+        binder.bind(Minio.class).in(SINGLETON);
 
         MapBinder<String, EnvironmentProvider> environments = newMapBinder(binder, String.class, EnvironmentProvider.class);
-        Environments.findByBasePackage(ENVIRONMENT_PACKAGE).forEach(clazz -> environments.addBinding(Environments.nameForClass(clazz)).to(clazz).in(SINGLETON));
+        findEnvironmentsByBasePackage(ENVIRONMENT_PACKAGE).forEach(clazz -> environments.addBinding(nameForEnvironmentClass(clazz)).to(clazz).in(SINGLETON));
 
         MapBinder<String, EnvironmentConfig> environmentConfigs = newMapBinder(binder, String.class, EnvironmentConfig.class);
-        Environments.findConfigsByBasePackage(CONFIG_PACKAGE).forEach(clazz -> environmentConfigs.addBinding(nameForConfigClass(clazz)).to(clazz).in(SINGLETON));
+        findConfigsByBasePackage(CONFIG_PACKAGE).forEach(clazz -> environmentConfigs.addBinding(nameForConfigClass(clazz)).to(clazz).in(SINGLETON));
 
         binder.install(additionalEnvironments);
     }
@@ -88,11 +96,33 @@ public final class EnvironmentModule
 
     @Provides
     @Singleton
+    public PortBinder providePortBinder(EnvironmentOptions options)
+    {
+        if (options.bindPorts) {
+            if (options.bindPortsBase > 0) {
+                return new PortBinder.ShiftingPortBinder(new PortBinder.FixedPortBinder(), options.bindPortsBase);
+            }
+
+            return new PortBinder.FixedPortBinder();
+        }
+
+        return new PortBinder.DefaultPortBinder();
+    }
+
+    @Provides
+    @Singleton
     @ServerPackage
     public File provideServerPackage(EnvironmentOptions options)
     {
         // fallback to dummy - nonNull to prevent injection errors when listing environments
         return requireNonNullElse(options.serverPackage, new File("dummy.tar.gz"));
+    }
+
+    @Provides
+    @Singleton
+    public SupportedTrinoJdk provideJavaVersion(EnvironmentOptions options)
+    {
+        return requireNonNull(options.jdkVersion, "JDK version is null");
     }
 
     @Provides

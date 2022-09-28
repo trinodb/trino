@@ -23,13 +23,25 @@ import io.trino.spi.security.RoleGrant;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public interface AccessControlMetadata
 {
+    default boolean isUsingSystemSecurity()
+    {
+        return false;
+    }
+
+    /**
+     * Does the specified role exist.
+     */
+    default boolean roleExists(ConnectorSession session, String role)
+    {
+        return listRoles(session).contains(role);
+    }
+
     /**
      * Creates the specified role.
      *
@@ -52,14 +64,6 @@ public interface AccessControlMetadata
      * List available roles.
      */
     default Set<String> listRoles(ConnectorSession session)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
-    }
-
-    /**
-     * List principals for a given role, not recursively.
-     */
-    default Set<RoleGrant> listAllRoleGrants(ConnectorSession session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
     }
@@ -109,11 +113,27 @@ public interface AccessControlMetadata
     }
 
     /**
+     * Grants the specified privilege to the specified user on the specified schema
+     */
+    default void grantSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, HivePrincipal grantee, boolean grantOption)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support grants on schemas");
+    }
+
+    /**
+     * Revokes the specified privilege on the specified schema from the specified user
+     */
+    default void revokeSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, HivePrincipal grantee, boolean grantOption)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support revokes on schemas");
+    }
+
+    /**
      * Grants the specified privilege to the specified user on the specified table
      */
     default void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, HivePrincipal grantee, boolean grantOption)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support grants");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support grants on tables");
     }
 
     /**
@@ -121,7 +141,7 @@ public interface AccessControlMetadata
      */
     default void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, HivePrincipal grantee, boolean grantOption)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support revokes");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support revokes on tables");
     }
 
     /**

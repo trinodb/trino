@@ -9,7 +9,7 @@
         "segmentPushType": "APPEND",
         "segmentPushFrequency": "daily",
         "segmentAssignmentStrategy": "BalanceNumSegmentAssignmentStrategy",
-        "schemaName": "alltypes",
+        "schemaName": "mixed_case",
         "replicasPerPartition": "1"
     },
     "tenants": {

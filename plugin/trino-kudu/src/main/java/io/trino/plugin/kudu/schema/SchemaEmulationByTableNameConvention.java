@@ -14,6 +14,7 @@
 package io.trino.plugin.kudu.schema;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.kudu.KuduClientWrapper;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
@@ -22,15 +23,12 @@ import org.apache.kudu.Schema;
 import org.apache.kudu.Type;
 import org.apache.kudu.client.CreateTableOptions;
 import org.apache.kudu.client.Delete;
-import org.apache.kudu.client.Insert;
-import org.apache.kudu.client.KuduClient;
 import org.apache.kudu.client.KuduException;
+import org.apache.kudu.client.KuduOperationApplier;
 import org.apache.kudu.client.KuduScanner;
-import org.apache.kudu.client.KuduSession;
 import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.RowResult;
 import org.apache.kudu.client.RowResultIterator;
-import org.apache.kudu.client.SessionConfiguration;
 import org.apache.kudu.client.Upsert;
 
 import java.util.ArrayList;
@@ -56,80 +54,60 @@ public class SchemaEmulationByTableNameConvention
     }
 
     @Override
-    public void createSchema(KuduClient client, String schemaName)
+    public void createSchema(KuduClientWrapper client, String schemaName)
     {
         if (DEFAULT_SCHEMA.equals(schemaName)) {
             throw new SchemaAlreadyExistsException(schemaName);
         }
-        else {
-            try {
-                KuduTable schemasTable = getSchemasTable(client);
-                KuduSession session = client.newSession();
-                try {
-                    Upsert upsert = schemasTable.newUpsert();
-                    upsert.getRow().addString(0, schemaName);
-                    session.apply(upsert);
-                }
-                finally {
-                    session.close();
-                }
-            }
-            catch (KuduException e) {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
-            }
+        try (KuduOperationApplier operationApplier = KuduOperationApplier.fromKuduClientWrapper(client)) {
+            KuduTable schemasTable = getSchemasTable(client);
+            Upsert upsert = schemasTable.newUpsert();
+            upsert.getRow().addString(0, schemaName);
+            operationApplier.applyOperationAsync(upsert);
+        }
+        catch (KuduException e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 
     @Override
-    public boolean existsSchema(KuduClient client, String schemaName)
+    public boolean existsSchema(KuduClientWrapper client, String schemaName)
     {
         if (DEFAULT_SCHEMA.equals(schemaName)) {
             return true;
         }
-        else {
-            List<String> schemas = listSchemaNames(client);
-            return schemas.contains(schemaName);
-        }
+        List<String> schemas = listSchemaNames(client);
+        return schemas.contains(schemaName);
     }
 
     @Override
-    public void dropSchema(KuduClient client, String schemaName)
+    public void dropSchema(KuduClientWrapper client, String schemaName)
     {
         if (DEFAULT_SCHEMA.equals(schemaName)) {
             throw new TrinoException(GENERIC_USER_ERROR, "Deleting default schema not allowed.");
         }
-        else {
-            try {
-                String prefix = getPrefixForTablesOfSchema(schemaName);
-                for (String name : client.getTablesList(prefix).getTablesList()) {
-                    client.deleteTable(name);
-                }
+        try (KuduOperationApplier operationApplier = KuduOperationApplier.fromKuduClientWrapper(client)) {
+            String prefix = getPrefixForTablesOfSchema(schemaName);
+            for (String name : client.getTablesList(prefix).getTablesList()) {
+                client.deleteTable(name);
+            }
 
-                KuduTable schemasTable = getSchemasTable(client);
-                KuduSession session = client.newSession();
-                try {
-                    Delete delete = schemasTable.newDelete();
-                    delete.getRow().addString(0, schemaName);
-                    session.apply(delete);
-                }
-                finally {
-                    session.close();
-                }
-            }
-            catch (KuduException e) {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
-            }
+            KuduTable schemasTable = getSchemasTable(client);
+            Delete delete = schemasTable.newDelete();
+            delete.getRow().addString(0, schemaName);
+            operationApplier.applyOperationAsync(delete);
+        }
+        catch (KuduException e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 
     @Override
-    public List<String> listSchemaNames(KuduClient client)
+    public List<String> listSchemaNames(KuduClientWrapper client)
     {
         try {
             if (rawSchemasTable == null) {
-                if (!client.tableExists(rawSchemasTableName)) {
-                    createAndFillSchemasTable(client);
-                }
+                createAndFillSchemasTable(client);
                 rawSchemasTable = getSchemasTable(client);
             }
 
@@ -149,7 +127,7 @@ public class SchemaEmulationByTableNameConvention
         }
     }
 
-    private KuduTable getSchemasTable(KuduClient client)
+    private KuduTable getSchemasTable(KuduClientWrapper client)
             throws KuduException
     {
         if (rawSchemasTable == null) {
@@ -158,7 +136,7 @@ public class SchemaEmulationByTableNameConvention
         return rawSchemasTable;
     }
 
-    private void createAndFillSchemasTable(KuduClient client)
+    private void createAndFillSchemasTable(KuduClientWrapper client)
             throws KuduException
     {
         List<String> existingSchemaNames = listSchemaNamesFromTablets(client);
@@ -167,22 +145,33 @@ public class SchemaEmulationByTableNameConvention
         Schema schema = new Schema(ImmutableList.of(schemaColumnSchema));
         CreateTableOptions options = new CreateTableOptions();
         options.addHashPartitions(ImmutableList.of(schemaColumnSchema.getName()), 2);
-        KuduTable schemasTable = client.createTable(rawSchemasTableName, schema, options);
-        KuduSession session = client.newSession();
-        try {
-            session.setFlushMode(SessionConfiguration.FlushMode.AUTO_FLUSH_BACKGROUND);
+
+        KuduTable schemasTable = createTableIfNotExists(client, schema, rawSchemasTableName, options);
+        try (KuduOperationApplier operationApplier = KuduOperationApplier.fromKuduClientWrapper(client)) {
             for (String schemaName : existingSchemaNames) {
-                Insert insert = schemasTable.newInsert();
-                insert.getRow().addString(0, schemaName);
-                session.apply(insert);
+                Upsert upsert = schemasTable.newUpsert();
+                upsert.getRow().addString(0, schemaName);
+                operationApplier.applyOperationAsync(upsert);
             }
-        }
-        finally {
-            session.close();
         }
     }
 
-    private List<String> listSchemaNamesFromTablets(KuduClient client)
+    private static KuduTable createTableIfNotExists(KuduClientWrapper client, Schema schema, String name, CreateTableOptions options)
+            throws KuduException
+    {
+        try {
+            return client.createTable(name, schema, options);
+        }
+        catch (KuduException e) {
+            if (e.getStatus().isAlreadyPresent()) {
+                // Table already exists
+                return client.openTable(name);
+            }
+            throw e;
+        }
+    }
+
+    private List<String> listSchemaNamesFromTablets(KuduClientWrapper client)
             throws KuduException
     {
         List<String> tables = client.getTablesList().getTablesList();
@@ -222,9 +211,7 @@ public class SchemaEmulationByTableNameConvention
         if (DEFAULT_SCHEMA.equals(schemaTableName.getSchemaName())) {
             return schemaTableName.getTableName();
         }
-        else {
-            return commonPrefix + schemaTableName.getSchemaName() + "." + schemaTableName.getTableName();
-        }
+        return commonPrefix + schemaTableName.getSchemaName() + "." + schemaTableName.getTableName();
     }
 
     @Override
@@ -261,9 +248,7 @@ public class SchemaEmulationByTableNameConvention
         if (DEFAULT_SCHEMA.equals(schemaName)) {
             return "";
         }
-        else {
-            return commonPrefix + schemaName + ".";
-        }
+        return commonPrefix + schemaName + ".";
     }
 
     @Override

@@ -14,34 +14,53 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import io.trino.Session;
+import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.type.Type;
+import io.trino.sql.analyzer.ExpressionAnalyzer;
+import io.trino.sql.analyzer.Scope;
 import io.trino.sql.planner.DeterminismEvaluator;
+import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.LiteralEncoder;
+import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
+import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.LogicalBinaryExpression;
-import io.trino.sql.tree.LogicalBinaryExpression.Operator;
+import io.trino.sql.tree.Literal;
+import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.tree.LogicalExpression.Operator;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SymbolReference;
 
-import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Queue;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
+import static io.trino.metadata.ResolvedFunction.isResolved;
 import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
@@ -53,32 +72,33 @@ public final class ExpressionUtils
 
     public static List<Expression> extractConjuncts(Expression expression)
     {
-        return extractPredicates(LogicalBinaryExpression.Operator.AND, expression);
+        return extractPredicates(LogicalExpression.Operator.AND, expression);
     }
 
     public static List<Expression> extractDisjuncts(Expression expression)
     {
-        return extractPredicates(LogicalBinaryExpression.Operator.OR, expression);
+        return extractPredicates(LogicalExpression.Operator.OR, expression);
     }
 
-    public static List<Expression> extractPredicates(LogicalBinaryExpression expression)
+    public static List<Expression> extractPredicates(LogicalExpression expression)
     {
         return extractPredicates(expression.getOperator(), expression);
     }
 
-    public static List<Expression> extractPredicates(LogicalBinaryExpression.Operator operator, Expression expression)
+    public static List<Expression> extractPredicates(LogicalExpression.Operator operator, Expression expression)
     {
         ImmutableList.Builder<Expression> resultBuilder = ImmutableList.builder();
         extractPredicates(operator, expression, resultBuilder);
         return resultBuilder.build();
     }
 
-    private static void extractPredicates(LogicalBinaryExpression.Operator operator, Expression expression, ImmutableList.Builder<Expression> resultBuilder)
+    private static void extractPredicates(LogicalExpression.Operator operator, Expression expression, ImmutableList.Builder<Expression> resultBuilder)
     {
-        if (expression instanceof LogicalBinaryExpression && ((LogicalBinaryExpression) expression).getOperator() == operator) {
-            LogicalBinaryExpression logicalBinaryExpression = (LogicalBinaryExpression) expression;
-            extractPredicates(operator, logicalBinaryExpression.getLeft(), resultBuilder);
-            extractPredicates(operator, logicalBinaryExpression.getRight(), resultBuilder);
+        if (expression instanceof LogicalExpression && ((LogicalExpression) expression).getOperator() == operator) {
+            LogicalExpression logicalExpression = (LogicalExpression) expression;
+            for (Expression term : logicalExpression.getTerms()) {
+                extractPredicates(operator, term, resultBuilder);
+            }
         }
         else {
             resultBuilder.add(expression);
@@ -92,7 +112,7 @@ public final class ExpressionUtils
 
     public static Expression and(Collection<Expression> expressions)
     {
-        return binaryExpression(LogicalBinaryExpression.Operator.AND, expressions);
+        return logicalExpression(LogicalExpression.Operator.AND, expressions);
     }
 
     public static Expression or(Expression... expressions)
@@ -102,10 +122,10 @@ public final class ExpressionUtils
 
     public static Expression or(Collection<Expression> expressions)
     {
-        return binaryExpression(LogicalBinaryExpression.Operator.OR, expressions);
+        return logicalExpression(LogicalExpression.Operator.OR, expressions);
     }
 
-    public static Expression binaryExpression(LogicalBinaryExpression.Operator operator, Collection<Expression> expressions)
+    public static Expression logicalExpression(LogicalExpression.Operator operator, Collection<Expression> expressions)
     {
         requireNonNull(operator, "operator is null");
         requireNonNull(expressions, "expressions is null");
@@ -117,58 +137,14 @@ public final class ExpressionUtils
                 case OR:
                     return FALSE_LITERAL;
             }
-            throw new IllegalArgumentException("Unsupported LogicalBinaryExpression operator");
+            throw new IllegalArgumentException("Unsupported LogicalExpression operator");
         }
 
-        // Build balanced tree for efficient recursive processing that
-        // preserves the evaluation order of the input expressions.
-        //
-        // The tree is built bottom up by combining pairs of elements into
-        // binary AND expressions.
-        //
-        // Example:
-        //
-        // Initial state:
-        //  a b c d e
-        //
-        // First iteration:
-        //
-        //  /\    /\   e
-        // a  b  c  d
-        //
-        // Second iteration:
-        //
-        //    / \    e
-        //  /\   /\
-        // a  b c  d
-        //
-        //
-        // Last iteration:
-        //
-        //      / \
-        //    / \  e
-        //  /\   /\
-        // a  b c  d
-
-        Queue<Expression> queue = new ArrayDeque<>(expressions);
-        while (queue.size() > 1) {
-            Queue<Expression> buffer = new ArrayDeque<>();
-
-            // combine pairs of elements
-            while (queue.size() >= 2) {
-                buffer.add(new LogicalBinaryExpression(operator, queue.remove(), queue.remove()));
-            }
-
-            // if there's and odd number of elements, just append the last one
-            if (!queue.isEmpty()) {
-                buffer.add(queue.remove());
-            }
-
-            // continue processing the pairs that were just built
-            queue = buffer;
+        if (expressions.size() == 1) {
+            return Iterables.getOnlyElement(expressions);
         }
 
-        return queue.remove();
+        return new LogicalExpression(operator, ImmutableList.copyOf(expressions));
     }
 
     public static Expression combinePredicates(Metadata metadata, Operator operator, Expression... expressions)
@@ -178,7 +154,7 @@ public final class ExpressionUtils
 
     public static Expression combinePredicates(Metadata metadata, Operator operator, Collection<Expression> expressions)
     {
-        if (operator == LogicalBinaryExpression.Operator.AND) {
+        if (operator == LogicalExpression.Operator.AND) {
             return combineConjuncts(metadata, expressions);
         }
 
@@ -297,6 +273,59 @@ public final class ExpressionUtils
 
             return or(resultDisjunct.build());
         };
+    }
+
+    /**
+     * Returns whether expression is effectively literal. An effectively literal expression is a simple constant value, or null,
+     * in either {@link Literal} form, or other form returned by {@link LiteralEncoder}. In particular, other constant expressions
+     * like a deterministic function call with constant arguments are not considered effectively literal.
+     */
+    public static boolean isEffectivelyLiteral(PlannerContext plannerContext, Session session, Expression expression)
+    {
+        if (expression instanceof Literal) {
+            return true;
+        }
+        if (expression instanceof Cast) {
+            return ((Cast) expression).getExpression() instanceof Literal
+                    // a Cast(Literal(...)) can fail, so this requires verification
+                    && constantExpressionEvaluatesSuccessfully(plannerContext, session, expression);
+        }
+        if (expression instanceof FunctionCall) {
+            QualifiedName functionName = ((FunctionCall) expression).getName();
+            if (isResolved(functionName)) {
+                ResolvedFunction resolvedFunction = plannerContext.getMetadata().decodeFunction(functionName);
+                return LITERAL_FUNCTION_NAME.equals(resolvedFunction.getSignature().getName());
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean constantExpressionEvaluatesSuccessfully(PlannerContext plannerContext, Session session, Expression constantExpression)
+    {
+        Map<NodeRef<Expression>, Type> types = getExpressionTypes(plannerContext, session, constantExpression, TypeProvider.empty());
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(constantExpression, plannerContext, session, types);
+        Object literalValue = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+        return !(literalValue instanceof Expression);
+    }
+
+    /**
+     * @deprecated Use {@link io.trino.sql.planner.TypeAnalyzer#getTypes(Session, TypeProvider, Expression)}.
+     */
+    @Deprecated
+    public static Map<NodeRef<Expression>, Type> getExpressionTypes(PlannerContext plannerContext, Session session, Expression expression, TypeProvider types)
+    {
+        ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
+                plannerContext,
+                new AllowAllAccessControl(),
+                session,
+                types,
+                ImmutableMap.of(),
+                node -> new IllegalStateException("Unexpected node: " + node),
+                WarningCollector.NOOP,
+                false);
+        expressionAnalyzer.analyze(expression, Scope.create());
+        return expressionAnalyzer.getExpressionTypes();
     }
 
     /**

@@ -14,8 +14,6 @@
 package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.connector.CatalogName;
-import io.trino.metadata.Metadata;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
@@ -27,6 +25,7 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 import io.trino.transaction.TransactionInfo;
@@ -58,7 +57,7 @@ public class TransactionsSystemTable
     private final TransactionManager transactionManager;
 
     @Inject
-    public TransactionsSystemTable(Metadata metadata, TransactionManager transactionManager)
+    public TransactionsSystemTable(TypeManager typeManager, TransactionManager transactionManager)
     {
         this.transactionsTable = tableMetadataBuilder(TRANSACTIONS_TABLE_NAME)
                 .column("transaction_id", createUnboundedVarcharType())
@@ -68,7 +67,7 @@ public class TransactionsSystemTable
                 .column("create_time", TIMESTAMP_TZ_MILLIS)
                 .column("idle_time_secs", BIGINT)
                 .column("written_catalog", createUnboundedVarcharType())
-                .column("catalogs", metadata.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.typeParameter(createUnboundedVarcharType().getTypeSignature()))))
+                .column("catalogs", typeManager.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.typeParameter(createUnboundedVarcharType().getTypeSignature()))))
                 .build();
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
     }
@@ -97,22 +96,22 @@ public class TransactionsSystemTable
                     info.isAutoCommitContext(),
                     toTimestampWithTimeZoneMillis(info.getCreateTime()),
                     (long) info.getIdleTime().getValue(TimeUnit.SECONDS),
-                    info.getWrittenConnectorId().map(CatalogName::getCatalogName).orElse(null),
+                    info.getWrittenCatalogName().orElse(null),
                     createStringsBlock(info.getCatalogNames()));
         }
         return table.build().cursor();
     }
 
-    private static Block createStringsBlock(List<CatalogName> values)
+    private static Block createStringsBlock(List<String> values)
     {
         VarcharType varchar = createUnboundedVarcharType();
         BlockBuilder builder = varchar.createBlockBuilder(null, values.size());
-        for (CatalogName value : values) {
+        for (String value : values) {
             if (value == null) {
                 builder.appendNull();
             }
             else {
-                varchar.writeString(builder, value.getCatalogName());
+                varchar.writeString(builder, value);
             }
         }
         return builder.build();

@@ -16,9 +16,10 @@ package io.trino.split;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
@@ -27,13 +28,15 @@ import static java.util.Objects.requireNonNull;
 public class EmptySplit
         implements ConnectorSplit
 {
-    private final CatalogName catalogName;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(EmptySplit.class).instanceSize();
+
+    private final CatalogHandle catalogHandle;
 
     @JsonCreator
     public EmptySplit(
-            @JsonProperty("catalogName") CatalogName catalogName)
+            @JsonProperty("catalogHandle") CatalogHandle catalogHandle)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
     }
 
     @Override
@@ -54,9 +57,15 @@ public class EmptySplit
         return this;
     }
 
-    @JsonProperty
-    public CatalogName getCatalogName()
+    @Override
+    public long getRetainedSizeInBytes()
     {
-        return catalogName;
+        return INSTANCE_SIZE + catalogHandle.getRetainedSizeInBytes();
+    }
+
+    @JsonProperty
+    public CatalogHandle getCatalogHandle()
+    {
+        return catalogHandle;
     }
 }

@@ -16,6 +16,8 @@ package io.trino.plugin.jdbc;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
+import static java.util.Objects.requireNonNull;
+
 public interface LongWriteFunction
         extends WriteFunction
 {
@@ -27,4 +29,32 @@ public interface LongWriteFunction
 
     void set(PreparedStatement statement, int index, long value)
             throws SQLException;
+
+    static LongWriteFunction of(int nullJdbcType, LongWriteFunctionImplementation implementation)
+    {
+        requireNonNull(implementation, "implementation is null");
+
+        return new LongWriteFunction() {
+            @Override
+            public void set(PreparedStatement statement, int index, long value)
+                    throws SQLException
+            {
+                implementation.set(statement, index, value);
+            }
+
+            @Override
+            public void setNull(PreparedStatement statement, int index)
+                    throws SQLException
+            {
+                statement.setNull(index, nullJdbcType);
+            }
+        };
+    }
+
+    @FunctionalInterface
+    interface LongWriteFunctionImplementation
+    {
+        void set(PreparedStatement statement, int index, long value)
+                throws SQLException;
+    }
 }

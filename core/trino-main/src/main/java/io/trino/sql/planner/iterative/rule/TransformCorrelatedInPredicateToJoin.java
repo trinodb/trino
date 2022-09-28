@@ -16,10 +16,10 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -64,6 +64,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ExpressionUtils.and;
 import static io.trino.sql.ExpressionUtils.or;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.Apply.correlation;
 import static io.trino.sql.planner.plan.Patterns.applyNode;
@@ -97,11 +98,11 @@ public class TransformCorrelatedInPredicateToJoin
     private static final Pattern<ApplyNode> PATTERN = applyNode()
             .with(nonEmpty(correlation()));
 
-    private final ResolvedFunction countFunction;
+    private final Metadata metadata;
 
     public TransformCorrelatedInPredicateToJoin(Metadata metadata)
     {
-        countFunction = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of());
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     @Override
@@ -125,7 +126,7 @@ public class TransformCorrelatedInPredicateToJoin
         InPredicate inPredicate = (InPredicate) assignmentExpression;
         Symbol inPredicateOutputSymbol = getOnlyElement(subqueryAssignments.getSymbols());
 
-        return apply(apply, inPredicate, inPredicateOutputSymbol, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator());
+        return apply(apply, inPredicate, inPredicateOutputSymbol, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator(), context.getSession());
     }
 
     private Result apply(
@@ -134,7 +135,8 @@ public class TransformCorrelatedInPredicateToJoin
             Symbol inPredicateOutputSymbol,
             Lookup lookup,
             PlanNodeIdAllocator idAllocator,
-            SymbolAllocator symbolAllocator)
+            SymbolAllocator symbolAllocator,
+            Session session)
     {
         Optional<Decorrelated> decorrelated = new DecorrelatingVisitor(lookup, apply.getCorrelation())
                 .decorrelate(apply.getSubquery());
@@ -149,7 +151,8 @@ public class TransformCorrelatedInPredicateToJoin
                 inPredicateOutputSymbol,
                 decorrelated.get(),
                 idAllocator,
-                symbolAllocator);
+                symbolAllocator,
+                session);
 
         return Result.ofPlanNode(projection);
     }
@@ -160,7 +163,8 @@ public class TransformCorrelatedInPredicateToJoin
             Symbol inPredicateOutputSymbol,
             Decorrelated decorrelated,
             PlanNodeIdAllocator idAllocator,
-            SymbolAllocator symbolAllocator)
+            SymbolAllocator symbolAllocator,
+            Session session)
     {
         Expression correlationCondition = and(decorrelated.getCorrelatedPredicates());
         PlanNode decorrelatedBuildSource = decorrelated.getDecorrelatedNode();
@@ -213,18 +217,14 @@ public class TransformCorrelatedInPredicateToJoin
         Symbol countMatchesSymbol = symbolAllocator.newSymbol("countMatches", BIGINT);
         Symbol countNullMatchesSymbol = symbolAllocator.newSymbol("countNullMatches", BIGINT);
 
-        AggregationNode aggregation = new AggregationNode(
+        AggregationNode aggregation = singleAggregation(
                 idAllocator.getNextId(),
                 preProjection,
                 ImmutableMap.<Symbol, AggregationNode.Aggregation>builder()
-                        .put(countMatchesSymbol, countWithFilter(matchConditionSymbol))
-                        .put(countNullMatchesSymbol, countWithFilter(nullMatchConditionSymbol))
-                        .build(),
-                singleGroupingSet(probeSide.getOutputSymbols()),
-                ImmutableList.of(),
-                AggregationNode.Step.SINGLE,
-                Optional.empty(),
-                Optional.empty());
+                        .put(countMatchesSymbol, countWithFilter(session, matchConditionSymbol))
+                        .put(countNullMatchesSymbol, countWithFilter(session, nullMatchConditionSymbol))
+                        .buildOrThrow(),
+                singleGroupingSet(probeSide.getOutputSymbols()));
 
         // TODO since we care only about "some count > 0", we could have specialized node instead of leftOuterJoin that does the job without materializing join results
         SearchedCaseExpression inPredicateEquivalent = new SearchedCaseExpression(
@@ -261,10 +261,10 @@ public class TransformCorrelatedInPredicateToJoin
                 Optional.empty());
     }
 
-    private AggregationNode.Aggregation countWithFilter(Symbol filter)
+    private AggregationNode.Aggregation countWithFilter(Session session, Symbol filter)
     {
         return new AggregationNode.Aggregation(
-                countFunction,
+                metadata.resolveFunction(session, QualifiedName.of("count"), ImmutableList.of()),
                 ImmutableList.of(),
                 false,
                 Optional.of(filter),
@@ -370,9 +370,7 @@ public class TransformCorrelatedInPredicateToJoin
             if (isCorrelatedRecursively(node)) {
                 return Optional.empty();
             }
-            else {
-                return Optional.of(new Decorrelated(ImmutableList.of(), reference));
-            }
+            return Optional.of(new Decorrelated(ImmutableList.of(), reference));
         }
 
         private boolean isCorrelatedRecursively(PlanNode node)

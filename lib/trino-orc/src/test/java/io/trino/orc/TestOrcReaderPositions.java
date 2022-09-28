@@ -16,6 +16,7 @@ package io.trino.orc;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
+import io.trino.hive.orc.NullMemoryManager;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.Footer;
 import io.trino.orc.metadata.OrcColumnId;
@@ -34,7 +35,6 @@ import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.io.Writable;
-import org.apache.orc.NullMemoryManager;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -43,6 +43,7 @@ import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.Map;
 
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
@@ -412,7 +413,7 @@ public class TestOrcReaderPositions
     private static void createFileWithOnlyUserMetadata(File file, Map<String, String> metadata)
             throws IOException
     {
-        Configuration conf = new Configuration(false);
+        Configuration conf = newEmptyConfiguration();
         OrcFile.WriterOptions writerOptions = OrcFile.writerOptions(conf)
                 .memory(new NullMemoryManager())
                 .inspector(createSettableStructObjectInspector("test", BIGINT))

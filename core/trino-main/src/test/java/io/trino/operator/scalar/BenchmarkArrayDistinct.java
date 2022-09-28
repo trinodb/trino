@@ -15,7 +15,8 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.InternalFunctionBundle;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.aggregation.TypedSet;
 import io.trino.operator.project.PageProcessor;
@@ -28,7 +29,6 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.ExpressionCompiler;
-import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.tree.QualifiedName;
@@ -56,8 +56,6 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.base.Verify.verify;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.FunctionExtractor.extractFunctions;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.aggregation.TypedSet.createEqualityTypedSet;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -110,16 +108,16 @@ public class BenchmarkArrayDistinct
         @Setup
         public void setup()
         {
-            Metadata metadata = createTestMetadataManager();
-            metadata.addFunctions(extractFunctions(BenchmarkArrayDistinct.class));
-            ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
+            TestingFunctionResolution functionResolution = new TestingFunctionResolution(InternalFunctionBundle.extractFunctions(BenchmarkArrayDistinct.class));
+            ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
+
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Block[] blocks = new Block[TYPES.size()];
             for (int i = 0; i < TYPES.size(); i++) {
                 Type elementType = TYPES.get(i);
                 ArrayType arrayType = new ArrayType(elementType);
                 projectionsBuilder.add(new CallExpression(
-                        metadata.resolveFunction(QualifiedName.of(name), fromTypes(arrayType)),
+                        functionResolution.resolveFunction(QualifiedName.of(name), fromTypes(arrayType)),
                         ImmutableList.of(field(i, arrayType))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }

@@ -14,31 +14,34 @@
 package io.trino.dispatcher;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
-import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
 import io.trino.client.StatementStats;
 import io.trino.execution.ExecutionFailureInfo;
+import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryState;
-import io.trino.server.HttpRequestSessionContext;
+import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ProtocolConfig;
 import io.trino.server.ServerConfig;
 import io.trino.server.SessionContext;
 import io.trino.server.protocol.QueryInfoUrlFactory;
 import io.trino.server.protocol.Slug;
+import io.trino.server.security.InternalPrincipal;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
-import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
 
+import javax.annotation.Nullable;
+import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
@@ -60,23 +63,26 @@ import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
+import static com.clearspring.analytics.util.Preconditions.checkState;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.concurrent.MoreFutures.addTimeout;
-import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.QUEUED;
-import static io.trino.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
+import static io.trino.server.HttpRequestSessionContextFactory.AUTHENTICATED_IDENTITY;
+import static io.trino.server.protocol.QueryInfoUrlFactory.getQueryInfoUri;
 import static io.trino.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.trino.server.protocol.Slug.Context.QUEUED_QUERY;
 import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
@@ -89,6 +95,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
+import static javax.ws.rs.core.Response.Status.FORBIDDEN;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 @Path("/v1/statement")
@@ -99,7 +106,7 @@ public class QueuedStatementResource
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
     private static final Duration NO_DURATION = new Duration(0, MILLISECONDS);
 
-    private final GroupProvider groupProvider;
+    private final HttpRequestSessionContextFactory sessionContextFactory;
     private final DispatchManager dispatchManager;
 
     private final QueryInfoUrlFactory queryInfoUrlFactory;
@@ -107,69 +114,40 @@ public class QueuedStatementResource
     private final Executor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
 
-    private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("dispatch-query-purger"));
     private final boolean compressionEnabled;
     private final Optional<String> alternateHeaderName;
+    private final QueryManager queryManager;
 
     @Inject
     public QueuedStatementResource(
-            GroupProvider groupProvider,
+            HttpRequestSessionContextFactory sessionContextFactory,
             DispatchManager dispatchManager,
             DispatchExecutor executor,
             QueryInfoUrlFactory queryInfoUrlTemplate,
             ServerConfig serverConfig,
-            ProtocolConfig protocolConfig)
+            ProtocolConfig protocolConfig,
+            QueryManagerConfig queryManagerConfig)
     {
-        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
+        this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
-
-        requireNonNull(dispatchManager, "dispatchManager is null");
-        this.responseExecutor = requireNonNull(executor, "executor is null").getExecutor();
-        this.timeoutExecutor = requireNonNull(executor, "executor is null").getScheduledExecutor();
-
+        this.responseExecutor = executor.getExecutor();
+        this.timeoutExecutor = executor.getScheduledExecutor();
         this.queryInfoUrlFactory = requireNonNull(queryInfoUrlTemplate, "queryInfoUrlTemplate is null");
+        this.compressionEnabled = serverConfig.isQueryResultsCompressionEnabled();
+        this.alternateHeaderName = protocolConfig.getAlternateHeaderName();
+        queryManager = new QueryManager(queryManagerConfig.getClientTimeout());
+    }
 
-        this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
-        this.alternateHeaderName = requireNonNull(protocolConfig, "protocolConfig is null").getAlternateHeaderName();
-
-        queryPurger.scheduleWithFixedDelay(
-                () -> {
-                    try {
-                        // snapshot the queries before checking states to avoid registration race
-                        for (Entry<QueryId, Query> entry : ImmutableSet.copyOf(queries.entrySet())) {
-                            if (!entry.getValue().isSubmissionFinished()) {
-                                continue;
-                            }
-
-                            // forget about this query if the query manager is no longer tracking it
-                            if (!dispatchManager.isQueryRegistered(entry.getKey())) {
-                                Query query = queries.remove(entry.getKey());
-                                if (query != null) {
-                                    try {
-                                        query.destroy();
-                                    }
-                                    catch (Throwable e) {
-                                        // this catch clause is broad so query purger does not get stuck
-                                        log.warn(e, "Error destroying identity");
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    catch (Throwable e) {
-                        log.warn(e, "Error removing old queries");
-                    }
-                },
-                200,
-                200,
-                MILLISECONDS);
+    @PostConstruct
+    public void start()
+    {
+        queryManager.initialize(dispatchManager);
     }
 
     @PreDestroy
     public void stop()
     {
-        queryPurger.shutdownNow();
+        queryManager.destroy();
     }
 
     @ResourceSecurity(AUTHENTICATED_USER)
@@ -185,18 +163,29 @@ public class QueuedStatementResource
             throw badRequest(BAD_REQUEST, "SQL statement is empty");
         }
 
-        String remoteAddress = servletRequest.getRemoteAddr();
+        Query query = registerQuery(statement, servletRequest, httpHeaders);
+
+        return createQueryResultsResponse(query.getQueryResults(query.getLastToken(), uriInfo));
+    }
+
+    private Query registerQuery(String statement, HttpServletRequest servletRequest, HttpHeaders httpHeaders)
+    {
+        Optional<String> remoteAddress = Optional.ofNullable(servletRequest.getRemoteAddr());
         Optional<Identity> identity = Optional.ofNullable((Identity) servletRequest.getAttribute(AUTHENTICATED_IDENTITY));
+        if (identity.flatMap(Identity::getPrincipal).map(InternalPrincipal.class::isInstance).orElse(false)) {
+            throw badRequest(FORBIDDEN, "Internal communication can not be used to start a query");
+        }
+
         MultivaluedMap<String, String> headers = httpHeaders.getRequestHeaders();
 
-        SessionContext sessionContext = new HttpRequestSessionContext(headers, alternateHeaderName, remoteAddress, identity, groupProvider);
+        SessionContext sessionContext = sessionContextFactory.createSessionContext(headers, alternateHeaderName, remoteAddress, identity);
         Query query = new Query(statement, sessionContext, dispatchManager, queryInfoUrlFactory);
-        queries.put(query.getQueryId(), query);
+        queryManager.registerQuery(query);
 
         // let authentication filter know that identity lifecycle has been handed off
         servletRequest.setAttribute(AUTHENTICATED_IDENTITY, null);
 
-        return createQueryResultsResponse(query.getQueryResults(query.getLastToken(), uriInfo), compressionEnabled);
+        return query;
     }
 
     @ResourceSecurity(PUBLIC)
@@ -213,25 +202,21 @@ public class QueuedStatementResource
     {
         Query query = getQuery(queryId, slug, token);
 
-        // wait for query to be dispatched, up to the wait timeout
-        ListenableFuture<Void> futureStateChange = addTimeout(
-                query.waitForDispatched(),
-                () -> null,
-                WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait),
-                timeoutExecutor);
+        ListenableFuture<Response> future = getStatus(query, token, maxWait, uriInfo);
+        bindAsyncResponse(asyncResponse, future, responseExecutor);
+    }
 
-        // when state changes, fetch the next result
-        ListenableFuture<QueryResults> queryResultsFuture = Futures.transform(
-                futureStateChange,
-                ignored -> query.getQueryResults(token, uriInfo),
-                responseExecutor);
+    private ListenableFuture<Response> getStatus(Query query, long token, Duration maxWait, UriInfo uriInfo)
+    {
+        long waitMillis = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait).toMillis();
 
-        // transform to Response
-        ListenableFuture<Response> response = Futures.transform(
-                queryResultsFuture,
-                queryResults -> createQueryResultsResponse(queryResults, compressionEnabled),
-                directExecutor());
-        bindAsyncResponse(asyncResponse, response, responseExecutor);
+        return FluentFuture.from(query.waitForDispatched())
+                // wait for query to be dispatched, up to the wait timeout
+                .withTimeout(waitMillis, MILLISECONDS, timeoutExecutor)
+                .catching(TimeoutException.class, ignored -> null, directExecutor())
+                // when state changes, fetch the next result
+                .transform(ignored -> query.getQueryResults(token, uriInfo), responseExecutor)
+                .transform(this::createQueryResultsResponse, directExecutor());
     }
 
     @ResourceSecurity(PUBLIC)
@@ -250,29 +235,20 @@ public class QueuedStatementResource
 
     private Query getQuery(QueryId queryId, String slug, long token)
     {
-        Query query = queries.get(queryId);
+        Query query = queryManager.getQuery(queryId);
         if (query == null || !query.getSlug().isValid(QUEUED_QUERY, slug, token)) {
             throw badRequest(NOT_FOUND, "Query not found");
         }
         return query;
     }
 
-    private static Response createQueryResultsResponse(QueryResults results, boolean compressionEnabled)
+    private Response createQueryResultsResponse(QueryResults results)
     {
         Response.ResponseBuilder builder = Response.ok(results);
         if (!compressionEnabled) {
             builder.encoding("identity");
         }
         return builder.build();
-    }
-
-    private static URI getQueryHtmlUri(QueryId queryId, UriInfo uriInfo, Optional<URI> queryInfoUrl)
-    {
-        return queryInfoUrl.orElseGet(() ->
-                uriInfo.getRequestUriBuilder()
-                        .replacePath("ui/query.html")
-                        .replaceQuery(queryId.toString())
-                        .build());
     }
 
     private static URI getQueuedUri(QueryId queryId, Slug slug, long token, UriInfo uriInfo)
@@ -298,7 +274,7 @@ public class QueuedStatementResource
         QueryState state = queryError.map(error -> FAILED).orElse(QUEUED);
         return new QueryResults(
                 queryId.toString(),
-                getQueryHtmlUri(queryId, uriInfo, queryInfoUrl),
+                getQueryInfoUri(queryInfoUrl, queryId, uriInfo),
                 null,
                 nextUri,
                 null,
@@ -334,8 +310,9 @@ public class QueuedStatementResource
         private final Slug slug = Slug.createNew();
         private final AtomicLong lastToken = new AtomicLong();
 
-        @GuardedBy("this")
-        private ListenableFuture<Void> querySubmissionFuture;
+        private final long initTime = System.nanoTime();
+        private final AtomicReference<Boolean> submissionGate = new AtomicReference<>();
+        private final SettableFuture<Void> creationFuture = SettableFuture.create();
 
         public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, QueryInfoUrlFactory queryInfoUrlFactory)
         {
@@ -362,25 +339,36 @@ public class QueuedStatementResource
             return lastToken.get();
         }
 
-        public synchronized boolean isSubmissionFinished()
+        public boolean tryAbandonSubmissionWithTimeout(Duration querySubmissionTimeout)
         {
-            return querySubmissionFuture != null && querySubmissionFuture.isDone();
+            return Duration.nanosSince(initTime).compareTo(querySubmissionTimeout) >= 0 && submissionGate.compareAndSet(null, false);
+        }
+
+        public boolean isSubmissionAbandoned()
+        {
+            return Boolean.FALSE.equals(submissionGate.get());
+        }
+
+        public boolean isCreated()
+        {
+            return creationFuture.isDone();
         }
 
         private ListenableFuture<Void> waitForDispatched()
         {
-            // if query submission has not finished, wait for it to finish
-            synchronized (this) {
-                if (querySubmissionFuture == null) {
-                    querySubmissionFuture = dispatchManager.createQuery(queryId, slug, sessionContext, query);
-                }
-                if (!querySubmissionFuture.isDone()) {
-                    return querySubmissionFuture;
-                }
+            submitIfNeeded();
+            if (!creationFuture.isDone()) {
+                return nonCancellationPropagating(creationFuture);
             }
-
             // otherwise, wait for the query to finish
             return dispatchManager.waitForDispatched(queryId);
+        }
+
+        private void submitIfNeeded()
+        {
+            if (submissionGate.compareAndSet(null, true)) {
+                creationFuture.setFuture(dispatchManager.createQuery(queryId, slug, sessionContext, query));
+            }
         }
 
         public QueryResults getQueryResults(long token, UriInfo uriInfo)
@@ -393,30 +381,26 @@ public class QueuedStatementResource
             // advance (or stay at) the token
             this.lastToken.compareAndSet(lastToken, token);
 
-            synchronized (this) {
-                // if query submission has not finished, return simple empty result
-                if (querySubmissionFuture == null || !querySubmissionFuture.isDone()) {
-                    return createQueryResults(
-                            token + 1,
-                            uriInfo,
-                            DispatchInfo.queued(NO_DURATION, NO_DURATION));
-                }
+            // if query submission has not finished, return simple empty result
+            if (!creationFuture.isDone()) {
+                return createQueryResults(
+                        token + 1,
+                        uriInfo,
+                        DispatchInfo.queued(NO_DURATION, NO_DURATION));
             }
 
-            Optional<DispatchInfo> dispatchInfo = dispatchManager.getDispatchInfo(queryId);
-            if (dispatchInfo.isEmpty()) {
-                // query should always be found, but it may have just been determined to be abandoned
-                throw new WebApplicationException(Response
-                        .status(NOT_FOUND)
-                        .build());
-            }
+            DispatchInfo dispatchInfo = dispatchManager.getDispatchInfo(queryId)
+                    // query should always be found, but it may have just been determined to be abandoned
+                    .orElseThrow(() -> new WebApplicationException(Response
+                            .status(NOT_FOUND)
+                            .build()));
 
-            return createQueryResults(token + 1, uriInfo, dispatchInfo.get());
+            return createQueryResults(token + 1, uriInfo, dispatchInfo);
         }
 
-        public synchronized void cancel()
+        public void cancel()
         {
-            querySubmissionFuture.addListener(() -> dispatchManager.cancelQuery(queryId), directExecutor());
+            creationFuture.addListener(() -> dispatchManager.cancelQuery(queryId), directExecutor());
         }
 
         public void destroy()
@@ -483,6 +467,84 @@ public class QueuedStatementResource
                     errorCode.getType().toString(),
                     executionFailureInfo.getErrorLocation(),
                     executionFailureInfo.toFailureInfo());
+        }
+    }
+
+    @ThreadSafe
+    private static class QueryManager
+    {
+        private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
+        private final ScheduledExecutorService scheduledExecutorService = newSingleThreadScheduledExecutor(daemonThreadsNamed("drain-state-query-manager"));
+
+        private final Duration querySubmissionTimeout;
+
+        public QueryManager(Duration querySubmissionTimeout)
+        {
+            this.querySubmissionTimeout = requireNonNull(querySubmissionTimeout, "querySubmissionTimeout is null");
+        }
+
+        public void initialize(DispatchManager dispatchManager)
+        {
+            scheduledExecutorService.scheduleWithFixedDelay(() -> syncWith(dispatchManager), 200, 200, MILLISECONDS);
+        }
+
+        public void destroy()
+        {
+            scheduledExecutorService.shutdownNow();
+        }
+
+        private void syncWith(DispatchManager dispatchManager)
+        {
+            queries.forEach((queryId, query) -> {
+                if (shouldBePurged(dispatchManager, query)) {
+                    removeQuery(queryId);
+                }
+            });
+        }
+
+        private boolean shouldBePurged(DispatchManager dispatchManager, Query query)
+        {
+            if (query.isSubmissionAbandoned()) {
+                // Query submission was explicitly abandoned
+                return true;
+            }
+            if (query.tryAbandonSubmissionWithTimeout(querySubmissionTimeout)) {
+                // Query took too long to be submitted by the client
+                return true;
+            }
+            if (query.isCreated() && !dispatchManager.isQueryRegistered(query.getQueryId())) {
+                // Query was created in the DispatchManager, and DispatchManager has already purged the query
+                return true;
+            }
+            return false;
+        }
+
+        private void removeQuery(QueryId queryId)
+        {
+            Optional.ofNullable(queries.remove(queryId))
+                    .ifPresent(QueryManager::destroyQuietly);
+        }
+
+        private static void destroyQuietly(Query query)
+        {
+            try {
+                query.destroy();
+            }
+            catch (Throwable t) {
+                log.error(t, "Error destroying query");
+            }
+        }
+
+        public void registerQuery(Query query)
+        {
+            Query existingQuery = queries.putIfAbsent(query.getQueryId(), query);
+            checkState(existingQuery == null, "Query already registered");
+        }
+
+        @Nullable
+        public Query getQuery(QueryId queryId)
+        {
+            return queries.get(queryId);
         }
     }
 }

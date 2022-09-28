@@ -23,7 +23,6 @@ import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.InternalHiveSplit;
 import io.trino.plugin.hive.InternalHiveSplit.InternalHiveBlock;
 import io.trino.plugin.hive.TableToPartitionMapping;
-import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.s3select.S3SelectPushdown;
 import io.trino.spi.HostAddress;
 import io.trino.spi.predicate.Domain;
@@ -69,9 +68,9 @@ public class InternalHiveSplitFactory
     private final Optional<BucketConversion> bucketConversion;
     private final Optional<HiveSplit.BucketValidation> bucketValidation;
     private final long minimumTargetSplitSizeInBytes;
+    private final Optional<Long> maxSplitFileSize;
     private final boolean forceLocalScheduling;
     private final boolean s3SelectPushdownEnabled;
-    private final AcidTransaction transaction;
     private final Map<Integer, AtomicInteger> bucketStatementCounters = new ConcurrentHashMap<>();
 
     public InternalHiveSplitFactory(
@@ -88,7 +87,7 @@ public class InternalHiveSplitFactory
             DataSize minimumTargetSplitSize,
             boolean forceLocalScheduling,
             boolean s3SelectPushdownEnabled,
-            AcidTransaction transaction)
+            Optional<Long> maxSplitFileSize)
     {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
@@ -102,8 +101,8 @@ public class InternalHiveSplitFactory
         this.bucketValidation = requireNonNull(bucketValidation, "bucketValidation is null");
         this.forceLocalScheduling = forceLocalScheduling;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
-        this.transaction = requireNonNull(transaction, "transaction is null");
-        this.minimumTargetSplitSizeInBytes = requireNonNull(minimumTargetSplitSize, "minimumTargetSplitSize is null").toBytes();
+        this.minimumTargetSplitSizeInBytes = minimumTargetSplitSize.toBytes();
+        this.maxSplitFileSize = requireNonNull(maxSplitFileSize, "maxSplitFileSize is null");
         checkArgument(minimumTargetSplitSizeInBytes > 0, "minimumTargetSplitSize must be > 0, found: %s", minimumTargetSplitSize);
     }
 
@@ -112,7 +111,7 @@ public class InternalHiveSplitFactory
         return partitionName;
     }
 
-    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, OptionalInt bucketNumber, boolean splittable, Optional<AcidInfo> acidInfo)
+    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, OptionalInt readBucketNumber, OptionalInt tableBucketNumber, boolean splittable, Optional<AcidInfo> acidInfo)
     {
         splittable = splittable &&
                 status.getLen() > minimumTargetSplitSizeInBytes &&
@@ -124,7 +123,8 @@ public class InternalHiveSplitFactory
                 status.getLen(),
                 status.getLen(),
                 status.getModificationTime(),
-                bucketNumber,
+                readBucketNumber,
+                tableBucketNumber,
                 splittable,
                 acidInfo);
     }
@@ -141,6 +141,7 @@ public class InternalHiveSplitFactory
                 file.getLen(),
                 file.getModificationTime(),
                 OptionalInt.empty(),
+                OptionalInt.empty(),
                 false,
                 Optional.empty());
     }
@@ -150,14 +151,21 @@ public class InternalHiveSplitFactory
             BlockLocation[] blockLocations,
             long start,
             long length,
+            // Estimated because, for example, encrypted S3 files may be padded, so reported size may not reflect actual size
             long estimatedFileSize,
             long fileModificationTime,
-            OptionalInt bucketNumber,
+            OptionalInt readBucketNumber,
+            OptionalInt tableBucketNumber,
             boolean splittable,
             Optional<AcidInfo> acidInfo)
     {
         String pathString = path.toString();
         if (!pathMatchesPredicate(pathDomain, pathString)) {
+            return Optional.empty();
+        }
+
+        // per HIVE-13040 empty files are allowed
+        if (estimatedFileSize == 0) {
             return Optional.empty();
         }
 
@@ -167,15 +175,8 @@ public class InternalHiveSplitFactory
             return Optional.empty();
         }
 
-        boolean forceLocalScheduling = this.forceLocalScheduling;
-
-        // For empty files, some filesystem (e.g. LocalFileSystem) produce one empty block
-        // while others (e.g. hdfs.DistributedFileSystem) produces no block.
-        // Synthesize an empty block if one does not already exist.
-        if (estimatedFileSize == 0 && blockLocations.length == 0) {
-            blockLocations = new BlockLocation[] {new BlockLocation()};
-            // Turn off force local scheduling because hosts list doesn't exist.
-            forceLocalScheduling = false;
+        if (maxSplitFileSize.isPresent() && estimatedFileSize > maxSplitFileSize.get()) {
+            return Optional.empty();
         }
 
         ImmutableList.Builder<InternalHiveBlock> blockBuilder = ImmutableList.builder();
@@ -201,13 +202,7 @@ public class InternalHiveSplitFactory
             blocks = ImmutableList.of(new InternalHiveBlock(start, start + length, blocks.get(0).getAddresses()));
         }
 
-        int statementId = 0;
-
-        if (transaction.isDelete() || transaction.isUpdate()) {
-            int bucketNumberIndex = bucketNumber.orElse(0);
-            statementId = bucketStatementCounters.computeIfAbsent(bucketNumberIndex, index -> new AtomicInteger()).getAndIncrement();
-        }
-
+        int bucketNumberIndex = readBucketNumber.orElse(0);
         return Optional.of(new InternalHiveSplit(
                 partitionName,
                 pathString,
@@ -218,15 +213,17 @@ public class InternalHiveSplitFactory
                 schema,
                 partitionKeys,
                 blocks,
-                bucketNumber,
-                statementId,
+                readBucketNumber,
+                tableBucketNumber,
+                () -> bucketStatementCounters.computeIfAbsent(bucketNumberIndex, index -> new AtomicInteger()).getAndIncrement(),
                 splittable,
                 forceLocalScheduling && allBlocksHaveAddress(blocks),
                 tableToPartitionMapping,
                 bucketConversion,
                 bucketValidation,
                 s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path),
-                acidInfo));
+                acidInfo,
+                partitionMatchSupplier));
     }
 
     private static void checkBlocks(Path path, List<InternalHiveBlock> blocks, long start, long length)

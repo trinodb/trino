@@ -17,27 +17,33 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.SizeOf;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 import org.apache.accumulo.core.data.Range;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class AccumuloSplit
         implements ConnectorSplit
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(AccumuloSplit.class).instanceSize();
+
     private final Optional<String> hostPort;
     private final List<HostAddress> addresses;
-    private final List<WrappedRange> ranges;
+    private final List<SerializedRange> ranges;
 
     @JsonCreator
     public AccumuloSplit(
-            @JsonProperty("ranges") List<WrappedRange> ranges,
+            @JsonProperty("ranges") List<SerializedRange> ranges,
             @JsonProperty("hostPort") Optional<String> hostPort)
     {
         this.hostPort = requireNonNull(hostPort, "hostPort is null");
@@ -59,7 +65,7 @@ public class AccumuloSplit
     }
 
     @JsonProperty("ranges")
-    public List<WrappedRange> getWrappedRanges()
+    public List<SerializedRange> getSerializedRanges()
     {
         return ranges;
     }
@@ -67,7 +73,7 @@ public class AccumuloSplit
     @JsonIgnore
     public List<Range> getRanges()
     {
-        return ranges.stream().map(WrappedRange::getRange).collect(Collectors.toList());
+        return ranges.stream().map(SerializedRange::deserialize).collect(Collectors.toList());
     }
 
     @Override
@@ -86,6 +92,15 @@ public class AccumuloSplit
     public Object getInfo()
     {
         return this;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + sizeOf(hostPort, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
+                + estimatedSizeOf(ranges, SerializedRange::getRetainedSizeInBytes);
     }
 
     @Override

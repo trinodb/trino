@@ -160,17 +160,12 @@ public class JoinNode
 
     private static Type flipType(Type type)
     {
-        switch (type) {
-            case INNER:
-                return INNER;
-            case FULL:
-                return FULL;
-            case LEFT:
-                return RIGHT;
-            case RIGHT:
-                return LEFT;
-        }
-        throw new IllegalStateException("No inverse defined for join type: " + type);
+        return switch (type) {
+            case INNER -> INNER;
+            case FULL -> FULL;
+            case LEFT -> RIGHT;
+            case RIGHT -> LEFT;
+        };
     }
 
     private static List<EquiJoinClause> flipJoinCriteria(List<EquiJoinClause> joinCriteria)
@@ -207,19 +202,12 @@ public class JoinNode
 
         public static Type typeConvert(Join.Type joinType)
         {
-            switch (joinType) {
-                case CROSS:
-                case IMPLICIT:
-                case INNER:
-                    return Type.INNER;
-                case LEFT:
-                    return Type.LEFT;
-                case RIGHT:
-                    return Type.RIGHT;
-                case FULL:
-                    return Type.FULL;
-            }
-            throw new UnsupportedOperationException("Unsupported join type: " + joinType);
+            return switch (joinType) {
+                case CROSS, IMPLICIT, INNER -> Type.INNER;
+                case LEFT -> Type.LEFT;
+                case RIGHT -> Type.RIGHT;
+                case FULL -> Type.FULL;
+            };
         }
     }
 
@@ -353,6 +341,11 @@ public class JoinNode
     public JoinNode withReorderJoinStatsAndCost(PlanNodeStatsAndCostSummary statsAndCost)
     {
         return new JoinNode(getId(), type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, maySkipOutputDuplicates, filter, leftHashSymbol, rightHashSymbol, distributionType, spillable, dynamicFilters, Optional.of(statsAndCost));
+    }
+
+    public JoinNode withoutDynamicFilters()
+    {
+        return new JoinNode(getId(), type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, maySkipOutputDuplicates, filter, leftHashSymbol, rightHashSymbol, distributionType, spillable, ImmutableMap.of(), reorderJoinStatsAndCost);
     }
 
     public boolean isCrossJoin()

@@ -68,6 +68,11 @@
       "endpoint": "http://localhost:7753"
     },
     {
+      "prefix": "s3://somebucket",
+      "iamRole": "arn:aws:iam::1234567891012:role/default",
+      "roleSessionName": "iam-trino-session"
+    },
+    {
       "useClusterDefault": "false",
       "iamRole": "arn:aws:iam::123456789101:role/default"
     }

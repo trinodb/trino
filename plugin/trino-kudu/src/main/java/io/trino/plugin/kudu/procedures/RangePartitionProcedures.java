@@ -25,16 +25,24 @@ import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class RangePartitionProcedures
 {
-    private static final MethodHandle ADD = methodHandle(RangePartitionProcedures.class, "addRangePartition",
-            String.class, String.class, String.class);
-    private static final MethodHandle DROP = methodHandle(RangePartitionProcedures.class, "dropRangePartition",
-            String.class, String.class, String.class);
+    private static final MethodHandle ADD;
+    private static final MethodHandle DROP;
+
+    static {
+        try {
+            ADD = lookup().unreflect(RangePartitionProcedures.class.getMethod("addRangePartition", String.class, String.class, String.class));
+            DROP = lookup().unreflect(RangePartitionProcedures.class.getMethod("dropRangePartition", String.class, String.class, String.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
 
     private final KuduClientSession clientSession;
 
@@ -50,9 +58,9 @@ public class RangePartitionProcedures
                 "system",
                 "add_range_partition",
                 ImmutableList.of(
-                        new Argument("schema", VARCHAR),
-                        new Argument("table", VARCHAR),
-                        new Argument("range_bounds", VARCHAR)),
+                        new Argument("SCHEMA", VARCHAR),
+                        new Argument("TABLE", VARCHAR),
+                        new Argument("RANGE_BOUNDS", VARCHAR)),
                 ADD.bindTo(this));
     }
 
@@ -62,9 +70,9 @@ public class RangePartitionProcedures
                 "system",
                 "drop_range_partition",
                 ImmutableList.of(
-                        new Argument("schema", VARCHAR),
-                        new Argument("table", VARCHAR),
-                        new Argument("range_bounds", VARCHAR)),
+                        new Argument("SCHEMA", VARCHAR),
+                        new Argument("TABLE", VARCHAR),
+                        new Argument("RANGE_BOUNDS", VARCHAR)),
                 DROP.bindTo(this));
     }
 

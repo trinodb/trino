@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import io.airlift.units.DataSize;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -77,7 +78,7 @@ public class GenericHiveRecordCursorProvider
 
         // make sure the FileSystem is created with the proper Configuration object
         try {
-            this.hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
+            this.hdfsEnvironment.getFileSystem(session.getIdentity(), path, configuration);
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + path, e);
@@ -91,7 +92,7 @@ public class GenericHiveRecordCursorProvider
                         .collect(toUnmodifiableList()))
                 .orElse(columns);
 
-        RecordCursor cursor = hdfsEnvironment.doAs(session.getUser(), () -> {
+        RecordCursor cursor = hdfsEnvironment.doAs(session.getIdentity(), () -> {
             RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(
                     configuration,
                     path,

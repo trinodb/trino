@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.benchmark;
 
-import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.HiveRecordCursorProvider;

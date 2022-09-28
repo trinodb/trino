@@ -18,5 +18,5 @@ package io.trino.plugin.redis;
  */
 public enum RedisDataType
 {
-    STRING, HASH, SET, ZSET
+    STRING, HASH, ZSET
 }

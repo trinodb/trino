@@ -13,7 +13,7 @@
  */
 package io.trino.parquet.reader;
 
-import io.trino.parquet.RichColumnDescriptor;
+import io.trino.parquet.PrimitiveField;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 
@@ -22,27 +22,14 @@ import static java.lang.Float.floatToRawIntBits;
 public class FloatColumnReader
         extends PrimitiveColumnReader
 {
-    public FloatColumnReader(RichColumnDescriptor descriptor)
+    public FloatColumnReader(PrimitiveField field)
     {
-        super(descriptor);
+        super(field);
     }
 
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            type.writeLong(blockBuilder, floatToRawIntBits(valuesReader.readFloat()));
-        }
-        else if (isValueNull()) {
-            blockBuilder.appendNull();
-        }
-    }
-
-    @Override
-    protected void skipValue()
-    {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readFloat();
-        }
+        type.writeLong(blockBuilder, floatToRawIntBits(valuesReader.readFloat()));
     }
 }

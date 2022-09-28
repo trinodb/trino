@@ -48,6 +48,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.plan.Patterns.project;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.IntStream.range;
@@ -61,7 +62,7 @@ public class TestPlannerWarnings
     public void setUp()
     {
         queryRunner = LocalQueryRunner.create(testSessionBuilder()
-                .setCatalog("local")
+                .setCatalog(TEST_CATALOG_NAME)
                 .setSchema("tiny")
                 .build());
 
@@ -90,8 +91,8 @@ public class TestPlannerWarnings
     public static void assertPlannerWarnings(LocalQueryRunner queryRunner, @Language("SQL") String sql, Map<String, String> sessionProperties, List<WarningCode> expectedWarnings, Optional<List<Rule<?>>> rules)
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
-                .setCatalog(queryRunner.getDefaultSession().getCatalog().get())
-                .setSchema(queryRunner.getDefaultSession().getSchema().get());
+                .setCatalog(queryRunner.getDefaultSession().getCatalog())
+                .setSchema(queryRunner.getDefaultSession().getSchema());
         sessionProperties.forEach(sessionBuilder::setSystemProperty);
         WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig());
         try {
@@ -122,7 +123,7 @@ public class TestPlannerWarnings
     {
         // Warnings from testing rules will be added
         PlanOptimizer optimizer = new IterativeOptimizer(
-                queryRunner.getMetadata(),
+                queryRunner.getPlannerContext(),
                 new RuleStatsRecorder(),
                 queryRunner.getStatsCalculator(),
                 queryRunner.getCostCalculator(),

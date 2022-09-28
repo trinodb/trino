@@ -15,6 +15,7 @@ package io.trino.plugin.pinot;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.pinot.client.PinotClient;
+import io.trino.spi.type.TestingTypeManager;
 import org.apache.pinot.spi.data.FieldSpec.DataType;
 import org.apache.pinot.spi.data.Schema;
 import org.apache.pinot.spi.data.Schema.SchemaBuilder;
@@ -28,6 +29,8 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class TestPinotQueryBase
 {
+    protected static final PinotTypeConverter TESTING_TYPE_CONVERTER = new PinotTypeConverter(new TestingTypeManager());
+
     protected static PinotTableHandle realtimeOnlyTable = new PinotTableHandle("schema", "realtimeOnly");
     protected static PinotTableHandle hybridTable = new PinotTableHandle("schema", "hybrid");
 
@@ -37,12 +40,14 @@ public class TestPinotQueryBase
     protected final PinotMetadata pinotMetadata = new PinotMetadata(
             mockClusterInfoFetcher,
             pinotConfig,
-            newCachedThreadPool(threadsNamed("mock-pinot-metadata-fetcher")));
+            newCachedThreadPool(threadsNamed("mock-pinot-metadata-fetcher")),
+            TESTING_TYPE_CONVERTER);
 
     protected List<String> getColumnNames(String table)
     {
-        return pinotMetadata.getPinotColumns(table).stream()
-                .map(PinotColumn::getName)
+        return pinotMetadata.getColumnsMetadata(table).stream()
+                .map(PinotColumnHandle::fromColumnMetadata)
+                .map(PinotColumnHandle::getColumnName)
                 .collect(toImmutableList());
     }
 
@@ -104,6 +109,10 @@ public class TestPinotQueryBase
                         .addSingleValueDimension("float_col", DataType.FLOAT)
                         .addSingleValueDimension("bytes_col", DataType.BYTES)
                         .build())
-                .build();
+                .put("quotes_in_column_names", new SchemaBuilder().setSchemaName("quotes_in_column_names")
+                        .addSingleValueDimension("non_quoted", DataType.STRING)
+                        .addSingleValueDimension("qu\"ot\"ed", DataType.STRING)
+                        .build())
+                .buildOrThrow();
     }
 }

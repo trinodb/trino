@@ -21,19 +21,22 @@ import java.util.regex.Pattern;
 public class AnySchemaPermissionsRule
 {
     private final Optional<Pattern> userRegex;
+    private final Optional<Pattern> roleRegex;
     private final Optional<Pattern> groupRegex;
     private final Optional<Pattern> schemaRegex;
 
-    public AnySchemaPermissionsRule(Optional<Pattern> userRegex, Optional<Pattern> groupRegex, Optional<Pattern> schemaRegex)
+    public AnySchemaPermissionsRule(Optional<Pattern> userRegex, Optional<Pattern> roleRegex, Optional<Pattern> groupRegex, Optional<Pattern> schemaRegex)
     {
         this.userRegex = userRegex;
+        this.roleRegex = roleRegex;
         this.groupRegex = groupRegex;
         this.schemaRegex = schemaRegex;
     }
 
-    public boolean match(String user, Set<String> groups, String schemaName)
+    public boolean match(String user, Set<String> roles, Set<String> groups, String schemaName)
     {
         return userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
+                roleRegex.map(regex -> roles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
                 groupRegex.map(regex -> groups.stream().anyMatch(group -> regex.matcher(group).matches())).orElse(true) &&
                 schemaRegex.map(regex -> regex.matcher(schemaName).matches()).orElse(true);
     }
@@ -49,6 +52,7 @@ public class AnySchemaPermissionsRule
         }
         AnySchemaPermissionsRule that = (AnySchemaPermissionsRule) o;
         return patternEquals(userRegex, that.userRegex) &&
+                patternEquals(roleRegex, that.roleRegex) &&
                 patternEquals(groupRegex, that.groupRegex) &&
                 patternEquals(schemaRegex, that.schemaRegex);
     }
@@ -66,6 +70,6 @@ public class AnySchemaPermissionsRule
     @Override
     public int hashCode()
     {
-        return Objects.hash(userRegex, groupRegex, schemaRegex);
+        return Objects.hash(userRegex, roleRegex, groupRegex, schemaRegex);
     }
 }

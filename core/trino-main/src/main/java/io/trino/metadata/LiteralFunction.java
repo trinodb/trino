@@ -16,61 +16,59 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
-import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
-import io.trino.operator.scalar.ScalarFunctionImplementation;
+import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
+import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.block.BlockSerdeUtil.READ_BLOCK;
 import static io.trino.block.BlockSerdeUtil.READ_BLOCK_VALUE;
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static java.util.Objects.requireNonNull;
 
 public class LiteralFunction
         extends SqlScalarFunction
 {
     public static final String LITERAL_FUNCTION_NAME = "$literal$";
 
-    private final Supplier<BlockEncodingSerde> blockEncodingSerdeSupplier;
+    private final BlockEncodingSerde blockEncodingSerde;
 
-    public LiteralFunction(Supplier<BlockEncodingSerde> blockEncodingSerdeSupplier)
+    public LiteralFunction(BlockEncodingSerde blockEncodingSerde)
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        LITERAL_FUNCTION_NAME,
-                        ImmutableList.of(typeVariable("F"), typeVariable("T")),
-                        ImmutableList.of(),
-                        new TypeSignature("T"),
-                        ImmutableList.of(new TypeSignature("F")),
-                        false),
-                false,
-                ImmutableList.of(new FunctionArgumentDefinition(false)),
-                true,
-                true,
-                "literal",
-                SCALAR));
-        this.blockEncodingSerdeSupplier = blockEncodingSerdeSupplier;
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name(LITERAL_FUNCTION_NAME)
+                        .typeVariable("F")
+                        .typeVariable("T")
+                        .returnType(new TypeSignature("T"))
+                        .argumentType(new TypeSignature("F"))
+                        .build())
+                .hidden()
+                .description("literal")
+                .build());
+        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
-        Type parameterType = functionBinding.getTypeVariable("F");
-        Type type = functionBinding.getTypeVariable("T");
+        Type parameterType = boundSignature.getArgumentTypes().get(0);
+        Type type = boundSignature.getReturnType();
 
         MethodHandle methodHandle = null;
         if (parameterType.getJavaType() == type.getJavaType()) {
@@ -79,21 +77,22 @@ public class LiteralFunction
 
         if (parameterType.getJavaType() == Slice.class) {
             if (type.getJavaType() == Block.class) {
-                methodHandle = READ_BLOCK.bindTo(blockEncodingSerdeSupplier.get());
+                methodHandle = READ_BLOCK.bindTo(blockEncodingSerde);
             }
             else if (type.getJavaType() != Slice.class) {
-                methodHandle = READ_BLOCK_VALUE.bindTo(blockEncodingSerdeSupplier.get()).bindTo(type);
+                methodHandle = READ_BLOCK_VALUE.bindTo(blockEncodingSerde).bindTo(type);
             }
         }
 
-        checkArgument(methodHandle != null,
+        checkArgument(
+                methodHandle != null,
                 "Expected type %s to use (or can be converted into) Java type %s, but Java type is %s",
                 type,
                 parameterType.getJavaType(),
                 type.getJavaType());
 
-        return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+        return new ChoicesSpecializedSqlScalarFunction(
+                boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
                 methodHandle);
@@ -114,9 +113,7 @@ public class LiteralFunction
             if (type instanceof VarcharType) {
                 return type;
             }
-            else {
-                return VARBINARY;
-            }
+            return VARBINARY;
         }
         if (clazz == boolean.class) {
             return BOOLEAN;

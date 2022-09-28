@@ -35,7 +35,7 @@ public class TestJdbcOutputTableHandle
                 ImmutableList.of("abc", "xyz"),
                 ImmutableList.of(VARCHAR, VARCHAR),
                 Optional.empty(),
-                "tmp_table");
+                Optional.of("tmp_table"));
 
         assertJsonRoundTrip(OUTPUT_TABLE_CODEC, handleForCreate);
 
@@ -46,7 +46,7 @@ public class TestJdbcOutputTableHandle
                 ImmutableList.of("abc", "xyz"),
                 ImmutableList.of(VARCHAR, VARCHAR),
                 Optional.of(ImmutableList.of(JDBC_VARCHAR, JDBC_VARCHAR)),
-                "tmp_table");
+                Optional.of("tmp_table"));
 
         assertJsonRoundTrip(OUTPUT_TABLE_CODEC, handleForInsert);
     }

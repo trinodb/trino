@@ -16,14 +16,16 @@ package io.trino.sql.planner.sanity;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
-import io.trino.spi.type.TypeOperators;
+import io.trino.operator.RetryPolicy;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.SubExpressionExtractor;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.DynamicFilterId;
+import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.OutputNode;
@@ -44,6 +46,10 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.intersection;
+import static io.trino.SystemSessionProperties.getRetryPolicy;
+import static io.trino.operator.join.JoinUtils.getJoinDynamicFilters;
+import static io.trino.operator.join.JoinUtils.getSemiJoinDynamicFilterId;
+import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 
 /**
  * When dynamic filter assignments are present on a Join node, they should be consumed by a Filter node on it's probe side
@@ -55,12 +61,38 @@ public class DynamicFiltersChecker
     public void validate(
             PlanNode plan,
             Session session,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)
     {
+        try {
+            validate(plan, session);
+        }
+        catch (RuntimeException e) {
+            try {
+                int nestLevel = 4; // so that it renders reasonably within exception stacktrace
+                String explain = textLogicalPlan(
+                        plan,
+                        types,
+                        plannerContext.getMetadata(),
+                        plannerContext.getFunctionManager(),
+                        StatsAndCosts.empty(),
+                        session,
+                        nestLevel,
+                        false);
+                e.addSuppressed(new Exception("Current plan:\n" + explain));
+            }
+            catch (RuntimeException ignore) {
+                // ignored
+            }
+            throw e;
+        }
+    }
+
+    private void validate(PlanNode plan, Session session)
+    {
+        RetryPolicy retryPolicy = getRetryPolicy(session);
         plan.accept(new PlanVisitor<Set<DynamicFilterId>, Void>()
         {
             @Override
@@ -84,7 +116,11 @@ public class DynamicFiltersChecker
             @Override
             public Set<DynamicFilterId> visitJoin(JoinNode node, Void context)
             {
-                Set<DynamicFilterId> currentJoinDynamicFilters = node.getDynamicFilters().keySet();
+                boolean taskRetriesEnabled = retryPolicy == RetryPolicy.TASK;
+                verify(
+                        !taskRetriesEnabled || node.getDynamicFilters().isEmpty(),
+                        "Dynamic filters %s present in a join in task retry mode", node.getDynamicFilters());
+                Set<DynamicFilterId> currentJoinDynamicFilters = getJoinDynamicFilters(node).keySet();
                 Set<DynamicFilterId> consumedProbeSide = node.getLeft().accept(this, context);
                 Set<DynamicFilterId> unconsumedByProbeSide = difference(currentJoinDynamicFilters, consumedProbeSide);
                 verify(unconsumedByProbeSide.isEmpty(),
@@ -111,14 +147,19 @@ public class DynamicFiltersChecker
             @Override
             public Set<DynamicFilterId> visitSemiJoin(SemiJoinNode node, Void context)
             {
+                boolean taskRetriesEnabled = retryPolicy == RetryPolicy.TASK;
+                verify(
+                        !taskRetriesEnabled || node.getDynamicFilterId().isEmpty(),
+                        "Dynamic filters %s present in a semi-join in task retry mode", node.getDynamicFilterId());
                 Set<DynamicFilterId> consumedSourceSide = node.getSource().accept(this, context);
                 Set<DynamicFilterId> consumedFilteringSourceSide = node.getFilteringSource().accept(this, context);
 
                 Set<DynamicFilterId> unmatched = new HashSet<>(consumedSourceSide);
                 unmatched.addAll(consumedFilteringSourceSide);
 
-                if (node.getDynamicFilterId().isPresent()) {
-                    DynamicFilterId dynamicFilterId = node.getDynamicFilterId().get();
+                Optional<DynamicFilterId> currentSemiJoinDynamicFilter = getSemiJoinDynamicFilterId(node);
+                if (currentSemiJoinDynamicFilter.isPresent()) {
+                    DynamicFilterId dynamicFilterId = currentSemiJoinDynamicFilter.get();
                     verify(consumedSourceSide.contains(dynamicFilterId),
                             "The dynamic filter %s present in semi-join was not consumed by it's source side.", dynamicFilterId);
                     verify(!consumedFilteringSourceSide.contains(dynamicFilterId),
@@ -144,6 +185,17 @@ public class DynamicFiltersChecker
                 consumed.addAll(node.getSource().accept(this, context));
                 return consumed.build();
             }
+
+            @Override
+            public Set<DynamicFilterId> visitDynamicFilterSource(DynamicFilterSourceNode node, Void context)
+            {
+                verify(
+                        retryPolicy == RetryPolicy.TASK,
+                        "Found DynamicFilterSourceNode %s with retry policy %s",
+                        node,
+                        retryPolicy);
+                return node.getSource().accept(this, context);
+            }
         }, null);
     }
 
@@ -161,7 +213,7 @@ public class DynamicFiltersChecker
 
     private static List<DynamicFilters.Descriptor> extractDynamicPredicates(Expression expression)
     {
-        return SubExpressionExtractor.extract(expression).stream()
+        return SubExpressionExtractor.extract(expression)
                 .map(DynamicFilters::getDescriptor)
                 .filter(Optional::isPresent)
                 .map(Optional::get)

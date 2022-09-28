@@ -15,11 +15,9 @@ package io.trino.benchmark;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.trino.metadata.Metadata;
 import io.trino.operator.AggregationOperator.AggregationOperatorFactory;
 import io.trino.operator.FilterAndProjectOperator;
 import io.trino.operator.OperatorFactory;
-import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.operator.project.InputChannels;
 import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProcessor;
@@ -29,9 +27,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.sql.gen.PageFunctionCompiler;
-import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.util.DateTimeUtils;
 
@@ -43,20 +39,17 @@ import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.relational.Expressions.field;
 
 public class HandTpchQuery6
         extends AbstractSimpleOperatorBenchmark
 {
-    private final InternalAggregationFunction doubleSum;
+    private final BenchmarkAggregationFunction doubleSum;
 
     public HandTpchQuery6(LocalQueryRunner localQueryRunner)
     {
         super(localQueryRunner, "hand_tpch_query_6", 10, 100);
-
-        Metadata metadata = localQueryRunner.getMetadata();
-        doubleSum = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)));
+        doubleSum = createAggregationFunction("sum", DOUBLE);
     }
 
     @Override
@@ -71,7 +64,7 @@ public class HandTpchQuery6
         //    and quantity < 24;
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "extendedprice", "discount", "shipdate", "quantity");
 
-        Supplier<PageProjection> projection = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0).compileProjection(field(0, BIGINT), Optional.empty());
+        Supplier<PageProjection> projection = new PageFunctionCompiler(localQueryRunner.getFunctionManager(), 0).compileProjection(field(0, BIGINT), Optional.empty());
 
         OperatorFactory tpchQuery6Operator = FilterAndProjectOperator.createOperatorFactory(
                 1,
@@ -84,10 +77,8 @@ public class HandTpchQuery6
         AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(
                 2,
                 new PlanNodeId("test"),
-                Step.SINGLE,
                 ImmutableList.of(
-                        doubleSum.bind(ImmutableList.of(0), Optional.empty())),
-                false);
+                        doubleSum.bind(ImmutableList.of(0))));
 
         return ImmutableList.of(tableScanOperator, tpchQuery6Operator, aggregationOperator);
     }

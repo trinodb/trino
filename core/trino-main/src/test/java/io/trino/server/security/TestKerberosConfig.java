@@ -50,7 +50,7 @@ public class TestKerberosConfig
         Path keytabFile = Files.createTempFile(null, null);
         Path userMappingFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("http.authentication.krb5.config", krbConfigFile.toString())
                 .put("http-server.authentication.krb5.service-name", "airlift")
                 .put("http-server.authentication.krb5.keytab", keytabFile.toString())
@@ -58,7 +58,7 @@ public class TestKerberosConfig
                 .put("http-server.authentication.krb5.name-type", "USER_NAME")
                 .put("http-server.authentication.krb5.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.krb5.user-mapping.file", userMappingFile.toString())
-                .build();
+                .buildOrThrow();
 
         KerberosConfig expected = new KerberosConfig()
                 .setKerberosConfig(krbConfigFile.toFile())

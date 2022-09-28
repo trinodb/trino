@@ -18,6 +18,7 @@ import io.trino.spi.type.Type;
 import static java.util.Objects.requireNonNull;
 
 public class PhysicalValuePointer
+        implements PhysicalValueAccessor
 {
     public static final int CLASSIFIER = -1;
     public static final int MATCH_NUMBER = -2;

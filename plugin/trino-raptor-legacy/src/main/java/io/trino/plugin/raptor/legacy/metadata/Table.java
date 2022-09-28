@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.raptor.legacy.metadata;
 
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.StatementContext;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -97,10 +97,10 @@ public final class Table
     }
 
     public static class TableMapper
-            implements ResultSetMapper<Table>
+            implements RowMapper<Table>
     {
         @Override
-        public Table map(int index, ResultSet r, StatementContext ctx)
+        public Table map(ResultSet r, StatementContext ctx)
                 throws SQLException
         {
             return new Table(

@@ -14,38 +14,35 @@
 package io.trino.benchmark;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.Metadata;
 import io.trino.operator.AggregationOperator.AggregationOperatorFactory;
 import io.trino.operator.OperatorFactory;
-import io.trino.operator.aggregation.InternalAggregationFunction;
-import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.LocalQueryRunner;
 
 import java.util.List;
-import java.util.Optional;
 
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 public class DoubleSumAggregationBenchmark
         extends AbstractSimpleOperatorBenchmark
 {
+    private final BenchmarkAggregationFunction doubleSum;
+
     public DoubleSumAggregationBenchmark(LocalQueryRunner localQueryRunner)
     {
         super(localQueryRunner, "double_sum_agg", 10, 100);
+        doubleSum = createAggregationFunction("sum", DOUBLE);
     }
 
     @Override
     protected List<? extends OperatorFactory> createOperatorFactories()
     {
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "totalprice");
-        Metadata metadata = createTestMetadataManager();
-        InternalAggregationFunction doubleSum = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)));
-        AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(1, new PlanNodeId("test"), Step.SINGLE, ImmutableList.of(doubleSum.bind(ImmutableList.of(0), Optional.empty())), false);
+        AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(
+                1,
+                new PlanNodeId("test"),
+                ImmutableList.of(doubleSum.bind(ImmutableList.of(0))));
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }
 

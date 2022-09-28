@@ -14,8 +14,12 @@
 package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import io.airlift.units.DataSize;
+import io.trino.Session;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
@@ -32,7 +36,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static io.trino.operator.GroupByHash.createGroupByHash;
 import static java.util.Objects.requireNonNull;
 
@@ -63,6 +66,7 @@ public class TopNRankingOperator
         private final JoinCompiler joinCompiler;
         private final TypeOperators typeOperators;
         private final BlockTypeOperators blockTypeOperators;
+        private final Optional<DataSize> maxPartialMemory;
 
         public TopNRankingOperatorFactory(
                 int operatorId,
@@ -78,6 +82,7 @@ public class TopNRankingOperator
                 boolean partial,
                 Optional<Integer> hashChannel,
                 int expectedPositions,
+                Optional<DataSize> maxPartialMemory,
                 JoinCompiler joinCompiler,
                 TypeOperators typeOperators,
                 BlockTypeOperators blockTypeOperators)
@@ -101,6 +106,7 @@ public class TopNRankingOperator
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
             this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
             this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
+            this.maxPartialMemory = requireNonNull(maxPartialMemory, "maxPartialMemory is null");
         }
 
         @Override
@@ -121,6 +127,7 @@ public class TopNRankingOperator
                     generateRanking,
                     hashChannel,
                     expectedPositions,
+                    maxPartialMemory,
                     joinCompiler,
                     typeOperators,
                     blockTypeOperators);
@@ -149,6 +156,7 @@ public class TopNRankingOperator
                     partial,
                     hashChannel,
                     expectedPositions,
+                    maxPartialMemory,
                     joinCompiler,
                     typeOperators,
                     blockTypeOperators);
@@ -156,13 +164,14 @@ public class TopNRankingOperator
     }
 
     private final OperatorContext operatorContext;
-    private final LocalMemoryContext localUserMemoryContext;
+    private final LocalMemoryContext localMemoryContext;
 
     private final int[] outputChannels;
+    private final Supplier<GroupedTopNBuilder> groupedTopNBuilderSupplier;
+    private final boolean partial;
+    private final long maxFlushableBytes;
 
-    private final GroupByHash groupByHash;
-    private final GroupedTopNBuilder groupedTopNBuilder;
-
+    private GroupedTopNBuilder groupedTopNBuilder;
     private boolean finishing;
     private Work<?> unfinishedWork;
     private Iterator<Page> outputIterator;
@@ -180,12 +189,14 @@ public class TopNRankingOperator
             boolean generateRanking,
             Optional<Integer> hashChannel,
             int expectedPositions,
+            Optional<DataSize> maxPartialMemory,
             JoinCompiler joinCompiler,
             TypeOperators typeOperators,
             BlockTypeOperators blockTypeOperators)
     {
+        requireNonNull(maxPartialMemory, "maxPartialMemory is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
+        this.localMemoryContext = operatorContext.localUserMemoryContext();
 
         ImmutableList.Builder<Integer> outputChannelsBuilder = ImmutableList.builder();
         for (int channel : requireNonNull(outputChannels, "outputChannels is null")) {
@@ -195,48 +206,94 @@ public class TopNRankingOperator
             outputChannelsBuilder.add(outputChannels.size());
         }
         this.outputChannels = Ints.toArray(outputChannelsBuilder.build());
+        this.partial = !generateRanking;
 
         checkArgument(maxRankingPerPartition > 0, "maxRankingPerPartition must be > 0");
 
-        if (!partitionChannels.isEmpty()) {
-            checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
-            groupByHash = createGroupByHash(
-                    partitionTypes,
-                    Ints.toArray(partitionChannels),
-                    hashChannel,
-                    expectedPositions,
-                    isDictionaryAggregationEnabled(operatorContext.getSession()),
-                    joinCompiler,
-                    blockTypeOperators,
-                    this::updateMemoryReservation);
-        }
-        else {
-            groupByHash = new NoChannelGroupByHash();
-        }
+        checkArgument(maxPartialMemory.isEmpty() || !generateRanking, "no partial memory on final TopN");
+        this.maxFlushableBytes = maxPartialMemory.map(DataSize::toBytes).orElse(Long.MAX_VALUE);
 
-        switch (rankingType) {
-            case ROW_NUMBER:
-                this.groupedTopNBuilder = new GroupedTopNRowNumberBuilder(
-                        ImmutableList.copyOf(sourceTypes),
-                        new SimplePageWithPositionComparator(ImmutableList.copyOf(sourceTypes), sortChannels, sortOrders, typeOperators),
-                        maxRankingPerPartition,
-                        generateRanking,
-                        groupByHash);
-                break;
-            case RANK:
-                this.groupedTopNBuilder = new GroupedTopNRankBuilder(
-                        ImmutableList.copyOf(sourceTypes),
-                        new SimplePageWithPositionComparator(ImmutableList.copyOf(sourceTypes), sortChannels, sortOrders, typeOperators),
-                        new SimplePageWithPositionEqualsAndHash(ImmutableList.copyOf(sourceTypes), sortChannels, blockTypeOperators),
-                        maxRankingPerPartition,
-                        generateRanking,
-                        groupByHash);
-                break;
-            case DENSE_RANK:
-                throw new UnsupportedOperationException();
-            default:
-                throw new AssertionError("Unknown ranking type: " + rankingType);
+        this.groupedTopNBuilderSupplier = getGroupedTopNBuilderSupplier(
+                rankingType,
+                ImmutableList.copyOf(sourceTypes),
+                sortChannels,
+                sortOrders,
+                maxRankingPerPartition,
+                generateRanking,
+                typeOperators,
+                blockTypeOperators,
+                getGroupByHashSupplier(
+                        partitionChannels,
+                        expectedPositions,
+                        partitionTypes,
+                        hashChannel,
+                        operatorContext.getSession(),
+                        joinCompiler,
+                        blockTypeOperators,
+                        this::updateMemoryReservation));
+    }
+
+    private static Supplier<GroupByHash> getGroupByHashSupplier(
+            List<Integer> partitionChannels,
+            int expectedPositions,
+            List<Type> partitionTypes,
+            Optional<Integer> hashChannel,
+            Session session,
+            JoinCompiler joinCompiler,
+            BlockTypeOperators blockTypeOperators,
+            UpdateMemory updateMemory)
+    {
+        if (partitionChannels.isEmpty()) {
+            return Suppliers.ofInstance(new NoChannelGroupByHash());
         }
+        checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
+        int[] channels = Ints.toArray(partitionChannels);
+        return () -> createGroupByHash(
+                session,
+                partitionTypes,
+                channels,
+                hashChannel,
+                expectedPositions,
+                joinCompiler,
+                blockTypeOperators,
+                updateMemory);
+    }
+
+    private static Supplier<GroupedTopNBuilder> getGroupedTopNBuilderSupplier(
+            RankingType rankingType,
+            List<Type> sourceTypes,
+            List<Integer> sortChannels,
+            List<SortOrder> sortOrders,
+            int maxRankingPerPartition,
+            boolean generateRanking,
+            TypeOperators typeOperators,
+            BlockTypeOperators blockTypeOperators,
+            Supplier<GroupByHash> groupByHashSupplier)
+    {
+        if (rankingType == RankingType.ROW_NUMBER) {
+            PageWithPositionComparator comparator = new SimplePageWithPositionComparator(sourceTypes, sortChannels, sortOrders, typeOperators);
+            return () -> new GroupedTopNRowNumberBuilder(
+                    sourceTypes,
+                    comparator,
+                    maxRankingPerPartition,
+                    generateRanking,
+                    groupByHashSupplier.get());
+        }
+        if (rankingType == RankingType.RANK) {
+            PageWithPositionComparator comparator = new SimplePageWithPositionComparator(sourceTypes, sortChannels, sortOrders, typeOperators);
+            PageWithPositionEqualsAndHash equalsAndHash = new SimplePageWithPositionEqualsAndHash(ImmutableList.copyOf(sourceTypes), sortChannels, blockTypeOperators);
+            return () -> new GroupedTopNRankBuilder(
+                    sourceTypes,
+                    comparator,
+                    equalsAndHash,
+                    maxRankingPerPartition,
+                    generateRanking,
+                    groupByHashSupplier.get());
+        }
+        if (rankingType == RankingType.DENSE_RANK) {
+            throw new UnsupportedOperationException();
+        }
+        throw new AssertionError("Unknown ranking type: " + rankingType);
     }
 
     @Override
@@ -255,14 +312,14 @@ public class TopNRankingOperator
     public boolean isFinished()
     {
         // has no more input, has finished flushing, and has no unfinished work
-        return finishing && outputIterator != null && !outputIterator.hasNext() && unfinishedWork == null;
+        return finishing && outputIterator == null && groupedTopNBuilder == null && unfinishedWork == null;
     }
 
     @Override
     public boolean needsInput()
     {
         // still has more input, has not started flushing yet, and has no unfinished work
-        return !finishing && outputIterator == null && unfinishedWork == null;
+        return !finishing && outputIterator == null && !isBuilderFull() && unfinishedWork == null;
     }
 
     @Override
@@ -272,6 +329,11 @@ public class TopNRankingOperator
         checkState(unfinishedWork == null, "Cannot add input with the operator when unfinished work is not empty");
         checkState(outputIterator == null, "Cannot add input with the operator when flushing");
         requireNonNull(page, "page is null");
+        checkState(!isBuilderFull(), "TopN buffer is already full");
+
+        if (groupedTopNBuilder == null) {
+            groupedTopNBuilder = groupedTopNBuilderSupplier.get();
+        }
         unfinishedWork = groupedTopNBuilder.processPage(page);
         if (unfinishedWork.process()) {
             unfinishedWork = null;
@@ -291,35 +353,64 @@ public class TopNRankingOperator
             unfinishedWork = null;
         }
 
-        if (!finishing) {
+        if (!finishing && (!partial || !isBuilderFull()) && outputIterator == null) {
             return null;
         }
 
-        if (outputIterator == null) {
+        if (outputIterator == null && groupedTopNBuilder != null) {
             // start flushing
             outputIterator = groupedTopNBuilder.buildResult();
         }
 
-        Page output = null;
-        if (outputIterator.hasNext()) {
+        Page output;
+        if (outputIterator != null && outputIterator.hasNext()) {
             // rewrite to expected column ordering
             output = outputIterator.next().getColumns(outputChannels);
+        }
+        else {
+            closeGroupedTopNBuilder();
+            return null;
         }
         updateMemoryReservation();
         return output;
     }
 
-    @VisibleForTesting
-    public int getCapacity()
+    @Override
+    public void close()
     {
-        checkState(groupByHash != null);
-        return groupByHash.getCapacity();
+        closeGroupedTopNBuilder();
+    }
+
+    private void closeGroupedTopNBuilder()
+    {
+        outputIterator = null;
+        groupedTopNBuilder = null;
+        localMemoryContext.setBytes(0);
     }
 
     private boolean updateMemoryReservation()
     {
+        if (groupedTopNBuilder == null) {
+            localMemoryContext.setBytes(0);
+            return true;
+        }
         // TODO: may need to use trySetMemoryReservation with a compaction to free memory (but that may cause GC pressure)
-        localUserMemoryContext.setBytes(groupedTopNBuilder.getEstimatedSizeInBytes());
+        localMemoryContext.setBytes(groupedTopNBuilder.getEstimatedSizeInBytes());
+        if (partial) {
+            // do not yield on memory for partial aggregations
+            return true;
+        }
         return operatorContext.isWaitingForMemory().isDone();
+    }
+
+    private boolean isBuilderFull()
+    {
+        return groupedTopNBuilder != null && groupedTopNBuilder.getEstimatedSizeInBytes() >= maxFlushableBytes;
+    }
+
+    @VisibleForTesting
+    GroupedTopNBuilder getGroupedTopNBuilder()
+    {
+        return groupedTopNBuilder;
     }
 }

@@ -69,7 +69,7 @@ import static io.trino.tpch.TpchTable.ORDERS;
 @Measurement(iterations = 50)
 @Warmup(iterations = 20)
 @Fork(3)
-@SuppressWarnings({"UseOfSystemOutOrSystemErr", "UnstableApiUsage", "ResultOfMethodCallIgnored"})
+@SuppressWarnings({"UseOfSystemOutOrSystemErr", "ResultOfMethodCallIgnored"})
 public class BenchmarkHiveFileFormat
 {
     static {
@@ -439,7 +439,7 @@ public class BenchmarkHiveFileFormat
             throws Exception
     {
         Collection<RunResult> results = benchmark(BenchmarkHiveFileFormat.class)
-                .withOptions(optionsBuilder -> optionsBuilder.jvmArgsAppend("-Xmx4g", "-Xms4g", "-XX:+UseG1GC"))
+                .withOptions(optionsBuilder -> optionsBuilder.jvmArgsAppend("-Xmx4g", "-Xms4g"))
                 .run();
 
         printResults(results);

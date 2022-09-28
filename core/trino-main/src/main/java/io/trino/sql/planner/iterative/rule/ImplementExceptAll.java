@@ -92,12 +92,12 @@ public class ImplementExceptAll
     @Override
     public Result apply(ExceptNode node, Captures captures, Context context)
     {
-        SetOperationNodeTranslator translator = new SetOperationNodeTranslator(metadata, context.getSymbolAllocator(), context.getIdAllocator());
+        SetOperationNodeTranslator translator = new SetOperationNodeTranslator(context.getSession(), metadata, context.getSymbolAllocator(), context.getIdAllocator());
         SetOperationNodeTranslator.TranslationResult result = translator.makeSetContainmentPlanForAll(node);
 
         // compute expected multiplicity for every row
         checkState(result.getCountSymbols().size() > 0, "ExceptNode translation result has no count symbols");
-        ResolvedFunction greatest = metadata.resolveFunction(QualifiedName.of("greatest"), fromTypes(BIGINT, BIGINT));
+        ResolvedFunction greatest = metadata.resolveFunction(context.getSession(), QualifiedName.of("greatest"), fromTypes(BIGINT, BIGINT));
 
         Expression count = result.getCountSymbols().get(0).toSymbolReference();
         for (int i = 1; i < result.getCountSymbols().size(); i++) {

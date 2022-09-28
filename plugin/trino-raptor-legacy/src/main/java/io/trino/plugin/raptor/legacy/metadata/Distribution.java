@@ -18,8 +18,8 @@ import io.airlift.json.JsonCodec;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.StatementContext;
 
 import javax.inject.Inject;
 
@@ -71,7 +71,7 @@ public class Distribution
     }
 
     public static class Mapper
-            implements ResultSetMapper<Distribution>
+            implements RowMapper<Distribution>
     {
         private final TypeManager typeManager;
 
@@ -82,7 +82,7 @@ public class Distribution
         }
 
         @Override
-        public Distribution map(int index, ResultSet rs, StatementContext ctx)
+        public Distribution map(ResultSet rs, StatementContext ctx)
                 throws SQLException
         {
             List<Type> types = LIST_CODEC.fromJson(rs.getString("column_types")).stream()

@@ -32,7 +32,7 @@ import io.trino.decoder.avro.AvroReaderSupplier;
 import io.trino.decoder.avro.AvroRowDecoderFactory;
 import io.trino.decoder.dummy.DummyRowDecoder;
 import io.trino.decoder.dummy.DummyRowDecoderFactory;
-import io.trino.plugin.kafka.SessionPropertiesProvider;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.kafka.encoder.DispatchingRowEncoderFactory;
 import io.trino.plugin.kafka.encoder.RowEncoderFactory;
 import io.trino.plugin.kafka.encoder.avro.AvroRowEncoder;
@@ -82,7 +82,6 @@ public class ConfluentModule
             Set<SchemaRegistryClientPropertiesProvider> propertiesProviders,
             ClassLoader classLoader)
     {
-        requireNonNull(confluentConfig, "confluentConfig is null");
         requireNonNull(schemaProviders, "schemaProviders is null");
         requireNonNull(propertiesProviders, "propertiesProviders is null");
 

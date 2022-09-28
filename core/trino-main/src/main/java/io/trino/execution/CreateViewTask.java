@@ -15,19 +15,18 @@ package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
-import io.trino.cost.StatsCalculator;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.ViewColumn;
+import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
-import io.trino.spi.connector.ConnectorViewDefinition;
-import io.trino.spi.security.GroupProvider;
+import io.trino.spi.security.Identity;
 import io.trino.sql.analyzer.Analysis;
-import io.trino.sql.analyzer.Analyzer;
+import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.Expression;
-import io.trino.transaction.TransactionManager;
 
 import javax.inject.Inject;
 
@@ -37,25 +36,28 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
+import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.tree.CreateView.Security.INVOKER;
 import static java.util.Objects.requireNonNull;
 
 public class CreateViewTask
         implements DataDefinitionTask<CreateView>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
     private final SqlParser sqlParser;
-    private final GroupProvider groupProvider;
-    private final StatsCalculator statsCalculator;
+    private final AnalyzerFactory analyzerFactory;
 
     @Inject
-    public CreateViewTask(SqlParser sqlParser, GroupProvider groupProvider, StatsCalculator statsCalculator)
+    public CreateViewTask(Metadata metadata, AccessControl accessControl, SqlParser sqlParser, AnalyzerFactory analyzerFactory)
     {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
-        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+        this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
     }
 
     @Override
@@ -65,17 +67,8 @@ public class CreateViewTask
     }
 
     @Override
-    public String explain(CreateView statement, List<Expression> parameters)
-    {
-        return "CREATE VIEW " + statement.getName();
-    }
-
-    @Override
     public ListenableFuture<Void> execute(
             CreateView statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
@@ -85,9 +78,21 @@ public class CreateViewTask
 
         accessControl.checkCanCreateView(session.toSecurityContext(), name);
 
+        if (metadata.isMaterializedView(session, name)) {
+            throw semanticException(TABLE_ALREADY_EXISTS, statement, "Materialized view already exists: '%s'", name);
+        }
+        if (metadata.isView(session, name)) {
+            if (!statement.isReplace()) {
+                throw semanticException(TABLE_ALREADY_EXISTS, statement, "View already exists: '%s'", name);
+            }
+        }
+        else if (metadata.getTableHandle(session, name).isPresent()) {
+            throw semanticException(TABLE_ALREADY_EXISTS, statement, "Table already exists: '%s'", name);
+        }
+
         String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
-        Analysis analysis = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.empty(), parameters, parameterExtractor(statement, parameters), stateMachine.getWarningCollector(), statsCalculator)
+        Analysis analysis = analyzerFactory.createAnalyzer(session, parameters, parameterExtractor(statement, parameters), stateMachine.getWarningCollector())
                 .analyze(statement);
 
         List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())
@@ -96,19 +101,18 @@ public class CreateViewTask
                 .collect(toImmutableList());
 
         // use DEFINER security by default
-        Optional<String> owner = Optional.of(session.getUser());
+        Optional<Identity> owner = Optional.of(session.getIdentity());
         if (statement.getSecurity().orElse(null) == INVOKER) {
             owner = Optional.empty();
         }
 
-        ConnectorViewDefinition definition = new ConnectorViewDefinition(
+        ViewDefinition definition = new ViewDefinition(
                 sql,
                 session.getCatalog(),
                 session.getSchema(),
                 columns,
                 statement.getComment(),
-                owner,
-                owner.isEmpty());
+                owner);
 
         metadata.createView(session, name, definition, statement.isReplace());
 

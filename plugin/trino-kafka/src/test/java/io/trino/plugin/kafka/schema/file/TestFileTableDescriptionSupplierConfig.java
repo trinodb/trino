@@ -36,10 +36,10 @@ public class TestFileTableDescriptionSupplierConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kafka.table-description-dir", "/var/lib/kafka")
                 .put("kafka.table-names", "table1, table2, table3")
-                .build();
+                .buildOrThrow();
 
         FileTableDescriptionSupplierConfig expected = new FileTableDescriptionSupplierConfig()
                 .setTableDescriptionDir(new File("/var/lib/kafka"))

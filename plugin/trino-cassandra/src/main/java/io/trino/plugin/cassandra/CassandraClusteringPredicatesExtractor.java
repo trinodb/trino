@@ -13,30 +13,33 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.datastax.driver.core.VersionNumber;
+import com.datastax.oss.driver.api.core.Version;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.cassandra.util.CassandraCqlUtils;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class CassandraClusteringPredicatesExtractor
 {
+    private final CassandraTypeManager cassandraTypeManager;
     private final ClusteringPushDownResult clusteringPushDownResult;
     private final TupleDomain<ColumnHandle> predicates;
 
-    public CassandraClusteringPredicatesExtractor(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, VersionNumber cassandraVersion)
+    public CassandraClusteringPredicatesExtractor(CassandraTypeManager cassandraTypeManager, List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, Version cassandraVersion)
     {
+        this.cassandraTypeManager = requireNonNull(cassandraTypeManager, "cassandraTypeManager is null");
         this.predicates = requireNonNull(predicates, "predicates is null");
         this.clusteringPushDownResult = getClusteringKeysSet(clusteringColumns, predicates, requireNonNull(cassandraVersion, "cassandraVersion is null"));
     }
@@ -48,15 +51,14 @@ public class CassandraClusteringPredicatesExtractor
 
     public TupleDomain<ColumnHandle> getUnenforcedConstraints()
     {
-        Map<ColumnHandle, Domain> pushedDown = clusteringPushDownResult.getDomains();
-        return predicates.filter(((columnHandle, domain) -> !pushedDown.containsKey(columnHandle)));
+        return predicates.filter(((columnHandle, domain) -> !clusteringPushDownResult.hasBeenFullyPushed(columnHandle)));
     }
 
-    private static ClusteringPushDownResult getClusteringKeysSet(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, VersionNumber cassandraVersion)
+    private ClusteringPushDownResult getClusteringKeysSet(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, Version cassandraVersion)
     {
-        ImmutableMap.Builder<ColumnHandle, Domain> domainsBuilder = ImmutableMap.builder();
+        ImmutableSet.Builder<ColumnHandle> fullyPushedColumnPredicates = ImmutableSet.builder();
         ImmutableList.Builder<String> clusteringColumnSql = ImmutableList.builder();
-        int currentClusteringColumn = 0;
+        int allProcessedClusteringColumns = 0;
         for (CassandraColumnHandle columnHandle : clusteringColumns) {
             Domain domain = predicates.getDomains().get().get(columnHandle);
             if (domain == null) {
@@ -65,64 +67,46 @@ public class CassandraClusteringPredicatesExtractor
             if (domain.isNullAllowed()) {
                 break;
             }
+
+            int currentlyProcessedClusteringColumn = allProcessedClusteringColumns;
             String predicateString = domain.getValues().getValuesProcessor().transform(
                     ranges -> {
-                        List<Object> singleValues = new ArrayList<>();
-                        List<String> rangeConjuncts = new ArrayList<>();
-                        String predicate = null;
+                        if (ranges.getRangeCount() == 1) {
+                            fullyPushedColumnPredicates.add(columnHandle);
+                            return translateRangeIntoCql(columnHandle, getOnlyElement(ranges.getOrderedRanges()));
+                        }
+                        if (ranges.getOrderedRanges().stream().allMatch(Range::isSingleValue)) {
+                            if (isInExpressionNotAllowed(clusteringColumns, cassandraVersion, currentlyProcessedClusteringColumn)) {
+                                return translateRangeIntoCql(columnHandle, ranges.getSpan());
+                            }
 
-                        for (Range range : ranges.getOrderedRanges()) {
-                            if (range.isAll()) {
-                                return null;
-                            }
-                            if (range.isSingleValue()) {
-                                singleValues.add(columnHandle.getCassandraType().toCqlLiteral(range.getSingleValue()));
-                            }
-                            else {
-                                if (!range.isLowUnbounded()) {
-                                    String lowBound = columnHandle.getCassandraType().toCqlLiteral(range.getLowBoundedValue());
-                                    rangeConjuncts.add(format(
-                                            "%s %s %s",
-                                            CassandraCqlUtils.validColumnName(columnHandle.getName()),
-                                            range.isLowInclusive() ? ">=" : ">",
-                                            lowBound));
-                                }
-                                if (!range.isHighUnbounded()) {
-                                    String highBound = columnHandle.getCassandraType().toCqlLiteral(range.getHighBoundedValue());
-                                    rangeConjuncts.add(format(
-                                            "%s %s %s",
-                                            CassandraCqlUtils.validColumnName(columnHandle.getName()),
-                                            range.isHighInclusive() ? "<=" : "<",
-                                            highBound));
-                                }
-                            }
+                            String inValues = ranges.getOrderedRanges().stream()
+                                    .map(range -> toCqlLiteral(columnHandle, range.getSingleValue()))
+                                    .collect(joining(","));
+                            fullyPushedColumnPredicates.add(columnHandle);
+                            return CassandraCqlUtils.validColumnName(columnHandle.getName()) + " IN (" + inValues + ")";
                         }
-
-                        if (!singleValues.isEmpty() && !rangeConjuncts.isEmpty()) {
-                            return null;
-                        }
-                        if (!singleValues.isEmpty()) {
-                            if (singleValues.size() == 1) {
-                                predicate = CassandraCqlUtils.validColumnName(columnHandle.getName()) + " = " + singleValues.get(0);
-                            }
-                            else {
-                                predicate = CassandraCqlUtils.validColumnName(columnHandle.getName()) + " IN ("
-                                        + Joiner.on(",").join(singleValues) + ")";
-                            }
-                        }
-                        else if (!rangeConjuncts.isEmpty()) {
-                            predicate = Joiner.on(" AND ").join(rangeConjuncts);
-                        }
-                        return predicate;
+                        return translateRangeIntoCql(columnHandle, ranges.getSpan());
                     }, discreteValues -> {
                         if (discreteValues.isInclusive()) {
-                            ImmutableList.Builder<Object> discreteValuesList = ImmutableList.builder();
-                            for (Object discreteValue : discreteValues.getValues()) {
-                                discreteValuesList.add(columnHandle.getCassandraType().toCqlLiteral(discreteValue));
+                            if (discreteValues.getValuesCount() == 0) {
+                                return null;
                             }
-                            String predicate = CassandraCqlUtils.validColumnName(columnHandle.getName()) + " IN ("
-                                    + Joiner.on(",").join(discreteValuesList.build()) + ")";
-                            return predicate;
+                            if (discreteValues.getValuesCount() == 1) {
+                                fullyPushedColumnPredicates.add(columnHandle);
+                                return format("%s = %s",
+                                        CassandraCqlUtils.validColumnName(columnHandle.getName()),
+                                        toCqlLiteral(columnHandle, getOnlyElement(discreteValues.getValues())));
+                            }
+                            if (isInExpressionNotAllowed(clusteringColumns, cassandraVersion, currentlyProcessedClusteringColumn)) {
+                                return null;
+                            }
+
+                            String inValues = discreteValues.getValues().stream()
+                                    .map(value -> cassandraTypeManager.toCqlLiteral(columnHandle.getCassandraType(), value))
+                                    .collect(joining(","));
+                            fullyPushedColumnPredicates.add(columnHandle);
+                            return CassandraCqlUtils.validColumnName(columnHandle.getName()) + " IN (" + inValues + " )";
                         }
                         return null;
                     }, allOrNone -> null);
@@ -130,37 +114,88 @@ public class CassandraClusteringPredicatesExtractor
             if (predicateString == null) {
                 break;
             }
-            // IN restriction only on last clustering column for Cassandra version = 2.1
-            if (predicateString.contains(" IN (") && cassandraVersion.compareTo(VersionNumber.parse("2.2.0")) < 0 && currentClusteringColumn != (clusteringColumns.size() - 1)) {
-                break;
-            }
             clusteringColumnSql.add(predicateString);
-            domainsBuilder.put(columnHandle, domain);
             // Check for last clustering column should only be restricted by range condition
             if (predicateString.contains(">") || predicateString.contains("<")) {
                 break;
             }
-            currentClusteringColumn++;
+            allProcessedClusteringColumns++;
         }
         List<String> clusteringColumnPredicates = clusteringColumnSql.build();
 
-        return new ClusteringPushDownResult(domainsBuilder.build(), Joiner.on(" AND ").join(clusteringColumnPredicates));
+        return new ClusteringPushDownResult(fullyPushedColumnPredicates.build(), Joiner.on(" AND ").join(clusteringColumnPredicates));
+    }
+
+    /**
+     * IN restriction allowed only on last clustering column for Cassandra version <= 2.2.0
+     */
+    private static boolean isInExpressionNotAllowed(List<CassandraColumnHandle> clusteringColumns, Version cassandraVersion, int currentlyProcessedClusteringColumn)
+    {
+        return cassandraVersion.compareTo(Version.parse("2.2.0")) < 0 && currentlyProcessedClusteringColumn != (clusteringColumns.size() - 1);
+    }
+
+    private String toCqlLiteral(CassandraColumnHandle columnHandle, Object value)
+    {
+        return cassandraTypeManager.toCqlLiteral(columnHandle.getCassandraType(), value);
+    }
+
+    private String translateRangeIntoCql(CassandraColumnHandle columnHandle, Range range)
+    {
+        if (columnHandle.getCassandraType().getKind() == CassandraType.Kind.TUPLE || columnHandle.getCassandraType().getKind() == CassandraType.Kind.UDT) {
+            // Building CQL literals for TUPLE and UDT type is not supported
+            return null;
+        }
+
+        if (range.isAll()) {
+            return null;
+        }
+        if (range.isSingleValue()) {
+            return format("%s = %s",
+                    CassandraCqlUtils.validColumnName(columnHandle.getName()),
+                    toCqlLiteral(columnHandle, range.getSingleValue()));
+        }
+
+        String lowerBoundPredicate = null;
+        String upperBoundPredicate = null;
+        if (!range.isLowUnbounded()) {
+            String lowBound = toCqlLiteral(columnHandle, range.getLowBoundedValue());
+            lowerBoundPredicate = format(
+                    "%s %s %s",
+                    CassandraCqlUtils.validColumnName(columnHandle.getName()),
+                    range.isLowInclusive() ? ">=" : ">",
+                    lowBound);
+        }
+        if (!range.isHighUnbounded()) {
+            String highBound = toCqlLiteral(columnHandle, range.getHighBoundedValue());
+            upperBoundPredicate = format(
+                    "%s %s %s",
+                    CassandraCqlUtils.validColumnName(columnHandle.getName()),
+                    range.isHighInclusive() ? "<=" : "<",
+                    highBound);
+        }
+        if (lowerBoundPredicate != null && upperBoundPredicate != null) {
+            return format("%s AND %s ", lowerBoundPredicate, upperBoundPredicate);
+        }
+        if (lowerBoundPredicate != null) {
+            return lowerBoundPredicate;
+        }
+        return upperBoundPredicate;
     }
 
     private static class ClusteringPushDownResult
     {
-        private final Map<ColumnHandle, Domain> domains;
+        private final Set<ColumnHandle> fullyPushedColumnPredicates;
         private final String domainQuery;
 
-        public ClusteringPushDownResult(Map<ColumnHandle, Domain> domains, String domainQuery)
+        public ClusteringPushDownResult(Set<ColumnHandle> fullyPushedColumnPredicates, String domainQuery)
         {
-            this.domains = requireNonNull(ImmutableMap.copyOf(domains));
+            this.fullyPushedColumnPredicates = ImmutableSet.copyOf(requireNonNull(fullyPushedColumnPredicates, "fullyPushedColumnPredicates is null"));
             this.domainQuery = requireNonNull(domainQuery);
         }
 
-        public Map<ColumnHandle, Domain> getDomains()
+        public boolean hasBeenFullyPushed(ColumnHandle column)
         {
-            return domains;
+            return fullyPushedColumnPredicates.contains(column);
         }
 
         public String getDomainQuery()

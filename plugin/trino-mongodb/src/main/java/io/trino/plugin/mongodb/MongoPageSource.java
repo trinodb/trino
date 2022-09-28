@@ -13,10 +13,14 @@
  */
 package io.trino.plugin.mongodb;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
+import com.mongodb.DBRef;
 import com.mongodb.client.MongoCursor;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -25,6 +29,8 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarbinaryType;
@@ -35,6 +41,9 @@ import org.bson.types.Decimal128;
 import org.bson.types.ObjectId;
 import org.joda.time.chrono.ISOChronology;
 
+import java.io.IOException;
+import java.io.OutputStream;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -46,8 +55,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.plugin.mongodb.TypeUtils.isArrayType;
+import static io.trino.plugin.mongodb.TypeUtils.isJsonType;
 import static io.trino.plugin.mongodb.TypeUtils.isMapType;
 import static io.trino.plugin.mongodb.TypeUtils.isRowType;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -57,6 +68,7 @@ import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.Decimals.encodeShortScaledValue;
+import static io.trino.spi.type.Decimals.isLongDecimal;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -82,7 +94,6 @@ public class MongoPageSource
     private final List<String> columnNames;
     private final List<Type> columnTypes;
     private Document currentDoc;
-    private long count;
     private boolean finished;
 
     private final PageBuilder pageBuilder;
@@ -103,7 +114,7 @@ public class MongoPageSource
     @Override
     public long getCompletedBytes()
     {
-        return count;
+        return 0;
     }
 
     @Override
@@ -119,7 +130,7 @@ public class MongoPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return 0L;
     }
@@ -128,14 +139,12 @@ public class MongoPageSource
     public Page getNextPage()
     {
         verify(pageBuilder.isEmpty());
-        count = 0;
         for (int i = 0; i < ROWS_PER_REQUEST; i++) {
             if (!cursor.hasNext()) {
                 finished = true;
                 break;
             }
             currentDoc = cursor.next();
-            count++;
 
             pageBuilder.declarePosition();
             for (int column = 0; column < columnTypes.size(); column++) {
@@ -203,6 +212,12 @@ public class MongoPageSource
             else if (javaType == double.class) {
                 type.writeDouble(output, ((Number) value).doubleValue());
             }
+            else if (javaType == Int128.class) {
+                verify(isLongDecimal(type), "The type should be long decimal");
+                DecimalType decimalType = (DecimalType) type;
+                BigDecimal decimal = ((Decimal128) value).bigDecimalValue();
+                type.writeObject(output, Decimals.encodeScaledValue(decimal, decimalType.getScale()));
+            }
             else if (javaType == Slice.class) {
                 writeSlice(output, type, value);
             }
@@ -251,11 +266,20 @@ public class MongoPageSource
             }
         }
         else if (type instanceof DecimalType) {
-            type.writeSlice(output, encodeScaledValue(((Decimal128) value).bigDecimalValue(), ((DecimalType) type).getScale()));
+            type.writeObject(output, encodeScaledValue(((Decimal128) value).bigDecimalValue(), ((DecimalType) type).getScale()));
+        }
+        else if (isJsonType(type)) {
+            type.writeSlice(output, jsonParse(utf8Slice(toVarcharValue(value))));
         }
         else {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
         }
+    }
+
+    public static JsonGenerator createJsonGenerator(JsonFactory factory, SliceOutput output)
+            throws IOException
+    {
+        return factory.createGenerator((OutputStream) output);
     }
 
     private void writeBlock(BlockBuilder output, Type type, Object value)
@@ -289,7 +313,7 @@ public class MongoPageSource
                 output.closeEntry();
                 return;
             }
-            else if (value instanceof Map) {
+            if (value instanceof Map) {
                 BlockBuilder builder = output.beginBlockEntry();
                 Map<?, ?> document = (Map<?, ?>) value;
                 for (Map.Entry<?, ?> entry : document.entrySet()) {
@@ -317,7 +341,19 @@ public class MongoPageSource
                 output.closeEntry();
                 return;
             }
-            else if (value instanceof List<?>) {
+            if (value instanceof DBRef) {
+                DBRef dbRefValue = (DBRef) value;
+                BlockBuilder builder = output.beginBlockEntry();
+
+                checkState(type.getTypeParameters().size() == 3, "DBRef should have 3 fields : %s", type);
+                appendTo(type.getTypeParameters().get(0), dbRefValue.getDatabaseName(), builder);
+                appendTo(type.getTypeParameters().get(1), dbRefValue.getCollectionName(), builder);
+                appendTo(type.getTypeParameters().get(2), dbRefValue.getId(), builder);
+
+                output.closeEntry();
+                return;
+            }
+            if (value instanceof List<?>) {
                 List<?> listValue = (List<?>) value;
                 BlockBuilder builder = output.beginBlockEntry();
                 for (int index = 0; index < type.getTypeParameters().size(); index++) {

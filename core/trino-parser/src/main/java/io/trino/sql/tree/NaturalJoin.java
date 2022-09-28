@@ -34,7 +34,7 @@ public class NaturalJoin
     @Override
     public int hashCode()
     {
-        return 0;
+        return getClass().hashCode();
     }
 
     @Override

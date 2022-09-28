@@ -15,10 +15,10 @@
 package io.trino.transaction;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
+import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.CatalogMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
@@ -61,6 +61,15 @@ public class TestingTransactionManager
     }
 
     @Override
+    public Optional<TransactionInfo> getTransactionInfoIfExist(TransactionId transactionId)
+    {
+        if (transactions.containsKey(transactionId)) {
+            return Optional.of(getTransactionInfo(transactionId));
+        }
+        return Optional.empty();
+    }
+
+    @Override
     public List<TransactionInfo> getAllTransactionInfos()
     {
         return transactions.keySet().stream()
@@ -83,9 +92,21 @@ public class TestingTransactionManager
     }
 
     @Override
-    public Map<String, CatalogName> getCatalogNames(TransactionId transactionId)
+    public List<CatalogInfo> getCatalogs(TransactionId transactionId)
     {
-        return ImmutableMap.of();
+        return ImmutableList.of();
+    }
+
+    @Override
+    public List<CatalogInfo> getActiveCatalogs(TransactionId transactionId)
+    {
+        return ImmutableList.of();
+    }
+
+    @Override
+    public Optional<CatalogHandle> getCatalogHandle(TransactionId transactionId, String catalogName)
+    {
+        return Optional.empty();
     }
 
     @Override
@@ -95,13 +116,13 @@ public class TestingTransactionManager
     }
 
     @Override
-    public CatalogMetadata getCatalogMetadata(TransactionId transactionId, CatalogName catalogName)
+    public CatalogMetadata getCatalogMetadata(TransactionId transactionId, CatalogHandle catalogHandle)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, CatalogName catalogName)
+    public CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, CatalogHandle catalogHandle)
     {
         throw new UnsupportedOperationException();
     }
@@ -113,7 +134,13 @@ public class TestingTransactionManager
     }
 
     @Override
-    public ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, CatalogName catalogName)
+    public ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, String catalogName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, CatalogHandle catalogHandle)
     {
         throw new UnsupportedOperationException();
     }

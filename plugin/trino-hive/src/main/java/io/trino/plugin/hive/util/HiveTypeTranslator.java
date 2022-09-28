@@ -20,7 +20,6 @@ import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -163,11 +162,8 @@ public final class HiveTypeTranslator
                 if (!parameter.isNamedTypeSignature()) {
                     throw new IllegalArgumentException(format("Expected all parameters to be named type, but got %s", parameter));
                 }
-                NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
-                if (namedTypeSignature.getName().isEmpty()) {
-                    throw new TrinoException(NOT_SUPPORTED, format("Anonymous row type is not supported in Hive. Please give each field a name: %s", type));
-                }
-                fieldNames.add(namedTypeSignature.getName().get());
+                fieldNames.add(parameter.getNamedTypeSignature().getName()
+                        .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, format("Anonymous row type is not supported in Hive. Please give each field a name: %s", type))));
             }
             return getStructTypeInfo(
                     fieldNames.build(),
@@ -205,9 +201,9 @@ public final class HiveTypeTranslator
                 }
                 return rowType(Streams.zip(
                         // We lower case the struct field names.
-                        // Otherwise, Presto will refuse to write to columns whose struct type has field names containing upper case characters.
-                        // Users can't work around this by casting in their queries because Presto parser always lower case types.
-                        // TODO: This is a hack. Presto engine should be able to handle identifiers in a case insensitive way where necessary.
+                        // Otherwise, Trino will refuse to write to columns whose struct type has field names containing upper case characters.
+                        // Users can't work around this by casting in their queries because Trino parser always lower case types.
+                        // TODO: This is a hack. Trino engine should be able to handle identifiers in a case insensitive way where necessary.
                         fieldNames.stream().map(s -> s.toLowerCase(Locale.US)),
                         fieldTypes.stream().map(type -> toTypeSignature(type, timestampPrecision)),
                         TypeSignatureParameter::namedField)

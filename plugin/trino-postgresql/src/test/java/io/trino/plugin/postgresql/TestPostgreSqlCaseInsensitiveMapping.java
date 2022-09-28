@@ -22,6 +22,7 @@ import org.testng.annotations.Test;
 
 import java.nio.file.Path;
 
+import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.REFRESH_PERIOD_DURATION;
 import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 import static java.util.Objects.requireNonNull;
 
@@ -46,8 +47,8 @@ public class TestPostgreSqlCaseInsensitiveMapping
                 ImmutableMap.<String, String>builder()
                         .put("case-insensitive-name-matching", "true")
                         .put("case-insensitive-name-matching.config-file", mappingFile.toFile().getAbsolutePath())
-                        .put("case-insensitive-name-matching.config-file.refresh-period", "1ms") // ~always refresh
-                        .build(),
+                        .put("case-insensitive-name-matching.config-file.refresh-period", REFRESH_PERIOD_DURATION.toString())
+                        .buildOrThrow(),
                 ImmutableSet.of());
     }
 
@@ -60,6 +61,14 @@ public class TestPostgreSqlCaseInsensitiveMapping
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return requireNonNull(postgreSqlServer, "postgreSqlServer is null")::execute;
+        return postgreSqlServer::execute;
+    }
+
+    @Test
+    public void forceTestNgToRespectSingleThreaded()
+    {
+        // TODO: Remove after updating TestNG to 7.4.0+ (https://github.com/trinodb/trino/issues/8571)
+        // TestNG doesn't enforce @Test(singleThreaded = true) when tests are defined in base class. According to
+        // https://github.com/cbeust/testng/issues/2361#issuecomment-688393166 a workaround it to add a dummy test to the leaf test class.
     }
 }

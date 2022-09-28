@@ -38,11 +38,11 @@ public class TestFileHiveMetastoreConfig
     @Test
     public void testExplicitPropertyMapping()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.catalog.dir", "some path")
                 .put("hive.metastore.version-compatibility", "UNSAFE_ASSUME_COMPATIBILITY")
                 .put("hive.metastore.user", "some user")
-                .build();
+                .buildOrThrow();
 
         FileHiveMetastoreConfig expected = new FileHiveMetastoreConfig()
                 .setCatalogDirectory("some path")

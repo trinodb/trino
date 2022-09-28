@@ -15,7 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -36,7 +36,6 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertLessThan;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.testng.Assert.assertEquals;
@@ -47,7 +46,7 @@ public abstract class AbstractTestApproximateCountDistinct
 
     protected abstract Object randomValue();
 
-    protected static final Metadata metadata = createTestMetadataManager();
+    private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
 
     protected int getUniqueValuesCount()
     {
@@ -155,10 +154,9 @@ public abstract class AbstractTestApproximateCountDistinct
         return (long) result;
     }
 
-    private InternalAggregationFunction getAggregationFunction()
+    private TestingAggregationFunction getAggregationFunction()
     {
-        return metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("approx_distinct"), fromTypes(getValueType(), DOUBLE)));
+        return FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("approx_distinct"), fromTypes(getValueType(), DOUBLE));
     }
 
     private Page createPage(List<?> values, double maxStandardError)
@@ -166,11 +164,9 @@ public abstract class AbstractTestApproximateCountDistinct
         if (values.isEmpty()) {
             return new Page(0);
         }
-        else {
-            return new Page(values.size(),
-                    createBlock(getValueType(), values),
-                    createBlock(DOUBLE, ImmutableList.copyOf(Collections.nCopies(values.size(), maxStandardError))));
-        }
+        return new Page(values.size(),
+                createBlock(getValueType(), values),
+                createBlock(DOUBLE, ImmutableList.copyOf(Collections.nCopies(values.size(), maxStandardError))));
     }
 
     /**

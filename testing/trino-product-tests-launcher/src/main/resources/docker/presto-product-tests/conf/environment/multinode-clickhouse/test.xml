@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<yandex>
+    <users>
+        <test>
+            <password>test</password>
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+            <profile>default</profile>
+            <quota>default</quota>
+        </test>
+    </users>
+</yandex>

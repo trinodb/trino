@@ -15,13 +15,12 @@ package io.trino.split;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.connector.CatalogName;
-import io.trino.execution.Lifespan;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.Split;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
@@ -41,16 +40,16 @@ public class BufferingSplitSource
     }
 
     @Override
-    public CatalogName getCatalogName()
+    public CatalogHandle getCatalogHandle()
     {
-        return source.getCatalogName();
+        return source.getCatalogHandle();
     }
 
     @Override
-    public ListenableFuture<SplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, Lifespan lifespan, int maxSize)
+    public ListenableFuture<SplitBatch> getNextBatch(int maxSize)
     {
         checkArgument(maxSize > 0, "Cannot fetch a batch of zero size");
-        return GetNextBatch.fetchNextBatchAsync(source, Math.min(bufferSize, maxSize), maxSize, partitionHandle, lifespan);
+        return GetNextBatch.fetchNextBatchAsync(source, Math.min(bufferSize, maxSize), maxSize);
     }
 
     @Override
@@ -65,13 +64,17 @@ public class BufferingSplitSource
         return source.isFinished();
     }
 
+    @Override
+    public Optional<List<Object>> getTableExecuteSplitsInfo()
+    {
+        return source.getTableExecuteSplitsInfo();
+    }
+
     private static class GetNextBatch
     {
         private final SplitSource splitSource;
         private final int min;
         private final int max;
-        private final ConnectorPartitionHandle partitionHandle;
-        private final Lifespan lifespan;
 
         private final List<Split> splits = new ArrayList<>();
         private boolean noMoreSplits;
@@ -79,23 +82,19 @@ public class BufferingSplitSource
         public static ListenableFuture<SplitBatch> fetchNextBatchAsync(
                 SplitSource splitSource,
                 int min,
-                int max,
-                ConnectorPartitionHandle partitionHandle,
-                Lifespan lifespan)
+                int max)
         {
-            GetNextBatch getNextBatch = new GetNextBatch(splitSource, min, max, partitionHandle, lifespan);
+            GetNextBatch getNextBatch = new GetNextBatch(splitSource, min, max);
             ListenableFuture<Void> future = getNextBatch.fetchSplits();
             return Futures.transform(future, ignored -> new SplitBatch(getNextBatch.splits, getNextBatch.noMoreSplits), directExecutor());
         }
 
-        private GetNextBatch(SplitSource splitSource, int min, int max, ConnectorPartitionHandle partitionHandle, Lifespan lifespan)
+        private GetNextBatch(SplitSource splitSource, int min, int max)
         {
             this.splitSource = requireNonNull(splitSource, "splitSource is null");
             checkArgument(min <= max, "Min splits greater than max splits");
             this.min = min;
             this.max = max;
-            this.partitionHandle = requireNonNull(partitionHandle, "partitionHandle is null");
-            this.lifespan = requireNonNull(lifespan, "lifespan is null");
         }
 
         private ListenableFuture<Void> fetchSplits()
@@ -103,7 +102,7 @@ public class BufferingSplitSource
             if (splits.size() >= min) {
                 return immediateVoidFuture();
             }
-            ListenableFuture<SplitBatch> future = splitSource.getNextBatch(partitionHandle, lifespan, max - splits.size());
+            ListenableFuture<SplitBatch> future = splitSource.getNextBatch(max - splits.size());
             return Futures.transformAsync(future, splitBatch -> {
                 splits.addAll(splitBatch.getSplits());
                 if (splitBatch.isLastBatch()) {

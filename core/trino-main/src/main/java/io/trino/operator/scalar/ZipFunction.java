@@ -13,15 +13,15 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
+import io.trino.spi.function.TypeVariableConstraint;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.TypeSignature.arrayType;
@@ -57,8 +56,6 @@ public final class ZipFunction
         }
     }
 
-    private final List<String> typeParameters;
-
     private ZipFunction(int arity)
     {
         this(IntStream.rangeClosed(1, arity).mapToObj(s -> "T" + s).collect(toImmutableList()));
@@ -66,36 +63,33 @@ public final class ZipFunction
 
     private ZipFunction(List<String> typeParameters)
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        "zip",
-                        typeParameters.stream().map(Signature::typeVariable).collect(toImmutableList()),
-                        ImmutableList.of(),
-                        arrayType(rowType(typeParameters.stream()
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name("zip")
+                        .typeVariableConstraints(typeParameters.stream().map(TypeVariableConstraint::typeVariable).collect(toImmutableList()))
+                        .returnType(arrayType(rowType(typeParameters.stream()
                                 .map(TypeSignature::new)
                                 .map(TypeSignatureParameter::anonymousField)
-                                .collect(toImmutableList()))),
-                        typeParameters.stream()
+                                .collect(toImmutableList()))))
+                        .argumentTypes(typeParameters.stream()
                                 .map(name -> arrayType(new TypeSignature(name)))
-                                .collect(toImmutableList()),
-                        false),
-                false,
-                nCopies(typeParameters.size(), new FunctionArgumentDefinition(false)),
-                false,
-                true,
-                "Merges the given arrays, element-wise, into a single array of rows.",
-                SCALAR));
-        this.typeParameters = typeParameters;
+                                .collect(toImmutableList()))
+                        .build())
+                .description("Merges the given arrays, element-wise, into a single array of rows.")
+                .build());
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
-        List<Type> types = this.typeParameters.stream().map(functionBinding::getTypeVariable).collect(toImmutableList());
+        List<Type> types = boundSignature.getArgumentTypes().stream()
+                .map(ArrayType.class::cast)
+                .map(ArrayType::getElementType)
+                .collect(toImmutableList());
         List<Class<?>> javaArgumentTypes = nCopies(types.size(), Block.class);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(types).asVarargsCollector(Block[].class).asType(methodType(Block.class, javaArgumentTypes));
-        return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+        return new ChoicesSpecializedSqlScalarFunction(
+                boundSignature,
                 FAIL_ON_NULL,
                 nCopies(types.size(), NEVER_NULL),
                 methodHandle);

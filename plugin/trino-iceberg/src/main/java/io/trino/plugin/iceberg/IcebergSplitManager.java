@@ -14,20 +14,26 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.Duration;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
+import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 
 import javax.inject.Inject;
 
-import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getDynamicFilteringWaitTimeout;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager
@@ -36,11 +42,15 @@ public class IcebergSplitManager
     public static final int ICEBERG_DOMAIN_COMPACTION_THRESHOLD = 1000;
 
     private final IcebergTransactionManager transactionManager;
+    private final TypeManager typeManager;
+    private final HdfsEnvironment hdfsEnvironment;
 
     @Inject
-    public IcebergSplitManager(IcebergTransactionManager transactionManager, HiveTableOperationsProvider tableOperationsProvider)
+    public IcebergSplitManager(IcebergTransactionManager transactionManager, TypeManager typeManager, HdfsEnvironment hdfsEnvironment)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
     @Override
@@ -48,31 +58,36 @@ public class IcebergSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle handle,
-            SplitSchedulingStrategy splitSchedulingStrategy,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
 
         if (table.getSnapshotId().isEmpty()) {
+            if (table.isRecordScannedFiles()) {
+                return new FixedSplitSource(ImmutableList.of(), ImmutableList.of());
+            }
             return new FixedSplitSource(ImmutableList.of());
         }
 
-        Table icebergTable = transactionManager.get(transaction).getIcebergTable(session, table.getSchemaTableName());
+        Table icebergTable = transactionManager.get(transaction, session.getIdentity()).getIcebergTable(session, table.getSchemaTableName());
+        Duration dynamicFilteringWaitTimeout = getDynamicFilteringWaitTimeout(session);
 
         TableScan tableScan = icebergTable.newScan()
-                .filter(toIcebergExpression(
-                        table.getEnforcedPredicate()
-                                // TODO: Remove TupleDomain#simplify once Iceberg supports IN expression. Currently this
-                                // is required for IN predicates on non-partition columns with large value list. Such
-                                // predicates on partition columns are not supported.
-                                // (See AbstractTestIcebergSmoke#testLargeInFailureOnPartitionedColumns)
-                                .intersect(table.getUnenforcedPredicate().simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD))))
                 .useSnapshot(table.getSnapshotId().get());
+        IcebergSplitSource splitSource = new IcebergSplitSource(
+                hdfsEnvironment,
+                new HdfsContext(session),
+                table,
+                tableScan,
+                table.getMaxScannedFileSize(),
+                dynamicFilter,
+                dynamicFilteringWaitTimeout,
+                constraint,
+                typeManager,
+                table.isRecordScannedFiles(),
+                getMinimumAssignedSplitWeight(session));
 
-        // TODO Use residual. Right now there is no way to propagate residual to Trino but at least we can
-        //      propagate it at split level so the parquet pushdown can leverage it.
-        IcebergSplitSource splitSource = new IcebergSplitSource(tableScan.planTasks());
-
-        return new ClassLoaderSafeConnectorSplitSource(splitSource, Thread.currentThread().getContextClassLoader());
+        return new ClassLoaderSafeConnectorSplitSource(splitSource, IcebergSplitManager.class.getClassLoader());
     }
 }

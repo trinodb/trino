@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.trino.Session;
+import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskStateMachine;
 import io.trino.memory.MemoryPool;
@@ -31,7 +32,6 @@ import io.trino.plugin.memory.MemoryConnectorFactory;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.PageConsumerOperator;
@@ -40,7 +40,6 @@ import org.intellij.lang.annotations.Language;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -68,12 +67,11 @@ public class MemoryLocalQueryRunner
 
     public List<Page> execute(@Language("SQL") String query)
     {
-        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), DataSize.of(2, GIGABYTE));
+        MemoryPool memoryPool = new MemoryPool(DataSize.of(2, GIGABYTE));
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
         QueryContext queryContext = new QueryContext(
                 new QueryId("test"),
                 DataSize.of(1, GIGABYTE),
-                DataSize.of(2, GIGABYTE),
                 memoryPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),
@@ -82,12 +80,11 @@ public class MemoryLocalQueryRunner
                 spillSpaceTracker);
 
         TaskContext taskContext = queryContext
-                .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0), localQueryRunner.getExecutor()),
+                .addTaskContext(new TaskStateMachine(new TaskId(new StageId("query", 0), 0, 0), localQueryRunner.getExecutor()),
                         localQueryRunner.getDefaultSession(),
                         () -> {},
                         false,
-                        false,
-                        OptionalInt.empty());
+                        false);
 
         // Use NullOutputFactory to avoid coping out results to avoid affecting benchmark results
         ImmutableList.Builder<Page> output = ImmutableList.builder();
@@ -101,7 +98,7 @@ public class MemoryLocalQueryRunner
             boolean processed = false;
             for (Driver driver : drivers) {
                 if (!driver.isFinished()) {
-                    driver.process();
+                    driver.processForNumberOfIterations(1);
                     processed = true;
                 }
             }

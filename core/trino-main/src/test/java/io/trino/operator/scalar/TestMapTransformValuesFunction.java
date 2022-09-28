@@ -102,7 +102,7 @@ public class TestMapTransformValuesFunction
         assertFunction(
                 "transform_values(map(ARRAY[1, 2, 3], ARRAY [1.0E0, 1.4E0, 1.7E0]), (k, v) -> map(ARRAY[1, 2, 3], ARRAY['one', 'two', 'three'])[k] || '_' || CAST(v AS VARCHAR))",
                 mapType(INTEGER, VARCHAR),
-                ImmutableMap.of(1, "one_1.0", 2, "two_1.4", 3, "three_1.7"));
+                ImmutableMap.of(1, "one_1.0E0", 2, "two_1.4E0", 3, "three_1.7E0"));
 
         assertFunction(
                 "transform_values(map(ARRAY[1, 2], ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '2010-05-10 12:34:56.123456789']), (k, v) -> date_add('year', 1, v))",
@@ -183,7 +183,7 @@ public class TestMapTransformValuesFunction
         assertFunction(
                 "transform_values(map(ARRAY ['s0', 's1', 's2'], ARRAY [25.5E0, 26.5E0, 27.5E0]), (k, v) -> k || ':' || CAST(v as VARCHAR))",
                 mapType(createVarcharType(2), VARCHAR),
-                ImmutableMap.of("s0", "s0:25.5", "s1", "s1:26.5", "s2", "s2:27.5"));
+                ImmutableMap.of("s0", "s0:2.55E1", "s1", "s1:2.65E1", "s2", "s2:2.75E1"));
         assertFunction(
                 "transform_values(map(ARRAY ['s0', 's2'], ARRAY [false, true]), (k, v) -> if(v, k, CAST(v AS VARCHAR)))",
                 mapType(createVarcharType(2), VARCHAR),

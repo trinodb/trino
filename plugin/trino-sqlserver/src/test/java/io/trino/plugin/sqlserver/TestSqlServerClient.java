@@ -15,9 +15,11 @@ package io.trino.plugin.sqlserver;
 
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
+import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
 import io.trino.spi.connector.AggregateFunction;
@@ -57,10 +59,11 @@ public class TestSqlServerClient
 
     private static final JdbcClient JDBC_CLIENT = new SqlServerClient(
             new BaseJdbcConfig(),
-            new SqlServerConfig(),
+            new JdbcStatisticsConfig(),
             session -> {
                 throw new UnsupportedOperationException();
             },
+            new DefaultQueryBuilder(),
             new DefaultIdentifierMapping());
 
     @Test
@@ -74,19 +77,19 @@ public class TestSqlServerClient
         testImplementAggregation(
                 new AggregateFunction("count", BIGINT, List.of(), List.of(), false, Optional.empty()),
                 Map.of(),
-                Optional.of("count(*)"));
+                Optional.of("count_big(*)"));
 
         // count(bigint)
         testImplementAggregation(
                 new AggregateFunction("count", BIGINT, List.of(bigintVariable), List.of(), false, Optional.empty()),
                 Map.of(bigintVariable.getName(), BIGINT_COLUMN),
-                Optional.of("count(\"c_bigint\")"));
+                Optional.of("count_big(\"c_bigint\")"));
 
         // count(double)
         testImplementAggregation(
                 new AggregateFunction("count", BIGINT, List.of(doubleVariable), List.of(), false, Optional.empty()),
                 Map.of(doubleVariable.getName(), DOUBLE_COLUMN),
-                Optional.of("count(\"c_double\")"));
+                Optional.of("count_big(\"c_double\")"));
 
         // count(DISTINCT bigint)
         testImplementAggregation(

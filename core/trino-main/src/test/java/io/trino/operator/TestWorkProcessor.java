@@ -64,7 +64,7 @@ public class TestWorkProcessor
     public void testIteratorFailsWhenWorkProcessorHasYielded()
     {
         // iterator should fail if underlying work has yielded
-        WorkProcessor<Integer> processor = processorFrom(ImmutableList.of(ProcessState.yield()));
+        WorkProcessor<Integer> processor = processorFrom(ImmutableList.of(ProcessState.yielded()));
         Iterator<Integer> iterator = processor.iterator();
         //noinspection ResultOfMethodCallIgnored
         assertThatThrownBy(iterator::hasNext)
@@ -90,7 +90,7 @@ public class TestWorkProcessor
         List<ProcessState<Integer>> firstStream = ImmutableList.of(
                 ProcessState.ofResult(1),
                 ProcessState.ofResult(3),
-                ProcessState.yield(),
+                ProcessState.yielded(),
                 ProcessState.ofResult(5),
                 ProcessState.finished());
 
@@ -139,7 +139,7 @@ public class TestWorkProcessor
         SettableFuture<Void> firstFuture = SettableFuture.create();
         List<ProcessState<Integer>> firstStream = ImmutableList.of(
                 ProcessState.blocked(firstFuture),
-                ProcessState.yield(),
+                ProcessState.yielded(),
                 ProcessState.finished());
 
         SettableFuture<Void> secondFuture = SettableFuture.create();
@@ -234,13 +234,40 @@ public class TestWorkProcessor
     }
 
     @Test(timeOut = 10_000)
+    public void testBlock()
+    {
+        SettableFuture<Void> phase1 = SettableFuture.create();
+
+        List<ProcessState<Integer>> scenario = ImmutableList.of(
+                ProcessState.blocked(phase1),
+                ProcessState.ofResult(1),
+                ProcessState.ofResult(2),
+                ProcessState.finished());
+
+        SettableFuture<Void> phase2 = SettableFuture.create();
+        WorkProcessor<Integer> processor = processorFrom(scenario)
+                .blocking(() -> phase2);
+
+        assertBlocks(processor);
+        assertUnblocks(processor, phase1);
+
+        assertBlocks(processor);
+        assertUnblocks(processor, phase2);
+
+        assertResult(processor, 1);
+        assertResult(processor, 2);
+
+        assertFinishes(processor);
+    }
+
+    @Test(timeOut = 10_000)
     public void testProcessStateMonitor()
     {
         SettableFuture<Void> future = SettableFuture.create();
 
         List<ProcessState<Integer>> baseScenario = ImmutableList.of(
                 ProcessState.ofResult(1),
-                ProcessState.yield(),
+                ProcessState.yielded(),
                 ProcessState.blocked(future),
                 ProcessState.finished());
 
@@ -266,7 +293,7 @@ public class TestWorkProcessor
 
         List<ProcessState<Integer>> scenario = ImmutableList.of(
                 ProcessState.ofResult(1),
-                ProcessState.yield(),
+                ProcessState.yielded(),
                 ProcessState.blocked(future),
                 ProcessState.ofResult(2));
 
@@ -326,7 +353,7 @@ public class TestWorkProcessor
                 ProcessState.ofResult(1.0),
                 ProcessState.blocked(baseFuture),
                 ProcessState.ofResult(2.0),
-                ProcessState.yield(),
+                ProcessState.yielded(),
                 ProcessState.ofResult(3.0),
                 ProcessState.ofResult(4.0),
                 ProcessState.finished());
@@ -334,7 +361,7 @@ public class TestWorkProcessor
         SettableFuture<Void> mappedFuture1 = SettableFuture.create();
         List<ProcessState<Integer>> mappedScenario1 = ImmutableList.of(
                 ProcessState.ofResult(1),
-                ProcessState.yield(),
+                ProcessState.yielded(),
                 ProcessState.blocked(mappedFuture1),
                 ProcessState.ofResult(2),
                 ProcessState.finished());
@@ -411,7 +438,7 @@ public class TestWorkProcessor
         SettableFuture<Void> baseFuture = SettableFuture.create();
         List<ProcessState<Integer>> baseScenario = ImmutableList.of(
                 ProcessState.ofResult(1),
-                ProcessState.yield(),
+                ProcessState.yielded(),
                 ProcessState.blocked(baseFuture),
                 ProcessState.ofResult(2),
                 ProcessState.ofResult(3),
@@ -422,7 +449,7 @@ public class TestWorkProcessor
                 Transform.of(Optional.of(1), TransformationState.needsMoreData()),
                 Transform.of(Optional.of(2), TransformationState.ofResult("foo")),
                 Transform.of(Optional.of(3), TransformationState.blocked(transformationFuture)),
-                Transform.of(Optional.of(3), TransformationState.yield()),
+                Transform.of(Optional.of(3), TransformationState.yielded()),
                 Transform.of(Optional.of(3), TransformationState.ofResult("bar", false)),
                 Transform.of(Optional.of(3), TransformationState.ofResult("zoo", true)),
                 Transform.of(Optional.empty(), TransformationState.ofResult("car", false)),
@@ -474,10 +501,10 @@ public class TestWorkProcessor
     {
         SettableFuture<Void> future = SettableFuture.create();
         List<ProcessState<Integer>> scenario = ImmutableList.of(
-                ProcessState.yield(),
+                ProcessState.yielded(),
                 ProcessState.ofResult(1),
                 ProcessState.blocked(future),
-                ProcessState.yield(),
+                ProcessState.yielded(),
                 ProcessState.ofResult(2),
                 ProcessState.finished());
         WorkProcessor<Integer> processor = processorFrom(scenario);

@@ -13,6 +13,7 @@
  */
 package io.trino.eventlistener;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
@@ -109,12 +110,12 @@ public class EventListenerManager
         String name = properties.remove(EVENT_LISTENER_NAME_PROPERTY);
         checkArgument(!isNullOrEmpty(name), "EventListener plugin configuration for %s does not contain %s", configFile, EVENT_LISTENER_NAME_PROPERTY);
 
-        EventListenerFactory eventListenerFactory = eventListenerFactories.get(name);
-        checkArgument(eventListenerFactory != null, "Event listener factory '%s' is not registered. Available factories: %s", name, eventListenerFactories.keySet());
+        EventListenerFactory factory = eventListenerFactories.get(name);
+        checkArgument(factory != null, "Event listener factory '%s' is not registered. Available factories: %s", name, eventListenerFactories.keySet());
 
         EventListener eventListener;
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(eventListenerFactory.getClass().getClassLoader())) {
-            eventListener = eventListenerFactory.create(properties);
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
+            eventListener = factory.create(properties);
         }
 
         log.info("-- Loaded event listener %s --", configFile);
@@ -131,14 +132,15 @@ public class EventListenerManager
         }
     }
 
-    public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
+    public void queryCompleted(Function<Boolean, QueryCompletedEvent> queryCompletedEventProvider)
     {
         for (EventListener listener : configuredEventListeners.get()) {
+            QueryCompletedEvent event = queryCompletedEventProvider.apply(listener.requiresAnonymizedPlan());
             try {
-                listener.queryCompleted(queryCompletedEvent);
+                listener.queryCompleted(event);
             }
             catch (Throwable e) {
-                log.warn(e, "Failed to publish QueryCompletedEvent for query %s", queryCompletedEvent.getMetadata().getQueryId());
+                log.warn(e, "Failed to publish QueryCompletedEvent for query %s", event.getMetadata().getQueryId());
             }
         }
     }

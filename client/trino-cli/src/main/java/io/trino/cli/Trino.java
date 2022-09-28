@@ -45,6 +45,7 @@ public final class Trino
     public static CommandLine createCommandLine(Object command)
     {
         CommandLine commandLine = new CommandLine(command)
+                .setCaseInsensitiveEnumValuesAllowed(true)
                 .registerConverter(ClientResourceEstimate.class, ClientResourceEstimate::new)
                 .registerConverter(ClientSessionProperty.class, ClientSessionProperty::new)
                 .registerConverter(ClientExtraCredential.class, ClientExtraCredential::new)

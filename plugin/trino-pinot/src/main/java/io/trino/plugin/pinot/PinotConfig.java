@@ -16,31 +16,42 @@ package io.trino.plugin.pinot;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
+import javax.annotation.PostConstruct;
+import javax.validation.constraints.AssertTrue;
+import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 
+import java.net.URI;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
+@DefunctConfig({
+        "pinot.thread-pool-size",
+        "pinot.idle-timeout",
+        "pinot.max-backlog-per-server",
+        "pinot.max-connections-per-server",
+        "pinot.min-connections-per-server",
+        "pinot.request-timeout"
+})
 public class PinotConfig
 {
     private static final Splitter LIST_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings();
 
-    private int maxConnectionsPerServer = 30;
+    private List<URI> controllerUrls = ImmutableList.of();
 
-    private List<String> controllerUrls = ImmutableList.of();
-
-    private Duration idleTimeout = new Duration(5, TimeUnit.MINUTES);
     private Duration connectionTimeout = new Duration(1, TimeUnit.MINUTES);
-    private Duration requestTimeout = new Duration(30, TimeUnit.SECONDS);
 
-    private int threadPoolSize = 30;
-    private int minConnectionsPerServer = 10;
-    private int maxBacklogPerServer = 30;
     private int estimatedSizeInBytesForNonNumericColumn = 20;
     private Duration metadataCacheExpiry = new Duration(2, TimeUnit.MINUTES);
 
@@ -49,10 +60,14 @@ public class PinotConfig
     private int segmentsPerSplit = 1;
     private int fetchRetryCount = 2;
     private int nonAggregateLimitForBrokerQueries = 25_000;
-    private int maxRowsPerSplitForSegmentQueries = 50_000;
+    private int maxRowsForBrokerQueries = 50_000;
+    private boolean aggregationPushdownEnabled = true;
+    private boolean countDistinctPushdownEnabled = true;
+    private boolean grpcEnabled = true;
+    private DataSize targetSegmentPageSize = DataSize.of(1, MEGABYTE);
 
-    @NotNull
-    public List<String> getControllerUrls()
+    @NotEmpty(message = "pinot.controller-urls cannot be empty")
+    public List<URI> getControllerUrls()
     {
         return controllerUrls;
     }
@@ -60,73 +75,9 @@ public class PinotConfig
     @Config("pinot.controller-urls")
     public PinotConfig setControllerUrls(String controllerUrl)
     {
-        this.controllerUrls = LIST_SPLITTER.splitToList(controllerUrl);
-        return this;
-    }
-
-    @NotNull
-    public int getThreadPoolSize()
-    {
-        return threadPoolSize;
-    }
-
-    @Config("pinot.thread-pool-size")
-    public PinotConfig setThreadPoolSize(int threadPoolSize)
-    {
-        this.threadPoolSize = threadPoolSize;
-        return this;
-    }
-
-    @NotNull
-    public int getMinConnectionsPerServer()
-    {
-        return minConnectionsPerServer;
-    }
-
-    @Config("pinot.min-connections-per-server")
-    public PinotConfig setMinConnectionsPerServer(int minConnectionsPerServer)
-    {
-        this.minConnectionsPerServer = minConnectionsPerServer;
-        return this;
-    }
-
-    @NotNull
-    public int getMaxConnectionsPerServer()
-    {
-        return maxConnectionsPerServer;
-    }
-
-    @Config("pinot.max-connections-per-server")
-    public PinotConfig setMaxConnectionsPerServer(int maxConnectionsPerServer)
-    {
-        this.maxConnectionsPerServer = maxConnectionsPerServer;
-        return this;
-    }
-
-    @NotNull
-    public int getMaxBacklogPerServer()
-    {
-        return maxBacklogPerServer;
-    }
-
-    @Config("pinot.max-backlog-per-server")
-    public PinotConfig setMaxBacklogPerServer(int maxBacklogPerServer)
-    {
-        this.maxBacklogPerServer = maxBacklogPerServer;
-        return this;
-    }
-
-    @MinDuration("15s")
-    @NotNull
-    public Duration getIdleTimeout()
-    {
-        return idleTimeout;
-    }
-
-    @Config("pinot.idle-timeout")
-    public PinotConfig setIdleTimeout(Duration idleTimeout)
-    {
-        this.idleTimeout = idleTimeout;
+        this.controllerUrls = LIST_SPLITTER.splitToList(controllerUrl).stream()
+                .map(PinotConfig::stringToUri)
+                .collect(toImmutableList());
         return this;
     }
 
@@ -141,20 +92,6 @@ public class PinotConfig
     public PinotConfig setConnectionTimeout(Duration connectionTimeout)
     {
         this.connectionTimeout = connectionTimeout;
-        return this;
-    }
-
-    @MinDuration("15s")
-    @NotNull
-    public Duration getRequestTimeout()
-    {
-        return requestTimeout;
-    }
-
-    @Config("pinot.request-timeout")
-    public PinotConfig setRequestTimeout(Duration requestTimeout)
-    {
-        this.requestTimeout = requestTimeout;
         return this;
     }
 
@@ -246,15 +183,94 @@ public class PinotConfig
         return this;
     }
 
-    public int getMaxRowsPerSplitForSegmentQueries()
+    private static URI stringToUri(String server)
     {
-        return maxRowsPerSplitForSegmentQueries;
+        if (server.startsWith("http://") || server.startsWith("https://")) {
+            return URI.create(server);
+        }
+        return URI.create("http://" + server);
     }
 
-    @Config("pinot.max-rows-per-split-for-segment-queries")
-    public PinotConfig setMaxRowsPerSplitForSegmentQueries(int maxRowsPerSplitForSegmentQueries)
+    public int getMaxRowsForBrokerQueries()
     {
-        this.maxRowsPerSplitForSegmentQueries = maxRowsPerSplitForSegmentQueries;
+        return maxRowsForBrokerQueries;
+    }
+
+    @Config("pinot.max-rows-for-broker-queries")
+    public PinotConfig setMaxRowsForBrokerQueries(int maxRowsForBrokerQueries)
+    {
+        this.maxRowsForBrokerQueries = maxRowsForBrokerQueries;
         return this;
+    }
+
+    public boolean isAggregationPushdownEnabled()
+    {
+        return aggregationPushdownEnabled;
+    }
+
+    @Config("pinot.aggregation-pushdown.enabled")
+    public PinotConfig setAggregationPushdownEnabled(boolean aggregationPushdownEnabled)
+    {
+        this.aggregationPushdownEnabled = aggregationPushdownEnabled;
+        return this;
+    }
+
+    public boolean isCountDistinctPushdownEnabled()
+    {
+        return countDistinctPushdownEnabled;
+    }
+
+    @Config("pinot.count-distinct-pushdown.enabled")
+    @ConfigDescription("Controls whether distinct count is pushed down to Pinot. Distinct count pushdown can cause Pinot to do a full scan. Aggregation pushdown must also be enabled in addition to this parameter otherwise no pushdowns will be enabled.")
+    public PinotConfig setCountDistinctPushdownEnabled(boolean countDistinctPushdownEnabled)
+    {
+        this.countDistinctPushdownEnabled = countDistinctPushdownEnabled;
+        return this;
+    }
+
+    public boolean isGrpcEnabled()
+    {
+        return grpcEnabled;
+    }
+
+    @Config("pinot.grpc.enabled")
+    public PinotConfig setGrpcEnabled(boolean grpcEnabled)
+    {
+        this.grpcEnabled = grpcEnabled;
+        return this;
+    }
+
+    public boolean isTlsEnabled()
+    {
+        return "https".equalsIgnoreCase(getControllerUrls().get(0).getScheme());
+    }
+
+    public DataSize getTargetSegmentPageSize()
+    {
+        return this.targetSegmentPageSize;
+    }
+
+    @Config("pinot.target-segment-page-size")
+    public PinotConfig setTargetSegmentPageSize(DataSize targetSegmentPageSize)
+    {
+        this.targetSegmentPageSize = targetSegmentPageSize;
+        return this;
+    }
+
+    @PostConstruct
+    public void validate()
+    {
+        checkState(
+                !countDistinctPushdownEnabled || aggregationPushdownEnabled,
+                "Invalid configuration: pinot.aggregation-pushdown.enabled must be enabled if pinot.count-distinct-pushdown.enabled");
+    }
+
+    @AssertTrue(message = "All controller URLs must have the same scheme")
+    public boolean allUrlSchemesEqual()
+    {
+        return controllerUrls.stream()
+                .map(URI::getScheme)
+                .distinct()
+                .count() == 1;
     }
 }

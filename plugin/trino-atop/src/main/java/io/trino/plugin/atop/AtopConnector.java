@@ -18,11 +18,14 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
+
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -33,7 +36,7 @@ public class AtopConnector
     private final AtopMetadata metadata;
     private final AtopSplitManager splitManager;
     private final AtopPageSourceProvider pageSourceProvider;
-    private final ConnectorAccessControl accessControl;
+    private final Optional<ConnectorAccessControl> accessControl;
 
     @Inject
     public AtopConnector(
@@ -41,7 +44,7 @@ public class AtopConnector
             AtopMetadata metadata,
             AtopSplitManager splitManager,
             AtopPageSourceProvider pageSourceProvider,
-            ConnectorAccessControl accessControl)
+            Optional<ConnectorAccessControl> accessControl)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -51,13 +54,13 @@ public class AtopConnector
     }
 
     @Override
-    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
         return AtopTransactionHandle.INSTANCE;
     }
 
     @Override
-    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
+    public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
     {
         return metadata;
     }
@@ -77,7 +80,7 @@ public class AtopConnector
     @Override
     public ConnectorAccessControl getAccessControl()
     {
-        return accessControl;
+        return accessControl.orElseThrow(UnsupportedOperationException::new);
     }
 
     @Override

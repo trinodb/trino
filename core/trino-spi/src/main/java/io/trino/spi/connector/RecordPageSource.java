@@ -34,7 +34,7 @@ public class RecordPageSource
 
     public RecordPageSource(RecordSet recordSet)
     {
-        this(requireNonNull(recordSet, "recordSet is null").getColumnTypes(), recordSet.cursor());
+        this(recordSet.getColumnTypes(), recordSet.cursor());
     }
 
     public RecordPageSource(List<Type> types, RecordCursor cursor)
@@ -62,9 +62,9 @@ public class RecordPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return cursor.getSystemMemoryUsage() + pageBuilder.getSizeInBytes();
+        return cursor.getMemoryUsage() + pageBuilder.getSizeInBytes();
     }
 
     @Override

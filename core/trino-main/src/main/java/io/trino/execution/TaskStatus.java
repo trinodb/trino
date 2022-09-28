@@ -16,13 +16,12 @@ package io.trino.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.execution.buffer.OutputBufferStatus;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -52,14 +51,15 @@ public class TaskStatus
     private final TaskState state;
     private final URI self;
     private final String nodeId;
-    private final Set<Lifespan> completedDriverGroups;
 
     private final int queuedPartitionedDrivers;
+    private final long queuedPartitionedSplitsWeight;
     private final int runningPartitionedDrivers;
-    private final boolean outputBufferOverutilized;
+    private final long runningPartitionedSplitsWeight;
+    private final OutputBufferStatus outputBufferStatus;
     private final DataSize physicalWrittenDataSize;
     private final DataSize memoryReservation;
-    private final DataSize systemMemoryReservation;
+    private final DataSize peakMemoryReservation;
     private final DataSize revocableMemoryReservation;
 
     private final long fullGcCount;
@@ -77,18 +77,19 @@ public class TaskStatus
             @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
             @JsonProperty("nodeId") String nodeId,
-            @JsonProperty("completedDriverGroups") Set<Lifespan> completedDriverGroups,
             @JsonProperty("failures") List<ExecutionFailureInfo> failures,
             @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
-            @JsonProperty("outputBufferOverutilized") boolean outputBufferOverutilized,
+            @JsonProperty("outputBufferStatus") OutputBufferStatus outputBufferStatus,
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
             @JsonProperty("memoryReservation") DataSize memoryReservation,
-            @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
+            @JsonProperty("peakMemoryReservation") DataSize peakMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("fullGcCount") long fullGcCount,
             @JsonProperty("fullGcTime") Duration fullGcTime,
-            @JsonProperty("dynamicFiltersVersion") long dynamicFiltersVersion)
+            @JsonProperty("dynamicFiltersVersion") long dynamicFiltersVersion,
+            @JsonProperty("queuedPartitionedSplitsWeight") long queuedPartitionedSplitsWeight,
+            @JsonProperty("runningPartitionedSplitsWeight") long runningPartitionedSplitsWeight)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
@@ -98,20 +99,23 @@ public class TaskStatus
         this.state = requireNonNull(state, "state is null");
         this.self = requireNonNull(self, "self is null");
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
-        this.completedDriverGroups = requireNonNull(completedDriverGroups, "completedDriverGroups is null");
 
         checkArgument(queuedPartitionedDrivers >= 0, "queuedPartitionedDrivers must be positive");
         this.queuedPartitionedDrivers = queuedPartitionedDrivers;
+        checkArgument(queuedPartitionedSplitsWeight >= 0, "queuedPartitionedSplitsWeight must be positive");
+        this.queuedPartitionedSplitsWeight = queuedPartitionedSplitsWeight;
 
         checkArgument(runningPartitionedDrivers >= 0, "runningPartitionedDrivers must be positive");
         this.runningPartitionedDrivers = runningPartitionedDrivers;
+        checkArgument(runningPartitionedSplitsWeight >= 0, "runningPartitionedSplitsWeight must be positive");
+        this.runningPartitionedSplitsWeight = runningPartitionedSplitsWeight;
 
-        this.outputBufferOverutilized = outputBufferOverutilized;
+        this.outputBufferStatus = requireNonNull(outputBufferStatus, "outputBufferStatus is null");
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
 
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
-        this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
+        this.peakMemoryReservation = requireNonNull(peakMemoryReservation, "peakMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.failures = ImmutableList.copyOf(requireNonNull(failures, "failures is null"));
 
@@ -159,12 +163,6 @@ public class TaskStatus
     }
 
     @JsonProperty
-    public Set<Lifespan> getCompletedDriverGroups()
-    {
-        return completedDriverGroups;
-    }
-
-    @JsonProperty
     public List<ExecutionFailureInfo> getFailures()
     {
         return failures;
@@ -189,9 +187,9 @@ public class TaskStatus
     }
 
     @JsonProperty
-    public boolean isOutputBufferOverutilized()
+    public OutputBufferStatus getOutputBufferStatus()
     {
-        return outputBufferOverutilized;
+        return outputBufferStatus;
     }
 
     @JsonProperty
@@ -201,9 +199,9 @@ public class TaskStatus
     }
 
     @JsonProperty
-    public DataSize getSystemMemoryReservation()
+    public DataSize getPeakMemoryReservation()
     {
-        return systemMemoryReservation;
+        return peakMemoryReservation;
     }
 
     @JsonProperty
@@ -230,6 +228,18 @@ public class TaskStatus
         return dynamicFiltersVersion;
     }
 
+    @JsonProperty
+    public long getQueuedPartitionedSplitsWeight()
+    {
+        return queuedPartitionedSplitsWeight;
+    }
+
+    @JsonProperty
+    public long getRunningPartitionedSplitsWeight()
+    {
+        return runningPartitionedSplitsWeight;
+    }
+
     @Override
     public String toString()
     {
@@ -248,18 +258,19 @@ public class TaskStatus
                 PLANNED,
                 location,
                 nodeId,
-                ImmutableSet.of(),
                 ImmutableList.of(),
                 0,
                 0,
-                false,
+                OutputBufferStatus.initial(),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 0,
                 new Duration(0, MILLISECONDS),
-                INITIAL_DYNAMIC_FILTERS_VERSION);
+                INITIAL_DYNAMIC_FILTERS_VERSION,
+                0L,
+                0L);
     }
 
     public static TaskStatus failWith(TaskStatus taskStatus, TaskState state, List<ExecutionFailureInfo> exceptions)
@@ -271,17 +282,18 @@ public class TaskStatus
                 state,
                 taskStatus.getSelf(),
                 taskStatus.getNodeId(),
-                taskStatus.getCompletedDriverGroups(),
                 exceptions,
                 taskStatus.getQueuedPartitionedDrivers(),
                 taskStatus.getRunningPartitionedDrivers(),
-                taskStatus.isOutputBufferOverutilized(),
+                taskStatus.getOutputBufferStatus(),
                 taskStatus.getPhysicalWrittenDataSize(),
                 taskStatus.getMemoryReservation(),
-                taskStatus.getSystemMemoryReservation(),
+                taskStatus.getPeakMemoryReservation(),
                 taskStatus.getRevocableMemoryReservation(),
                 taskStatus.getFullGcCount(),
                 taskStatus.getFullGcTime(),
-                taskStatus.getDynamicFiltersVersion());
+                taskStatus.getDynamicFiltersVersion(),
+                taskStatus.getQueuedPartitionedSplitsWeight(),
+                taskStatus.getRunningPartitionedSplitsWeight());
     }
 }

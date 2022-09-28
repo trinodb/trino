@@ -15,13 +15,12 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.connector.CatalogName;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.plugin.tpch.TpchTransactionHandle;
 import io.trino.spi.type.BigintType;
-import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -30,17 +29,19 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 
 public class TestPruneCountAggregationOverScalar
         extends BaseRuleTest
 {
+    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
+
     @Test
     public void testDoesNotFireOnNonNestedAggregate()
     {
@@ -50,8 +51,8 @@ public class TestPruneCountAggregationOverScalar
                                 .globalGrouping()
                                 .addAggregation(
                                         p.symbol("count_1", BigintType.BIGINT),
-                                        new FunctionCallBuilder(tester().getMetadata())
-                                                .setName(QualifiedName.of("count"))
+                                        functionResolution
+                                                .functionCallBuilder(QualifiedName.of("count"))
                                                 .build(),
                                         ImmutableList.of())
                                 .source(
@@ -67,14 +68,14 @@ public class TestPruneCountAggregationOverScalar
                         p.aggregation((a) -> a
                                 .addAggregation(
                                         p.symbol("count_1", BigintType.BIGINT),
-                                        new FunctionCallBuilder(tester().getMetadata())
-                                                .setName(QualifiedName.of("count"))
+                                        functionResolution
+                                                .functionCallBuilder(QualifiedName.of("count"))
                                                 .build(),
                                         ImmutableList.of())
                                 .globalGrouping()
                                 .step(AggregationNode.Step.SINGLE)
                                 .source(
-                                        p.aggregation((aggregationBuilder) -> aggregationBuilder
+                                        p.aggregation(aggregationBuilder -> aggregationBuilder
                                                 .source(p.tableScan(ImmutableList.of(), ImmutableMap.of()))
                                                 .globalGrouping()
                                                 .step(AggregationNode.Step.SINGLE)))))
@@ -89,8 +90,8 @@ public class TestPruneCountAggregationOverScalar
                         p.aggregation((a) -> a
                                 .addAggregation(
                                         p.symbol("count_1", BigintType.BIGINT),
-                                        new FunctionCallBuilder(tester().getMetadata())
-                                                .setName(QualifiedName.of("count"))
+                                        functionResolution
+                                                .functionCallBuilder(QualifiedName.of("count"))
                                                 .build(),
                                         ImmutableList.of())
                                 .step(AggregationNode.Step.SINGLE)
@@ -107,8 +108,8 @@ public class TestPruneCountAggregationOverScalar
                         p.aggregation((a) -> a
                                 .addAggregation(
                                         p.symbol("count_1", BigintType.BIGINT),
-                                        new FunctionCallBuilder(tester().getMetadata())
-                                                .setName(QualifiedName.of("count"))
+                                        functionResolution
+                                                .functionCallBuilder(QualifiedName.of("count"))
                                                 .build(),
                                         ImmutableList.of())
                                 .step(AggregationNode.Step.SINGLE)
@@ -125,8 +126,8 @@ public class TestPruneCountAggregationOverScalar
                         p.aggregation((a) -> a
                                 .addAggregation(
                                         p.symbol("count_1", BigintType.BIGINT),
-                                        new FunctionCallBuilder(tester().getMetadata())
-                                                .setName(QualifiedName.of("count"))
+                                        functionResolution
+                                                .functionCallBuilder(QualifiedName.of("count"))
                                                 .build(),
                                         ImmutableList.of())
                                 .step(AggregationNode.Step.SINGLE)
@@ -148,8 +149,8 @@ public class TestPruneCountAggregationOverScalar
                     Symbol totalPrice = p.symbol("total_price", DOUBLE);
                     AggregationNode inner = p.aggregation((a) -> a
                             .addAggregation(totalPrice,
-                                    new FunctionCallBuilder(tester().getMetadata())
-                                            .setName(QualifiedName.of("sum"))
+                                    functionResolution
+                                            .functionCallBuilder(QualifiedName.of("sum"))
                                             .addArgument(DOUBLE, new SymbolReference("totalprice"))
                                             .build(),
                                     ImmutableList.of(DOUBLE))
@@ -159,18 +160,17 @@ public class TestPruneCountAggregationOverScalar
                                             Assignments.of(totalPrice, totalPrice.toSymbolReference()),
                                             p.tableScan(
                                                     new TableHandle(
-                                                            new CatalogName("local"),
-                                                            new TpchTableHandle("orders", TINY_SCALE_FACTOR),
-                                                            TpchTransactionHandle.INSTANCE,
-                                                            Optional.empty()),
+                                                            TEST_CATALOG_HANDLE,
+                                                            new TpchTableHandle(TINY_SCHEMA_NAME, "orders", TINY_SCALE_FACTOR),
+                                                            TpchTransactionHandle.INSTANCE),
                                                     ImmutableList.of(totalPrice),
                                                     ImmutableMap.of(totalPrice, new TpchColumnHandle(totalPrice.getName(), DOUBLE))))));
 
                     return p.aggregation((a) -> a
                             .addAggregation(
                                     p.symbol("sum_outer", DOUBLE),
-                                    new FunctionCallBuilder(tester().getMetadata())
-                                            .setName(QualifiedName.of("sum"))
+                                    functionResolution
+                                            .functionCallBuilder(QualifiedName.of("sum"))
                                             .addArgument(DOUBLE, new SymbolReference("sum_inner"))
                                             .build(),
                                     ImmutableList.of(DOUBLE))

@@ -81,14 +81,14 @@ public final class TestingMetastoreObjects
         return getGlueTestStorageDescriptor(ImmutableList.of(getGlueTestColumn()), "SerdeLib");
     }
 
-    public static StorageDescriptor getGlueTestStorageDescriptor(List<Column> columns, String serDe)
+    public static StorageDescriptor getGlueTestStorageDescriptor(List<Column> columns, String serde)
     {
         return new StorageDescriptor()
                 .withBucketColumns(ImmutableList.of("test-bucket-col"))
                 .withColumns(columns)
                 .withParameters(ImmutableMap.of())
                 .withSerdeInfo(new SerDeInfo()
-                        .withSerializationLibrary(serDe)
+                        .withSerializationLibrary(serde)
                         .withParameters(ImmutableMap.of()))
                 .withInputFormat("InputFormat")
                 .withOutputFormat("OutputFormat")
@@ -106,7 +106,7 @@ public final class TestingMetastoreObjects
                 .withStorageDescriptor(getGlueTestStorageDescriptor());
     }
 
-    // --------------- Presto Objects ---------------
+    // --------------- Trino Objects ---------------
 
     public static io.trino.plugin.hive.metastore.Database getPrestoTestDatabase()
     {
@@ -115,8 +115,9 @@ public final class TestingMetastoreObjects
                 .setComment(Optional.of("database desc"))
                 .setLocation(Optional.of("/db"))
                 .setParameters(ImmutableMap.of())
-                .setOwnerName("PUBLIC")
-                .setOwnerType(PrincipalType.ROLE).build();
+                .setOwnerName(Optional.of("PUBLIC"))
+                .setOwnerType(Optional.of(PrincipalType.ROLE))
+                .build();
     }
 
     public static io.trino.plugin.hive.metastore.Table getPrestoTestTable(String dbName)
@@ -124,7 +125,7 @@ public final class TestingMetastoreObjects
         return io.trino.plugin.hive.metastore.Table.builder()
                 .setDatabaseName(dbName)
                 .setTableName("test-tbl" + generateRandom())
-                .setOwner("owner")
+                .setOwner(Optional.of("owner"))
                 .setParameters(ImmutableMap.of())
                 .setTableType(TableType.EXTERNAL_TABLE.name())
                 .setDataColumns(ImmutableList.of(getPrestoTestColumn()))

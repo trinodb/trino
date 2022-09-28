@@ -42,10 +42,10 @@ public class TestProxyConfig
     {
         Path sharedSecretFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("proxy.uri", "http://example.net/")
                 .put("proxy.shared-secret-file", sharedSecretFile.toString())
-                .build();
+                .buildOrThrow();
 
         ProxyConfig expected = new ProxyConfig()
                 .setUri(URI.create("http://example.net/"))

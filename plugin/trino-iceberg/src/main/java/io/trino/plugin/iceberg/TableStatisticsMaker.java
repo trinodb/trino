@@ -13,160 +13,104 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.Constraint;
-import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.TypeManager;
-import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
-import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
-import org.apache.iceberg.types.Comparators;
-import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
-import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
-import static io.trino.plugin.iceberg.Partition.toMap;
-import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
-import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
 public class TableStatisticsMaker
 {
+    public static final String TRINO_STATS_PREFIX = "trino.stats.ndv.";
+    public static final String TRINO_STATS_NDV_FORMAT = TRINO_STATS_PREFIX + "%d.ndv";
+    public static final Pattern TRINO_STATS_COLUMN_ID_PATTERN = Pattern.compile(Pattern.quote(TRINO_STATS_PREFIX) + "(?<columnId>\\d+)\\..*");
+    public static final Pattern TRINO_STATS_NDV_PATTERN = Pattern.compile(Pattern.quote(TRINO_STATS_PREFIX) + "(?<columnId>\\d+)\\.ndv");
+
     private final TypeManager typeManager;
+    private final ConnectorSession session;
     private final Table icebergTable;
 
-    private TableStatisticsMaker(TypeManager typeManager, Table icebergTable)
+    private TableStatisticsMaker(TypeManager typeManager, ConnectorSession session, Table icebergTable)
     {
         this.typeManager = typeManager;
+        this.session = session;
         this.icebergTable = icebergTable;
     }
 
-    public static TableStatistics getTableStatistics(TypeManager typeManager, Constraint constraint, IcebergTableHandle tableHandle, Table icebergTable)
+    public static TableStatistics getTableStatistics(TypeManager typeManager, ConnectorSession session, IcebergTableHandle tableHandle, Table icebergTable)
     {
-        return new TableStatisticsMaker(typeManager, icebergTable).makeTableStatistics(tableHandle, constraint);
+        return new TableStatisticsMaker(typeManager, session, icebergTable).makeTableStatistics(tableHandle);
     }
 
-    private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle, Constraint constraint)
+    private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle)
     {
-        if (tableHandle.getSnapshotId().isEmpty() || constraint.getSummary().isNone()) {
-            return TableStatistics.empty();
+        if (tableHandle.getSnapshotId().isEmpty()) {
+            return TableStatistics.builder()
+                    .setRowCount(Estimate.of(0))
+                    .build();
         }
 
-        TupleDomain<IcebergColumnHandle> intersection = constraint.getSummary()
-                .transformKeys(IcebergColumnHandle.class::cast)
-                .intersect(tableHandle.getEnforcedPredicate());
+        TupleDomain<IcebergColumnHandle> enforcedPredicate = tableHandle.getEnforcedPredicate();
 
-        if (intersection.isNone()) {
-            return TableStatistics.empty();
+        if (enforcedPredicate.isNone()) {
+            return TableStatistics.builder()
+                    .setRowCount(Estimate.of(0))
+                    .build();
         }
 
-        List<Types.NestedField> columns = icebergTable.schema().columns();
+        Schema icebergTableSchema = icebergTable.schema();
+        List<Types.NestedField> columns = icebergTableSchema.columns();
 
-        Map<Integer, Type.PrimitiveType> idToTypeMapping = columns.stream()
-                .filter(column -> column.type().isPrimitiveType())
-                .collect(Collectors.toMap(Types.NestedField::fieldId, column -> column.type().asPrimitiveType()));
-        List<PartitionField> partitionFields = icebergTable.spec().fields();
-
-        Set<Integer> identityPartitionIds = getIdentityPartitions(icebergTable.spec()).keySet().stream()
-                .map(PartitionField::sourceId)
-                .collect(toSet());
-
-        List<Types.NestedField> nonPartitionPrimitiveColumns = columns.stream()
-                .filter(column -> !identityPartitionIds.contains(column.fieldId()) && column.type().isPrimitiveType())
-                .collect(toImmutableList());
-
-        List<Type> icebergPartitionTypes = partitionTypes(partitionFields, idToTypeMapping);
-        List<IcebergColumnHandle> columnHandles = getColumns(icebergTable.schema(), typeManager);
+        List<IcebergColumnHandle> columnHandles = getColumns(icebergTableSchema, typeManager);
         Map<Integer, IcebergColumnHandle> idToColumnHandle = columnHandles.stream()
                 .collect(toUnmodifiableMap(IcebergColumnHandle::getId, identity()));
 
-        ImmutableMap.Builder<Integer, ColumnFieldDetails> idToDetailsBuilder = ImmutableMap.builder();
-        for (int index = 0; index < partitionFields.size(); index++) {
-            PartitionField field = partitionFields.get(index);
-            Type type = icebergPartitionTypes.get(index);
-            idToDetailsBuilder.put(field.sourceId(), new ColumnFieldDetails(
-                    field,
-                    idToColumnHandle.get(field.sourceId()),
-                    type,
-                    toTrinoType(type, typeManager),
-                    type.typeId().javaClass()));
-        }
-        Map<Integer, ColumnFieldDetails> idToDetails = idToDetailsBuilder.build();
-
         TableScan tableScan = icebergTable.newScan()
-                .filter(toIcebergExpression(intersection))
+                .filter(toIcebergExpression(enforcedPredicate))
                 .useSnapshot(tableHandle.getSnapshotId().get())
                 .includeColumnStats();
 
-        Partition summary = null;
+        IcebergStatistics.Builder icebergStatisticsBuilder = new IcebergStatistics.Builder(columns, typeManager);
         try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
-            for (FileScanTask fileScanTask : fileScanTasks) {
-                DataFile dataFile = fileScanTask.file();
-                if (!dataFileMatches(
-                        dataFile,
-                        constraint,
-                        idToTypeMapping,
-                        partitionFields,
-                        idToDetails)) {
-                    continue;
-                }
-
-                if (summary == null) {
-                    summary = new Partition(
-                            idToTypeMapping,
-                            nonPartitionPrimitiveColumns,
-                            dataFile.partition(),
-                            dataFile.recordCount(),
-                            dataFile.fileSizeInBytes(),
-                            toMap(idToTypeMapping, dataFile.lowerBounds()),
-                            toMap(idToTypeMapping, dataFile.upperBounds()),
-                            dataFile.nullValueCounts(),
-                            dataFile.columnSizes());
-                }
-                else {
-                    summary.incrementFileCount();
-                    summary.incrementRecordCount(dataFile.recordCount());
-                    summary.incrementSize(dataFile.fileSizeInBytes());
-                    updateSummaryMin(summary, partitionFields, toMap(idToTypeMapping, dataFile.lowerBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
-                    updateSummaryMax(summary, partitionFields, toMap(idToTypeMapping, dataFile.upperBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
-                    summary.updateNullCount(dataFile.nullValueCounts());
-                    updateColumnSizes(summary, dataFile.columnSizes());
-                }
-            }
+            fileScanTasks.forEach(fileScanTask -> icebergStatisticsBuilder.acceptDataFile(fileScanTask.file(), fileScanTask.spec()));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
 
-        if (summary == null) {
-            return TableStatistics.empty();
+        IcebergStatistics summary = icebergStatisticsBuilder.build();
+
+        if (summary.getFileCount() == 0) {
+            return TableStatistics.builder()
+                    .setRowCount(Estimate.of(0))
+                    .build();
         }
+
+        Map<Integer, Long> ndvs = readNdvs(icebergTable);
 
         ImmutableMap.Builder<ColumnHandle, ColumnStatistics> columnHandleBuilder = ImmutableMap.builder();
         double recordCount = summary.getRecordCount();
@@ -185,161 +129,35 @@ public class TableStatisticsMaker
             }
             Object min = summary.getMinValues().get(fieldId);
             Object max = summary.getMaxValues().get(fieldId);
-            if (min instanceof Number && max instanceof Number) {
-                columnBuilder.setRange(Optional.of(new DoubleRange(((Number) min).doubleValue(), ((Number) max).doubleValue())));
+            if (min != null && max != null) {
+                columnBuilder.setRange(DoubleRange.from(columnHandle.getType(), min, max));
             }
+            columnBuilder.setDistinctValuesCount(
+                    Optional.ofNullable(ndvs.get(fieldId))
+                            .map(Estimate::of)
+                            .orElseGet(Estimate::unknown));
             columnHandleBuilder.put(columnHandle, columnBuilder.build());
         }
-        return new TableStatistics(Estimate.of(recordCount), columnHandleBuilder.build());
+        return new TableStatistics(Estimate.of(recordCount), columnHandleBuilder.buildOrThrow());
     }
 
-    private boolean dataFileMatches(
-            DataFile dataFile,
-            Constraint constraint,
-            Map<Integer, Type.PrimitiveType> idToTypeMapping,
-            List<PartitionField> partitionFields,
-            Map<Integer, ColumnFieldDetails> fieldDetails)
+    private Map<Integer, Long> readNdvs(Table icebergTable)
     {
-        TupleDomain<ColumnHandle> constraintSummary = constraint.getSummary();
-
-        Map<ColumnHandle, Domain> domains = constraintSummary.getDomains().get();
-
-        Predicate<Map<ColumnHandle, NullableValue>> predicate = constraint.predicate().orElse(value -> true);
-
-        ImmutableMap.Builder<ColumnHandle, NullableValue> nullableValueBuilder = ImmutableMap.builder();
-
-        for (int index = 0; index < partitionFields.size(); index++) {
-            PartitionField field = partitionFields.get(index);
-            int fieldId = field.sourceId();
-            ColumnFieldDetails details = fieldDetails.get(fieldId);
-            IcebergColumnHandle column = details.getColumnHandle();
-            Object value = PartitionTable.convert(dataFile.partition().get(index, details.getJavaClass()), idToTypeMapping.get(fieldId));
-            Domain allowedDomain = domains.get(column);
-            if (allowedDomain != null && !allowedDomain.includesNullableValue(value)) {
-                return false;
-            }
-            nullableValueBuilder.put(column, makeNullableValue(details.getTrinoType(), value));
+        if (!isExtendedStatisticsEnabled(session)) {
+            return ImmutableMap.of();
         }
 
-        if (constraint.getPredicateColumns().isPresent()) {
-            return predicate.test(nullableValueBuilder.build());
-        }
-
-        return true;
-    }
-
-    private NullableValue makeNullableValue(io.trino.spi.type.Type type, Object value)
-    {
-        return value == null ? NullableValue.asNull(type) : NullableValue.of(type, value);
-    }
-
-    public List<Type> partitionTypes(List<PartitionField> partitionFields, Map<Integer, Type.PrimitiveType> idToTypeMapping)
-    {
-        ImmutableList.Builder<Type> partitionTypeBuilder = ImmutableList.builder();
-        for (PartitionField partitionField : partitionFields) {
-            Type.PrimitiveType sourceType = idToTypeMapping.get(partitionField.sourceId());
-            Type type = partitionField.transform().getResultType(sourceType);
-            partitionTypeBuilder.add(type);
-        }
-        return partitionTypeBuilder.build();
-    }
-
-    private static class ColumnFieldDetails
-    {
-        private final PartitionField field;
-        private final IcebergColumnHandle columnHandle;
-        private final Type icebergType;
-        private final io.trino.spi.type.Type trinoType;
-        private final Class<?> javaClass;
-
-        public ColumnFieldDetails(PartitionField field, IcebergColumnHandle columnHandle, Type icebergType, io.trino.spi.type.Type trinoType, Class<?> javaClass)
-        {
-            this.field = requireNonNull(field, "field is null");
-            this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
-            this.icebergType = requireNonNull(icebergType, "icebergType is null");
-            this.trinoType = requireNonNull(trinoType, "trinoType is null");
-            this.javaClass = requireNonNull(javaClass, "javaClass is null");
-        }
-
-        public PartitionField getField()
-        {
-            return field;
-        }
-
-        public IcebergColumnHandle getColumnHandle()
-        {
-            return columnHandle;
-        }
-
-        public Type getIcebergType()
-        {
-            return icebergType;
-        }
-
-        public io.trino.spi.type.Type getTrinoType()
-        {
-            return trinoType;
-        }
-
-        public Class<?> getJavaClass()
-        {
-            return javaClass;
-        }
-    }
-
-    public void updateColumnSizes(Partition summary, Map<Integer, Long> addedColumnSizes)
-    {
-        Map<Integer, Long> columnSizes = summary.getColumnSizes();
-        if (!summary.hasValidColumnMetrics() || columnSizes == null || addedColumnSizes == null) {
-            return;
-        }
-        for (Types.NestedField column : summary.getNonPartitionPrimitiveColumns()) {
-            int id = column.fieldId();
-
-            Long addedSize = addedColumnSizes.get(id);
-            if (addedSize != null) {
-                columnSizes.put(id, addedSize + columnSizes.getOrDefault(id, 0L));
-            }
-        }
-    }
-
-    private void updateSummaryMin(Partition summary, List<PartitionField> partitionFields, Map<Integer, Object> lowerBounds, Map<Integer, Long> nullCounts, long recordCount)
-    {
-        summary.updateStats(summary.getMinValues(), lowerBounds, nullCounts, recordCount, i -> (i > 0));
-        updatePartitionedStats(summary, partitionFields, summary.getMinValues(), lowerBounds, i -> (i > 0));
-    }
-
-    private void updateSummaryMax(Partition summary, List<PartitionField> partitionFields, Map<Integer, Object> upperBounds, Map<Integer, Long> nullCounts, long recordCount)
-    {
-        summary.updateStats(summary.getMaxValues(), upperBounds, nullCounts, recordCount, i -> (i < 0));
-        updatePartitionedStats(summary, partitionFields, summary.getMaxValues(), upperBounds, i -> (i < 0));
-    }
-
-    private void updatePartitionedStats(
-            Partition summary,
-            List<PartitionField> partitionFields,
-            Map<Integer, Object> current,
-            Map<Integer, Object> newStats,
-            Predicate<Integer> predicate)
-    {
-        for (PartitionField field : partitionFields) {
-            int id = field.sourceId();
-            if (summary.getCorruptedStats().contains(id)) {
-                continue;
-            }
-
-            Object newValue = newStats.get(id);
-            if (newValue == null) {
-                continue;
-            }
-
-            Object oldValue = current.putIfAbsent(id, newValue);
-            if (oldValue != null) {
-                Comparator<Object> comparator = Comparators.forType(summary.getIdToTypeMapping().get(id));
-                if (predicate.test(comparator.compare(oldValue, newValue))) {
-                    current.put(id, newValue);
+        ImmutableMap.Builder<Integer, Long> ndvByColumnId = ImmutableMap.builder();
+        icebergTable.properties().forEach((key, value) -> {
+            if (key.startsWith(TRINO_STATS_PREFIX)) {
+                Matcher matcher = TRINO_STATS_NDV_PATTERN.matcher(key);
+                if (matcher.matches()) {
+                    int columnId = Integer.parseInt(matcher.group("columnId"));
+                    long ndv = Long.parseLong(value);
+                    ndvByColumnId.put(columnId, ndv);
                 }
             }
-        }
+        });
+        return ndvByColumnId.buildOrThrow();
     }
 }

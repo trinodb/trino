@@ -13,14 +13,17 @@
  */
 package io.trino.plugin.hive.metastore;
 
-import com.google.common.collect.ImmutableMultimap;
-import com.linkedin.coral.hive.hive2rel.HiveMetastoreClient;
-import io.trino.plugin.hive.authentication.HiveIdentity;
+import com.linkedin.coral.common.HiveMetastoreClient;
+import io.trino.plugin.hive.CoralTableRedirectionResolver;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
+import io.trino.spi.connector.SchemaTableName;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.Table;
 
 import java.util.List;
+import java.util.Optional;
 
+import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -32,12 +35,14 @@ public class CoralSemiTransactionalHiveMSCAdapter
         implements HiveMetastoreClient
 {
     private final SemiTransactionalHiveMetastore delegate;
-    private final HiveIdentity identity;
+    private final CoralTableRedirectionResolver tableRedirection;
 
-    public CoralSemiTransactionalHiveMSCAdapter(SemiTransactionalHiveMetastore coralHiveMetastoreClient, HiveIdentity identity)
+    public CoralSemiTransactionalHiveMSCAdapter(
+            SemiTransactionalHiveMetastore coralHiveMetastoreClient,
+            CoralTableRedirectionResolver tableRedirection)
     {
         this.delegate = requireNonNull(coralHiveMetastoreClient, "coralHiveMetastoreClient is null");
-        this.identity = identity;
+        this.tableRedirection = requireNonNull(tableRedirection, "tableRedirection is null");
     }
 
     @Override
@@ -62,8 +67,15 @@ public class CoralSemiTransactionalHiveMSCAdapter
     @Override
     public org.apache.hadoop.hive.metastore.api.Table getTable(String dbName, String tableName)
     {
-        return delegate.getTable(identity, dbName, tableName)
-                .map(value -> ThriftMetastoreUtil.toMetastoreApiTable(value, new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of())))
+        if (!dbName.isEmpty() && !tableName.isEmpty()) {
+            Optional<Table> redirected = tableRedirection.redirect(new SchemaTableName(dbName, tableName));
+            if (redirected.isPresent()) {
+                return redirected.get();
+            }
+        }
+
+        return delegate.getTable(dbName, tableName)
+                .map(value -> ThriftMetastoreUtil.toMetastoreApiTable(value, NO_PRIVILEGES))
                 .orElse(null);
     }
 }

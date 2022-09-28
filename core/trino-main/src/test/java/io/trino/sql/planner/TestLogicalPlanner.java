@@ -26,15 +26,14 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.RowType;
-import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
-import io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
+import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
 import io.trino.sql.planner.optimizations.AddLocalExchanges;
 import io.trino.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
-import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
@@ -56,6 +55,8 @@ import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.planner.rowpattern.ir.IrLabel;
+import io.trino.sql.planner.rowpattern.ir.IrQuantified;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericLiteral;
@@ -64,7 +65,6 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.tests.QueryTemplate;
-import io.trino.util.MorePredicates;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -77,18 +77,21 @@ import java.util.function.Predicate;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.DISTRIBUTED_SORT;
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
-import static io.trino.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
@@ -114,11 +117,13 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.patternRecognition;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictConstrainedTableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictTableScan;
@@ -126,6 +131,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFrame;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -141,14 +147,19 @@ import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
+import static io.trino.sql.planner.rowpattern.ir.IrQuantifier.oneOrMore;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
+import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
 import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
+import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static io.trino.tests.QueryTemplate.queryTemplate;
-import static io.trino.util.MorePredicates.isInstanceOfAny;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -261,7 +272,7 @@ public class TestLogicalPlanner
     public void testAllFieldsDereferenceFromNonDeterministic()
     {
         FunctionCall randomFunction = new FunctionCall(
-                getQueryRunner().getMetadata().resolveFunction(QualifiedName.of("rand"), ImmutableList.of()).toQualifiedName(),
+                getQueryRunner().getMetadata().resolveFunction(TEST_SESSION, QualifiedName.of("rand"), ImmutableList.of()).toQualifiedName(),
                 ImmutableList.of());
 
         assertPlan("SELECT (x, x).* FROM (SELECT rand()) T(x)",
@@ -437,6 +448,39 @@ public class TestLogicalPlanner
                                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                                 anyTree(
                                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
+    }
+
+    @Test
+    public void testInequalityPredicatePushdownWithOuterJoin()
+    {
+        assertPlan("" +
+                        "SELECT o.orderkey " +
+                        "FROM orders o LEFT JOIN lineitem l " +
+                        "ON o.orderkey = l.orderkey AND o.custkey + 42 < l.partkey + 42 " +
+                        "WHERE o.custkey - 24 < COALESCE(l.partkey - 24, 0)",
+                anyTree(
+                        // predicate above outer join is not pushed to build side
+                        filter(
+                                "O_CUSTKEY - BIGINT '24' < COALESCE(L_PARTKEY - BIGINT '24', BIGINT '0')",
+                                join(
+                                        LEFT,
+                                        ImmutableList.of(equiJoinClause("O_ORDERKEY", "L_ORDERKEY")),
+                                        // part of inequality predicate within outer join is pushed down to build side
+                                        Optional.of("O_CUSTKEY + BIGINT '42' < EXPR"),
+                                        anyTree(
+                                                tableScan(
+                                                        "orders",
+                                                        ImmutableMap.of(
+                                                                "O_ORDERKEY", "orderkey",
+                                                                "O_CUSTKEY", "custkey"))),
+                                        anyTree(
+                                                project(
+                                                        ImmutableMap.of("EXPR", expression("L_PARTKEY + BIGINT '42'")),
+                                                        tableScan(
+                                                                "lineitem",
+                                                                ImmutableMap.of(
+                                                                        "L_ORDERKEY", "orderkey",
+                                                                        "L_PARTKEY", "partkey"))))))));
     }
 
     @Test
@@ -655,11 +699,12 @@ public class TestLogicalPlanner
         assertPlanDoesNotContain(sql, ApplyNode.class, JoinNode.class, IndexJoinNode.class, SemiJoinNode.class, CorrelatedJoinNode.class);
     }
 
-    private void assertPlanDoesNotContain(String sql, Class<?>... classes)
+    @SafeVarargs
+    private void assertPlanDoesNotContain(String sql, Class<? extends PlanNode>... classes)
     {
         assertFalse(
                 searchFrom(plan(sql, OPTIMIZED).getRoot())
-                        .where(isInstanceOfAny(classes))
+                        .whereIsInstanceOfAny(classes)
                         .matches(),
                 "Unexpected node for query: " + sql);
     }
@@ -749,13 +794,26 @@ public class TestLogicalPlanner
         assertDistributedPlan("SELECT name, (SELECT name FROM region WHERE regionkey = nation.regionkey) FROM nation",
                 noJoinReordering(),
                 anyTree(
-                        filter(format("CASE \"is_distinct\" WHEN true THEN true ELSE CAST(fail(%s, 'Scalar sub-query has returned multiple rows') AS boolean) END", SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()),
+                        filter(format("CASE \"is_distinct\" WHEN true THEN true ELSE CAST(fail(%d, VARCHAR 'Scalar sub-query has returned multiple rows') AS boolean) END", SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()),
                                 project(
                                         markDistinct("is_distinct", ImmutableList.of("unique"),
                                                 join(LEFT, ImmutableList.of(equiJoinClause("n_regionkey", "r_regionkey")),
                                                         assignUniqueId("unique",
                                                                 exchange(REMOTE, REPARTITION,
                                                                         anyTree(tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey"))))),
+                                                        anyTree(
+                                                                tableScan("region", ImmutableMap.of("r_regionkey", "regionkey")))))))));
+
+        assertDistributedPlan("SELECT name, (SELECT name FROM region WHERE regionkey = nation.regionkey) FROM nation",
+                automaticJoinDistribution(),
+                anyTree(
+                        filter(format("CASE \"is_distinct\" WHEN true THEN true ELSE CAST(fail(%d, VARCHAR 'Scalar sub-query has returned multiple rows') AS boolean) END", SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()),
+                                project(
+                                        markDistinct("is_distinct", ImmutableList.of("unique"),
+                                                join(LEFT, ImmutableList.of(equiJoinClause("n_regionkey", "r_regionkey")),
+                                                        project(
+                                                                assignUniqueId("unique",
+                                                                        tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey", "n_name", "name")))),
                                                         anyTree(
                                                                 tableScan("region", ImmutableMap.of("r_regionkey", "regionkey")))))))));
     }
@@ -911,30 +969,94 @@ public class TestLogicalPlanner
                                                 project(
                                                         any(
                                                                 tableScan("lineitem", ImmutableMap.of("L", "orderkey")))))))),
-                MorePredicates.<PlanOptimizer>isInstanceOfAny(AddLocalExchanges.class, CheckSubqueryNodesAreRewritten.class).negate());
+                optimizer -> !(optimizer instanceof AddLocalExchanges || optimizer instanceof CheckSubqueryNodesAreRewritten));
     }
 
     @Test
     public void testCorrelatedScalarAggregationRewriteToLeftOuterJoin()
     {
         assertPlan(
-                "SELECT orderkey FROM orders WHERE EXISTS(SELECT 1 WHERE orderkey = 3)", // EXISTS maps to count(*) > 0
-                anyTree(
-                        filter("FINAL_COUNT > BIGINT '0'",
-                                project(
-                                        aggregation(
-                                                singleGroupingSet("ORDERKEY", "UNIQUE"),
-                                                ImmutableMap.of(Optional.of("FINAL_COUNT"), functionCall("count", ImmutableList.of())),
-                                                ImmutableList.of("ORDERKEY", "UNIQUE"),
-                                                ImmutableList.of("NON_NULL"),
+                "SELECT orderkey, EXISTS(SELECT 1 WHERE orderkey = 3) FROM orders", // EXISTS maps to count(*) > 0
+                output(
+                        strictProject(
+                                ImmutableMap.of(
+                                        "ORDERKEY", expression("ORDERKEY"),
+                                        "exists", expression("FINAL_COUNT > BIGINT '0'")),
+                                aggregation(
+                                        singleGroupingSet("ORDERKEY", "UNIQUE"),
+                                        ImmutableMap.of(Optional.of("FINAL_COUNT"), functionCall("count", ImmutableList.of())),
+                                        ImmutableList.of("ORDERKEY", "UNIQUE"),
+                                        ImmutableList.of("NON_NULL"),
+                                        Optional.empty(),
+                                        SINGLE,
+                                        join(LEFT, ImmutableList.of(), Optional.of("BIGINT '3' = ORDERKEY"),
+                                                assignUniqueId(
+                                                        "UNIQUE",
+                                                        tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))),
+                                                project(ImmutableMap.of("NON_NULL", expression("true")),
+                                                        node(ValuesNode.class)))))));
+    }
+
+    @Test
+    public void testCorrelatedDistinctAggregationRewriteToLeftOuterJoin()
+    {
+        assertPlan(
+                "SELECT (SELECT count(DISTINCT o.orderkey) FROM orders o WHERE c.custkey = o.custkey), c.custkey FROM customer c",
+                output(
+                        project(join(
+                                INNER,
+                                ImmutableList.of(),
+                                join(
+                                        LEFT,
+                                        ImmutableList.of(equiJoinClause("c_custkey", "o_custkey")),
+                                        anyTree(tableScan("customer", ImmutableMap.of("c_custkey", "custkey"))),
+                                        anyTree(aggregation(
+                                                singleGroupingSet("o_custkey"),
+                                                ImmutableMap.of(Optional.of("count"), functionCall("count", ImmutableList.of("o_orderkey"))),
+                                                ImmutableList.of(),
+                                                ImmutableList.of("non_null"),
                                                 Optional.empty(),
                                                 SINGLE,
-                                                join(LEFT, ImmutableList.of(), Optional.of("BIGINT '3' = ORDERKEY"),
-                                                        assignUniqueId(
-                                                                "UNIQUE",
-                                                                tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))),
-                                                        project(ImmutableMap.of("NON_NULL", expression("true")),
-                                                                node(ValuesNode.class))))))));
+                                                project(ImmutableMap.of("non_null", expression("true")),
+                                                        aggregation(
+                                                                singleGroupingSet("o_orderkey", "o_custkey"),
+                                                                ImmutableMap.of(),
+                                                                Optional.empty(),
+                                                                FINAL,
+                                                                anyTree(tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey", "o_custkey", "custkey")))))))),
+                                anyTree(node(ValuesNode.class))))));
+    }
+
+    @Test
+    public void testCorrelatedDistinctGroupedAggregationRewriteToLeftOuterJoin()
+    {
+        assertPlan(
+                "SELECT (SELECT count(DISTINCT o.orderkey) FROM orders o WHERE c.custkey = o.custkey GROUP BY o.orderstatus), c.custkey FROM customer c",
+                output(
+                        project(filter(
+                                format("CASE \"is_distinct\" WHEN true THEN true ELSE CAST(fail(%d, VARCHAR 'Scalar sub-query has returned multiple rows') AS boolean) END", SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()),
+                                project(markDistinct(
+                                        "is_distinct",
+                                        ImmutableList.of("unique"),
+                                        join(
+                                                LEFT,
+                                                ImmutableList.of(equiJoinClause("c_custkey", "o_custkey")),
+                                                project(assignUniqueId(
+                                                        "unique",
+                                                        tableScan("customer", ImmutableMap.of("c_custkey", "custkey")))),
+                                                project(aggregation(
+                                                        singleGroupingSet("o_orderstatus", "o_custkey"),
+                                                        ImmutableMap.of(Optional.of("count"), functionCall("count", ImmutableList.of("o_orderkey"))),
+                                                        Optional.empty(),
+                                                        SINGLE,
+                                                        project(aggregation(
+                                                                singleGroupingSet("o_orderstatus", "o_orderkey", "o_custkey"),
+                                                                ImmutableMap.of(),
+                                                                Optional.empty(),
+                                                                FINAL,
+                                                                anyTree(tableScan(
+                                                                        "orders",
+                                                                        ImmutableMap.of("o_orderkey", "orderkey", "o_orderstatus", "orderstatus", "o_custkey", "custkey"))))))))))))));
     }
 
     @Test
@@ -968,10 +1090,22 @@ public class TestLogicalPlanner
     }
 
     @Test
-    public void testInlineCountOverConstantExpression()
+    public void testInlineCountOverLiteral()
     {
         assertPlan(
                 "SELECT regionkey, count(1) FROM nation GROUP BY regionkey",
+                anyTree(
+                        aggregation(
+                                ImmutableMap.of("count_0", functionCall("count", ImmutableList.of())),
+                                PARTIAL,
+                                tableScan("nation", ImmutableMap.of("regionkey", "regionkey")))));
+    }
+
+    @Test
+    public void testInlineCountOverEffectivelyLiteral()
+    {
+        assertPlan(
+                "SELECT regionkey, count(CAST(DECIMAL '1' AS decimal(8,4))) FROM nation GROUP BY regionkey",
                 anyTree(
                         aggregation(
                                 ImmutableMap.of("count_0", functionCall("count", ImmutableList.of())),
@@ -1005,7 +1139,6 @@ public class TestLogicalPlanner
     {
         Session broadcastJoin = Session.builder(this.getQueryRunner().getDefaultSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
-                .setSystemProperty(FORCE_SINGLE_NODE_OUTPUT, Boolean.toString(false))
                 .build();
 
         // make sure there is a remote exchange on the build side
@@ -1058,7 +1191,6 @@ public class TestLogicalPlanner
     {
         Session broadcastJoin = Session.builder(this.getQueryRunner().getDefaultSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
-                .setSystemProperty(FORCE_SINGLE_NODE_OUTPUT, Boolean.toString(false))
                 .setSystemProperty(OPTIMIZE_HASH_GENERATION, Boolean.toString(false))
                 .build();
 
@@ -1148,6 +1280,46 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testRemoveEmptyGlobalAggregation()
+    {
+        // unused aggregation result over a table
+        assertPlan(
+                "SELECT count(*) FROM (SELECT count(*) FROM nation)",
+                output(
+                        values(List.of("c"), List.of(List.of(new GenericLiteral("BIGINT", "1"))))));
+
+        // unused aggregation result over values
+        assertPlan(
+                "SELECT count(*) FROM (SELECT count(*) FROM (VALUES 1,2,3,4,5,6,7))",
+                output(
+                        values(List.of("c"), List.of(List.of(new GenericLiteral("BIGINT", "1"))))));
+
+        // unused aggregation result over unnest
+        assertPlan(
+                "SELECT count(*) FROM (SELECT count(*) FROM UNNEST(sequence(1, 10)))",
+                output(
+                        values(List.of("c"), List.of(List.of(new GenericLiteral("BIGINT", "1"))))));
+
+        // no aggregate function at all over a table
+        assertPlan(
+                "SELECT 1 FROM nation GROUP BY GROUPING SETS (())",
+                output(
+                        values(List.of("c"), List.of(List.of(new LongLiteral("1"))))));
+
+        // no aggregate function at all over values
+        assertPlan(
+                "SELECT 1 FROM (VALUES 1,2,3,4,5,6,7) GROUP BY GROUPING SETS (())",
+                output(
+                        values(List.of("c"), List.of(List.of(new LongLiteral("1"))))));
+
+        // no aggregate function at all over unnest
+        assertPlan(
+                "SELECT 1 FROM UNNEST(sequence(1, 10)) GROUP BY GROUPING SETS (())",
+                output(
+                        values(List.of("c"), List.of(List.of(new LongLiteral("1"))))));
+    }
+
+    @Test
     public void testFilteringSemiJoinRewriteToInnerJoin()
     {
         assertPlan(
@@ -1173,32 +1345,38 @@ public class TestLogicalPlanner
     {
         assertPlan(
                 "SELECT name FROM region r WHERE regionkey IN (SELECT regionkey FROM nation WHERE name < r.name)",
-                anyTree(
-                        filter(
-                                "count_matches > BIGINT '0'",
-                                project(
-                                        aggregation(
-                                                singleGroupingSet("region_regionkey", "region_name", "unique"),
-                                                ImmutableMap.of(Optional.of("count_matches"), functionCall("count", ImmutableList.of())),
-                                                ImmutableList.of("region_regionkey", "region_name", "unique"),
-                                                ImmutableList.of("mask"),
-                                                Optional.empty(),
-                                                SINGLE,
-                                                project(
-                                                        ImmutableMap.of("mask", expression("((NOT (region_regionkey IS NULL)) AND (NOT (nation_regionkey IS NULL)))")),
+                output(
+                        project(
+                                ImmutableMap.of("region_name", expression("region_name")),
+                                aggregation(
+                                        singleGroupingSet("region_regionkey", "region_name", "unique"),
+                                        ImmutableMap.of(),
+                                        Optional.empty(),
+                                        SINGLE,
+                                        project(
+                                                ImmutableMap.of(
+                                                        "region_regionkey", expression("region_regionkey"),
+                                                        "region_name", expression("region_name"),
+                                                        "unique", expression("unique")),
+                                                filter(
+                                                        "(region_regionkey IS NULL OR region_regionkey = nation_regionkey OR nation_regionkey IS NULL) AND nation_name < region_name",
                                                         join(
-                                                                LEFT,
+                                                                INNER,
                                                                 ImmutableList.of(),
-                                                                Optional.of("((((region_regionkey IS NULL) OR (region_regionkey = nation_regionkey)) OR (nation_regionkey IS NULL)) AND (nation_name < region_name))"),
+                                                                ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern("region_name", GREATER_THAN, "nation_name")),
                                                                 assignUniqueId(
                                                                         "unique",
-                                                                        tableScan("region", ImmutableMap.of(
-                                                                                "region_regionkey", "regionkey",
-                                                                                "region_name", "name"))),
+                                                                        filter(
+                                                                                "NOT (region_regionkey IS NULL)",
+                                                                                tableScan("region", ImmutableMap.of(
+                                                                                        "region_regionkey", "regionkey",
+                                                                                        "region_name", "name")))),
                                                                 any(
-                                                                        tableScan("nation", ImmutableMap.of(
-                                                                                "nation_name", "name",
-                                                                                "nation_regionkey", "regionkey"))))))))));
+                                                                        filter(
+                                                                                "NOT (nation_regionkey IS NULL)",
+                                                                                tableScan("nation", ImmutableMap.of(
+                                                                                        "nation_name", "name",
+                                                                                        "nation_regionkey", "regionkey")))))))))));
     }
 
     @Test
@@ -1206,29 +1384,28 @@ public class TestLogicalPlanner
     {
         assertPlan(
                 "SELECT regionkey, name FROM region r WHERE EXISTS(SELECT regionkey FROM nation WHERE name < r.name)",
-                anyTree(
-                        filter(
-                                "count_matches > BIGINT '0'",
-                                project(
-                                        aggregation(
-                                                singleGroupingSet("region_regionkey", "region_name", "unique"),
-                                                ImmutableMap.of(Optional.of("count_matches"), functionCall("count", ImmutableList.of())),
-                                                ImmutableList.of("region_regionkey", "region_name", "unique"),
-                                                ImmutableList.of("mask"),
-                                                Optional.empty(),
-                                                SINGLE,
-                                                join(
-                                                        LEFT,
-                                                        ImmutableList.of(),
-                                                        Optional.of("nation_name < region_name"),
-                                                        assignUniqueId(
-                                                                "unique",
-                                                                tableScan("region", ImmutableMap.of(
-                                                                        "region_regionkey", "regionkey",
-                                                                        "region_name", "name"))),
-                                                        any(
-                                                                project(
-                                                                        ImmutableMap.of("mask", expression("true")),
+                output(
+                        project(
+                                aggregation(
+                                        singleGroupingSet("region_regionkey", "region_name", "unique"),
+                                        ImmutableMap.of(),
+                                        Optional.empty(),
+                                        SINGLE,
+                                        project(
+                                                filter(
+                                                        "nation_name < region_name",
+                                                        join(
+                                                                INNER,
+                                                                ImmutableList.of(),
+                                                                ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern("region_name", GREATER_THAN, "nation_name")),
+                                                                assignUniqueId(
+                                                                        "unique",
+                                                                        filter(
+                                                                                "true",
+                                                                                tableScan("region", ImmutableMap.of(
+                                                                                        "region_regionkey", "regionkey",
+                                                                                        "region_name", "name")))),
+                                                                any(
                                                                         tableScan("nation", ImmutableMap.of("nation_name", "name"))))))))));
     }
 
@@ -1408,7 +1585,7 @@ public class TestLogicalPlanner
         String query = "SELECT count(*) FROM orders ORDER BY 1";
         assertFalse(
                 searchFrom(plan(query, OPTIMIZED).getRoot())
-                        .where(isInstanceOfAny(SortNode.class))
+                        .whereIsInstanceOfAny(SortNode.class)
                         .matches(),
                 format("Unexpected sort node for query: '%s'", query));
 
@@ -1426,7 +1603,7 @@ public class TestLogicalPlanner
         String query = "SELECT count(*) FROM orders ORDER BY 1 LIMIT 10";
         assertFalse(
                 searchFrom(plan(query, OPTIMIZED).getRoot())
-                        .where(isInstanceOfAny(TopNNode.class, SortNode.class))
+                        .whereIsInstanceOfAny(TopNNode.class, SortNode.class)
                         .matches(),
                 format("Unexpected TopN node for query: '%s'", query));
 
@@ -1457,7 +1634,7 @@ public class TestLogicalPlanner
         String query = "SELECT distinct(c) FROM (SELECT count(*) as c FROM orders) LIMIT 10";
         assertFalse(
                 searchFrom(plan(query, OPTIMIZED).getRoot())
-                        .where(isInstanceOfAny(DistinctLimitNode.class))
+                        .whereIsInstanceOfAny(DistinctLimitNode.class)
                         .matches(),
                 format("Unexpected DistinctLimit node for query: '%s'", query));
 
@@ -1508,8 +1685,8 @@ public class TestLogicalPlanner
                                         node(MarkDistinctNode.class,
                                                 anyTree(
                                                         project(ImmutableMap.of(
-                                                                "hash_1", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(suppkey), 0))"),
-                                                                "hash_2", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(partkey), 0))")),
+                                                                        "hash_1", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(suppkey), 0))"),
+                                                                        "hash_2", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(partkey), 0))")),
                                                                 node(MarkDistinctNode.class,
                                                                         tableScan("lineitem", ImmutableMap.of("suppkey", "suppkey", "partkey", "partkey"))))))))));
     }
@@ -1715,33 +1892,30 @@ public class TestLogicalPlanner
     public void testSizeBasedJoin()
     {
         // both local.sf100000.nation and local.sf100000.orders don't provide stats, therefore no reordering happens
-        assertDistributedPlan("SELECT custkey FROM local.\"sf42.5\".nation, local.\"sf42.5\".orders WHERE nation.nationkey = orders.custkey",
+        assertDistributedPlan("SELECT custkey FROM \"test-catalog\".\"sf42.5\".nation, \"test-catalog\".\"sf42.5\".orders WHERE nation.nationkey = orders.custkey",
                 automaticJoinDistribution(),
                 output(
-                        anyTree(
-                                join(INNER, ImmutableList.of(equiJoinClause("NATIONKEY", "CUSTKEY")),
-                                        anyTree(
-                                                tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey"))),
-                                        anyTree(
-                                                tableScan("orders", ImmutableMap.of("CUSTKEY", "custkey")))))));
+                        join(INNER, ImmutableList.of(equiJoinClause("NATIONKEY", "CUSTKEY")),
+                                anyTree(
+                                        tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey"))),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("CUSTKEY", "custkey"))))));
 
-        // values node provides stats
-        assertDistributedPlan("SELECT custkey FROM (VALUES CAST(1 AS BIGINT), CAST(2 AS BIGINT)) t(a), local.\"sf42.5\".orders WHERE t.a = orders.custkey",
+        assertDistributedPlan("SELECT custkey FROM (VALUES CAST(1 AS BIGINT), CAST(2 AS BIGINT)) t(a), \"test-catalog\".\"sf42.5\".orders WHERE t.a = orders.custkey",
                 automaticJoinDistribution(),
                 output(
-                        anyTree(
-                                join(INNER, ImmutableList.of(equiJoinClause("CUSTKEY", "T_A")), Optional.empty(), Optional.of(REPLICATED),
-                                        anyTree(
-                                                tableScan("orders", ImmutableMap.of("CUSTKEY", "custkey"))),
-                                        anyTree(
-                                                values("T_A"))))));
+                        join(INNER, ImmutableList.of(equiJoinClause("CUSTKEY", "T_A")), Optional.empty(), Optional.of(REPLICATED),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("CUSTKEY", "custkey"))),
+                                anyTree(
+                                        values("T_A")))));
     }
 
     @Test
     public void testSizeBasedSemiJoin()
     {
         // both local.sf100000.nation and local.sf100000.orders don't provide stats, therefore no reordering happens
-        assertDistributedPlan("SELECT custkey FROM local.\"sf42.5\".orders WHERE orders.custkey NOT IN (SELECT nationkey FROM local.\"sf42.5\".nation)",
+        assertDistributedPlan("SELECT custkey FROM \"test-catalog\".\"sf42.5\".orders WHERE orders.custkey NOT IN (SELECT nationkey FROM \"test-catalog\".\"sf42.5\".nation)",
                 automaticJoinDistribution(),
                 output(
                         anyTree(
@@ -1752,7 +1926,7 @@ public class TestLogicalPlanner
                                                 tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey")))))));
 
         // values node provides stats
-        assertDistributedPlan("SELECT custkey FROM local.\"sf42.5\".orders WHERE orders.custkey NOT IN (SELECT t.a FROM (VALUES CAST(1 AS BIGINT), CAST(2 AS BIGINT)) t(a))",
+        assertDistributedPlan("SELECT custkey FROM \"test-catalog\".\"sf42.5\".orders WHERE orders.custkey NOT IN (SELECT t.a FROM (VALUES CAST(1 AS BIGINT), CAST(2 AS BIGINT)) t(a))",
                 automaticJoinDistribution(),
                 output(
                         anyTree(
@@ -1809,6 +1983,217 @@ public class TestLogicalPlanner
                                                         new Row(ImmutableList.of(new LongLiteral("2"))),
                                                         toSqlType(RowType.anonymous(ImmutableList.of(BIGINT)))),
                                                 toSqlType(RowType.anonymous(ImmutableList.of(DOUBLE)))))))));
+    }
+
+    @Test
+    public void testDoNotPlanUnreferencedRowPatternMeasures()
+    {
+        // row pattern measure `label` is not referenced
+        assertPlan("SELECT val OVER w " +
+                        "          FROM (VALUES (1, 90)) t(id, value) " +
+                        "          WINDOW w AS ( " +
+                        "                   ORDER BY id " +
+                        "                   MEASURES " +
+                        "                            RUNNING LAST(value) AS val, " +
+                        "                            CLASSIFIER() AS label " +
+                        "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                        "                   PATTERN (A+) " +
+                        "                   DEFINE A AS true " +
+                        "          )",
+                output(
+                        project(
+                                patternRecognition(builder -> builder
+                                                .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
+                                                .addMeasure("val", "LAST(value)", INTEGER)
+                                                .rowsPerMatch(WINDOW)
+                                                .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
+                                                .addVariableDefinition(new IrLabel("A"), "true"),
+                                        values(
+                                                ImmutableList.of("id", "value"),
+                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
+
+        // row pattern measure `label` is not referenced
+        assertPlan("SELECT min(value) OVER w " +
+                        "          FROM (VALUES (1, 90)) t(id, value) " +
+                        "          WINDOW w AS ( " +
+                        "                   ORDER BY id " +
+                        "                   MEASURES CLASSIFIER() AS label " +
+                        "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                        "                   PATTERN (A+) " +
+                        "                   DEFINE A AS true " +
+                        "          )",
+                output(
+                        project(
+                                patternRecognition(builder -> builder
+                                                .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
+                                                .addFunction("min", functionCall("min", ImmutableList.of("value")))
+                                                .rowsPerMatch(WINDOW)
+                                                .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
+                                                .addVariableDefinition(new IrLabel("A"), "true"),
+                                        values(
+                                                ImmutableList.of("id", "value"),
+                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
+    }
+
+    @Test
+    public void testPruneUnreferencedRowPatternWindowFunctions()
+    {
+        // window function `row_number` is not referenced
+        assertPlan("SELECT id, min FROM " +
+                        "       (SELECT id, min(value) OVER w min, row_number() OVER w " +
+                        "          FROM (VALUES (1, 90)) t(id, value) " +
+                        "          WINDOW w AS ( " +
+                        "                   ORDER BY id " +
+                        "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                        "                   PATTERN (A+) " +
+                        "                   DEFINE A AS true " +
+                        "          )" +
+                        "       )",
+                output(
+                        project(
+                                patternRecognition(builder -> builder
+                                                .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
+                                                .addFunction("min", functionCall("min", ImmutableList.of("value")))
+                                                .rowsPerMatch(WINDOW)
+                                                .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
+                                                .addVariableDefinition(new IrLabel("A"), "true"),
+                                        values(
+                                                ImmutableList.of("id", "value"),
+                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
+    }
+
+    @Test
+    public void testPruneUnreferencedRowPatternMeasures()
+    {
+        // row pattern measure `label` is not referenced
+        assertPlan("SELECT id, val FROM " +
+                        "       (SELECT id, val OVER w val, label OVER w " +
+                        "          FROM (VALUES (1, 90)) t(id, value) " +
+                        "          WINDOW w AS ( " +
+                        "                   ORDER BY id " +
+                        "                   MEASURES " +
+                        "                            RUNNING LAST(value) AS val, " +
+                        "                            CLASSIFIER() AS label " +
+                        "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                        "                   PATTERN (A+) " +
+                        "                   DEFINE A AS true " +
+                        "          )" +
+                        "       )",
+                output(
+                        project(
+                                patternRecognition(builder -> builder
+                                                .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
+                                                .addMeasure("val", "LAST(value)", INTEGER)
+                                                .rowsPerMatch(WINDOW)
+                                                .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
+                                                .addVariableDefinition(new IrLabel("A"), "true"),
+                                        values(
+                                                ImmutableList.of("id", "value"),
+                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
+    }
+
+    @Test
+    public void testMergePatternRecognitionNodes()
+    {
+        // The pattern matching window `w` is referenced in three calls: row pattern measure calls: `val OVER w` and `label OVER w`,
+        // and window function call `row_number() OVER w`. They are all planned within a single PatternRecognitionNode.
+        assertPlan("SELECT id, val OVER w, label OVER w, row_number() OVER w " +
+                        "          FROM (VALUES (1, 90)) t(id, value) " +
+                        "          WINDOW w AS ( " +
+                        "                   ORDER BY id " +
+                        "                   MEASURES " +
+                        "                            RUNNING LAST(value) AS val, " +
+                        "                            CLASSIFIER() AS label " +
+                        "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                        "                   PATTERN (A+) " +
+                        "                   DEFINE A AS true " +
+                        "          )",
+                output(
+                        project(
+                                patternRecognition(builder -> builder
+                                                .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
+                                                .addMeasure("val", "LAST(value)", INTEGER)
+                                                .addMeasure("label", "CLASSIFIER()", VARCHAR)
+                                                .addFunction("row_number", functionCall("row_number", ImmutableList.of()))
+                                                .rowsPerMatch(WINDOW)
+                                                .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
+                                                .addVariableDefinition(new IrLabel("A"), "true"),
+                                        values(
+                                                ImmutableList.of("id", "value"),
+                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
+    }
+
+    @Test
+    public void testMergePatternRecognitionNodesWithProjections()
+    {
+        // The pattern matching window `w` is referenced in three calls: row pattern measure calls: `value OVER w` and `label OVER w`,
+        // and window function call `min(input1) OVER w`. They are all planned within a single PatternRecognitionNode.
+        assertPlan("SELECT id, 2 * value OVER w, lower(label OVER w), 1 + min(input1) OVER w " +
+                        "          FROM (VALUES (1, 2, 3)) t(id, input1, input2) " +
+                        "          WINDOW w AS ( " +
+                        "                   ORDER BY id " +
+                        "                   MEASURES " +
+                        "                            RUNNING LAST(input2) AS value, " +
+                        "                            CLASSIFIER() AS label " +
+                        "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                        "                   PATTERN (A+) " +
+                        "                   DEFINE A AS true " +
+                        "          )",
+                output(
+                        project(
+                                ImmutableMap.of(
+                                        "output1", expression("id"),
+                                        "output2", expression("value * 2"),
+                                        "output3", expression("lower(label)"),
+                                        "output4", expression("min + 1")),
+                                project(
+                                        ImmutableMap.of(
+                                                "id", expression("id"),
+                                                "value", expression("value"),
+                                                "label", expression("label"),
+                                                "min", expression("min")),
+                                        patternRecognition(builder -> builder
+                                                        .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
+                                                        .addMeasure("value", "LAST(input2)", INTEGER)
+                                                        .addMeasure("label", "CLASSIFIER()", VARCHAR)
+                                                        .addFunction("min", functionCall("min", ImmutableList.of("input1")))
+                                                        .rowsPerMatch(WINDOW)
+                                                        .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                        .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
+                                                        .addVariableDefinition(new IrLabel("A"), "true"),
+                                                values(
+                                                        ImmutableList.of("id", "input1", "input2"),
+                                                        ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("3")))))))));
+    }
+
+    @Test
+    public void testDifferentOuterParentScopeSubqueries()
+    {
+        assertPlan("SELECT customer.custkey AS custkey," +
+                        "(SELECT COUNT(*) FROM orders WHERE customer.custkey = orders.custkey) AS count1," +
+                        "(SELECT COUNT(*) FROM orders WHERE orders.custkey = customer.custkey) AS count2 " +
+                        "FROM customer",
+                output(
+                        project(
+                                join(INNER,
+                                        ImmutableList.of(),
+                                        join(LEFT,
+                                                ImmutableList.of(equiJoinClause("CUSTOMER_CUSTKEY", "ORDERS2_CUSTKEY")),
+                                                project(
+                                                        join(INNER,
+                                                                ImmutableList.of(),
+                                                                join(LEFT,
+                                                                        ImmutableList.of(equiJoinClause("CUSTOMER_CUSTKEY", "ORDERS_CUSTKEY")),
+                                                                        project(tableScan("customer", ImmutableMap.of("CUSTOMER_CUSTKEY", "custkey"))),
+                                                                        anyTree(project(tableScan("orders", ImmutableMap.of("ORDERS_CUSTKEY", "custkey"))))),
+                                                                anyTree(node(ValuesNode.class)))),
+                                                anyTree(project(tableScan("orders", ImmutableMap.of("ORDERS2_CUSTKEY", "custkey"))))),
+                                        anyTree(node(ValuesNode.class))))));
     }
 
     private Session noJoinReordering()

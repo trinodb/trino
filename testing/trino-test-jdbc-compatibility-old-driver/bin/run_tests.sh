@@ -4,7 +4,7 @@ set -xeuo pipefail
 trap "exit" INT # allows to terminate script on ctrl+c instead of terminating single mvnw execution
 
 maven="${BASH_SOURCE%/*}/../../../mvnw"
-maven_run_tests="${maven} clean test -Dair.check.skip-all=true -Dmaven.javadoc.skip=true -Dmaven.source.skip=true -B -pl :trino-test-jdbc-compatibility-old-driver"
+maven_run_tests="${maven} clean test ${MAVEN_TEST:--B} -pl :trino-test-jdbc-compatibility-old-driver"
 
 "${maven}" -version
 

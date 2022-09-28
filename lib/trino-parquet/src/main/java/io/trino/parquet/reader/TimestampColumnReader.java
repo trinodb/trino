@@ -13,7 +13,7 @@
  */
 package io.trino.parquet.reader;
 
-import io.trino.parquet.RichColumnDescriptor;
+import io.trino.parquet.PrimitiveField;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.plugin.base.type.TrinoTimestampEncoder;
 import io.trino.spi.block.BlockBuilder;
@@ -22,7 +22,7 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
-import static io.trino.parquet.ParquetTimestampUtils.decode;
+import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -35,9 +35,9 @@ public class TimestampColumnReader
 {
     private final DateTimeZone timeZone;
 
-    public TimestampColumnReader(RichColumnDescriptor descriptor, DateTimeZone timeZone)
+    public TimestampColumnReader(PrimitiveField field, DateTimeZone timeZone)
     {
-        super(descriptor);
+        super(field);
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
 
@@ -45,27 +45,14 @@ public class TimestampColumnReader
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            if (type instanceof TimestampWithTimeZoneType) {
-                DecodedTimestamp decodedTimestamp = decode(valuesReader.readBytes());
-                long utcMillis = decodedTimestamp.getEpochSeconds() * MILLISECONDS_PER_SECOND + decodedTimestamp.getNanosOfSecond() / NANOSECONDS_PER_MILLISECOND;
-                type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
-            }
-            else {
-                TrinoTimestampEncoder<?> trinoTimestampEncoder = createTimestampEncoder((TimestampType) type, timeZone);
-                trinoTimestampEncoder.write(decode(valuesReader.readBytes()), blockBuilder);
-            }
+        if (type instanceof TimestampWithTimeZoneType) {
+            DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(valuesReader.readBytes());
+            long utcMillis = decodedTimestamp.getEpochSeconds() * MILLISECONDS_PER_SECOND + decodedTimestamp.getNanosOfSecond() / NANOSECONDS_PER_MILLISECOND;
+            type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
         }
-        else if (isValueNull()) {
-            blockBuilder.appendNull();
-        }
-    }
-
-    @Override
-    protected void skipValue()
-    {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readBytes();
+        else {
+            TrinoTimestampEncoder<?> trinoTimestampEncoder = createTimestampEncoder((TimestampType) type, timeZone);
+            trinoTimestampEncoder.write(decodeInt96Timestamp(valuesReader.readBytes()), blockBuilder);
         }
     }
 }

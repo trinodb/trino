@@ -30,9 +30,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static io.trino.metadata.NodeState.SHUTTING_DOWN;
@@ -51,16 +49,17 @@ public class ServerInfoResource
     private final String environment;
     private final boolean coordinator;
     private final GracefulShutdownHandler shutdownHandler;
+    private final StartupStatus startupStatus;
     private final long startTime = System.nanoTime();
-    private final AtomicBoolean startupComplete = new AtomicBoolean();
 
     @Inject
-    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, GracefulShutdownHandler shutdownHandler)
+    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, GracefulShutdownHandler shutdownHandler, StartupStatus startupStatus)
     {
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
-        this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
-        this.coordinator = requireNonNull(serverConfig, "serverConfig is null").isCoordinator();
+        this.environment = nodeInfo.getEnvironment();
+        this.coordinator = serverConfig.isCoordinator();
         this.shutdownHandler = requireNonNull(shutdownHandler, "shutdownHandler is null");
+        this.startupStatus = requireNonNull(startupStatus, "startupStatus is null");
     }
 
     @ResourceSecurity(PUBLIC)
@@ -68,7 +67,7 @@ public class ServerInfoResource
     @Produces(APPLICATION_JSON)
     public ServerInfo getInfo()
     {
-        boolean starting = !startupComplete.get();
+        boolean starting = !startupStatus.isStartupComplete();
         return new ServerInfo(version, environment, coordinator, starting, Optional.of(nanosSince(startTime)));
     }
 
@@ -109,9 +108,7 @@ public class ServerInfoResource
         if (shutdownHandler.isShutdownRequested()) {
             return SHUTTING_DOWN;
         }
-        else {
-            return ACTIVE;
-        }
+        return ACTIVE;
     }
 
     @ResourceSecurity(PUBLIC)
@@ -125,10 +122,5 @@ public class ServerInfoResource
         }
         // return 404 to allow load balancers to only send traffic to the coordinator
         return Response.status(Response.Status.NOT_FOUND).build();
-    }
-
-    public void startupComplete()
-    {
-        checkState(startupComplete.compareAndSet(false, true), "Server startup already marked as complete");
     }
 }

@@ -135,7 +135,7 @@ public class TestExtract
     @Test
     public void testMillisecond()
     {
-        assertThatThrownBy(() -> assertions.expression("EXTRACT(MILLISECOND FROM TIME '12:34:56+08:35')"))
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(MILLISECOND FROM TIME '12:34:56+08:35')").evaluate())
                 .isInstanceOf(ParsingException.class)
                 .hasMessage("line 1:8: Invalid EXTRACT field: MILLISECOND");
 

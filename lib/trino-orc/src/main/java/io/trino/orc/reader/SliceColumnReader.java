@@ -53,7 +53,7 @@ public class SliceColumnReader
     private final SliceDictionaryColumnReader dictionaryReader;
     private ColumnReader currentReader;
 
-    public SliceColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext)
+    public SliceColumnReader(Type type, OrcColumn column, AggregatedMemoryContext memoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -64,7 +64,7 @@ public class SliceColumnReader
         int maxCodePointCount = getMaxCodePointCount(type);
         boolean charType = type instanceof CharType;
         directReader = new SliceDirectColumnReader(column, maxCodePointCount, charType);
-        dictionaryReader = new SliceDictionaryColumnReader(column, systemMemoryContext.newLocalMemoryContext(SliceColumnReader.class.getSimpleName()), maxCodePointCount, charType);
+        dictionaryReader = new SliceDictionaryColumnReader(column, memoryContext.newLocalMemoryContext(SliceColumnReader.class.getSimpleName()), maxCodePointCount, charType);
     }
 
     @Override

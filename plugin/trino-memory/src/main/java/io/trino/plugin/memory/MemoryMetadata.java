@@ -22,21 +22,20 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
-import io.trino.spi.connector.ConnectorNewTableLayout;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorViewDefinition;
-import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.LimitApplicationResult;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -56,12 +55,14 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -69,6 +70,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.SampleType.SYSTEM;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -115,26 +117,27 @@ public class MemoryMetadata
             throw new TrinoException(NOT_FOUND, format("Schema [%s] does not exist", schemaName));
         }
 
-        boolean tablesExist = tables.values().stream()
-                .anyMatch(table -> table.getSchemaName().equals(schemaName));
-
-        if (tablesExist) {
+        // DropSchemaTask has the same logic, but needs to check in connector side considering concurrent operations
+        if (!isSchemaEmpty(schemaName)) {
             throw new TrinoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
         }
 
         verify(schemas.remove(schemaName));
     }
 
-    @Override
-    public Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
+    private boolean isSchemaEmpty(String schemaName)
     {
-        return Optional.empty();
-    }
+        if (tables.values().stream()
+                .anyMatch(table -> table.getSchemaName().equals(schemaName))) {
+            return false;
+        }
 
-    @Override
-    public Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
-    {
-        return ImmutableMap.of();
+        if (views.keySet().stream()
+                .anyMatch(view -> view.getSchemaName().equals(schemaName))) {
+            return false;
+        }
+
+        return true;
     }
 
     @Override
@@ -218,7 +221,7 @@ public class MemoryMetadata
         long tableId = handle.getId();
 
         TableInfo oldInfo = tables.get(tableId);
-        tables.put(tableId, new TableInfo(tableId, newTableName.getSchemaName(), newTableName.getTableName(), oldInfo.getColumns(), oldInfo.getDataFragments()));
+        tables.put(tableId, new TableInfo(tableId, newTableName.getSchemaName(), newTableName.getTableName(), oldInfo.getColumns(), oldInfo.getDataFragments(), oldInfo.getComment()));
 
         tableIds.remove(oldInfo.getSchemaTableName());
         tableIds.put(newTableName, tableId);
@@ -227,12 +230,12 @@ public class MemoryMetadata
     @Override
     public synchronized void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
-        ConnectorOutputTableHandle outputTableHandle = beginCreateTable(session, tableMetadata, Optional.empty());
+        ConnectorOutputTableHandle outputTableHandle = beginCreateTable(session, tableMetadata, Optional.empty(), NO_RETRIES);
         finishCreateTable(session, outputTableHandle, ImmutableList.of(), ImmutableList.of());
     }
 
     @Override
-    public synchronized MemoryOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    public synchronized MemoryOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
         checkSchemaExists(tableMetadata.getTable().getSchemaName());
         checkTableNotExists(tableMetadata.getTable());
@@ -243,7 +246,7 @@ public class MemoryMetadata
         ImmutableList.Builder<ColumnInfo> columns = ImmutableList.builder();
         for (int i = 0; i < tableMetadata.getColumns().size(); i++) {
             ColumnMetadata column = tableMetadata.getColumns().get(i);
-            columns.add(new ColumnInfo(new MemoryColumnHandle(i), column.getName(), column.getType()));
+            columns.add(new ColumnInfo(new MemoryColumnHandle(i), column.getName(), column.getType(), Optional.ofNullable(column.getComment())));
         }
 
         tableIds.put(tableMetadata.getTable(), tableId);
@@ -252,7 +255,8 @@ public class MemoryMetadata
                 tableMetadata.getTable().getSchemaName(),
                 tableMetadata.getTable().getTableName(),
                 columns.build(),
-                new HashMap<>()));
+                new HashMap<>(),
+                tableMetadata.getComment()));
 
         return new MemoryOutputTableHandle(tableId, ImmutableSet.copyOf(tableIds.values()));
     }
@@ -267,10 +271,10 @@ public class MemoryMetadata
     private void checkTableNotExists(SchemaTableName tableName)
     {
         if (tableIds.containsKey(tableName)) {
-            throw new TrinoException(ALREADY_EXISTS, format("Table [%s] already exists", tableName.toString()));
+            throw new TrinoException(ALREADY_EXISTS, format("Table [%s] already exists", tableName));
         }
         if (views.containsKey(tableName)) {
-            throw new TrinoException(ALREADY_EXISTS, format("View [%s] already exists", tableName.toString()));
+            throw new TrinoException(ALREADY_EXISTS, format("View [%s] already exists", tableName));
         }
     }
 
@@ -285,7 +289,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized MemoryInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
+    public synchronized MemoryInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
         MemoryTableHandle memoryTableHandle = (MemoryTableHandle) tableHandle;
         return new MemoryInsertTableHandle(memoryTableHandle.getId(), ImmutableSet.copyOf(tableIds.values()));
@@ -305,8 +309,8 @@ public class MemoryMetadata
     public synchronized void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
     {
         checkSchemaExists(viewName.getSchemaName());
-        if (tableIds.containsKey(viewName)) {
-            throw new TrinoException(ALREADY_EXISTS, "Table already exists: " + viewName);
+        if (tableIds.containsKey(viewName) && !replace) {
+            throw new TrinoException(ALREADY_EXISTS, "View already exists: " + viewName);
         }
 
         if (replace) {
@@ -315,20 +319,41 @@ public class MemoryMetadata
         else if (views.putIfAbsent(viewName, definition) != null) {
             throw new TrinoException(ALREADY_EXISTS, "View already exists: " + viewName);
         }
+        tableIds.put(viewName, nextTableId.getAndIncrement());
+    }
+
+    @Override
+    public synchronized void setViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
+    {
+        ConnectorViewDefinition view = getView(session, viewName).orElseThrow(() -> new ViewNotFoundException(viewName));
+        views.put(viewName, new ConnectorViewDefinition(
+                view.getOriginalSql(),
+                view.getCatalog(),
+                view.getSchema(),
+                view.getColumns(),
+                comment,
+                view.getOwner(),
+                view.isRunAsInvoker()));
     }
 
     @Override
     public synchronized void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
     {
         checkSchemaExists(newViewName.getSchemaName());
+
+        if (!tableIds.containsKey(viewName)) {
+            throw new TrinoException(NOT_FOUND, "View not found: " + viewName);
+        }
+
         if (tableIds.containsKey(newViewName)) {
-            throw new TrinoException(ALREADY_EXISTS, "Table already exists: " + newViewName);
+            throw new TrinoException(ALREADY_EXISTS, "View already exists: " + newViewName);
         }
 
         if (views.containsKey(newViewName)) {
             throw new TrinoException(ALREADY_EXISTS, "View already exists: " + newViewName);
         }
 
+        tableIds.put(newViewName, tableIds.remove(viewName));
         views.put(newViewName, views.remove(viewName));
     }
 
@@ -338,6 +363,7 @@ public class MemoryMetadata
         if (views.remove(viewName) == null) {
             throw new ViewNotFoundException(viewName);
         }
+        tableIds.remove(viewName);
     }
 
     @Override
@@ -376,13 +402,7 @@ public class MemoryMetadata
             dataFragments.merge(memoryDataFragment.getHostAddress(), memoryDataFragment, MemoryDataFragment::merge);
         }
 
-        tables.put(tableId, new TableInfo(tableId, info.getSchemaName(), info.getTableName(), info.getColumns(), dataFragments));
-    }
-
-    @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
+        tables.put(tableId, new TableInfo(tableId, info.getSchemaName(), info.getTableName(), info.getColumns(), dataFragments, info.getComment()));
     }
 
     @Override
@@ -397,7 +417,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         List<MemoryDataFragment> dataFragments = getDataFragments(((MemoryTableHandle) tableHandle).getId());
         long rows = dataFragments.stream()
@@ -435,5 +455,33 @@ public class MemoryMetadata
         return Optional.of(new SampleApplicationResult<>(
                 new MemoryTableHandle(table.getId(), table.getLimit(), OptionalDouble.of(table.getSampleRatio().orElse(1) * sampleRatio)),
                 true));
+    }
+
+    @Override
+    public synchronized void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)
+    {
+        MemoryTableHandle table = (MemoryTableHandle) tableHandle;
+        TableInfo info = tables.get(table.getId());
+        checkArgument(info != null, "Table not found");
+        tables.put(table.getId(), new TableInfo(table.getId(), info.getSchemaName(), info.getTableName(), info.getColumns(), info.getDataFragments(), comment));
+    }
+
+    @Override
+    public synchronized void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Optional<String> comment)
+    {
+        MemoryTableHandle table = (MemoryTableHandle) tableHandle;
+        TableInfo info = tables.get(table.getId());
+        checkArgument(info != null, "Table not found");
+        tables.put(
+                table.getId(),
+                new TableInfo(
+                        table.getId(),
+                        info.getSchemaName(),
+                        info.getTableName(),
+                        info.getColumns().stream()
+                                .map(tableColumn -> Objects.equals(tableColumn.getHandle(), columnHandle) ? new ColumnInfo(tableColumn.getHandle(), tableColumn.getName(), tableColumn.getMetadata().getType(), comment) : tableColumn)
+                                .collect(toImmutableList()),
+                        info.getDataFragments(),
+                        info.getComment()));
     }
 }

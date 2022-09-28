@@ -19,7 +19,7 @@ import java.lang.invoke.MethodType;
 import java.util.function.LongFunction;
 import java.util.function.LongUnaryOperator;
 
-import static io.trino.type.SingleAccessMethodCompiler.compileSingleAccessMethod;
+import static io.trino.util.SingleAccessMethodCompiler.compileSingleAccessMethod;
 import static java.lang.invoke.MethodHandles.lookup;
 import static org.testng.Assert.assertEquals;
 

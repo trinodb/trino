@@ -20,26 +20,52 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.BaseEncoding;
 import io.airlift.json.ObjectMapperProvider;
+import io.airlift.slice.Slice;
+import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.DateTimeType;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.ObjectType;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.PrimitiveType;
+import io.trino.plugin.elasticsearch.client.IndexMetadata.ScaledFloatType;
+import io.trino.plugin.elasticsearch.decoders.ArrayDecoder;
+import io.trino.plugin.elasticsearch.decoders.BigintDecoder;
+import io.trino.plugin.elasticsearch.decoders.BooleanDecoder;
+import io.trino.plugin.elasticsearch.decoders.DoubleDecoder;
+import io.trino.plugin.elasticsearch.decoders.IntegerDecoder;
+import io.trino.plugin.elasticsearch.decoders.IpAddressDecoder;
+import io.trino.plugin.elasticsearch.decoders.RawJsonDecoder;
+import io.trino.plugin.elasticsearch.decoders.RealDecoder;
+import io.trino.plugin.elasticsearch.decoders.RowDecoder;
+import io.trino.plugin.elasticsearch.decoders.SmallintDecoder;
+import io.trino.plugin.elasticsearch.decoders.TimestampDecoder;
+import io.trino.plugin.elasticsearch.decoders.TinyintDecoder;
+import io.trino.plugin.elasticsearch.decoders.VarbinaryDecoder;
+import io.trino.plugin.elasticsearch.decoders.VarcharDecoder;
+import io.trino.plugin.elasticsearch.ptf.RawQuery.RawQueryFunctionHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.TableFunctionApplicationResult;
+import io.trino.spi.expression.Call;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
+import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
@@ -49,6 +75,7 @@ import io.trino.spi.type.TypeSignature;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,11 +83,20 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verifyNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_SUBQUERY;
+import static io.trino.spi.expression.StandardFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -92,20 +128,29 @@ public class ElasticsearchMetadata
 
     private static final Map<String, ColumnHandle> PASSTHROUGH_QUERY_COLUMNS = ImmutableMap.of(
             PASSTHROUGH_QUERY_RESULT_COLUMN_NAME,
-            new ElasticsearchColumnHandle(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME, VARCHAR, false));
+            new ElasticsearchColumnHandle(
+                    PASSTHROUGH_QUERY_RESULT_COLUMN_NAME,
+                    VARCHAR,
+                    new VarcharDecoder.Descriptor(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME),
+                    false));
+
+    // See https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html
+    private static final Set<Integer> REGEXP_RESERVED_CHARACTERS = IntStream.of('.', '?', '+', '*', '|', '{', '}', '[', ']', '(', ')', '"', '#', '@', '&', '<', '>', '~')
+            .boxed()
+            .collect(toImmutableSet());
 
     private final Type ipAddressType;
     private final ElasticsearchClient client;
     private final String schemaName;
+    private final boolean legacyPassThroughQueryEnabled;
 
     @Inject
     public ElasticsearchMetadata(TypeManager typeManager, ElasticsearchClient client, ElasticsearchConfig config)
     {
-        requireNonNull(typeManager, "typeManager is null");
         this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
         this.client = requireNonNull(client, "client is null");
-        requireNonNull(config, "config is null");
         this.schemaName = config.getDefaultSchema();
+        this.legacyPassThroughQueryEnabled = config.isLegacyPassThroughQueryEnabled();
     }
 
     @Override
@@ -125,7 +170,14 @@ public class ElasticsearchMetadata
             Optional<String> query = Optional.empty();
             ElasticsearchTableHandle.Type type = SCAN;
             if (parts.length == 2) {
+                // TODO this query pass-through mechanism is deprecated in favor of the `raw_query` table function.
+                //  it should be eventually removed: https://github.com/trinodb/trino/issues/13050
                 if (table.endsWith(PASSTHROUGH_QUERY_SUFFIX)) {
+                    if (!this.legacyPassThroughQueryEnabled) {
+                        throw new TrinoException(
+                                UNSUPPORTED_SUBQUERY,
+                                "Pass-through query not supported. Please turn it on explicitly using elasticsearch.legacy-pass-through-query.enabled feature toggle");
+                    }
                     table = table.substring(0, table.length() - PASSTHROUGH_QUERY_SUFFIX.length());
                     byte[] decoded;
                     try {
@@ -194,19 +246,13 @@ public class ElasticsearchMetadata
 
     private List<IndexMetadata.Field> getColumnFields(IndexMetadata metadata)
     {
-        ImmutableList.Builder<IndexMetadata.Field> result = ImmutableList.builder();
         Map<String, Long> counts = metadata.getSchema()
                 .getFields().stream()
                 .collect(Collectors.groupingBy(f -> f.getName().toLowerCase(ENGLISH), Collectors.counting()));
 
-        for (IndexMetadata.Field field : metadata.getSchema().getFields()) {
-            Type type = toTrinoType(field);
-            if (type == null || counts.get(field.getName().toLowerCase(ENGLISH)) > 1) {
-                continue;
-            }
-            result.add(field);
-        }
-        return result.build();
+        return metadata.getSchema().getFields().stream()
+                .filter(field -> toTrino(field) != null && counts.get(field.getName().toLowerCase(ENGLISH)) <= 1)
+                .collect(toImmutableList());
     }
 
     private List<ColumnMetadata> makeColumnMetadata(List<IndexMetadata.Field> fields)
@@ -220,7 +266,7 @@ public class ElasticsearchMetadata
         for (IndexMetadata.Field field : fields) {
             result.add(ColumnMetadata.builder()
                     .setName(field.getName())
-                    .setType(toTrinoType(field))
+                    .setType(toTrino(field).getType())
                     .build());
         }
         return result.build();
@@ -235,13 +281,15 @@ public class ElasticsearchMetadata
         }
 
         for (IndexMetadata.Field field : fields) {
+            TypeAndDecoder converted = toTrino(field);
             result.put(field.getName(), new ElasticsearchColumnHandle(
                     field.getName(),
-                    toTrinoType(field),
+                    converted.getType(),
+                    converted.getDecoderDescriptor(),
                     supportsPredicates(field.getType())));
         }
 
-        return result.build();
+        return result.buildOrThrow();
     }
 
     private static boolean supportsPredicates(IndexMetadata.Type type)
@@ -267,70 +315,100 @@ public class ElasticsearchMetadata
         return false;
     }
 
-    private Type toTrinoType(IndexMetadata.Field metaDataField)
+    private TypeAndDecoder toTrino(IndexMetadata.Field field)
     {
-        return toTrinoType(metaDataField, metaDataField.isArray());
+        return toTrino("", field);
     }
 
-    private Type toTrinoType(IndexMetadata.Field metaDataField, boolean isArray)
+    private TypeAndDecoder toTrino(String prefix, IndexMetadata.Field field)
     {
-        IndexMetadata.Type type = metaDataField.getType();
-        if (isArray) {
-            Type elementType = toTrinoType(metaDataField, false);
-            return new ArrayType(elementType);
+        String path = appendPath(prefix, field.getName());
+
+        checkArgument(!field.asRawJson() || !field.isArray(), format("A column, (%s) cannot be declared as a Trino array and also be rendered as json.", path));
+
+        if (field.asRawJson()) {
+            return new TypeAndDecoder(VARCHAR, new RawJsonDecoder.Descriptor(path));
         }
+
+        if (field.isArray()) {
+            TypeAndDecoder element = toTrino(path, elementField(field));
+            return new TypeAndDecoder(new ArrayType(element.getType()), new ArrayDecoder.Descriptor(element.getDecoderDescriptor()));
+        }
+
+        IndexMetadata.Type type = field.getType();
         if (type instanceof PrimitiveType) {
             switch (((PrimitiveType) type).getName()) {
                 case "float":
-                    return REAL;
+                    return new TypeAndDecoder(REAL, new RealDecoder.Descriptor(path));
                 case "double":
-                    return DOUBLE;
+                    return new TypeAndDecoder(DOUBLE, new DoubleDecoder.Descriptor(path));
                 case "byte":
-                    return TINYINT;
+                    return new TypeAndDecoder(TINYINT, new TinyintDecoder.Descriptor(path));
                 case "short":
-                    return SMALLINT;
+                    return new TypeAndDecoder(SMALLINT, new SmallintDecoder.Descriptor(path));
                 case "integer":
-                    return INTEGER;
+                    return new TypeAndDecoder(INTEGER, new IntegerDecoder.Descriptor(path));
                 case "long":
-                    return BIGINT;
+                    return new TypeAndDecoder(BIGINT, new BigintDecoder.Descriptor(path));
                 case "text":
                 case "keyword":
-                    return VARCHAR;
+                    return new TypeAndDecoder(VARCHAR, new VarcharDecoder.Descriptor(path));
                 case "ip":
-                    return ipAddressType;
+                    return new TypeAndDecoder(ipAddressType, new IpAddressDecoder.Descriptor(path, ipAddressType));
                 case "boolean":
-                    return BOOLEAN;
+                    return new TypeAndDecoder(BOOLEAN, new BooleanDecoder.Descriptor(path));
                 case "binary":
-                    return VARBINARY;
+                    return new TypeAndDecoder(VARBINARY, new VarbinaryDecoder.Descriptor(path));
             }
+        }
+        else if (type instanceof ScaledFloatType) {
+            return new TypeAndDecoder(DOUBLE, new DoubleDecoder.Descriptor(path));
         }
         else if (type instanceof DateTimeType) {
             if (((DateTimeType) type).getFormats().isEmpty()) {
-                return TIMESTAMP_MILLIS;
+                return new TypeAndDecoder(TIMESTAMP_MILLIS, new TimestampDecoder.Descriptor(path));
             }
             // otherwise, skip -- we don't support custom formats, yet
         }
         else if (type instanceof ObjectType) {
             ObjectType objectType = (ObjectType) type;
 
-            ImmutableList.Builder<RowType.Field> builder = ImmutableList.builder();
-            for (IndexMetadata.Field field : objectType.getFields()) {
-                Type trinoType = toTrinoType(field);
-                if (trinoType != null) {
-                    builder.add(RowType.field(field.getName(), trinoType));
+            ImmutableList.Builder<RowType.Field> rowFieldsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<RowDecoder.NameAndDescriptor> decoderFields = ImmutableList.builder();
+            for (IndexMetadata.Field rowField : objectType.getFields()) {
+                String name = rowField.getName();
+                TypeAndDecoder child = toTrino(path, rowField);
+
+                if (child != null) {
+                    decoderFields.add(new RowDecoder.NameAndDescriptor(name, child.getDecoderDescriptor()));
+                    rowFieldsBuilder.add(RowType.field(name, child.getType()));
                 }
             }
 
-            List<RowType.Field> fields = builder.build();
-
-            if (!fields.isEmpty()) {
-                return RowType.from(fields);
+            List<RowType.Field> rowFields = rowFieldsBuilder.build();
+            if (!rowFields.isEmpty()) {
+                return new TypeAndDecoder(RowType.from(rowFields), new RowDecoder.Descriptor(path, decoderFields.build()));
             }
 
             // otherwise, skip -- row types must have at least 1 field
         }
 
         return null;
+    }
+
+    private static String appendPath(String base, String element)
+    {
+        if (base.isEmpty()) {
+            return element;
+        }
+
+        return base + "." + element;
+    }
+
+    public static IndexMetadata.Field elementField(IndexMetadata.Field field)
+    {
+        checkArgument(field.isArray(), "Cannot get element field from a non-array field");
+        return new IndexMetadata.Field(field.asRawJson(), false, field.getName(), field.getType());
     }
 
     @Override
@@ -351,6 +429,7 @@ public class ElasticsearchMetadata
                 .filter(entry -> indexes.contains(entry.getKey()))
                 .flatMap(entry -> entry.getValue().stream()
                         .map(alias -> new SchemaTableName(this.schemaName, alias)))
+                .distinct()
                 .forEach(result::add);
 
         return result.build();
@@ -409,12 +488,6 @@ public class ElasticsearchMetadata
     }
 
     @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
-    }
-
-    @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
         ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
@@ -446,6 +519,7 @@ public class ElasticsearchMetadata
                 handle.getSchema(),
                 handle.getIndex(),
                 handle.getConstraint(),
+                handle.getRegexes(),
                 handle.getQuery(),
                 OptionalLong.of(limit));
 
@@ -464,22 +538,56 @@ public class ElasticsearchMetadata
 
         Map<ColumnHandle, Domain> supported = new HashMap<>();
         Map<ColumnHandle, Domain> unsupported = new HashMap<>();
-        if (constraint.getSummary().getDomains().isPresent()) {
-            for (Map.Entry<ColumnHandle, Domain> entry : constraint.getSummary().getDomains().get().entrySet()) {
-                ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) entry.getKey();
+        Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().orElseThrow(() -> new IllegalArgumentException("constraint summary is NONE"));
+        for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+            ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) entry.getKey();
 
-                if (column.isSupportsPredicates()) {
-                    supported.put(column, entry.getValue());
-                }
-                else {
-                    unsupported.put(column, entry.getValue());
-                }
+            if (column.isSupportsPredicates()) {
+                supported.put(column, entry.getValue());
+            }
+            else {
+                unsupported.put(column, entry.getValue());
             }
         }
 
         TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(TupleDomain.withColumnDomains(supported));
-        if (oldDomain.equals(newDomain)) {
+
+        ConnectorExpression oldExpression = constraint.getExpression();
+        Map<String, String> newRegexes = new HashMap<>(handle.getRegexes());
+        List<ConnectorExpression> expressions = ConnectorExpressions.extractConjuncts(constraint.getExpression());
+        List<ConnectorExpression> notHandledExpressions = new ArrayList<>();
+        for (ConnectorExpression expression : expressions) {
+            if (expression instanceof Call) {
+                Call call = (Call) expression;
+                if (isSupportedLikeCall(call)) {
+                    List<ConnectorExpression> arguments = call.getArguments();
+                    String variableName = ((Variable) arguments.get(0)).getName();
+                    ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) constraint.getAssignments().get(variableName);
+                    verifyNotNull(column, "No assignment for %s", variableName);
+                    String columnName = column.getName();
+                    Object pattern = ((Constant) arguments.get(1)).getValue();
+                    Optional<Slice> escape = Optional.empty();
+                    if (arguments.size() == 3) {
+                        escape = Optional.of((Slice) (((Constant) arguments.get(2)).getValue()));
+                    }
+
+                    if (!newRegexes.containsKey(columnName) && pattern instanceof Slice) {
+                        IndexMetadata metadata = client.getIndexMetadata(handle.getIndex());
+                        if (metadata.getSchema()
+                                    .getFields().stream()
+                                    .anyMatch(field -> columnName.equals(field.getName()) && field.getType() instanceof PrimitiveType && "keyword".equals(((PrimitiveType) field.getType()).getName()))) {
+                            newRegexes.put(columnName, likeToRegexp(((Slice) pattern), escape));
+                            continue;
+                        }
+                    }
+                }
+            }
+            notHandledExpressions.add(expression);
+        }
+
+        ConnectorExpression newExpression = ConnectorExpressions.and(notHandledExpressions);
+        if (oldDomain.equals(newDomain) && oldExpression.equals(newExpression)) {
             return Optional.empty();
         }
 
@@ -488,15 +596,114 @@ public class ElasticsearchMetadata
                 handle.getSchema(),
                 handle.getIndex(),
                 newDomain,
+                newRegexes,
                 handle.getQuery(),
                 handle.getLimit());
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported), false));
+        return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported), newExpression, false));
+    }
+
+    protected static boolean isSupportedLikeCall(Call call)
+    {
+        if (!LIKE_FUNCTION_NAME.equals(call.getFunctionName())) {
+            return false;
+        }
+
+        List<ConnectorExpression> arguments = call.getArguments();
+        if (arguments.size() < 2 || arguments.size() > 3) {
+            return false;
+        }
+
+        if (!(arguments.get(0) instanceof Variable) || !(arguments.get(1) instanceof Constant)) {
+            return false;
+        }
+
+        if (arguments.size() == 3) {
+            return arguments.get(2) instanceof Constant;
+        }
+
+        return true;
+    }
+
+    protected static String likeToRegexp(Slice pattern, Optional<Slice> escape)
+    {
+        Optional<Character> escapeChar = escape.map(ElasticsearchMetadata::getEscapeChar);
+        StringBuilder regex = new StringBuilder();
+        boolean escaped = false;
+        int position = 0;
+        while (position < pattern.length()) {
+            int currentChar = getCodePointAt(pattern, position);
+            position += 1;
+            checkEscape(!escaped || currentChar == '%' || currentChar == '_' || currentChar == escapeChar.get());
+            if (!escaped && escapeChar.isPresent() && currentChar == escapeChar.get()) {
+                escaped = true;
+            }
+            else {
+                switch (currentChar) {
+                    case '%':
+                        regex.append(escaped ? "%" : ".*");
+                        escaped = false;
+                        break;
+                    case '_':
+                        regex.append(escaped ? "_" : ".");
+                        escaped = false;
+                        break;
+                    case '\\':
+                        regex.append("\\\\");
+                        break;
+                    default:
+                        // escape special regex characters
+                        if (REGEXP_RESERVED_CHARACTERS.contains(currentChar)) {
+                            regex.append('\\');
+                        }
+
+                        regex.appendCodePoint(currentChar);
+                        escaped = false;
+                }
+            }
+        }
+
+        checkEscape(!escaped);
+        return regex.toString();
+    }
+
+    private static void checkEscape(boolean condition)
+    {
+        if (!condition) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Escape character must be followed by '%', '_' or the escape character itself");
+        }
+    }
+
+    private static char getEscapeChar(Slice escape)
+    {
+        String escapeString = escape.toStringUtf8();
+        if (escapeString.length() == 1) {
+            return escapeString.charAt(0);
+        }
+        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
     }
 
     private static boolean isPassthroughQuery(ElasticsearchTableHandle table)
     {
         return table.getType().equals(QUERY);
+    }
+
+    @Override
+    public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
+    {
+        if (!(handle instanceof RawQueryFunctionHandle)) {
+            return Optional.empty();
+        }
+
+        ConnectorTableHandle tableHandle = ((RawQueryFunctionHandle) handle).getTableHandle();
+        ConnectorTableSchema tableSchema = getTableSchema(session, tableHandle);
+        Map<String, ColumnHandle> columnHandlesByName = getColumnHandles(session, tableHandle);
+        List<ColumnHandle> columnHandles = tableSchema.getColumns().stream()
+                .map(ColumnSchema::getName)
+                .map(columnHandlesByName::get)
+                .collect(toImmutableList());
+
+        return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }
 
     private static class InternalTableMetadata
@@ -528,6 +735,28 @@ public class ElasticsearchMetadata
         public Map<String, ColumnHandle> getColumnHandles()
         {
             return columnHandles;
+        }
+    }
+
+    private static class TypeAndDecoder
+    {
+        private final Type type;
+        private final DecoderDescriptor decoderDescriptor;
+
+        public TypeAndDecoder(Type type, DecoderDescriptor decoderDescriptor)
+        {
+            this.type = type;
+            this.decoderDescriptor = decoderDescriptor;
+        }
+
+        public Type getType()
+        {
+            return type;
+        }
+
+        public DecoderDescriptor getDecoderDescriptor()
+        {
+            return decoderDescriptor;
         }
     }
 }

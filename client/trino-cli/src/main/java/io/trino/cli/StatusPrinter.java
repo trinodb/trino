@@ -15,7 +15,6 @@ package io.trino.cli;
 
 import com.google.common.base.Strings;
 import com.google.common.primitives.Ints;
-import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.client.QueryStatusInfo;
@@ -54,8 +53,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class StatusPrinter
 {
-    private static final Logger log = Logger.get(StatusPrinter.class);
-
     private static final int CTRL_C = 3;
     private static final int CTRL_P = 16;
 
@@ -65,13 +62,15 @@ public class StatusPrinter
     private final ConsolePrinter console;
 
     private boolean debug;
+    private boolean checkInput;
 
-    public StatusPrinter(StatementClient client, PrintStream out, boolean debug)
+    public StatusPrinter(StatementClient client, PrintStream out, boolean debug, boolean checkInput)
     {
         this.client = client;
         this.out = out;
         this.console = new ConsolePrinter(out);
         this.debug = debug;
+        this.checkInput = checkInput;
     }
 
 /*
@@ -96,6 +95,7 @@ Spilled: 20GB
     public void printInitialStatusUpdates(Terminal terminal)
     {
         Attributes originalAttributes = terminal.enterRawMode();
+        long start = System.nanoTime();
         long lastPrint = System.nanoTime();
         try {
             WarningsPrinter warningsPrinter = new ConsoleWarningsPrinter(console);
@@ -109,20 +109,23 @@ Spilled: 20GB
                     // check if time to update screen
                     boolean update = nanosSince(lastPrint).getValue(SECONDS) >= 0.5;
 
-                    // check for keyboard input
-                    int key = readKey(terminal);
-                    if (key == CTRL_P) {
-                        client.cancelLeafStage();
-                    }
-                    else if (key == CTRL_C) {
-                        updateScreen(warningsPrinter);
-                        update = false;
-                        client.close();
-                    }
-                    else if (toUpperCase(key) == 'D') {
-                        debug = !debug;
-                        console.resetScreen();
-                        update = true;
+                    // start checking for input after 300ms to avoid delaying short queries
+                    if (checkInput && nanosSince(start).getValue(SECONDS) >= 0.3) {
+                        // check for keyboard input
+                        int key = readKey(terminal);
+                        if (key == CTRL_P) {
+                            client.cancelLeafStage();
+                        }
+                        else if (key == CTRL_C) {
+                            updateScreen(warningsPrinter);
+                            update = false;
+                            client.close();
+                        }
+                        else if (toUpperCase(key) == 'D') {
+                            debug = !debug;
+                            console.resetScreen();
+                            update = true;
+                        }
                     }
 
                     // update screen
@@ -135,7 +138,6 @@ Spilled: 20GB
                     client.advance();
                 }
                 catch (RuntimeException e) {
-                    log.debug(e, "error printing status");
                     if (debug) {
                         e.printStackTrace(out);
                     }
@@ -144,7 +146,9 @@ Spilled: 20GB
         }
         finally {
             console.resetScreen();
-            discardKeys(terminal);
+            if (checkInput) {
+                discardKeys(terminal);
+            }
             terminal.setAttributes(originalAttributes);
         }
     }

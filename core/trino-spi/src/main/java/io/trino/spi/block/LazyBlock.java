@@ -21,8 +21,9 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BiConsumer;
+import java.util.OptionalInt;
 import java.util.function.Consumer;
+import java.util.function.ObjLongConsumer;
 
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
@@ -118,12 +119,6 @@ public class LazyBlock
     }
 
     @Override
-    public void writePositionTo(int position, BlockBuilder blockBuilder)
-    {
-        getBlock().writePositionTo(position, blockBuilder);
-    }
-
-    @Override
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
         return getBlock().equals(
@@ -161,6 +156,15 @@ public class LazyBlock
     }
 
     @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        if (!isLoaded()) {
+            return OptionalInt.empty();
+        }
+        return getBlock().fixedSizeInBytesPerPosition();
+    }
+
+    @Override
     public long getSizeInBytes()
     {
         if (!isLoaded()) {
@@ -179,12 +183,12 @@ public class LazyBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
     {
         if (!isLoaded()) {
             return 0;
         }
-        return getBlock().getPositionsSizeInBytes(positions);
+        return getBlock().getPositionsSizeInBytes(positions, selectedPositionsCount);
     }
 
     @Override
@@ -203,16 +207,22 @@ public class LazyBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         getBlock().retainedBytesForEachPart(consumer);
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
     public String getEncodingName()
     {
         return LazyBlockEncoding.NAME;
+    }
+
+    @Override
+    public Block copyWithAppendedNull()
+    {
+        throw new UnsupportedOperationException("LazyBlock does not support newBlockWithAppendedNull()");
     }
 
     @Override
@@ -251,6 +261,12 @@ public class LazyBlock
     public boolean isNull(int position)
     {
         return getBlock().isNull(position);
+    }
+
+    @Override
+    public boolean mayHaveNull()
+    {
+        return getBlock().mayHaveNull();
     }
 
     @Override

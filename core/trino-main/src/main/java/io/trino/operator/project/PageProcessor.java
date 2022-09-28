@@ -45,7 +45,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.operator.PageUtils.recordMaterializedBytes;
 import static io.trino.operator.WorkProcessor.ProcessState.finished;
 import static io.trino.operator.WorkProcessor.ProcessState.ofResult;
-import static io.trino.operator.WorkProcessor.ProcessState.yield;
+import static io.trino.operator.WorkProcessor.ProcessState.yielded;
 import static io.trino.operator.project.SelectedPositions.positionsRange;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static java.util.Objects.requireNonNull;
@@ -64,7 +64,6 @@ public class PageProcessor
 
     private int projectBatchSize;
 
-    @VisibleForTesting
     public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections, OptionalInt initialBatchSize)
     {
         this(filter, projections, initialBatchSize, new ExpressionProfiler());
@@ -73,14 +72,13 @@ public class PageProcessor
     @VisibleForTesting
     public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections, OptionalInt initialBatchSize, ExpressionProfiler expressionProfiler)
     {
-        this.filter = requireNonNull(filter, "filter is null")
-                .map(pageFilter -> {
-                    if (pageFilter.getInputChannels().size() == 1 && pageFilter.isDeterministic()) {
-                        return new DictionaryAwarePageFilter(pageFilter);
-                    }
-                    return pageFilter;
-                });
-        this.projections = requireNonNull(projections, "projections is null").stream()
+        this.filter = filter.map(pageFilter -> {
+            if (pageFilter.getInputChannels().size() == 1 && pageFilter.isDeterministic()) {
+                return new DictionaryAwarePageFilter(pageFilter);
+            }
+            return pageFilter;
+        });
+        this.projections = projections.stream()
                 .map(projection -> {
                     if (projection.getInputChannels().size() == 1 && projection.isDeterministic()) {
                         return new DictionaryAwarePageProjection(projection, dictionarySourceIdFunction, projection instanceof InputPageProjection);
@@ -97,18 +95,26 @@ public class PageProcessor
         this(filter, projections, OptionalInt.of(1));
     }
 
+    @VisibleForTesting
     public Iterator<Optional<Page>> process(ConnectorSession session, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, Page page)
     {
         return process(session, yieldSignal, memoryContext, page, false);
     }
 
-    public Iterator<Optional<Page>> process(ConnectorSession session, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, Page page, boolean avoidPageMaterialization)
+    @VisibleForTesting
+    Iterator<Optional<Page>> process(ConnectorSession session, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, Page page, boolean avoidPageMaterialization)
     {
-        WorkProcessor<Page> processor = createWorkProcessor(session, yieldSignal, memoryContext, page, avoidPageMaterialization);
+        WorkProcessor<Page> processor = createWorkProcessor(session, yieldSignal, memoryContext, new PageProcessorMetrics(), page, avoidPageMaterialization);
         return processor.yieldingIterator();
     }
 
-    public WorkProcessor<Page> createWorkProcessor(ConnectorSession session, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, Page page, boolean avoidPageMaterialization)
+    public WorkProcessor<Page> createWorkProcessor(
+            ConnectorSession session,
+            DriverYieldSignal yieldSignal,
+            LocalMemoryContext memoryContext,
+            PageProcessorMetrics metrics,
+            Page page,
+            boolean avoidPageMaterialization)
     {
         // limit the scope of the dictionary ids to just one page
         dictionarySourceIdFunction.reset();
@@ -118,7 +124,10 @@ public class PageProcessor
         }
 
         if (filter.isPresent()) {
-            SelectedPositions selectedPositions = filter.get().filter(session, filter.get().getInputChannels().getInputChannels(page));
+            Page inputPage = filter.get().getInputChannels().getInputChannels(page);
+            long start = System.nanoTime();
+            SelectedPositions selectedPositions = filter.get().filter(session, inputPage);
+            metrics.recordFilterTimeSince(start);
             if (selectedPositions.isEmpty()) {
                 return WorkProcessor.of();
             }
@@ -129,11 +138,15 @@ public class PageProcessor
             }
 
             if (selectedPositions.size() != page.getPositionCount()) {
-                return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, page, selectedPositions, avoidPageMaterialization));
+                return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, metrics, page, selectedPositions, avoidPageMaterialization));
             }
         }
+        else if (projections.isEmpty()) {
+            // retained memory for empty page is negligible
+            return WorkProcessor.of(new Page(page.getPositionCount()));
+        }
 
-        return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, page, positionsRange(0, page.getPositionCount()), avoidPageMaterialization));
+        return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, metrics, page, positionsRange(0, page.getPositionCount()), avoidPageMaterialization));
     }
 
     private class ProjectSelectedPositions
@@ -142,6 +155,7 @@ public class PageProcessor
         private final ConnectorSession session;
         private final DriverYieldSignal yieldSignal;
         private final LocalMemoryContext memoryContext;
+        private final PageProcessorMetrics metrics;
         private final boolean avoidPageMaterialization;
 
         private Page page;
@@ -161,6 +175,7 @@ public class PageProcessor
                 ConnectorSession session,
                 DriverYieldSignal yieldSignal,
                 LocalMemoryContext memoryContext,
+                PageProcessorMetrics metrics,
                 Page page,
                 SelectedPositions selectedPositions,
                 boolean avoidPageMaterialization)
@@ -169,6 +184,7 @@ public class PageProcessor
 
             this.session = session;
             this.yieldSignal = yieldSignal;
+            this.metrics = metrics;
             this.page = page;
             this.memoryContext = memoryContext;
             this.avoidPageMaterialization = avoidPageMaterialization;
@@ -209,7 +225,7 @@ public class PageProcessor
                     lastComputeYielded = true;
                     lastComputeBatchSize = batchSize;
                     updateRetainedSize();
-                    return yield();
+                    return yielded();
                 }
 
                 if (result.isPageTooLarge()) {
@@ -326,9 +342,11 @@ public class PageProcessor
                 }
                 else {
                     if (pageProjectWork == null) {
+                        Page inputPage = projection.getInputChannels().getInputChannels(page);
                         expressionProfiler.start();
-                        pageProjectWork = projection.project(session, yieldSignal, projection.getInputChannels().getInputChannels(page), positionsBatch);
-                        expressionProfiler.stop(positionsBatch.size());
+                        pageProjectWork = projection.project(session, yieldSignal, inputPage, positionsBatch);
+                        long projectionTimeNanos = expressionProfiler.stop(positionsBatch.size());
+                        metrics.recordProjectionTime(projectionTimeNanos);
                     }
                     if (!pageProjectWork.process()) {
                         return ProcessBatchResult.processBatchYield();

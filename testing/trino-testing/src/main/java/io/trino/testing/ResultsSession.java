@@ -15,6 +15,7 @@ package io.trino.testing;
 
 import io.trino.client.QueryData;
 import io.trino.client.QueryStatusInfo;
+import io.trino.client.StatementStats;
 import io.trino.client.Warning;
 
 import java.util.List;
@@ -34,6 +35,8 @@ public interface ResultsSession<T>
     }
 
     default void setWarnings(List<Warning> warnings) {}
+
+    default void setStatementStats(StatementStats statementStats) {}
 
     void addResults(QueryStatusInfo statusInfo, QueryData data);
 

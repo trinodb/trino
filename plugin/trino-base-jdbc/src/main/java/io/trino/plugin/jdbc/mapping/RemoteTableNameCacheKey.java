@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.jdbc.mapping;
 
-import io.trino.plugin.jdbc.JdbcIdentity;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Objects;
 
@@ -22,16 +22,16 @@ import static java.util.Objects.requireNonNull;
 
 final class RemoteTableNameCacheKey
 {
-    private final JdbcIdentity identity;
+    private final ConnectorIdentity identity;
     private final String schema;
 
-    RemoteTableNameCacheKey(JdbcIdentity identity, String schema)
+    RemoteTableNameCacheKey(ConnectorIdentity identity, String schema)
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.schema = requireNonNull(schema, "schema is null");
     }
 
-    JdbcIdentity getIdentity()
+    ConnectorIdentity getIdentity()
     {
         return identity;
     }

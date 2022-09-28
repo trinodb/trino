@@ -222,7 +222,7 @@ public class TestJdbcVendorCompatibility
                 });
 
         checkRepresentation(
-                "TIMESTAMP '2018-02-13 13:14:15.123 +03:15'", // Presto
+                "TIMESTAMP '2018-02-13 13:14:15.123 +03:15'", // Trino
                 ImmutableList.of(
                         "TIMESTAMP WITH TIME ZONE '2018-02-13 13:14:15.123 +03:15'", // PostgreSQL
                         "from_tz(TIMESTAMP '2018-02-13 13:14:15.123', '+03:15')"), // Oracle
@@ -244,7 +244,7 @@ public class TestJdbcVendorCompatibility
                 });
 
         checkRepresentation(
-                "TIMESTAMP '2018-02-13 13:14:15.123 Europe/Warsaw'", // Presto
+                "TIMESTAMP '2018-02-13 13:14:15.123 Europe/Warsaw'", // Trino
                 ImmutableList.of(
                         "TIMESTAMP WITH TIME ZONE '2018-02-13 13:14:15.123 Europe/Warsaw'", // PostgreSQL
                         "from_tz(TIMESTAMP '2018-02-13 13:14:15.123', 'Europe/Warsaw')"), // Oracle
@@ -372,7 +372,7 @@ public class TestJdbcVendorCompatibility
                 catch (RuntimeException | AssertionError e) {
                     String message = format("Failure when checking behavior against %s", driver);
                     // log immediately since further tests may take more time; "log and rethrown" is not harmful in tests
-                    log.error(e, message);
+                    log.error(e, "%s", message);
                     failures.add(new AssertionError(message, e));
                 }
             }
@@ -459,7 +459,8 @@ public class TestJdbcVendorCompatibility
 
         OracleReferenceDriver()
         {
-            oracleServer = new OracleContainer("wnameless/oracle-xe-11g-r2");
+            oracleServer = new OracleContainer("gvenzl/oracle-xe:11.2.0.2-full")
+                    .usingSid();
             oracleServer.start();
         }
 

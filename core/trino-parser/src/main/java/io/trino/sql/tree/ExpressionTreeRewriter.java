@@ -236,20 +236,18 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        public Expression visitLogicalBinaryExpression(LogicalBinaryExpression node, Context<C> context)
+        public Expression visitLogicalExpression(LogicalExpression node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteLogicalBinaryExpression(node, context.get(), ExpressionTreeRewriter.this);
+                Expression result = rewriter.rewriteLogicalExpression(node, context.get(), ExpressionTreeRewriter.this);
                 if (result != null) {
                     return result;
                 }
             }
 
-            Expression left = rewrite(node.getLeft(), context.get());
-            Expression right = rewrite(node.getRight(), context.get());
-
-            if (left != node.getLeft() || right != node.getRight()) {
-                return new LogicalBinaryExpression(node.getOperator(), left, right);
+            List<Expression> terms = rewrite(node.getTerms(), context);
+            if (!sameElements(node.getTerms(), terms)) {
+                return new LogicalExpression(node.getOperator(), terms);
             }
 
             return node;
@@ -484,73 +482,22 @@ public final class ExpressionTreeRewriter<C>
                 filter = Optional.of(newFilterExpression);
             }
 
-            Optional<Window> rewrittenWindow = node.getWindow();
-            if (node.getWindow().isPresent()) {
-                Window window = node.getWindow().get();
-
-                if (window instanceof WindowReference) {
-                    WindowReference windowReference = (WindowReference) window;
-                    Identifier rewrittenName = rewrite(windowReference.getName(), context.get());
-                    if (windowReference.getName() != rewrittenName) {
-                        rewrittenWindow = Optional.of(new WindowReference(rewrittenName));
-                    }
-                }
-                else if (window instanceof WindowSpecification) {
-                    WindowSpecification windowSpecification = (WindowSpecification) window;
-                    Optional<Identifier> existingWindowName = windowSpecification.getExistingWindowName().map(name -> rewrite(name, context.get()));
-
-                    List<Expression> partitionBy = rewrite(windowSpecification.getPartitionBy(), context);
-
-                    Optional<OrderBy> orderBy = Optional.empty();
-                    if (windowSpecification.getOrderBy().isPresent()) {
-                        orderBy = Optional.of(rewriteOrderBy(windowSpecification.getOrderBy().get(), context));
-                    }
-
-                    Optional<WindowFrame> rewrittenFrame = windowSpecification.getFrame();
-                    if (rewrittenFrame.isPresent()) {
-                        WindowFrame frame = rewrittenFrame.get();
-
-                        FrameBound start = frame.getStart();
-                        if (start.getValue().isPresent()) {
-                            Expression value = rewrite(start.getValue().get(), context.get());
-                            if (value != start.getValue().get()) {
-                                start = new FrameBound(start.getType(), value);
-                            }
-                        }
-
-                        Optional<FrameBound> rewrittenEnd = frame.getEnd();
-                        if (rewrittenEnd.isPresent()) {
-                            Optional<Expression> value = rewrittenEnd.get().getValue();
-                            if (value.isPresent()) {
-                                Expression rewrittenValue = rewrite(value.get(), context.get());
-                                if (rewrittenValue != value.get()) {
-                                    rewrittenEnd = Optional.of(new FrameBound(rewrittenEnd.get().getType(), rewrittenValue));
-                                }
-                            }
-                        }
-
-                        if ((frame.getStart() != start) || !sameElements(frame.getEnd(), rewrittenEnd)) {
-                            rewrittenFrame = Optional.of(new WindowFrame(frame.getType(), start, rewrittenEnd));
-                        }
-                    }
-
-                    if (!sameElements(windowSpecification.getExistingWindowName(), existingWindowName) ||
-                            !sameElements(windowSpecification.getPartitionBy(), partitionBy) ||
-                            !sameElements(windowSpecification.getOrderBy(), orderBy) ||
-                            !sameElements(windowSpecification.getFrame(), rewrittenFrame)) {
-                        rewrittenWindow = Optional.of(new WindowSpecification(existingWindowName, partitionBy, orderBy, rewrittenFrame));
-                    }
+            Optional<Window> window = node.getWindow();
+            if (window.isPresent()) {
+                Window rewrittenWindow = rewriteWindow(window.get(), context);
+                if (rewrittenWindow != window.get()) {
+                    window = Optional.of(rewrittenWindow);
                 }
             }
 
             List<Expression> arguments = rewrite(node.getArguments(), context);
 
-            if (!sameElements(node.getArguments(), arguments) || !sameElements(rewrittenWindow, node.getWindow())
+            if (!sameElements(node.getArguments(), arguments) || !sameElements(window, node.getWindow())
                     || !sameElements(filter, node.getFilter())) {
                 return new FunctionCall(
                         node.getLocation(),
                         node.getName(),
-                        rewrittenWindow,
+                        window,
                         filter,
                         node.getOrderBy().map(orderBy -> rewriteOrderBy(orderBy, context)),
                         node.isDistinct(),
@@ -585,6 +532,106 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
             return rewrittenSortItems.build();
+        }
+
+        private Window rewriteWindow(Window window, Context<C> context)
+        {
+            if (window instanceof WindowReference) {
+                WindowReference windowReference = (WindowReference) window;
+                Identifier rewrittenName = rewrite(windowReference.getName(), context.get());
+                if (windowReference.getName() != rewrittenName) {
+                    return new WindowReference(rewrittenName);
+                }
+                return window;
+            }
+
+            WindowSpecification windowSpecification = (WindowSpecification) window;
+            Optional<Identifier> existingWindowName = windowSpecification.getExistingWindowName().map(name -> rewrite(name, context.get()));
+
+            List<Expression> partitionBy = rewrite(windowSpecification.getPartitionBy(), context);
+
+            Optional<OrderBy> orderBy = Optional.empty();
+            if (windowSpecification.getOrderBy().isPresent()) {
+                orderBy = Optional.of(rewriteOrderBy(windowSpecification.getOrderBy().get(), context));
+            }
+
+            Optional<WindowFrame> rewrittenFrame = windowSpecification.getFrame();
+            if (rewrittenFrame.isPresent()) {
+                WindowFrame frame = rewrittenFrame.get();
+
+                FrameBound start = frame.getStart();
+                if (start.getValue().isPresent()) {
+                    Expression value = rewrite(start.getValue().get(), context.get());
+                    if (value != start.getValue().get()) {
+                        start = new FrameBound(start.getType(), value);
+                    }
+                }
+
+                Optional<FrameBound> rewrittenEnd = frame.getEnd();
+                if (rewrittenEnd.isPresent()) {
+                    Optional<Expression> value = rewrittenEnd.get().getValue();
+                    if (value.isPresent()) {
+                        Expression rewrittenValue = rewrite(value.get(), context.get());
+                        if (rewrittenValue != value.get()) {
+                            rewrittenEnd = Optional.of(new FrameBound(rewrittenEnd.get().getType(), rewrittenValue));
+                        }
+                    }
+                }
+
+                // Frame properties for row pattern matching are not rewritten. They are planned as parts of
+                // PatternRecognitionNode, and shouldn't be accessed past the Planner phase.
+                // There are nested expressions in Measures and VariableDefinitions. They are not rewritten by default.
+                // Rewriting them requires special handling of DereferenceExpression, aware of pattern labels.
+                if (!frame.getMeasures().isEmpty() ||
+                        frame.getAfterMatchSkipTo().isPresent() ||
+                        frame.getPatternSearchMode().isPresent() ||
+                        frame.getPattern().isPresent() ||
+                        !frame.getSubsets().isEmpty() ||
+                        !frame.getVariableDefinitions().isEmpty()) {
+                    throw new UnsupportedOperationException("cannot rewrite pattern recognition clauses in window");
+                }
+
+                if ((frame.getStart() != start) || !sameElements(frame.getEnd(), rewrittenEnd)) {
+                    rewrittenFrame = Optional.of(new WindowFrame(
+                            frame.getType(),
+                            start,
+                            rewrittenEnd,
+                            frame.getMeasures(),
+                            frame.getAfterMatchSkipTo(),
+                            frame.getPatternSearchMode(),
+                            frame.getPattern(),
+                            frame.getSubsets(),
+                            frame.getVariableDefinitions()));
+                }
+            }
+
+            if (!sameElements(windowSpecification.getExistingWindowName(), existingWindowName) ||
+                    !sameElements(windowSpecification.getPartitionBy(), partitionBy) ||
+                    !sameElements(windowSpecification.getOrderBy(), orderBy) ||
+                    !sameElements(windowSpecification.getFrame(), rewrittenFrame)) {
+                return new WindowSpecification(existingWindowName, partitionBy, orderBy, rewrittenFrame);
+            }
+            return window;
+        }
+
+        @Override
+        protected Expression visitWindowOperation(WindowOperation node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteWindowOperation(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Identifier name = rewrite(node.getName(), context.get());
+            Window window = rewriteWindow(node.getWindow(), context);
+
+            if (name != node.getName() || window != node.getWindow()) {
+                return new WindowOperation(name, window);
+            }
+
+            return node;
         }
 
         @Override
@@ -772,7 +819,10 @@ public final class ExpressionTreeRewriter<C>
 
             Expression base = rewrite(node.getBase(), context.get());
             if (base != node.getBase()) {
-                return new DereferenceExpression(base, node.getField());
+                if (node.getField().isPresent()) {
+                    return new DereferenceExpression(base, node.getField().get());
+                }
+                return new DereferenceExpression((Identifier) base);
             }
 
             return node;
@@ -1051,6 +1101,30 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitTrim(Trim node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteTrim(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            ImmutableList.Builder<Expression> expressions = ImmutableList.builder();
+            expressions.add(node.getTrimSource());
+            node.getTrimCharacter().ifPresent(expressions::add);
+
+            Expression trimSource = rewrite(node.getTrimSource(), context.get());
+            Optional<Expression> trimChar = node.getTrimCharacter().isPresent() ? Optional.of(rewrite(node.getTrimCharacter().get(), context.get())) : Optional.empty();
+
+            if (trimSource != node.getTrimSource() || !sameElements(trimChar, node.getTrimCharacter())) {
+                return new Trim(node.getSpecification(), trimSource, trimChar);
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitFormat(Format node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
@@ -1078,12 +1152,178 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
-            SymbolReference reference = rewrite(node.getReference(), context.get());
-            if (node.getReference() != reference) {
-                return new LabelDereference(node.getLabel(), reference);
+            if (node.getReference().isPresent()) {
+                SymbolReference reference = rewrite(node.getReference().get(), context.get());
+                if (node.getReference().get() != reference) {
+                    return new LabelDereference(node.getLabel(), reference);
+                }
             }
 
             return node;
+        }
+
+        @Override
+        protected Expression visitJsonExists(JsonExists node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteJsonExists(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            JsonPathInvocation jsonPathInvocation = rewriteJsonPathInvocation(node.getJsonPathInvocation(), context);
+
+            if (node.getJsonPathInvocation() != jsonPathInvocation) {
+                return new JsonExists(node.getLocation(), jsonPathInvocation, node.getErrorBehavior());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitJsonValue(JsonValue node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteJsonValue(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            JsonPathInvocation jsonPathInvocation = rewriteJsonPathInvocation(node.getJsonPathInvocation(), context);
+
+            Optional<Expression> emptyDefault = node.getEmptyDefault().map(expression -> rewrite(expression, context.get()));
+            Optional<Expression> errorDefault = node.getErrorDefault().map(expression -> rewrite(expression, context.get()));
+
+            if (node.getJsonPathInvocation() != jsonPathInvocation ||
+                    !sameElements(node.getEmptyDefault(), emptyDefault) ||
+                    !sameElements(node.getErrorDefault(), errorDefault)) {
+                return new JsonValue(
+                        node.getLocation(),
+                        jsonPathInvocation,
+                        node.getReturnedType(),
+                        node.getEmptyBehavior(),
+                        emptyDefault,
+                        node.getErrorBehavior(),
+                        errorDefault);
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitJsonQuery(JsonQuery node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteJsonQuery(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            JsonPathInvocation jsonPathInvocation = rewriteJsonPathInvocation(node.getJsonPathInvocation(), context);
+
+            if (node.getJsonPathInvocation() != jsonPathInvocation) {
+                return new JsonQuery(
+                        node.getLocation(),
+                        jsonPathInvocation,
+                        node.getReturnedType(),
+                        node.getOutputFormat(),
+                        node.getWrapperBehavior(),
+                        node.getQuotesBehavior(),
+                        node.getEmptyBehavior(),
+                        node.getErrorBehavior());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitJsonObject(JsonObject node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteJsonObject(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            List<JsonObjectMember> members = node.getMembers().stream()
+                    .map(member -> {
+                        Expression key = rewrite(member.getKey(), context.get());
+                        Expression value = rewrite(member.getValue(), context.get());
+                        if (member.getKey() == key && member.getValue() == value) {
+                            return member;
+                        }
+                        return new JsonObjectMember(key, value, member.getFormat());
+                    })
+                    .collect(toImmutableList());
+
+            if (!sameElements(node.getMembers(), members)) {
+                return new JsonObject(
+                        node.getLocation(),
+                        members,
+                        node.isNullOnNull(),
+                        node.isUniqueKeys(),
+                        node.getReturnedType(),
+                        node.getOutputFormat());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitJsonArray(JsonArray node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteJsonArray(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            List<JsonArrayElement> elements = node.getElements().stream()
+                    .map(element -> {
+                        Expression value = rewrite(element.getValue(), context.get());
+                        if (element.getValue() == value) {
+                            return element;
+                        }
+                        return new JsonArrayElement(value, element.getFormat());
+                    })
+                    .collect(toImmutableList());
+
+            if (!sameElements(node.getElements(), elements)) {
+                return new JsonArray(
+                        node.getLocation(),
+                        elements,
+                        node.isNullOnNull(),
+                        node.getReturnedType(),
+                        node.getOutputFormat());
+            }
+
+            return node;
+        }
+
+        private JsonPathInvocation rewriteJsonPathInvocation(JsonPathInvocation pathInvocation, Context<C> context)
+        {
+            Expression inputExpression = rewrite(pathInvocation.getInputExpression(), context.get());
+
+            List<JsonPathParameter> pathParameters = pathInvocation.getPathParameters().stream()
+                    .map(pathParameter -> {
+                        Expression expression = rewrite(pathParameter.getParameter(), context.get());
+                        if (pathParameter.getParameter() != expression) {
+                            return new JsonPathParameter(pathParameter.getLocation(), pathParameter.getName(), expression, pathParameter.getFormat());
+                        }
+                        return pathParameter;
+                    })
+                    .collect(toImmutableList());
+
+            if (pathInvocation.getInputExpression() != inputExpression || !sameElements(pathInvocation.getPathParameters(), pathParameters)) {
+                return new JsonPathInvocation(pathInvocation.getLocation(), inputExpression, pathInvocation.getInputFormat(), pathInvocation.getJsonPath(), pathParameters);
+            }
+
+            return pathInvocation;
         }
     }
 

@@ -28,6 +28,7 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimeType;
@@ -49,7 +50,6 @@ import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.encodeUnscaledValue;
 import static io.trino.spi.type.Decimals.isLongDecimal;
 import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.Decimals.rescale;
@@ -76,16 +76,18 @@ public class TupleDomainOrcPredicate
 {
     private final List<ColumnDomain> columnDomains;
     private final boolean orcBloomFiltersEnabled;
+    private final int domainCompactionThreshold;
 
     public static TupleDomainOrcPredicateBuilder builder()
     {
         return new TupleDomainOrcPredicateBuilder();
     }
 
-    private TupleDomainOrcPredicate(List<ColumnDomain> columnDomains, boolean orcBloomFiltersEnabled)
+    private TupleDomainOrcPredicate(List<ColumnDomain> columnDomains, boolean orcBloomFiltersEnabled, int domainCompactionThreshold)
     {
         this.columnDomains = ImmutableList.copyOf(requireNonNull(columnDomains, "columnDomains is null"));
         this.orcBloomFiltersEnabled = orcBloomFiltersEnabled;
+        this.domainCompactionThreshold = domainCompactionThreshold;
     }
 
     @Override
@@ -142,10 +144,10 @@ public class TupleDomainOrcPredicate
         return discreteValues.get().stream().anyMatch(value -> checkInBloomFilter(bloomFilter, value, stripeDomain.getType()));
     }
 
-    private static Optional<Collection<Object>> extractDiscreteValues(ValueSet valueSet)
+    private Optional<Collection<Object>> extractDiscreteValues(ValueSet valueSet)
     {
         if (!valueSet.isDiscreteSet()) {
-            return Optional.empty();
+            return valueSet.tryExpandRanges(domainCompactionThreshold);
         }
 
         return Optional.of(valueSet.getDiscreteSet());
@@ -232,7 +234,7 @@ public class TupleDomainOrcPredicate
             return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> rescale(value, (DecimalType) type).unscaledValue().longValue());
         }
         else if (isLongDecimal(type) && columnStatistics.getDecimalStatistics() != null) {
-            return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> encodeUnscaledValue(rescale(value, (DecimalType) type).unscaledValue()));
+            return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> Int128.valueOf(rescale(value, (DecimalType) type).unscaledValue()));
         }
         else if (type instanceof CharType && columnStatistics.getStringStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getStringStatistics(), value -> truncateToLengthAndTrimSpaces(value, type));
@@ -327,6 +329,7 @@ public class TupleDomainOrcPredicate
     {
         private final List<ColumnDomain> columns = new ArrayList<>();
         private boolean bloomFiltersEnabled;
+        private int domainCompactionThreshold;
 
         public TupleDomainOrcPredicateBuilder addColumn(OrcColumnId columnId, Domain domain)
         {
@@ -341,9 +344,15 @@ public class TupleDomainOrcPredicate
             return this;
         }
 
+        public TupleDomainOrcPredicateBuilder setDomainCompactionThreshold(int domainCompactionThreshold)
+        {
+            this.domainCompactionThreshold = domainCompactionThreshold;
+            return this;
+        }
+
         public TupleDomainOrcPredicate build()
         {
-            return new TupleDomainOrcPredicate(columns, bloomFiltersEnabled);
+            return new TupleDomainOrcPredicate(columns, bloomFiltersEnabled, domainCompactionThreshold);
         }
     }
 

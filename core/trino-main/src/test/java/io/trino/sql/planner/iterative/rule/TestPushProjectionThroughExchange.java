@@ -125,7 +125,7 @@ public class TestPushProjectionThroughExchange
                                     .addSource(
                                             p.values(a, h1))
                                     .addInputsSet(a, h1)
-                                    .fixedHashDistributionParitioningScheme(
+                                    .fixedHashDistributionPartitioningScheme(
                                             ImmutableList.of(c, h),
                                             ImmutableList.of(c),
                                             h)));
@@ -158,7 +158,7 @@ public class TestPushProjectionThroughExchange
                             p.exchange(e -> e
                                     .addSource(p.values(a))
                                     .addInputsSet(a)
-                                    .fixedHashDistributionParitioningScheme(ImmutableList.of(a), ImmutableList.of(a))));
+                                    .fixedHashDistributionPartitioningScheme(ImmutableList.of(a), ImmutableList.of(a))));
                 })
                 .matches(
                         exchange(
@@ -184,7 +184,7 @@ public class TestPushProjectionThroughExchange
                             p.exchange(e -> e
                                     .addSource(p.values(a))
                                     .addInputsSet(a)
-                                    .fixedHashDistributionParitioningScheme(ImmutableList.of(b), ImmutableList.of(b))));
+                                    .fixedHashDistributionPartitioningScheme(ImmutableList.of(b), ImmutableList.of(b))));
                 })
                 .matches(
                         exchange(
@@ -269,7 +269,7 @@ public class TestPushProjectionThroughExchange
                                     .addSource(
                                             p.values(a, b, h))
                                     .addInputsSet(a, b, h)
-                                    .fixedHashDistributionParitioningScheme(
+                                    .fixedHashDistributionPartitioningScheme(
                                             ImmutableList.of(a, b, h),
                                             ImmutableList.of(b),
                                             h)));

@@ -19,19 +19,20 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.TableFunctionHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.SortOrder;
+import io.trino.spi.ptf.NameAndPosition;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ExpressionUtils;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
+import io.trino.sql.analyzer.Analysis.TableFunctionInvocationAnalysis;
 import io.trino.sql.analyzer.Analysis.UnnestAnalysis;
 import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
-import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.ExceptNode;
@@ -43,6 +44,8 @@ import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SampleNode;
+import io.trino.sql.planner.plan.TableFunctionNode;
+import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
@@ -72,11 +75,13 @@ import io.trino.sql.tree.NaturalJoin;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.PatternRecognitionRelation;
+import io.trino.sql.tree.PatternSearchMode;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.Relation;
 import io.trino.sql.tree.Row;
+import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.SetOperation;
 import io.trino.sql.tree.SkipTo;
@@ -84,6 +89,7 @@ import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
+import io.trino.sql.tree.TableFunctionInvocation;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
@@ -109,11 +115,13 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.planner.OrderingScheme.sortItemToSortOrder;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.QueryPlanner.coerce;
 import static io.trino.sql.planner.QueryPlanner.coerceIfNecessary;
+import static io.trino.sql.planner.QueryPlanner.extractPatternRecognitionExpressions;
+import static io.trino.sql.planner.QueryPlanner.planWindowSpecification;
 import static io.trino.sql.planner.QueryPlanner.pruneInvisibleFields;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.Join.Type.CROSS;
@@ -133,7 +141,7 @@ class RelationPlanner
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap;
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final TypeCoercion typeCoercion;
     private final Optional<TranslationMap> outerContext;
     private final Session session;
@@ -145,7 +153,7 @@ class RelationPlanner
             SymbolAllocator symbolAllocator,
             PlanNodeIdAllocator idAllocator,
             Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap,
-            Metadata metadata,
+            PlannerContext plannerContext,
             Optional<TranslationMap> outerContext,
             Session session,
             Map<NodeRef<Node>, RelationPlan> recursiveSubqueries)
@@ -154,7 +162,7 @@ class RelationPlanner
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(lambdaDeclarationToSymbolMap, "lambdaDeclarationToSymbolMap is null");
-        requireNonNull(metadata, "metadata is null");
+        requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(outerContext, "outerContext is null");
         requireNonNull(session, "session is null");
         requireNonNull(recursiveSubqueries, "recursiveSubqueries is null");
@@ -163,11 +171,11 @@ class RelationPlanner
         this.symbolAllocator = symbolAllocator;
         this.idAllocator = idAllocator;
         this.lambdaDeclarationToSymbolMap = lambdaDeclarationToSymbolMap;
-        this.metadata = metadata;
-        this.typeCoercion = new TypeCoercion(metadata::getType);
+        this.plannerContext = plannerContext;
+        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         this.outerContext = outerContext;
         this.session = session;
-        this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, typeCoercion, outerContext, session, recursiveSubqueries);
+        this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, typeCoercion, outerContext, session, recursiveSubqueries);
         this.recursiveSubqueries = recursiveSubqueries;
     }
 
@@ -194,7 +202,7 @@ class RelationPlanner
         if (namedQuery != null) {
             RelationPlan subPlan;
             if (analysis.isExpandableQuery(namedQuery)) {
-                subPlan = new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, outerContext, session, recursiveSubqueries)
+                subPlan = new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                         .planExpand(namedQuery);
             }
             else {
@@ -227,9 +235,16 @@ class RelationPlanner
 
             List<Symbol> outputSymbols = outputSymbolsBuilder.build();
             boolean updateTarget = analysis.isUpdateTarget(node);
-            PlanNode root = TableScanNode.newInstance(idAllocator.getNextId(), handle, outputSymbols, columns.build(), updateTarget, Optional.empty());
+            PlanNode root = TableScanNode.newInstance(idAllocator.getNextId(), handle, outputSymbols, columns.buildOrThrow(), updateTarget, Optional.empty());
 
             plan = new RelationPlan(root, scope, outputSymbols, outerContext);
+
+            List<Type> types = analysis.getRelationCoercion(node);
+            if (types != null) {
+                // apply required coercion and prune invisible fields from child outputs
+                NodeAndMappings coerced = coerce(plan, types, symbolAllocator, idAllocator);
+                plan = new RelationPlan(coerced.getNode(), scope, coerced.getFields(), outerContext);
+            }
         }
 
         plan = addRowFilters(node, plan);
@@ -240,22 +255,34 @@ class RelationPlanner
 
     private RelationPlan addRowFilters(Table node, RelationPlan plan)
     {
+        return addRowFilters(node, plan, Function.identity());
+    }
+
+    public RelationPlan addRowFilters(Table node, RelationPlan plan, Function<Expression, Expression> predicateTransformation)
+    {
+        return addRowFilters(node, plan, predicateTransformation, analysis::getAccessControlScope);
+    }
+
+    public RelationPlan addRowFilters(Table node, RelationPlan plan, Function<Expression, Expression> predicateTransformation, Function<Table, Scope> accessControlScope)
+    {
         List<Expression> filters = analysis.getRowFilters(node);
 
         if (filters.isEmpty()) {
             return plan;
         }
 
-        PlanBuilder planBuilder = newPlanBuilder(plan, analysis, lambdaDeclarationToSymbolMap)
-                .withScope(analysis.getAccessControlScope(node), plan.getFieldMappings()); // The fields in the access control scope has the same layout as those for the table scope
+        PlanBuilder planBuilder = newPlanBuilder(plan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext)
+                .withScope(accessControlScope.apply(node), plan.getFieldMappings()); // The fields in the access control scope has the same layout as those for the table scope
 
         for (Expression filter : filters) {
             planBuilder = subqueryPlanner.handleSubqueries(planBuilder, filter, analysis.getSubqueries(filter));
 
+            Expression predicate = planBuilder.rewrite(filter);
+            predicate = predicateTransformation.apply(predicate);
             planBuilder = planBuilder.withNewRoot(new FilterNode(
                     idAllocator.getNextId(),
                     planBuilder.getRoot(),
-                    planBuilder.rewrite(filter)));
+                    predicate));
         }
 
         return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings(), outerContext);
@@ -272,13 +299,13 @@ class RelationPlanner
             return plan;
         }
 
-        PlanBuilder planBuilder = newPlanBuilder(plan, analysis, lambdaDeclarationToSymbolMap)
+        PlanBuilder planBuilder = newPlanBuilder(plan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext)
                 .withScope(analysis.getAccessControlScope(table), plan.getFieldMappings()); // The fields in the access control scope has the same layout as those for the table scope
 
         for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
             Field field = plan.getDescriptor().getFieldByIndex(i);
 
-            for (Expression mask : columnMasks.getOrDefault(field.getName().get(), ImmutableList.of())) {
+            for (Expression mask : columnMasks.getOrDefault(field.getName().orElseThrow(), ImmutableList.of())) {
                 planBuilder = subqueryPlanner.handleSubqueries(planBuilder, mask, analysis.getSubqueries(mask));
 
                 Map<Symbol, Expression> assignments = new LinkedHashMap<>();
@@ -296,6 +323,42 @@ class RelationPlanner
         }
 
         return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings(), outerContext);
+    }
+
+    @Override
+    protected RelationPlan visitTableFunctionInvocation(TableFunctionInvocation node, Void context)
+    {
+        TableFunctionInvocationAnalysis functionAnalysis = analysis.getTableFunctionAnalysis(node);
+
+        // TODO handle input relations:
+        // 1. extract the input relations from node.getArguments() and plan them. Apply relation coercions if requested.
+        // 2. for each input relation, prepare the TableArgumentProperties record, consisting of:
+        //  - row or set semantics (from the actualArgument)
+        //  - prune when empty property  (from the actualArgument)
+        //  - pass through columns property (from the actualArgument)
+        //  - optional Specification: ordering scheme and partitioning (from the node's argument) <- planned upon the source's RelationPlan (or combined RelationPlan from all sources)
+        List<RelationPlan> sources = ImmutableList.of();
+        List<TableArgumentProperties> inputRelationsProperties = ImmutableList.of();
+        // TODO rewrite column references to Symbols upon the source's RelationPlan (or combined RelationPlan from all sources)
+        Map<NameAndPosition, Symbol> inputDescriptorMappings = ImmutableMap.of();
+
+        Scope scope = analysis.getScope(node);
+        // TODO pass columns from input relations, and make sure they have the right qualifier
+        List<Symbol> outputSymbols = scope.getRelationType().getAllFields().stream()
+                .map(symbolAllocator::newSymbol)
+                .collect(toImmutableList());
+
+        PlanNode root = new TableFunctionNode(
+                idAllocator.getNextId(),
+                functionAnalysis.getFunctionName(),
+                functionAnalysis.getArguments(),
+                outputSymbols,
+                sources.stream().map(RelationPlan::getRoot).collect(toImmutableList()),
+                inputRelationsProperties,
+                inputDescriptorMappings,
+                new TableFunctionHandle(functionAnalysis.getCatalogHandle(), functionAnalysis.getConnectorTableFunctionHandle(), functionAnalysis.getTransactionHandle()));
+
+        return new RelationPlan(root, scope, outputSymbols, outerContext);
     }
 
     @Override
@@ -335,7 +398,7 @@ class RelationPlanner
                         .collect(toImmutableList()))
                 .build();
 
-        PlanBuilder planBuilder = newPlanBuilder(subPlan, analysis, lambdaDeclarationToSymbolMap);
+        PlanBuilder planBuilder = newPlanBuilder(subPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
 
         // no handleSubqueries because subqueries are not allowed here
         planBuilder = planBuilder.appendProjections(inputs, symbolAllocator, idAllocator);
@@ -343,49 +406,27 @@ class RelationPlanner
         ImmutableList.Builder<Symbol> outputLayout = ImmutableList.builder();
         boolean oneRowOutput = node.getRowsPerMatch().isEmpty() || node.getRowsPerMatch().get().isOneRow();
 
-        // Rewrite PARTITION BY in terms of pre-projected inputs
-        ImmutableList.Builder<Symbol> partitionBy = ImmutableList.builder();
-        for (Expression expression : node.getPartitionBy()) {
-            Symbol symbol = planBuilder.translate(expression);
-            partitionBy.add(symbol);
-            outputLayout.add(symbol);
+        WindowNode.Specification specification = planWindowSpecification(node.getPartitionBy(), node.getOrderBy(), planBuilder::translate);
+        outputLayout.addAll(specification.getPartitionBy());
+        if (!oneRowOutput) {
+            getSortItemsFromOrderBy(node.getOrderBy()).stream()
+                    .map(SortItem::getSortKey)
+                    .map(planBuilder::translate)
+                    .forEach(outputLayout::add);
         }
 
-        // Rewrite ORDER BY in terms of pre-projected inputs
-        Map<Symbol, SortOrder> orderings = new LinkedHashMap<>();
-        for (SortItem item : getSortItemsFromOrderBy(node.getOrderBy())) {
-            Symbol symbol = planBuilder.translate(item.getSortKey());
-            // don't override existing keys, i.e. when "ORDER BY a ASC, a DESC" is specified
-            orderings.putIfAbsent(symbol, sortItemToSortOrder(item));
-            if (!oneRowOutput) {
-                outputLayout.add(symbol);
-            }
-        }
-        Optional<OrderingScheme> orderingScheme = Optional.empty();
-        if (!orderings.isEmpty()) {
-            orderingScheme = Optional.of(new OrderingScheme(ImmutableList.copyOf(orderings.keySet()), orderings));
-        }
+        planBuilder = subqueryPlanner.handleSubqueries(planBuilder, extractPatternRecognitionExpressions(node.getVariableDefinitions(), node.getMeasures()), analysis.getSubqueries(node));
 
-        // rewrite subsets
-        ImmutableMap.Builder<IrLabel, Set<IrLabel>> subsets = ImmutableMap.builder();
-        for (SubsetDefinition subsetDefinition : node.getSubsets()) {
-            IrLabel label = irLabel(subsetDefinition.getName());
-            Set<IrLabel> elements = subsetDefinition.getIdentifiers().stream()
-                    .map(this::irLabel)
-                    .collect(toImmutableSet());
-            subsets.put(label, elements);
-        }
+        PatternRecognitionComponents components = planPatternRecognitionComponents(
+                planBuilder::rewrite,
+                node.getSubsets(),
+                node.getMeasures(),
+                node.getAfterMatchSkipTo(),
+                node.getPatternSearchMode(),
+                node.getPattern(),
+                node.getVariableDefinitions());
 
-        // rewrite measures
-        ImmutableMap.Builder<Symbol, Measure> measures = ImmutableMap.builder();
-        for (MeasureDefinition measureDefinition : node.getMeasures()) {
-            Type type = analysis.getType(measureDefinition.getExpression());
-            Symbol symbol = symbolAllocator.newSymbol(measureDefinition.getName().getValue().toLowerCase(ENGLISH), type);
-            Expression expression = planBuilder.rewrite(measureDefinition.getExpression());
-            ExpressionAndValuePointers measure = LogicalIndexExtractor.rewrite(expression, subsets.build(), symbolAllocator);
-            measures.put(symbol, new Measure(measure, type));
-            outputLayout.add(symbol);
-        }
+        outputLayout.addAll(components.getMeasureOutputs());
 
         if (!oneRowOutput) {
             Set<Symbol> inputSymbolsOnOutput = ImmutableSet.copyOf(outputLayout.build());
@@ -394,48 +435,101 @@ class RelationPlanner
                     .forEach(outputLayout::add);
         }
 
-        // rewrite pattern to IR
-        IrRowPattern pattern = RowPatternToIrRewriter.rewrite(node.getPattern(), analysis);
-
-        // rewrite variable definitions
-        ImmutableMap.Builder<IrLabel, ExpressionAndValuePointers> variableDefinitions = ImmutableMap.builder();
-        for (VariableDefinition variableDefinition : node.getVariableDefinitions()) {
-            IrLabel label = irLabel(variableDefinition.getName());
-            Expression expression = planBuilder.rewrite(variableDefinition.getExpression());
-            ExpressionAndValuePointers definition = LogicalIndexExtractor.rewrite(expression, subsets.build(), symbolAllocator);
-            variableDefinitions.put(label, definition);
-        }
-        // add `true` definition for undefined labels
-        for (String label : analysis.getUndefinedLabels(node)) {
-            variableDefinitions.put(irLabel(label), ExpressionAndValuePointers.TRUE);
-        }
-
         PatternRecognitionNode planNode = new PatternRecognitionNode(
                 idAllocator.getNextId(),
                 planBuilder.getRoot(),
-                new WindowNode.Specification(partitionBy.build(), orderingScheme),
+                specification,
                 Optional.empty(),
                 ImmutableSet.of(),
                 0,
-                measures.build(),
+                ImmutableMap.of(),
+                components.getMeasures(),
                 Optional.empty(),
                 node.getRowsPerMatch().orElse(ONE),
-                node.getAfterMatchSkipTo().flatMap(SkipTo::getIdentifier).map(this::irLabel),
-                node.getAfterMatchSkipTo().map(SkipTo::getPosition).orElse(PAST_LAST),
-                node.getPatternSearchMode().map(mode -> mode.getMode() == INITIAL).orElse(TRUE),
-                pattern,
-                subsets.build(),
-                variableDefinitions.build());
+                components.getSkipToLabel(),
+                components.getSkipToPosition(),
+                components.isInitial(),
+                components.getPattern(),
+                components.getSubsets(),
+                components.getVariableDefinitions());
 
         return new RelationPlan(planNode, analysis.getScope(node), outputLayout.build(), outerContext);
     }
 
-    private IrLabel irLabel(Identifier identifier)
+    public PatternRecognitionComponents planPatternRecognitionComponents(
+            Function<Expression, Expression> expressionRewrite,
+            List<SubsetDefinition> subsets,
+            List<MeasureDefinition> measures,
+            Optional<SkipTo> skipTo,
+            Optional<PatternSearchMode> searchMode,
+            RowPattern pattern,
+            List<VariableDefinition> variableDefinitions)
+    {
+        // rewrite subsets
+        ImmutableMap.Builder<IrLabel, Set<IrLabel>> rewrittenSubsets = ImmutableMap.builder();
+        for (SubsetDefinition subsetDefinition : subsets) {
+            IrLabel label = irLabel(subsetDefinition.getName());
+            Set<IrLabel> elements = subsetDefinition.getIdentifiers().stream()
+                    .map(RelationPlanner::irLabel)
+                    .collect(toImmutableSet());
+            rewrittenSubsets.put(label, elements);
+        }
+
+        // NOTE: There might be aggregate functions in measure definitions and variable definitions.
+        // They are handled different than top level aggregations in a query:
+        // 1. Their arguments are not pre-projected and replaced with single symbols. This is because the arguments might
+        //    not be eligible for pre-projection, when they contain references to CLASSIFIER() or MATCH_NUMBER() functions
+        //    which are evaluated at runtime. If some aggregation arguments can be pre-projected, it will be done in the
+        //    Optimizer.
+        // 2. Their arguments do not need to be coerced by hand. Since the pattern aggregation arguments are rewritten as
+        //    parts of enclosing expressions, and not as standalone expressions, all necessary coercions will be applied by the
+        //    TranslationMap.
+
+        // rewrite measures
+        ImmutableMap.Builder<Symbol, Measure> rewrittenMeasures = ImmutableMap.builder();
+        ImmutableList.Builder<Symbol> measureOutputs = ImmutableList.builder();
+        for (MeasureDefinition measureDefinition : measures) {
+            Type type = analysis.getType(measureDefinition.getExpression());
+            Symbol symbol = symbolAllocator.newSymbol(measureDefinition.getName().getValue().toLowerCase(ENGLISH), type);
+            Expression expression = expressionRewrite.apply(measureDefinition.getExpression());
+            ExpressionAndValuePointers measure = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets.buildOrThrow(), symbolAllocator, session, plannerContext.getMetadata());
+            rewrittenMeasures.put(symbol, new Measure(measure, type));
+            measureOutputs.add(symbol);
+        }
+
+        // rewrite pattern to IR
+        IrRowPattern rewrittenPattern = RowPatternToIrRewriter.rewrite(pattern, analysis);
+
+        // rewrite variable definitions
+        ImmutableMap.Builder<IrLabel, ExpressionAndValuePointers> rewrittenVariableDefinitions = ImmutableMap.builder();
+        for (VariableDefinition variableDefinition : variableDefinitions) {
+            IrLabel label = irLabel(variableDefinition.getName());
+            Expression expression = expressionRewrite.apply(variableDefinition.getExpression());
+            ExpressionAndValuePointers definition = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets.buildOrThrow(), symbolAllocator, session, plannerContext.getMetadata());
+            rewrittenVariableDefinitions.put(label, definition);
+        }
+        // add `true` definition for undefined labels
+        for (String label : analysis.getUndefinedLabels(pattern)) {
+            rewrittenVariableDefinitions.put(irLabel(label), ExpressionAndValuePointers.TRUE);
+        }
+
+        return new PatternRecognitionComponents(
+                rewrittenSubsets.buildOrThrow(),
+                rewrittenMeasures.buildOrThrow(),
+                measureOutputs.build(),
+                skipTo.flatMap(SkipTo::getIdentifier).map(RelationPlanner::irLabel),
+                skipTo.map(SkipTo::getPosition).orElse(PAST_LAST),
+                searchMode.map(mode -> mode.getMode() == INITIAL).orElse(TRUE),
+                rewrittenPattern,
+                rewrittenVariableDefinitions.buildOrThrow());
+    }
+
+    private static IrLabel irLabel(Identifier identifier)
     {
         return new IrLabel(identifier.getCanonicalValue());
     }
 
-    private IrLabel irLabel(String label)
+    private static IrLabel irLabel(String label)
     {
         return new IrLabel(label);
     }
@@ -485,7 +579,7 @@ class RelationPlanner
         return planJoin(analysis.getJoinCriteria(node), node.getType(), analysis.getScope(node), leftPlan, rightPlan, analysis.getSubqueries(node));
     }
 
-    private RelationPlan planJoin(Expression criteria, Join.Type type, Scope scope, RelationPlan leftPlan, RelationPlan rightPlan, Analysis.SubqueryAnalysis subqueries)
+    public RelationPlan planJoin(Expression criteria, Join.Type type, Scope scope, RelationPlan leftPlan, RelationPlan rightPlan, Analysis.SubqueryAnalysis subqueries)
     {
         // NOTE: symbols must be in the same order as the outputDescriptor
         List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
@@ -493,9 +587,9 @@ class RelationPlanner
                 .addAll(rightPlan.getFieldMappings())
                 .build();
 
-        PlanBuilder leftPlanBuilder = newPlanBuilder(leftPlan, analysis, lambdaDeclarationToSymbolMap)
+        PlanBuilder leftPlanBuilder = newPlanBuilder(leftPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext)
                 .withScope(scope, outputSymbols);
-        PlanBuilder rightPlanBuilder = newPlanBuilder(rightPlan, analysis, lambdaDeclarationToSymbolMap)
+        PlanBuilder rightPlanBuilder = newPlanBuilder(rightPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext)
                 .withScope(scope, outputSymbols);
 
         ImmutableList.Builder<JoinNode.EquiJoinClause> equiClauses = ImmutableList.builder();
@@ -613,7 +707,7 @@ class RelationPlanner
                 }
             }
         }
-        TranslationMap translationMap = new TranslationMap(outerContext, scope, analysis, lambdaDeclarationToSymbolMap, outputSymbols)
+        TranslationMap translationMap = new TranslationMap(outerContext, scope, analysis, lambdaDeclarationToSymbolMap, outputSymbols, session, plannerContext)
                 .withAdditionalMappings(leftPlanBuilder.getTranslations().getMappings())
                 .withAdditionalMappings(rightPlanBuilder.getTranslations().getMappings());
 
@@ -684,7 +778,7 @@ class RelationPlanner
             they will be removed by optimization passes.
         */
 
-        List<Identifier> joinColumns = ((JoinUsing) node.getCriteria().get()).getColumns();
+        List<Identifier> joinColumns = ((JoinUsing) node.getCriteria().orElseThrow()).getColumns();
 
         Analysis.JoinUsingAnalysis joinAnalysis = analysis.getJoinUsing(node);
 
@@ -777,7 +871,7 @@ class RelationPlanner
                 outerContext);
     }
 
-    private Optional<Unnest> getUnnest(Relation relation)
+    private static Optional<Unnest> getUnnest(Relation relation)
     {
         if (relation instanceof AliasedRelation) {
             return getUnnest(((AliasedRelation) relation).getRelation());
@@ -788,7 +882,7 @@ class RelationPlanner
         return Optional.empty();
     }
 
-    private Optional<Lateral> getLateral(Relation relation)
+    private static Optional<Lateral> getLateral(Relation relation)
     {
         if (relation instanceof AliasedRelation) {
             return getLateral(((AliasedRelation) relation).getRelation());
@@ -801,12 +895,12 @@ class RelationPlanner
 
     private RelationPlan planCorrelatedJoin(Join join, RelationPlan leftPlan, Lateral lateral)
     {
-        PlanBuilder leftPlanBuilder = newPlanBuilder(leftPlan, analysis, lambdaDeclarationToSymbolMap);
+        PlanBuilder leftPlanBuilder = newPlanBuilder(leftPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
 
-        RelationPlan rightPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, Optional.of(leftPlanBuilder.getTranslations()), session, recursiveSubqueries)
+        RelationPlan rightPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, Optional.of(leftPlanBuilder.getTranslations()), session, recursiveSubqueries)
                 .process(lateral.getQuery(), null);
 
-        PlanBuilder rightPlanBuilder = newPlanBuilder(rightPlan, analysis, lambdaDeclarationToSymbolMap);
+        PlanBuilder rightPlanBuilder = newPlanBuilder(rightPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
 
         Expression filterExpression;
         if (join.getCriteria().isEmpty()) {
@@ -824,7 +918,7 @@ class RelationPlanner
                 .addAll(leftPlan.getFieldMappings())
                 .addAll(rightPlan.getFieldMappings())
                 .build();
-        TranslationMap translationMap = new TranslationMap(outerContext, analysis.getScope(join), analysis, lambdaDeclarationToSymbolMap, outputSymbols)
+        TranslationMap translationMap = new TranslationMap(outerContext, analysis.getScope(join), analysis, lambdaDeclarationToSymbolMap, outputSymbols, session, plannerContext)
                 .withAdditionalMappings(leftPlanBuilder.getTranslations().getMappings())
                 .withAdditionalMappings(rightPlanBuilder.getTranslations().getMappings());
 
@@ -867,7 +961,7 @@ class RelationPlanner
         }
 
         return planUnnest(
-                newPlanBuilder(leftPlan, analysis, lambdaDeclarationToSymbolMap),
+                newPlanBuilder(leftPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext),
                 node,
                 leftPlan.getFieldMappings(),
                 filterExpression,
@@ -920,14 +1014,14 @@ class RelationPlanner
     @Override
     protected RelationPlan visitQuery(Query node, Void context)
     {
-        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, outerContext, session, recursiveSubqueries)
+        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .plan(node);
     }
 
     @Override
     protected RelationPlan visitQuerySpecification(QuerySpecification node, Void context)
     {
-        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, outerContext, session, recursiveSubqueries)
+        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .plan(node);
     }
 
@@ -947,7 +1041,7 @@ class RelationPlanner
             outputSymbolsBuilder.add(symbol);
         }
         List<Symbol> outputSymbols = outputSymbolsBuilder.build();
-        TranslationMap translationMap = new TranslationMap(outerContext, analysis.getScope(node), analysis, lambdaDeclarationToSymbolMap, outputSymbols);
+        TranslationMap translationMap = new TranslationMap(outerContext, analysis.getScope(node), analysis, lambdaDeclarationToSymbolMap, outputSymbols, session, plannerContext);
 
         ImmutableList.Builder<Expression> rows = ImmutableList.builder();
         for (Expression row : node.getRows()) {
@@ -988,7 +1082,7 @@ class RelationPlanner
         parent.ifPresent(scope::withOuterQueryParent);
 
         PlanNode values = new ValuesNode(idAllocator.getNextId(), 1);
-        TranslationMap translations = new TranslationMap(outerContext, scope.build(), analysis, lambdaDeclarationToSymbolMap, ImmutableList.of());
+        TranslationMap translations = new TranslationMap(outerContext, scope.build(), analysis, lambdaDeclarationToSymbolMap, ImmutableList.of(), session, plannerContext);
         return new PlanBuilder(translations, values);
     }
 
@@ -999,7 +1093,8 @@ class RelationPlanner
 
         SetOperationPlan setOperationPlan = process(node);
 
-        PlanNode planNode = new UnionNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()));
+        PlanNode planNode = new UnionNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping()
+                .keySet()));
         if (node.isDistinct()) {
             planNode = distinct(planNode);
         }
@@ -1013,7 +1108,8 @@ class RelationPlanner
 
         SetOperationPlan setOperationPlan = process(node);
 
-        PlanNode planNode = new IntersectNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()), node.isDistinct());
+        PlanNode planNode = new IntersectNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping()
+                .keySet()), node.isDistinct());
         return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols(), outerContext);
     }
 
@@ -1024,7 +1120,8 @@ class RelationPlanner
 
         SetOperationPlan setOperationPlan = process(node);
 
-        PlanNode planNode = new ExceptNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()), node.isDistinct());
+        PlanNode planNode = new ExceptNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping()
+                .keySet()), node.isDistinct());
         return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols(), outerContext);
     }
 
@@ -1063,17 +1160,13 @@ class RelationPlanner
 
     private PlanNode distinct(PlanNode node)
     {
-        return new AggregationNode(idAllocator.getNextId(),
+        return singleAggregation(idAllocator.getNextId(),
                 node,
                 ImmutableMap.of(),
-                singleGroupingSet(node.getOutputSymbols()),
-                ImmutableList.of(),
-                AggregationNode.Step.SINGLE,
-                Optional.empty(),
-                Optional.empty());
+                singleGroupingSet(node.getOutputSymbols()));
     }
 
-    private static class SetOperationPlan
+    private static final class SetOperationPlan
     {
         private final List<PlanNode> sources;
         private final ListMultimap<Symbol, Symbol> symbolMapping;
@@ -1092,6 +1185,78 @@ class RelationPlanner
         public ListMultimap<Symbol, Symbol> getSymbolMapping()
         {
             return symbolMapping;
+        }
+    }
+
+    public static class PatternRecognitionComponents
+    {
+        private final Map<IrLabel, Set<IrLabel>> subsets;
+        private final Map<Symbol, Measure> measures;
+        private final List<Symbol> measureOutputs;
+        private final Optional<IrLabel> skipToLabel;
+        private final SkipTo.Position skipToPosition;
+        private final boolean initial;
+        private final IrRowPattern pattern;
+        private final Map<IrLabel, ExpressionAndValuePointers> variableDefinitions;
+
+        public PatternRecognitionComponents(
+                Map<IrLabel, Set<IrLabel>> subsets,
+                Map<Symbol, Measure> measures,
+                List<Symbol> measureOutputs,
+                Optional<IrLabel> skipToLabel,
+                SkipTo.Position skipToPosition,
+                boolean initial,
+                IrRowPattern pattern,
+                Map<IrLabel, ExpressionAndValuePointers> variableDefinitions)
+        {
+            this.subsets = requireNonNull(subsets, "subsets is null");
+            this.measures = requireNonNull(measures, "measures is null");
+            this.measureOutputs = requireNonNull(measureOutputs, "measureOutputs is null");
+            this.skipToLabel = requireNonNull(skipToLabel, "skipToLabel is null");
+            this.skipToPosition = requireNonNull(skipToPosition, "skipToPosition is null");
+            this.initial = initial;
+            this.pattern = requireNonNull(pattern, "pattern is null");
+            this.variableDefinitions = requireNonNull(variableDefinitions, "variableDefinitions is null");
+        }
+
+        public Map<IrLabel, Set<IrLabel>> getSubsets()
+        {
+            return subsets;
+        }
+
+        public Map<Symbol, Measure> getMeasures()
+        {
+            return measures;
+        }
+
+        public List<Symbol> getMeasureOutputs()
+        {
+            return measureOutputs;
+        }
+
+        public Optional<IrLabel> getSkipToLabel()
+        {
+            return skipToLabel;
+        }
+
+        public SkipTo.Position getSkipToPosition()
+        {
+            return skipToPosition;
+        }
+
+        public boolean isInitial()
+        {
+            return initial;
+        }
+
+        public IrRowPattern getPattern()
+        {
+            return pattern;
+        }
+
+        public Map<IrLabel, ExpressionAndValuePointers> getVariableDefinitions()
+        {
+            return variableDefinitions;
         }
     }
 }

@@ -16,8 +16,10 @@ package io.trino.tests.product.launcher.env.configs;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
 
+import java.util.List;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.tests.product.launcher.env.Environments.nameForConfigClass;
+import static io.trino.tests.product.launcher.Configurations.nameForConfigClass;
 
 public class ConfigDefault
         implements EnvironmentConfig
@@ -50,6 +52,26 @@ public class ConfigDefault
     public String getConfigName()
     {
         return nameForConfigClass(getClass());
+    }
+
+    @Override
+    public List<String> getExcludedGroups()
+    {
+        return List.of(
+                // 'default' config's Hive is slower than e.g. HDP3. Exclude some test groups to shorten product test execution time.
+                // The groups excluded here do not explicitly depend on Hive version, so it's not important to run them for all
+                // Hive versions.
+                "aggregate",
+                "group-by",
+                "join",
+                "orderby",
+                "union",
+                "window",
+                "with_clause",
+                // This test group doesn't exercise hive connector, so it's enough to run it with one config. It's retained for ConfigHdp3.
+                "no_from",
+                // This test group doesn't exercise hive connector, so it's enough to run it with one config. It's retained for ConfigHdp3.
+                "tpch_connector");
     }
 
     @Override

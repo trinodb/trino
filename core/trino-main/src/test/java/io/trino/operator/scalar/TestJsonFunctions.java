@@ -17,6 +17,7 @@ import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -45,10 +46,10 @@ public class TestJsonFunctions
         assertFunction("IS_JSON_SCALAR('[1, 2, 3]')", BOOLEAN, false);
         assertFunction("IS_JSON_SCALAR('{\"a\": 1, \"b\": 2}')", BOOLEAN, false);
 
-        assertInvalidFunction("IS_JSON_SCALAR('')", INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: ");
-        assertInvalidFunction("IS_JSON_SCALAR('[1')", INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: [1");
-        assertInvalidFunction("IS_JSON_SCALAR('1 trailing')", INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: 1 trailing");
-        assertInvalidFunction("IS_JSON_SCALAR('[1, 2] trailing')", INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: [1, 2] trailing");
+        assertInvalidFunction("IS_JSON_SCALAR('')", "Invalid JSON value: ");
+        assertInvalidFunction("IS_JSON_SCALAR('[1')", "Invalid JSON value: [1");
+        assertInvalidFunction("IS_JSON_SCALAR('1 trailing')", "Invalid JSON value: 1 trailing");
+        assertInvalidFunction("IS_JSON_SCALAR('[1, 2] trailing')", "Invalid JSON value: [1, 2] trailing");
     }
 
     @Test
@@ -275,9 +276,14 @@ public class TestJsonFunctions
     @Test
     public void testInvalidJsonParse()
     {
-        assertInvalidFunction("JSON 'INVALID'", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON 'INVALID'", INVALID_LITERAL);
         assertInvalidFunction("JSON_PARSE('INVALID')", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("JSON_PARSE('\"x\": 1')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON_PARSE('{}{')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON_PARSE('{} \"a\"')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON_PARSE('{}{abc')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON_PARSE('{}abc')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON_PARSE('')", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test

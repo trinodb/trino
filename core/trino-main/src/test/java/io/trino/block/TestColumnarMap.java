@@ -18,7 +18,6 @@ import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarMap;
-import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.MapType;
@@ -35,10 +34,10 @@ import static io.trino.block.ColumnarTestUtils.createTestDictionaryBlock;
 import static io.trino.block.ColumnarTestUtils.createTestDictionaryExpectedValues;
 import static io.trino.block.ColumnarTestUtils.createTestRleBlock;
 import static io.trino.block.ColumnarTestUtils.createTestRleExpectedValues;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.block.ColumnarMap.toColumnarMap;
 import static io.trino.spi.type.StandardTypes.MAP;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -94,7 +93,7 @@ public class TestColumnarMap
 
     private static void assertDictionaryBlock(Block block, Slice[][][] expectedValues)
     {
-        DictionaryBlock dictionaryBlock = createTestDictionaryBlock(block);
+        Block dictionaryBlock = createTestDictionaryBlock(block);
         Slice[][][] expectedDictionaryValues = createTestDictionaryExpectedValues(expectedValues);
 
         assertBlock(dictionaryBlock, expectedDictionaryValues);
@@ -177,7 +176,7 @@ public class TestColumnarMap
 
     private static BlockBuilder createMapBuilder(int expectedEntries)
     {
-        MapType mapType = (MapType) createTestMetadataManager().getType(new TypeSignature(MAP, TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature()), TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature())));
+        MapType mapType = (MapType) TESTING_TYPE_MANAGER.getType(new TypeSignature(MAP, TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature()), TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature())));
         return new MapBlockBuilder(mapType, null, expectedEntries);
     }
 

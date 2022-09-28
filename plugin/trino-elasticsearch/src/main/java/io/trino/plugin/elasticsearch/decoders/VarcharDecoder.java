@@ -13,7 +13,10 @@
  */
 package io.trino.plugin.elasticsearch.decoders;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.slice.Slices;
+import io.trino.plugin.elasticsearch.DecoderDescriptor;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
@@ -47,6 +50,30 @@ public class VarcharDecoder
         }
         else {
             throw new TrinoException(TYPE_MISMATCH, format("Expected a string or numeric value for field '%s' of type VARCHAR: %s [%s]", path, value, value.getClass().getSimpleName()));
+        }
+    }
+
+    public static class Descriptor
+            implements DecoderDescriptor
+    {
+        private final String path;
+
+        @JsonCreator
+        public Descriptor(String path)
+        {
+            this.path = path;
+        }
+
+        @JsonProperty
+        public String getPath()
+        {
+            return path;
+        }
+
+        @Override
+        public Decoder createDecoder()
+        {
+            return new VarcharDecoder(path);
         }
     }
 }

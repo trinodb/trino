@@ -42,7 +42,7 @@ public class TestJdbcPlugin
                         .putAll(TestingH2JdbcModule.createProperties())
                         .put(CASE_INSENSITIVE_NAME_MATCHING, "true")
                         .put(CASE_INSENSITIVE_NAME_MATCHING + ".config-file", createRuleBasedIdentifierMappingFile().toFile().getAbsolutePath())
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext())
                 .shutdown();
     }

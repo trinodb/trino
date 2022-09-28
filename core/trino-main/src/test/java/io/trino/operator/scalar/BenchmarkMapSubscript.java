@@ -15,8 +15,8 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
@@ -26,7 +26,6 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
-import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.RowExpression;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -54,7 +53,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.function.OperatorType.SUBSCRIPT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -102,8 +100,8 @@ public class BenchmarkMapSubscript
         @Setup
         public void setup()
         {
-            Metadata metadata = createTestMetadataManager();
-            ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
+            TestingFunctionResolution functionResolution = new TestingFunctionResolution();
+            ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
 
             List<String> keys;
             switch (mapSize) {
@@ -143,7 +141,7 @@ public class BenchmarkMapSubscript
 
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
 
-            ResolvedFunction resolvedFunction = metadata.resolveOperator(SUBSCRIPT, ImmutableList.of(mapType, mapType.getKeyType()));
+            ResolvedFunction resolvedFunction = functionResolution.resolveOperator(SUBSCRIPT, ImmutableList.of(mapType, mapType.getKeyType()));
             for (int i = 0; i < mapSize; i++) {
                 projectionsBuilder.add(new CallExpression(
                         resolvedFunction,
@@ -182,7 +180,7 @@ public class BenchmarkMapSubscript
             for (int i = 0; i < keyIds.length; i++) {
                 keyIds[i] = i % keys.size();
             }
-            return new DictionaryBlock(keyDictionaryBlock, keyIds);
+            return DictionaryBlock.create(keyIds.length, keyDictionaryBlock, keyIds);
         }
 
         private static Block createFixWidthValueBlock(int positionCount, int mapSize)
@@ -221,7 +219,7 @@ public class BenchmarkMapSubscript
             for (int i = 0; i < keyIds.length; i++) {
                 keyIds[i] = ThreadLocalRandom.current().nextInt(0, dictionarySize);
             }
-            return new DictionaryBlock(dictionaryBlock, keyIds);
+            return DictionaryBlock.create(keyIds.length, dictionaryBlock, keyIds);
         }
 
         private static String randomString(int length)

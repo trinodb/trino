@@ -16,22 +16,23 @@ package io.trino.plugin.bigquery;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.FieldList;
 import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
-import io.trino.spi.type.CharType;
-import io.trino.spi.type.DateTimeEncoding;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
-import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
@@ -39,30 +40,43 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
+import javax.annotation.Nullable;
+
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.cloud.bigquery.Field.Mode.REPEATED;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_PRECISION;
-import static io.trino.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_SCALE;
+import static com.google.common.base.Verify.verify;
+import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_PRECISION;
+import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_SCALE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.TimeWithTimeZoneType.DEFAULT_PRECISION;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
-import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Integer.parseInt;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
-import static java.time.ZoneOffset.systemDefault;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public enum BigQueryType
@@ -70,15 +84,16 @@ public enum BigQueryType
     BOOLEAN(BooleanType.BOOLEAN, BigQueryType::simpleToStringConverter),
     BYTES(VarbinaryType.VARBINARY, BigQueryType::bytesToStringConverter),
     DATE(DateType.DATE, BigQueryType::dateToStringConverter),
-    DATETIME(TimestampType.TIMESTAMP_MILLIS, BigQueryType::datetimeToStringConverter),
-    FLOAT(DoubleType.DOUBLE, BigQueryType::simpleToStringConverter),
-    GEOGRAPHY(VarcharType.VARCHAR, BigQueryType::stringToStringConverter),
+    DATETIME(TimestampType.TIMESTAMP_MICROS, BigQueryType::datetimeToStringConverter),
+    FLOAT(DoubleType.DOUBLE, BigQueryType::floatToStringConverter),
+    GEOGRAPHY(VarcharType.VARCHAR, unsupportedToStringConverter()),
     INTEGER(BigintType.BIGINT, BigQueryType::simpleToStringConverter),
-    NUMERIC(DecimalType.createDecimalType(NUMERIC_DATA_TYPE_PRECISION, NUMERIC_DATA_TYPE_SCALE), BigQueryType::numericToStringConverter),
-    RECORD(null, BigQueryType::simpleToStringConverter),
+    NUMERIC(null, BigQueryType::numericToStringConverter),
+    BIGNUMERIC(null, BigQueryType::numericToStringConverter),
+    RECORD(null, unsupportedToStringConverter()),
     STRING(createUnboundedVarcharType(), BigQueryType::stringToStringConverter),
-    TIME(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE, BigQueryType::timeToStringConverter),
-    TIMESTAMP(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS, BigQueryType::timestampToStringConverter);
+    TIME(TimeType.TIME_MICROS, BigQueryType::timeToStringConverter),
+    TIMESTAMP(TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS, BigQueryType::timestampToStringConverter);
 
     private static final int[] NANO_FACTOR = {
             -1, // 0, no need to multiply
@@ -92,12 +107,19 @@ public enum BigQueryType
             10, // 8 digits after the dot
             1, // 9 digits after the dot
     };
-    private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("''yyyy-MM-dd HH:mm:ss.SSS''");
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("''HH:mm:ss.SSSSSS''");
+    private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("''yyyy-MM-dd HH:mm:ss.SSSSSS''");
 
     private final Type nativeType;
-    private final ToStringConverter toStringConverter;
+    private final OptionalToStringConverter toStringConverter;
 
     BigQueryType(Type nativeType, ToStringConverter toStringConverter)
+    {
+        this(nativeType, (OptionalToStringConverter) value -> Optional.of(toStringConverter.convertToString(value)));
+        requireNonNull(toStringConverter, "toStringConverter is null");
+    }
+
+    BigQueryType(Type nativeType, OptionalToStringConverter toStringConverter)
     {
         this.nativeType = nativeType;
         this.toStringConverter = toStringConverter;
@@ -108,13 +130,14 @@ public enum BigQueryType
         return toRawTypeField(entry.getKey(), entry.getValue());
     }
 
-    static RowType.Field toRawTypeField(String name, BigQueryType.Adaptor typeAdaptor)
+    private static RowType.Field toRawTypeField(String name, BigQueryType.Adaptor typeAdaptor)
     {
         Type trinoType = typeAdaptor.getTrinoType();
         return RowType.field(name, trinoType);
     }
 
-    static LocalDateTime toLocalDateTime(String datetime)
+    @VisibleForTesting
+    public static LocalDateTime toLocalDateTime(String datetime)
     {
         int dotPosition = datetime.indexOf('.');
         if (dotPosition == -1) {
@@ -128,65 +151,86 @@ public enum BigQueryType
         return result.withNano(nanoOfSecond);
     }
 
-    static long toTrinoTimestamp(String datetime)
+    public static long toTrinoTimestamp(String datetime)
     {
-        return toLocalDateTime(datetime).toInstant(UTC).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+        Instant instant = toLocalDateTime(datetime).toInstant(UTC);
+        return (instant.getEpochSecond() * MICROSECONDS_PER_SECOND) + (instant.getNano() / NANOSECONDS_PER_MICROSECOND);
     }
 
-    static String simpleToStringConverter(Object value)
+    private static String floatToStringConverter(Object value)
+    {
+        return format("CAST('%s' AS float64)", value);
+    }
+
+    private static String simpleToStringConverter(Object value)
     {
         return String.valueOf(value);
     }
 
-    static String dateToStringConverter(Object value)
+    private static OptionalToStringConverter unsupportedToStringConverter()
     {
-        LocalDate date = LocalDate.ofEpochDay(((Long) value).longValue());
-        return quote(date.toString());
+        return value -> Optional.empty();
     }
 
-    static String datetimeToStringConverter(Object value)
+    @VisibleForTesting
+    public static String dateToStringConverter(Object value)
     {
-        return formatTimestamp(((Long) value).longValue(), systemDefault());
+        LocalDate date = LocalDate.ofEpochDay((long) value);
+        return "'" + date + "'";
     }
 
-    static String timeToStringConverter(Object value)
+    private static String datetimeToStringConverter(Object value)
     {
-        long longValue = ((Long) value).longValue();
-        long millisUtc = DateTimeEncoding.unpackMillisUtc(longValue);
-        ZoneId zoneId = ZoneId.of(DateTimeEncoding.unpackZoneKey(longValue).getId());
-        LocalTime time = toZonedDateTime(millisUtc, zoneId).toLocalTime();
-        return quote(time.toString());
+        long epochMicros = (long) value;
+        long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
+        int nanoAdjustment = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
+        return formatTimestamp(epochSeconds, nanoAdjustment, UTC);
     }
 
-    static String timestampToStringConverter(Object value)
+    @VisibleForTesting
+    public static String timeToStringConverter(Object value)
     {
-        long longValue = ((Long) value).longValue();
-        long millisUtc = DateTimeEncoding.unpackMillisUtc(longValue);
-        ZoneId zoneId = ZoneId.of(DateTimeEncoding.unpackZoneKey(longValue).getId());
-        return formatTimestamp(millisUtc, zoneId);
+        long time = (long) value;
+        verify(0 <= time, "Invalid time value: %s", time);
+        long epochSeconds = time / PICOSECONDS_PER_SECOND;
+        long nanoAdjustment = (time % PICOSECONDS_PER_SECOND) / PICOSECONDS_PER_NANOSECOND;
+        return TIME_FORMATTER.format(toZonedDateTime(epochSeconds, nanoAdjustment, UTC));
     }
 
-    private static String formatTimestamp(long millisUtc, ZoneId zoneId)
+    @VisibleForTesting
+    public static String timestampToStringConverter(Object value)
     {
-        return DATETIME_FORMATTER.format(toZonedDateTime(millisUtc, zoneId));
+        LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) value;
+        long epochMillis = timestamp.getEpochMillis();
+        long epochSeconds = floorDiv(epochMillis, MILLISECONDS_PER_SECOND);
+        int nanoAdjustment = floorMod(epochMillis, MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND + timestamp.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND;
+        ZoneId zoneId = getTimeZoneKey(timestamp.getTimeZoneKey()).getZoneId();
+        return formatTimestamp(epochSeconds, nanoAdjustment, zoneId);
     }
 
-    private static ZonedDateTime toZonedDateTime(long millisUtc, ZoneId zoneId)
+    private static String formatTimestamp(long epochSeconds, long nanoAdjustment, ZoneId zoneId)
     {
-        return ZonedDateTime.ofInstant(Instant.ofEpochMilli(millisUtc), zoneId);
+        return DATETIME_FORMATTER.format(toZonedDateTime(epochSeconds, nanoAdjustment, zoneId));
+    }
+
+    private static ZonedDateTime toZonedDateTime(long epochSeconds, long nanoAdjustment, ZoneId zoneId)
+    {
+        Instant instant = Instant.ofEpochSecond(epochSeconds, nanoAdjustment);
+        return ZonedDateTime.ofInstant(instant, zoneId);
     }
 
     static String stringToStringConverter(Object value)
     {
         Slice slice = (Slice) value;
-        // TODO (https://github.com/trinodb/trino/issues/7900) Add support for all String and Bytes literals
-        return quote(slice.toStringUtf8().replace("'", "\\'"));
+        return "'%s'".formatted(slice.toStringUtf8()
+                .replace("\\", "\\\\")
+                .replace("\n", "\\n")
+                .replace("'", "\\'"));
     }
 
     static String numericToStringConverter(Object value)
     {
-        Slice slice = (Slice) value;
-        return Decimals.toString(slice, NUMERIC_DATA_TYPE_SCALE);
+        return Decimals.toString((Int128) value, DEFAULT_NUMERIC_TYPE_SCALE);
     }
 
     static String bytesToStringConverter(Object value)
@@ -195,23 +239,23 @@ public enum BigQueryType
         return format("FROM_BASE64('%s')", Base64.getEncoder().encodeToString(slice.getBytes()));
     }
 
-    public static Field toField(String name, Type type)
+    public static Field toField(String name, Type type, @Nullable String comment)
     {
         if (type instanceof ArrayType) {
             Type elementType = ((ArrayType) type).getElementType();
-            return toInnerField(name, elementType, true);
+            return toInnerField(name, elementType, true, comment);
         }
-        return toInnerField(name, type, false);
+        return toInnerField(name, type, false, comment);
     }
 
-    private static Field toInnerField(String name, Type type, boolean repeated)
+    private static Field toInnerField(String name, Type type, boolean repeated, @Nullable String comment)
     {
         Field.Builder builder;
         if (type instanceof RowType) {
-            builder = Field.newBuilder(name, StandardSQLTypeName.STRUCT, toFieldList((RowType) type));
+            builder = Field.newBuilder(name, StandardSQLTypeName.STRUCT, toFieldList((RowType) type)).setDescription(comment);
         }
         else {
-            builder = Field.newBuilder(name, toStandardSqlTypeName(type));
+            builder = Field.newBuilder(name, toStandardSqlTypeName(type)).setDescription(comment);
         }
         if (repeated) {
             builder = builder.setMode(REPEATED);
@@ -221,11 +265,11 @@ public enum BigQueryType
 
     private static FieldList toFieldList(RowType rowType)
     {
-        ImmutableList.Builder<Field> fields = new ImmutableList.Builder<>();
+        ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (RowType.Field field : rowType.getFields()) {
             String fieldName = field.getName()
                     .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "ROW type does not have field names declared: " + rowType));
-            fields.add(toField(fieldName, field.getType()));
+            fields.add(toField(fieldName, field.getType(), null));
         }
         return FieldList.of(fields.build());
     }
@@ -250,13 +294,13 @@ public enum BigQueryType
         if (type == createTimeWithTimeZoneType(DEFAULT_PRECISION)) {
             return StandardSQLTypeName.TIME;
         }
-        if (type == TimestampType.TIMESTAMP_MILLIS) {
+        if (type == TimestampType.TIMESTAMP_MICROS) {
             return StandardSQLTypeName.DATETIME;
         }
-        if (type == TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS) {
+        if (type == TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS) {
             return StandardSQLTypeName.TIMESTAMP;
         }
-        if (type instanceof CharType || type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return StandardSQLTypeName.STRING;
         }
         if (type == VarbinaryType.VARBINARY) {
@@ -271,19 +315,37 @@ public enum BigQueryType
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
-    private static String quote(String value)
+    public Optional<String> convertToString(Type type, Object value)
     {
-        return "'" + value + "'";
-    }
-
-    String convertToString(Object value)
-    {
+        if (type instanceof ArrayType) {
+            return Optional.empty();
+        }
+        if (type instanceof DecimalType decimalType) {
+            String bigqueryTypeName = this.toString();
+            verify(bigqueryTypeName.equals("NUMERIC") || bigqueryTypeName.equals("BIGNUMERIC"), "Expected NUMERIC or BIGNUMERIC: %s", bigqueryTypeName);
+            if (decimalType.isShort()) {
+                return Optional.of(format("%s '%s'", bigqueryTypeName, Decimals.toString((long) value, ((DecimalType) type).getScale())));
+            }
+            return Optional.of(format("%s '%s'", bigqueryTypeName, Decimals.toString((Int128) value, ((DecimalType) type).getScale())));
+        }
         return toStringConverter.convertToString(value);
     }
 
     public Type getNativeType(BigQueryType.Adaptor typeAdaptor)
     {
         switch (this) {
+            case NUMERIC:
+            case BIGNUMERIC:
+                Long precision = typeAdaptor.getPrecision();
+                Long scale = typeAdaptor.getScale();
+                // Unsupported BIGNUMERIC types (precision > 38) are filtered in BigQueryClient.getColumns
+                if (precision != null && scale != null) {
+                    return createDecimalType(toIntExact(precision), toIntExact(scale));
+                }
+                if (precision != null) {
+                    return createDecimalType(toIntExact(precision));
+                }
+                return createDecimalType(DEFAULT_NUMERIC_TYPE_PRECISION, DEFAULT_NUMERIC_TYPE_SCALE);
             case RECORD:
                 // create the row
                 Map<String, BigQueryType.Adaptor> subTypes = typeAdaptor.getBigQuerySubTypes();
@@ -298,6 +360,10 @@ public enum BigQueryType
     interface Adaptor
     {
         BigQueryType getBigQueryType();
+
+        Long getPrecision();
+
+        Long getScale();
 
         Map<String, BigQueryType.Adaptor> getBigQuerySubTypes();
 
@@ -314,5 +380,11 @@ public enum BigQueryType
     interface ToStringConverter
     {
         String convertToString(Object value);
+    }
+
+    @FunctionalInterface
+    interface OptionalToStringConverter
+    {
+        Optional<String> convertToString(Object value);
     }
 }

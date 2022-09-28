@@ -33,7 +33,7 @@ public final class GroupedMultimapAggregationState
     }
 
     @Override
-    public final void add(Block keyBlock, Block valueBlock, int position)
+    public void add(Block keyBlock, Block valueBlock, int position)
     {
         prepareAdd();
         appendAtChannel(VALUE_CHANNEL, valueBlock, position);
@@ -41,8 +41,9 @@ public final class GroupedMultimapAggregationState
     }
 
     @Override
-    protected final void accept(MultimapAggregationStateConsumer consumer, PageBuilder pageBuilder, int currentPosition)
+    protected boolean accept(MultimapAggregationStateConsumer consumer, PageBuilder pageBuilder, int currentPosition)
     {
         consumer.accept(pageBuilder.getBlockBuilder(KEY_CHANNEL), pageBuilder.getBlockBuilder(VALUE_CHANNEL), currentPosition);
+        return true;
     }
 }

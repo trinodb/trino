@@ -21,7 +21,8 @@ import io.trino.security.AccessControl;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RenameSchema;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,10 +32,21 @@ import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.util.Objects.requireNonNull;
 
 public class RenameSchemaTask
         implements DataDefinitionTask<RenameSchema>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+
+    @Inject
+    public RenameSchemaTask(Metadata metadata, AccessControl accessControl)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public String getName()
     {
@@ -44,9 +56,6 @@ public class RenameSchemaTask
     @Override
     public ListenableFuture<Void> execute(
             RenameSchema statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)

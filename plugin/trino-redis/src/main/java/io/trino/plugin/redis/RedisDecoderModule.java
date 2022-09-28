@@ -34,9 +34,6 @@ import io.trino.plugin.redis.decoder.zset.ZsetRedisRowDecoderFactory;
 
 import static com.google.inject.Scopes.SINGLETON;
 
-/**
- * Redis decoder specific module. Installs the registry and all known decoder submodules.
- */
 public class RedisDecoderModule
         implements Module
 {

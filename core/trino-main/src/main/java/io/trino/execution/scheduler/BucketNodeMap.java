@@ -13,33 +13,48 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 
-import java.util.Optional;
+import java.util.List;
 import java.util.function.ToIntFunction;
 
 import static java.util.Objects.requireNonNull;
 
-public abstract class BucketNodeMap
+public final class BucketNodeMap
 {
+    private final List<InternalNode> bucketToNode;
     private final ToIntFunction<Split> splitToBucket;
 
-    public BucketNodeMap(ToIntFunction<Split> splitToBucket)
+    public BucketNodeMap(ToIntFunction<Split> splitToBucket, List<InternalNode> bucketToNode)
     {
         this.splitToBucket = requireNonNull(splitToBucket, "splitToBucket is null");
+        this.bucketToNode = ImmutableList.copyOf(requireNonNull(bucketToNode, "bucketToNode is null"));
     }
 
-    public abstract int getBucketCount();
-
-    public abstract Optional<InternalNode> getAssignedNode(int bucketedId);
-
-    public abstract void assignBucketToNode(int bucketedId, InternalNode node);
-
-    public abstract boolean isDynamic();
-
-    public final Optional<InternalNode> getAssignedNode(Split split)
+    public int getBucketCount()
     {
-        return getAssignedNode(splitToBucket.applyAsInt(split));
+        return bucketToNode.size();
+    }
+
+    public int getBucket(Split split)
+    {
+        return splitToBucket.applyAsInt(split);
+    }
+
+    public InternalNode getAssignedNode(int bucketId)
+    {
+        return bucketToNode.get(bucketId);
+    }
+
+    public InternalNode getAssignedNode(Split split)
+    {
+        return getAssignedNode(getBucket(split));
+    }
+
+    public ToIntFunction<Split> getSplitToBucketFunction()
+    {
+        return splitToBucket;
     }
 }

@@ -13,6 +13,7 @@
  */
 package io.trino.util;
 
+import io.airlift.log.Logger;
 import io.trino.spi.type.DateTimeEncoding;
 import io.trino.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
@@ -26,6 +27,8 @@ import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeys;
 
 public final class DateTimeZoneIndex
 {
+    private static final Logger log = Logger.get(DateTimeZoneIndex.class);
+
     private DateTimeZoneIndex() {}
 
     private static final DateTimeZone[] DATE_TIME_ZONES;
@@ -38,17 +41,24 @@ public final class DateTimeZoneIndex
         DATE_TIME_ZONES = new DateTimeZone[MAX_TIME_ZONE_KEY + 1];
         CHRONOLOGIES = new ISOChronology[MAX_TIME_ZONE_KEY + 1];
         FIXED_ZONE_OFFSET = new int[MAX_TIME_ZONE_KEY + 1];
-        for (TimeZoneKey timeZoneKey : getTimeZoneKeys()) {
-            short zoneKey = timeZoneKey.getKey();
-            DateTimeZone dateTimeZone = DateTimeZone.forID(timeZoneKey.getId());
-            DATE_TIME_ZONES[zoneKey] = dateTimeZone;
-            CHRONOLOGIES[zoneKey] = ISOChronology.getInstance(dateTimeZone);
-            if (dateTimeZone.isFixed() && dateTimeZone.getOffset(0) % 60_000 == 0) {
-                FIXED_ZONE_OFFSET[zoneKey] = dateTimeZone.getOffset(0) / 60_000;
+        try {
+            for (TimeZoneKey timeZoneKey : getTimeZoneKeys()) {
+                short zoneKey = timeZoneKey.getKey();
+                DateTimeZone dateTimeZone = DateTimeZone.forID(timeZoneKey.getId());
+                DATE_TIME_ZONES[zoneKey] = dateTimeZone;
+                CHRONOLOGIES[zoneKey] = ISOChronology.getInstance(dateTimeZone);
+                if (dateTimeZone.isFixed() && dateTimeZone.getOffset(0) % 60_000 == 0) {
+                    FIXED_ZONE_OFFSET[zoneKey] = dateTimeZone.getOffset(0) / 60_000;
+                }
+                else {
+                    FIXED_ZONE_OFFSET[zoneKey] = VARIABLE_ZONE;
+                }
             }
-            else {
-                FIXED_ZONE_OFFSET[zoneKey] = VARIABLE_ZONE;
-            }
+        }
+        catch (Exception e) {
+            // log static initializer failure to ensure it's visible
+            log.error(e, "DateTimeZoneIndex initialization failed");
+            throw e;
         }
     }
 
@@ -87,8 +97,6 @@ public final class DateTimeZoneIndex
         if (FIXED_ZONE_OFFSET[zoneKey] == VARIABLE_ZONE) {
             return DATE_TIME_ZONES[zoneKey].getOffset(epochMillis) / 60_000;
         }
-        else {
-            return FIXED_ZONE_OFFSET[zoneKey];
-        }
+        return FIXED_ZONE_OFFSET[zoneKey];
     }
 }

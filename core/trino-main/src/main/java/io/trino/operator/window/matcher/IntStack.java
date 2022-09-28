@@ -13,9 +13,16 @@
  */
 package io.trino.operator.window.matcher;
 
+import io.airlift.slice.SizeOf;
+import org.openjdk.jol.info.ClassLayout;
+
+import java.util.Arrays;
+
 class IntStack
 {
-    private final int[] values;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(IntStack.class).instanceSize();
+
+    private int[] values;
     private int next;
 
     public IntStack(int capacity)
@@ -25,6 +32,7 @@ class IntStack
 
     public void push(int value)
     {
+        ensureCapacity();
         values[next] = value;
         next++;
     }
@@ -38,5 +46,17 @@ class IntStack
     public int size()
     {
         return next;
+    }
+
+    private void ensureCapacity()
+    {
+        if (next == values.length) {
+            values = Arrays.copyOf(values, next * 2 + 1);
+        }
+    }
+
+    public long getSizeInBytes()
+    {
+        return INSTANCE_SIZE + SizeOf.sizeOf(values);
     }
 }

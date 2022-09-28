@@ -45,7 +45,6 @@ public class TestDistributedSpilledQueries
                 .setSchema(TINY_SCHEMA_NAME)
                 .setSystemProperty(SystemSessionProperties.TASK_CONCURRENCY, "2")
                 .setSystemProperty(SystemSessionProperties.SPILL_ENABLED, "true")
-                .setSystemProperty(SystemSessionProperties.SPILL_ORDER_BY, "true")
                 .setSystemProperty(SystemSessionProperties.AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, "128kB")
                 .build();
 
@@ -54,7 +53,7 @@ public class TestDistributedSpilledQueries
                 .put("spiller-max-used-space-threshold", "1.0")
                 .put("memory-revoking-threshold", "0.0") // revoke always
                 .put("memory-revoking-target", "0.0")
-                .build();
+                .buildOrThrow();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
                 .setNodeCount(2)

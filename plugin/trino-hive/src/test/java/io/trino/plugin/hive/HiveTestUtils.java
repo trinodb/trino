@@ -15,12 +15,17 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
+import com.google.common.net.HostAndPort;
 import io.airlift.units.DataSize;
-import io.trino.PagesIndexPageSorter;
-import io.trino.metadata.Metadata;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.operator.PagesIndex;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
+import io.trino.operator.PagesIndexPageSorter;
 import io.trino.plugin.hive.azure.HiveAzureConfig;
 import io.trino.plugin.hive.azure.TrinoAzureConfigurationInitializer;
 import io.trino.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
@@ -43,16 +48,15 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.testing.TestingConnectorSession;
-import io.trino.type.InternalTypeManager;
 import org.apache.hadoop.hive.common.type.Timestamp;
 
 import java.lang.invoke.MethodHandle;
@@ -60,15 +64,15 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.spi.type.Decimals.encodeScaledValue;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 
 public final class HiveTestUtils
 {
@@ -76,10 +80,23 @@ public final class HiveTestUtils
 
     public static final ConnectorSession SESSION = getHiveSession(new HiveConfig());
 
-    private static final Metadata METADATA = createTestMetadataManager();
-    public static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA, new TypeOperators());
+    public static final Optional<HostAndPort> SOCKS_PROXY = Optional.ofNullable(System.getProperty("hive.metastore.thrift.client.socks-proxy"))
+            .map(HostAndPort::fromString);
 
-    public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment();
+    public static final DynamicHdfsConfiguration HDFS_CONFIGURATION = new DynamicHdfsConfiguration(
+            new HdfsConfigurationInitializer(
+                    new HdfsConfig()
+                            .setSocksProxy(SOCKS_PROXY.orElse(null)),
+                    ImmutableSet.of(
+                            new TrinoS3ConfigurationInitializer(new HiveS3Config()),
+                            new GoogleGcsConfigurationInitializer(new HiveGcsConfig()),
+                            new TrinoAzureConfigurationInitializer(new HiveAzureConfig()))),
+            ImmutableSet.of());
+
+    public static final HdfsEnvironment HDFS_ENVIRONMENT = new HdfsEnvironment(
+            HDFS_CONFIGURATION,
+            new HdfsConfig(),
+            new NoHdfsAuthentication());
 
     public static final PageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
 
@@ -134,11 +151,12 @@ public final class HiveTestUtils
 
     public static Set<HivePageSourceFactory> getDefaultHivePageSourceFactories(HdfsEnvironment hdfsEnvironment, HiveConfig hiveConfig)
     {
+        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment);
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         return ImmutableSet.<HivePageSourceFactory>builder()
-                .add(new RcFilePageSourceFactory(TYPE_MANAGER, hdfsEnvironment, stats, hiveConfig))
+                .add(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, hdfsEnvironment, stats, hiveConfig))
                 .add(new OrcPageSourceFactory(new OrcReaderConfig(), hdfsEnvironment, stats, hiveConfig))
-                .add(new ParquetPageSourceFactory(hdfsEnvironment, stats, new ParquetReaderConfig(), hiveConfig))
+                .add(new ParquetPageSourceFactory(fileSystemFactory, stats, new ParquetReaderConfig(), hiveConfig))
                 .build();
     }
 
@@ -152,7 +170,7 @@ public final class HiveTestUtils
     public static Set<HiveFileWriterFactory> getDefaultHiveFileWriterFactories(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
     {
         return ImmutableSet.<HiveFileWriterFactory>builder()
-                .add(new RcFileFileWriterFactory(hdfsEnvironment, TYPE_MANAGER, new NodeVersion("test_version"), hiveConfig, new FileFormatDataSourceStats()))
+                .add(new RcFileFileWriterFactory(hdfsEnvironment, TESTING_TYPE_MANAGER, new NodeVersion("test_version"), hiveConfig, new FileFormatDataSourceStats()))
                 .add(getDefaultOrcFileWriterFactory(hdfsEnvironment))
                 .build();
     }
@@ -161,7 +179,7 @@ public final class HiveTestUtils
     {
         return new OrcFileWriterFactory(
                 hdfsEnvironment,
-                TYPE_MANAGER,
+                TESTING_TYPE_MANAGER,
                 new NodeVersion("test_version"),
                 new FileFormatDataSourceStats(),
                 new OrcWriterConfig());
@@ -181,36 +199,23 @@ public final class HiveTestUtils
         return new GenericHiveRecordCursorProvider(hdfsEnvironment, DataSize.of(100, MEGABYTE));
     }
 
-    private static HdfsEnvironment createTestHdfsEnvironment()
-    {
-        HdfsConfiguration hdfsConfig = new HiveHdfsConfiguration(
-                new HdfsConfigurationInitializer(
-                        new HdfsConfig(),
-                        ImmutableSet.of(
-                                new TrinoS3ConfigurationInitializer(new HiveS3Config()),
-                                new GoogleGcsConfigurationInitializer(new HiveGcsConfig()),
-                                new TrinoAzureConfigurationInitializer(new HiveAzureConfig()))),
-                ImmutableSet.of());
-        return new HdfsEnvironment(hdfsConfig, new HdfsConfig(), new NoHdfsAuthentication());
-    }
-
     public static MapType mapType(Type keyType, Type valueType)
     {
-        return (MapType) METADATA.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+        return (MapType) TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
                 TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
     }
 
     public static ArrayType arrayType(Type elementType)
     {
-        return (ArrayType) METADATA.getParameterizedType(
+        return (ArrayType) TESTING_TYPE_MANAGER.getParameterizedType(
                 StandardTypes.ARRAY,
                 ImmutableList.of(TypeSignatureParameter.typeParameter(elementType.getTypeSignature())));
     }
 
     public static RowType rowType(List<NamedTypeSignature> elementTypeSignatures)
     {
-        return (RowType) METADATA.getParameterizedType(
+        return (RowType) TESTING_TYPE_MANAGER.getParameterizedType(
                 StandardTypes.ROW,
                 ImmutableList.copyOf(elementTypeSignatures.stream()
                         .map(TypeSignatureParameter::namedTypeParameter)
@@ -222,14 +227,14 @@ public final class HiveTestUtils
         return new BigDecimal(value).unscaledValue().longValueExact();
     }
 
-    public static Slice longDecimal(String value)
+    public static Int128 longDecimal(String value)
     {
-        return encodeScaledValue(new BigDecimal(value));
+        return Decimals.valueOf(new BigDecimal(value));
     }
 
     public static MethodHandle distinctFromOperator(Type type)
     {
-        return TYPE_MANAGER.getTypeOperators().getDistinctFromOperator(type, simpleConvention(FAIL_ON_NULL, NULL_FLAG, NULL_FLAG));
+        return TESTING_TYPE_MANAGER.getTypeOperators().getDistinctFromOperator(type, simpleConvention(FAIL_ON_NULL, NULL_FLAG, NULL_FLAG));
     }
 
     public static boolean isDistinctFrom(MethodHandle handle, Block left, Block right)

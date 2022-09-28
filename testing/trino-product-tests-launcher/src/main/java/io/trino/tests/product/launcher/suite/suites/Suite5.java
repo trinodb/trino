@@ -15,9 +15,10 @@ package io.trino.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
-import io.trino.tests.product.launcher.env.environment.MultinodeHiveCaching;
-import io.trino.tests.product.launcher.env.environment.SinglenodeHiveImpersonation;
-import io.trino.tests.product.launcher.env.environment.SinglenodeKerberosHiveImpersonation;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodeHiveCaching;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeHiveImpersonation;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosHiveImpersonation;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosHiveImpersonationWithCredentialCache;
 import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
@@ -32,10 +33,17 @@ public class Suite5
     public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
     {
         return ImmutableList.of(
-                testOnEnvironment(SinglenodeHiveImpersonation.class).withGroups("storage_formats", "hdfs_impersonation").build(),
-                testOnEnvironment(SinglenodeKerberosHiveImpersonation.class).withGroups("storage_formats", "hdfs_impersonation", "authorization").build(),
-                testOnEnvironment(MultinodeHiveCaching.class)
-                        .withGroups("hive_caching", "storage_formats")
+                testOnEnvironment(EnvSinglenodeHiveImpersonation.class)
+                        .withGroups("configured_features", "storage_formats", "hdfs_impersonation")
+                        .build(),
+                testOnEnvironment(EnvSinglenodeKerberosHiveImpersonation.class)
+                        .withGroups("configured_features", "storage_formats", "hdfs_impersonation", "authorization")
+                        .build(),
+                testOnEnvironment(EnvSinglenodeKerberosHiveImpersonationWithCredentialCache.class)
+                        .withGroups("configured_features", "storage_formats", "hdfs_impersonation", "authorization")
+                        .build(),
+                testOnEnvironment(EnvMultinodeHiveCaching.class)
+                        .withGroups("configured_features", "hive_caching", "storage_formats")
                         .withExcludedGroups("iceberg")
                         .build());
     }

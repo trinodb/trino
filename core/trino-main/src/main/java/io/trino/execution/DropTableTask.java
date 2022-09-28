@@ -18,23 +18,35 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.metadata.TableHandle;
+import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.security.AccessControl;
 import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.Expression;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.util.Objects.requireNonNull;
 
 public class DropTableTask
         implements DataDefinitionTask<DropTable>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+
+    @Inject
+    public DropTableTask(Metadata metadata, AccessControl accessControl)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public String getName()
     {
@@ -44,27 +56,37 @@ public class DropTableTask
     @Override
     public ListenableFuture<Void> execute(
             DropTable statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
+        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getTableName());
+        if (metadata.isMaterializedView(session, originalTableName)) {
+            throw semanticException(
+                    GENERIC_USER_ERROR,
+                    statement,
+                    "Table '%s' does not exist, but a materialized view with that name exists. Did you mean DROP MATERIALIZED VIEW %s?", originalTableName, originalTableName);
+        }
 
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
-        if (tableHandle.isEmpty()) {
+        if (metadata.isView(session, originalTableName)) {
+            throw semanticException(
+                    GENERIC_USER_ERROR,
+                    statement,
+                    "Table '%s' does not exist, but a view with that name exists. Did you mean DROP VIEW %s?", originalTableName, originalTableName);
+        }
+
+        RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, originalTableName);
+        if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
             if (!statement.isExists()) {
-                throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
+                throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", originalTableName);
             }
             return immediateVoidFuture();
         }
-
+        QualifiedObjectName tableName = redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName);
         accessControl.checkCanDropTable(session.toSecurityContext(), tableName);
 
-        metadata.dropTable(session, tableHandle.get());
+        metadata.dropTable(session, redirectionAwareTableHandle.getTableHandle().get());
 
         return immediateVoidFuture();
     }

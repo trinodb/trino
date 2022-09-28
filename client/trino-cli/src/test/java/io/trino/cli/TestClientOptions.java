@@ -92,6 +92,30 @@ public class TestClientOptions
         assertEquals(session.getServer().toString(), "https://test/foo");
     }
 
+    @Test
+    public void testServer443Port()
+    {
+        Console console = createConsole("--server=test:443");
+        ClientSession session = console.clientOptions.toClientSession();
+        assertEquals(session.getServer().toString(), "https://test:443");
+    }
+
+    @Test
+    public void testServerHttpsHostPort()
+    {
+        Console console = createConsole("--server=https://test:443");
+        ClientSession session = console.clientOptions.toClientSession();
+        assertEquals(session.getServer().toString(), "https://test:443");
+    }
+
+    @Test
+    public void testServerHttpWithPort443()
+    {
+        Console console = createConsole("--server=http://test:443");
+        ClientSession session = console.clientOptions.toClientSession();
+        assertEquals(session.getServer().toString(), "http://test:443");
+    }
+
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Unparseable port number: x:y")
     public void testInvalidServer()
     {

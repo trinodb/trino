@@ -92,19 +92,11 @@ public class DbResourceGroupConfigurationManager
     public DbResourceGroupConfigurationManager(ClusterMemoryPoolManager memoryPoolManager, DbResourceGroupConfig config, ResourceGroupsDao dao, @ForEnvironment String environment)
     {
         super(memoryPoolManager);
-        requireNonNull(memoryPoolManager, "memoryPoolManager is null");
-        requireNonNull(config, "config is null");
         requireNonNull(dao, "daoProvider is null");
         this.environment = requireNonNull(environment, "environment is null");
         this.maxRefreshInterval = config.getMaxRefreshInterval();
         this.exactMatchSelectorEnabled = config.getExactMatchSelectorEnabled();
         this.dao = dao;
-        this.dao.createResourceGroupsGlobalPropertiesTable();
-        this.dao.createResourceGroupsTable();
-        this.dao.createSelectorsTable();
-        if (exactMatchSelectorEnabled) {
-            this.dao.createExactMatchSelectorsTable();
-        }
         load();
     }
 
@@ -319,7 +311,7 @@ public class DbResourceGroupConfigurationManager
                 .map(selectorRecord ->
                         new SelectorSpec(
                                 selectorRecord.getUserRegex(),
-                                Optional.empty(),
+                                selectorRecord.getUserGroupRegex(),
                                 selectorRecord.getSourceRegex(),
                                 selectorRecord.getQueryType(),
                                 selectorRecord.getClientTags(),

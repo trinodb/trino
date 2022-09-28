@@ -13,14 +13,18 @@
  */
 package io.trino.operator.window;
 
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexComparator;
 import io.trino.operator.WindowOperator.FrameBoundKey;
 import io.trino.operator.window.matcher.Matcher;
+import io.trino.operator.window.pattern.ArgumentComputation;
 import io.trino.operator.window.pattern.LabelEvaluator.Evaluation;
 import io.trino.operator.window.pattern.LogicalIndexNavigation;
+import io.trino.operator.window.pattern.MatchAggregation;
 import io.trino.operator.window.pattern.MeasureComputation;
+import io.trino.spi.function.WindowFunction;
 import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
 import io.trino.sql.tree.SkipTo;
 
@@ -34,6 +38,8 @@ public class PatternRecognitionPartitioner
         implements Partitioner
 {
     private final List<MeasureComputation> measures;
+    private final List<MatchAggregation> measureAggregations;
+    private final List<ArgumentComputation> measureComputationsAggregationArguments;
     private final Optional<FrameInfo> commonBaseFrame;
     private final RowsPerMatch rowsPerMatch;
     private final Optional<LogicalIndexNavigation> skipToNavigation;
@@ -41,26 +47,38 @@ public class PatternRecognitionPartitioner
     private final boolean initial;
     private final Matcher matcher;
     private final List<Evaluation> labelEvaluations;
+    private final List<ArgumentComputation> labelEvaluationsAggregationArguments;
+    private final List<String> labelNames;
 
     public PatternRecognitionPartitioner(
             List<MeasureComputation> measures,
+            List<MatchAggregation> measureAggregations,
+            List<ArgumentComputation> measureComputationsAggregationArguments,
             Optional<FrameInfo> commonBaseFrame,
             RowsPerMatch rowsPerMatch,
             Optional<LogicalIndexNavigation> skipToNavigation,
             SkipTo.Position skipToPosition,
             boolean initial,
             Matcher matcher,
-            List<Evaluation> labelEvaluations)
+            List<Evaluation> labelEvaluations,
+            List<ArgumentComputation> labelEvaluationsAggregationArguments,
+            List<String> labelNames)
     {
         requireNonNull(measures, "measures is null");
+        requireNonNull(measureAggregations, "measureAggregations is null");
+        requireNonNull(measureComputationsAggregationArguments, "measureComputationsAggregationArguments is null");
         requireNonNull(commonBaseFrame, "commonBaseFrame is null");
         requireNonNull(rowsPerMatch, "rowsPerMatch is null");
         requireNonNull(skipToNavigation, "skipToNavigation is null");
         requireNonNull(skipToPosition, "skipToPosition is null");
         requireNonNull(matcher, "matcher is null");
         requireNonNull(labelEvaluations, "labelEvaluations is null");
+        requireNonNull(labelEvaluationsAggregationArguments, "labelEvaluationsAggregationArguments is null");
+        requireNonNull(labelNames, "labelNames is null");
 
         this.measures = measures;
+        this.measureAggregations = measureAggregations;
+        this.measureComputationsAggregationArguments = measureComputationsAggregationArguments;
         this.commonBaseFrame = commonBaseFrame;
         this.rowsPerMatch = rowsPerMatch;
         this.skipToNavigation = skipToNavigation;
@@ -68,6 +86,8 @@ public class PatternRecognitionPartitioner
         this.initial = initial;
         this.matcher = matcher;
         this.labelEvaluations = labelEvaluations;
+        this.labelEvaluationsAggregationArguments = labelEvaluationsAggregationArguments;
+        this.labelNames = labelNames;
     }
 
     @Override
@@ -76,9 +96,11 @@ public class PatternRecognitionPartitioner
             int partitionStart,
             int partitionEnd,
             int[] outputChannels,
-            List<FramedWindowFunction> windowFunctions,
+            List<WindowFunction> windowFunctions,
+            List<FrameInfo> frames,
             PagesHashStrategy peerGroupHashStrategy,
-            Map<FrameBoundKey, PagesIndexComparator> frameBoundComparators)
+            Map<FrameBoundKey, PagesIndexComparator> frameBoundComparators,
+            AggregatedMemoryContext memoryContext)
     {
         return new PatternRecognitionPartition(
                 pagesIndex,
@@ -87,13 +109,18 @@ public class PatternRecognitionPartitioner
                 outputChannels,
                 windowFunctions,
                 peerGroupHashStrategy,
+                memoryContext,
                 measures,
+                measureAggregations,
+                measureComputationsAggregationArguments,
                 commonBaseFrame,
                 rowsPerMatch,
                 skipToNavigation,
                 skipToPosition,
                 initial,
                 matcher,
-                labelEvaluations);
+                labelEvaluations,
+                labelEvaluationsAggregationArguments,
+                labelNames);
     }
 }

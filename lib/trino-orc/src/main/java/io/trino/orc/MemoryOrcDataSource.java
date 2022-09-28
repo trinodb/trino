@@ -97,7 +97,7 @@ public class MemoryOrcDataSource
             slices.put(entry.getKey(), new MemoryOrcDataReader(id, slice, 0));
         }
 
-        return slices.build();
+        return slices.buildOrThrow();
     }
 
     @Override

@@ -16,15 +16,12 @@ package io.trino.plugin.sqlserver;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.sql.SqlExecutor;
 
 import static io.trino.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
 
 public class TestSqlServerTypeMapping
         extends BaseSqlServerTypeMapping
 {
-    protected TestingSqlServer sqlServer;
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -35,11 +32,5 @@ public class TestSqlServerTypeMapping
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableList.of());
-    }
-
-    @Override
-    protected SqlExecutor onRemoteDatabase()
-    {
-        return sqlServer::execute;
     }
 }

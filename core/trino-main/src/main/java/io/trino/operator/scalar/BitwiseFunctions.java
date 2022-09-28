@@ -202,9 +202,7 @@ public final class BitwiseFunctions
             if (value >= 0) {
                 return 0L;
             }
-            else {
-                return -1L;
-            }
+            return -1L;
         }
         return preserveSign(value, TINYINT_MASK, TINYINT_SIGNED_BIT) >> shift;
     }
@@ -218,9 +216,7 @@ public final class BitwiseFunctions
             if (value >= 0) {
                 return 0L;
             }
-            else {
-                return -1L;
-            }
+            return -1L;
         }
         return preserveSign(value, SMALLINT_MASK, SMALLINT_SIGNED_BIT) >> shift;
     }
@@ -234,9 +230,7 @@ public final class BitwiseFunctions
             if (value >= 0) {
                 return 0L;
             }
-            else {
-                return -1L;
-            }
+            return -1L;
         }
         return preserveSign(value, INTEGER_MASK, INTEGER_SIGNED_BIT) >> shift;
     }
@@ -250,9 +244,7 @@ public final class BitwiseFunctions
             if (value >= 0) {
                 return 0L;
             }
-            else {
-                return -1L;
-            }
+            return -1L;
         }
         return value >> shift;
     }

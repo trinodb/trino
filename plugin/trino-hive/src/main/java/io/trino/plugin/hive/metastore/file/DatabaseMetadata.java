@@ -27,23 +27,20 @@ import static java.util.Objects.requireNonNull;
 public class DatabaseMetadata
 {
     private final Optional<String> writerVersion;
-    private final String ownerName;
-    private final PrincipalType ownerType;
-    private final Optional<String> comment;
+    private final Optional<String> ownerName;
+    private final Optional<PrincipalType> ownerType;
     private final Map<String, String> parameters;
 
     @JsonCreator
     public DatabaseMetadata(
             @JsonProperty("writerVersion") Optional<String> writerVersion,
-            @JsonProperty("ownerName") String ownerName,
-            @JsonProperty("ownerType") PrincipalType ownerType,
-            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("ownerName") Optional<String> ownerName,
+            @JsonProperty("ownerType") Optional<PrincipalType> ownerType,
             @JsonProperty("parameters") Map<String, String> parameters)
     {
         this.writerVersion = requireNonNull(writerVersion, "writerVersion is null");
         this.ownerName = requireNonNull(ownerName, "ownerName is null");
         this.ownerType = requireNonNull(ownerType, "ownerType is null");
-        this.comment = requireNonNull(comment, "comment is null");
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
     }
 
@@ -52,7 +49,6 @@ public class DatabaseMetadata
         this.writerVersion = Optional.of(requireNonNull(currentVersion, "currentVersion is null"));
         this.ownerName = database.getOwnerName();
         this.ownerType = database.getOwnerType();
-        this.comment = database.getComment();
         this.parameters = database.getParameters();
     }
 
@@ -63,21 +59,15 @@ public class DatabaseMetadata
     }
 
     @JsonProperty
-    public String getOwnerName()
+    public Optional<String> getOwnerName()
     {
         return ownerName;
     }
 
     @JsonProperty
-    public PrincipalType getOwnerType()
+    public Optional<PrincipalType> getOwnerType()
     {
         return ownerType;
-    }
-
-    @JsonProperty
-    public Optional<String> getComment()
-    {
-        return comment;
     }
 
     @JsonProperty

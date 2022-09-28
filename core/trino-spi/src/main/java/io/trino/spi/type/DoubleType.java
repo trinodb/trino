@@ -25,7 +25,8 @@ import io.trino.spi.function.ScalarOperator;
 
 import java.util.Optional;
 
-import static io.trino.spi.function.OperatorType.COMPARISON;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
@@ -51,7 +52,7 @@ public final class DoubleType
     }
 
     @Override
-    public final int getFixedSize()
+    public int getFixedSize()
     {
         return Double.BYTES;
     }
@@ -107,7 +108,7 @@ public final class DoubleType
     }
 
     @Override
-    public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
         int maxBlockSizeInBytes;
         if (blockBuilderStatus == null) {
@@ -122,13 +123,13 @@ public final class DoubleType
     }
 
     @Override
-    public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return createBlockBuilder(blockBuilderStatus, expectedEntries, Double.BYTES);
     }
 
     @Override
-    public final BlockBuilder createFixedSizeBlockBuilder(int positionCount)
+    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
         return new LongArrayBlockBuilder(null, positionCount);
     }
@@ -191,9 +192,25 @@ public final class DoubleType
         return left != right;
     }
 
-    @ScalarOperator(COMPARISON)
-    private static long comparisonOperator(double left, double right)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
+    private static long comparisonUnorderedLastOperator(double left, double right)
     {
+        return Double.compare(left, right);
+    }
+
+    @ScalarOperator(COMPARISON_UNORDERED_FIRST)
+    private static long comparisonUnorderedFirstOperator(double left, double right)
+    {
+        // Double compare puts NaN last, so we must handle NaNs manually
+        if (Double.isNaN(left) && Double.isNaN(right)) {
+            return 0;
+        }
+        if (Double.isNaN(left)) {
+            return -1;
+        }
+        if (Double.isNaN(right)) {
+            return 1;
+        }
         return Double.compare(left, right);
     }
 

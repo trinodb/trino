@@ -13,19 +13,13 @@
  */
 package io.trino.plugin.raptor.legacy.metadata;
 
-import io.trino.plugin.raptor.legacy.util.UuidUtil.UuidArgumentFactory;
-import io.trino.plugin.raptor.legacy.util.UuidUtil.UuidMapperFactory;
-import org.skife.jdbi.v2.sqlobject.Bind;
-import org.skife.jdbi.v2.sqlobject.SqlBatch;
-import org.skife.jdbi.v2.sqlobject.SqlUpdate;
-import org.skife.jdbi.v2.sqlobject.customizers.RegisterArgumentFactory;
-import org.skife.jdbi.v2.sqlobject.customizers.RegisterMapperFactory;
+import org.jdbi.v3.sqlobject.customizer.Bind;
+import org.jdbi.v3.sqlobject.statement.SqlBatch;
+import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 import java.sql.Timestamp;
 import java.util.UUID;
 
-@RegisterArgumentFactory(UuidArgumentFactory.class)
-@RegisterMapperFactory(UuidMapperFactory.class)
 public interface H2ShardDao
         extends ShardDao
 {
@@ -40,5 +34,5 @@ public interface H2ShardDao
             "  AND successful IN (TRUE, FALSE)\n" +
             "  AND transaction_id NOT IN (SELECT transaction_id FROM created_shards)\n" +
             "LIMIT " + CLEANUP_TRANSACTIONS_BATCH_SIZE)
-    int deleteOldCompletedTransactions(@Bind("maxEndTime") Timestamp maxEndTime);
+    int deleteOldCompletedTransactions(Timestamp maxEndTime);
 }

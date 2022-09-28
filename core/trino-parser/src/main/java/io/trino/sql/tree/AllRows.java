@@ -60,7 +60,7 @@ public class AllRows
     @Override
     public int hashCode()
     {
-        return 0;
+        return getClass().hashCode();
     }
 
     @Override

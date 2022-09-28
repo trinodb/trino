@@ -31,6 +31,7 @@ import java.util.stream.IntStream;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.IN_OUT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -81,7 +82,7 @@ public final class ScalarFunctionAdapter
             return false;
         }
 
-        if (actualConvention.supportsInstanceFactor() && !expectedConvention.supportsInstanceFactor()) {
+        if (actualConvention.supportsInstanceFactory() && !expectedConvention.supportsInstanceFactory()) {
             return false;
         }
 
@@ -140,8 +141,8 @@ public final class ScalarFunctionAdapter
             return true;
         }
 
-        // no conversions from function or block and position are supported
-        if (actualArgumentConvention == BLOCK_POSITION || actualArgumentConvention == FUNCTION) {
+        // no conversions to block and position, function, or in-out are supported
+        if (actualArgumentConvention == BLOCK_POSITION || actualArgumentConvention == FUNCTION || actualArgumentConvention == IN_OUT) {
             return false;
         }
 
@@ -150,8 +151,8 @@ public final class ScalarFunctionAdapter
             return true;
         }
 
-        // nulls are passed in blocks, so adapter will handle null or throw exception at runtime
-        if (expectedArgumentConvention == BLOCK_POSITION) {
+        // nulls are passed in blocks or in-out values, so adapter will handle null or throw exception at runtime
+        if (expectedArgumentConvention == BLOCK_POSITION || expectedArgumentConvention == IN_OUT) {
             return true;
         }
 
@@ -197,7 +198,7 @@ public final class ScalarFunctionAdapter
         if (actualConvention.supportsSession() && !expectedConvention.supportsSession()) {
             throw new IllegalArgumentException("Session method can not be adapted to no session");
         }
-        if (!(expectedConvention.supportsInstanceFactor() || !actualConvention.supportsInstanceFactor())) {
+        if (!(expectedConvention.supportsInstanceFactory() || !actualConvention.supportsInstanceFactory())) {
             throw new IllegalArgumentException("Instance method can not be adapted to no instance");
         }
 
@@ -207,7 +208,7 @@ public final class ScalarFunctionAdapter
         // adapt parameters one at a time
         int parameterIndex = 0;
 
-        if (actualConvention.supportsInstanceFactor()) {
+        if (actualConvention.supportsInstanceFactory()) {
             parameterIndex++;
         }
         if (actualConvention.supportsSession()) {
@@ -289,10 +290,13 @@ public final class ScalarFunctionAdapter
             return methodHandle;
         }
         if (actualArgumentConvention == BLOCK_POSITION) {
-            throw new IllegalArgumentException("Block and position argument can not be adapted");
+            throw new IllegalArgumentException("Block and position argument cannot be adapted");
+        }
+        if (actualArgumentConvention == IN_OUT) {
+            throw new IllegalArgumentException("In-out argument cannot be adapted");
         }
         if (actualArgumentConvention == FUNCTION) {
-            throw new IllegalArgumentException("Function argument can not be adapted");
+            throw new IllegalArgumentException("Function argument cannot be adapted");
         }
 
         // caller will never pass null
@@ -426,7 +430,7 @@ public final class ScalarFunctionAdapter
             throw new IllegalArgumentException("Unsupported actual argument convention: " + actualArgumentConvention);
         }
 
-        // caller will pass boolean true in the next argument for SQL null
+        // caller passes block and position which may contain a null
         if (expectedArgumentConvention == BLOCK_POSITION) {
             MethodHandle getBlockValue = getBlockValue(argumentType, methodHandle.type().parameterType(parameterIndex));
 
@@ -489,6 +493,70 @@ public final class ScalarFunctionAdapter
             throw new IllegalArgumentException("Unsupported actual argument convention: " + actualArgumentConvention);
         }
 
+        // caller passes in-out which may contain a null
+        if (expectedArgumentConvention == IN_OUT) {
+            MethodHandle getInOutValue = getInOutValue(argumentType, methodHandle.type().parameterType(parameterIndex));
+
+            if (actualArgumentConvention == NEVER_NULL) {
+                if (nullAdaptationPolicy == UNDEFINED_VALUE_FOR_NULL) {
+                    // Current, null is not checked, so whatever value returned is passed through
+                    methodHandle = collectArguments(methodHandle, parameterIndex, getInOutValue);
+                    return methodHandle;
+                }
+
+                if (nullAdaptationPolicy == RETURN_NULL_ON_NULL && returnConvention != FAIL_ON_NULL) {
+                    // if caller sets null flag, return null, otherwise invoke target
+                    methodHandle = collectArguments(methodHandle, parameterIndex, getInOutValue);
+                    return guardWithTest(
+                            isInOutNull(methodHandle.type(), parameterIndex),
+                            returnNull(methodHandle.type()),
+                            methodHandle);
+                }
+
+                if (nullAdaptationPolicy == THROW_ON_NULL || nullAdaptationPolicy == UNSUPPORTED || nullAdaptationPolicy == RETURN_NULL_ON_NULL) {
+                    MethodHandle adapter = guardWithTest(
+                            isInOutNull(getInOutValue.type(), 0),
+                            throwTrinoNullArgumentException(getInOutValue.type()),
+                            getInOutValue);
+
+                    return collectArguments(methodHandle, parameterIndex, adapter);
+                }
+            }
+
+            if (actualArgumentConvention == BOXED_NULLABLE) {
+                getInOutValue = explicitCastArguments(getInOutValue, getInOutValue.type().changeReturnType(wrap(getInOutValue.type().returnType())));
+                getInOutValue = guardWithTest(
+                        isInOutNull(getInOutValue.type(), 0),
+                        returnNull(getInOutValue.type()),
+                        getInOutValue);
+                methodHandle = collectArguments(methodHandle, parameterIndex, getInOutValue);
+                return methodHandle;
+            }
+
+            if (actualArgumentConvention == NULL_FLAG) {
+                // long, boolean => long, InOut
+                MethodHandle isNull = isInOutNull(getInOutValue.type(), 0);
+                methodHandle = collectArguments(methodHandle, parameterIndex + 1, isNull);
+
+                // long, InOut => InOut, InOut
+                getInOutValue = guardWithTest(
+                        isInOutNull(getInOutValue.type(), 0),
+                        returnNull(getInOutValue.type()),
+                        getInOutValue);
+                methodHandle = collectArguments(methodHandle, parameterIndex, getInOutValue);
+
+                // InOut, InOut => InOut
+                int[] reorder = IntStream.range(0, methodHandle.type().parameterCount())
+                        .map(i -> i <= parameterIndex ? i : i - 1)
+                        .toArray();
+                MethodType newType = methodHandle.type().dropParameterTypes(parameterIndex + 1, parameterIndex + 2);
+                methodHandle = permuteArguments(methodHandle, newType, reorder);
+                return methodHandle;
+            }
+
+            throw new IllegalArgumentException("Unsupported actual argument convention: " + actualArgumentConvention);
+        }
+
         throw new IllegalArgumentException("Unsupported expected argument convention: " + expectedArgumentConvention);
     }
 
@@ -517,6 +585,33 @@ public final class ScalarFunctionAdapter
             MethodHandle getValue = lookup().findVirtual(Type.class, getterName, methodType(methodArgumentType, Block.class, int.class))
                     .bindTo(argumentType);
             return explicitCastArguments(getValue, getValue.type().changeReturnType(expectedType));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static MethodHandle getInOutValue(Type argumentType, Class<?> expectedType)
+    {
+        Class<?> methodArgumentType = argumentType.getJavaType();
+        String getterName;
+        if (methodArgumentType == boolean.class) {
+            getterName = "getBooleanValue";
+        }
+        else if (methodArgumentType == long.class) {
+            getterName = "getLongValue";
+        }
+        else if (methodArgumentType == double.class) {
+            getterName = "getDoubleValue";
+        }
+        else {
+            getterName = "getObjectValue";
+            methodArgumentType = Object.class;
+        }
+
+        try {
+            MethodHandle getValue = lookup().findVirtual(InternalDataAccessor.class, getterName, methodType(methodArgumentType));
+            return explicitCastArguments(getValue, methodType(expectedType, InOut.class));
         }
         catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
@@ -568,6 +663,19 @@ public final class ScalarFunctionAdapter
         }
         // Add extra argument to match expected method type
         isNull = permuteArguments(isNull, methodType.changeReturnType(boolean.class), index, index + 1);
+        return isNull;
+    }
+
+    private static MethodHandle isInOutNull(MethodType methodType, int index)
+    {
+        MethodHandle isNull;
+        try {
+            isNull = lookup().findVirtual(InOut.class, "isNull", methodType(boolean.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+        isNull = permuteArguments(isNull, methodType.changeReturnType(boolean.class), index);
         return isNull;
     }
 

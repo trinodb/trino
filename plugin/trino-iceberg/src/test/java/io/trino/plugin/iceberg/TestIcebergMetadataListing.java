@@ -16,20 +16,19 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfiguration;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
+import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.plugin.hive.HdfsConfig;
-import io.trino.plugin.hive.HdfsConfiguration;
-import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TestingHivePlugin;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
@@ -44,6 +43,8 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.Optional;
 
+import static com.google.inject.util.Modules.EMPTY_MODULE;
+import static io.trino.plugin.iceberg.catalog.hms.IcebergHiveMetastoreCatalogModule.HIDE_DELTA_LAKE_TABLES_IN_ICEBERG;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,7 +52,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestIcebergMetadataListing
         extends AbstractTestQueryFramework
 {
-    private HiveMetastore metastore;
+    private FileHiveMetastore metastore;
     private SchemaTableName storageTable;
 
     @Override
@@ -60,7 +61,7 @@ public class TestIcebergMetadataListing
     {
         Session session = testSessionBuilder()
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
@@ -68,18 +69,18 @@ public class TestIcebergMetadataListing
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
 
         HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
+        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
 
         metastore = new FileHiveMetastore(
                 new NodeVersion("test_version"),
                 hdfsEnvironment,
-                new MetastoreConfig(),
+                HIDE_DELTA_LAKE_TABLES_IN_ICEBERG,
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory(baseDir.toURI().toString())
                         .setMetastoreUser("test"));
 
-        queryRunner.installPlugin(new TestingIcebergPlugin(metastore, false));
+        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore)), Optional.empty(), EMPTY_MODULE));
         queryRunner.createCatalog("iceberg", "iceberg");
         queryRunner.installPlugin(new TestingHivePlugin(metastore));
         queryRunner.createCatalog("hive", "hive", ImmutableMap.of("hive.security", "sql-standard"));
@@ -96,6 +97,7 @@ public class TestIcebergMetadataListing
         assertQuerySucceeds("CREATE MATERIALIZED VIEW iceberg.test_schema.iceberg_materialized_view AS " +
                 "SELECT * FROM iceberg.test_schema.iceberg_table1");
         storageTable = getStorageTable("iceberg", "test_schema", "iceberg_materialized_view");
+        assertQuerySucceeds("CREATE VIEW iceberg.test_schema.iceberg_view AS SELECT * FROM iceberg.test_schema.iceberg_table1");
 
         assertQuerySucceeds("CREATE TABLE hive.test_schema.hive_table (_double DOUBLE)");
         assertQuerySucceeds("CREATE VIEW hive.test_schema.hive_view AS SELECT * FROM hive.test_schema.hive_table");
@@ -106,6 +108,7 @@ public class TestIcebergMetadataListing
     {
         assertQuerySucceeds("DROP TABLE IF EXISTS hive.test_schema.hive_table");
         assertQuerySucceeds("DROP VIEW IF EXISTS hive.test_schema.hive_view");
+        assertQuerySucceeds("DROP VIEW IF EXISTS iceberg.test_schema.iceberg_view");
         assertQuerySucceeds("DROP MATERIALIZED VIEW IF EXISTS iceberg.test_schema.iceberg_materialized_view");
         assertQuerySucceeds("DROP TABLE IF EXISTS iceberg.test_schema.iceberg_table2");
         assertQuerySucceeds("DROP TABLE IF EXISTS iceberg.test_schema.iceberg_table1");
@@ -121,6 +124,7 @@ public class TestIcebergMetadataListing
                         "iceberg_table2",
                         "iceberg_materialized_view",
                         storageTable.getTableName(),
+                        "iceberg_view",
                         "hive_table",
                         "hive_view");
 
@@ -130,7 +134,10 @@ public class TestIcebergMetadataListing
                         "'iceberg_table1', " +
                         "'iceberg_table2', " +
                         "'iceberg_materialized_view', " +
-                        "'" + storageTable.getTableName() + "'");
+                        "'" + storageTable.getTableName() + "', " +
+                        "'iceberg_view', " +
+                        "'hive_table', " +
+                        "'hive_view'");
     }
 
     @Test
@@ -146,7 +153,10 @@ public class TestIcebergMetadataListing
                         "('iceberg_materialized_view', '_string'), " +
                         "('iceberg_materialized_view', '_integer'), " +
                         "('" + storageTable.getTableName() + "', '_string'), " +
-                        "('" + storageTable.getTableName() + "', '_integer')");
+                        "('" + storageTable.getTableName() + "', '_integer'), " +
+                        "('iceberg_view', '_string'), " +
+                        "('iceberg_view', '_integer'), " +
+                        "('hive_view', '_double')");
     }
 
     @Test
@@ -167,7 +177,7 @@ public class TestIcebergMetadataListing
         TransactionManager transactionManager = getQueryRunner().getTransactionManager();
         TransactionId transactionId = transactionManager.beginTransaction(false);
         Session session = getSession().beginTransactionId(transactionId, transactionManager, getQueryRunner().getAccessControl());
-        Optional<ConnectorMaterializedViewDefinition> materializedView = getQueryRunner().getMetadata()
+        Optional<MaterializedViewDefinition> materializedView = getQueryRunner().getMetadata()
                 .getMaterializedView(session, new QualifiedObjectName(catalogName, schemaName, objectName));
         assertThat(materializedView).isPresent();
         return materializedView.get().getStorageTable().get().getSchemaTableName();

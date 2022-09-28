@@ -14,18 +14,18 @@
 package io.trino.sql.planner.iterative.rule.test;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.spi.Plugin;
 import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
-import static io.trino.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
 
+@Test
 public abstract class BaseRuleTest
 {
     private RuleTester tester;
@@ -46,7 +46,9 @@ public abstract class BaseRuleTest
             tester = new RuleTester(localQueryRunner.get());
         }
         else {
-            tester = defaultRuleTester(plugins, ImmutableMap.of(), Optional.empty());
+            tester = RuleTester.builder()
+                    .addPlugins(plugins)
+                    .build();
         }
     }
 

@@ -14,6 +14,7 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.scalar.TryFunction;
 import io.trino.sql.planner.assertions.ExpressionVerifier;
 import io.trino.sql.planner.assertions.SymbolAliases;
@@ -53,8 +54,8 @@ public class TestDesugarTryExpressionRewriter
         Expression expected = new ArithmeticBinaryExpression(
                 ADD,
                 new DecimalLiteral("1"),
-                new FunctionCallBuilder(tester().getMetadata())
-                        .setName(QualifiedName.of(TryFunction.NAME))
+                new TestingFunctionResolution()
+                        .functionCallBuilder(QualifiedName.of(TryFunction.NAME))
                         .addArgument(new FunctionType(ImmutableList.of(), createDecimalType(1)), new LambdaExpression(ImmutableList.of(), new DecimalLiteral("2")))
                         .build());
 

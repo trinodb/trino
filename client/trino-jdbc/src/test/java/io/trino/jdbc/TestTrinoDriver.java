@@ -33,6 +33,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.Date;
 import java.sql.Driver;
 import java.sql.DriverManager;
+import java.sql.DriverPropertyInfo;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -47,7 +48,9 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -56,6 +59,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -377,6 +381,57 @@ public class TestTrinoDriver
     }
 
     @Test
+    public void testDriverPropertyInfoEmpty()
+            throws Exception
+    {
+        Driver driver = DriverManager.getDriver("jdbc:trino:");
+
+        Properties properties = new Properties();
+        DriverPropertyInfo[] infos = driver.getPropertyInfo(jdbcUrl(), properties);
+
+        assertThat(infos)
+                .extracting(TestTrinoDriver::driverPropertyInfoToString)
+                .contains("{name=user, required=false}")
+                .contains("{name=password, required=false}")
+                .contains("{name=accessToken, required=false}")
+                .contains("{name=SSL, required=false, choices=[true, false]}");
+
+        assertThat(infos).extracting(x -> x.name)
+                .doesNotContain("SSLVerification", "SSLTrustStorePath");
+    }
+
+    @Test
+    public void testDriverPropertyInfoSslEnabled()
+            throws Exception
+    {
+        Driver driver = DriverManager.getDriver("jdbc:trino:");
+
+        Properties properties = new Properties();
+        properties.setProperty("user", "test");
+        properties.setProperty("SSL", "true");
+        DriverPropertyInfo[] infos = driver.getPropertyInfo(jdbcUrl(), properties);
+
+        assertThat(infos)
+                .extracting(TestTrinoDriver::driverPropertyInfoToString)
+                .contains("{name=user, value=test, required=false}")
+                .contains("{name=SSL, value=true, required=false, choices=[true, false]}")
+                .contains("{name=SSLVerification, required=false, choices=[FULL, CA, NONE]}")
+                .contains("{name=SSLTrustStorePath, required=false}");
+    }
+
+    private static String driverPropertyInfoToString(DriverPropertyInfo info)
+    {
+        return toStringHelper("")
+                .add("name", info.name)
+                .add("value", info.value)
+                .add("description", info.description)
+                .add("required", info.required)
+                .add("choices", info.choices)
+                .omitNullValues()
+                .toString();
+    }
+
+    @Test
     public void testExecuteWithQuery()
             throws Exception
     {
@@ -448,7 +503,7 @@ public class TestTrinoDriver
                 String sql = "SELECT 123 x, 'foo' y, CAST(NULL AS bigint) z";
                 assertThatThrownBy(() -> statement.executeUpdate(sql))
                         .isInstanceOf(SQLException.class)
-                        .hasMessage(format("SQL is not an update statement: %s", sql));
+                        .hasMessage("SQL is not an update statement: %s", sql);
             }
         }
     }
@@ -462,7 +517,7 @@ public class TestTrinoDriver
                 String sql = "INSERT INTO test_table VALUES (1)";
                 assertThatThrownBy(() -> statement.executeQuery(sql))
                         .isInstanceOf(SQLException.class)
-                        .hasMessage(format("SQL statement is not a query: %s", sql));
+                        .hasMessage("SQL statement is not a query: %s", sql);
             }
         }
     }
@@ -709,7 +764,7 @@ public class TestTrinoDriver
     public void testBadQuery()
             throws Exception
     {
-        try (Connection connection = createConnection("test", "tiny")) {
+        try (Connection connection = createConnection(TEST_CATALOG, "tiny")) {
             try (Statement statement = connection.createStatement()) {
                 try (ResultSet ignored = statement.executeQuery("SELECT * FROM bad_table")) {
                     fail("expected exception");
@@ -719,22 +774,66 @@ public class TestTrinoDriver
     }
 
     @Test
-    public void testUserIsRequired()
-    {
-        assertThatThrownBy(() -> DriverManager.getConnection(jdbcUrl()))
-                .isInstanceOf(SQLException.class)
-                .hasMessage("Connection property 'user' is required");
-    }
-
-    @Test
     public void testNullConnectProperties()
             throws Exception
     {
-        Driver driver = DriverManager.getDriver("jdbc:trino:");
+        DriverManager.getDriver("jdbc:trino:").connect(jdbcUrl(), null);
+    }
 
-        assertThatThrownBy(() -> driver.connect(jdbcUrl(), null))
+    @Test
+    public void testPropertyAllowed()
+            throws Exception
+    {
+        assertThatThrownBy(() -> DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("KerberosPrincipal", "test")
+                        .buildOrThrow())))
                 .isInstanceOf(SQLException.class)
-                .hasMessage("Connection property 'user' is required");
+                .hasMessage("Connection property 'KerberosPrincipal' is not allowed");
+
+        assertThat(DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("KerberosRemoteServiceName", "example.com")
+                        .put("KerberosPrincipal", "test")
+                        .put("SSL", "true")
+                        .buildOrThrow())))
+                .isNotNull();
+
+        assertThatThrownBy(() -> DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("SSLVerification", "NONE")
+                        .buildOrThrow())))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property 'SSLVerification' is not allowed");
+
+        assertThat(DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("SSL", "true")
+                        .put("SSLVerification", "NONE")
+                        .buildOrThrow())))
+                .isNotNull();
+
+        assertThat(DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("SSL", "true")
+                        .put("SSLVerification", "NONE")
+                        .put("assumeLiteralNamesInMetadataCallsForNonConformingClients", "true")
+                        .buildOrThrow())))
+                .isNotNull();
+
+        assertThat(DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("SSL", "true")
+                        .put("SSLVerification", "NONE")
+                        .put("assumeLiteralUnderscoreInMetadataCallsForNonConformingClients", "true")
+                        .buildOrThrow())))
+                .isNotNull();
     }
 
     @Test
@@ -745,15 +844,25 @@ public class TestTrinoDriver
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate("SET ROLE ALL");
             }
-            assertEquals(connection.getRoles(), ImmutableMap.of(TEST_CATALOG, new ClientSelectedRole(ClientSelectedRole.Type.ALL, Optional.empty())));
+            assertEquals(connection.getRoles(), ImmutableMap.of("system", new ClientSelectedRole(ClientSelectedRole.Type.ALL, Optional.empty())));
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate("SET ROLE NONE");
             }
-            assertEquals(connection.getRoles(), ImmutableMap.of(TEST_CATALOG, new ClientSelectedRole(ClientSelectedRole.Type.NONE, Optional.empty())));
+            assertEquals(connection.getRoles(), ImmutableMap.of("system", new ClientSelectedRole(ClientSelectedRole.Type.NONE, Optional.empty())));
+
             try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("SET ROLE bar");
+                // There is no way to create system roles right now
+                assertThatThrownBy(() -> statement.executeUpdate("SET ROLE bar"))
+                        .hasMessageMatching(".* Role 'bar' does not exist");
+
+                // Only hive connector supports roles
+                assertThatThrownBy(() -> statement.executeUpdate("SET ROLE ALL IN " + TEST_CATALOG))
+                        .hasMessageMatching(".* Catalog '.*' does not support role management");
+                assertThatThrownBy(() -> statement.executeUpdate("SET ROLE NONE IN " + TEST_CATALOG))
+                        .hasMessageMatching(".* Catalog '.*' does not support role management");
+                assertThatThrownBy(() -> statement.executeUpdate("SET ROLE bar IN " + TEST_CATALOG))
+                        .hasMessageMatching(".* Catalog '.*' does not support role management");
             }
-            assertEquals(connection.getRoles(), ImmutableMap.of(TEST_CATALOG, new ClientSelectedRole(ClientSelectedRole.Type.ROLE, Optional.of("bar"))));
         }
     }
 
@@ -797,7 +906,7 @@ public class TestTrinoDriver
         assertTrue(queryFinished.await(10, SECONDS));
         assertThat(queryFailure.get())
                 .isInstanceOf(SQLException.class)
-                .hasMessage("ResultSet thread was interrupted");
+                .hasMessage("Interrupted");
         assertEquals(getQueryState(queryId.get()), FAILED);
     }
 
@@ -1026,5 +1135,12 @@ public class TestTrinoDriver
     {
         String url = format("jdbc:trino://%s/%s/%s", server.getAddress(), catalog, schema);
         return DriverManager.getConnection(url, "test", null);
+    }
+
+    private static Properties toProperties(Map<String, String> map)
+    {
+        Properties properties = new Properties();
+        map.forEach(properties::setProperty);
+        return properties;
     }
 }

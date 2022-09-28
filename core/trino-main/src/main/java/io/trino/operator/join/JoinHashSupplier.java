@@ -15,6 +15,8 @@ package io.trino.operator.join;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.operator.HashArraySizeSupplier;
+import io.trino.operator.IncrementalLoadFactorHashArraySizeSupplier;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -23,6 +25,7 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -32,6 +35,12 @@ import static java.util.Objects.requireNonNull;
 public class JoinHashSupplier
         implements LookupSourceSupplier
 {
+    /**
+     * This value is purposefully identical to that of IncrementalLoadFactorHashArraySizeSupplier#THRESHOLD_50,
+     * as higher load factor means more excessive memory consumption
+     */
+    private static final int JOIN_POSITIONS_ARRAY_CUTOFF = IncrementalLoadFactorHashArraySizeSupplier.THRESHOLD_50;
+
     private final Session session;
     private final PagesHash pagesHash;
     private final LongArrayList addresses;
@@ -47,7 +56,9 @@ public class JoinHashSupplier
             List<List<Block>> channels,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<Integer> sortChannel,
-            List<JoinFilterFunctionFactory> searchFunctionFactories)
+            List<JoinFilterFunctionFactory> searchFunctionFactories,
+            HashArraySizeSupplier hashArraySizeSupplier,
+            OptionalInt singleBigintJoinChannel)
     {
         this.session = requireNonNull(session, "session is null");
         this.addresses = requireNonNull(addresses, "addresses is null");
@@ -69,7 +80,12 @@ public class JoinHashSupplier
         }
 
         this.pages = channelsToPages(channels);
-        this.pagesHash = new PagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder);
+        if (singleBigintJoinChannel.isPresent() && addresses.size() <= JOIN_POSITIONS_ARRAY_CUTOFF) {
+            this.pagesHash = new BigintPagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder, hashArraySizeSupplier, pages, singleBigintJoinChannel.getAsInt());
+        }
+        else {
+            this.pagesHash = new DefaultPagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder, hashArraySizeSupplier);
+        }
         this.positionLinks = positionLinksFactoryBuilder.isEmpty() ? Optional.empty() : Optional.of(positionLinksFactoryBuilder.build());
     }
 

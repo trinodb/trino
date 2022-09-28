@@ -13,18 +13,62 @@
  */
 package io.trino.plugin.password.ldap;
 
+import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.base.ldap.LdapClient;
+import io.trino.plugin.base.ldap.LdapQuery;
+
+import javax.inject.Inject;
+import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
 
 import java.util.Set;
 
-public interface LdapAuthenticatorClient
+import static java.util.Objects.requireNonNull;
+
+public class LdapAuthenticatorClient
 {
-    void validatePassword(String userDistinguishedName, String password)
-            throws NamingException;
+    private final LdapClient ldapClient;
 
-    boolean isGroupMember(String searchBase, String groupSearch, String contextUserDistinguishedName, String contextPassword)
-            throws NamingException;
+    @Inject
+    public LdapAuthenticatorClient(LdapClient ldapClient)
+    {
+        this.ldapClient = requireNonNull(ldapClient, "ldapClient is null");
+    }
 
-    Set<String> lookupUserDistinguishedNames(String searchBase, String searchFilter, String contextUserDistinguishedName, String contextPassword)
-            throws NamingException;
+    public void validatePassword(String userDistinguishedName, String password)
+            throws NamingException
+    {
+        ldapClient.processLdapContext(userDistinguishedName, password, context -> null);
+    }
+
+    public boolean isGroupMember(String searchBase, String groupSearch, String contextUserDistinguishedName, String contextPassword)
+            throws NamingException
+    {
+        return ldapClient.executeLdapQuery(
+                contextUserDistinguishedName,
+                contextPassword,
+                new LdapQuery.LdapQueryBuilder()
+                        .withSearchBase(searchBase)
+                        .withSearchFilter(groupSearch).build(),
+                NamingEnumeration::hasMore);
+    }
+
+    public Set<String> lookupUserDistinguishedNames(String searchBase, String searchFilter, String contextUserDistinguishedName, String contextPassword)
+            throws NamingException
+    {
+        return ldapClient.executeLdapQuery(
+                contextUserDistinguishedName,
+                contextPassword,
+                new LdapQuery.LdapQueryBuilder()
+                        .withSearchBase(searchBase)
+                        .withSearchFilter(searchFilter)
+                        .build(),
+                searchResults -> {
+                    ImmutableSet.Builder<String> distinguishedNames = ImmutableSet.builder();
+                    while (searchResults.hasMore()) {
+                        distinguishedNames.add(searchResults.next().getNameInNamespace());
+                    }
+                    return distinguishedNames.build();
+                });
+    }
 }

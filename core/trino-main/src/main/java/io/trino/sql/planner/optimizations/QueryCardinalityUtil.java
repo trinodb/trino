@@ -183,9 +183,7 @@ public final class QueryCardinalityUtil
             if (sourceCardinalityRange.hasUpperBound()) {
                 return Range.closed(lower, max(sourceCardinalityRange.upperEndpoint() - node.getCount(), 0L));
             }
-            else {
-                return Range.atLeast(lower);
-            }
+            return Range.atLeast(lower);
         }
 
         @Override
@@ -197,9 +195,7 @@ public final class QueryCardinalityUtil
                 if (sourceCardinalityRange.hasUpperBound()) {
                     return Range.closed(lower, sourceCardinalityRange.upperEndpoint());
                 }
-                else {
-                    return Range.atLeast(lower);
-                }
+                return Range.atLeast(lower);
             }
 
             return applyLimit(node.getSource(), node.getCount());

@@ -29,12 +29,12 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.HIVE_PARTITIONING;
 import static io.trino.tests.product.TestGroups.SMOKE;
-import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
-import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.hive.util.TableLocationUtils.getTablePath;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -78,8 +78,8 @@ public class TestHivePartitionProcedures
         createPartitionedTable(FIRST_TABLE);
         createView(VIEW_TABLE, FIRST_TABLE);
 
-        QueryAssert.assertThat(() -> dropPartition(VIEW_TABLE, "col", "a"))
-                .failsWithMessage("Table is a view: default." + VIEW_TABLE);
+        QueryAssert.assertQueryFailure(() -> dropPartition(VIEW_TABLE, "col", "a"))
+                .hasMessageContaining("Table is a view: default." + VIEW_TABLE);
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
@@ -88,8 +88,8 @@ public class TestHivePartitionProcedures
     {
         createPartitionedTable(FIRST_TABLE);
 
-        QueryAssert.assertThat(() -> dropPartition("missing_table", "col", "f"))
-                .failsWithMessage("Table 'default.missing_table' not found");
+        QueryAssert.assertQueryFailure(() -> dropPartition("missing_table", "col", "f"))
+                .hasMessageContaining("Table 'default.missing_table' not found");
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
@@ -98,8 +98,8 @@ public class TestHivePartitionProcedures
     {
         createUnpartitionedTable(SECOND_TABLE);
 
-        QueryAssert.assertThat(() -> dropPartition(SECOND_TABLE, "col", "a"))
-                .failsWithMessage("Table is not partitioned: default." + SECOND_TABLE);
+        QueryAssert.assertQueryFailure(() -> dropPartition(SECOND_TABLE, "col", "a"))
+                .hasMessageContaining("Table is not partitioned: default." + SECOND_TABLE);
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
@@ -108,8 +108,8 @@ public class TestHivePartitionProcedures
     {
         createPartitionedTable(FIRST_TABLE);
 
-        QueryAssert.assertThat(() -> dropPartition(FIRST_TABLE, "not_existing_partition_col", "a"))
-                .failsWithMessage("Provided partition column names do not match actual partition column names: [col]");
+        QueryAssert.assertQueryFailure(() -> dropPartition(FIRST_TABLE, "not_existing_partition_col", "a"))
+                .hasMessageContaining("Provided partition column names do not match actual partition column names: [col]");
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
@@ -118,16 +118,16 @@ public class TestHivePartitionProcedures
     {
         createPartitionedTable(FIRST_TABLE);
 
-        QueryAssert.assertThat(() -> dropPartition(FIRST_TABLE, "col", "f"))
-                .failsWithMessage("Partition 'col=f' does not exist");
+        QueryAssert.assertQueryFailure(() -> dropPartition(FIRST_TABLE, "col", "f"))
+                .hasMessageContaining("Partition 'col=f' does not exist");
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testRegisterPartitionMissingTableShouldFail()
     {
-        QueryAssert.assertThat(() -> addPartition("missing_table", "col", "f", "/"))
-                .failsWithMessage("Table 'default.missing_table' not found");
+        QueryAssert.assertQueryFailure(() -> addPartition("missing_table", "col", "f", "/"))
+                .hasMessageContaining("Table 'default.missing_table' not found");
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
@@ -136,8 +136,8 @@ public class TestHivePartitionProcedures
     {
         createUnpartitionedTable(SECOND_TABLE);
 
-        QueryAssert.assertThat(() -> addPartition(SECOND_TABLE, "col", "a", "/"))
-                .failsWithMessage("Table is not partitioned: default." + SECOND_TABLE);
+        QueryAssert.assertQueryFailure(() -> addPartition(SECOND_TABLE, "col", "a", "/"))
+                .hasMessageContaining("Table is not partitioned: default." + SECOND_TABLE);
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
@@ -147,8 +147,8 @@ public class TestHivePartitionProcedures
         createPartitionedTable(FIRST_TABLE);
         createView(VIEW_TABLE, FIRST_TABLE);
 
-        QueryAssert.assertThat(() -> addPartition(VIEW_TABLE, "col", "a", "/"))
-                .failsWithMessage("Table is a view: default." + VIEW_TABLE);
+        QueryAssert.assertQueryFailure(() -> addPartition(VIEW_TABLE, "col", "a", "/"))
+                .hasMessageContaining("Table is a view: default." + VIEW_TABLE);
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
@@ -157,8 +157,8 @@ public class TestHivePartitionProcedures
     {
         createPartitionedTable(FIRST_TABLE);
 
-        QueryAssert.assertThat(() -> addPartition(FIRST_TABLE, "col", "a", "/"))
-                .failsWithMessage("Partition [col=a] is already registered");
+        QueryAssert.assertQueryFailure(() -> addPartition(FIRST_TABLE, "col", "a", "/"))
+                .hasMessageContaining("Partition [col=a] is already registered");
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
@@ -167,8 +167,8 @@ public class TestHivePartitionProcedures
     {
         createPartitionedTable(FIRST_TABLE);
 
-        QueryAssert.assertThat(() -> addPartition(FIRST_TABLE, "not_existing_partition_col", "a", "/"))
-                .failsWithMessage("Provided partition column names do not match actual partition column names: [col]");
+        QueryAssert.assertQueryFailure(() -> addPartition(FIRST_TABLE, "not_existing_partition_col", "a", "/"))
+                .hasMessageContaining("Provided partition column names do not match actual partition column names: [col]");
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
@@ -177,8 +177,8 @@ public class TestHivePartitionProcedures
     {
         createPartitionedTable(FIRST_TABLE);
 
-        QueryAssert.assertThat(() -> addPartition(FIRST_TABLE, "col", "f", "/some/non/existing/path"))
-                .failsWithMessage("Partition location does not exist: /some/non/existing/path");
+        QueryAssert.assertQueryFailure(() -> addPartition(FIRST_TABLE, "col", "f", "/some/non/existing/path"))
+                .hasMessageContaining("Partition location does not exist: /some/non/existing/path");
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
@@ -209,7 +209,7 @@ public class TestHivePartitionProcedures
 
         assertThat(getPartitionValues(FIRST_TABLE)).containsOnly("a", "b", "c");
 
-        query(format("INSERT INTO %s (val, col) VALUES (10, 'f')", SECOND_TABLE));
+        onTrino().executeQuery(format("INSERT INTO %s (val, col) VALUES (10, 'f')", SECOND_TABLE));
         assertThat(getPartitionValues(SECOND_TABLE)).containsOnly("a", "b", "c", "f");
 
         // Move partition f from SECOND_TABLE to FIRST_TABLE
@@ -241,7 +241,7 @@ public class TestHivePartitionProcedures
 
     private QueryResult dropPartition(String tableName, String partitionCol, String partition)
     {
-        return query(format("CALL system.unregister_partition(\n" +
+        return onTrino().executeQuery(format("CALL system.unregister_partition(\n" +
                         "    schema_name => '%s',\n" +
                         "    table_name => '%s',\n" +
                         "    partition_columns => ARRAY['%s'],\n" +
@@ -251,7 +251,7 @@ public class TestHivePartitionProcedures
 
     private QueryResult addPartition(String tableName, String partitionCol, String partition, String location)
     {
-        return query(format("CALL system.register_partition(\n" +
+        return onTrino().executeQuery(format("CALL system.register_partition(\n" +
                         "    schema_name => '%s',\n" +
                         "    table_name => '%s',\n" +
                         "    partition_columns => ARRAY['%s'],\n" +
@@ -262,7 +262,7 @@ public class TestHivePartitionProcedures
 
     private QueryResult addPartition(String tableName, String partitionCol, String partition)
     {
-        return query(format("CALL system.register_partition(\n" +
+        return onTrino().executeQuery(format("CALL system.register_partition(\n" +
                         "    schema_name => '%s',\n" +
                         "    table_name => '%s',\n" +
                         "    partition_columns => ARRAY['%s'],\n" +
@@ -279,40 +279,40 @@ public class TestHivePartitionProcedures
 
     private static void createPartitionedTable(String tableName)
     {
-        query("DROP TABLE IF EXISTS " + tableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
 
-        query("CREATE TABLE " + tableName + " (val int, col varchar) WITH (format = 'TEXTFILE', partitioned_by = ARRAY['col'])");
-        query("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')");
+        onTrino().executeQuery("CREATE TABLE " + tableName + " (val int, col varchar) WITH (format = 'TEXTFILE', partitioned_by = ARRAY['col'])");
+        onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')");
     }
 
     private static void createView(String viewName, String tableName)
     {
-        query("DROP VIEW IF EXISTS " + viewName);
-        query(format("CREATE VIEW %s AS SELECT val, col FROM %s", viewName, tableName));
+        onTrino().executeQuery("DROP VIEW IF EXISTS " + viewName);
+        onTrino().executeQuery(format("CREATE VIEW %s AS SELECT val, col FROM %s", viewName, tableName));
     }
 
     private static void createUnpartitionedTable(String tableName)
     {
-        query("DROP TABLE IF EXISTS " + tableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
 
-        query("CREATE TABLE " + tableName + " (val int, col varchar) WITH (format = 'TEXTFILE')");
-        query("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')");
+        onTrino().executeQuery("CREATE TABLE " + tableName + " (val int, col varchar) WITH (format = 'TEXTFILE')");
+        onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')");
     }
 
     private Long getTableCount(String tableName)
     {
-        QueryResult countResult = query("SELECT count(*) FROM " + tableName);
+        QueryResult countResult = onTrino().executeQuery("SELECT count(*) FROM " + tableName);
         return (Long) countResult.row(0).get(0);
     }
 
     private Set<String> getPartitionValues(String tableName)
     {
-        return query("SELECT col FROM " + tableName).rows().stream().map(row -> row.get(0)).map(String.class::cast).collect(Collectors.toSet());
+        return onTrino().executeQuery("SELECT col FROM " + tableName).rows().stream().map(row -> row.get(0)).map(String.class::cast).collect(Collectors.toSet());
     }
 
     private Set<Integer> getValues(String tableName)
     {
-        return query("SELECT val FROM " + tableName).column(1).stream()
+        return onTrino().executeQuery("SELECT val FROM " + tableName).column(1).stream()
                 .map(Integer.class::cast)
                 .collect(toImmutableSet());
     }

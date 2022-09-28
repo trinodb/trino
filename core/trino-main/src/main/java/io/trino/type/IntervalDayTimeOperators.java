@@ -103,7 +103,7 @@ public final class IntervalDayTimeOperators
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice castToSlice(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
+    public static Slice castToVarchar(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
     {
         return utf8Slice(formatMillis(value));
     }

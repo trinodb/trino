@@ -13,9 +13,9 @@
  */
 package io.trino.type;
 
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.trino.collect.cache.NonKeyEvictableCache;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.function.InvocationConvention;
@@ -29,17 +29,20 @@ import javax.inject.Inject;
 import java.lang.invoke.MethodHandle;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.type.SingleAccessMethodCompiler.compileSingleAccessMethod;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.type.TypeUtils.NULL_HASH_CODE;
+import static io.trino.util.SingleAccessMethodCompiler.compileSingleAccessMethod;
 import static java.util.Objects.requireNonNull;
 
 public final class BlockTypeOperators
@@ -52,7 +55,7 @@ public final class BlockTypeOperators
     private static final InvocationConvention ORDERING_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
     private static final InvocationConvention LESS_THAN_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
 
-    private final Cache<GeneratedBlockOperatorKey<?>, GeneratedBlockOperator<?>> generatedBlockOperatorCache;
+    private final NonKeyEvictableCache<GeneratedBlockOperatorKey<?>, GeneratedBlockOperator<?>> generatedBlockOperatorCache;
     private final TypeOperators typeOperators;
 
     public BlockTypeOperators()
@@ -64,10 +67,10 @@ public final class BlockTypeOperators
     public BlockTypeOperators(TypeOperators typeOperators)
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
-        this.generatedBlockOperatorCache = CacheBuilder.newBuilder()
-                .maximumSize(10_000)
-                .expireAfterWrite(2, TimeUnit.HOURS)
-                .build();
+        this.generatedBlockOperatorCache = buildNonEvictableCacheWithWeakInvalidateAll(
+                CacheBuilder.newBuilder()
+                        .maximumSize(10_000)
+                        .expireAfterWrite(2, TimeUnit.HOURS));
     }
 
     public BlockPositionEqual getEqualOperator(Type type)
@@ -128,45 +131,19 @@ public final class BlockTypeOperators
         boolean isDistinctFrom(Block left, int leftPosition, Block right, int rightPosition);
     }
 
-    public BlockPositionComparison getComparisonOperator(Type type)
+    public BlockPositionComparison getComparisonUnorderedLastOperator(Type type)
     {
-        return getBlockOperator(type, BlockPositionComparison.class, () -> typeOperators.getComparisonOperator(type, COMPARISON_CONVENTION));
+        return getBlockOperator(type, BlockPositionComparison.class, () -> typeOperators.getComparisonUnorderedLastOperator(type, COMPARISON_CONVENTION), Optional.of(COMPARISON_UNORDERED_LAST));
+    }
+
+    public BlockPositionComparison getComparisonUnorderedFirstOperator(Type type)
+    {
+        return getBlockOperator(type, BlockPositionComparison.class, () -> typeOperators.getComparisonUnorderedFirstOperator(type, COMPARISON_CONVENTION), Optional.of(COMPARISON_UNORDERED_FIRST));
     }
 
     public interface BlockPositionComparison
     {
         long compare(Block left, int leftPosition, Block right, int rightPosition);
-
-        default BlockPositionComparison reversed()
-        {
-            return ReversedBlockPositionComparison.createReversedBlockPositionComparison(this);
-        }
-    }
-
-    private static class ReversedBlockPositionComparison
-            implements BlockPositionComparison
-    {
-        private final BlockPositionComparison comparison;
-
-        static BlockPositionComparison createReversedBlockPositionComparison(BlockPositionComparison comparison)
-        {
-            if (comparison instanceof ReversedBlockPositionComparison) {
-                return ((ReversedBlockPositionComparison) comparison).comparison;
-            }
-            return new ReversedBlockPositionComparison(comparison);
-        }
-
-        private ReversedBlockPositionComparison(BlockPositionComparison comparison)
-        {
-            this.comparison = comparison;
-        }
-
-        @Override
-        public long compare(Block leftBlock, int leftIndex, Block rightBlock, int rightIndex)
-        {
-            // TODO generate this so it becomes mono monomorphic
-            return comparison.compare(rightBlock, rightIndex, leftBlock, leftIndex);
-        }
     }
 
     public BlockPositionOrdering generateBlockPositionOrdering(Type type, SortOrder sortOrder)
@@ -198,12 +175,13 @@ public final class BlockTypeOperators
     {
         try {
             @SuppressWarnings("unchecked")
-            GeneratedBlockOperator<T> generatedBlockOperator = (GeneratedBlockOperator<T>) generatedBlockOperatorCache.get(
+            GeneratedBlockOperator<T> generatedBlockOperator = (GeneratedBlockOperator<T>) uncheckedCacheGet(
+                    generatedBlockOperatorCache,
                     new GeneratedBlockOperatorKey<>(type, operatorInterface, additionalKey),
                     () -> new GeneratedBlockOperator<>(type, operatorInterface, methodHandleSupplier.get()));
             return generatedBlockOperator.get();
         }
-        catch (ExecutionException | UncheckedExecutionException e) {
+        catch (UncheckedExecutionException e) {
             throwIfUnchecked(e.getCause());
             throw new RuntimeException(e.getCause());
         }
@@ -308,6 +286,8 @@ public final class BlockTypeOperators
     @Managed
     public void cacheReset()
     {
+        // Note: this may not invalidate ongoing loads (https://github.com/trinodb/trino/issues/10512, https://github.com/google/guava/issues/1881)
+        // This is acceptable, since this operation is invoked manually, and not relied upon for correctness.
         generatedBlockOperatorCache.invalidateAll();
     }
 }

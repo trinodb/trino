@@ -14,7 +14,6 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.base.Suppliers;
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
@@ -23,11 +22,13 @@ import com.google.common.collect.ImmutableSetMultimap;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.collect.cache.NonEvictableCache;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.NodeTaskMap;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.spi.HostAddress;
+import io.trino.spi.SplitWeight;
 
 import javax.inject.Inject;
 
@@ -43,6 +44,8 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
+import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
 
@@ -51,16 +54,16 @@ public class TopologyAwareNodeSelectorFactory
 {
     private static final Logger LOG = Logger.get(TopologyAwareNodeSelectorFactory.class);
 
-    private final Cache<InternalNode, Boolean> inaccessibleNodeLogCache = CacheBuilder.newBuilder()
-            .expireAfterWrite(30, TimeUnit.SECONDS)
-            .build();
+    private final NonEvictableCache<InternalNode, Object> inaccessibleNodeLogCache = buildNonEvictableCache(
+            CacheBuilder.newBuilder()
+                    .expireAfterWrite(30, TimeUnit.SECONDS));
 
     private final NetworkTopology networkTopology;
     private final InternalNodeManager nodeManager;
     private final int minCandidates;
     private final boolean includeCoordinator;
-    private final int maxSplitsPerNode;
-    private final int maxPendingSplitsPerTask;
+    private final long maxSplitsWeightPerNode;
+    private final long maxPendingSplitsWeightPerTask;
     private final NodeTaskMap nodeTaskMap;
 
     private final List<CounterStat> placementCounters;
@@ -76,18 +79,18 @@ public class TopologyAwareNodeSelectorFactory
     {
         requireNonNull(networkTopology, "networkTopology is null");
         requireNonNull(nodeManager, "nodeManager is null");
-        requireNonNull(schedulerConfig, "schedulerConfig is null");
         requireNonNull(nodeTaskMap, "nodeTaskMap is null");
-        requireNonNull(topologyConfig, "topologyConfig is null");
 
         this.networkTopology = networkTopology;
         this.nodeManager = nodeManager;
         this.minCandidates = schedulerConfig.getMinCandidates();
         this.includeCoordinator = schedulerConfig.isIncludeCoordinator();
-        this.maxSplitsPerNode = schedulerConfig.getMaxSplitsPerNode();
-        this.maxPendingSplitsPerTask = schedulerConfig.getMaxPendingSplitsPerTask();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
+        int maxSplitsPerNode = schedulerConfig.getMaxSplitsPerNode();
+        int maxPendingSplitsPerTask = schedulerConfig.getMaxPendingSplitsPerTask();
         checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
+        this.maxSplitsWeightPerNode = SplitWeight.rawValueForStandardSplitCount(maxSplitsPerNode);
+        this.maxPendingSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(maxPendingSplitsPerTask);
 
         Builder<CounterStat> placementCounters = ImmutableList.builder();
         ImmutableMap.Builder<String, CounterStat> placementCountersByName = ImmutableMap.builder();
@@ -104,7 +107,7 @@ public class TopologyAwareNodeSelectorFactory
         }
 
         this.placementCounters = placementCounters.build();
-        this.placementCountersByName = placementCountersByName.build();
+        this.placementCountersByName = placementCountersByName.buildOrThrow();
     }
 
     public Map<String, CounterStat> getPlacementCountersByName()
@@ -113,14 +116,14 @@ public class TopologyAwareNodeSelectorFactory
     }
 
     @Override
-    public NodeSelector createNodeSelector(Session session, Optional<CatalogName> catalogName)
+    public NodeSelector createNodeSelector(Session session, Optional<CatalogHandle> catalogHandle)
     {
-        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(catalogHandle, "catalogHandle is null");
 
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the split is about to be scheduled
         Supplier<NodeMap> nodeMap = Suppliers.memoizeWithExpiration(
-                () -> createNodeMap(catalogName),
+                () -> createNodeMap(catalogHandle),
                 5, TimeUnit.SECONDS);
 
         return new TopologyAwareNodeSelector(
@@ -129,17 +132,17 @@ public class TopologyAwareNodeSelectorFactory
                 includeCoordinator,
                 nodeMap,
                 minCandidates,
-                maxSplitsPerNode,
-                maxPendingSplitsPerTask,
+                maxSplitsWeightPerNode,
+                maxPendingSplitsWeightPerTask,
                 getMaxUnacknowledgedSplitsPerTask(session),
                 placementCounters,
                 networkTopology);
     }
 
-    private NodeMap createNodeMap(Optional<CatalogName> catalogName)
+    private NodeMap createNodeMap(Optional<CatalogHandle> catalogHandle)
     {
-        Set<InternalNode> nodes = catalogName
-                .map(nodeManager::getActiveConnectorNodes)
+        Set<InternalNode> nodes = catalogHandle
+                .map(nodeManager::getActiveCatalogNodes)
                 .orElseGet(() -> nodeManager.getNodes(ACTIVE));
 
         Set<String> coordinatorNodeIds = nodeManager.getCoordinators().stream()
@@ -158,18 +161,24 @@ public class TopologyAwareNodeSelectorFactory
             }
             try {
                 byHostAndPort.put(node.getHostAndPort(), node);
-
-                InetAddress host = InetAddress.getByName(node.getInternalUri().getHost());
-                byHost.put(host, node);
+                byHost.put(node.getInternalAddress(), node);
             }
             catch (UnknownHostException e) {
-                if (inaccessibleNodeLogCache.getIfPresent(node) == null) {
-                    inaccessibleNodeLogCache.put(node, true);
+                if (markInaccessibleNode(node)) {
                     LOG.warn(e, "Unable to resolve host name for node: %s", node);
                 }
             }
         }
 
         return new NodeMap(byHostAndPort.build(), byHost.build(), workersByNetworkPath.build(), coordinatorNodeIds);
+    }
+
+    /**
+     * Returns true if node has been marked as inaccessible, or false if it was known to be inaccessible.
+     */
+    private boolean markInaccessibleNode(InternalNode node)
+    {
+        Object marker = new Object();
+        return uncheckedCacheGet(inaccessibleNodeLogCache, node, () -> marker) == marker;
     }
 }

@@ -55,49 +55,44 @@ public class ReplaceRedundantJoinWithProject
         boolean leftSourceEmpty = isAtMost(node.getLeft(), context.getLookup(), 0);
         boolean rightSourceEmpty = isAtMost(node.getRight(), context.getLookup(), 0);
 
-        switch (node.getType()) {
-            case INNER:
-                return Result.empty();
-            case LEFT:
+        return switch (node.getType()) {
+            case INNER -> Result.empty();
+            case LEFT -> !leftSourceEmpty && rightSourceEmpty ?
+                    Result.ofPlanNode(appendNulls(
+                            node.getLeft(),
+                            node.getLeftOutputSymbols(),
+                            node.getRightOutputSymbols(),
+                            context.getIdAllocator(),
+                            context.getSymbolAllocator())) :
+                    Result.empty();
+            case RIGHT -> leftSourceEmpty && !rightSourceEmpty ?
+                    Result.ofPlanNode(appendNulls(
+                            node.getRight(),
+                            node.getRightOutputSymbols(),
+                            node.getLeftOutputSymbols(),
+                            context.getIdAllocator(),
+                            context.getSymbolAllocator())) :
+                    Result.empty();
+            case FULL -> {
+                if (leftSourceEmpty && !rightSourceEmpty) {
+                    yield Result.ofPlanNode(appendNulls(
+                            node.getRight(),
+                            node.getRightOutputSymbols(),
+                            node.getLeftOutputSymbols(),
+                            context.getIdAllocator(),
+                            context.getSymbolAllocator()));
+                }
                 if (!leftSourceEmpty && rightSourceEmpty) {
-                    return Result.ofPlanNode(appendNulls(
+                    yield Result.ofPlanNode(appendNulls(
                             node.getLeft(),
                             node.getLeftOutputSymbols(),
                             node.getRightOutputSymbols(),
                             context.getIdAllocator(),
                             context.getSymbolAllocator()));
                 }
-                break;
-            case RIGHT:
-                if (leftSourceEmpty && !rightSourceEmpty) {
-                    return Result.ofPlanNode(appendNulls(
-                            node.getRight(),
-                            node.getRightOutputSymbols(),
-                            node.getLeftOutputSymbols(),
-                            context.getIdAllocator(),
-                            context.getSymbolAllocator()));
-                }
-                break;
-            case FULL:
-                if (leftSourceEmpty && !rightSourceEmpty) {
-                    return Result.ofPlanNode(appendNulls(
-                            node.getRight(),
-                            node.getRightOutputSymbols(),
-                            node.getLeftOutputSymbols(),
-                            context.getIdAllocator(),
-                            context.getSymbolAllocator()));
-                }
-                else if (!leftSourceEmpty && rightSourceEmpty) {
-                    return Result.ofPlanNode(appendNulls(
-                            node.getLeft(),
-                            node.getLeftOutputSymbols(),
-                            node.getRightOutputSymbols(),
-                            context.getIdAllocator(),
-                            context.getSymbolAllocator()));
-                }
-        }
-
-        return Result.empty();
+                yield Result.empty();
+            }
+        };
     }
 
     private static ProjectNode appendNulls(PlanNode source, List<Symbol> sourceOutputs, List<Symbol> nullSymbols, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)

@@ -22,6 +22,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
@@ -35,11 +36,13 @@ public class ElasticsearchPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final ElasticsearchClient client;
+    private final TypeManager typeManager;
 
     @Inject
-    public ElasticsearchPageSourceProvider(ElasticsearchClient client)
+    public ElasticsearchPageSourceProvider(ElasticsearchClient client, TypeManager typeManager)
     {
         this.client = requireNonNull(client, "client is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -67,6 +70,7 @@ public class ElasticsearchPageSourceProvider
 
         return new ScanQueryPageSource(
                 client,
+                typeManager,
                 elasticsearchTable,
                 elasticsearchSplit,
                 columns.stream()

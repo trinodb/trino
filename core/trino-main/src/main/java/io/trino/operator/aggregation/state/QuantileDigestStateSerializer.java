@@ -20,14 +20,16 @@ import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.QuantileDigestType;
 import io.trino.spi.type.Type;
 
+import static io.trino.spi.type.BigintType.BIGINT;
+
 public class QuantileDigestStateSerializer
         implements AccumulatorStateSerializer<QuantileDigestState>
 {
     private final QuantileDigestType type;
 
-    public QuantileDigestStateSerializer(Type elementType)
+    public QuantileDigestStateSerializer()
     {
-        this.type = new QuantileDigestType(elementType);
+        this.type = new QuantileDigestType(BIGINT);
     }
 
     @Override

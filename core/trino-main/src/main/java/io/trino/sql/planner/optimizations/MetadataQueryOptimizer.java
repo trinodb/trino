@@ -19,8 +19,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.cost.TableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.TableProperties;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -28,6 +28,7 @@ import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -65,24 +66,20 @@ public class MetadataQueryOptimizer
 {
     private static final Set<String> ALLOWED_FUNCTIONS = ImmutableSet.of("max", "min", "approx_distinct");
 
-    private final Metadata metadata;
-    private final LiteralEncoder literalEncoder;
+    private final PlannerContext plannerContext;
 
-    public MetadataQueryOptimizer(Metadata metadata)
+    public MetadataQueryOptimizer(PlannerContext plannerContext)
     {
-        requireNonNull(metadata, "metadata is null");
-
-        this.metadata = metadata;
-        this.literalEncoder = new LiteralEncoder(metadata);
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
     {
         if (!SystemSessionProperties.isOptimizeMetadataQueries(session)) {
             return plan;
         }
-        return SimplePlanRewriter.rewriteWith(new Optimizer(session, metadata, literalEncoder, idAllocator), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Optimizer(session, plannerContext, idAllocator), plan, null);
     }
 
     private static class Optimizer
@@ -90,14 +87,14 @@ public class MetadataQueryOptimizer
     {
         private final PlanNodeIdAllocator idAllocator;
         private final Session session;
-        private final Metadata metadata;
+        private final PlannerContext plannerContext;
         private final LiteralEncoder literalEncoder;
 
-        private Optimizer(Session session, Metadata metadata, LiteralEncoder literalEncoder, PlanNodeIdAllocator idAllocator)
+        private Optimizer(Session session, PlannerContext plannerContext, PlanNodeIdAllocator idAllocator)
         {
             this.session = session;
-            this.metadata = metadata;
-            this.literalEncoder = literalEncoder;
+            this.plannerContext = plannerContext;
+            this.literalEncoder = new LiteralEncoder(plannerContext);
             this.idAllocator = idAllocator;
         }
 
@@ -128,18 +125,18 @@ public class MetadataQueryOptimizer
             }
             for (Symbol symbol : inputs) {
                 ColumnHandle column = tableScan.getAssignments().get(symbol);
-                ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableScan.getTable(), column);
+                ColumnMetadata columnMetadata = plannerContext.getMetadata().getColumnMetadata(session, tableScan.getTable(), column);
 
                 typesBuilder.put(symbol, columnMetadata.getType());
                 columnBuilder.put(symbol, column);
             }
 
-            Map<Symbol, ColumnHandle> columns = columnBuilder.build();
-            Map<Symbol, Type> types = typesBuilder.build();
+            Map<Symbol, ColumnHandle> columns = columnBuilder.buildOrThrow();
+            Map<Symbol, Type> types = typesBuilder.buildOrThrow();
 
             // Materialize the list of partitions and replace the TableScan node
             // with a Values node
-            TableProperties layout = metadata.getTableProperties(session, tableScan.getTable());
+            TableProperties layout = plannerContext.getMetadata().getTableProperties(session, tableScan.getTable());
             if (layout.getDiscretePredicates().isEmpty()) {
                 return context.defaultRewrite(node);
             }
@@ -165,9 +162,7 @@ public class MetadataQueryOptimizer
                             // partition key does not have a single value, so bail out to be safe
                             return context.defaultRewrite(node);
                         }
-                        else {
-                            rowBuilder.add(literalEncoder.toExpression(value.getValue(), type));
-                        }
+                        rowBuilder.add(literalEncoder.toExpression(session, value.getValue(), type));
                     }
                     rowsBuilder.add(new Row(rowBuilder.build()));
                 }
@@ -192,7 +187,7 @@ public class MetadataQueryOptimizer
                 else if (source instanceof ProjectNode) {
                     // verify projections are deterministic
                     ProjectNode project = (ProjectNode) source;
-                    if (!Iterables.all(project.getAssignments().getExpressions(), expression -> isDeterministic(expression, metadata))) {
+                    if (!Iterables.all(project.getAssignments().getExpressions(), expression -> isDeterministic(expression, plannerContext.getMetadata()))) {
                         return Optional.empty();
                     }
                     source = project.getSource();

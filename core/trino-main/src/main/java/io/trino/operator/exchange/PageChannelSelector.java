@@ -19,22 +19,30 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
 
 public class PageChannelSelector
         implements Function<Page, Page>
 {
+    // No channels need to be remapped, only ensure that all page blocks are loaded
+    private static final Function<Page, Page> GET_LOADED_PAGE = Page::getLoadedPage;
+
     private final int[] channels;
 
     public PageChannelSelector(int... channels)
     {
-        this.channels = requireNonNull(channels, "channels is null").clone();
+        this.channels = channels.clone();
         checkArgument(IntStream.of(channels).allMatch(channel -> channel >= 0), "channels must be positive");
     }
 
     @Override
     public Page apply(Page page)
     {
-        return requireNonNull(page, "page is null").getColumns(channels);
+        // Ensure the channels that are emitted are fully loaded and in the correct order
+        return page.getLoadedPage(channels);
+    }
+
+    public static Function<Page, Page> identitySelection()
+    {
+        return GET_LOADED_PAGE;
     }
 }

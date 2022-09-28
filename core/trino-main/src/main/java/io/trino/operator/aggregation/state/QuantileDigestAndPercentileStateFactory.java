@@ -31,21 +31,9 @@ public class QuantileDigestAndPercentileStateFactory
     }
 
     @Override
-    public Class<? extends QuantileDigestAndPercentileState> getSingleStateClass()
-    {
-        return SingleQuantileDigestAndPercentileState.class;
-    }
-
-    @Override
     public QuantileDigestAndPercentileState createGroupedState()
     {
         return new GroupedQuantileDigestAndPercentileState();
-    }
-
-    @Override
-    public Class<? extends QuantileDigestAndPercentileState> getGroupedStateClass()
-    {
-        return GroupedQuantileDigestAndPercentileState.class;
     }
 
     public static class GroupedQuantileDigestAndPercentileState

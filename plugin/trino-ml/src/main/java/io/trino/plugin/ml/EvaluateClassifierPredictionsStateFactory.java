@@ -33,21 +33,9 @@ public class EvaluateClassifierPredictionsStateFactory
     }
 
     @Override
-    public Class<? extends EvaluateClassifierPredictionsState> getSingleStateClass()
-    {
-        return SingleEvaluateClassifierPredictionsState.class;
-    }
-
-    @Override
     public EvaluateClassifierPredictionsState createGroupedState()
     {
         return new GroupedEvaluateClassifierPredictionsState();
-    }
-
-    @Override
-    public Class<? extends EvaluateClassifierPredictionsState> getGroupedStateClass()
-    {
-        return GroupedEvaluateClassifierPredictionsState.class;
     }
 
     public static class GroupedEvaluateClassifierPredictionsState

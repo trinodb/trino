@@ -14,7 +14,6 @@
 package io.trino.operator;
 
 import io.trino.Session;
-import io.trino.execution.Lifespan;
 import io.trino.execution.TaskId;
 import io.trino.memory.context.MemoryTrackingContext;
 
@@ -25,7 +24,6 @@ public class ProcessorContext
     private final Session session;
     private final MemoryTrackingContext memoryTrackingContext;
     private final DriverYieldSignal driverYieldSignal;
-    private final Lifespan lifespan;
     private final SpillContext spillContext;
     private final TaskId taskId;
 
@@ -35,7 +33,6 @@ public class ProcessorContext
         this.memoryTrackingContext = requireNonNull(memoryTrackingContext, "memoryTrackingContext is null");
         requireNonNull(operatorContext, "operatorContext is null");
         this.driverYieldSignal = operatorContext.getDriverContext().getYieldSignal();
-        this.lifespan = operatorContext.getDriverContext().getLifespan();
         this.spillContext = operatorContext.getSpillContext();
         this.taskId = operatorContext.getDriverContext().getTaskId();
     }
@@ -53,11 +50,6 @@ public class ProcessorContext
     public DriverYieldSignal getDriverYieldSignal()
     {
         return driverYieldSignal;
-    }
-
-    public Lifespan getLifespan()
-    {
-        return lifespan;
     }
 
     public SpillContext getSpillContext()

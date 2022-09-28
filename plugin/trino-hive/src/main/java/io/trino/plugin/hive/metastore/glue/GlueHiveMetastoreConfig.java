@@ -30,7 +30,7 @@ public class GlueHiveMetastoreConfig
     private Optional<String> glueEndpointUrl = Optional.empty();
     private boolean pinGlueClientToCurrentRegion;
     private int maxGlueErrorRetries = 10;
-    private int maxGlueConnections = 5;
+    private int maxGlueConnections = 30;
     private Optional<String> defaultWarehouseDir = Optional.empty();
     private Optional<String> iamRole = Optional.empty();
     private Optional<String> externalId = Optional.empty();
@@ -40,8 +40,8 @@ public class GlueHiveMetastoreConfig
     private Optional<String> catalogId = Optional.empty();
     private int partitionSegments = 5;
     private int getPartitionThreads = 20;
-    private int readStatisticsThreads = 1;
-    private int writeStatisticsThreads = 1;
+    private int readStatisticsThreads = 5;
+    private int writeStatisticsThreads = 5;
     private boolean assumeCanonicalPartitionKeys;
 
     public Optional<String> getGlueRegion()

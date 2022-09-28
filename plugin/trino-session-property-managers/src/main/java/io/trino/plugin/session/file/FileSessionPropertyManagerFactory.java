@@ -39,7 +39,6 @@ public class FileSessionPropertyManagerFactory
                 new FileSessionPropertyManagerModule());
 
         Injector injector = app
-                .strictConfig()
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(config)
                 .initialize();

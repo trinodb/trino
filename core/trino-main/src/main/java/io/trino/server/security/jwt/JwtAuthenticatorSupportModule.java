@@ -15,11 +15,17 @@ package io.trino.server.security.jwt;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.http.client.HttpClient;
 import io.jsonwebtoken.SigningKeyResolver;
 
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import javax.inject.Singleton;
+
+import java.net.URI;
+
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 
@@ -30,11 +36,11 @@ public class JwtAuthenticatorSupportModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(JwtAuthenticatorConfig.class);
-        install(installModuleIf(
+        install(conditionalModule(
                 JwtAuthenticatorConfig.class,
                 JwtAuthenticatorSupportModule::isHttp,
                 new JwkModule(),
-                jwkBinder -> jwkBinder.bind(SigningKeyResolver.class).to(FileSigningKeyResolver.class).in(Scopes.SINGLETON)));
+                jwkBinder -> jwkBinder.bind(SigningKeyResolver.class).annotatedWith(ForJwt.class).to(FileSigningKeyResolver.class).in(Scopes.SINGLETON)));
     }
 
     private static boolean isHttp(JwtAuthenticatorConfig config)
@@ -48,10 +54,8 @@ public class JwtAuthenticatorSupportModule
         @Override
         public void configure(Binder binder)
         {
-            binder.bind(SigningKeyResolver.class).to(JwkSigningKeyResolver.class).in(Scopes.SINGLETON);
-            binder.bind(JwkService.class).in(Scopes.SINGLETON);
             httpClientBinder(binder)
-                    .bindHttpClient("jwk", ForJwk.class)
+                    .bindHttpClient("jwk", ForJwt.class)
                     // Reset HttpClient default configuration to override InternalCommunicationModule changes.
                     // Setting a keystore and/or a truststore for internal communication changes the default SSL configuration
                     // for all clients in the same guice context. This, however, does not make sense for this client which will
@@ -61,7 +65,24 @@ public class JwtAuthenticatorSupportModule
                             .setKeyStorePath(null)
                             .setKeyStorePassword(null)
                             .setTrustStorePath(null)
-                            .setTrustStorePassword(null));
+                            .setTrustStorePassword(null)
+                            .setAutomaticHttpsSharedSecret(null));
+        }
+
+        @Provides
+        @Singleton
+        @ForJwt
+        public static JwkService createJwkService(JwtAuthenticatorConfig config, @ForJwt HttpClient httpClient)
+        {
+            return new JwkService(URI.create(config.getKeyFile()), httpClient);
+        }
+
+        @Provides
+        @Singleton
+        @ForJwt
+        public static SigningKeyResolver createJwkSigningKeyResolver(@ForJwt JwkService jwkService)
+        {
+            return new JwkSigningKeyResolver(jwkService);
         }
 
         // this module can be added multiple times, and this prevents multiple processing by Guice

@@ -158,9 +158,9 @@ public final class ThriftMetastoreUtil
         org.apache.hadoop.hive.metastore.api.Database result = new org.apache.hadoop.hive.metastore.api.Database();
         result.setName(database.getDatabaseName());
         database.getLocation().ifPresent(result::setLocationUri);
-        result.setOwnerName(database.getOwnerName());
+        result.setOwnerName(database.getOwnerName().orElse(null));
 
-        result.setOwnerType(fromTrinoPrincipalType(database.getOwnerType()));
+        result.setOwnerType(database.getOwnerType().map(ThriftMetastoreUtil::fromTrinoPrincipalType).orElse(null));
         database.getComment().ifPresent(result::setDescription);
         result.setParameters(database.getParameters());
         return result;
@@ -173,12 +173,12 @@ public final class ThriftMetastoreUtil
         return result;
     }
 
-    static org.apache.hadoop.hive.metastore.api.Table toMetastoreApiTable(Table table)
+    public static org.apache.hadoop.hive.metastore.api.Table toMetastoreApiTable(Table table)
     {
         org.apache.hadoop.hive.metastore.api.Table result = new org.apache.hadoop.hive.metastore.api.Table();
         result.setDbName(table.getDatabaseName());
         result.setTableName(table.getTableName());
-        result.setOwner(table.getOwner());
+        result.setOwner(table.getOwner().orElse(null));
         result.setTableType(table.getTableType());
         result.setParameters(table.getParameters());
         result.setPartitionKeys(table.getPartitionColumns().stream().map(ThriftMetastoreUtil::toMetastoreApiFieldSchema).collect(toImmutableList()));
@@ -205,7 +205,7 @@ public final class ThriftMetastoreUtil
                     .collect(toImmutableList()));
         }
 
-        return new PrincipalPrivilegeSet(userPrivileges.build(), ImmutableMap.of(), rolePrivileges.build());
+        return new PrincipalPrivilegeSet(userPrivileges.buildOrThrow(), ImmutableMap.of(), rolePrivileges.buildOrThrow());
     }
 
     public static PrivilegeGrantInfo toMetastoreApiPrivilegeGrantInfo(HivePrivilegeInfo privilegeInfo)
@@ -279,7 +279,7 @@ public final class ThriftMetastoreUtil
             return true;
         }
 
-        if (identity.getRole().isPresent() && identity.getRole().get().getType() == SelectedRole.Type.NONE) {
+        if (identity.getConnectorRole().isPresent() && identity.getConnectorRole().get().getType() == SelectedRole.Type.NONE) {
             return false;
         }
 
@@ -290,7 +290,7 @@ public final class ThriftMetastoreUtil
         }
 
         if (role.equals(ADMIN_ROLE_NAME)) {
-            // The admin role must be enabled explicitly, and so it should checked above
+            // The admin role must be enabled explicitly, and so it should be checked above
             return false;
         }
 
@@ -301,7 +301,7 @@ public final class ThriftMetastoreUtil
 
     public static Stream<String> listEnabledRoles(ConnectorIdentity identity, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants)
     {
-        if (identity.getRole().isPresent() && identity.getRole().get().getType() == SelectedRole.Type.NONE) {
+        if (identity.getConnectorRole().isPresent() && identity.getConnectorRole().get().getType() == SelectedRole.Type.NONE) {
             return Stream.of(PUBLIC_ROLE_NAME);
         }
         HivePrincipal principal = HivePrincipal.from(identity);
@@ -363,8 +363,8 @@ public final class ThriftMetastoreUtil
         return Database.builder()
                 .setDatabaseName(database.getName())
                 .setLocation(Optional.ofNullable(database.getLocationUri()))
-                .setOwnerName(ownerName)
-                .setOwnerType(ownerType)
+                .setOwnerName(Optional.of(ownerName))
+                .setOwnerType(Optional.of(ownerType))
                 .setComment(Optional.ofNullable(database.getDescription()))
                 .setParameters(parameters)
                 .build();
@@ -389,7 +389,7 @@ public final class ThriftMetastoreUtil
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(table.getDbName())
                 .setTableName(table.getTableName())
-                .setOwner(nullToEmpty(table.getOwner()))
+                .setOwner(Optional.ofNullable(table.getOwner()))
                 .setTableType(table.getTableType())
                 .setDataColumns(schema.stream()
                         .map(ThriftMetastoreUtil::fromMetastoreApiFieldSchema)
@@ -417,12 +417,12 @@ public final class ThriftMetastoreUtil
         return serdeInfo.getSerializationLib() != null &&
                 (table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
                         (serdeInfo.getParameters() != null && serdeInfo.getParameters().get(AVRO_SCHEMA_URL_KEY) != null)) &&
-                serdeInfo.getSerializationLib().equals(AVRO.getSerDe());
+                serdeInfo.getSerializationLib().equals(AVRO.getSerde());
     }
 
     public static boolean isCsvTable(org.apache.hadoop.hive.metastore.api.Table table)
     {
-        return CSV.getSerDe().equals(getSerdeInfo(table).getSerializationLib());
+        return CSV.getSerde().equals(getSerdeInfo(table).getSerializationLib());
     }
 
     public static List<FieldSchema> csvSchemaFields(List<FieldSchema> schemas)
@@ -552,9 +552,7 @@ public final class ThriftMetastoreUtil
                     getTotalSizeInBytes(averageColumnLength, rowCount, nullsCount),
                     nullsCount);
         }
-        else {
-            throw new TrinoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
-        }
+        throw new TrinoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
     }
 
     private static Optional<LocalDate> fromMetastoreDate(Date date)
@@ -616,16 +614,13 @@ public final class ThriftMetastoreUtil
             distinctValuesCount--;
         }
 
-        // normalize distinctValuesCount in case there is a non null element
+        // normalize distinctValuesCount in case there is a non-null element
         if (nonNullsCount > 0 && distinctValuesCount == 0) {
             distinctValuesCount = 1;
         }
 
         // the metastore may store an estimate, so the value stored may be higher than the total number of rows
-        if (distinctValuesCount > nonNullsCount) {
-            return nonNullsCount;
-        }
-        return distinctValuesCount;
+        return Math.min(distinctValuesCount, nonNullsCount);
     }
 
     public static Set<RoleGrant> fromRolePrincipalGrants(Collection<RolePrincipalGrant> grants)
@@ -643,13 +638,10 @@ public final class ThriftMetastoreUtil
 
     public static org.apache.hadoop.hive.metastore.api.PrincipalType fromTrinoPrincipalType(PrincipalType principalType)
     {
-        switch (principalType) {
-            case USER:
-                return org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
-            case ROLE:
-                return org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
-        }
-        throw new IllegalArgumentException("Unsupported principal type: " + principalType);
+        return switch (principalType) {
+            case USER -> org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
+            case ROLE -> org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
+        };
     }
 
     public static PrincipalType fromMetastoreApiPrincipalType(org.apache.hadoop.hive.metastore.api.PrincipalType principalType)
@@ -703,7 +695,7 @@ public final class ThriftMetastoreUtil
         serdeInfo.setParameters(storage.getSerdeParameters());
 
         StorageDescriptor sd = new StorageDescriptor();
-        sd.setLocation(emptyToNull(storage.getLocation()));
+        sd.setLocation(emptyToNull(storage.getOptionalLocation().orElse(null)));
         sd.setCols(columns.stream()
                 .map(ThriftMetastoreUtil::toMetastoreApiFieldSchema)
                 .collect(toImmutableList()));
@@ -732,24 +724,17 @@ public final class ThriftMetastoreUtil
         boolean grantOption = userGrant.isGrantOption();
         String name = userGrant.getPrivilege().toUpperCase(ENGLISH);
         HivePrincipal grantor = new HivePrincipal(fromMetastoreApiPrincipalType(userGrant.getGrantorType()), userGrant.getGrantor());
-        switch (name) {
-            case "ALL":
-                return Arrays.stream(HivePrivilegeInfo.HivePrivilege.values())
-                        .map(hivePrivilege -> new HivePrivilegeInfo(hivePrivilege, grantOption, grantor, grantee.orElse(grantor)))
-                        .collect(toImmutableSet());
-            case "SELECT":
-                return ImmutableSet.of(new HivePrivilegeInfo(SELECT, grantOption, grantor, grantee.orElse(grantor)));
-            case "INSERT":
-                return ImmutableSet.of(new HivePrivilegeInfo(INSERT, grantOption, grantor, grantee.orElse(grantor)));
-            case "UPDATE":
-                return ImmutableSet.of(new HivePrivilegeInfo(UPDATE, grantOption, grantor, grantee.orElse(grantor)));
-            case "DELETE":
-                return ImmutableSet.of(new HivePrivilegeInfo(DELETE, grantOption, grantor, grantee.orElse(grantor)));
-            case "OWNERSHIP":
-                return ImmutableSet.of(new HivePrivilegeInfo(OWNERSHIP, grantOption, grantor, grantee.orElse(grantor)));
-            default:
-                throw new IllegalArgumentException("Unsupported privilege name: " + name);
-        }
+        return switch (name) {
+            case "ALL" -> Arrays.stream(HivePrivilegeInfo.HivePrivilege.values())
+                    .map(hivePrivilege -> new HivePrivilegeInfo(hivePrivilege, grantOption, grantor, grantee.orElse(grantor)))
+                    .collect(toImmutableSet());
+            case "SELECT" -> ImmutableSet.of(new HivePrivilegeInfo(SELECT, grantOption, grantor, grantee.orElse(grantor)));
+            case "INSERT" -> ImmutableSet.of(new HivePrivilegeInfo(INSERT, grantOption, grantor, grantee.orElse(grantor)));
+            case "UPDATE" -> ImmutableSet.of(new HivePrivilegeInfo(UPDATE, grantOption, grantor, grantee.orElse(grantor)));
+            case "DELETE" -> ImmutableSet.of(new HivePrivilegeInfo(DELETE, grantOption, grantor, grantee.orElse(grantor)));
+            case "OWNERSHIP" -> ImmutableSet.of(new HivePrivilegeInfo(OWNERSHIP, grantOption, grantor, grantee.orElse(grantor)));
+            default -> throw new IllegalArgumentException("Unsupported privilege name: " + name);
+        };
     }
 
     public static HiveBasicStatistics getHiveBasicStatistics(Map<String, String> parameters)
@@ -794,7 +779,7 @@ public final class ThriftMetastoreUtil
             result.put("STATS_GENERATED_VIA_STATS_TASK", "workaround for potential lack of HIVE-12730");
         }
 
-        return result.build();
+        return result.buildOrThrow();
     }
 
     public static ColumnStatisticsObj createMetastoreColumnStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics, OptionalLong rowCount)
@@ -808,6 +793,7 @@ public final class ThriftMetastoreUtil
             case SHORT:
             case INT:
             case LONG:
+            case TIMESTAMP:
                 return createLongStatistics(columnName, columnType, statistics);
             case FLOAT:
             case DOUBLE:
@@ -818,8 +804,6 @@ public final class ThriftMetastoreUtil
                 return createStringStatistics(columnName, columnType, statistics, rowCount);
             case DATE:
                 return createDateStatistics(columnName, columnType, statistics);
-            case TIMESTAMP:
-                return createLongStatistics(columnName, columnType, statistics);
             case BINARY:
                 return createBinaryStatistics(columnName, columnType, statistics, rowCount);
             case DECIMAL:
@@ -971,7 +955,7 @@ public final class ThriftMetastoreUtil
         throw new IllegalArgumentException("Unsupported type: " + type);
     }
 
-    public static boolean isNumericType(Type type)
+    private static boolean isNumericType(Type type)
     {
         return type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT) ||
                 type.equals(DOUBLE) || type.equals(REAL) ||

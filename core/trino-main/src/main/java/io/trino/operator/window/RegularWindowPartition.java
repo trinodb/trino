@@ -19,6 +19,7 @@ import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexComparator;
 import io.trino.operator.WindowOperator.FrameBoundKey;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowIndex;
 
 import java.util.HashMap;
@@ -38,7 +39,7 @@ public final class RegularWindowPartition
     private final int partitionEnd;
 
     private final int[] outputChannels;
-    private final List<FramedWindowFunction> windowFunctions;
+    private final List<WindowFunction> windowFunctions;
 
     private final PagesHashStrategy peerGroupHashStrategy;
 
@@ -55,7 +56,8 @@ public final class RegularWindowPartition
             int partitionStart,
             int partitionEnd,
             int[] outputChannels,
-            List<FramedWindowFunction> windowFunctions,
+            List<WindowFunction> windowFunctions,
+            List<FrameInfo> frames,
             PagesHashStrategy peerGroupHashStrategy,
             Map<FrameBoundKey, PagesIndexComparator> frameBoundComparators)
     {
@@ -68,15 +70,15 @@ public final class RegularWindowPartition
 
         // reset functions for new partition
         WindowIndex windowIndex = new PagesWindowIndex(pagesIndex, partitionStart, partitionEnd);
-        for (FramedWindowFunction framedWindowFunction : windowFunctions) {
-            framedWindowFunction.getFunction().reset(windowIndex);
+        for (WindowFunction windowFunction : windowFunctions) {
+            windowFunction.reset(windowIndex);
         }
 
         currentPosition = partitionStart;
         updatePeerGroup();
 
         for (int i = 0; i < windowFunctions.size(); i++) {
-            FrameInfo frame = windowFunctions.get(i).getFrame();
+            FrameInfo frame = frames.get(i);
 
             Framing framing;
             switch (frame.getType()) {
@@ -163,9 +165,9 @@ public final class RegularWindowPartition
         }
 
         for (int i = 0; i < windowFunctions.size(); i++) {
-            FramedWindowFunction framedFunction = windowFunctions.get(i);
+            WindowFunction windowFunction = windowFunctions.get(i);
             Framing.Range range = framings.get(i).getRange(currentPosition, currentGroupIndex, peerGroupStart, peerGroupEnd);
-            framedFunction.getFunction().processRow(
+            windowFunction.processRow(
                     pageBuilder.getBlockBuilder(channel),
                     peerGroupStart - partitionStart,
                     peerGroupEnd - partitionStart - 1,

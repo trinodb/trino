@@ -37,7 +37,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
     @Test
     public void testRowNumberSymbolPruned()
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -57,12 +57,12 @@ public class TestPushPredicateThroughProjectIntoRowNumber
     @Test
     public void testNoUpperBoundForRowNumberSymbol()
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            PlanBuilder.expression("a = 1"),
+                            PlanBuilder.expression("a = BIGINT '1'"),
                             p.project(
                                     Assignments.identity(a, rowNumber),
                                     p.rowNumber(
@@ -77,12 +77,12 @@ public class TestPushPredicateThroughProjectIntoRowNumber
     @Test
     public void testNonPositiveUpperBoundForRowNumberSymbol()
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            PlanBuilder.expression("a = 1 AND row_number < -10"),
+                            PlanBuilder.expression("a = BIGINT '1' AND row_number < BIGINT '-10'"),
                             p.project(
                                     Assignments.identity(a, rowNumber),
                                     p.rowNumber(
@@ -97,12 +97,12 @@ public class TestPushPredicateThroughProjectIntoRowNumber
     @Test
     public void testPredicateNotSatisfied()
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            PlanBuilder.expression("row_number > 2 AND row_number < 5"),
+                            PlanBuilder.expression("row_number > BIGINT '2' AND row_number < BIGINT '5'"),
                             p.project(
                                     Assignments.identity(rowNumber),
                                     p.rowNumber(
@@ -112,7 +112,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                                             p.values(a))));
                 })
                 .matches(filter(
-                        "row_number > 2 AND row_number < 5",
+                        "row_number > BIGINT '2' AND row_number < BIGINT '5'",
                         project(
                                 ImmutableMap.of("row_number", expression("row_number")),
                                 rowNumber(
@@ -125,12 +125,12 @@ public class TestPushPredicateThroughProjectIntoRowNumber
     @Test
     public void testPredicateNotSatisfiedAndMaxRowCountNotUpdated()
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            PlanBuilder.expression("row_number > 2 AND row_number < 5"),
+                            PlanBuilder.expression("row_number > BIGINT '2' AND row_number < BIGINT '5'"),
                             p.project(
                                     Assignments.identity(rowNumber),
                                     p.rowNumber(
@@ -145,12 +145,12 @@ public class TestPushPredicateThroughProjectIntoRowNumber
     @Test
     public void testPredicateSatisfied()
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            PlanBuilder.expression("row_number < 5"),
+                            PlanBuilder.expression("row_number < BIGINT '5'"),
                             p.project(
                                     Assignments.identity(rowNumber),
                                     p.rowNumber(
@@ -167,12 +167,12 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                                 values(ImmutableList.of("a")))
                                 .withAlias("row_number", new RowNumberSymbolMatcher())));
 
-        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            PlanBuilder.expression("row_number < 3"),
+                            PlanBuilder.expression("row_number < BIGINT '3'"),
                             p.project(
                                     Assignments.identity(rowNumber),
                                     p.rowNumber(
@@ -193,12 +193,12 @@ public class TestPushPredicateThroughProjectIntoRowNumber
     @Test
     public void testPredicatePartiallySatisfied()
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            PlanBuilder.expression("row_number < 5 AND a > 0"),
+                            PlanBuilder.expression("row_number < BIGINT '5' AND a > BIGINT '0'"),
                             p.project(
                                     Assignments.identity(rowNumber, a),
                                     p.rowNumber(
@@ -208,7 +208,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                                             p.values(a))));
                 })
                 .matches(filter(
-                        "a > 0",
+                        "a > BIGINT '0'",
                         project(
                                 ImmutableMap.of("row_number", expression("row_number"), "a", expression("a")),
                                 rowNumber(
@@ -217,12 +217,12 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                                         values(ImmutableList.of("a")))
                                         .withAlias("row_number", new RowNumberSymbolMatcher()))));
 
-        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            PlanBuilder.expression("row_number < 5 AND row_number % 2 = 0"),
+                            PlanBuilder.expression("row_number < BIGINT '5' AND row_number % 2 = BIGINT '0'"),
                             p.project(
                                     Assignments.identity(rowNumber),
                                     p.rowNumber(
@@ -232,7 +232,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                                             p.values(a))));
                 })
                 .matches(filter(
-                        "row_number % 2 = 0",
+                        "row_number % 2 = BIGINT '0'",
                         project(
                                 ImmutableMap.of("row_number", expression("row_number")),
                                 rowNumber(

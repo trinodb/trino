@@ -18,7 +18,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
-import io.trino.metadata.Metadata;
+import io.trino.sql.PlannerContext;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -45,15 +45,15 @@ public class StatsCalculatorModule
     public static class StatsRulesProvider
             implements Provider<List<ComposableStatsCalculator.Rule<?>>>
     {
-        private final Metadata metadata;
+        private final PlannerContext plannerContext;
         private final ScalarStatsCalculator scalarStatsCalculator;
         private final FilterStatsCalculator filterStatsCalculator;
         private final StatsNormalizer normalizer;
 
         @Inject
-        public StatsRulesProvider(Metadata metadata, ScalarStatsCalculator scalarStatsCalculator, FilterStatsCalculator filterStatsCalculator, StatsNormalizer normalizer)
+        public StatsRulesProvider(PlannerContext plannerContext, ScalarStatsCalculator scalarStatsCalculator, FilterStatsCalculator filterStatsCalculator, StatsNormalizer normalizer)
         {
-            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
             this.filterStatsCalculator = requireNonNull(filterStatsCalculator, "filterStatsCalculator is null");
             this.normalizer = requireNonNull(normalizer, "normalizer is null");
@@ -65,11 +65,13 @@ public class StatsCalculatorModule
             ImmutableList.Builder<ComposableStatsCalculator.Rule<?>> rules = ImmutableList.builder();
 
             rules.add(new OutputStatsRule());
-            rules.add(new TableScanStatsRule(metadata, normalizer));
-            rules.add(new SimpleFilterProjectSemiJoinStatsRule(metadata, normalizer, filterStatsCalculator)); // this must be before FilterStatsRule
+            rules.add(new TableScanStatsRule(normalizer));
+            rules.add(new SimpleFilterProjectSemiJoinStatsRule(plannerContext.getMetadata(), normalizer, filterStatsCalculator)); // this must be before FilterStatsRule
+            rules.add(new FilterProjectAggregationStatsRule(normalizer, filterStatsCalculator)); // this must be before FilterStatsRule
             rules.add(new FilterStatsRule(normalizer, filterStatsCalculator));
-            rules.add(new ValuesStatsRule(metadata));
+            rules.add(new ValuesStatsRule(plannerContext));
             rules.add(new LimitStatsRule(normalizer));
+            rules.add(new DistinctLimitStatsRule(normalizer));
             rules.add(new TopNStatsRule(normalizer));
             rules.add(new EnforceSingleRowStatsRule(normalizer));
             rules.add(new ProjectStatsRule(scalarStatsCalculator, normalizer));

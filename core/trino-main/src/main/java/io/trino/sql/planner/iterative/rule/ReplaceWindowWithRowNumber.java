@@ -13,15 +13,13 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.FunctionId;
 import io.trino.metadata.Metadata;
+import io.trino.spi.function.BoundSignature;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.Optional;
 
@@ -35,9 +33,14 @@ public class ReplaceWindowWithRowNumber
 
     public ReplaceWindowWithRowNumber(Metadata metadata)
     {
-        FunctionId rowNumber = metadata.resolveFunction(QualifiedName.of("row_number"), ImmutableList.of()).getFunctionId();
         this.pattern = window()
-                .matching(window -> window.getWindowFunctions().size() == 1 && getOnlyElement(window.getWindowFunctions().values()).getResolvedFunction().getFunctionId().equals(rowNumber))
+                .matching(window -> {
+                    if (window.getWindowFunctions().size() != 1) {
+                        return false;
+                    }
+                    BoundSignature signature = getOnlyElement(window.getWindowFunctions().values()).getResolvedFunction().getSignature();
+                    return signature.getArgumentTypes().isEmpty() && signature.getName().equals("row_number");
+                })
                 .matching(window -> window.getOrderingScheme().isEmpty());
     }
 

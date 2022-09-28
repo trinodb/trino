@@ -31,21 +31,9 @@ public class GeometryStateFactory
     }
 
     @Override
-    public Class<? extends GeometryState> getSingleStateClass()
-    {
-        return SingleGeometryState.class;
-    }
-
-    @Override
     public GeometryState createGroupedState()
     {
         return new GroupedGeometryState();
-    }
-
-    @Override
-    public Class<? extends GeometryState> getGroupedStateClass()
-    {
-        return GroupedGeometryState.class;
     }
 
     public static class GroupedGeometryState

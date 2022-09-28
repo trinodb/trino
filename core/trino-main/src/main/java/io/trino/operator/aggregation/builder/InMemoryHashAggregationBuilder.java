@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.array.IntBigArray;
 import io.trino.operator.GroupByHash;
-import io.trino.operator.GroupByIdBlock;
 import io.trino.operator.HashCollisionsCounter;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.TransformWork;
@@ -28,14 +27,13 @@ import io.trino.operator.UpdateMemory;
 import io.trino.operator.Work;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessor.ProcessState;
-import io.trino.operator.aggregation.AccumulatorFactory;
-import io.trino.operator.aggregation.GroupedAccumulator;
+import io.trino.operator.aggregation.AggregatorFactory;
+import io.trino.operator.aggregation.GroupedAggregator;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
-import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.ints.AbstractIntIterator;
@@ -47,8 +45,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static io.trino.operator.GroupByHash.createGroupByHash;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
@@ -57,7 +53,7 @@ public class InMemoryHashAggregationBuilder
         implements HashAggregationBuilder
 {
     private final GroupByHash groupByHash;
-    private final List<Aggregator> aggregators;
+    private final List<GroupedAggregator> groupedAggregators;
     private final boolean partial;
     private final OptionalLong maxPartialMemory;
     private final UpdateMemory updateMemory;
@@ -65,7 +61,7 @@ public class InMemoryHashAggregationBuilder
     private boolean full;
 
     public InMemoryHashAggregationBuilder(
-            List<AccumulatorFactory> accumulatorFactories,
+            List<AggregatorFactory> aggregatorFactories,
             Step step,
             int expectedGroups,
             List<Type> groupByTypes,
@@ -77,7 +73,7 @@ public class InMemoryHashAggregationBuilder
             BlockTypeOperators blockTypeOperators,
             UpdateMemory updateMemory)
     {
-        this(accumulatorFactories,
+        this(aggregatorFactories,
                 step,
                 expectedGroups,
                 groupByTypes,
@@ -92,7 +88,7 @@ public class InMemoryHashAggregationBuilder
     }
 
     public InMemoryHashAggregationBuilder(
-            List<AccumulatorFactory> accumulatorFactories,
+            List<AggregatorFactory> aggregatorFactories,
             Step step,
             int expectedGroups,
             List<Type> groupByTypes,
@@ -100,17 +96,17 @@ public class InMemoryHashAggregationBuilder
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
             Optional<DataSize> maxPartialMemory,
-            Optional<Integer> overwriteIntermediateChannelOffset,
+            Optional<Integer> unspillIntermediateChannelOffset,
             JoinCompiler joinCompiler,
             BlockTypeOperators blockTypeOperators,
             UpdateMemory updateMemory)
     {
         this.groupByHash = createGroupByHash(
+                operatorContext.getSession(),
                 groupByTypes,
                 Ints.toArray(groupByChannels),
                 hashChannel,
                 expectedGroups,
-                isDictionaryAggregationEnabled(operatorContext.getSession()),
                 joinCompiler,
                 blockTypeOperators,
                 updateMemory);
@@ -119,17 +115,18 @@ public class InMemoryHashAggregationBuilder
         this.updateMemory = requireNonNull(updateMemory, "updateMemory is null");
 
         // wrapper each function with an aggregator
-        ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
-        requireNonNull(accumulatorFactories, "accumulatorFactories is null");
-        for (int i = 0; i < accumulatorFactories.size(); i++) {
-            AccumulatorFactory accumulatorFactory = accumulatorFactories.get(i);
-            Optional<Integer> overwriteIntermediateChannel = Optional.empty();
-            if (overwriteIntermediateChannelOffset.isPresent()) {
-                overwriteIntermediateChannel = Optional.of(overwriteIntermediateChannelOffset.get() + i);
+        ImmutableList.Builder<GroupedAggregator> builder = ImmutableList.builder();
+        requireNonNull(aggregatorFactories, "aggregatorFactories is null");
+        for (int i = 0; i < aggregatorFactories.size(); i++) {
+            AggregatorFactory accumulatorFactory = aggregatorFactories.get(i);
+            if (unspillIntermediateChannelOffset.isPresent()) {
+                builder.add(accumulatorFactory.createUnspillGroupedAggregator(step, unspillIntermediateChannelOffset.get() + i));
             }
-            builder.add(new Aggregator(accumulatorFactory, step, overwriteIntermediateChannel));
+            else {
+                builder.add(accumulatorFactory.createGroupedAggregator());
+            }
         }
-        aggregators = builder.build();
+        groupedAggregators = builder.build();
     }
 
     @Override
@@ -138,20 +135,18 @@ public class InMemoryHashAggregationBuilder
     @Override
     public Work<?> processPage(Page page)
     {
-        if (aggregators.isEmpty()) {
+        if (groupedAggregators.isEmpty()) {
             return groupByHash.addPage(page);
         }
-        else {
-            return new TransformWork<>(
-                    groupByHash.getGroupIds(page),
-                    groupByIdBlock -> {
-                        for (Aggregator aggregator : aggregators) {
-                            aggregator.processPage(groupByIdBlock, page);
-                        }
-                        // we do not need any output from TransformWork for this case
-                        return null;
-                    });
-        }
+        return new TransformWork<>(
+                groupByHash.getGroupIds(page),
+                groupByIdBlock -> {
+                    for (GroupedAggregator groupedAggregator : groupedAggregators) {
+                        groupedAggregator.processPage(groupByIdBlock, page);
+                    }
+                    // we do not need any output from TransformWork for this case
+                    return null;
+                });
     }
 
     @Override
@@ -197,8 +192,8 @@ public class InMemoryHashAggregationBuilder
     public long getSizeInMemory()
     {
         long sizeInMemory = groupByHash.getEstimatedSize();
-        for (Aggregator aggregator : aggregators) {
-            sizeInMemory += aggregator.getEstimatedSize();
+        for (GroupedAggregator groupedAggregator : groupedAggregators) {
+            sizeInMemory += groupedAggregator.getEstimatedSize();
         }
 
         updateIsFull(sizeInMemory);
@@ -223,10 +218,10 @@ public class InMemoryHashAggregationBuilder
         return getGroupCount() * Integer.BYTES;
     }
 
-    public void setOutputPartial()
+    public void setSpillOutput()
     {
-        for (Aggregator aggregator : aggregators) {
-            aggregator.setOutputPartial();
+        for (GroupedAggregator groupedAggregator : groupedAggregators) {
+            groupedAggregator.setSpillOutput();
         }
     }
 
@@ -243,8 +238,8 @@ public class InMemoryHashAggregationBuilder
     @Override
     public WorkProcessor<Page> buildResult()
     {
-        for (Aggregator aggregator : aggregators) {
-            aggregator.prepareFinal();
+        for (GroupedAggregator groupedAggregator : groupedAggregators) {
+            groupedAggregator.prepareFinal();
         }
         return buildResult(consecutiveGroupIds());
     }
@@ -254,11 +249,11 @@ public class InMemoryHashAggregationBuilder
         return buildResult(hashSortedGroupIds());
     }
 
-    public List<Type> buildIntermediateTypes()
+    public List<Type> buildSpillTypes()
     {
         ArrayList<Type> types = new ArrayList<>(groupByHash.getTypes());
-        for (InMemoryHashAggregationBuilder.Aggregator aggregator : aggregators) {
-            types.add(aggregator.getIntermediateType());
+        for (GroupedAggregator groupedAggregator : groupedAggregators) {
+            types.add(groupedAggregator.getSpillType());
         }
         return types;
     }
@@ -283,13 +278,13 @@ public class InMemoryHashAggregationBuilder
             while (!pageBuilder.isFull() && groupIds.hasNext()) {
                 int groupId = groupIds.nextInt();
 
-                groupByHash.appendValuesTo(groupId, pageBuilder, 0);
+                groupByHash.appendValuesTo(groupId, pageBuilder);
 
                 pageBuilder.declarePosition();
-                for (int i = 0; i < aggregators.size(); i++) {
-                    Aggregator aggregator = aggregators.get(i);
+                for (int i = 0; i < groupedAggregators.size(); i++) {
+                    GroupedAggregator groupedAggregator = groupedAggregators.get(i);
                     BlockBuilder output = pageBuilder.getBlockBuilder(types.size() + i);
-                    aggregator.evaluate(groupId, output);
+                    groupedAggregator.evaluate(groupId, output);
                 }
             }
 
@@ -300,8 +295,8 @@ public class InMemoryHashAggregationBuilder
     public List<Type> buildTypes()
     {
         ArrayList<Type> types = new ArrayList<>(groupByHash.getTypes());
-        for (Aggregator aggregator : aggregators) {
-            types.add(aggregator.getType());
+        for (GroupedAggregator groupedAggregator : groupedAggregators) {
+            types.add(groupedAggregator.getType());
         }
         return types;
     }
@@ -341,90 +336,15 @@ public class InMemoryHashAggregationBuilder
         };
     }
 
-    private static class Aggregator
-    {
-        private final GroupedAccumulator aggregation;
-        private AggregationNode.Step step;
-        private final int intermediateChannel;
-
-        private Aggregator(AccumulatorFactory accumulatorFactory, AggregationNode.Step step, Optional<Integer> overwriteIntermediateChannel)
-        {
-            if (step.isInputRaw()) {
-                this.intermediateChannel = -1;
-                this.aggregation = accumulatorFactory.createGroupedAccumulator();
-            }
-            else if (overwriteIntermediateChannel.isPresent()) {
-                this.intermediateChannel = overwriteIntermediateChannel.get();
-                this.aggregation = accumulatorFactory.createGroupedIntermediateAccumulator();
-            }
-            else {
-                checkArgument(accumulatorFactory.getInputChannels().size() == 1, "expected 1 input channel for intermediate aggregation");
-                this.intermediateChannel = accumulatorFactory.getInputChannels().get(0);
-                this.aggregation = accumulatorFactory.createGroupedIntermediateAccumulator();
-            }
-            this.step = step;
-        }
-
-        public long getEstimatedSize()
-        {
-            return aggregation.getEstimatedSize();
-        }
-
-        public Type getType()
-        {
-            if (step.isOutputPartial()) {
-                return aggregation.getIntermediateType();
-            }
-            else {
-                return aggregation.getFinalType();
-            }
-        }
-
-        public void processPage(GroupByIdBlock groupIds, Page page)
-        {
-            if (step.isInputRaw()) {
-                aggregation.addInput(groupIds, page);
-            }
-            else {
-                aggregation.addIntermediate(groupIds, page.getBlock(intermediateChannel));
-            }
-        }
-
-        public void prepareFinal()
-        {
-            aggregation.prepareFinal();
-        }
-
-        public void evaluate(int groupId, BlockBuilder output)
-        {
-            if (step.isOutputPartial()) {
-                aggregation.evaluateIntermediate(groupId, output);
-            }
-            else {
-                aggregation.evaluateFinal(groupId, output);
-            }
-        }
-
-        public void setOutputPartial()
-        {
-            step = AggregationNode.Step.partialOutput(step);
-        }
-
-        public Type getIntermediateType()
-        {
-            return aggregation.getIntermediateType();
-        }
-    }
-
-    public static List<Type> toTypes(List<? extends Type> groupByType, Step step, List<AccumulatorFactory> factories, Optional<Integer> hashChannel)
+    public static List<Type> toTypes(List<? extends Type> groupByType, List<AggregatorFactory> factories, Optional<Integer> hashChannel)
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         types.addAll(groupByType);
         if (hashChannel.isPresent()) {
             types.add(BIGINT);
         }
-        for (AccumulatorFactory factory : factories) {
-            types.add(new Aggregator(factory, step, Optional.empty()).getType());
+        for (AggregatorFactory factory : factories) {
+            types.add(factory.createAggregator().getType());
         }
         return types.build();
     }

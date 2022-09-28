@@ -22,32 +22,44 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Executor;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
+import static io.trino.util.Executors.executeUntilFailure;
 import static java.nio.file.Files.newDirectoryStream;
+import static java.util.Objects.requireNonNull;
 
 public class ServerPluginsProvider
         implements PluginsProvider
 {
     private final File installedPluginsDir;
+    private final Executor executor;
 
     @Inject
-    public ServerPluginsProvider(ServerPluginsProviderConfig config)
+    public ServerPluginsProvider(ServerPluginsProviderConfig config, @ForStartup Executor executor)
     {
         this.installedPluginsDir = config.getInstalledPluginsDir();
+        this.executor = requireNonNull(executor, "executor is null");
     }
 
     @Override
     public void loadPlugins(Loader loader, ClassLoaderFactory createClassLoader)
     {
-        for (File file : listFiles(installedPluginsDir)) {
-            if (file.isDirectory()) {
-                loader.load(file.getAbsolutePath(), () -> createClassLoader.create(buildClassPath(file)));
-            }
-        }
+        executeUntilFailure(
+                executor,
+                listFiles(installedPluginsDir).stream()
+                        .filter(File::isDirectory)
+                        .map(file -> (Callable<?>) () -> {
+                            loader.load(file.getAbsolutePath(), () ->
+                                    createClassLoader.create(file.getName(), buildClassPath(file)));
+                            return null;
+                        })
+                        .collect(toImmutableList()));
     }
 
     private static List<URL> buildClassPath(File path)
@@ -60,10 +72,12 @@ public class ServerPluginsProvider
     private static List<File> listFiles(File path)
     {
         try {
-            return stream(newDirectoryStream(path.toPath()))
-                    .map(Path::toFile)
-                    .sorted()
-                    .collect(toImmutableList());
+            try (DirectoryStream<Path> directoryStream = newDirectoryStream(path.toPath())) {
+                return stream(directoryStream)
+                        .map(Path::toFile)
+                        .sorted()
+                        .collect(toImmutableList());
+            }
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

@@ -14,12 +14,12 @@
 package io.trino.type;
 
 import io.airlift.slice.Slice;
+import io.trino.FeaturesConfig;
 import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
-import io.trino.sql.analyzer.FeaturesConfig;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 

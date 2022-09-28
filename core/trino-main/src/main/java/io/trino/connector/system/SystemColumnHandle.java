@@ -18,15 +18,19 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class SystemColumnHandle
         implements ColumnHandle
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SystemColumnHandle.class).instanceSize();
+
     private final String columnName;
 
     @JsonCreator
@@ -65,6 +69,12 @@ public class SystemColumnHandle
     public String toString()
     {
         return columnName;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(columnName);
     }
 
     public static Map<String, ColumnHandle> toSystemColumnHandles(ConnectorTableMetadata tableMetadata)

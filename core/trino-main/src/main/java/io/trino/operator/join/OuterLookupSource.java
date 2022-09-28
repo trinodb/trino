@@ -52,12 +52,6 @@ public final class OuterLookupSource
     }
 
     @Override
-    public int getChannelCount()
-    {
-        return lookupSource.getChannelCount();
-    }
-
-    @Override
     public long getJoinPositionCount()
     {
         return lookupSource.getJoinPositionCount();

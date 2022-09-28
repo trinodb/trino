@@ -15,14 +15,11 @@ package io.trino.plugin.hive.procedure;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
-import io.trino.plugin.hive.authentication.HiveIdentity;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
@@ -51,37 +48,35 @@ import static io.trino.plugin.hive.procedure.Procedures.checkPartitionColumns;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
-import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class RegisterPartitionProcedure
         implements Provider<Procedure>
 {
-    private static final MethodHandle REGISTER_PARTITION = methodHandle(
-            RegisterPartitionProcedure.class,
-            "registerPartition",
-            ConnectorSession.class,
-            ConnectorAccessControl.class,
-            String.class,
-            String.class,
-            List.class,
-            List.class,
-            String.class);
+    private static final MethodHandle REGISTER_PARTITION;
+
+    static {
+        try {
+            REGISTER_PARTITION = lookup().unreflect(RegisterPartitionProcedure.class.getMethod("registerPartition", ConnectorSession.class, ConnectorAccessControl.class, String.class, String.class, List.class, List.class, String.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
 
     private final boolean allowRegisterPartition;
     private final TransactionalMetadataFactory hiveMetadataFactory;
     private final HdfsEnvironment hdfsEnvironment;
-    private final HiveMetastoreClosure metastore;
 
     @Inject
-    public RegisterPartitionProcedure(HiveConfig hiveConfig, TransactionalMetadataFactory hiveMetadataFactory, HiveMetastore metastore, HdfsEnvironment hdfsEnvironment)
+    public RegisterPartitionProcedure(HiveConfig hiveConfig, TransactionalMetadataFactory hiveMetadataFactory, HdfsEnvironment hdfsEnvironment)
     {
-        this.allowRegisterPartition = requireNonNull(hiveConfig, "hiveConfig is null").isAllowRegisterPartition();
+        this.allowRegisterPartition = hiveConfig.isAllowRegisterPartition();
         this.hiveMetadataFactory = requireNonNull(hiveMetadataFactory, "hiveMetadataFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.metastore = new HiveMetastoreClosure(requireNonNull(metastore, "metastore is null"));
     }
 
     @Override
@@ -91,11 +86,11 @@ public class RegisterPartitionProcedure
                 "system",
                 "register_partition",
                 ImmutableList.of(
-                        new Procedure.Argument("schema_name", VARCHAR),
-                        new Procedure.Argument("table_name", VARCHAR),
-                        new Procedure.Argument("partition_columns", new ArrayType(VARCHAR)),
-                        new Procedure.Argument("partition_values", new ArrayType(VARCHAR)),
-                        new Procedure.Argument("location", VARCHAR, false, null)),
+                        new Procedure.Argument("SCHEMA_NAME", VARCHAR),
+                        new Procedure.Argument("TABLE_NAME", VARCHAR),
+                        new Procedure.Argument("PARTITION_COLUMNS", new ArrayType(VARCHAR)),
+                        new Procedure.Argument("PARTITION_VALUES", new ArrayType(VARCHAR)),
+                        new Procedure.Argument("LOCATION", VARCHAR, false, null)),
                 REGISTER_PARTITION.bindTo(this));
     }
 
@@ -112,11 +107,12 @@ public class RegisterPartitionProcedure
             throw new TrinoException(PERMISSION_DENIED, "register_partition procedure is disabled");
         }
 
-        HiveIdentity identity = new HiveIdentity(session);
+        SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create(session.getIdentity(), true).getMetastore();
+
         HdfsContext hdfsContext = new HdfsContext(session);
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
 
-        Table table = metastore.getTable(identity, schemaName, tableName)
+        Table table = metastore.getTable(schemaName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
 
         accessControl.checkCanInsertIntoTable(null, schemaTableName);
@@ -124,7 +120,7 @@ public class RegisterPartitionProcedure
         checkIsPartitionedTable(table);
         checkPartitionColumns(table, partitionColumn);
 
-        Optional<Partition> partition = metastore.getPartition(new HiveIdentity(session), schemaName, tableName, partitionValues);
+        Optional<Partition> partition = metastore.unsafeGetRawHiveMetastoreClosure().getPartition(schemaName, tableName, partitionValues);
         if (partition.isPresent()) {
             String partitionName = FileUtils.makePartName(partitionColumn, partitionValues);
             throw new TrinoException(ALREADY_EXISTS, format("Partition [%s] is already registered with location %s", partitionName, partition.get().getStorage().getLocation()));
@@ -143,15 +139,15 @@ public class RegisterPartitionProcedure
             throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Partition location does not exist: " + partitionLocation);
         }
 
-        SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create().getMetastore();
-
         metastore.addPartition(
                 session,
                 table.getDatabaseName(),
                 table.getTableName(),
                 buildPartitionObject(session, table, partitionValues, partitionLocation),
                 partitionLocation,
-                PartitionStatistics.empty());
+                Optional.empty(), // no need for failed attempts cleanup
+                PartitionStatistics.empty(),
+                false);
 
         metastore.commit();
     }

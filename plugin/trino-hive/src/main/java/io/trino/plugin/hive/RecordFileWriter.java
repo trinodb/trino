@@ -19,6 +19,7 @@ import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.parquet.ParquetRecordWriter;
 import io.trino.plugin.hive.util.FieldSetterFactory;
 import io.trino.plugin.hive.util.FieldSetterFactory.FieldSetter;
+import io.trino.plugin.hive.util.TextHeaderWriter;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -27,6 +28,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
+import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -39,6 +41,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -69,7 +72,7 @@ public class RecordFileWriter
     private final List<StructField> structFields;
     private final Object row;
     private final FieldSetter[] setters;
-    private final long estimatedWriterSystemMemoryUsage;
+    private final long estimatedWriterMemoryUsage;
 
     private boolean committed;
     private long finalWrittenBytes = -1;
@@ -79,7 +82,7 @@ public class RecordFileWriter
             List<String> inputColumnNames,
             StorageFormat storageFormat,
             Properties schema,
-            DataSize estimatedWriterSystemMemoryUsage,
+            DataSize estimatedWriterMemoryUsage,
             JobConf conf,
             TypeManager typeManager,
             DateTimeZone parquetTimeZone,
@@ -96,12 +99,19 @@ public class RecordFileWriter
 
         fieldCount = fileColumnNames.size();
 
-        String serDe = storageFormat.getSerDe();
-        serializer = initializeSerializer(conf, schema, serDe);
-        recordWriter = createRecordWriter(path, conf, schema, storageFormat.getOutputFormat(), session);
+        String serde = storageFormat.getSerde();
+        serializer = initializeSerializer(conf, schema, serde);
 
         List<ObjectInspector> objectInspectors = getRowColumnInspectors(fileColumnTypes);
         tableInspector = getStandardStructObjectInspector(fileColumnNames, objectInspectors);
+
+        if (storageFormat.getOutputFormat().equals(HiveIgnoreKeyTextOutputFormat.class.getName())) {
+            Optional<TextHeaderWriter> textHeaderWriter = Optional.of(new TextHeaderWriter(serializer, typeManager, session, fileColumnNames));
+            recordWriter = createRecordWriter(path, conf, schema, storageFormat.getOutputFormat(), session, textHeaderWriter);
+        }
+        else {
+            recordWriter = createRecordWriter(path, conf, schema, storageFormat.getOutputFormat(), session, Optional.empty());
+        }
 
         // reorder (and possibly reduce) struct fields to match input
         structFields = ImmutableList.copyOf(inputColumnNames.stream()
@@ -118,7 +128,7 @@ public class RecordFileWriter
             setters[i] = fieldSetterFactory.create(tableInspector, row, structFields.get(i), fileColumnTypes.get(structFields.get(i).getFieldID()));
         }
 
-        this.estimatedWriterSystemMemoryUsage = estimatedWriterSystemMemoryUsage.toBytes();
+        this.estimatedWriterMemoryUsage = estimatedWriterMemoryUsage.toBytes();
     }
 
     @Override
@@ -147,9 +157,9 @@ public class RecordFileWriter
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return INSTANCE_SIZE + estimatedWriterSystemMemoryUsage;
+        return INSTANCE_SIZE + estimatedWriterMemoryUsage;
     }
 
     @Override

@@ -16,7 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import io.trino.metadata.Metadata;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 
 import static io.trino.sql.ExpressionUtils.combinePredicates;
 import static io.trino.sql.ExpressionUtils.extractPredicates;
@@ -54,7 +54,7 @@ public class RemoveDuplicateConditions
         }
 
         @Override
-        public Expression rewriteLogicalBinaryExpression(LogicalBinaryExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        public Expression rewriteLogicalExpression(LogicalExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             return combinePredicates(metadata, node.getOperator(), extractPredicates(node));
         }

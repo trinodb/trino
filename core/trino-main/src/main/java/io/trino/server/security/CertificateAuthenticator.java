@@ -37,7 +37,6 @@ public class CertificateAuthenticator
     @Inject
     public CertificateAuthenticator(CertificateAuthenticatorManager authenticatorManager, CertificateConfig config)
     {
-        requireNonNull(config, "config is null");
         this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
         this.authenticatorManager = requireNonNull(authenticatorManager, "authenticatorManager is null");
         authenticatorManager.setRequired();

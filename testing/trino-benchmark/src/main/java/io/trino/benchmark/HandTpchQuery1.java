@@ -17,13 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.trino.benchmark.HandTpchQuery1.TpchQuery1Operator.TpchQuery1OperatorFactory;
-import io.trino.metadata.Metadata;
 import io.trino.operator.DriverContext;
 import io.trino.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
-import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
@@ -31,7 +29,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.util.DateTimeUtils;
 
@@ -45,27 +42,25 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class HandTpchQuery1
         extends AbstractSimpleOperatorBenchmark
 {
-    private final InternalAggregationFunction longAverage;
-    private final InternalAggregationFunction doubleAverage;
-    private final InternalAggregationFunction doubleSum;
-    private final InternalAggregationFunction countFunction;
+    private final BenchmarkAggregationFunction longAverage;
+    private final BenchmarkAggregationFunction doubleAverage;
+    private final BenchmarkAggregationFunction doubleSum;
+    private final BenchmarkAggregationFunction countFunction;
 
     public HandTpchQuery1(LocalQueryRunner localQueryRunner)
     {
         super(localQueryRunner, "hand_tpch_query_1", 1, 5);
 
-        Metadata metadata = localQueryRunner.getMetadata();
-        longAverage = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("avg"), fromTypes(BIGINT)));
-        doubleAverage = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("avg"), fromTypes(DOUBLE)));
-        doubleSum = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)));
-        countFunction = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of()));
+        longAverage = createAggregationFunction("avg", BIGINT);
+        doubleAverage = createAggregationFunction("avg", DOUBLE);
+        doubleSum = createAggregationFunction("sum", DOUBLE);
+        countFunction = createAggregationFunction("count");
     }
 
     @Override
@@ -114,20 +109,20 @@ public class HandTpchQuery1
                 ImmutableList.of(),
                 Step.SINGLE,
                 ImmutableList.of(
-                        doubleSum.bind(ImmutableList.of(2), Optional.empty()),
-                        doubleSum.bind(ImmutableList.of(3), Optional.empty()),
-                        doubleSum.bind(ImmutableList.of(4), Optional.empty()),
-                        longAverage.bind(ImmutableList.of(2), Optional.empty()),
-                        doubleAverage.bind(ImmutableList.of(5), Optional.empty()),
-                        doubleAverage.bind(ImmutableList.of(6), Optional.empty()),
-                        countFunction.bind(ImmutableList.of(2), Optional.empty())),
+                        doubleSum.bind(ImmutableList.of(2)),
+                        doubleSum.bind(ImmutableList.of(3)),
+                        doubleSum.bind(ImmutableList.of(4)),
+                        longAverage.bind(ImmutableList.of(2)),
+                        doubleAverage.bind(ImmutableList.of(5)),
+                        doubleAverage.bind(ImmutableList.of(6)),
+                        countFunction.bind(ImmutableList.of(2))),
                 Optional.empty(),
                 Optional.empty(),
                 10_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 new JoinCompiler(localQueryRunner.getTypeOperators()),
                 localQueryRunner.getBlockTypeOperators(),
-                false);
+                Optional.empty());
 
         return ImmutableList.of(tableScanOperator, tpchQuery1Operator, aggregationOperator);
     }

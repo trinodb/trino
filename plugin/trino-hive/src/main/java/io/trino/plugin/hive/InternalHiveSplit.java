@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
+import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -51,8 +53,12 @@ public class InternalHiveSplit
     private final List<HivePartitionKey> partitionKeys;
     private final List<InternalHiveBlock> blocks;
     private final String partitionName;
-    private final OptionalInt bucketNumber;
-    private final int statementId;
+    private final OptionalInt readBucketNumber;
+    private final OptionalInt tableBucketNumber;
+    // This supplier returns an unused statementId, to guarantee that created split
+    // files do not collide.  Successive calls return the next sequential integer,
+    // starting with zero.
+    private final Supplier<Integer> statementIdSupplier;
     private final boolean splittable;
     private final boolean forceLocalScheduling;
     private final TableToPartitionMapping tableToPartitionMapping;
@@ -60,9 +66,11 @@ public class InternalHiveSplit
     private final Optional<BucketValidation> bucketValidation;
     private final boolean s3SelectPushdownEnabled;
     private final Optional<AcidInfo> acidInfo;
+    private final BooleanSupplier partitionMatchSupplier;
 
     private long start;
     private int currentBlockIndex;
+    private int statementId;
 
     public InternalHiveSplit(
             String partitionName,
@@ -74,15 +82,17 @@ public class InternalHiveSplit
             Properties schema,
             List<HivePartitionKey> partitionKeys,
             List<InternalHiveBlock> blocks,
-            OptionalInt bucketNumber,
-            int statementId,
+            OptionalInt readBucketNumber,
+            OptionalInt tableBucketNumber,
+            Supplier<Integer> statementIdSupplier,
             boolean splittable,
             boolean forceLocalScheduling,
             TableToPartitionMapping tableToPartitionMapping,
             Optional<BucketConversion> bucketConversion,
             Optional<BucketValidation> bucketValidation,
             boolean s3SelectPushdownEnabled,
-            Optional<AcidInfo> acidInfo)
+            Optional<AcidInfo> acidInfo,
+            BooleanSupplier partitionMatchSupplier)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(end >= 0, "length must be positive");
@@ -92,11 +102,14 @@ public class InternalHiveSplit
         requireNonNull(schema, "schema is null");
         requireNonNull(partitionKeys, "partitionKeys is null");
         requireNonNull(blocks, "blocks is null");
-        requireNonNull(bucketNumber, "bucketNumber is null");
+        requireNonNull(readBucketNumber, "readBucketNumber is null");
+        requireNonNull(tableBucketNumber, "tableBucketNumber is null");
+        requireNonNull(statementIdSupplier, "statementIdSupplier is null");
         requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
         requireNonNull(bucketValidation, "bucketValidation is null");
         requireNonNull(acidInfo, "acidInfo is null");
+        requireNonNull(partitionMatchSupplier, "partitionMatchSupplier is null");
 
         this.partitionName = partitionName;
         this.path = path;
@@ -107,8 +120,10 @@ public class InternalHiveSplit
         this.schema = schema;
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.blocks = ImmutableList.copyOf(blocks);
-        this.bucketNumber = bucketNumber;
-        this.statementId = statementId;
+        this.readBucketNumber = readBucketNumber;
+        this.tableBucketNumber = tableBucketNumber;
+        this.statementIdSupplier = statementIdSupplier;
+        this.statementId = statementIdSupplier.get();
         this.splittable = splittable;
         this.forceLocalScheduling = forceLocalScheduling;
         this.tableToPartitionMapping = tableToPartitionMapping;
@@ -116,6 +131,7 @@ public class InternalHiveSplit
         this.bucketValidation = bucketValidation;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.acidInfo = acidInfo;
+        this.partitionMatchSupplier = partitionMatchSupplier;
     }
 
     public String getPath()
@@ -163,9 +179,14 @@ public class InternalHiveSplit
         return partitionName;
     }
 
-    public OptionalInt getBucketNumber()
+    public OptionalInt getReadBucketNumber()
     {
-        return bucketNumber;
+        return readBucketNumber;
+    }
+
+    public OptionalInt getTableBucketNumber()
+    {
+        return tableBucketNumber;
     }
 
     public int getStatementId()
@@ -211,6 +232,7 @@ public class InternalHiveSplit
 
     public void increaseStart(long value)
     {
+        statementId = statementIdSupplier.get();
         start += value;
         if (start == currentBlock().getEnd()) {
             currentBlockIndex++;
@@ -235,6 +257,11 @@ public class InternalHiveSplit
     public Optional<AcidInfo> getAcidInfo()
     {
         return acidInfo;
+    }
+
+    public BooleanSupplier getPartitionMatchSupplier()
+    {
+        return partitionMatchSupplier;
     }
 
     @Override

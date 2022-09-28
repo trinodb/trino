@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 import io.trino.jmh.Benchmarks;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
@@ -25,8 +25,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import io.trino.sql.gen.ExpressionCompiler;
-import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.RowExpression;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -48,7 +46,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -108,13 +105,13 @@ public class BenchmarkJsonToMapCast
                     throw new UnsupportedOperationException();
             }
 
-            Metadata metadata = createTestMetadataManager();
+            TestingFunctionResolution functionResolution = new TestingFunctionResolution();
             MapType mapType = mapType(VARCHAR, valueType);
             List<RowExpression> projections = ImmutableList.of(new CallExpression(
-                    metadata.getCoercion(JSON, mapType),
+                    functionResolution.getCoercion(JSON, mapType),
                     ImmutableList.of(field(0, JSON))));
 
-            pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
+            pageProcessor = functionResolution.getExpressionCompiler()
                     .compilePageProcessor(Optional.empty(), projections)
                     .get();
 
@@ -150,10 +147,10 @@ public class BenchmarkJsonToMapCast
             if (valueType == BIGINT) {
                 return Long.toString(ThreadLocalRandom.current().nextLong());
             }
-            else if (valueType == DOUBLE) {
+            if (valueType == DOUBLE) {
                 return Double.toString(ThreadLocalRandom.current().nextDouble());
             }
-            else if (valueType == VARCHAR) {
+            if (valueType == VARCHAR) {
                 String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
 
                 int length = ThreadLocalRandom.current().nextInt(10) + 1;
@@ -165,9 +162,7 @@ public class BenchmarkJsonToMapCast
                 builder.append('"');
                 return builder.toString();
             }
-            else {
-                throw new UnsupportedOperationException();
-            }
+            throw new UnsupportedOperationException();
         }
 
         public PageProcessor getPageProcessor()

@@ -16,6 +16,7 @@ package io.trino.execution.scheduler;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
@@ -24,11 +25,15 @@ import io.airlift.log.Logger;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.resourcegroups.IndexedPriorityQueue;
+import io.trino.execution.scheduler.NodeSchedulerConfig.SplitsBalancingPolicy;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
+import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
+
+import javax.annotation.Nullable;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -51,7 +56,7 @@ import static io.trino.execution.scheduler.NodeScheduler.selectExactNodes;
 import static io.trino.execution.scheduler.NodeScheduler.selectNodes;
 import static io.trino.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
-import static java.util.Comparator.comparingInt;
+import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
 
 public class UniformNodeSelector
@@ -64,9 +69,10 @@ public class UniformNodeSelector
     private final boolean includeCoordinator;
     private final AtomicReference<Supplier<NodeMap>> nodeMap;
     private final int minCandidates;
-    private final int maxSplitsPerNode;
-    private final int maxPendingSplitsPerTask;
+    private final long maxSplitsWeightPerNode;
+    private final long maxPendingSplitsWeightPerTask;
     private final int maxUnacknowledgedSplitsPerTask;
+    private final SplitsBalancingPolicy splitsBalancingPolicy;
     private final boolean optimizedLocalScheduling;
 
     public UniformNodeSelector(
@@ -75,9 +81,10 @@ public class UniformNodeSelector
             boolean includeCoordinator,
             Supplier<NodeMap> nodeMap,
             int minCandidates,
-            int maxSplitsPerNode,
-            int maxPendingSplitsPerTask,
+            long maxSplitsWeightPerNode,
+            long maxPendingSplitsWeightPerTask,
             int maxUnacknowledgedSplitsPerTask,
+            SplitsBalancingPolicy splitsBalancingPolicy,
             boolean optimizedLocalScheduling)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
@@ -85,10 +92,11 @@ public class UniformNodeSelector
         this.includeCoordinator = includeCoordinator;
         this.nodeMap = new AtomicReference<>(nodeMap);
         this.minCandidates = minCandidates;
-        this.maxSplitsPerNode = maxSplitsPerNode;
-        this.maxPendingSplitsPerTask = maxPendingSplitsPerTask;
+        this.maxSplitsWeightPerNode = maxSplitsWeightPerNode;
+        this.maxPendingSplitsWeightPerTask = maxPendingSplitsWeightPerTask;
         this.maxUnacknowledgedSplitsPerTask = maxUnacknowledgedSplitsPerTask;
         checkArgument(maxUnacknowledgedSplitsPerTask > 0, "maxUnacknowledgedSplitsPerTask must be > 0, found: %s", maxUnacknowledgedSplitsPerTask);
+        this.splitsBalancingPolicy = requireNonNull(splitsBalancingPolicy, "splitsBalancingPolicy is null");
         this.optimizedLocalScheduling = optimizedLocalScheduling;
     }
 
@@ -138,12 +146,12 @@ public class UniformNodeSelector
                     List<InternalNode> candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
 
                     Optional<InternalNode> chosenNode = candidateNodes.stream()
-                            .filter(ownerNode -> assignmentStats.getTotalSplitCount(ownerNode) < maxSplitsPerNode && assignmentStats.getUnacknowledgedSplitCountForStage(ownerNode) < maxUnacknowledgedSplitsPerTask)
-                            .min(comparingInt(assignmentStats::getTotalSplitCount));
+                            .filter(ownerNode -> assignmentStats.getTotalSplitsWeight(ownerNode) < maxSplitsWeightPerNode && assignmentStats.getUnacknowledgedSplitCountForStage(ownerNode) < maxUnacknowledgedSplitsPerTask)
+                            .min(comparingLong(assignmentStats::getTotalSplitsWeight));
 
                     if (chosenNode.isPresent()) {
                         assignment.put(chosenNode.get(), split);
-                        assignmentStats.addAssignedSplit(chosenNode.get());
+                        assignmentStats.addAssignedSplit(chosenNode.get(), split.getSplitWeight());
                         splitsToBeRedistributed = true;
                         continue;
                     }
@@ -170,29 +178,20 @@ public class UniformNodeSelector
                 throw new TrinoException(NO_NODES_AVAILABLE, "No nodes available to run query");
             }
 
-            InternalNode chosenNode = null;
-            int min = Integer.MAX_VALUE;
-
-            for (InternalNode node : candidateNodes) {
-                int totalSplitCount = assignmentStats.getTotalSplitCount(node);
-                if (totalSplitCount < min && totalSplitCount < maxSplitsPerNode && assignmentStats.getUnacknowledgedSplitCountForStage(node) < maxUnacknowledgedSplitsPerTask) {
-                    chosenNode = node;
-                    min = totalSplitCount;
-                }
-            }
+            InternalNode chosenNode = chooseNodeForSplit(assignmentStats, candidateNodes);
             if (chosenNode == null) {
-                // min is guaranteed to be MAX_VALUE at this line
+                long minWeight = Long.MAX_VALUE;
                 for (InternalNode node : candidateNodes) {
-                    int totalSplitCount = assignmentStats.getQueuedSplitCountForStage(node);
-                    if (totalSplitCount < min && totalSplitCount < maxPendingSplitsPerTask && assignmentStats.getUnacknowledgedSplitCountForStage(node) < maxUnacknowledgedSplitsPerTask) {
+                    long queuedWeight = assignmentStats.getQueuedSplitsWeightForStage(node);
+                    if (queuedWeight <= minWeight && queuedWeight < maxPendingSplitsWeightPerTask && assignmentStats.getUnacknowledgedSplitCountForStage(node) < maxUnacknowledgedSplitsPerTask) {
                         chosenNode = node;
-                        min = totalSplitCount;
+                        minWeight = queuedWeight;
                     }
                 }
             }
             if (chosenNode != null) {
                 assignment.put(chosenNode, split);
-                assignmentStats.addAssignedSplit(chosenNode);
+                assignmentStats.addAssignedSplit(chosenNode, split.getSplitWeight());
             }
             else {
                 if (split.isRemotelyAccessible()) {
@@ -207,10 +206,10 @@ public class UniformNodeSelector
 
         ListenableFuture<Void> blocked;
         if (splitWaitingForAnyNode) {
-            blocked = toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(maxPendingSplitsPerTask));
+            blocked = toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(maxPendingSplitsWeightPerTask));
         }
         else {
-            blocked = toWhenHasSplitQueueSpaceFuture(blockedExactNodes, existingTasks, calculateLowWatermark(maxPendingSplitsPerTask));
+            blocked = toWhenHasSplitQueueSpaceFuture(blockedExactNodes, existingTasks, calculateLowWatermark(maxPendingSplitsWeightPerTask));
         }
 
         if (splitsToBeRedistributed) {
@@ -222,7 +221,51 @@ public class UniformNodeSelector
     @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
     {
-        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap);
+        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsWeightPerNode, maxPendingSplitsWeightPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap);
+    }
+
+    @Nullable
+    private InternalNode chooseNodeForSplit(NodeAssignmentStats assignmentStats, List<InternalNode> candidateNodes)
+    {
+        InternalNode chosenNode = null;
+        long minWeight = Long.MAX_VALUE;
+
+        List<InternalNode> freeNodes = getFreeNodesForStage(assignmentStats, candidateNodes);
+        switch (splitsBalancingPolicy) {
+            case STAGE:
+                for (InternalNode node : freeNodes) {
+                    long queuedWeight = assignmentStats.getQueuedSplitsWeightForStage(node);
+                    if (queuedWeight <= minWeight) {
+                        chosenNode = node;
+                        minWeight = queuedWeight;
+                    }
+                }
+                break;
+            case NODE:
+                for (InternalNode node : freeNodes) {
+                    long totalSplitsWeight = assignmentStats.getTotalSplitsWeight(node);
+                    if (totalSplitsWeight <= minWeight) {
+                        chosenNode = node;
+                        minWeight = totalSplitsWeight;
+                    }
+                }
+                break;
+            default:
+                throw new UnsupportedOperationException("Unsupported split balancing policy " + splitsBalancingPolicy);
+        }
+
+        return chosenNode;
+    }
+
+    private List<InternalNode> getFreeNodesForStage(NodeAssignmentStats assignmentStats, List<InternalNode> nodes)
+    {
+        ImmutableList.Builder<InternalNode> freeNodes = ImmutableList.builder();
+        for (InternalNode node : nodes) {
+            if (assignmentStats.getTotalSplitsWeight(node) < maxSplitsWeightPerNode && assignmentStats.getUnacknowledgedSplitCountForStage(node) < maxUnacknowledgedSplitsPerTask) {
+                freeNodes.add(node);
+            }
+        }
+        return freeNodes.build();
     }
 
     /**
@@ -250,12 +293,12 @@ public class UniformNodeSelector
 
         IndexedPriorityQueue<InternalNode> maxNodes = new IndexedPriorityQueue<>();
         for (InternalNode node : assignment.keySet()) {
-            maxNodes.addOrUpdate(node, assignmentStats.getTotalSplitCount(node));
+            maxNodes.addOrUpdate(node, assignmentStats.getTotalSplitsWeight(node));
         }
 
         IndexedPriorityQueue<InternalNode> minNodes = new IndexedPriorityQueue<>();
         for (InternalNode node : allNodes) {
-            minNodes.addOrUpdate(node, Long.MAX_VALUE - assignmentStats.getTotalSplitCount(node));
+            minNodes.addOrUpdate(node, Long.MAX_VALUE - assignmentStats.getTotalSplitsWeight(node));
         }
 
         while (true) {
@@ -268,30 +311,30 @@ public class UniformNodeSelector
             InternalNode minNode = minNodes.poll();
 
             // Allow some degree of non uniformity when assigning splits to nodes. Usually data distribution
-            // among nodes in a cluster won't be fully uniform (e.g because hash function with non-uniform
+            // among nodes in a cluster won't be fully uniform (e.g. because hash function with non-uniform
             // distribution is used like consistent hashing). In such case it makes sense to assign splits to nodes
             // with data because of potential savings in network throughput and CPU time.
             // The difference of 5 between node with maximum and minimum splits is a tradeoff between ratio of
             // misassigned splits and assignment uniformity. Using larger numbers doesn't reduce the number of
             // misassigned splits greatly (in absolute values).
-            if (assignmentStats.getTotalSplitCount(maxNode) - assignmentStats.getTotalSplitCount(minNode) <= 5) {
+            if (assignmentStats.getTotalSplitsWeight(maxNode) - assignmentStats.getTotalSplitsWeight(minNode) <= SplitWeight.rawValueForStandardSplitCount(5)) {
                 return;
             }
 
             // move split from max to min
-            redistributeSplit(assignment, maxNode, minNode, nodeMap.getNodesByHost());
-            assignmentStats.removeAssignedSplit(maxNode);
-            assignmentStats.addAssignedSplit(minNode);
+            Split redistributed = redistributeSplit(assignment, maxNode, minNode, nodeMap.getNodesByHost());
+            assignmentStats.removeAssignedSplit(maxNode, redistributed.getSplitWeight());
+            assignmentStats.addAssignedSplit(minNode, redistributed.getSplitWeight());
 
             // add max back into maxNodes only if it still has assignments
             if (assignment.containsKey(maxNode)) {
-                maxNodes.addOrUpdate(maxNode, assignmentStats.getTotalSplitCount(maxNode));
+                maxNodes.addOrUpdate(maxNode, assignmentStats.getTotalSplitsWeight(maxNode));
             }
 
             // Add or update both the Priority Queues with the updated node priorities
-            maxNodes.addOrUpdate(minNode, assignmentStats.getTotalSplitCount(minNode));
-            minNodes.addOrUpdate(minNode, Long.MAX_VALUE - assignmentStats.getTotalSplitCount(minNode));
-            minNodes.addOrUpdate(maxNode, Long.MAX_VALUE - assignmentStats.getTotalSplitCount(maxNode));
+            maxNodes.addOrUpdate(minNode, assignmentStats.getTotalSplitsWeight(minNode));
+            minNodes.addOrUpdate(minNode, Long.MAX_VALUE - assignmentStats.getTotalSplitsWeight(minNode));
+            minNodes.addOrUpdate(maxNode, Long.MAX_VALUE - assignmentStats.getTotalSplitsWeight(maxNode));
         }
     }
 
@@ -301,7 +344,7 @@ public class UniformNodeSelector
      * simultaneously. If a Non-local split cannot be found in the maxNode, any split is selected randomly and reassigned.
      */
     @VisibleForTesting
-    public static void redistributeSplit(Multimap<InternalNode, Split> assignment, InternalNode fromNode, InternalNode toNode, SetMultimap<InetAddress, InternalNode> nodesByHost)
+    public static Split redistributeSplit(Multimap<InternalNode, Split> assignment, InternalNode fromNode, InternalNode toNode, SetMultimap<InetAddress, InternalNode> nodesByHost)
     {
         Iterator<Split> splitIterator = assignment.get(fromNode).iterator();
         Split splitToBeRedistributed = null;
@@ -320,6 +363,7 @@ public class UniformNodeSelector
         }
         splitIterator.remove();
         assignment.put(toNode, splitToBeRedistributed);
+        return splitToBeRedistributed;
     }
 
     /**

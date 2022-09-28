@@ -20,6 +20,7 @@ import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.ServerPackage;
+import io.trino.tests.product.launcher.env.SupportedTrinoJdk;
 
 import javax.inject.Inject;
 
@@ -29,8 +30,8 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
-import static io.trino.tests.product.launcher.env.common.Standard.createPrestoContainer;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_CONFIG_PROPERTIES;
+import static io.trino.tests.product.launcher.env.common.Standard.createTrinoContainer;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -42,6 +43,7 @@ public class StandardMultinode
     private final DockerFiles.ResourceProvider configDir;
     private final String imagesVersion;
     private final File serverPackage;
+    private final SupportedTrinoJdk jdkVersion;
     private final boolean debug;
 
     @Inject
@@ -50,12 +52,14 @@ public class StandardMultinode
             DockerFiles dockerFiles,
             EnvironmentConfig environmentConfig,
             @ServerPackage File serverPackage,
+            SupportedTrinoJdk jdkVersion,
             @Debug boolean debug)
     {
         this.standard = requireNonNull(standard, "standard is null");
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.configDir = dockerFiles.getDockerFilesHostDirectory("common/standard-multinode");
-        this.imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
+        this.imagesVersion = environmentConfig.getImagesVersion();
+        this.jdkVersion = requireNonNull(jdkVersion, "jdkVersion is null");
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
         this.debug = debug;
         checkArgument(serverPackage.getName().endsWith(".tar.gz"), "Currently only server .tar.gz package is supported");
@@ -71,14 +75,14 @@ public class StandardMultinode
     public void extendEnvironment(Environment.Builder builder)
     {
         builder.configureContainer(COORDINATOR, container -> container
-                .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-master-config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES));
+                .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-master-config.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES));
         builder.addContainers(createTrinoWorker());
     }
 
     @SuppressWarnings("resource")
     private DockerContainer createTrinoWorker()
     {
-        return createPrestoContainer(dockerFiles, serverPackage, debug, "ghcr.io/trinodb/testing/centos7-oj11:" + imagesVersion, WORKER)
-                .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-worker-config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES);
+        return createTrinoContainer(dockerFiles, serverPackage, jdkVersion, debug, "ghcr.io/trinodb/testing/centos7-oj11:" + imagesVersion, WORKER)
+                .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-worker-config.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES);
     }
 }

@@ -17,8 +17,6 @@ import com.esri.core.geometry.ogc.OGCGeometry;
 import io.airlift.slice.Slice;
 import io.trino.block.BlockAssertions;
 import io.trino.geospatial.serde.GeometrySerde;
-import io.trino.metadata.Metadata;
-import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.plugin.geospatial.GeoPlugin;
 import io.trino.spi.Page;
@@ -38,16 +36,10 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 public abstract class AbstractTestGeoAggregationFunctions
         extends AbstractTestFunctions
 {
-    private InternalAggregationFunction function;
-
     @BeforeClass
     public void registerFunctions()
     {
         functionAssertions.installPlugin(new GeoPlugin());
-        Metadata metadata = functionAssertions.getMetadata();
-        function = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(
-                QualifiedName.of(getFunctionName()),
-                fromTypes(GEOMETRY)));
     }
 
     protected void assertAggregatedGeometries(String testDescription, String expectedWkt, String... wkts)
@@ -73,11 +65,23 @@ public abstract class AbstractTestGeoAggregationFunctions
                     rightGeometry.difference(leftGeometry).isEmpty();
         };
         // Test in forward and reverse order to verify that ordering doesn't affect the output
-        assertAggregation(function, equalityFunction, testDescription,
-                new Page(BlockAssertions.createSlicesBlock(geometrySlices)), expectedWkt);
+        assertAggregation(
+                functionAssertions.getFunctionResolution(),
+                QualifiedName.of(getFunctionName()),
+                fromTypes(GEOMETRY),
+                equalityFunction,
+                testDescription,
+                new Page(BlockAssertions.createSlicesBlock(geometrySlices)),
+                expectedWkt);
         Collections.reverse(geometrySlices);
-        assertAggregation(function, equalityFunction, testDescription,
-                new Page(BlockAssertions.createSlicesBlock(geometrySlices)), expectedWkt);
+        assertAggregation(
+                functionAssertions.getFunctionResolution(),
+                QualifiedName.of(getFunctionName()),
+                fromTypes(GEOMETRY),
+                equalityFunction,
+                testDescription,
+                new Page(BlockAssertions.createSlicesBlock(geometrySlices)),
+                expectedWkt);
     }
 
     protected abstract String getFunctionName();

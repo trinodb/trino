@@ -56,7 +56,7 @@ public final class FileBasedNetworkTopology
     public FileBasedNetworkTopology(TopologyFileConfig topologyConfig)
     {
         this(
-                requireNonNull(topologyConfig, "topologyConfig is null").getNetworkTopologyFile(),
+                topologyConfig.getNetworkTopologyFile(),
                 topologyConfig.getRefreshPeriod(),
                 Ticker.systemTicker());
     }
@@ -64,7 +64,7 @@ public final class FileBasedNetworkTopology
     FileBasedNetworkTopology(File networkTopologyFile, Duration refreshPeriod, Ticker ticker)
     {
         this.networkTopologyFile = requireNonNull(networkTopologyFile, "networkTopologyFile is null");
-        this.refreshPeriodNanos = requireNonNull(refreshPeriod, "refreshPeriodNanos is null").roundTo(NANOSECONDS);
+        this.refreshPeriodNanos = refreshPeriod.roundTo(NANOSECONDS);
         this.ticker = requireNonNull(ticker, "ticker is null");
         refreshTopology();
     }
@@ -131,7 +131,7 @@ public final class FileBasedNetworkTopology
 
             topology.put(parts.get(0), new NetworkLocation(segments));
         }
-        return topology.build();
+        return topology.buildOrThrow();
     }
 
     private static RuntimeException invalidFile(int lineNumber, String message)

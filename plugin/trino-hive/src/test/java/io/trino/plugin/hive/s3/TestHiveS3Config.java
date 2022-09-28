@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.s3;
 
 import com.google.common.base.StandardSystemProperty;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -67,8 +68,17 @@ public class TestHiveS3Config
                 .setS3AclType(TrinoS3AclType.PRIVATE)
                 .setSkipGlacierObjects(false)
                 .setRequesterPaysEnabled(false)
-                .setS3StreamingUploadEnabled(false)
-                .setS3StreamingPartSize(DataSize.of(16, Unit.MEGABYTE)));
+                .setS3StreamingUploadEnabled(true)
+                .setS3StreamingPartSize(DataSize.of(16, Unit.MEGABYTE))
+                .setS3ProxyHost(null)
+                .setS3ProxyPort(-1)
+                .setS3ProxyProtocol("HTTPS")
+                .setS3NonProxyHosts(ImmutableList.of())
+                .setS3ProxyUsername(null)
+                .setS3ProxyPassword(null)
+                .setS3PreemptiveBasicProxyAuth(false)
+                .setS3StsEndpoint(null)
+                .setS3StsRegion(null));
     }
 
     @Test
@@ -77,7 +87,7 @@ public class TestHiveS3Config
     {
         Path stagingDirectory = Files.createTempDirectory(null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.s3.aws-access-key", "abc123")
                 .put("hive.s3.aws-secret-key", "secret")
                 .put("hive.s3.endpoint", "endpoint.example.com")
@@ -108,9 +118,18 @@ public class TestHiveS3Config
                 .put("hive.s3.upload-acl-type", "PUBLIC_READ")
                 .put("hive.s3.skip-glacier-objects", "true")
                 .put("hive.s3.requester-pays.enabled", "true")
-                .put("hive.s3.streaming.enabled", "true")
+                .put("hive.s3.streaming.enabled", "false")
                 .put("hive.s3.streaming.part-size", "15MB")
-                .build();
+                .put("hive.s3.proxy.host", "localhost")
+                .put("hive.s3.proxy.port", "14000")
+                .put("hive.s3.proxy.protocol", "HTTP")
+                .put("hive.s3.proxy.non-proxy-hosts", "test,test2,test3")
+                .put("hive.s3.proxy.username", "test")
+                .put("hive.s3.proxy.password", "test")
+                .put("hive.s3.proxy.preemptive-basic-auth", "true")
+                .put("hive.s3.sts.endpoint", "http://minio:9000")
+                .put("hive.s3.sts.region", "eu-central-1")
+                .buildOrThrow();
 
         HiveS3Config expected = new HiveS3Config()
                 .setS3AwsAccessKey("abc123")
@@ -143,8 +162,17 @@ public class TestHiveS3Config
                 .setS3AclType(TrinoS3AclType.PUBLIC_READ)
                 .setSkipGlacierObjects(true)
                 .setRequesterPaysEnabled(true)
-                .setS3StreamingUploadEnabled(true)
-                .setS3StreamingPartSize(DataSize.of(15, Unit.MEGABYTE));
+                .setS3StreamingUploadEnabled(false)
+                .setS3StreamingPartSize(DataSize.of(15, Unit.MEGABYTE))
+                .setS3ProxyHost("localhost")
+                .setS3ProxyPort(14000)
+                .setS3ProxyProtocol("HTTP")
+                .setS3NonProxyHosts(ImmutableList.of("test", "test2", "test3"))
+                .setS3ProxyUsername("test")
+                .setS3ProxyPassword("test")
+                .setS3PreemptiveBasicProxyAuth(true)
+                .setS3StsEndpoint("http://minio:9000")
+                .setS3StsRegion("eu-central-1");
 
         assertFullMapping(properties, expected);
     }

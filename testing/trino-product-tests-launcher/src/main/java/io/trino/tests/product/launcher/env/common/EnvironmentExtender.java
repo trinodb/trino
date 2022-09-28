@@ -17,10 +17,28 @@ import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.Environment;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import static com.google.common.base.Verify.verify;
 
 public interface EnvironmentExtender
 {
-    void extendEnvironment(Environment.Builder builder);
+    default Optional<String> getExtraOptionsPrefix()
+    {
+        return Optional.empty();
+    }
+
+    default void extendEnvironment(Environment.Builder builder, Map<String, String> extraOptions)
+    {
+        verify(getExtraOptionsPrefix().isEmpty(), "getExtraOptionsPrefix is defined but extendEnvironment not overridden");
+        extendEnvironment(builder);
+    }
+
+    default void extendEnvironment(Environment.Builder builder)
+    {
+        throw new UnsupportedOperationException("Not implemented");
+    }
 
     /**
      * First dependencies extend the environment, then this {@link EnvironmentExtender} is used.

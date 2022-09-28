@@ -28,6 +28,7 @@ import java.util.Locale;
 import java.util.NoSuchElementException;
 
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class TestingAtopFactory
@@ -51,7 +52,7 @@ public class TestingAtopFactory
         private TestingAtop(InputStream dataStream, ZonedDateTime date)
         {
             this.date = date;
-            this.reader = new BufferedReader(new InputStreamReader(dataStream));
+            this.reader = new BufferedReader(new InputStreamReader(dataStream, UTF_8));
             try {
                 line = reader.readLine();
             }

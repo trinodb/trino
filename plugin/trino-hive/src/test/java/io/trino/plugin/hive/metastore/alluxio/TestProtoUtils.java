@@ -84,7 +84,7 @@ public class TestProtoUtils
         Column c = t.getColumn(TestingAlluxioMetastoreObjects.COLUMN_NAME).get();
         assertEquals(table.getDbName(), t.getDatabaseName());
         assertEquals(table.getTableName(), t.getTableName());
-        assertEquals(table.getOwner(), t.getOwner());
+        assertEquals(table.getOwner(), t.getOwner().orElse(null));
         assertEquals(table.getType().toString(), t.getTableType());
         assertEquals(0, t.getDataColumns().size());
         assertEquals(1, t.getPartitionColumns().size());
@@ -145,7 +145,7 @@ public class TestProtoUtils
     {
         alluxio.grpc.table.layout.hive.StorageFormat.Builder storageFormat = TestingAlluxioMetastoreObjects.getTestingStorageFormat();
         StorageFormat fmt = ProtoUtils.fromProto(storageFormat.build());
-        assertEquals(storageFormat.getSerde(), fmt.getSerDe());
+        assertEquals(storageFormat.getSerde(), fmt.getSerde());
         assertEquals(storageFormat.getInputFormat(), fmt.getInputFormat());
         assertEquals(storageFormat.getOutputFormat(), fmt.getOutputFormat());
     }

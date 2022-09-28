@@ -15,13 +15,14 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.units.Duration;
+import io.trino.collect.cache.EvictableCacheBuilder;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
-import io.trino.plugin.jdbc.JdbcIdentityCacheMapping.JdbcIdentityCacheKey;
+import io.trino.plugin.jdbc.IdentityCacheMapping.IdentityCacheKey;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -34,20 +35,25 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.Type;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -55,10 +61,12 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.jdbc.BaseJdbcConfig.CACHING_DISABLED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -66,55 +74,62 @@ public class CachingJdbcClient
         implements JdbcClient
 {
     private static final Object NULL_MARKER = new Object();
-    private static final Duration CACHING_DISABLED = new Duration(0, MILLISECONDS);
 
     private final JdbcClient delegate;
     private final List<PropertyMetadata<?>> sessionProperties;
+    // specifies whether missing values should be cached
     private final boolean cacheMissing;
-    private final JdbcIdentityCacheMapping identityMapping;
+    private final IdentityCacheMapping identityMapping;
 
-    private final Cache<JdbcIdentityCacheKey, Set<String>> schemaNamesCache;
+    private final Cache<IdentityCacheKey, Set<String>> schemaNamesCache;
     private final Cache<TableNamesCacheKey, List<SchemaTableName>> tableNamesCache;
-    private final Cache<TableHandleCacheKey, Optional<JdbcTableHandle>> tableHandleCache;
+    private final Cache<TableHandlesByNameCacheKey, Optional<JdbcTableHandle>> tableHandlesByNameCache;
+    private final Cache<TableHandlesByQueryCacheKey, JdbcTableHandle> tableHandlesByQueryCache;
     private final Cache<ColumnsCacheKey, List<JdbcColumnHandle>> columnsCache;
-    private final Cache<TableStatisticsCacheKey, TableStatistics> statisticsCache;
+    private final Cache<JdbcTableHandle, TableStatistics> statisticsCache;
 
     @Inject
     public CachingJdbcClient(
             @StatsCollecting JdbcClient delegate,
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
-            JdbcIdentityCacheMapping identityMapping,
+            IdentityCacheMapping identityMapping,
             BaseJdbcConfig config)
     {
-        this(delegate, sessionPropertiesProviders, identityMapping, config.getMetadataCacheTtl(), config.isCacheMissing());
+        this(delegate, sessionPropertiesProviders, identityMapping, config.getMetadataCacheTtl(), config.isCacheMissing(), config.getCacheMaximumSize());
     }
 
     public CachingJdbcClient(
             JdbcClient delegate,
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
-            JdbcIdentityCacheMapping identityMapping,
+            IdentityCacheMapping identityMapping,
             Duration metadataCachingTtl,
-            boolean cacheMissing)
+            boolean cacheMissing,
+            long cacheMaximumSize)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
-        this.sessionProperties = requireNonNull(sessionPropertiesProviders, "sessionPropertiesProviders is null").stream()
+        this.sessionProperties = sessionPropertiesProviders.stream()
                 .flatMap(provider -> provider.getSessionProperties().stream())
                 .collect(toImmutableList());
         this.cacheMissing = cacheMissing;
         this.identityMapping = requireNonNull(identityMapping, "identityMapping is null");
 
-        CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
+        EvictableCacheBuilder<Object, Object> cacheBuilder = EvictableCacheBuilder.newBuilder()
                 .expireAfterWrite(metadataCachingTtl.toMillis(), MILLISECONDS)
+                .shareNothingWhenDisabled()
                 .recordStats();
 
         if (metadataCachingTtl.equals(CACHING_DISABLED)) {
             // Disables the cache entirely
             cacheBuilder.maximumSize(0);
         }
+        else {
+            cacheBuilder.maximumSize(cacheMaximumSize);
+        }
 
         schemaNamesCache = cacheBuilder.build();
         tableNamesCache = cacheBuilder.build();
-        tableHandleCache = cacheBuilder.build();
+        tableHandlesByNameCache = cacheBuilder.build();
+        tableHandlesByQueryCache = cacheBuilder.build();
         columnsCache = cacheBuilder.build();
         statisticsCache = cacheBuilder.build();
     }
@@ -129,7 +144,7 @@ public class CachingJdbcClient
     @Override
     public Set<String> getSchemaNames(ConnectorSession session)
     {
-        JdbcIdentityCacheKey key = getIdentityKey(session);
+        IdentityCacheKey key = getIdentityKey(session);
         return get(schemaNamesCache, key, () -> delegate.getSchemaNames(session));
     }
 
@@ -169,15 +184,21 @@ public class CachingJdbcClient
     }
 
     @Override
-    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<List<ColumnHandle>> groupingSets)
+    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
     {
-        return delegate.supportsAggregationPushdown(session, table, groupingSets);
+        return delegate.supportsAggregationPushdown(session, table, aggregates, assignments, groupingSets);
     }
 
     @Override
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
         return delegate.implementAggregation(session, aggregate, assignments);
+    }
+
+    @Override
+    public Optional<String> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return delegate.convertPredicate(session, expression, assignments);
     }
 
     @Override
@@ -194,10 +215,10 @@ public class CachingJdbcClient
     }
 
     @Override
-    public void abortReadConnection(Connection connection)
+    public void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {
-        delegate.abortReadConnection(connection);
+        delegate.abortReadConnection(connection, resultSet);
     }
 
     @Override
@@ -259,17 +280,23 @@ public class CachingJdbcClient
     @Override
     public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        TableHandleCacheKey key = new TableHandleCacheKey(getIdentityKey(session), schemaTableName);
-        Optional<JdbcTableHandle> cachedTableHandle = tableHandleCache.getIfPresent(key);
+        TableHandlesByNameCacheKey key = new TableHandlesByNameCacheKey(getIdentityKey(session), schemaTableName);
+        Optional<JdbcTableHandle> cachedTableHandle = tableHandlesByNameCache.getIfPresent(key);
         //noinspection OptionalAssignedToNull
         if (cachedTableHandle != null) {
-            return cachedTableHandle;
+            if (cacheMissing || cachedTableHandle.isPresent()) {
+                return cachedTableHandle;
+            }
+            tableHandlesByNameCache.invalidate(key);
         }
-        Optional<JdbcTableHandle> tableHandle = delegate.getTableHandle(session, schemaTableName);
-        if (tableHandle.isPresent() || cacheMissing) {
-            tableHandleCache.put(key, tableHandle);
-        }
-        return tableHandle;
+        return get(tableHandlesByNameCache, key, () -> delegate.getTableHandle(session, schemaTableName));
+    }
+
+    @Override
+    public JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery)
+    {
+        TableHandlesByQueryCacheKey key = new TableHandlesByQueryCacheKey(getIdentityKey(session), preparedQuery);
+        return get(tableHandlesByQueryCache, key, () -> delegate.getTableHandle(session, preparedQuery));
     }
 
     @Override
@@ -328,18 +355,22 @@ public class CachingJdbcClient
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
     {
-        TableStatisticsCacheKey key = new TableStatisticsCacheKey(handle, tupleDomain);
+        checkArgument(tupleDomain.isAll(), "Unexpected non-ALL constraint: %s", tupleDomain);
+        return getTableStatistics(session, handle);
+    }
 
-        TableStatistics cachedStatistics = statisticsCache.getIfPresent(key);
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
+    {
+        // TODO depend on Identity when needed
+        TableStatistics cachedStatistics = statisticsCache.getIfPresent(handle);
         if (cachedStatistics != null) {
-            return cachedStatistics;
+            if (cacheMissing || !cachedStatistics.equals(TableStatistics.empty())) {
+                return cachedStatistics;
+            }
+            statisticsCache.invalidate(handle);
         }
-
-        TableStatistics statistics = delegate.getTableStatistics(session, handle, tupleDomain);
-        if (!statistics.equals(TableStatistics.empty()) || cacheMissing) {
-            statisticsCache.put(key, statistics);
-        }
-        return statistics;
+        return get(statisticsCache, handle, () -> delegate.getTableStatistics(session, handle));
     }
 
     @Override
@@ -354,6 +385,27 @@ public class CachingJdbcClient
     {
         delegate.dropSchema(session, schemaName);
         invalidateSchemasCache();
+    }
+
+    @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        delegate.renameSchema(session, schemaName, newSchemaName);
+        invalidateSchemasCache();
+    }
+
+    @Override
+    public Optional<String> getTableComment(ResultSet resultSet)
+            throws SQLException
+    {
+        return delegate.getTableComment(resultSet);
+    }
+
+    @Override
+    public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
+    {
+        delegate.setTableComment(session, handle, comment);
+        invalidateTableCaches(handle.asPlainTable().getSchemaTableName());
     }
 
     @Override
@@ -390,6 +442,13 @@ public class CachingJdbcClient
         delegate.renameTable(session, handle, newTableName);
         invalidateTableCaches(handle.asPlainTable().getSchemaTableName());
         invalidateTableCaches(newTableName);
+    }
+
+    @Override
+    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Optional<Object>> properties)
+    {
+        delegate.setTableProperties(session, handle, properties);
+        invalidateTableCaches(handle.asPlainTable().getSchemaTableName());
     }
 
     @Override
@@ -437,7 +496,7 @@ public class CachingJdbcClient
 
     public void onDataChanged(SchemaTableName table)
     {
-        invalidateCache(statisticsCache, key -> key.tableHandle.references(table));
+        invalidateCache(statisticsCache, key -> key.mayReference(table));
     }
 
     /**
@@ -448,12 +507,38 @@ public class CachingJdbcClient
     @Deprecated
     public void onDataChanged(JdbcTableHandle handle)
     {
-        invalidateCache(statisticsCache, key -> key.tableHandle.equals(handle));
+        invalidateCache(statisticsCache, key -> key.equals(handle));
     }
 
-    private JdbcIdentityCacheKey getIdentityKey(ConnectorSession session)
+    @Override
+    public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
     {
-        return identityMapping.getRemoteUserCacheKey(JdbcIdentity.from(session));
+        OptionalLong deletedRowsCount = delegate.delete(session, handle);
+        onDataChanged(handle.getRequiredNamedRelation().getSchemaTableName());
+        return deletedRowsCount;
+    }
+
+    @Override
+    public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
+    {
+        delegate.truncateTable(session, handle);
+        onDataChanged(handle.getRequiredNamedRelation().getSchemaTableName());
+    }
+
+    @Managed
+    public void flushCache()
+    {
+        schemaNamesCache.invalidateAll();
+        tableNamesCache.invalidateAll();
+        tableHandlesByNameCache.invalidateAll();
+        tableHandlesByQueryCache.invalidateAll();
+        columnsCache.invalidateAll();
+        statisticsCache.invalidateAll();
+    }
+
+    private IdentityCacheKey getIdentityKey(ConnectorSession session)
+    {
+        return identityMapping.getRemoteUserCacheKey(session);
     }
 
     private Map<String, Object> getSessionProperties(ConnectorSession session)
@@ -476,9 +561,10 @@ public class CachingJdbcClient
     private void invalidateTableCaches(SchemaTableName schemaTableName)
     {
         invalidateColumnsCache(schemaTableName);
-        invalidateCache(tableHandleCache, key -> key.tableName.equals(schemaTableName));
+        invalidateCache(tableHandlesByNameCache, key -> key.tableName.equals(schemaTableName));
+        tableHandlesByQueryCache.invalidateAll();
         invalidateCache(tableNamesCache, key -> key.schemaName.equals(Optional.of(schemaTableName.getSchemaName())));
-        invalidateCache(statisticsCache, key -> key.tableHandle.references(schemaTableName));
+        invalidateCache(statisticsCache, key -> key.mayReference(schemaTableName));
     }
 
     private void invalidateColumnsCache(SchemaTableName table)
@@ -490,6 +576,12 @@ public class CachingJdbcClient
     CacheStats getTableNamesCacheStats()
     {
         return tableNamesCache.stats();
+    }
+
+    @VisibleForTesting
+    CacheStats getTableHandlesByQueryCacheStats()
+    {
+        return tableHandlesByQueryCache.stats();
     }
 
     @VisibleForTesting
@@ -515,18 +607,18 @@ public class CachingJdbcClient
 
     private static final class ColumnsCacheKey
     {
-        private final JdbcIdentityCacheKey identity;
+        private final IdentityCacheKey identity;
         private final SchemaTableName table;
         private final Map<String, Object> sessionProperties;
 
-        private ColumnsCacheKey(JdbcIdentityCacheKey identity, Map<String, Object> sessionProperties, SchemaTableName table)
+        private ColumnsCacheKey(IdentityCacheKey identity, Map<String, Object> sessionProperties, SchemaTableName table)
         {
             this.identity = requireNonNull(identity, "identity is null");
             this.sessionProperties = ImmutableMap.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
             this.table = requireNonNull(table, "table is null");
         }
 
-        public JdbcIdentityCacheKey getIdentity()
+        public IdentityCacheKey getIdentity()
         {
             return identity;
         }
@@ -563,12 +655,12 @@ public class CachingJdbcClient
         }
     }
 
-    private static final class TableHandleCacheKey
+    private static final class TableHandlesByNameCacheKey
     {
-        private final JdbcIdentityCacheKey identity;
+        private final IdentityCacheKey identity;
         private final SchemaTableName tableName;
 
-        private TableHandleCacheKey(JdbcIdentityCacheKey identity, SchemaTableName tableName)
+        private TableHandlesByNameCacheKey(IdentityCacheKey identity, SchemaTableName tableName)
         {
             this.identity = requireNonNull(identity, "identity is null");
             this.tableName = requireNonNull(tableName, "tableName is null");
@@ -583,7 +675,7 @@ public class CachingJdbcClient
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            TableHandleCacheKey that = (TableHandleCacheKey) o;
+            TableHandlesByNameCacheKey that = (TableHandlesByNameCacheKey) o;
             return Objects.equals(identity, that.identity) &&
                     Objects.equals(tableName, that.tableName);
         }
@@ -595,12 +687,44 @@ public class CachingJdbcClient
         }
     }
 
+    private static final class TableHandlesByQueryCacheKey
+    {
+        private final IdentityCacheKey identity;
+        private final PreparedQuery preparedQuery;
+
+        private TableHandlesByQueryCacheKey(IdentityCacheKey identity, PreparedQuery preparedQuery)
+        {
+            this.identity = requireNonNull(identity, "identity is null");
+            this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TableHandlesByQueryCacheKey that = (TableHandlesByQueryCacheKey) o;
+            return Objects.equals(identity, that.identity) &&
+                    Objects.equals(preparedQuery, that.preparedQuery);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(identity, preparedQuery);
+        }
+    }
+
     private static final class TableNamesCacheKey
     {
-        private final JdbcIdentityCacheKey identity;
+        private final IdentityCacheKey identity;
         private final Optional<String> schemaName;
 
-        private TableNamesCacheKey(JdbcIdentityCacheKey identity, Optional<String> schemaName)
+        private TableNamesCacheKey(IdentityCacheKey identity, Optional<String> schemaName)
         {
             this.identity = requireNonNull(identity, "identity is null");
             this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -642,36 +766,45 @@ public class CachingJdbcClient
         }
     }
 
-    private static final class TableStatisticsCacheKey
+    @Managed
+    @Nested
+    public CacheStatsMBean getSchemaNamesStats()
     {
-        // TODO depend on Identity when needed
-        private final JdbcTableHandle tableHandle;
-        private final TupleDomain<ColumnHandle> tupleDomain;
+        return new CacheStatsMBean(schemaNamesCache);
+    }
 
-        private TableStatisticsCacheKey(JdbcTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
-        {
-            this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-            this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
-        }
+    @Managed
+    @Nested
+    public CacheStatsMBean getTableNamesCache()
+    {
+        return new CacheStatsMBean(tableNamesCache);
+    }
 
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            TableStatisticsCacheKey that = (TableStatisticsCacheKey) o;
-            return tableHandle.equals(that.tableHandle)
-                    && tupleDomain.equals(that.tupleDomain);
-        }
+    @Managed
+    @Nested
+    public CacheStatsMBean getTableHandlesByNameCache()
+    {
+        return new CacheStatsMBean(tableHandlesByNameCache);
+    }
 
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(tableHandle, tupleDomain);
-        }
+    @Managed
+    @Nested
+    public CacheStatsMBean getTableHandlesByQueryCache()
+    {
+        return new CacheStatsMBean(tableHandlesByQueryCache);
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getColumnsCache()
+    {
+        return new CacheStatsMBean(columnsCache);
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getStatisticsCache()
+    {
+        return new CacheStatsMBean(statisticsCache);
     }
 }

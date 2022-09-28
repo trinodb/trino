@@ -19,8 +19,8 @@ import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.qubole.rubix.prestosql.CachingPrestoDistributedFileSystem;
-import io.trino.plugin.hive.DynamicConfigurationProvider;
-import io.trino.plugin.hive.authentication.HiveAuthenticationConfig;
+import io.trino.hdfs.DynamicConfigurationProvider;
+import io.trino.hdfs.authentication.HdfsAuthenticationConfig;
 import org.apache.hadoop.conf.Configuration;
 
 import java.util.Set;
@@ -34,13 +34,11 @@ import static java.util.Objects.requireNonNull;
 public class RubixModule
         implements Module
 {
-    private static final String RUBIX_DISTRIBUTED_FS_CLASS_NAME = CachingPrestoDistributedFileSystem.class.getName();
-
     @Override
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(RubixConfig.class);
-        configBinder(binder).bindConfig(HiveAuthenticationConfig.class);
+        configBinder(binder).bindConfig(HdfsAuthenticationConfig.class);
         binder.bind(RubixConfigurationInitializer.class).in(Scopes.SINGLETON);
         binder.bind(RubixInitializer.class).in(Scopes.SINGLETON);
         // Make initialization of Rubix happen just once.
@@ -68,10 +66,13 @@ public class RubixModule
     static class DefaultRubixHdfsInitializer
             implements RubixHdfsInitializer
     {
-        private HiveAuthenticationConfig authenticationConfig;
+        private static final String RUBIX_DISTRIBUTED_FS_CLASS_NAME = CachingPrestoDistributedFileSystem.class.getName();
+
+        @Deprecated // TODO do not keep mutable config instance on a field
+        private HdfsAuthenticationConfig authenticationConfig;
 
         @Inject
-        public DefaultRubixHdfsInitializer(HiveAuthenticationConfig authenticationConfig)
+        public DefaultRubixHdfsInitializer(HdfsAuthenticationConfig authenticationConfig)
         {
             this.authenticationConfig = requireNonNull(authenticationConfig, "authenticationConfig is null");
         }

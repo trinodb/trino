@@ -21,7 +21,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.decoder.DecoderModule;
-import io.trino.metadata.Metadata;
 import io.trino.plugin.kafka.encoder.EncoderModule;
 import io.trino.plugin.kafka.schema.ContentSchemaReader;
 import io.trino.plugin.kafka.schema.MapBasedTableDescriptionSupplier;
@@ -30,6 +29,7 @@ import io.trino.plugin.kafka.schema.file.FileContentSchemaReader;
 import io.trino.plugin.kafka.util.CodecSupplier;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.TypeManager;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.kafka.TestingKafka;
 import io.trino.tpch.TpchTable;
@@ -42,12 +42,11 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.io.ByteStreams.toByteArray;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.kafka.util.TestUtils.loadTpchTopicDescription;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -100,7 +99,7 @@ public final class KafkaQueryRunner
         {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
-            Map<SchemaTableName, KafkaTopicDescription> tpchTopicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getMetadata(), tables);
+            Map<SchemaTableName, KafkaTopicDescription> tpchTopicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getTypeManager(), tables);
 
             List<SchemaTableName> tableNames = new ArrayList<>();
             tableNames.add(new SchemaTableName("read_test", "all_datatypes_json"));
@@ -109,7 +108,7 @@ public final class KafkaQueryRunner
             tableNames.add(new SchemaTableName("write_test", "all_datatypes_raw"));
             tableNames.add(new SchemaTableName("write_test", "all_datatypes_json"));
 
-            JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec = new CodecSupplier<>(KafkaTopicDescription.class, queryRunner.getMetadata()).get();
+            JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec = new CodecSupplier<>(KafkaTopicDescription.class, queryRunner.getCoordinator().getTypeManager()).get();
 
             ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> testTopicDescriptions = ImmutableMap.builder();
             for (SchemaTableName tableName : tableNames) {
@@ -119,11 +118,11 @@ public final class KafkaQueryRunner
             Map<SchemaTableName, KafkaTopicDescription> topicDescriptions = ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
                     .putAll(extraTopicDescription)
                     .putAll(tpchTopicDescriptions)
-                    .putAll(testTopicDescriptions.build())
-                    .build();
+                    .putAll(testTopicDescriptions.buildOrThrow())
+                    .buildOrThrow();
             setExtension(combine(
                     extension,
-                    installModuleIf(
+                    conditionalModule(
                             KafkaConfig.class,
                             kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
                             binder -> binder.bind(TableDescriptionSupplier.class)
@@ -145,7 +144,7 @@ public final class KafkaQueryRunner
                 long start = System.nanoTime();
                 log.info("Running import for %s", table.getTableName());
                 queryRunner.execute(format("INSERT INTO %1$s SELECT * FROM tpch.tiny.%1$s", table.getTableName()));
-                log.info("Imported %s in %s", 0, table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+                log.info("Imported %s in %s", table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
             }
             log.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
         }
@@ -179,15 +178,10 @@ public final class KafkaQueryRunner
                 message);
     }
 
-    private static String kafkaTopicName(TpchTable<?> table)
-    {
-        return TPCH_SCHEMA + "." + table.getTableName().toLowerCase(ENGLISH);
-    }
-
-    private static Map<SchemaTableName, KafkaTopicDescription> createTpchTopicDescriptions(Metadata metadata, Iterable<TpchTable<?>> tables)
+    private static Map<SchemaTableName, KafkaTopicDescription> createTpchTopicDescriptions(TypeManager typeManager, Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec = new CodecSupplier<>(KafkaTopicDescription.class, metadata).get();
+        JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec = new CodecSupplier<>(KafkaTopicDescription.class, typeManager).get();
 
         ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> topicDescriptions = ImmutableMap.builder();
         for (TpchTable<?> table : tables) {
@@ -196,7 +190,7 @@ public final class KafkaQueryRunner
 
             topicDescriptions.put(loadTpchTopicDescription(topicDescriptionJsonCodec, tpchTable.toString(), tpchTable));
         }
-        return topicDescriptions.build();
+        return topicDescriptions.buildOrThrow();
     }
 
     public static void main(String[] args)
@@ -205,6 +199,7 @@ public final class KafkaQueryRunner
         Logging.initialize();
         DistributedQueryRunner queryRunner = builder(TestingKafka.create())
                 .setTables(TpchTable.getTables())
+                .setCoordinatorProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .build();
         Logger log = Logger.get(KafkaQueryRunner.class);
         log.info("======== SERVER STARTED ========");

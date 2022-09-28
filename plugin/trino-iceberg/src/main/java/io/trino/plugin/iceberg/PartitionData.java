@@ -26,7 +26,7 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
+import java.util.UUID;
 
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.rescale;
@@ -76,15 +76,15 @@ public class PartitionData
         partitionValues[pos] = value;
     }
 
-    public String toJson()
+    public static String toJson(StructLike structLike)
     {
         try {
             StringWriter writer = new StringWriter();
             JsonGenerator generator = FACTORY.createGenerator(writer);
             generator.writeStartObject();
             generator.writeArrayFieldStart(PARTITION_VALUES_FIELD);
-            for (Object value : partitionValues) {
-                generator.writeObject(value);
+            for (int i = 0; i < structLike.size(); i++) {
+                generator.writeObject(structLike.get(i, Object.class));
             }
             generator.writeEndArray();
             generator.writeEndObject();
@@ -92,7 +92,7 @@ public class PartitionData
             return writer.toString();
         }
         catch (IOException e) {
-            throw new UncheckedIOException("JSON conversion failed for PartitionData: " + Arrays.toString(partitionValues), e);
+            throw new UncheckedIOException("JSON conversion failed for: " + structLike, e);
         }
     }
 
@@ -144,6 +144,8 @@ public class PartitionData
                 return partitionValue.doubleValue();
             case STRING:
                 return partitionValue.asText();
+            case UUID:
+                return UUID.fromString(partitionValue.asText());
             case FIXED:
             case BINARY:
                 try {
@@ -157,7 +159,6 @@ public class PartitionData
                 return rescale(
                         partitionValue.decimalValue(),
                         createDecimalType(decimalType.precision(), decimalType.scale()));
-            case UUID:
             case LIST:
             case MAP:
             case STRUCT:

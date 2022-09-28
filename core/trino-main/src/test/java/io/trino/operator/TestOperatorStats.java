@@ -13,23 +13,27 @@
  */
 package io.trino.operator;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.connector.CatalogName;
-import io.trino.operator.PartitionedOutputOperator.PartitionedOutputInfo;
+import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputInfo;
+import io.trino.plugin.base.metrics.LongCount;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
 public class TestOperatorStats
 {
-    private static final SplitOperatorInfo NON_MERGEABLE_INFO = new SplitOperatorInfo(new CatalogName("some_catalog"), "some_info");
+    private static final SplitOperatorInfo NON_MERGEABLE_INFO = new SplitOperatorInfo(TEST_CATALOG_HANDLE, "some_info");
     private static final PartitionedOutputInfo MERGEABLE_INFO = new PartitionedOutputInfo(1, 2, 1024);
 
     public static final OperatorStats EXPECTED = new OperatorStats(
@@ -46,6 +50,7 @@ public class TestOperatorStats
             new Duration(4, NANOSECONDS),
             DataSize.ofBytes(51),
             511,
+            new Duration(5, NANOSECONDS),
             DataSize.ofBytes(52),
             522,
             DataSize.ofBytes(5),
@@ -59,6 +64,8 @@ public class TestOperatorStats
             DataSize.ofBytes(12),
             13,
             533,
+            new Metrics(ImmutableMap.of("metrics", new LongCount(42))),
+            new Metrics(ImmutableMap.of("connectorMetrics", new LongCount(43))),
 
             DataSize.ofBytes(14),
 
@@ -70,9 +77,7 @@ public class TestOperatorStats
 
             DataSize.ofBytes(19),
             DataSize.ofBytes(20),
-            DataSize.ofBytes(21),
             DataSize.ofBytes(22),
-            DataSize.ofBytes(23),
             DataSize.ofBytes(24),
             DataSize.ofBytes(25),
             DataSize.ofBytes(26),
@@ -93,6 +98,7 @@ public class TestOperatorStats
             new Duration(4, NANOSECONDS),
             DataSize.ofBytes(51),
             511,
+            new Duration(5, NANOSECONDS),
             DataSize.ofBytes(52),
             522,
             DataSize.ofBytes(5),
@@ -106,6 +112,8 @@ public class TestOperatorStats
             DataSize.ofBytes(12),
             13,
             533,
+            new Metrics(ImmutableMap.of("metrics", new LongCount(42))),
+            new Metrics(ImmutableMap.of("connectorMetrics", new LongCount(43))),
 
             DataSize.ofBytes(14),
 
@@ -117,9 +125,7 @@ public class TestOperatorStats
 
             DataSize.ofBytes(19),
             DataSize.ofBytes(20),
-            DataSize.ofBytes(21),
             DataSize.ofBytes(22),
-            DataSize.ofBytes(23),
             DataSize.ofBytes(24),
             DataSize.ofBytes(25),
             DataSize.ofBytes(26),
@@ -149,6 +155,7 @@ public class TestOperatorStats
         assertEquals(actual.getAddInputCpu(), new Duration(4, NANOSECONDS));
         assertEquals(actual.getPhysicalInputDataSize(), DataSize.ofBytes(51));
         assertEquals(actual.getPhysicalInputPositions(), 511);
+        assertEquals(actual.getPhysicalInputReadTime(), new Duration(5, NANOSECONDS));
         assertEquals(actual.getInternalNetworkInputDataSize(), DataSize.ofBytes(52));
         assertEquals(actual.getInternalNetworkInputPositions(), 522);
         assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(5));
@@ -163,6 +170,8 @@ public class TestOperatorStats
         assertEquals(actual.getOutputPositions(), 13);
 
         assertEquals(actual.getDynamicFilterSplitsProcessed(), 533);
+        assertEquals(actual.getMetrics().getMetrics(), ImmutableMap.of("metrics", new LongCount(42)));
+        assertEquals(actual.getConnectorMetrics().getMetrics(), ImmutableMap.of("connectorMetrics", new LongCount(43)));
 
         assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(14));
 
@@ -174,9 +183,7 @@ public class TestOperatorStats
 
         assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(19));
         assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(20));
-        assertEquals(actual.getSystemMemoryReservation(), DataSize.ofBytes(21));
         assertEquals(actual.getPeakUserMemoryReservation(), DataSize.ofBytes(22));
-        assertEquals(actual.getPeakSystemMemoryReservation(), DataSize.ofBytes(23));
         assertEquals(actual.getPeakRevocableMemoryReservation(), DataSize.ofBytes(24));
         assertEquals(actual.getPeakTotalMemoryReservation(), DataSize.ofBytes(25));
         assertEquals(actual.getSpilledDataSize(), DataSize.ofBytes(26));
@@ -187,7 +194,7 @@ public class TestOperatorStats
     @Test
     public void testAdd()
     {
-        OperatorStats actual = EXPECTED.add(EXPECTED, EXPECTED);
+        OperatorStats actual = EXPECTED.add(ImmutableList.of(EXPECTED, EXPECTED));
 
         assertEquals(actual.getStageId(), 0);
         assertEquals(actual.getOperatorId(), 41);
@@ -199,6 +206,7 @@ public class TestOperatorStats
         assertEquals(actual.getAddInputCpu(), new Duration(3 * 4, NANOSECONDS));
         assertEquals(actual.getPhysicalInputDataSize(), DataSize.ofBytes(3 * 51));
         assertEquals(actual.getPhysicalInputPositions(), 3 * 511);
+        assertEquals(actual.getPhysicalInputReadTime(), new Duration(3 * 5, NANOSECONDS));
         assertEquals(actual.getInternalNetworkInputDataSize(), DataSize.ofBytes(3 * 52));
         assertEquals(actual.getInternalNetworkInputPositions(), 3 * 522);
         assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(3 * 5));
@@ -213,6 +221,8 @@ public class TestOperatorStats
         assertEquals(actual.getOutputPositions(), 3 * 13);
 
         assertEquals(actual.getDynamicFilterSplitsProcessed(), 3 * 533);
+        assertEquals(actual.getMetrics().getMetrics(), ImmutableMap.of("metrics", new LongCount(3 * 42)));
+        assertEquals(actual.getConnectorMetrics().getMetrics(), ImmutableMap.of("connectorMetrics", new LongCount(3 * 43)));
 
         assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(3 * 14));
 
@@ -223,9 +233,7 @@ public class TestOperatorStats
         assertEquals(actual.getFinishCpu(), new Duration(3 * 18, NANOSECONDS));
         assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(3 * 19));
         assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(3 * 20));
-        assertEquals(actual.getSystemMemoryReservation(), DataSize.ofBytes(3 * 21));
         assertEquals(actual.getPeakUserMemoryReservation(), DataSize.ofBytes(22));
-        assertEquals(actual.getPeakSystemMemoryReservation(), DataSize.ofBytes(23));
         assertEquals(actual.getPeakRevocableMemoryReservation(), DataSize.ofBytes(24));
         assertEquals(actual.getPeakTotalMemoryReservation(), DataSize.ofBytes(25));
         assertEquals(actual.getSpilledDataSize(), DataSize.ofBytes(3 * 26));
@@ -235,7 +243,7 @@ public class TestOperatorStats
     @Test
     public void testAddMergeable()
     {
-        OperatorStats actual = MERGEABLE.add(MERGEABLE, MERGEABLE);
+        OperatorStats actual = MERGEABLE.add(ImmutableList.of(MERGEABLE, MERGEABLE));
 
         assertEquals(actual.getStageId(), 0);
         assertEquals(actual.getOperatorId(), 41);
@@ -247,6 +255,7 @@ public class TestOperatorStats
         assertEquals(actual.getAddInputCpu(), new Duration(3 * 4, NANOSECONDS));
         assertEquals(actual.getPhysicalInputDataSize(), DataSize.ofBytes(3 * 51));
         assertEquals(actual.getPhysicalInputPositions(), 3 * 511);
+        assertEquals(actual.getPhysicalInputReadTime(), new Duration(3 * 5, NANOSECONDS));
         assertEquals(actual.getInternalNetworkInputDataSize(), DataSize.ofBytes(3 * 52));
         assertEquals(actual.getInternalNetworkInputPositions(), 3 * 522);
         assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(3 * 5));
@@ -261,6 +270,8 @@ public class TestOperatorStats
         assertEquals(actual.getOutputPositions(), 3 * 13);
 
         assertEquals(actual.getDynamicFilterSplitsProcessed(), 3 * 533);
+        assertEquals(actual.getMetrics().getMetrics(), ImmutableMap.of("metrics", new LongCount(3 * 42)));
+        assertEquals(actual.getConnectorMetrics().getMetrics(), ImmutableMap.of("connectorMetrics", new LongCount(3 * 43)));
 
         assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(3 * 14));
 
@@ -271,9 +282,7 @@ public class TestOperatorStats
         assertEquals(actual.getFinishCpu(), new Duration(3 * 18, NANOSECONDS));
         assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(3 * 19));
         assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(3 * 20));
-        assertEquals(actual.getSystemMemoryReservation(), DataSize.ofBytes(3 * 21));
         assertEquals(actual.getPeakUserMemoryReservation(), DataSize.ofBytes(22));
-        assertEquals(actual.getPeakSystemMemoryReservation(), DataSize.ofBytes(23));
         assertEquals(actual.getPeakRevocableMemoryReservation(), DataSize.ofBytes(24));
         assertEquals(actual.getPeakTotalMemoryReservation(), DataSize.ofBytes(25));
         assertEquals(actual.getSpilledDataSize(), DataSize.ofBytes(3 * 26));

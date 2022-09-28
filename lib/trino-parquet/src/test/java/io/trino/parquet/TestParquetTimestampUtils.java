@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
 
-import static io.trino.parquet.ParquetTimestampUtils.decode;
+import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.time.ZoneOffset.UTC;
 import static org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTimeUtils.getNanoTime;
@@ -42,7 +42,7 @@ public class TestParquetTimestampUtils
     {
         try {
             byte[] invalidLengthBinaryTimestamp = new byte[8];
-            decode(Binary.fromByteArray(invalidLengthBinaryTimestamp));
+            decodeInt96Timestamp(Binary.fromConstantByteArray(invalidLengthBinaryTimestamp));
         }
         catch (TrinoException e) {
             assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
@@ -54,7 +54,7 @@ public class TestParquetTimestampUtils
     {
         Timestamp timestamp = Timestamp.ofEpochSecond(dateTime.toEpochSecond(UTC), dateTime.getNano());
         Binary timestampBytes = getNanoTime(timestamp, false).toBinary();
-        DecodedTimestamp decodedTimestamp = decode(timestampBytes);
+        DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(timestampBytes);
         assertEquals(decodedTimestamp.getEpochSeconds(), dateTime.toEpochSecond(UTC));
         assertEquals(decodedTimestamp.getNanosOfSecond(), dateTime.getNano());
     }

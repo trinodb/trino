@@ -1,12 +1,17 @@
 {
   "queries": [
     {
-      "user": "admin",
+      "role": "admin",
       "allow": ["execute", "kill", "view"]
     },
     {
       "user": "alice",
       "allow": ["execute", "kill"]
+    },
+    {
+      "group": "contractors",
+      "queryOwner": "alice|dave",
+      "allow": ["view"]
     },
     {
       "allow": ["execute"]

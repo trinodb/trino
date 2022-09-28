@@ -24,10 +24,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
-import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
-import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -87,7 +85,7 @@ public class Field
             this.value = field.getBoolean();
         }
         else if (type.equals(DATE)) {
-            this.value = new Date(field.getDate().getTime());
+            this.value = field.getDate();
         }
         else if (type.equals(DOUBLE)) {
             this.value = field.getDouble();
@@ -146,9 +144,9 @@ public class Field
         return (Byte) value;
     }
 
-    public Date getDate()
+    public long getDate()
     {
-        return (Date) value;
+        return (Long) value;
     }
 
     public Double getDouble()
@@ -316,7 +314,8 @@ public class Field
         }
 
         if (type.equals(DATE)) {
-            return Date.valueOf(LocalDate.ofEpochDay((long) value));
+            // long
+            return value;
         }
 
         if (type.equals(DOUBLE)) {

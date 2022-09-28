@@ -17,34 +17,34 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.jmx.RebindSafeMBeanServer;
 import io.trino.plugin.pinot.client.IdentityPinotHostMapper;
 import io.trino.plugin.pinot.client.PinotClient;
+import io.trino.plugin.pinot.client.PinotDataFetcher;
+import io.trino.plugin.pinot.client.PinotGrpcDataFetcher;
+import io.trino.plugin.pinot.client.PinotGrpcServerQueryClientConfig;
+import io.trino.plugin.pinot.client.PinotGrpcServerQueryClientTlsConfig;
 import io.trino.plugin.pinot.client.PinotHostMapper;
-import io.trino.plugin.pinot.client.PinotQueryClient;
+import io.trino.plugin.pinot.client.PinotLegacyDataFetcher;
+import io.trino.plugin.pinot.client.PinotLegacyServerQueryClientConfig;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
-import io.trino.spi.type.TypeManager;
 import org.apache.pinot.common.utils.DataSchema;
 
-import javax.inject.Inject;
 import javax.management.MBeanServer;
 
 import java.io.IOException;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
@@ -57,21 +57,19 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class PinotModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     private final String catalogName;
-    private final TypeManager typeManager;
     private final NodeManager nodeManager;
 
-    public PinotModule(String catalogName, TypeManager typeManager, NodeManager nodeManager)
+    public PinotModule(String catalogName, NodeManager nodeManager)
     {
         this.catalogName = catalogName;
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     @Override
-    public void configure(Binder binder)
+    public void setup(Binder binder)
     {
         configBinder(binder).bindConfig(PinotConfig.class);
         binder.bind(PinotConnector.class).in(Scopes.SINGLETON);
@@ -79,8 +77,8 @@ public class PinotModule
         binder.bind(PinotSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(PinotPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(PinotClient.class).in(Scopes.SINGLETON);
-        binder.bind(PinotQueryClient.class).in(Scopes.SINGLETON);
-        binder.bind(Executor.class).annotatedWith(ForPinot.class)
+        binder.bind(PinotTypeConverter.class).in(Scopes.SINGLETON);
+        binder.bind(ExecutorService.class).annotatedWith(ForPinot.class)
                 .toInstance(newCachedThreadPool(threadsNamed("pinot-metadata-fetcher-" + catalogName)));
 
         binder.bind(PinotSessionProperties.class).in(Scopes.SINGLETON);
@@ -97,36 +95,18 @@ public class PinotModule
                     cfg.setTimeoutConcurrency(4);
                 });
 
-        jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(DataSchema.class).to(DataSchemaDeserializer.class);
         PinotClient.addJsonBinders(jsonCodecBinder(binder));
         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(getPlatformMBeanServer()));
-        binder.bind(TypeManager.class).toInstance(typeManager);
         binder.bind(NodeManager.class).toInstance(nodeManager);
         binder.bind(ConnectorNodePartitioningProvider.class).to(PinotNodePartitioningProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, PinotHostMapper.class).setDefault().to(IdentityPinotHostMapper.class).in(Scopes.SINGLETON);
-    }
 
-    @SuppressWarnings("serial")
-    public static final class TypeDeserializer
-            extends FromStringDeserializer<Type>
-    {
-        private final TypeManager typeManager;
-
-        @Inject
-        public TypeDeserializer(TypeManager typeManager)
-        {
-            super(Type.class);
-            this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        }
-
-        @Override
-        protected Type _deserialize(String value, DeserializationContext context)
-        {
-            Type type = typeManager.getType(TypeId.of(value));
-            checkArgument(type != null, "Unknown type %s", value);
-            return type;
-        }
+        install(conditionalModule(
+                PinotConfig.class,
+                config -> config.isGrpcEnabled(),
+                new PinotGrpcModule(),
+                new LegacyClientModule()));
     }
 
     public static final class DataSchemaDeserializer
@@ -148,6 +128,36 @@ public class PinotModule
                 columnNames[i] = columnNamesJson.get(i).asText();
             }
             return new DataSchema(columnNames, columnTypes);
+        }
+    }
+
+    public static class PinotGrpcModule
+            extends AbstractConfigurationAwareModule
+    {
+        @Override
+        public void setup(Binder binder)
+        {
+            configBinder(binder).bindConfig(PinotGrpcServerQueryClientConfig.class);
+            binder.bind(PinotDataFetcher.Factory.class).to(PinotGrpcDataFetcher.Factory.class).in(Scopes.SINGLETON);
+            install(conditionalModule(
+                    PinotGrpcServerQueryClientConfig.class,
+                    config -> config.isUsePlainText(),
+                    plainTextBinder -> plainTextBinder.bind(PinotGrpcDataFetcher.GrpcQueryClientFactory.class).to(PinotGrpcDataFetcher.PlainTextGrpcQueryClientFactory.class).in(Scopes.SINGLETON),
+                    tlsBinder -> {
+                        configBinder(tlsBinder).bindConfig(PinotGrpcServerQueryClientTlsConfig.class);
+                        tlsBinder.bind(PinotGrpcDataFetcher.GrpcQueryClientFactory.class).to(PinotGrpcDataFetcher.TlsGrpcQueryClientFactory.class).in(Scopes.SINGLETON);
+                    }));
+        }
+    }
+
+    public static class LegacyClientModule
+            extends AbstractConfigurationAwareModule
+    {
+        @Override
+        public void setup(Binder binder)
+        {
+            configBinder(binder).bindConfig(PinotLegacyServerQueryClientConfig.class);
+            binder.bind(PinotDataFetcher.Factory.class).to(PinotLegacyDataFetcher.Factory.class).in(Scopes.SINGLETON);
         }
     }
 }

@@ -100,7 +100,9 @@ public class TestRevokeOnSchema
     public void testAccessDenied(String privilege)
     {
         assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("REVOKE %s ON SCHEMA default FROM %s", privilege, randomUsername())))
-                .hasMessageContaining("Access Denied: Cannot revoke privilege SELECT on schema default");
+                .hasMessageContaining(
+                        "Access Denied: Cannot revoke privilege %s on schema default",
+                        privilege.equals("ALL PRIVILEGES") ? "CREATE" : privilege);
     }
 
     @DataProvider(name = "privilegesAndUsers")
@@ -116,6 +118,7 @@ public class TestRevokeOnSchema
     public static Object[][] privileges()
     {
         return new Object[][] {
+                {"CREATE"},
                 {"SELECT"},
                 {"ALL PRIVILEGES"}
         };

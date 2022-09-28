@@ -5,7 +5,6 @@ Memory connector
 The Memory connector stores all data and metadata in RAM on workers
 and both are discarded when Trino restarts.
 
-
 Configuration
 -------------
 
@@ -41,6 +40,39 @@ Drop table::
 
     DROP TABLE memory.default.nation;
 
+.. _memory-type-mapping:
+
+Type mapping
+------------
+
+Trino supports all data types used within the Memory schemas so no mapping is
+required.
+
+.. _memory-sql-support:
+
+SQL support
+-----------
+
+The connector provides read and write access to temporary data and metadata
+stored in memory. In addition to the :ref:`globally available
+<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
+statements, the connector supports the following features:
+
+* :doc:`/sql/insert`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`
+* :doc:`/sql/comment`
+
+DROP TABLE
+^^^^^^^^^^
+
+Upon execution of a ``DROP TABLE`` operation, memory is not released
+immediately. It is instead released after the next write operation to the
+catalog.
+
 .. _memory_dynamic_filtering:
 
 Dynamic filtering
@@ -59,8 +91,6 @@ in the catalog file.
 Limitations
 -----------
 
-* After ``DROP TABLE`` memory is not released immediately. It is
-  released after the next write access to memory connector.
 * When one worker fails/restarts, all data that was stored in its
   memory is lost. To prevent silent data loss the
   connector throws an error on any read access to such

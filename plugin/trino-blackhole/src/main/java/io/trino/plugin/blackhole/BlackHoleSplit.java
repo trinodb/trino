@@ -41,4 +41,10 @@ public enum BlackHoleSplit
     {
         return this;
     }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return 0;
+    }
 }

@@ -32,18 +32,18 @@ Server
 ------
 
 * Require running on :ref:`Java 11 or above <requirements-java>`. This requirement may be temporarily relaxed by adding
-  ``-Dpresto-temporarily-allow-java8=true`` to the Presto :ref:`trino_jvm_config`.
+  ``-Dpresto-temporarily-allow-java8=true`` to the Presto :ref:`jvm_config`.
   This fallback will be removed in future versions of Presto after March 2020. (:issue:`2751`)
 * Add experimental support for running on Linux aarch64 (ARM64). (:issue:`2809`)
 
 Security
 --------
 
-* :ref:`principal_rules` are deprecated and will be removed in a future release.
+* :ref:`system-file-auth-principal-rules` are deprecated and will be removed in a future release.
   These rules have been replaced with :doc:`/security/user-mapping`, which
   specifies how a complex authentication user name is mapped to a simple
-  user name for Presto, and :ref:`impersonation_rules` which control the ability
-  of a user to impersonate another user. (:issue:`2215`)
+  user name for Presto, and :ref:`system-file-auth-impersonation-rules` which
+  control the ability of a user to impersonate another user. (:issue:`2215`)
 * A shared secret is now required when using :doc:`/security/internal-communication`. (:issue:`2202`)
 * Kerberos for :doc:`/security/internal-communication` has been replaced with the new shared secret mechanism.
   The ``internal-communication.kerberos.enabled`` and ``internal-communication.kerberos.use-canonical-hostname``

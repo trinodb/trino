@@ -17,38 +17,35 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.ArrayType;
 import io.trino.sql.gen.ExpressionCompiler;
-import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.DeterminismEvaluator;
 import io.trino.sql.relational.InputReferenceExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static io.trino.block.BlockAssertions.createLongDictionaryBlock;
-import static io.trino.block.BlockAssertions.createRLEBlock;
+import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.relational.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.sql.relational.Expressions.field;
 import static java.util.Collections.singletonList;
@@ -58,29 +55,15 @@ import static org.testng.Assert.assertTrue;
 
 public class TestPageProcessorCompiler
 {
-    private Metadata metadata;
-    private ExpressionCompiler compiler;
-
-    @BeforeClass
-    public void setup()
-    {
-        metadata = createTestMetadataManager();
-        compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        metadata = null;
-        compiler = null;
-    }
+    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
+    private final ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
 
     @Test
     public void testNoCaching()
     {
         ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
         ArrayType arrayType = new ArrayType(VARCHAR);
-        ResolvedFunction resolvedFunction = metadata.resolveFunction(QualifiedName.of("concat"), fromTypes(arrayType, arrayType));
+        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of("concat"), fromTypes(arrayType, arrayType));
         projectionsBuilder.add(new CallExpression(resolvedFunction, ImmutableList.of(field(0, arrayType), field(1, arrayType))));
 
         ImmutableList<RowExpression> projections = projectionsBuilder.build();
@@ -119,9 +102,9 @@ public class TestPageProcessorCompiler
     public void testSanityFilterOnDictionary()
     {
         CallExpression lengthVarchar = new CallExpression(
-                metadata.resolveFunction(QualifiedName.of("length"), fromTypes(VARCHAR)),
+                functionResolution.resolveFunction(QualifiedName.of("length"), fromTypes(VARCHAR)),
                 ImmutableList.of(field(0, VARCHAR)));
-        ResolvedFunction lessThan = metadata.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
+        ResolvedFunction lessThan = functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(lessThan, ImmutableList.of(lengthVarchar, constant(10L, BIGINT)));
 
         PageProcessor processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, VARCHAR)), MAX_BATCH_SIZE).get();
@@ -159,12 +142,12 @@ public class TestPageProcessorCompiler
     @Test
     public void testSanityFilterOnRLE()
     {
-        ResolvedFunction lessThan = metadata.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
+        ResolvedFunction lessThan = functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(lessThan, ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
 
         PageProcessor processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, BIGINT)), MAX_BATCH_SIZE).get();
 
-        Page page = new Page(createRLEBlock(5L, 100));
+        Page page = new Page(createRepeatedValuesBlock(5L, 100));
         Page outputPage = getOnlyElement(
                 processor.process(
                         null,
@@ -204,16 +187,16 @@ public class TestPageProcessorCompiler
     @Test
     public void testNonDeterministicProject()
     {
-        ResolvedFunction lessThan = metadata.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
+        ResolvedFunction lessThan = functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
         CallExpression random = new CallExpression(
-                metadata.resolveFunction(QualifiedName.of("random"), fromTypes(BIGINT)),
+                functionResolution.resolveFunction(QualifiedName.of("random"), fromTypes(BIGINT)),
                 singletonList(constant(10L, BIGINT)));
         InputReferenceExpression col0 = field(0, BIGINT);
         CallExpression lessThanRandomExpression = new CallExpression(lessThan, ImmutableList.of(col0, random));
 
         PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(lessThanRandomExpression), MAX_BATCH_SIZE).get();
 
-        assertFalse(new DeterminismEvaluator(metadata).isDeterministic(lessThanRandomExpression));
+        assertFalse(isDeterministic(lessThanRandomExpression));
 
         Page page = new Page(createLongDictionaryBlock(1, 100));
         Page outputPage = getOnlyElement(
@@ -226,7 +209,7 @@ public class TestPageProcessorCompiler
         assertFalse(outputPage.getBlock(0) instanceof DictionaryBlock);
     }
 
-    private static DictionaryBlock createDictionaryBlock(Slice[] expectedValues, int positionCount)
+    private static Block createDictionaryBlock(Slice[] expectedValues, int positionCount)
     {
         int dictionarySize = expectedValues.length;
         int[] ids = new int[positionCount];
@@ -234,7 +217,7 @@ public class TestPageProcessorCompiler
         for (int i = 0; i < positionCount; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(createSlicesBlock(expectedValues), ids);
+        return DictionaryBlock.create(ids.length, createSlicesBlock(expectedValues), ids);
     }
 
     private static Slice[] createExpectedValues(int positionCount)

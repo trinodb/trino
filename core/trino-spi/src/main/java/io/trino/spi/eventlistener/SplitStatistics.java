@@ -13,11 +13,17 @@
  */
 package io.trino.spi.eventlistener;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.time.Duration;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
+/**
+ * This class is JSON serializable for convenience and serialization compatibility is not guaranteed across versions.
+ */
 public class SplitStatistics
 {
     private final Duration cpuTime;
@@ -31,6 +37,7 @@ public class SplitStatistics
     private final Optional<Duration> timeToFirstByte;
     private final Optional<Duration> timeToLastByte;
 
+    @JsonCreator
     public SplitStatistics(
             Duration cpuTime,
             Duration wallTime,
@@ -51,42 +58,50 @@ public class SplitStatistics
         this.timeToLastByte = requireNonNull(timeToLastByte, "timeToLastByte is null");
     }
 
+    @JsonProperty
     public Duration getCpuTime()
     {
         return cpuTime;
     }
 
+    @JsonProperty
     public Duration getWallTime()
     {
         return wallTime;
     }
 
+    @JsonProperty
     public Duration getQueuedTime()
     {
         return queuedTime;
     }
 
+    @JsonProperty
     public Duration getCompletedReadTime()
     {
         return completedReadTime;
     }
 
+    @JsonProperty
     public long getCompletedPositions()
     {
         return completedPositions;
     }
 
+    @JsonProperty
     public long getCompletedDataSizeBytes()
     {
         return completedDataSizeBytes;
     }
 
+    @JsonProperty
     @Deprecated
     public Optional<Duration> getTimeToFirstByte()
     {
         return timeToFirstByte;
     }
 
+    @JsonProperty
     @Deprecated
     public Optional<Duration> getTimeToLastByte()
     {

@@ -25,6 +25,7 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.RunnerException;
+import org.testng.annotations.Test;
 
 import java.util.List;
 
@@ -133,6 +134,22 @@ public class BenchmarkInequalityJoin
     {
         return context.getQueryRunner()
                 .execute("SELECT count(*) FROM t1 JOIN t2 on (t1.bucket = t2.bucket) AND t2.val2 BETWEEN t1.val1 + 1 AND t1.val1 + 5");
+    }
+
+    @Test
+    public void verifyJoinBenchmark()
+    {
+        Context context = new Context();
+        try {
+            // Contrive a cheap benchmark setup for use in testing
+            context.buckets = 10;
+            context.filterOutCoefficient = 10;
+            context.setUp();
+            benchmarkJoin(context);
+        }
+        finally {
+            context.tearDown();
+        }
     }
 
     public static void main(String[] args)

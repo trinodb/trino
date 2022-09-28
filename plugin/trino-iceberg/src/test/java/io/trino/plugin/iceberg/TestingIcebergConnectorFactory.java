@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import com.google.inject.Module;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 import java.util.Optional;
@@ -28,13 +28,15 @@ import static java.util.Objects.requireNonNull;
 public class TestingIcebergConnectorFactory
         implements ConnectorFactory
 {
-    private final Optional<HiveMetastore> metastore;
-    private final boolean trackMetadataIo;
+    private final Optional<Module> icebergCatalogModule;
+    private final Optional<TrinoFileSystemFactory> fileSystemFactory;
+    private final Module module;
 
-    public TestingIcebergConnectorFactory(Optional<HiveMetastore> metastore, boolean trackMetadataIo)
+    public TestingIcebergConnectorFactory(Optional<Module> icebergCatalogModule, Optional<TrinoFileSystemFactory> fileSystemFactory, Module module)
     {
-        this.metastore = requireNonNull(metastore, "metastore is null");
-        this.trackMetadataIo = trackMetadataIo;
+        this.icebergCatalogModule = requireNonNull(icebergCatalogModule, "icebergCatalogModule is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.module = requireNonNull(module, "module is null");
     }
 
     @Override
@@ -44,14 +46,8 @@ public class TestingIcebergConnectorFactory
     }
 
     @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new IcebergHandleResolver();
-    }
-
-    @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return createConnector(catalogName, config, context, metastore, trackMetadataIo);
+        return createConnector(catalogName, config, context, module, icebergCatalogModule, fileSystemFactory);
     }
 }

@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
-import com.google.common.io.Files;
 import io.airlift.slice.Slice;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
@@ -34,10 +33,9 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
-import org.skife.jdbi.v2.DBI;
-import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.IDBI;
-import org.skife.jdbi.v2.ResultIterator;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.core.result.ResultIterator;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -45,6 +43,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -60,7 +59,6 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -69,6 +67,7 @@ import static com.google.common.collect.Iterators.transform;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
 import static io.trino.plugin.raptor.legacy.metadata.DatabaseShardManager.shardIndexTable;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
@@ -97,18 +96,19 @@ import static org.testng.Assert.assertFalse;
 @Test(singleThreaded = true)
 public class TestDatabaseShardManager
 {
-    private IDBI dbi;
+    private Jdbi dbi;
     private Handle dummyHandle;
     private File dataDir;
     private ShardManager shardManager;
 
     @BeforeMethod
     public void setup()
+            throws Exception
     {
-        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
+        dbi = createTestingJdbi();
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
-        dataDir = Files.createTempDir();
+        dataDir = Files.createTempDirectory(null).toFile();
         shardManager = createShardManager(dbi);
     }
 
@@ -710,17 +710,17 @@ public class TestDatabaseShardManager
                 .collect(toSet());
     }
 
-    public static ShardManager createShardManager(IDBI dbi)
+    public static ShardManager createShardManager(Jdbi dbi)
     {
         return createShardManager(dbi, ImmutableSet::of, systemTicker());
     }
 
-    public static ShardManager createShardManager(IDBI dbi, NodeSupplier nodeSupplier)
+    public static ShardManager createShardManager(Jdbi dbi, NodeSupplier nodeSupplier)
     {
         return createShardManager(dbi, nodeSupplier, systemTicker());
     }
 
-    public static ShardManager createShardManager(IDBI dbi, NodeSupplier nodeSupplier, Ticker ticker)
+    public static ShardManager createShardManager(Jdbi dbi, NodeSupplier nodeSupplier, Ticker ticker)
     {
         DaoSupplier<ShardDao> shardDaoSupplier = new DaoSupplier<>(dbi, H2ShardDao.class);
         AssignmentLimiter assignmentLimiter = new AssignmentLimiter(nodeSupplier, ticker, new MetadataConfig());

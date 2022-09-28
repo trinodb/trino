@@ -58,13 +58,13 @@ public class LongInputStreamV1
             numLiterals = control + MIN_REPEAT_SIZE;
             used = 0;
             repeat = true;
-            delta = input.read();
+            int delta = input.read();
             if (delta == -1) {
                 throw new OrcCorruptionException(input.getOrcDataSourceId(), "End of stream in RLE Integer");
             }
 
             // convert from 0 to 255 to -128 to 127 by converting to a signed byte
-            delta = (byte) delta;
+            this.delta = (byte) delta;
             literals[0] = LongDecode.readVInt(signed, input);
         }
         else {

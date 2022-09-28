@@ -53,6 +53,14 @@ public final class ObjectBigArray<T>
     }
 
     /**
+     * Returns the current available capacity in this array
+     */
+    public long getCapacity()
+    {
+        return capacity;
+    }
+
+    /**
      * Returns the size of this big array in bytes.
      */
     public long sizeOf()

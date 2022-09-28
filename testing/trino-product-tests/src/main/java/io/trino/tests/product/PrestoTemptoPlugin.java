@@ -53,6 +53,7 @@ public class PrestoTemptoPlugin
                 HiveVersionProvider.ModuleProvider.class);
     }
 
+    @SuppressWarnings("rawtypes") // TODO https://github.com/trinodb/trino/issues/9904
     @Override
     public List<Class<? extends TableManager>> getTableManagers()
     {

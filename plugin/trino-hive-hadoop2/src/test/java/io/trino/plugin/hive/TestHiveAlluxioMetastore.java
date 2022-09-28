@@ -15,8 +15,7 @@ package io.trino.plugin.hive;
 
 import alluxio.client.table.TableMasterClient;
 import alluxio.conf.PropertyKey;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.alluxio.AlluxioHiveMetastore;
 import io.trino.plugin.hive.metastore.alluxio.AlluxioHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.alluxio.AlluxioMetastoreModule;
@@ -25,49 +24,25 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 
 public class TestHiveAlluxioMetastore
         extends AbstractTestHive
 {
-    private static final String SCHEMA = "default";
-
-    private String alluxioAddress;
-    private int hiveVersionMajor;
-
-    @Parameters({
-            "hive.hadoop2.alluxio.host",
-            "hive.hadoop2.alluxio.port",
-            "hive.hadoop2.hiveVersionMajor",
-            "hive.hadoop2.timeZone",
-    })
+    @Parameters({"test.alluxio.host", "test.alluxio.port"})
     @BeforeClass
-    public void setup(String host, String port, int hiveVersionMajor, String timeZone)
+    public void setup(String host, String port)
     {
-        checkArgument(hiveVersionMajor > 0, "Invalid hiveVersionMajor: %s", hiveVersionMajor);
-        timeZone = hiveVersionMajor >= 3 ? "UTC" : timeZone;
-
-        this.alluxioAddress = host + ":" + port;
-        this.hiveVersionMajor = hiveVersionMajor;
-
         System.setProperty(PropertyKey.Name.SECURITY_LOGIN_USERNAME, "presto");
         System.setProperty(PropertyKey.Name.MASTER_HOSTNAME, host);
         HiveConfig hiveConfig = new HiveConfig()
-                .setParquetTimeZone(timeZone)
-                .setRcfileTimeZone(timeZone);
+                .setParquetTimeZone("UTC")
+                .setRcfileTimeZone("UTC");
 
         AlluxioHiveMetastoreConfig alluxioConfig = new AlluxioHiveMetastoreConfig();
-        alluxioConfig.setMasterAddress(this.alluxioAddress);
+        alluxioConfig.setMasterAddress(host + ":" + port);
         TableMasterClient client = AlluxioMetastoreModule.createCatalogMasterClient(alluxioConfig);
-        hdfsEnvironment = new HdfsEnvironment(createTestHdfsConfiguration(), new HdfsConfig(), new NoHdfsAuthentication());
-        setup(SCHEMA, hiveConfig, new AlluxioHiveMetastore(client, new MetastoreConfig()), hdfsEnvironment);
-    }
-
-    private int getHiveVersionMajor()
-    {
-        checkState(hiveVersionMajor > 0, "hiveVersionMajor not set");
-        return hiveVersionMajor;
+        setup("default", hiveConfig, new AlluxioHiveMetastore(client, new HiveMetastoreConfig()), HDFS_ENVIRONMENT);
     }
 
     @Override
@@ -96,7 +71,19 @@ public class TestHiveAlluxioMetastore
     }
 
     @Override
+    public void testBucketedTableEvolutionWithDifferentReadBucketCount()
+    {
+        // Alluxio metastore does not support create operations
+    }
+
+    @Override
     public void testEmptyOrcFile()
+    {
+        // Alluxio metastore does not support create operations
+    }
+
+    @Override
+    public void testPerTransactionDirectoryListerCache()
     {
         // Alluxio metastore does not support create operations
     }
@@ -150,17 +137,20 @@ public class TestHiveAlluxioMetastore
     }
 
     @Override
-    public void testGetPartitionSplitsTableOfflinePartition()
+    public void testGetPartitionsWithFilter()
     {
-        if (getHiveVersionMajor() >= 2) {
-            throw new SkipException("ALTER TABLE .. ENABLE OFFLINE was removed in Hive 2.0 and this is a prerequisite for this test");
-        }
-
-        super.testGetPartitionSplitsTableOfflinePartition();
+        // Alluxio metastore returns incorrect results
     }
 
     @Override
     public void testHideDeltaLakeTables()
+    {
+        // Alluxio metastore does not support create operations
+        throw new SkipException("not supported");
+    }
+
+    @Override
+    public void testDisallowQueryingOfIcebergTables()
     {
         // Alluxio metastore does not support create operations
         throw new SkipException("not supported");
@@ -242,6 +232,18 @@ public class TestHiveAlluxioMetastore
     public void testMaterializedViewMetadata()
     {
         // Alluxio metastore does not support create/delete operations
+    }
+
+    @Override
+    public void testOrcPageSourceMetrics()
+    {
+        // Alluxio metastore does not support create/insert/delete operations
+    }
+
+    @Override
+    public void testParquetPageSourceMetrics()
+    {
+        // Alluxio metastore does not support create/insert/delete operations
     }
 
     @Override
@@ -330,6 +332,24 @@ public class TestHiveAlluxioMetastore
     }
 
     @Override
+    public void testInputInfoWhenTableIsPartitioned()
+    {
+        // Alluxio metastore does not support create/delete operations
+    }
+
+    @Override
+    public void testInputInfoWhenTableIsNotPartitioned()
+    {
+        // Alluxio metastore does not support create/delete operations
+    }
+
+    @Override
+    public void testInputInfoWithParquetTableFormat()
+    {
+        // Alluxio metastore does not support create/delete operations
+    }
+
+    @Override
     public void testUpdateTableColumnStatistics()
     {
         // Alluxio metastore does not support create operations
@@ -345,5 +365,25 @@ public class TestHiveAlluxioMetastore
     public void testViewCreation()
     {
         // Alluxio metastore does not support create operations
+    }
+
+    @Override
+    public void testNewDirectoryPermissions()
+    {
+        // Alluxio metastore does not support create operations
+    }
+
+    @Override
+    public void testInsertBucketedTransactionalTableLayout()
+            throws Exception
+    {
+        // Alluxio metastore does not support insert/update/delete operations
+    }
+
+    @Override
+    public void testInsertPartitionedBucketedTransactionalTableLayout()
+            throws Exception
+    {
+        // Alluxio metastore does not support insert/update/delete operations
     }
 }

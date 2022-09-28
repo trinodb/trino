@@ -15,23 +15,21 @@ package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
-import io.trino.cost.StatsCalculator;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.MaterializedViewDefinition;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.ViewColumn;
 import io.trino.security.AccessControl;
-import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
-import io.trino.spi.security.GroupProvider;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
-import io.trino.sql.analyzer.Analyzer;
+import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
-import io.trino.transaction.TransactionManager;
 
 import javax.inject.Inject;
 
@@ -42,8 +40,7 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.trino.spi.StandardErrorCode.NOT_FOUND;
-import static io.trino.sql.NodeUtils.mapFromProperties;
+import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
 import static java.util.Objects.requireNonNull;
@@ -51,16 +48,25 @@ import static java.util.Objects.requireNonNull;
 public class CreateMaterializedViewTask
         implements DataDefinitionTask<CreateMaterializedView>
 {
+    private final PlannerContext plannerContext;
+    private final AccessControl accessControl;
     private final SqlParser sqlParser;
-    private final GroupProvider groupProvider;
-    private final StatsCalculator statsCalculator;
+    private final AnalyzerFactory analyzerFactory;
+    private final MaterializedViewPropertyManager materializedViewPropertyManager;
 
     @Inject
-    public CreateMaterializedViewTask(SqlParser sqlParser, GroupProvider groupProvider, StatsCalculator statsCalculator)
+    public CreateMaterializedViewTask(
+            PlannerContext plannerContext,
+            AccessControl accessControl,
+            SqlParser sqlParser,
+            AnalyzerFactory analyzerFactory,
+            MaterializedViewPropertyManager materializedViewPropertyManager)
     {
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
-        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+        this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
+        this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
     }
 
     @Override
@@ -70,17 +76,8 @@ public class CreateMaterializedViewTask
     }
 
     @Override
-    public String explain(CreateMaterializedView statement, List<Expression> parameters)
-    {
-        return "CREATE MATERIALIZED VIEW " + statement.getName();
-    }
-
-    @Override
     public ListenableFuture<Void> execute(
             CreateMaterializedView statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
@@ -91,40 +88,39 @@ public class CreateMaterializedViewTask
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
-        Analysis analysis = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.empty(), parameters, parameterLookup, stateMachine.getWarningCollector(), statsCalculator)
+        Analysis analysis = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, stateMachine.getWarningCollector())
                 .analyze(statement);
 
-        List<ConnectorMaterializedViewDefinition.Column> columns = analysis.getOutputDescriptor(statement.getQuery())
+        List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())
                 .getVisibleFields().stream()
-                .map(field -> new ConnectorMaterializedViewDefinition.Column(field.getName().get(), field.getType().getTypeId()))
+                .map(field -> new ViewColumn(field.getName().get(), field.getType().getTypeId()))
                 .collect(toImmutableList());
 
-        String owner = session.getUser();
+        String catalogName = name.getCatalogName();
+        CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, catalogName);
 
-        CatalogName catalogName = metadata.getCatalogHandle(session, name.getCatalogName())
-                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + name.getCatalogName()));
-
-        Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
-        Map<String, Object> properties = metadata.getMaterializedViewPropertyManager().getProperties(
+        Map<String, Object> properties = materializedViewPropertyManager.getProperties(
                 catalogName,
-                name.getCatalogName(),
-                sqlProperties,
+                catalogHandle,
+                statement.getProperties(),
                 session,
-                metadata,
+                plannerContext,
                 accessControl,
-                parameterLookup);
+                parameterLookup,
+                true);
 
-        ConnectorMaterializedViewDefinition definition = new ConnectorMaterializedViewDefinition(
+        MaterializedViewDefinition definition = new MaterializedViewDefinition(
                 sql,
-                Optional.empty(),
                 session.getCatalog(),
                 session.getSchema(),
                 columns,
                 statement.getComment(),
-                owner,
+                session.getIdentity(),
+                Optional.empty(),
                 properties);
 
-        metadata.createMaterializedView(session, name, definition, statement.isReplace(), statement.isNotExists());
+        accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), name, properties);
+        plannerContext.getMetadata().createMaterializedView(session, name, definition, statement.isReplace(), statement.isNotExists());
 
         stateMachine.setOutput(analysis.getTarget());
         stateMachine.setReferencedTables(analysis.getReferencedTables());

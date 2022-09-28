@@ -1,0 +1,42 @@
+[
+  {
+    "name": "custkey",
+    "type": "INTEGER",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "name",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "address",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "nationkey",
+    "type": "INTEGER",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "phone",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "acctbal",
+    "type": "FLOAT",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "mktsegment",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "comment",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  }
+]

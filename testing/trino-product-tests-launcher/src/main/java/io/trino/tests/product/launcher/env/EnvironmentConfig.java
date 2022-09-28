@@ -18,7 +18,7 @@ import io.trino.tests.product.launcher.env.common.EnvironmentExtender;
 
 import java.util.List;
 
-import static io.trino.tests.product.launcher.env.Environments.nameForConfigClass;
+import static io.trino.tests.product.launcher.Configurations.nameForConfigClass;
 
 public interface EnvironmentConfig
         extends EnvironmentExtender

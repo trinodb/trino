@@ -23,7 +23,11 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
-import io.trino.plugin.base.CatalogName;
+import io.trino.filesystem.hdfs.HdfsFileSystemModule;
+import io.trino.hdfs.HdfsModule;
+import io.trino.hdfs.authentication.HdfsAuthenticationModule;
+import io.trino.plugin.base.CatalogNameModule;
+import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorAccessControl;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
@@ -33,8 +37,10 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
-import io.trino.plugin.hive.authentication.HiveAuthenticationModule;
+import io.trino.plugin.hive.aws.athena.PartitionProjectionModule;
 import io.trino.plugin.hive.azure.HiveAzureModule;
+import io.trino.plugin.hive.fs.CachingDirectoryListerModule;
+import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.gcs.HiveGcsModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreModule;
@@ -56,10 +62,10 @@ import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
-import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.MetadataProvider;
+import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.procedure.Procedure;
-import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
@@ -68,7 +74,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static java.util.Objects.requireNonNull;
 
 public final class InternalHiveConnectorFactory
@@ -77,52 +83,60 @@ public final class InternalHiveConnectorFactory
 
     public static Connector createConnector(String catalogName, Map<String, String> config, ConnectorContext context, Module module)
     {
-        return createConnector(catalogName, config, context, module, Optional.empty());
+        return createConnector(catalogName, config, context, module, Optional.empty(), Optional.empty());
     }
 
-    public static Connector createConnector(String catalogName, Map<String, String> config, ConnectorContext context, Module module, Optional<HiveMetastore> metastore)
+    public static Connector createConnector(
+            String catalogName,
+            Map<String, String> config,
+            ConnectorContext context,
+            Module module,
+            Optional<HiveMetastore> metastore,
+            Optional<DirectoryLister> directoryLister)
     {
         requireNonNull(config, "config is null");
 
         ClassLoader classLoader = InternalHiveConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
+                    new CatalogNameModule(catalogName),
                     new EventModule(),
                     new MBeanModule(),
                     new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.hive", "trino.plugin.hive"),
                     new JsonModule(),
+                    new TypeDeserializerModule(context.getTypeManager()),
                     new HiveModule(),
-                    new HiveHdfsModule(),
+                    new PartitionProjectionModule(),
+                    new CachingDirectoryListerModule(directoryLister),
+                    new HdfsModule(),
                     new HiveS3Module(),
                     new HiveGcsModule(),
                     new HiveAzureModule(),
-                    installModuleIf(RubixEnabledConfig.class, RubixEnabledConfig::isCacheEnabled, new RubixModule()),
+                    conditionalModule(RubixEnabledConfig.class, RubixEnabledConfig::isCacheEnabled, new RubixModule()),
                     new HiveMetastoreModule(metastore),
-                    new HiveSecurityModule(catalogName),
-                    new HiveAuthenticationModule(),
+                    new HiveSecurityModule(),
+                    new HdfsAuthenticationModule(),
+                    new HdfsFileSystemModule(),
                     new HiveProcedureModule(),
                     new MBeanServerModule(),
                     binder -> {
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                         binder.bind(VersionEmbedder.class).toInstance(context.getVersionEmbedder());
-                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                        binder.bind(MetadataProvider.class).toInstance(context.getMetadataProvider());
                         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                         binder.bind(PageSorter.class).toInstance(context.getPageSorter());
-                        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
                     },
                     binder -> newSetBinder(binder, EventListener.class),
                     binder -> bindSessionPropertiesProvider(binder, HiveSessionProperties.class),
                     module);
 
             Injector injector = app
-                    .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();
 
             LifeCycleManager lifeCycleManager = injector.getInstance(LifeCycleManager.class);
-            TransactionalMetadataFactory metadataFactory = injector.getInstance(TransactionalMetadataFactory.class);
             HiveTransactionManager transactionManager = injector.getInstance(HiveTransactionManager.class);
             ConnectorSplitManager splitManager = injector.getInstance(ConnectorSplitManager.class);
             ConnectorPageSourceProvider connectorPageSource = injector.getInstance(ConnectorPageSourceProvider.class);
@@ -130,35 +144,38 @@ public final class InternalHiveConnectorFactory
             ConnectorNodePartitioningProvider connectorDistributionProvider = injector.getInstance(ConnectorNodePartitioningProvider.class);
             Set<SessionPropertiesProvider> sessionPropertiesProviders = injector.getInstance(Key.get(new TypeLiteral<Set<SessionPropertiesProvider>>() {}));
             HiveTableProperties hiveTableProperties = injector.getInstance(HiveTableProperties.class);
+            HiveColumnProperties hiveColumnProperties = injector.getInstance(HiveColumnProperties.class);
             HiveAnalyzeProperties hiveAnalyzeProperties = injector.getInstance(HiveAnalyzeProperties.class);
             HiveMaterializedViewPropertiesProvider hiveMaterializedViewPropertiesProvider = injector.getInstance(HiveMaterializedViewPropertiesProvider.class);
-            ConnectorAccessControl accessControl = new ClassLoaderSafeConnectorAccessControl(
-                    new SystemTableAwareAccessControl(injector.getInstance(ConnectorAccessControl.class)),
-                    classLoader);
             Set<Procedure> procedures = injector.getInstance(Key.get(new TypeLiteral<Set<Procedure>>() {}));
-            Set<SystemTable> systemTables = injector.getInstance(Key.get(new TypeLiteral<Set<SystemTable>>() {}));
+            Set<TableProcedureMetadata> tableProcedures = injector.getInstance(Key.get(new TypeLiteral<Set<TableProcedureMetadata>>() {}));
             Set<EventListener> eventListeners = injector.getInstance(Key.get(new TypeLiteral<Set<EventListener>>() {}))
                     .stream()
                     .map(listener -> new ClassLoaderSafeEventListener(listener, classLoader))
                     .collect(toImmutableSet());
+            Set<SystemTableProvider> systemTableProviders = injector.getInstance(Key.get(new TypeLiteral<Set<SystemTableProvider>>() {}));
+            Optional<ConnectorAccessControl> hiveAccessControl = injector.getInstance(Key.get(new TypeLiteral<Optional<ConnectorAccessControl>>() {}))
+                    .map(accessControl -> new SystemTableAwareAccessControl(accessControl, systemTableProviders))
+                    .map(accessControl -> new ClassLoaderSafeConnectorAccessControl(accessControl, classLoader));
 
             return new HiveConnector(
                     lifeCycleManager,
-                    metadataFactory,
                     transactionManager,
                     new ClassLoaderSafeConnectorSplitManager(splitManager, classLoader),
                     new ClassLoaderSafeConnectorPageSourceProvider(connectorPageSource, classLoader),
                     new ClassLoaderSafeConnectorPageSinkProvider(pageSinkProvider, classLoader),
                     new ClassLoaderSafeNodePartitioningProvider(connectorDistributionProvider, classLoader),
-                    systemTables,
                     procedures,
+                    tableProcedures,
                     eventListeners,
                     sessionPropertiesProviders,
                     HiveSchemaProperties.SCHEMA_PROPERTIES,
                     hiveTableProperties.getTableProperties(),
+                    hiveColumnProperties.getColumnProperties(),
                     hiveAnalyzeProperties.getAnalyzeProperties(),
                     hiveMaterializedViewPropertiesProvider.getMaterializedViewProperties(),
-                    accessControl,
+                    hiveAccessControl,
+                    injector.getInstance(HiveConfig.class).isSingleStatementWritesOnly(),
                     classLoader);
         }
     }

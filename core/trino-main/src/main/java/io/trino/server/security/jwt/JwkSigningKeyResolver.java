@@ -15,10 +15,8 @@ package io.trino.server.security.jwt;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwsHeader;
-import io.jsonwebtoken.SignatureException;
 import io.jsonwebtoken.SigningKeyResolver;
-
-import javax.inject.Inject;
+import io.jsonwebtoken.security.SecurityException;
 
 import java.security.Key;
 
@@ -29,7 +27,6 @@ public class JwkSigningKeyResolver
 {
     private final JwkService keys;
 
-    @Inject
     public JwkSigningKeyResolver(JwkService keys)
     {
         this.keys = requireNonNull(keys, "keys is null");
@@ -51,9 +48,9 @@ public class JwkSigningKeyResolver
     {
         String keyId = header.getKeyId();
         if (keyId == null) {
-            throw new SignatureException("Key ID is required");
+            throw new SecurityException("Key ID is required");
         }
         return keys.getKey(keyId)
-                .orElseThrow(() -> new SignatureException("Unknown signing key ID"));
+                .orElseThrow(() -> new SecurityException("Unknown signing key ID"));
     }
 }

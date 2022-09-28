@@ -17,10 +17,10 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.execution.Lifespan;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
@@ -29,6 +29,7 @@ import io.trino.operator.OperationTimer.OperationTiming;
 import io.trino.operator.WorkProcessor.ProcessState;
 import io.trino.spi.Page;
 import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.LocalExecutionPlanner.OperatorFactoryWithTypes;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -39,6 +40,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -47,6 +49,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
+import static io.trino.operator.OperatorContext.getConnectorMetrics;
+import static io.trino.operator.OperatorContext.getOperatorMetrics;
 import static io.trino.operator.PageUtils.recordMaterializedBytes;
 import static io.trino.operator.WorkProcessor.ProcessState.Type.BLOCKED;
 import static io.trino.operator.WorkProcessor.ProcessState.Type.FINISHED;
@@ -216,6 +220,8 @@ public class WorkProcessorPipelineSourceOperator
         WorkProcessorOperatorContext context = workProcessorOperatorContexts.get(operatorIndex);
         timer.recordOperationComplete(context.operatorTiming);
 
+        context.metrics.set(context.operator.getMetrics());
+
         if (operatorIndex == 0) {
             // update input stats for source operator
             WorkProcessorSourceOperator sourceOperator = (WorkProcessorSourceOperator) context.operator;
@@ -231,12 +237,12 @@ public class WorkProcessorPipelineSourceOperator
 
             long deltaReadTimeNanos = deltaAndSet(context.readTimeNanos, sourceOperator.getReadTime().roundTo(NANOSECONDS));
 
-            long deltaDynamicFilterSplitsProcessed = deltaAndSet(context.dynamicFilterSplitsProcessed, sourceOperator.getDynamicFilterSplitsProcessed());
+            context.dynamicFilterSplitsProcessed.set(sourceOperator.getDynamicFilterSplitsProcessed());
+            context.connectorMetrics.set(sourceOperator.getConnectorMetrics());
 
             operatorContext.recordPhysicalInputWithTiming(deltaPhysicalInputDataSize, deltaPhysicalInputPositions, deltaReadTimeNanos);
             operatorContext.recordNetworkInput(deltaInternalNetworkInputDataSize, deltaInternalNetworkInputPositions);
             operatorContext.recordProcessedInput(deltaInputDataSize, deltaInputPositions);
-            operatorContext.recordDynamicFilterSplitProcessed(deltaDynamicFilterSplitsProcessed);
         }
 
         if (state.getType() == FINISHED) {
@@ -291,8 +297,7 @@ public class WorkProcessorPipelineSourceOperator
     {
         return new MemoryTrackingContext(
                 new InternalAggregatedMemoryContext(operatorContext.newAggregateUserMemoryContext(), () -> updatePeakMemoryReservations(operatorIndex)),
-                new InternalAggregatedMemoryContext(operatorContext.newAggregateRevocableMemoryContext(), () -> updatePeakMemoryReservations(operatorIndex)),
-                new InternalAggregatedMemoryContext(operatorContext.newAggregateSystemMemoryContext(), () -> updatePeakMemoryReservations(operatorIndex)));
+                new InternalAggregatedMemoryContext(operatorContext.newAggregateRevocableMemoryContext(), () -> updatePeakMemoryReservations(operatorIndex)));
     }
 
     private void updatePeakMemoryReservations(int operatorIndex)
@@ -313,12 +318,12 @@ public class WorkProcessorPipelineSourceOperator
 
                         // WorkProcessorOperator doesn't have addInput call
                         0,
-                        // source operators report read time though
-                        new Duration(context.readTimeNanos.get(), NANOSECONDS),
+                        new Duration(0, NANOSECONDS),
                         ZERO_DURATION,
 
                         succinctBytes(context.physicalInputDataSize.get()),
                         context.physicalInputPositions.get(),
+                        new Duration(context.operatorTiming.getWallNanos(), NANOSECONDS),
 
                         succinctBytes(context.internalNetworkInputDataSize.get()),
                         context.internalNetworkInputPositions.get(),
@@ -327,7 +332,7 @@ public class WorkProcessorPipelineSourceOperator
 
                         succinctBytes(context.inputDataSize.get()),
                         context.inputPositions.get(),
-                        context.inputPositions.get() * context.inputPositions.get(),
+                        (double) context.inputPositions.get() * context.inputPositions.get(),
 
                         context.operatorTiming.getCalls(),
                         new Duration(context.operatorTiming.getWallNanos(), NANOSECONDS),
@@ -337,6 +342,8 @@ public class WorkProcessorPipelineSourceOperator
                         context.outputPositions.get(),
 
                         context.dynamicFilterSplitsProcessed.get(),
+                        getOperatorMetrics(context.metrics.get(), context.inputPositions.get()),
+                        getConnectorMetrics(context.connectorMetrics.get(), context.readTimeNanos.get()),
 
                         DataSize.ofBytes(0),
 
@@ -349,9 +356,7 @@ public class WorkProcessorPipelineSourceOperator
 
                         succinctBytes(context.memoryTrackingContext.getUserMemory()),
                         succinctBytes(context.memoryTrackingContext.getRevocableMemory()),
-                        succinctBytes(context.memoryTrackingContext.getSystemMemory()),
                         succinctBytes(context.peakUserMemoryReservation.get()),
-                        succinctBytes(context.peakSystemMemoryReservation.get()),
                         succinctBytes(context.peakRevocableMemoryReservation.get()),
                         succinctBytes(context.peakTotalMemoryReservation.get()),
                         DataSize.ofBytes(0),
@@ -386,7 +391,7 @@ public class WorkProcessorPipelineSourceOperator
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
-            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.getCatalogName(), splitInfo)));
+            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.getCatalogHandle(), splitInfo)));
         }
 
         pendingSplits.add(split);
@@ -531,6 +536,11 @@ public class WorkProcessorPipelineSourceOperator
                             operatorContext.getDriverContext().getTaskId());
                 }
                 finally {
+                    workProcessorOperatorContext.metrics.set(operator.getMetrics());
+                    if (operator instanceof WorkProcessorSourceOperator) {
+                        WorkProcessorSourceOperator sourceOperator = (WorkProcessorSourceOperator) operator;
+                        workProcessorOperatorContext.connectorMetrics.set(sourceOperator.getConnectorMetrics());
+                    }
                     workProcessorOperatorContext.memoryTrackingContext.close();
                     workProcessorOperatorContext.finalOperatorInfo = operator.getOperatorInfo().orElse(null);
                     workProcessorOperatorContext.operator = null;
@@ -549,6 +559,7 @@ public class WorkProcessorPipelineSourceOperator
         }
     }
 
+    @FormatMethod
     private static Throwable handleOperatorCloseError(Throwable inFlightException, Throwable newException, String message, Object... args)
     {
         if (newException instanceof Error) {
@@ -676,9 +687,10 @@ public class WorkProcessorPipelineSourceOperator
         final AtomicLong outputPositions = new AtomicLong();
 
         final AtomicLong dynamicFilterSplitsProcessed = new AtomicLong();
+        final AtomicReference<Metrics> metrics = new AtomicReference<>(Metrics.EMPTY);
+        final AtomicReference<Metrics> connectorMetrics = new AtomicReference<>(Metrics.EMPTY);
 
         final AtomicLong peakUserMemoryReservation = new AtomicLong();
-        final AtomicLong peakSystemMemoryReservation = new AtomicLong();
         final AtomicLong peakRevocableMemoryReservation = new AtomicLong();
         final AtomicLong peakTotalMemoryReservation = new AtomicLong();
 
@@ -704,11 +716,9 @@ public class WorkProcessorPipelineSourceOperator
         void updatePeakMemoryReservations()
         {
             long userMemory = memoryTrackingContext.getUserMemory();
-            long systemMemory = memoryTrackingContext.getSystemMemory();
             long revocableMemory = memoryTrackingContext.getRevocableMemory();
-            long totalMemory = userMemory + systemMemory;
+            long totalMemory = userMemory;
             peakUserMemoryReservation.accumulateAndGet(userMemory, Math::max);
-            peakSystemMemoryReservation.accumulateAndGet(systemMemory, Math::max);
             peakRevocableMemoryReservation.accumulateAndGet(revocableMemory, Math::max);
             peakTotalMemoryReservation.accumulateAndGet(totalMemory, Math::max);
         }
@@ -762,12 +772,6 @@ public class WorkProcessorPipelineSourceOperator
         {
             this.operatorFactories.forEach(WorkProcessorOperatorFactory::close);
             closed = true;
-        }
-
-        @Override
-        public void noMoreOperators(Lifespan lifespan)
-        {
-            this.operatorFactories.forEach(operatorFactory -> operatorFactory.lifespanFinished(lifespan));
         }
     }
 }

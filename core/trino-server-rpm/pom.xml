@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>359-SNAPSHOT</version>
+        <version>398-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -116,7 +116,6 @@
             <plugin>
                 <groupId>org.codehaus.gmaven</groupId>
                 <artifactId>groovy-maven-plugin</artifactId>
-                <version>2.1.1</version>
                 <executions>
                     <execution>
                         <phase>prepare-package</phase>
@@ -146,13 +145,13 @@
                     <packages>
                         <package>
                             <name>trino-server-rpm</name>
-                            <nameOverride>trino-server-rpm-${project.version}.x86_64.rpm</nameOverride>
+                            <nameOverride>trino-server-rpm-${project.version}.noarch.rpm</nameOverride>
                             <version>${project.version}</version>
                             <release>1</release>
 
                             <group>Applications/Databases</group>
                             <description>Trino Server RPM Package.</description>
-                            <architecture>x86_64</architecture>
+                            <architecture>noarch</architecture>
                             <preInstallScriptFile>src/main/rpm/preinstall</preInstallScriptFile>
                             <postInstallScriptFile>src/main/rpm/postinstall</postInstallScriptFile>
                             <preUninstallScriptFile>src/main/rpm/preremove</preUninstallScriptFile>
@@ -279,25 +278,27 @@
                 <artifactId>maven-enforcer-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>enforce-file-size</id>
+                        <id>default</id>
                         <phase>verify</phase>
                         <goals>
                             <goal>enforce</goal>
                         </goals>
-                        <configuration>
-                            <rules>
-                                <requireFilesSize>
-                                    <!-- Maven Central has a 1GB limit -->
-                                    <maxsize>1106000000</maxsize>
-                                    <files>
-                                        <file>${project.build.directory}/${project.build.finalName}.x86_64.rpm</file>
-                                    </files>
-                                </requireFilesSize>
-                            </rules>
-                            <fail>true</fail>
-                        </configuration>
                     </execution>
                 </executions>
+                <configuration>
+                    <!-- All Trino modules are imported into this module as "provided" dependencies what makes dependencies from all the modules to be cross checked for compatibility -->
+                    <!-- Override rules to disable dependency checks as dependencies of different connectors don't have to be compatible -->
+                    <rules combine.self="override">
+                        <requireFilesSize>
+                            <!-- Maven Central has a 1GB limit -->
+                            <maxsize>1106000000</maxsize>
+                            <files>
+                                <file>${project.build.directory}/${project.build.finalName}.noarch.rpm</file>
+                            </files>
+                        </requireFilesSize>
+                    </rules>
+                    <fail>true</fail>
+                </configuration>
             </plugin>
         </plugins>
     </build>
@@ -313,7 +314,7 @@
                         <version>2.22.2</version>
                         <configuration>
                             <systemPropertyVariables>
-                                <rpm>${project.build.directory}/${project.build.finalName}.x86_64.rpm</rpm>
+                                <rpm>${project.build.directory}/${project.build.finalName}.noarch.rpm</rpm>
                             </systemPropertyVariables>
                         </configuration>
                         <executions>

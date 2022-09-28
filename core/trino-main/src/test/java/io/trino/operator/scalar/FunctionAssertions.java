@@ -15,18 +15,21 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
-import io.trino.execution.Lifespan;
+import io.trino.metadata.FunctionBundle;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.FilterAndProjectOperator;
@@ -38,6 +41,7 @@ import io.trino.operator.SourceOperatorFactory;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
@@ -54,13 +58,16 @@ import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.predicate.Utils;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.split.PageSourceProvider;
-import io.trino.sql.analyzer.FeaturesConfig;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.gen.ExpressionCompiler;
+import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
@@ -89,11 +96,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -107,7 +116,7 @@ import static io.trino.block.BlockAssertions.createRowBlock;
 import static io.trino.block.BlockAssertions.createShortDecimalsBlock;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
-import static io.trino.block.BlockAssertions.createTimestampsWithTimeZoneBlock;
+import static io.trino.block.BlockAssertions.createTimestampsWithTimeZoneMillisBlock;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -116,9 +125,9 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -126,9 +135,11 @@ import static io.trino.sql.ExpressionTestUtils.createExpression;
 import static io.trino.sql.ExpressionTestUtils.getTypes;
 import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.sql.relational.SqlToRowExpressionTranslator.translate;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -161,7 +172,7 @@ public final class FunctionAssertions
             createLongsBlock(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis()),
             createStringsBlock("%el%"),
             createStringsBlock((String) null),
-            createTimestampsWithTimeZoneBlock(packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z"))),
+            createTimestampsWithTimeZoneMillisBlock(packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z"))),
             createSlicesBlock(Slices.wrappedBuffer((byte) 0xab)),
             createIntsBlock(1234),
             TEST_ROW_DATA,
@@ -178,13 +189,13 @@ public final class FunctionAssertions
             .put(new Symbol("bound_timestamp"), BIGINT)
             .put(new Symbol("bound_pattern"), VARCHAR)
             .put(new Symbol("bound_null_string"), VARCHAR)
-            .put(new Symbol("bound_timestamp_with_timezone"), TIMESTAMP_WITH_TIME_ZONE)
+            .put(new Symbol("bound_timestamp_with_timezone"), TIMESTAMP_TZ_MILLIS)
             .put(new Symbol("bound_binary_literal"), VARBINARY)
             .put(new Symbol("bound_integer"), INTEGER)
             .put(new Symbol("bound_row"), TEST_ROW_TYPE)
             .put(new Symbol("bound_short_decimal"), SHORT_DECIMAL_TYPE)
             .put(new Symbol("bound_long_decimal"), LONG_DECIMAL_TYPE)
-            .build());
+            .buildOrThrow());
 
     private static final Map<Symbol, Integer> INPUT_MAPPING = ImmutableMap.<Symbol, Integer>builder()
             .put(new Symbol("bound_long"), 0)
@@ -200,15 +211,14 @@ public final class FunctionAssertions
             .put(new Symbol("bound_row"), 10)
             .put(new Symbol("bound_short_decimal"), 11)
             .put(new Symbol("bound_long_decimal"), 12)
-            .build();
+            .buildOrThrow();
 
     private static final PageSourceProvider PAGE_SOURCE_PROVIDER = new TestPageSourceProvider();
     private static final PlanNodeId SOURCE_ID = new PlanNodeId("scan");
 
     private final Session session;
     private final LocalQueryRunner runner;
-    private final Metadata metadata;
-    private final ExpressionCompiler compiler;
+    private final TestingFunctionResolution testingFunctionResolution;
 
     public FunctionAssertions()
     {
@@ -226,13 +236,32 @@ public final class FunctionAssertions
         runner = LocalQueryRunner.builder(session)
                 .withFeaturesConfig(featuresConfig)
                 .build();
-        metadata = runner.getMetadata();
-        compiler = runner.getExpressionCompiler();
+        testingFunctionResolution = new TestingFunctionResolution(runner);
+    }
+
+    public void addFunctions(FunctionBundle functionBundle)
+    {
+        runner.addFunctions(functionBundle);
     }
 
     public Metadata getMetadata()
     {
-        return metadata;
+        return runner.getMetadata();
+    }
+
+    public PlannerContext getPlannerContext()
+    {
+        return runner.getPlannerContext();
+    }
+
+    public TestingFunctionResolution getFunctionResolution()
+    {
+        return testingFunctionResolution;
+    }
+
+    public FunctionManager getFunctionManager()
+    {
+        return runner.getFunctionManager();
     }
 
     public TypeOperators getTypeOperators()
@@ -245,35 +274,61 @@ public final class FunctionAssertions
         return runner.getBlockTypeOperators();
     }
 
+    public TestingFunctionResolution getTestingFunctionResolution()
+    {
+        return new TestingFunctionResolution(runner);
+    }
+
+    public ExpressionCompiler getExpressionCompiler()
+    {
+        return new ExpressionCompiler(getFunctionManager(), new PageFunctionCompiler(getFunctionManager(), 0));
+    }
+
     public void installPlugin(Plugin plugin)
     {
         runner.installPlugin(plugin);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#function(String, String...)}
+     */
+    @Deprecated
     public void assertFunction(String projection, Type expectedType, Object expected)
     {
         if (expected instanceof Slice) {
             expected = ((Slice) expected).toStringUtf8();
         }
 
-        Object actual = selectSingleValue(projection, expectedType, compiler);
+        Object actual = selectSingleValue(projection, expectedType, runner.getExpressionCompiler());
         assertEquals(actual, expected);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#function(String, String...)}
+     */
+    @Deprecated
     public void assertFunctionString(String projection, Type expectedType, String expected)
     {
-        Object actual = selectSingleValue(projection, expectedType, compiler);
+        Object actual = selectSingleValue(projection, expectedType, runner.getExpressionCompiler());
         assertEquals(actual.toString(), expected);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#expression(String)}
+     */
+    @Deprecated
     public void tryEvaluate(String expression, Type expectedType)
     {
         tryEvaluate(expression, expectedType, session);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#expression(String)}
+     */
+    @Deprecated
     public void tryEvaluate(String expression, Type expectedType, Session session)
     {
-        selectUniqueValue(expression, expectedType, session, compiler);
+        selectUniqueValue(expression, expectedType, session, runner.getExpressionCompiler());
     }
 
     public void tryEvaluateWithAll(String expression, Type expectedType)
@@ -281,9 +336,13 @@ public final class FunctionAssertions
         tryEvaluateWithAll(expression, expectedType, session);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#expression(String)}
+     */
+    @Deprecated
     public void tryEvaluateWithAll(String expression, Type expectedType, Session session)
     {
-        executeProjectionWithAll(expression, expectedType, session, compiler);
+        executeProjectionWithAll(expression, expectedType, session, runner.getExpressionCompiler());
     }
 
     public void executeProjectionWithFullEngine(String projection)
@@ -305,6 +364,19 @@ public final class FunctionAssertions
         assertEquals(resultSet.size(), 1, "Expected only one result unique result, but got " + resultSet);
 
         return Iterables.getOnlyElement(resultSet);
+    }
+
+    public void assertAmbiguousFunction(String projection, Type expectedType, Set<Object> expected)
+    {
+        expected = expected.stream()
+                .map(expectedValue -> expectedValue instanceof Slice ? ((Slice) expectedValue).toStringUtf8() : expectedValue)
+                .collect(toImmutableSet());
+
+        Set<Object> actual = ImmutableSet.copyOf(executeProjectionWithAll(projection, expectedType, session, runner.getExpressionCompiler()));
+
+        for (Object actualValue : actual) {
+            assertTrue(expected.contains(actualValue));
+        }
     }
 
     public void assertInvalidFunction(String projection, ErrorCodeSupplier errorCode, String message)
@@ -348,16 +420,28 @@ public final class FunctionAssertions
     private void evaluateInvalid(String projection)
     {
         // type isn't necessary as the function is not valid
-        selectSingleValue(projection, UNKNOWN, compiler);
+        selectSingleValue(projection, UNKNOWN, runner.getExpressionCompiler());
     }
 
     public void assertCachedInstanceHasBoundedRetainedSize(String projection)
     {
+        transaction(runner.getTransactionManager(), new AllowAllAccessControl())
+                .singleStatement()
+                .execute(session, txSession -> {
+                    // metadata.getCatalogHandle() registers the catalog for the transaction
+                    txSession.getCatalog().ifPresent(catalog -> getMetadata().getCatalogHandle(txSession, catalog));
+                    assertCachedInstanceHasBoundedRetainedSizeInTx(projection, txSession);
+                    return null;
+                });
+    }
+
+    private void assertCachedInstanceHasBoundedRetainedSizeInTx(String projection, Session session)
+    {
         requireNonNull(projection, "projection is null");
 
-        Expression projectionExpression = createExpression(session, projection, metadata, INPUT_TYPES);
+        Expression projectionExpression = createExpression(session, projection, getPlannerContext(), INPUT_TYPES);
         RowExpression projectionRowExpression = toRowExpression(session, projectionExpression);
-        PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(projectionRowExpression)).get();
+        PageProcessor processor = runner.getExpressionCompiler().compilePageProcessor(Optional.empty(), ImmutableList.of(projectionRowExpression)).get();
 
         // This is a heuristic to detect whether the retained size of cachedInstance is bounded.
         // * The test runs at least 1000 iterations.
@@ -376,6 +460,7 @@ public final class FunctionAssertions
                     newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                     SOURCE_PAGE);
             // consume the iterator
+            @SuppressWarnings("unused")
             Optional<Page> ignored = Iterators.getOnlyElement(output);
 
             long retainedSize = processor.getProjections().stream()
@@ -426,27 +511,25 @@ public final class FunctionAssertions
             if (type == int[].class) {
                 return sizeOf((int[]) object);
             }
-            else if (type == boolean[].class) {
+            if (type == boolean[].class) {
                 return sizeOf((boolean[]) object);
             }
-            else if (type == byte[].class) {
+            if (type == byte[].class) {
                 return sizeOf((byte[]) object);
             }
-            else if (type == long[].class) {
+            if (type == long[].class) {
                 return sizeOf((long[]) object);
             }
-            else if (type == short[].class) {
+            if (type == short[].class) {
                 return sizeOf((short[]) object);
             }
-            else if (type == Block[].class) {
+            if (type == Block[].class) {
                 Object[] objects = (Object[]) object;
                 return Arrays.stream(objects)
                         .mapToLong(this::getRetainedSizeOf)
                         .sum();
             }
-            else {
-                throw new IllegalArgumentException(format("Unknown type encountered: %s", type));
-            }
+            throw new IllegalArgumentException(format("Unknown type encountered: %s", type));
         }
 
         long retainedSize = ClassLayout.parseClass(type).instanceSize();
@@ -468,9 +551,20 @@ public final class FunctionAssertions
 
     private List<Object> executeProjectionWithAll(String projection, Type expectedType, Session session, ExpressionCompiler compiler)
     {
+        return transaction(runner.getTransactionManager(), new AllowAllAccessControl())
+                .singleStatement()
+                .execute(session, txSession -> {
+                    // metadata.getCatalogHandle() registers the catalog for the transaction
+                    txSession.getCatalog().ifPresent(catalog -> getMetadata().getCatalogHandle(txSession, catalog));
+                    return executeProjectionWithAllInTx(projection, expectedType, txSession, compiler);
+                });
+    }
+
+    private List<Object> executeProjectionWithAllInTx(String projection, Type expectedType, Session session, ExpressionCompiler compiler)
+    {
         requireNonNull(projection, "projection is null");
 
-        Expression projectionExpression = createExpression(session, projection, metadata, INPUT_TYPES);
+        Expression projectionExpression = createExpression(session, projection, getPlannerContext(), INPUT_TYPES);
         RowExpression projectionRowExpression = toRowExpression(session, projectionExpression);
 
         List<Object> results = new ArrayList<>();
@@ -503,17 +597,6 @@ public final class FunctionAssertions
         Object recordValue = selectSingleValue(scanProjectOperatorFactory, expectedType, createRecordSetSplit(), session);
         results.add(recordValue);
 
-        //
-        // If the projection does not need bound values, execute query using full engine
-        if (!needsBoundValue(projectionExpression)) {
-            MaterializedResult result = runner.execute("SELECT " + projection);
-            assertType(result.getTypes(), expectedType);
-            assertEquals(result.getTypes().size(), 1);
-            assertEquals(result.getMaterializedRows().size(), 1);
-            Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
-            results.add(queryResult);
-        }
-
         // validate type at end since some tests expect failure and for those UNKNOWN is used instead of actual type
         assertEquals(projectionRowExpression.getType(), expectedType);
         return results;
@@ -521,7 +604,7 @@ public final class FunctionAssertions
 
     private RowExpression toRowExpression(Session session, Expression projectionExpression)
     {
-        return toRowExpression(projectionExpression, getTypes(session, metadata, INPUT_TYPES, projectionExpression), INPUT_MAPPING);
+        return toRowExpression(session, projectionExpression, getTypes(session, getPlannerContext(), INPUT_TYPES, projectionExpression), INPUT_MAPPING);
     }
 
     private Object selectSingleValue(OperatorFactory operatorFactory, Type type, Session session)
@@ -554,7 +637,7 @@ public final class FunctionAssertions
 
     public void assertFilter(String filter, boolean expected, boolean withNoInputColumns)
     {
-        assertFilter(filter, expected, withNoInputColumns, compiler);
+        assertFilter(filter, expected, withNoInputColumns, runner.getExpressionCompiler());
     }
 
     private void assertFilter(String filter, boolean expected, boolean withNoInputColumns, ExpressionCompiler compiler)
@@ -572,7 +655,7 @@ public final class FunctionAssertions
     {
         requireNonNull(filter, "filter is null");
 
-        Expression filterExpression = createExpression(session, filter, metadata, INPUT_TYPES);
+        Expression filterExpression = createExpression(session, filter, getPlannerContext(), INPUT_TYPES);
         RowExpression filterRowExpression = toRowExpression(session, filterExpression);
 
         List<Boolean> results = new ArrayList<>();
@@ -693,8 +776,8 @@ public final class FunctionAssertions
 
     private Object interpret(Expression expression, Type expectedType, Session session)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = getTypes(session, metadata, INPUT_TYPES, expression);
-        ExpressionInterpreter evaluator = new ExpressionInterpreter(expression, metadata, session, expressionTypes);
+        Map<NodeRef<Expression>, Type> expressionTypes = getTypes(session, getPlannerContext(), INPUT_TYPES, expression);
+        ExpressionInterpreter evaluator = new ExpressionInterpreter(expression, runner.getPlannerContext(), session, expressionTypes);
 
         Object result = evaluator.evaluate(symbol -> {
             int position = 0;
@@ -711,21 +794,19 @@ public final class FunctionAssertions
             if (javaType == boolean.class) {
                 return type.getBoolean(block, position);
             }
-            else if (javaType == long.class) {
+            if (javaType == long.class) {
                 return type.getLong(block, position);
             }
-            else if (javaType == double.class) {
+            if (javaType == double.class) {
                 return type.getDouble(block, position);
             }
-            else if (javaType == Slice.class) {
+            if (javaType == Slice.class) {
                 return type.getSlice(block, position);
             }
-            else if (javaType == Block.class) {
+            if (javaType == Block.class || javaType == Int128.class) {
                 return type.getObject(block, position);
             }
-            else {
-                throw new UnsupportedOperationException("not yet implemented");
-            }
+            throw new UnsupportedOperationException("not yet implemented");
         });
 
         // convert result from stack type to Type ObjectValue
@@ -796,9 +877,9 @@ public final class FunctionAssertions
         }
     }
 
-    private RowExpression toRowExpression(Expression projection, Map<NodeRef<Expression>, Type> expressionTypes, Map<Symbol, Integer> layout)
+    private RowExpression toRowExpression(Session session, Expression projection, Map<NodeRef<Expression>, Type> expressionTypes, Map<Symbol, Integer> layout)
     {
-        return translate(projection, expressionTypes, layout, metadata, session, false);
+        return translate(projection, expressionTypes, layout, getMetadata(), getFunctionManager(), session, false);
     }
 
     private static Page getAtMostOnePage(Operator operator, Page sourcePage)
@@ -877,24 +958,22 @@ public final class FunctionAssertions
                                 1234,
                                 TEST_ROW_DATA.getObject(0, Block.class),
                                 new BigDecimal("1234").unscaledValue().longValue(),
-                                encodeScaledValue(new BigDecimal("1234")))
+                                Decimals.valueOf(new BigDecimal("1234")))
                         .build();
                 return new RecordPageSource(records);
             }
-            else {
-                return new FixedPageSource(ImmutableList.of(SOURCE_PAGE));
-            }
+            return new FixedPageSource(ImmutableList.of(SOURCE_PAGE));
         }
     }
 
     private static Split createRecordSetSplit()
     {
-        return new Split(new CatalogName("test"), new TestSplit(true), Lifespan.taskWide());
+        return new Split(TEST_CATALOG_HANDLE, new TestSplit(true));
     }
 
     private static Split createNormalSplit()
     {
-        return new Split(new CatalogName("test"), new TestSplit(false), Lifespan.taskWide());
+        return new Split(TEST_CATALOG_HANDLE, new TestSplit(false));
     }
 
     private static RowType createTestRowType(int numberOfFields)
@@ -939,6 +1018,8 @@ public final class FunctionAssertions
     private static class TestSplit
             implements ConnectorSplit
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestSplit.class).instanceSize();
+
         private final boolean recordSet;
 
         private TestSplit(boolean recordSet)
@@ -967,6 +1048,12 @@ public final class FunctionAssertions
         public Object getInfo()
         {
             return this;
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE;
         }
     }
 }

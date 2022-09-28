@@ -49,7 +49,7 @@ public class ClusterMemoryLeakDetector
 
     /**
      * @param queryInfoSupplier All queries that the coordinator knows about.
-     * @param queryMemoryReservations The memory reservations of queries in the GENERAL cluster memory pool.
+     * @param queryMemoryReservations The memory reservations of queries in the cluster memory pool.
      */
     void checkForMemoryLeaks(Supplier<List<BasicQueryInfo>> queryInfoSupplier, Map<QueryId, Long> queryMemoryReservations)
     {

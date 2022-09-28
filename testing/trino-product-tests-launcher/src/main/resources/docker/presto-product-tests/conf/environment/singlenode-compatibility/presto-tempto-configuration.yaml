@@ -1,0 +1,10 @@
+databases:
+  compatibility-test-server:
+    host: compatibility-test-coordinator
+    port: 8081
+    server_address: http://${databases.compatibility-test-server.host}:${databases.compatibility-test-server.port}
+    jdbc_driver_class: io.prestosql.jdbc.PrestoDriver
+    jdbc_url: jdbc:presto://${databases.compatibility-test-server.host}:${databases.compatibility-test-server.port}/hive/${databases.hive.schema}
+    jdbc_user: hive
+    jdbc_password: "***empty***"
+    jdbc_pooling: false

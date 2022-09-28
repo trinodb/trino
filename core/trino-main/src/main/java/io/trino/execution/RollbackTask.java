@@ -16,22 +16,31 @@ package io.trino.execution;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
-import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Rollback;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 
+import javax.inject.Inject;
+
 import java.util.List;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.spi.StandardErrorCode.NOT_IN_TRANSACTION;
+import static java.util.Objects.requireNonNull;
 
 public class RollbackTask
         implements DataDefinitionTask<Rollback>
 {
+    private final TransactionManager transactionManager;
+
+    @Inject
+    public RollbackTask(TransactionManager transactionManager)
+    {
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+    }
+
     @Override
     public String getName()
     {
@@ -41,18 +50,12 @@ public class RollbackTask
     @Override
     public ListenableFuture<Void> execute(
             Rollback statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        if (session.getTransactionId().isEmpty()) {
-            throw new TrinoException(NOT_IN_TRANSACTION, "No transaction in progress");
-        }
-        TransactionId transactionId = session.getTransactionId().get();
+        TransactionId transactionId = session.getTransactionId().orElseThrow(() -> new TrinoException(NOT_IN_TRANSACTION, "No transaction in progress"));
 
         stateMachine.clearTransactionId();
         transactionManager.asyncAbort(transactionId);

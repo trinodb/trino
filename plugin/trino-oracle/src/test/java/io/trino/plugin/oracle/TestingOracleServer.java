@@ -13,79 +13,93 @@
  */
 package io.trino.plugin.oracle;
 
+import com.google.common.base.Joiner;
+import com.google.common.io.Files;
+import io.airlift.log.Logger;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.RetryingConnectionFactory;
 import io.trino.plugin.jdbc.credential.StaticCredentialProvider;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
 import oracle.jdbc.OracleDriver;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.temporal.ChronoUnit;
 
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
 
 public class TestingOracleServer
-        extends OracleContainer
         implements Closeable
 {
+    private static final Logger log = Logger.get(TestingOracleServer.class);
+
+    private static final RetryPolicy<Object> CONTAINER_RETRY_POLICY = new RetryPolicy<>()
+            .withBackoff(1, 5, ChronoUnit.SECONDS)
+            .withMaxAttempts(5)
+            .onRetry(event -> log.warn(
+                    "Container initialization failed on attempt %s, will retry. Exception: %s",
+                    event.getAttemptCount(),
+                    event.getLastFailure().getMessage()));
+
     private static final String TEST_TABLESPACE = "trino_test";
 
     public static final String TEST_USER = "trino_test";
     public static final String TEST_SCHEMA = TEST_USER; // schema and user is the same thing in Oracle
     public static final String TEST_PASS = "trino_test_password";
 
+    private final OracleContainer container;
+
     public TestingOracleServer()
     {
-        super("wnameless/oracle-xe-11g-r2");
+        container = Failsafe.with(CONTAINER_RETRY_POLICY).get(this::createContainer);
+    }
 
-        withCopyFileToContainer(MountableFile.forClasspathResource("init.sql"), "/docker-entrypoint-initdb.d/init.sql");
+    private OracleContainer createContainer()
+    {
+        OracleContainer container = new OracleContainer("gvenzl/oracle-xe:11.2.0.2-full")
+                .withCopyFileToContainer(MountableFile.forClasspathResource("init.sql"), "/container-entrypoint-initdb.d/01-init.sql")
+                .withCopyFileToContainer(MountableFile.forClasspathResource("restart.sh"), "/container-entrypoint-initdb.d/02-restart.sh")
+                .withCopyFileToContainer(MountableFile.forHostPath(createConfigureScript()), "/container-entrypoint-initdb.d/03-create-users.sql")
+                .usingSid();
+        container.start();
+        return container;
+    }
 
-        start();
-
-        try (Connection connection = getConnectionFactory().openConnection(SESSION);
-                Statement statement = connection.createStatement()) {
-            // this is added to allow more processes on database, otherwise the tests end up giving
-            // ORA-12519, TNS:no appropriate service handler found
-            // ORA-12505, TNS:listener does not currently know of SID given in connect descriptor
-            // to fix this we have to change the number of processes of SPFILE
-            statement.execute("ALTER SYSTEM SET processes=1000 SCOPE=SPFILE");
-            statement.execute("ALTER SYSTEM SET disk_asynch_io = FALSE SCOPE = SPFILE");
-        }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-
+    private Path createConfigureScript()
+    {
         try {
-            execInContainer("/bin/bash", "/etc/init.d/oracle-xe", "restart");
-        }
-        catch (InterruptedException | IOException e) {
-            throw new RuntimeException(e);
-        }
+            File tempFile = File.createTempFile("init-", ".sql");
 
-        waitUntilContainerStarted();
-        try (Connection connection = getConnectionFactory().openConnection(SESSION);
-                Statement statement = connection.createStatement()) {
-            statement.execute(format("CREATE TABLESPACE %s DATAFILE 'test_db.dat' SIZE 100M ONLINE", TEST_TABLESPACE));
-            statement.execute(format("CREATE USER %s IDENTIFIED BY %s DEFAULT TABLESPACE %s", TEST_USER, TEST_PASS, TEST_TABLESPACE));
-            statement.execute(format("GRANT UNLIMITED TABLESPACE TO %s", TEST_USER));
-            statement.execute(format("GRANT ALL PRIVILEGES TO %s", TEST_USER));
+            Files.write(Joiner.on("\n").join(
+                    format("CREATE TABLESPACE %s DATAFILE 'test_db.dat' SIZE 100M ONLINE;", TEST_TABLESPACE),
+                    format("CREATE USER %s IDENTIFIED BY %s DEFAULT TABLESPACE %s;", TEST_USER, TEST_PASS, TEST_TABLESPACE),
+                    format("GRANT UNLIMITED TABLESPACE TO %s;", TEST_USER),
+                    format("GRANT CREATE SESSION TO %s;", TEST_USER),
+                    format("GRANT ALL PRIVILEGES TO %s;", TEST_USER)).getBytes(StandardCharsets.UTF_8), tempFile);
+
+            return tempFile.toPath();
         }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 
-    @Override
     public String getJdbcUrl()
     {
-        return "jdbc:oracle:thin:@" + getHost() + ":" + getOraclePort() + ":" + getSid();
+        return container.getJdbcUrl();
     }
 
     public void execute(String sql)
@@ -95,7 +109,7 @@ public class TestingOracleServer
 
     public void execute(String sql, String user, String password)
     {
-        try (Connection connection = getConnectionFactory(user, password).openConnection(SESSION);
+        try (Connection connection = getConnectionFactory(getJdbcUrl(), user, password).openConnection(SESSION);
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
@@ -104,16 +118,11 @@ public class TestingOracleServer
         }
     }
 
-    private ConnectionFactory getConnectionFactory()
-    {
-        return getConnectionFactory(getUsername(), getPassword());
-    }
-
-    private ConnectionFactory getConnectionFactory(String username, String password)
+    private ConnectionFactory getConnectionFactory(String connectionUrl, String username, String password)
     {
         DriverConnectionFactory connectionFactory = new DriverConnectionFactory(
                 new OracleDriver(),
-                new BaseJdbcConfig().setConnectionUrl(getJdbcUrl()),
+                new BaseJdbcConfig().setConnectionUrl(connectionUrl),
                 StaticCredentialProvider.of(username, password));
         return new RetryingConnectionFactory(connectionFactory);
     }
@@ -121,6 +130,6 @@ public class TestingOracleServer
     @Override
     public void close()
     {
-        stop();
+        container.stop();
     }
 }

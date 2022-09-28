@@ -37,7 +37,6 @@ import java.sql.JDBCType;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -53,7 +52,6 @@ import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.trino.tempto.fulfillment.table.TableHandle.tableHandle;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.HIVE_COERCION;
 import static io.trino.tests.product.TestGroups.JDBC;
 import static io.trino.tests.product.hive.TestHiveCoercion.ColumnContext.columnContext;
@@ -71,6 +69,7 @@ import static java.sql.JDBCType.REAL;
 import static java.sql.JDBCType.SMALLINT;
 import static java.sql.JDBCType.STRUCT;
 import static java.sql.JDBCType.VARCHAR;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
@@ -104,8 +103,8 @@ public class TestHiveCoercion
 
     private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionBuilder(String fileFormat, Optional<String> recommendTableName, Optional<String> rowFormat)
     {
-        String tableName = format("%s_hive_coercion", recommendTableName.orElse(fileFormat).toLowerCase(Locale.ENGLISH));
-        String floatType = fileFormat.toLowerCase(Locale.ENGLISH).contains("parquet") ? "DOUBLE" : "FLOAT";
+        String tableName = format("%s_hive_coercion", recommendTableName.orElse(fileFormat).toLowerCase(ENGLISH));
+        String floatType = fileFormat.toLowerCase(ENGLISH).contains("parquet") ? "DOUBLE" : "FLOAT";
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
                         "CREATE TABLE %NAME%(" +
@@ -128,10 +127,14 @@ public class TestHiveCoercion
                         "    longdecimal_to_longdecimal            DECIMAL(20,12)," +
                         //"    float_to_decimal           " + floatType + "," + // this coercion is not permitted in Hive 3. TODO test this on Hive < 3.
                         //"    double_to_decimal          DOUBLE," + // this coercion is not permitted in Hive 3. TODO test this on Hive < 3.
-                        "    decimal_to_float           DECIMAL(10,5)," +
-                        "    decimal_to_double          DECIMAL(10,5)," +
-                        "    varchar_to_bigger_varchar  VARCHAR(3)," +
-                        "    varchar_to_smaller_varchar VARCHAR(3)" +
+                        "    decimal_to_float                   DECIMAL(10,5)," +
+                        "    decimal_to_double                  DECIMAL(10,5)," +
+                        "    short_decimal_to_varchar           DECIMAL(10,5)," +
+                        "    long_decimal_to_varchar            DECIMAL(20,12)," +
+                        "    short_decimal_to_bounded_varchar   DECIMAL(10,5)," +
+                        "    long_decimal_to_bounded_varchar    DECIMAL(20,12)," +
+                        "    varchar_to_bigger_varchar          VARCHAR(3)," +
+                        "    varchar_to_smaller_varchar         VARCHAR(3)" +
                         ") " +
                         "PARTITIONED BY (id BIGINT) " +
                         rowFormat.map(s -> format("ROW FORMAT %s ", s)).orElse("") +
@@ -261,12 +264,12 @@ public class TestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN int_to_bigint int_to_bigint bigint", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_double float_to_double double", tableName));
 
-        assertThat(query("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactly(
+        assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
                 row("int_to_bigint", "bigint"),
                 row("float_to_double", "double"),
                 row("id", "bigint"));
 
-        QueryResult queryResult = query("SELECT * FROM " + tableName);
+        QueryResult queryResult = onTrino().executeQuery("SELECT * FROM " + tableName);
         assertThat(queryResult).hasColumns(BIGINT, DOUBLE, BIGINT);
 
         assertThat(queryResult).containsOnly(
@@ -278,8 +281,8 @@ public class TestHiveCoercion
     {
         String tableName = mutableTableInstanceOf(tableDefinition).getNameInDatabase();
 
-        String floatToDoubleType = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? "DOUBLE" : "REAL";
-        String decimalToFloatVal = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? "12345.12345" : "12345.124";
+        String floatToDoubleType = tableName.toLowerCase(ENGLISH).contains("parquet") ? "DOUBLE" : "REAL";
+        String decimalToFloatVal = tableName.toLowerCase(ENGLISH).contains("parquet") ? "12345.12345" : "12345.124";
 
         insertTableRows(tableName, floatToDoubleType);
 
@@ -307,16 +310,20 @@ public class TestHiveCoercion
                 // "double_to_decimal",
                 "decimal_to_float",
                 "decimal_to_double",
+                "short_decimal_to_varchar",
+                "long_decimal_to_varchar",
+                "short_decimal_to_bounded_varchar",
+                "long_decimal_to_bounded_varchar",
                 "varchar_to_bigger_varchar",
                 "varchar_to_smaller_varchar",
                 "id");
 
         Function<Engine, Map<String, List<Object>>> expected = engine -> expectedValuesForEngineProvider(engine, tableName, decimalToFloatVal);
 
-        Map<String, List<Object>> expectedPrestoResults = expected.apply(Engine.PRESTO);
+        Map<String, List<Object>> expectedPrestoResults = expected.apply(Engine.TRINO);
         assertEquals(ImmutableSet.copyOf(prestoReadColumns), expectedPrestoResults.keySet());
         String prestoSelectQuery = format("SELECT %s FROM %s", String.join(", ", prestoReadColumns), tableName);
-        assertQueryResults(Engine.PRESTO, prestoSelectQuery, expectedPrestoResults, prestoReadColumns, 2, tableName);
+        assertQueryResults(Engine.TRINO, prestoSelectQuery, expectedPrestoResults, prestoReadColumns, 2, tableName);
 
         // For Hive, remove unsupported columns for the current file format and hive version
         List<String> hiveReadColumns = removeUnsupportedColumnsForHive(prestoReadColumns, tableName);
@@ -327,7 +334,7 @@ public class TestHiveCoercion
 
     protected void insertTableRows(String tableName, String floatToDoubleType)
     {
-        query(format(
+        onTrino().executeQuery(format(
                 "INSERT INTO %1$s VALUES " +
                         "(" +
                         "  CAST(ROW ('as is', -1, 100, 2323, 12345) AS ROW(keep VARCHAR, ti2si TINYINT, si2int SMALLINT, int2bi INTEGER, bi2vc BIGINT)), " +
@@ -350,6 +357,10 @@ public class TestHiveCoercion
                         //"  DOUBLE '12345.12345', " +
                         "  DECIMAL '12345.12345', " +
                         "  DECIMAL '12345.12345', " +
+                        "  DECIMAL '12345.12345', " +
+                        "  DECIMAL '12345678.123456123456', " +
+                        "  DECIMAL '12345.12345', " +
+                        "  DECIMAL '12345678.123456123456', " +
                         "  'abc', " +
                         "  'abc', " +
                         "  1), " +
@@ -374,6 +385,10 @@ public class TestHiveCoercion
                         //"  DOUBLE '-12345.12345', " +
                         "  DECIMAL '-12345.12345', " +
                         "  DECIMAL '-12345.12345', " +
+                        "  DECIMAL '-12345.12345', " +
+                        "  DECIMAL '-12345678.123456123456', " +
+                        "  DECIMAL '-12345.12345', " +
+                        "  DECIMAL '-12345678.123456123456', " +
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
                         "  1)",
@@ -385,7 +400,7 @@ public class TestHiveCoercion
     {
         return ImmutableMap.<String, List<Object>>builder()
                 .put("row_to_row", Arrays.asList(
-                        engine == Engine.PRESTO ?
+                        engine == Engine.TRINO ?
                                 rowBuilder()
                                         .addField("keep", "as is")
                                         .addField("ti2si", (short) -1)
@@ -395,7 +410,7 @@ public class TestHiveCoercion
                                         .build() :
                                 // TODO: Compare structures for hive executor instead of serialized representation
                                 "{\"keep\":\"as is\",\"ti2si\":-1,\"si2int\":100,\"int2bi\":2323,\"bi2vc\":\"12345\"}",
-                        engine == Engine.PRESTO ?
+                        engine == Engine.TRINO ?
                                 rowBuilder()
                                         .addField("keep", null)
                                         .addField("ti2si", (short) 1)
@@ -405,14 +420,14 @@ public class TestHiveCoercion
                                         .build() :
                                 "{\"keep\":null,\"ti2si\":1,\"si2int\":-100,\"int2bi\":-2323,\"bi2vc\":\"-12345\"}"))
                 .put("list_to_list", Arrays.asList(
-                        engine == Engine.PRESTO ?
+                        engine == Engine.TRINO ?
                                 ImmutableList.of(rowBuilder()
                                         .addField("ti2int", 2)
                                         .addField("si2bi", -101L)
                                         .addField("bi2vc", "12345")
                                         .build()) :
                                 "[{\"ti2int\":2,\"si2bi\":-101,\"bi2vc\":\"12345\"}]",
-                        engine == Engine.PRESTO ?
+                        engine == Engine.TRINO ?
                                 ImmutableList.of(rowBuilder()
                                         .addField("ti2int", -2)
                                         .addField("si2bi", 101L)
@@ -420,7 +435,7 @@ public class TestHiveCoercion
                                         .build()) :
                                 "[{\"ti2int\":-2,\"si2bi\":101,\"bi2vc\":\"-12345\"}]"))
                 .put("map_to_map", Arrays.asList(
-                        engine == Engine.PRESTO ?
+                        engine == Engine.TRINO ?
                                 ImmutableMap.of(2, rowBuilder()
                                         .addField("ti2bi", -3L)
                                         .addField("int2bi", 2323L)
@@ -428,7 +443,7 @@ public class TestHiveCoercion
                                         .addField("add", null)
                                         .build()) :
                                 "{2:{\"ti2bi\":-3,\"int2bi\":2323,\"float2double\":0.5,\"add\":null}}",
-                        engine == Engine.PRESTO ?
+                        engine == Engine.TRINO ?
                                 ImmutableMap.of(-2, rowBuilder()
                                         .addField("ti2bi", null)
                                         .addField("int2bi", -2323L)
@@ -481,6 +496,18 @@ public class TestHiveCoercion
                 .put("decimal_to_double", Arrays.asList(
                         12345.12345,
                         -12345.12345))
+                .put("short_decimal_to_varchar", Arrays.asList(
+                        "12345.12345",
+                        "-12345.12345"))
+                .put("long_decimal_to_varchar", Arrays.asList(
+                        "12345678.123456123456",
+                        "-12345678.123456123456"))
+                .put("short_decimal_to_bounded_varchar", Arrays.asList(
+                        "12345.12345",
+                        "12345.12345"))
+                .put("long_decimal_to_bounded_varchar", Arrays.asList(
+                        "12345678.123456123456",
+                        "-12345678.123456123456"))
                 .put("varchar_to_bigger_varchar", Arrays.asList(
                         "abc",
                         "\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0"))
@@ -490,7 +517,7 @@ public class TestHiveCoercion
                 .put("id", Arrays.asList(
                         1,
                         1))
-                .build();
+                .buildOrThrow();
     }
 
     private List<String> removeUnsupportedColumnsForHive(List<String> columns, String tableName)
@@ -560,8 +587,7 @@ public class TestHiveCoercion
                 .put(columnContext("3.1", "rcbinary", "row_to_row"), "java.util.ArrayList cannot be cast to org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryStruct")
                 .put(columnContext("3.1", "rcbinary", "list_to_list"), "java.util.ArrayList cannot be cast to org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryArray")
                 .put(columnContext("3.1", "rcbinary", "map_to_map"), "java.util.LinkedHashMap cannot be cast to org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryMap")
-
-                .build();
+                .buildOrThrow();
     }
 
     private void assertQueryResults(
@@ -603,7 +629,7 @@ public class TestHiveCoercion
 
             if (column.equals("list_to_list")) {
                 assertEqualsIgnoreOrder(
-                        engine == Engine.PRESTO ? extract(actual.column(sqlIndex)) : actual.column(sqlIndex),
+                        engine == Engine.TRINO ? extract(actual.column(sqlIndex)) : actual.column(sqlIndex),
                         column(expectedRows, sqlIndex),
                         "list_to_list field is not equal");
                 continue;
@@ -616,9 +642,9 @@ public class TestHiveCoercion
 
     private void assertProperAlteredTableSchema(String tableName)
     {
-        String floatType = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? "double" : "real";
+        String floatType = tableName.toLowerCase(ENGLISH).contains("parquet") ? "double" : "real";
 
-        assertThat(query("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactly(
+        assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
                 row("row_to_row", "row(keep varchar, ti2si smallint, si2int integer, int2bi bigint, bi2vc varchar)"),
                 row("list_to_list", "array(row(ti2int integer, si2bi bigint, bi2vc varchar))"),
                 row("map_to_map", "map(integer, row(ti2bi bigint, int2bi bigint, float2double double, add tinyint))"),
@@ -639,6 +665,10 @@ public class TestHiveCoercion
                 //row("double_to_decimal", "decimal(10,5)"),
                 row("decimal_to_float", floatType),
                 row("decimal_to_double", "double"),
+                row("short_decimal_to_varchar", "varchar"),
+                row("long_decimal_to_varchar", "varchar"),
+                row("short_decimal_to_bounded_varchar", "varchar(30)"),
+                row("long_decimal_to_bounded_varchar", "varchar(30)"),
                 row("varchar_to_bigger_varchar", "varchar(4)"),
                 row("varchar_to_smaller_varchar", "varchar(2)"),
                 row("id", "bigint"));
@@ -651,15 +681,15 @@ public class TestHiveCoercion
             List<String> columns)
     {
         JDBCType floatType;
-        if (engine == Engine.PRESTO) {
-            floatType = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? DOUBLE : REAL;
+        if (engine == Engine.TRINO) {
+            floatType = tableName.toLowerCase(ENGLISH).contains("parquet") ? DOUBLE : REAL;
         }
         else {
-            floatType = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? DOUBLE : FLOAT;
+            floatType = tableName.toLowerCase(ENGLISH).contains("parquet") ? DOUBLE : FLOAT;
         }
 
         Map<String, JDBCType> expectedTypes = ImmutableMap.<String, JDBCType>builder()
-                .put("row_to_row", engine == Engine.PRESTO ? JAVA_OBJECT : STRUCT)   // row
+                .put("row_to_row", engine == Engine.TRINO ? JAVA_OBJECT : STRUCT)   // row
                 .put("list_to_list", ARRAY) // list
                 .put("map_to_map", JAVA_OBJECT) // map
                 .put("tinyint_to_smallint", SMALLINT)
@@ -679,10 +709,14 @@ public class TestHiveCoercion
                 //.put("double_to_decimal", DECIMAL)
                 .put("decimal_to_float", floatType)
                 .put("decimal_to_double", DOUBLE)
+                .put("short_decimal_to_varchar", VARCHAR)
+                .put("long_decimal_to_varchar", VARCHAR)
+                .put("short_decimal_to_bounded_varchar", VARCHAR)
+                .put("long_decimal_to_bounded_varchar", VARCHAR)
                 .put("varchar_to_bigger_varchar", VARCHAR)
                 .put("varchar_to_smaller_varchar", VARCHAR)
                 .put("id", BIGINT)
-                .build();
+                .buildOrThrow();
 
         assertThat(queryResult)
                 .hasColumns(columns.stream().map(expectedTypes::get).collect(toImmutableList()));
@@ -690,7 +724,7 @@ public class TestHiveCoercion
 
     private static void alterTableColumnTypes(String tableName)
     {
-        String floatType = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? "double" : "float";
+        String floatType = tableName.toLowerCase(ENGLISH).contains("parquet") ? "double" : "float";
 
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN row_to_row row_to_row struct<keep:string, ti2si:smallint, si2int:int, int2bi:bigint, bi2vc:string>", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN list_to_list list_to_list array<struct<ti2int:int, si2bi:bigint, bi2vc:string>>", tableName));
@@ -712,6 +746,10 @@ public class TestHiveCoercion
         //onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_decimal double_to_decimal DECIMAL(10,5)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN decimal_to_float decimal_to_float %s", tableName, floatType));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN decimal_to_double decimal_to_double double", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN short_decimal_to_varchar short_decimal_to_varchar string", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN long_decimal_to_varchar long_decimal_to_varchar string", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN short_decimal_to_bounded_varchar short_decimal_to_bounded_varchar varchar(30)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN long_decimal_to_bounded_varchar long_decimal_to_bounded_varchar varchar(30)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_bigger_varchar varchar_to_bigger_varchar varchar(4)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_smaller_varchar varchar_to_smaller_varchar varchar(2)", tableName));
     }
@@ -721,9 +759,7 @@ public class TestHiveCoercion
         if (tableDefinition.getDatabase().isPresent()) {
             return mutableTableInstanceOf(tableDefinition, tableDefinition.getDatabase().get());
         }
-        else {
-            return mutableTableInstanceOf(tableHandleInSchema(tableDefinition));
-        }
+        return mutableTableInstanceOf(tableHandleInSchema(tableDefinition));
     }
 
     private static TableInstance<?> mutableTableInstanceOf(TableDefinition tableDefinition, String database)
@@ -833,25 +869,8 @@ public class TestHiveCoercion
         }
     }
 
-    public enum Engine
-    {
-        HIVE,
-        PRESTO
-    }
-
     private static QueryResult execute(Engine engine, String sql, QueryExecutor.QueryParam... params)
     {
-        return executorFor(engine).executeQuery(sql, params);
-    }
-
-    private static QueryExecutor executorFor(Engine engine)
-    {
-        switch (engine) {
-            case HIVE:
-                return onHive();
-            case PRESTO:
-                return onTrino();
-        }
-        throw new IllegalStateException("Unknown enum value " + engine);
+        return engine.queryExecutor().executeQuery(sql, params);
     }
 }

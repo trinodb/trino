@@ -14,11 +14,12 @@
 package io.trino.plugin.base.classloader;
 
 import io.trino.spi.classloader.ThreadContextClassLoader;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSplitSource;
 
 import javax.inject.Inject;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static java.util.Objects.requireNonNull;
@@ -37,10 +38,18 @@ public class ClassLoaderSafeConnectorSplitSource
     }
 
     @Override
-    public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
+    public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getNextBatch(partitionHandle, maxSize);
+            return delegate.getNextBatch(maxSize);
+        }
+    }
+
+    @Override
+    public Optional<List<Object>> getTableExecuteSplitsInfo()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getTableExecuteSplitsInfo();
         }
     }
 

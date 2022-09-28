@@ -25,6 +25,16 @@ public class RealDecoder
     @Override
     public void decode(Supplier<Object> getter, BlockBuilder output)
     {
-        output.writeInt(floatToIntBits(((Number) getter.get()).floatValue()));
+        Object value = getter.get();
+        if (value == null) {
+            output.appendNull();
+        }
+        else if (value instanceof String) {
+            // Pinot returns NEGATIVE_INFINITY, POSITIVE_INFINITY as a String
+            output.writeInt(floatToIntBits(Float.valueOf((String) value)));
+        }
+        else {
+            output.writeInt((floatToIntBits(((Number) value).floatValue())));
+        }
     }
 }

@@ -18,11 +18,10 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.Session.SessionBuilder;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.CatalogManager;
 import io.trino.metadata.Metadata;
+import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.sql.tree.Isolation;
@@ -39,12 +38,12 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.metadata.CatalogManager.NO_CATALOGS;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
@@ -84,7 +83,8 @@ public class TestStartTransactionTask
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
         assertTrinoExceptionThrownBy(
-                () -> getFutureValue((Future<?>) new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList(), WarningCollector.NOOP)))
+                () -> getFutureValue(new StartTransactionTask(transactionManager)
+                        .execute(new StartTransaction(ImmutableList.of()), stateMachine, emptyList(), WarningCollector.NOOP)))
                 .hasErrorCode(INCOMPATIBLE_CLIENT);
 
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
@@ -104,7 +104,8 @@ public class TestStartTransactionTask
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
 
         assertTrinoExceptionThrownBy(
-                () -> getFutureValue((Future<?>) new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList(), WarningCollector.NOOP)))
+                () -> getFutureValue(new StartTransactionTask(transactionManager)
+                        .execute(new StartTransaction(ImmutableList.of()), stateMachine, emptyList(), WarningCollector.NOOP)))
                 .hasErrorCode(NOT_SUPPORTED);
 
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
@@ -123,7 +124,7 @@ public class TestStartTransactionTask
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
-        getFutureValue(new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList(), WarningCollector.NOOP));
+        getFutureValue(new StartTransactionTask(transactionManager).execute(new StartTransaction(ImmutableList.of()), stateMachine, emptyList(), WarningCollector.NOOP));
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
@@ -142,11 +143,8 @@ public class TestStartTransactionTask
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
-        getFutureValue(new StartTransactionTask().execute(
+        getFutureValue(new StartTransactionTask(transactionManager).execute(
                 new StartTransaction(ImmutableList.of(new Isolation(Isolation.Level.SERIALIZABLE), new TransactionAccessMode(true))),
-                transactionManager,
-                metadata,
-                new AllowAllAccessControl(),
                 stateMachine,
                 emptyList(),
                 WarningCollector.NOOP));
@@ -171,11 +169,8 @@ public class TestStartTransactionTask
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
         assertTrinoExceptionThrownBy(() ->
-                getFutureValue(new StartTransactionTask().execute(
+                getFutureValue(new StartTransactionTask(transactionManager).execute(
                         new StartTransaction(ImmutableList.of(new Isolation(Isolation.Level.READ_COMMITTED), new Isolation(Isolation.Level.READ_COMMITTED))),
-                        transactionManager,
-                        metadata,
-                        new AllowAllAccessControl(),
                         stateMachine,
                         emptyList(),
                         WarningCollector.NOOP)))
@@ -198,11 +193,8 @@ public class TestStartTransactionTask
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
         assertTrinoExceptionThrownBy(() ->
-                getFutureValue(new StartTransactionTask().execute(
+                getFutureValue(new StartTransactionTask(transactionManager).execute(
                         new StartTransaction(ImmutableList.of(new TransactionAccessMode(true), new TransactionAccessMode(true))),
-                        transactionManager,
-                        metadata,
-                        new AllowAllAccessControl(),
                         stateMachine,
                         emptyList(),
                         WarningCollector.NOOP)))
@@ -226,16 +218,13 @@ public class TestStartTransactionTask
                         .setIdleTimeout(new Duration(1, TimeUnit.MICROSECONDS)) // Fast idle timeout
                         .setIdleCheckInterval(new Duration(10, TimeUnit.MILLISECONDS)),
                 scheduledExecutor,
-                new CatalogManager(),
+                NO_CATALOGS,
                 executor);
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
-        getFutureValue(new StartTransactionTask().execute(
+        getFutureValue(new StartTransactionTask(transactionManager).execute(
                 new StartTransaction(ImmutableList.of()),
-                transactionManager,
-                metadata,
-                new AllowAllAccessControl(),
                 stateMachine,
                 emptyList(),
                 WarningCollector.NOOP));
@@ -254,6 +243,7 @@ public class TestStartTransactionTask
     private QueryStateMachine createQueryStateMachine(String query, Session session, TransactionManager transactionManager)
     {
         return QueryStateMachine.begin(
+                Optional.empty(),
                 query,
                 Optional.empty(),
                 session,
@@ -261,7 +251,7 @@ public class TestStartTransactionTask
                 new ResourceGroupId("test"),
                 true,
                 transactionManager,
-                new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig()),
+                new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig(), DefaultSystemAccessControl.NAME),
                 executor,
                 metadata,
                 WarningCollector.NOOP,

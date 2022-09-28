@@ -33,23 +33,19 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-/**
- * Unit test for the TableDescriptionSupplier and related classes
- */
 public class TestKinesisTableDescriptionSupplier
 {
-    private KinesisPlugin kinesisPlugin;
     private KinesisConnector connector;
 
     @BeforeClass
     public void start()
     {
         // Create dependent objects, including the minimal config needed for this test
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kinesis.table-description-location", "etc/kinesis")
                 .put("kinesis.default-schema", "kinesis")
                 .put("kinesis.hide-internal-columns", "true")
-                .build();
+                .buildOrThrow();
 
         KinesisTestClientManager kinesisTestClientManager = new KinesisTestClientManager();
         MockKinesisClient mockClient = (MockKinesisClient) kinesisTestClientManager.getClient();
@@ -57,14 +53,14 @@ public class TestKinesisTableDescriptionSupplier
         mockClient.createStream("sampleTable", 2);
         KinesisConnectorFactory kinesisConnectorFactory = new TestingKinesisConnectorFactory(kinesisTestClientManager);
 
-        kinesisPlugin = new KinesisPlugin(kinesisConnectorFactory);
+        KinesisPlugin kinesisPlugin = new KinesisPlugin(kinesisConnectorFactory);
         connector = TestUtils.createConnector(kinesisPlugin, properties, true);
     }
 
     @Test
     public void testTableDefinition()
     {
-        KinesisMetadata metadata = (KinesisMetadata) connector.getMetadata(new ConnectorTransactionHandle() {});
+        KinesisMetadata metadata = (KinesisMetadata) connector.getMetadata(SESSION, new ConnectorTransactionHandle() {});
         SchemaTableName tblName = new SchemaTableName("prod", "test_table");
         KinesisTableHandle tableHandle = metadata.getTableHandle(SESSION, tblName);
         assertNotNull(metadata);
@@ -81,7 +77,7 @@ public class TestKinesisTableDescriptionSupplier
     @Test
     public void testRelatedObjects()
     {
-        KinesisMetadata metadata = (KinesisMetadata) connector.getMetadata(new ConnectorTransactionHandle() {});
+        KinesisMetadata metadata = (KinesisMetadata) connector.getMetadata(SESSION, new ConnectorTransactionHandle() {});
         assertNotNull(metadata);
 
         SchemaTableName tblName = new SchemaTableName("prod", "test_table");

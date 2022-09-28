@@ -13,6 +13,8 @@
  */
 package io.trino.server.ui;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.ResponseHandler;
@@ -24,11 +26,12 @@ import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.NodeState;
 import io.trino.security.AccessControl;
 import io.trino.server.ForWorkerInfo;
+import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ProtocolConfig;
 import io.trino.server.security.ResourceSecurity;
+import io.trino.spi.Node;
 import io.trino.spi.QueryId;
 import io.trino.spi.security.AccessDeniedException;
-import io.trino.spi.security.GroupProvider;
 
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
@@ -43,6 +46,8 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
@@ -50,8 +55,9 @@ import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.trino.metadata.NodeState.ACTIVE;
+import static io.trino.metadata.NodeState.INACTIVE;
 import static io.trino.security.AccessControlUtil.checkCanViewQueryOwnedBy;
-import static io.trino.server.HttpRequestSessionContext.extractAuthorizedIdentity;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
@@ -65,7 +71,7 @@ public class WorkerResource
     private final InternalNodeManager nodeManager;
     private final AccessControl accessControl;
     private final HttpClient httpClient;
-    private final GroupProvider groupProvider;
+    private final HttpRequestSessionContextFactory sessionContextFactory;
     private final Optional<String> alternateHeaderName;
 
     @Inject
@@ -74,14 +80,14 @@ public class WorkerResource
             InternalNodeManager nodeManager,
             AccessControl accessControl,
             @ForWorkerInfo HttpClient httpClient,
-            GroupProvider groupProvider,
+            HttpRequestSessionContextFactory sessionContextFactory,
             ProtocolConfig protocolConfig)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
-        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
+        this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
         this.alternateHeaderName = protocolConfig.getAlternateHeaderName();
     }
 
@@ -114,7 +120,7 @@ public class WorkerResource
         Optional<QueryInfo> queryInfo = dispatchManager.getFullQueryInfo(queryId);
         if (queryInfo.isPresent()) {
             try {
-                checkCanViewQueryOwnedBy(extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName, accessControl, groupProvider), queryInfo.get().getSession().getUser(), accessControl);
+                checkCanViewQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName), queryInfo.get().getSession().toIdentity(), accessControl);
                 return proxyJsonResponse(nodeId, "v1/task/" + task);
             }
             catch (AccessDeniedException e) {
@@ -122,6 +128,77 @@ public class WorkerResource
             }
         }
         return Response.status(Status.GONE).build();
+    }
+
+    @ResourceSecurity(WEB_UI)
+    @GET
+    public Response getWorkerList()
+    {
+        Set<InternalNode> activeNodes = nodeManager.getAllNodes().getActiveNodes();
+        Set<InternalNode> inactiveNodes = nodeManager.getAllNodes().getInactiveNodes();
+        Set<JsonNodeInfo> jsonNodes = new HashSet<>();
+        for (Node node : activeNodes) {
+            JsonNodeInfo jsonNode = new JsonNodeInfo(node.getNodeIdentifier(), node.getHostAndPort().getHostText(), node.getVersion(), node.isCoordinator(), ACTIVE.toString().toLowerCase(Locale.ENGLISH));
+            jsonNodes.add(jsonNode);
+        }
+        for (Node node : inactiveNodes) {
+            JsonNodeInfo jsonNode = new JsonNodeInfo(node.getNodeIdentifier(), node.getHostAndPort().getHostText(), node.getVersion(), node.isCoordinator(), INACTIVE.toString().toLowerCase(Locale.ENGLISH));
+            jsonNodes.add(jsonNode);
+        }
+        return Response.ok().entity(jsonNodes).build();
+    }
+
+    public static class JsonNodeInfo
+    {
+        private final String nodeId;
+        private final String nodeIp;
+        private final String nodeVersion;
+        private final boolean coordinator;
+        private final String state;
+
+        @JsonCreator
+        public JsonNodeInfo(@JsonProperty("nodeId") String nodeId,
+                @JsonProperty("nodeIp") String nodeIp,
+                @JsonProperty("nodeVersion") String nodeVersion,
+                @JsonProperty("coordinator") boolean coordinator,
+                @JsonProperty("state") String state)
+        {
+            this.nodeId = requireNonNull(nodeId, "nodeId is null");
+            this.nodeIp = requireNonNull(nodeIp, "nodeIp is null");
+            this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
+            this.coordinator = coordinator;
+            this.state = requireNonNull(state, "state is null");
+        }
+
+        @JsonProperty
+        public String getNodeId()
+        {
+            return nodeId;
+        }
+
+        @JsonProperty
+        public String getNodeIp()
+        {
+            return nodeIp;
+        }
+
+        @JsonProperty
+        public String getNodeVersion()
+        {
+            return nodeVersion;
+        }
+
+        @JsonProperty
+        public boolean getCoordinator()
+        {
+            return coordinator;
+        }
+
+        @JsonProperty
+        public String getState()
+        {
+            return state;
+        }
     }
 
     private Response proxyJsonResponse(String nodeId, String workerPath)

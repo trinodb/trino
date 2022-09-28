@@ -16,27 +16,24 @@ package io.trino.plugin.hive.optimizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.cost.ScalarStatsCalculator;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfiguration;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.metadata.TableHandle;
-import io.trino.plugin.hive.HdfsConfig;
-import io.trino.plugin.hive.HdfsConfiguration;
-import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.HiveTableHandle;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TestingHiveConnectorFactory;
-import io.trino.plugin.hive.authentication.HiveIdentity;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.spi.predicate.Domain;
@@ -44,15 +41,16 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushProjectionIntoTableScan;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.ArithmeticUnaryExpression;
+import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
@@ -62,6 +60,8 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -78,7 +78,10 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -86,7 +89,6 @@ import static java.util.Arrays.asList;
 public class TestConnectorPushdownRulesWithHive
         extends BaseRuleTest
 {
-    private static final String HIVE_CATALOG_NAME = "hive";
     private static final String SCHEMA_NAME = "test_schema";
 
     private static final Type ROW_TYPE = RowType.from(asList(field("a", BIGINT), field("b", BIGINT)));
@@ -95,35 +97,41 @@ public class TestConnectorPushdownRulesWithHive
     private HiveMetastore metastore;
 
     private static final Session HIVE_SESSION = testSessionBuilder()
-            .setCatalog(HIVE_CATALOG_NAME)
+            .setCatalog(TEST_CATALOG_NAME)
             .setSchema(SCHEMA_NAME)
             .build();
 
     @Override
     protected Optional<LocalQueryRunner> createLocalQueryRunner()
     {
-        baseDir = Files.createTempDir();
+        try {
+            baseDir = Files.createTempDirectory(null).toFile();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+
         HdfsConfig config = new HdfsConfig();
-        HdfsConfiguration configuration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
+        HdfsConfiguration configuration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
 
         metastore = new FileHiveMetastore(
                 new NodeVersion("test_version"),
                 environment,
-                new MetastoreConfig(),
+                new HiveMetastoreConfig().isHideDeltaLakeTables(),
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory(baseDir.toURI().toString())
                         .setMetastoreUser("test"));
         Database database = Database.builder()
                 .setDatabaseName(SCHEMA_NAME)
-                .setOwnerName("public")
-                .setOwnerType(PrincipalType.ROLE)
+                .setOwnerName(Optional.of("public"))
+                .setOwnerType(Optional.of(PrincipalType.ROLE))
                 .build();
 
-        metastore.createDatabase(new HiveIdentity(SESSION), database);
+        metastore.createDatabase(database);
 
         LocalQueryRunner queryRunner = LocalQueryRunner.create(HIVE_SESSION);
-        queryRunner.createCatalog(HIVE_CATALOG_NAME, new TestingHiveConnectorFactory(metastore), ImmutableMap.of());
+        queryRunner.createCatalog(TEST_CATALOG_NAME, new TestingHiveConnectorFactory(metastore), ImmutableMap.of());
 
         return Optional.of(queryRunner);
     }
@@ -133,9 +141,9 @@ public class TestConnectorPushdownRulesWithHive
     {
         String tableName = "projection_test";
         PushProjectionIntoTableScan pushProjectionIntoTableScan = new PushProjectionIntoTableScan(
-                tester().getMetadata(),
+                tester().getPlannerContext(),
                 tester().getTypeAnalyzer(),
-                new ScalarStatsCalculator(tester().getMetadata(), tester().getTypeAnalyzer()));
+                new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
 
         tester().getQueryRunner().execute(format(
                 "CREATE TABLE  %s (struct_of_int) AS " +
@@ -158,7 +166,7 @@ public class TestConnectorPushdownRulesWithHive
                 Optional.empty());
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
-        TableHandle table = new TableHandle(new CatalogName(HIVE_CATALOG_NAME), hiveTable, new HiveTransactionHandle(), Optional.empty());
+        TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, hiveTable, new HiveTransactionHandle(false));
 
         HiveColumnHandle fullColumn = partialColumn.getBaseColumn();
 
@@ -186,10 +194,9 @@ public class TestConnectorPushdownRulesWithHive
                                 Assignments.of(p.symbol("struct_of_int", baseType), p.symbol("struct_of_int", baseType).toSymbolReference()),
                                 p.tableScan(
                                         new TableHandle(
-                                                new CatalogName(HIVE_CATALOG_NAME),
+                                                TEST_CATALOG_HANDLE,
                                                 hiveTable.withProjectedColumns(ImmutableSet.of(fullColumn)),
-                                                new HiveTransactionHandle(),
-                                                Optional.empty()),
+                                                new HiveTransactionHandle(false)),
                                         ImmutableList.of(p.symbol("struct_of_int", baseType)),
                                         ImmutableMap.of(p.symbol("struct_of_int", baseType), fullColumn))))
                 .doesNotFire();
@@ -211,7 +218,7 @@ public class TestConnectorPushdownRulesWithHive
                                 TupleDomain.all(),
                                 ImmutableMap.of("struct_of_int#a", partialColumn::equals))));
 
-        metastore.dropTable(new HiveIdentity(SESSION), SCHEMA_NAME, tableName, true);
+        metastore.dropTable(SCHEMA_NAME, tableName, true);
     }
 
     @Test
@@ -220,10 +227,10 @@ public class TestConnectorPushdownRulesWithHive
         String tableName = "predicate_test";
         tester().getQueryRunner().execute(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
 
-        PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getMetadata(), new TypeOperators(), tester().getTypeAnalyzer());
+        PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer());
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
-        TableHandle table = new TableHandle(new CatalogName(HIVE_CATALOG_NAME), hiveTable, new HiveTransactionHandle(), Optional.empty());
+        TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, hiveTable, new HiveTransactionHandle(false));
 
         HiveColumnHandle column = createBaseColumn("a", 0, HIVE_INT, INTEGER, REGULAR, Optional.empty());
 
@@ -243,7 +250,7 @@ public class TestConnectorPushdownRulesWithHive
                                 TupleDomain.all(),
                                 ImmutableMap.of("a", column::equals))));
 
-        metastore.dropTable(new HiveIdentity(SESSION), SCHEMA_NAME, tableName, true);
+        metastore.dropTable(SCHEMA_NAME, tableName, true);
     }
 
     @Test
@@ -255,7 +262,7 @@ public class TestConnectorPushdownRulesWithHive
         PruneTableScanColumns pruneTableScanColumns = new PruneTableScanColumns(tester().getMetadata());
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
-        TableHandle table = new TableHandle(new CatalogName(HIVE_CATALOG_NAME), hiveTable, new HiveTransactionHandle(), Optional.empty());
+        TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, hiveTable, new HiveTransactionHandle(false));
 
         HiveColumnHandle columnA = createBaseColumn("a", 0, HIVE_INT, INTEGER, REGULAR, Optional.empty());
         HiveColumnHandle columnB = createBaseColumn("b", 1, HIVE_INT, INTEGER, REGULAR, Optional.empty());
@@ -275,17 +282,98 @@ public class TestConnectorPushdownRulesWithHive
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("expr", PlanMatchPattern.expression("COLA")),
+                                ImmutableMap.of("expr", expression("COLA")),
                                 tableScan(
                                         hiveTable.withProjectedColumns(ImmutableSet.of(columnA))::equals,
                                         TupleDomain.all(),
                                         ImmutableMap.of("COLA", columnA::equals))));
 
-        metastore.dropTable(new HiveIdentity(SESSION), SCHEMA_NAME, tableName, true);
+        metastore.dropTable(SCHEMA_NAME, tableName, true);
+    }
+
+    @Test
+    public void testPushdownWithDuplicateExpressions()
+    {
+        String tableName = "duplicate_expressions";
+        tester().getQueryRunner().execute(format(
+                "CREATE TABLE  %s (struct_of_bigint, just_bigint) AS SELECT cast(row(5, 6) AS row(a bigint, b bigint)) AS struct_of_int, 5 AS just_bigint WHERE false",
+                tableName));
+
+        PushProjectionIntoTableScan pushProjectionIntoTableScan = new PushProjectionIntoTableScan(
+                tester().getPlannerContext(),
+                tester().getTypeAnalyzer(),
+                new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
+
+        HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
+        TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, hiveTable, new HiveTransactionHandle(false));
+
+        HiveColumnHandle bigintColumn = createBaseColumn("just_bigint", 1, toHiveType(BIGINT), BIGINT, REGULAR, Optional.empty());
+        HiveColumnHandle partialColumn = new HiveColumnHandle(
+                "struct_of_bigint",
+                0,
+                toHiveType(ROW_TYPE),
+                ROW_TYPE,
+                Optional.of(new HiveColumnProjectionInfo(
+                        ImmutableList.of(0),
+                        ImmutableList.of("a"),
+                        toHiveType(BIGINT),
+                        BIGINT)),
+                REGULAR,
+                Optional.empty());
+
+        // Test projection pushdown with duplicate column references
+        tester().assertThat(pushProjectionIntoTableScan)
+                .on(p -> {
+                    SymbolReference column = p.symbol("just_bigint", BIGINT).toSymbolReference();
+                    Expression negation = new ArithmeticUnaryExpression(MINUS, column);
+                    return p.project(
+                            Assignments.of(
+                                    // The column reference is part of both the assignments
+                                    p.symbol("column_ref", BIGINT), column,
+                                    p.symbol("negated_column_ref", BIGINT), negation),
+                            p.tableScan(
+                                    table,
+                                    ImmutableList.of(p.symbol("just_bigint", BIGINT)),
+                                    ImmutableMap.of(p.symbol("just_bigint", BIGINT), bigintColumn)));
+                })
+                .matches(project(
+                        ImmutableMap.of(
+                                "column_ref", expression("just_bigint_0"),
+                                "negated_column_ref", expression("- just_bigint_0")),
+                        tableScan(
+                                hiveTable.withProjectedColumns(ImmutableSet.of(bigintColumn))::equals,
+                                TupleDomain.all(),
+                                ImmutableMap.of("just_bigint_0", bigintColumn::equals))));
+
+        // Test Dereference pushdown
+        tester().assertThat(pushProjectionIntoTableScan)
+                .on(p -> {
+                    SubscriptExpression subscript = new SubscriptExpression(p.symbol("struct_of_bigint", ROW_TYPE).toSymbolReference(), new LongLiteral("1"));
+                    Expression sum = new ArithmeticBinaryExpression(ADD, subscript, new LongLiteral("2"));
+                    return p.project(
+                            Assignments.of(
+                                    // The subscript expression instance is part of both the assignments
+                                    p.symbol("expr_deref", BIGINT), subscript,
+                                    p.symbol("expr_deref_2", BIGINT), sum),
+                            p.tableScan(
+                                    table,
+                                    ImmutableList.of(p.symbol("struct_of_bigint", ROW_TYPE)),
+                                    ImmutableMap.of(p.symbol("struct_of_bigint", ROW_TYPE), partialColumn.getBaseColumn())));
+                })
+                .matches(project(
+                        ImmutableMap.of(
+                                "expr_deref", expression(new SymbolReference("struct_of_bigint#a")),
+                                "expr_deref_2", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("struct_of_bigint#a"), new LongLiteral("2")))),
+                        tableScan(
+                                hiveTable.withProjectedColumns(ImmutableSet.of(partialColumn))::equals,
+                                TupleDomain.all(),
+                                ImmutableMap.of("struct_of_bigint#a", partialColumn::equals))));
+
+        metastore.dropTable(SCHEMA_NAME, tableName, true);
     }
 
     @AfterClass(alwaysRun = true)
-    protected void cleanup()
+    public void cleanup()
             throws IOException
     {
         if (baseDir != null) {

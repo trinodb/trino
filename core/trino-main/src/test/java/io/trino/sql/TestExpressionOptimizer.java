@@ -14,8 +14,8 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
@@ -26,15 +26,12 @@ import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.relational.optimizer.ExpressionOptimizer;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.toValues;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
 import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
@@ -55,21 +52,11 @@ import static org.testng.Assert.assertEquals;
 
 public class TestExpressionOptimizer
 {
-    private Metadata metadata;
-    private ExpressionOptimizer optimizer;
-
-    @BeforeClass
-    public void setUp()
-    {
-        metadata = createTestMetadataManager();
-        optimizer = new ExpressionOptimizer(metadata, TEST_SESSION);
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        optimizer = null;
-    }
+    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
+    private final ExpressionOptimizer optimizer = new ExpressionOptimizer(
+            functionResolution.getMetadata(),
+            functionResolution.getPlannerContext().getFunctionManager(),
+            TEST_SESSION);
 
     @Test(timeOut = 10_000)
     public void testPossibleExponentialOptimizationTime()
@@ -77,7 +64,7 @@ public class TestExpressionOptimizer
         RowExpression expression = constant(1L, BIGINT);
         for (int i = 0; i < 100; i++) {
             expression = new CallExpression(
-                    metadata.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
+                    functionResolution.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
                     ImmutableList.of(expression, constant(1L, BIGINT)));
         }
         optimizer.optimize(expression);
@@ -91,7 +78,7 @@ public class TestExpressionOptimizer
         assertEquals(optimizer.optimize(ifExpression(constant(null, BOOLEAN), 1L, 2L)), constant(2L, BIGINT));
 
         RowExpression condition = new CallExpression(
-                metadata.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
+                functionResolution.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
                 ImmutableList.of(constant(3L, BIGINT), constant(3L, BIGINT)));
         assertEquals(optimizer.optimize(ifExpression(condition, 1L, 2L)), constant(1L, BIGINT));
     }
@@ -99,10 +86,10 @@ public class TestExpressionOptimizer
     @Test
     public void testCastWithJsonParseOptimization()
     {
-        ResolvedFunction jsonParseFunction = metadata.resolveFunction(QualifiedName.of("json_parse"), fromTypes(VARCHAR));
+        ResolvedFunction jsonParseFunction = functionResolution.resolveFunction(QualifiedName.of("json_parse"), fromTypes(VARCHAR));
 
         // constant
-        ResolvedFunction jsonCastFunction = metadata.getCoercion(JSON, new ArrayType(INTEGER));
+        ResolvedFunction jsonCastFunction = functionResolution.getCoercion(JSON, new ArrayType(INTEGER));
         RowExpression jsonCastExpression = new CallExpression(jsonCastFunction, ImmutableList.of(call(jsonParseFunction, constant(utf8Slice("[1, 2]"), VARCHAR))));
         RowExpression resultExpression = optimizer.optimize(jsonCastExpression);
         assertInstanceOf(resultExpression, ConstantExpression.class);
@@ -122,13 +109,13 @@ public class TestExpressionOptimizer
 
     private void testCastWithJsonParseOptimization(ResolvedFunction jsonParseFunction, Type targetType, String jsonStringToRowName)
     {
-        ResolvedFunction jsonCastFunction = metadata.getCoercion(JSON, targetType);
+        ResolvedFunction jsonCastFunction = functionResolution.getCoercion(JSON, targetType);
         RowExpression jsonCastExpression = new CallExpression(jsonCastFunction, ImmutableList.of(call(jsonParseFunction, field(1, VARCHAR))));
         RowExpression resultExpression = optimizer.optimize(jsonCastExpression);
         assertEquals(
                 resultExpression,
                 call(
-                        metadata.getCoercion(QualifiedName.of(jsonStringToRowName), VARCHAR, targetType),
+                        functionResolution.getCoercion(QualifiedName.of(jsonStringToRowName), VARCHAR, targetType),
                         field(1, VARCHAR)));
     }
 

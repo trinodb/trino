@@ -14,11 +14,11 @@
 package io.trino.client;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import io.trino.client.ClientTypeSignatureParameter.ParameterKind;
 
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -51,27 +51,26 @@ import static io.trino.client.ClientStandardTypes.UUID;
 import static io.trino.client.ClientStandardTypes.VARCHAR;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 final class FixJsonDataUtils
 {
     private FixJsonDataUtils() {}
 
-    public static Iterable<List<Object>> fixData(List<Column> columns, Iterable<List<Object>> data)
+    public static Iterable<List<Object>> fixData(List<Column> columns, List<List<Object>> data)
     {
         if (data == null) {
             return null;
         }
         requireNonNull(columns, "columns is null");
-        List<ClientTypeSignature> signatures = columns.stream()
+        ClientTypeSignature[] signatures = columns.stream()
                 .map(Column::getTypeSignature)
-                .collect(toList());
-        ImmutableList.Builder<List<Object>> rows = ImmutableList.builder();
+                .toArray(ClientTypeSignature[]::new);
+        ImmutableList.Builder<List<Object>> rows = ImmutableList.builderWithExpectedSize(data.size());
         for (List<Object> row : data) {
-            checkArgument(row.size() == columns.size(), "row/column size mismatch");
-            List<Object> newRow = new ArrayList<>();
+            checkArgument(row.size() == signatures.length, "row/column size mismatch");
+            List<Object> newRow = new ArrayList<>(row.size());
             for (int i = 0; i < row.size(); i++) {
-                newRow.add(fixValue(signatures.get(i), row.get(i)));
+                newRow.add(fixValue(signatures[i], row.get(i)));
             }
             rows.add(unmodifiableList(newRow)); // allow nulls in list
         }
@@ -88,8 +87,9 @@ final class FixJsonDataUtils
         }
 
         if (signature.getRawType().equals(ARRAY)) {
-            List<Object> fixedValue = new ArrayList<>();
-            for (Object object : List.class.cast(value)) {
+            List<?> listValue = ((List<?>) value);
+            List<Object> fixedValue = new ArrayList<>(listValue.size());
+            for (Object object : listValue) {
                 fixedValue.add(fixValue(signature.getArgumentsAsTypeSignatures().get(0), object));
             }
             return fixedValue;
@@ -97,16 +97,17 @@ final class FixJsonDataUtils
         if (signature.getRawType().equals(MAP)) {
             ClientTypeSignature keySignature = signature.getArgumentsAsTypeSignatures().get(0);
             ClientTypeSignature valueSignature = signature.getArgumentsAsTypeSignatures().get(1);
-            Map<Object, Object> fixedValue = new HashMap<>();
-            for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+            Map<?, ?> mapValue = (Map<?, ?>) value;
+            Map<Object, Object> fixedValue = Maps.newHashMapWithExpectedSize(mapValue.size());
+            for (Map.Entry<?, ?> entry : mapValue.entrySet()) {
                 fixedValue.put(fixValue(keySignature, entry.getKey()), fixValue(valueSignature, entry.getValue()));
             }
             return fixedValue;
         }
         if (signature.getRawType().equals(ROW)) {
-            Row.Builder row = Row.builder();
             List<?> listValue = ((List<?>) value);
             checkArgument(listValue.size() == signature.getArguments().size(), "Mismatched data values and row type");
+            Row.Builder row = Row.builderWithExpectedSize(listValue.size());
             for (int i = 0; i < listValue.size(); i++) {
                 ClientTypeSignatureParameter parameter = signature.getArguments().get(i);
                 checkArgument(
@@ -159,7 +160,7 @@ final class FixJsonDataUtils
                 if (value instanceof String) {
                     return Boolean.parseBoolean((String) value);
                 }
-                return Boolean.class.cast(value);
+                return (Boolean) value;
             case VARCHAR:
             case JSON:
             case TIME:
@@ -175,7 +176,7 @@ final class FixJsonDataUtils
             case CHAR:
             case GEOMETRY:
             case SPHERICAL_GEOGRAPHY:
-                return String.class.cast(value);
+                return (String) value;
             case BING_TILE:
                 // Bing tiles are serialized as strings when used as map keys,
                 // they are serialized as json otherwise (value will be a LinkedHashMap).

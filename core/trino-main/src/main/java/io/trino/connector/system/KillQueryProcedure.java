@@ -66,7 +66,7 @@ public class KillQueryProcedure
             checkState(dispatchManager.isPresent(), "No dispatch manager is set. kill_query procedure should be executed on coordinator.");
             DispatchQuery dispatchQuery = dispatchManager.get().getQuery(query);
 
-            checkCanKillQueryOwnedBy(((FullConnectorSession) session).getSession().getIdentity(), dispatchQuery.getSession().getUser(), accessControl);
+            checkCanKillQueryOwnedBy(((FullConnectorSession) session).getSession().getIdentity(), dispatchQuery.getSession().getIdentity(), accessControl);
 
             // check before killing to provide the proper error message (this is racy)
             if (dispatchQuery.isDone()) {
@@ -92,8 +92,8 @@ public class KillQueryProcedure
                 "runtime",
                 "kill_query",
                 ImmutableList.<Argument>builder()
-                        .add(new Argument("query_id", VARCHAR))
-                        .add(new Argument("message", VARCHAR))
+                        .add(new Argument("QUERY_ID", VARCHAR))
+                        .add(new Argument("MESSAGE", VARCHAR))
                         .build(),
                 KILL_QUERY.bindTo(this));
     }

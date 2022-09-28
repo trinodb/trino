@@ -53,7 +53,7 @@ public final class GlueInputConverter
     {
         TableInput input = new TableInput();
         input.setName(table.getTableName());
-        input.setOwner(table.getOwner());
+        input.setOwner(table.getOwner().orElse(null));
         input.setTableType(table.getTableType());
         input.setStorageDescriptor(convertStorage(table.getStorage(), table.getDataColumns()));
         input.setPartitionKeys(table.getPartitionColumns().stream().map(GlueInputConverter::convertColumn).collect(toImmutableList()));

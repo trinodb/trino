@@ -29,7 +29,7 @@ public final class LuhnCheckFunction
     @Description("Checks that a string of digits is valid according to the Luhn algorithm")
     @ScalarFunction("luhn_check")
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean LuhnCheck(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    public static boolean luhnCheck(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         if (slice.length() == 0) {
             return false;

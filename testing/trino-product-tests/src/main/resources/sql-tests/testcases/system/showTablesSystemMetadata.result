@@ -4,5 +4,6 @@ analyze_properties|
 schema_properties|
 table_properties|
 materialized_view_properties|
+materialized_views|
 column_properties|
 table_comments|

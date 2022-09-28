@@ -22,25 +22,28 @@ import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
-import io.trino.spi.connector.ConnectorNewTableLayout;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
+import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
@@ -55,6 +58,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static java.util.Collections.synchronizedSet;
@@ -91,12 +95,6 @@ public class TestingMetadata
     }
 
     @Override
-    public ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, Map<String, Object> analyzeProperties)
-    {
-        return getTableHandle(session, tableName);
-    }
-
-    @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         requireNonNull(tableHandle, "tableHandle is null");
@@ -115,7 +113,7 @@ public class TestingMetadata
             builder.put(columnMetadata.getName(), new TestingColumnHandle(columnMetadata.getName(), index, columnMetadata.getType()));
             index++;
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     @Override
@@ -131,7 +129,13 @@ public class TestingMetadata
             }
             tableColumns.put(tableName, columns.build());
         }
-        return tableColumns.build();
+        return tableColumns.buildOrThrow();
+    }
+
+    @Override
+    public ConnectorAnalyzeMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> analyzeProperties)
+    {
+        return new ConnectorAnalyzeMetadata(tableHandle, TableStatisticsMetadata.empty());
     }
 
     @Override
@@ -239,6 +243,17 @@ public class TestingMetadata
     }
 
     @Override
+    public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
+    {
+        // TODO: use locking to do this properly
+        ConnectorMaterializedViewDefinition materializedView = getMaterializedView(session, source).orElseThrow();
+        if (materializedViews.putIfAbsent(target, materializedView) != null) {
+            throw new IllegalArgumentException("Target materialized view already exists: " + target);
+        }
+        materializedViews.remove(source, materializedView);
+    }
+
+    @Override
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.ofNullable(materializedViews.get(viewName));
@@ -264,7 +279,7 @@ public class TestingMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
         createTable(session, tableMetadata, false);
         return TestingHandle.INSTANCE;
@@ -277,7 +292,7 @@ public class TestingMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
         return TestingHandle.INSTANCE;
     }
@@ -315,12 +330,6 @@ public class TestingMetadata
 
     @Override
     public void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption) {}
-
-    @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
-    }
 
     @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
@@ -440,6 +449,16 @@ public class TestingMetadata
         public int hashCode()
         {
             return Objects.hash(name, ordinalPosition, type);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .addValue(ordinalPosition)
+                    .add("name", name)
+                    .add("type", type)
+                    .toString();
         }
     }
 }

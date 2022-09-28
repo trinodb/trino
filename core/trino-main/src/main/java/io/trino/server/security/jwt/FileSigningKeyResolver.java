@@ -18,9 +18,9 @@ import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.SignatureException;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.jsonwebtoken.UnsupportedJwtException;
+import io.jsonwebtoken.security.SecurityException;
 
 import javax.crypto.spec.SecretKeySpec;
 import javax.inject.Inject;
@@ -112,7 +112,7 @@ public class FileSigningKeyResolver
     public static LoadedKey loadKeyFile(File file)
     {
         if (!file.canRead()) {
-            throw new SignatureException("Unknown signing key ID");
+            throw new SecurityException("Unknown signing key ID");
         }
 
         String data;
@@ -120,7 +120,7 @@ public class FileSigningKeyResolver
             data = asCharSource(file, US_ASCII).read();
         }
         catch (IOException e) {
-            throw new SignatureException("Unable to read signing key", e);
+            throw new SecurityException("Unable to read signing key", e);
         }
 
         // try to load the key as a PEM encoded public key
@@ -129,7 +129,7 @@ public class FileSigningKeyResolver
                 return new LoadedKey(PemReader.loadPublicKey(data));
             }
             catch (RuntimeException | GeneralSecurityException e) {
-                throw new SignatureException("Unable to decode PEM signing key id", e);
+                throw new SecurityException("Unable to decode PEM signing key id", e);
             }
         }
 
@@ -139,7 +139,7 @@ public class FileSigningKeyResolver
             return new LoadedKey(rawKey);
         }
         catch (RuntimeException e) {
-            throw new SignatureException("Unable to decode HMAC signing key", e);
+            throw new SecurityException("Unable to decode HMAC signing key", e);
         }
     }
 

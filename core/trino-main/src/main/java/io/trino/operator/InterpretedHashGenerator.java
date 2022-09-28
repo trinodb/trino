@@ -23,20 +23,28 @@ import io.trino.sql.planner.optimizations.HashGenerationOptimizer;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 
+import javax.annotation.Nullable;
+
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.IntFunction;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class InterpretedHashGenerator
         implements HashGenerator
 {
     private final List<Type> hashChannelTypes;
-    private final int[] hashChannels;
-    private final List<BlockPositionHashCode> hashCodeOperators;
+    @Nullable
+    private final int[] hashChannels; // null value indicates that the identity channel mapping is used
+    private final BlockPositionHashCode[] hashCodeOperators;
+
+    public static InterpretedHashGenerator createPositionalWithTypes(List<Type> hashChannelTypes, BlockTypeOperators blockTypeOperators)
+    {
+        return new InterpretedHashGenerator(hashChannelTypes, null, blockTypeOperators, true);
+    }
 
     public InterpretedHashGenerator(List<Type> hashChannelTypes, List<Integer> hashChannels, BlockTypeOperators blockTypeOperators)
     {
@@ -45,26 +53,45 @@ public class InterpretedHashGenerator
 
     public InterpretedHashGenerator(List<Type> hashChannelTypes, int[] hashChannels, BlockTypeOperators blockTypeOperators)
     {
-        this.hashChannels = requireNonNull(hashChannels, "hashChannels is null");
+        this(hashChannelTypes, requireNonNull(hashChannels, "hashChannels is null"), blockTypeOperators, false);
+    }
+
+    private InterpretedHashGenerator(List<Type> hashChannelTypes, @Nullable int[] hashChannels, BlockTypeOperators blockTypeOperators, boolean positional)
+    {
         this.hashChannelTypes = ImmutableList.copyOf(requireNonNull(hashChannelTypes, "hashChannelTypes is null"));
-        checkArgument(hashChannelTypes.size() == hashChannels.length);
-        this.hashCodeOperators = hashChannelTypes.stream()
-                .map(blockTypeOperators::getHashCodeOperator)
-                .collect(toImmutableList());
+        this.hashCodeOperators = createHashCodeOperators(hashChannelTypes, blockTypeOperators);
+        checkArgument(hashCodeOperators.length == hashChannelTypes.size());
+        if (positional) {
+            checkArgument(hashChannels == null, "hashChannels must be null");
+            this.hashChannels = null;
+        }
+        else {
+            requireNonNull(hashChannels, "hashChannels is null");
+            checkArgument(hashChannels.length == hashCodeOperators.length);
+            // simple positional indices are converted to null
+            this.hashChannels = isPositionalChannels(hashChannels) ? null : hashChannels;
+        }
     }
 
     @Override
     public long hashPosition(int position, Page page)
     {
-        return hashPosition(position, page::getBlock);
+        // Note: this code is duplicated for performance but must logically match hashPosition(position, IntFunction<Block> blockProvider)
+        long result = HashGenerationOptimizer.INITIAL_HASH_VALUE;
+        for (int i = 0; i < hashCodeOperators.length; i++) {
+            Block block = page.getBlock(hashChannels == null ? i : hashChannels[i]);
+            result = CombineHashFunction.getHash(result, hashCodeOperators[i].hashCodeNullSafe(block, position));
+        }
+        return result;
     }
 
     public long hashPosition(int position, IntFunction<Block> blockProvider)
     {
+        // Note: this code is duplicated for performance but must logically match hashPosition(position, Page page)
         long result = HashGenerationOptimizer.INITIAL_HASH_VALUE;
-        for (int i = 0; i < hashChannels.length; i++) {
-            Block block = blockProvider.apply(hashChannels[i]);
-            result = CombineHashFunction.getHash(result, hashCodeOperators.get(i).hashCodeNullSafe(block, position));
+        for (int i = 0; i < hashCodeOperators.length; i++) {
+            Block block = blockProvider.apply(hashChannels == null ? i : hashChannels[i]);
+            result = CombineHashFunction.getHash(result, hashCodeOperators[i].hashCodeNullSafe(block, position));
         }
         return result;
     }
@@ -74,7 +101,28 @@ public class InterpretedHashGenerator
     {
         return toStringHelper(this)
                 .add("hashChannelTypes", hashChannelTypes)
-                .add("hashChannels", hashChannels)
+                .add("hashChannels", hashChannels == null ? "<identity>" : Arrays.toString(hashChannels))
                 .toString();
+    }
+
+    private static boolean isPositionalChannels(int[] hashChannels)
+    {
+        for (int i = 0; i < hashChannels.length; i++) {
+            if (hashChannels[i] != i) {
+                return false; // hashChannels is not a simple positional identity mapping
+            }
+        }
+        return true;
+    }
+
+    private static BlockPositionHashCode[] createHashCodeOperators(List<Type> hashChannelTypes, BlockTypeOperators blockTypeOperators)
+    {
+        requireNonNull(hashChannelTypes, "hashChannelTypes is null");
+        requireNonNull(blockTypeOperators, "blockTypeOperators is null");
+        BlockPositionHashCode[] hashCodeOperators = new BlockPositionHashCode[hashChannelTypes.size()];
+        for (int i = 0; i < hashCodeOperators.length; i++) {
+            hashCodeOperators[i] = blockTypeOperators.getHashCodeOperator(hashChannelTypes.get(i));
+        }
+        return hashCodeOperators;
     }
 }

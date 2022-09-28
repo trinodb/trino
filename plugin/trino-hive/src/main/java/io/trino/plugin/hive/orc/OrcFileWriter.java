@@ -15,6 +15,7 @@ package io.trino.plugin.hive.orc;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import io.trino.orc.OrcDataSink;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
@@ -63,6 +64,7 @@ import static java.util.Objects.requireNonNull;
 public class OrcFileWriter
         implements FileWriter
 {
+    private static final Logger log = Logger.get(OrcFileWriter.class);
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcFileWriter.class).instanceSize();
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
@@ -76,6 +78,7 @@ public class OrcFileWriter
     private final List<Block> nullBlocks;
     private final Optional<Supplier<OrcDataSource>> validationInputFactory;
     private OptionalLong maxWriteId = OptionalLong.empty();
+    private long nextRowId;
 
     private long validationCpuNanos;
 
@@ -126,6 +129,9 @@ public class OrcFileWriter
                 validationInputFactory.isPresent(),
                 validationMode,
                 stats);
+        if (transaction.isTransactional()) {
+            this.setMaxWriteId(transaction.getWriteId());
+        }
     }
 
     @Override
@@ -135,7 +141,7 @@ public class OrcFileWriter
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return INSTANCE_SIZE + orcWriter.getRetainedBytes();
     }
@@ -151,7 +157,7 @@ public class OrcFileWriter
             int inputColumnIndex = fileInputColumnIndexes[i];
             if (inputColumnIndex < 0) {
                 hasNullBlocks = true;
-                blocks[i] = new RunLengthEncodedBlock(nullBlocks.get(i), positionCount);
+                blocks[i] = RunLengthEncodedBlock.create(nullBlocks.get(i), positionCount);
             }
             else {
                 blocks[i] = dataPage.getBlock(inputColumnIndex);
@@ -187,6 +193,7 @@ public class OrcFileWriter
             }
             catch (Exception ignored) {
                 // ignore
+                log.error(ignored, "Exception when committing file");
             }
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
         }
@@ -308,7 +315,7 @@ public class OrcFileWriter
     {
         long[] rowIds = new long[positionCount];
         for (int i = 0; i < positionCount; i++) {
-            rowIds[i] = i;
+            rowIds[i] = nextRowId++;
         }
         return new LongArrayBlock(positionCount, Optional.empty(), rowIds);
     }

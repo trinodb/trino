@@ -101,6 +101,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
@@ -472,7 +473,7 @@ public class OrcWriteValidation
 
         private WriteChecksumBuilder(List<Type> types)
         {
-            this.validationHashes = requireNonNull(types, "types is null").stream()
+            this.validationHashes = types.stream()
                     .map(ValidationHash::createValidationHash)
                     .collect(toImmutableList());
 
@@ -560,7 +561,7 @@ public class OrcWriteValidation
                 return Optional.empty();
             }
             ImmutableList.Builder<ColumnStatistics> statisticsBuilders = ImmutableList.builder();
-            statisticsBuilders.add(new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null, null));
+            statisticsBuilders.add(new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null, null, null));
             columnStatisticsValidations.forEach(validation -> validation.build(statisticsBuilders));
             return Optional.of(new ColumnMetadata<>(statisticsBuilders.build()));
         }
@@ -622,7 +623,7 @@ public class OrcWriteValidation
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
-            else if (VARBINARY.equals(type)) {
+            else if (VARBINARY.equals(type) || UUID.equals(type)) {
                 statisticsBuilder = new BinaryStatisticsBuilder();
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
@@ -752,7 +753,7 @@ public class OrcWriteValidation
         @Override
         public ColumnStatistics buildColumnStatistics()
         {
-            return new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null, null);
+            return new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null, null, null);
         }
     }
 

@@ -13,16 +13,24 @@
  */
 package io.trino.metadata;
 
-import io.trino.connector.CatalogName;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.SetMultimap;
+import io.trino.connector.CatalogHandle;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
+
+import static java.util.Objects.requireNonNull;
 
 public interface InternalNodeManager
 {
     Set<InternalNode> getNodes(NodeState state);
 
-    Set<InternalNode> getActiveConnectorNodes(CatalogName catalogName);
+    Set<InternalNode> getActiveCatalogNodes(CatalogHandle catalogHandle);
+
+    NodesSnapshot getActiveNodesSnapshot();
 
     InternalNode getCurrentNode();
 
@@ -35,4 +43,30 @@ public interface InternalNodeManager
     void addNodeChangeListener(Consumer<AllNodes> listener);
 
     void removeNodeChangeListener(Consumer<AllNodes> listener);
+
+    class NodesSnapshot
+    {
+        private final Set<InternalNode> allNodes;
+        private final Optional<SetMultimap<CatalogHandle, InternalNode>> connectorNodes;
+
+        public NodesSnapshot(Set<InternalNode> allActiveNodes, Optional<SetMultimap<CatalogHandle, InternalNode>> activeNodesByCatalogName)
+        {
+            requireNonNull(allActiveNodes, "allActiveNodes is null");
+            requireNonNull(activeNodesByCatalogName, "activeNodesByCatalogName is null");
+            this.allNodes = ImmutableSet.copyOf(allActiveNodes);
+            this.connectorNodes = activeNodesByCatalogName.map(ImmutableSetMultimap::copyOf);
+        }
+
+        public Set<InternalNode> getAllNodes()
+        {
+            return allNodes;
+        }
+
+        public Set<InternalNode> getConnectorNodes(CatalogHandle catalogHandle)
+        {
+            return connectorNodes
+                    .map(map -> map.get(catalogHandle))
+                    .orElse(allNodes);
+        }
+    }
 }

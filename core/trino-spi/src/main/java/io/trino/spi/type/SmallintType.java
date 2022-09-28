@@ -24,9 +24,11 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.ScalarOperator;
 
 import java.util.Optional;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.trino.spi.function.OperatorType.COMPARISON;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
@@ -117,6 +119,12 @@ public final class SmallintType
     }
 
     @Override
+    public Optional<Stream<?>> getDiscreteValues(Range range)
+    {
+        return Optional.of(LongStream.rangeClosed((long) range.getMin(), (long) range.getMax()).boxed());
+    }
+
+    @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
         if (block.isNull(position)) {
@@ -130,7 +138,7 @@ public final class SmallintType
     @Override
     public long getLong(Block block, int position)
     {
-        return (long) block.getShort(position, 0);
+        return block.getShort(position, 0);
     }
 
     @Override
@@ -177,7 +185,7 @@ public final class SmallintType
         return XxHash64.hash((short) value);
     }
 
-    @ScalarOperator(COMPARISON)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(long left, long right)
     {
         return Short.compare((short) left, (short) right);

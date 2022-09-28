@@ -13,8 +13,11 @@
  */
 package io.trino.spi.connector;
 
+import io.trino.spi.Experimental;
 import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 
@@ -28,21 +31,54 @@ import static java.util.Collections.emptySet;
 public interface Connector
 {
     /**
-     * Get handle resolver for this connector instance. If {@code Optional.empty()} is returned,
-     * {@link ConnectorFactory#getHandleResolver()} is used instead.
+     * @deprecated use {@link #beginTransaction(IsolationLevel, boolean, boolean)}
      */
-    default Optional<ConnectorHandleResolver> getHandleResolver()
+    @Deprecated
+    default ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
-        return Optional.empty();
+        throw new UnsupportedOperationException();
     }
 
-    ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly);
+    /**
+     * Start a new transaction and return a handle for it. The engine will call
+     * {@link #getMetadata} to fetch the metadata instance for the transaction.
+     * The engine will later call exactly one of {@link #commit} or {@link #rollback}
+     * to end the transaction, even in auto-commit mode.
+     * <p>
+     * If {@code true} is returned from {@link #isSingleStatementWritesOnly}, then
+     * the engine will enforce that auto-commit mode is used for writes, allowing
+     * connectors to execute writes immediately, rather than needing to wait
+     * until the transaction is committed.
+     *
+     * @param isolationLevel minimum isolation level for the transaction
+     * @param readOnly if the transaction is guaranteed to only read data (not write)
+     * @param autoCommit if the transaction uses auto-commit mode
+     */
+    default ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
+    {
+        return beginTransaction(isolationLevel, readOnly);
+    }
 
     /**
      * Guaranteed to be called at most once per transaction. The returned metadata will only be accessed
      * in a single threaded context.
      */
-    ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle);
+    default ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
+    {
+        return getMetadata(transactionHandle);
+    }
+
+    /**
+     * Guaranteed to be called at most once per transaction. The returned metadata will only be accessed
+     * in a single threaded context.
+     *
+     * @deprecated use {@link #getMetadata(ConnectorSession, ConnectorTransactionHandle)}
+     */
+    @Deprecated
+    default ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * @throws UnsupportedOperationException if this connector does not support tables with splits
@@ -103,7 +139,29 @@ public interface Connector
     /**
      * @return the set of procedures provided by this connector
      */
+    @Experimental(eta = "2022-10-31")
+    default Optional<FunctionProvider> getFunctionProvider()
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * @return the set of procedures provided by this connector
+     */
     default Set<Procedure> getProcedures()
+    {
+        return emptySet();
+    }
+
+    default Set<TableProcedureMetadata> getTableProcedures()
+    {
+        return emptySet();
+    }
+
+    /**
+     * @return the set of table functions provided by this connector
+     */
+    default Set<ConnectorTableFunction> getTableFunctions()
     {
         return emptySet();
     }
@@ -174,23 +232,25 @@ public interface Connector
 
     /**
      * Commit the transaction. Will be called at most once and will not be called if
-     * {@link #rollback(ConnectorTransactionHandle)} is called.
+     * {@link #rollback} is called.
      */
     default void commit(ConnectorTransactionHandle transactionHandle) {}
 
     /**
      * Rollback the transaction. Will be called at most once and will not be called if
-     * {@link #commit(ConnectorTransactionHandle)} is called.
+     * {@link #commit} is called.
+     * <p>
      * Note: calls to this method may race with calls to the ConnectorMetadata.
      */
     default void rollback(ConnectorTransactionHandle transactionHandle) {}
 
     /**
      * True if the connector only supports write statements in independent transactions.
+     * The engine will enforce this for the connector by requiring auto-commit mode for writes.
      */
     default boolean isSingleStatementWritesOnly()
     {
-        return false;
+        return true;
     }
 
     /**

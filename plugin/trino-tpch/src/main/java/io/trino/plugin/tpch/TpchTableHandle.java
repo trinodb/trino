@@ -27,25 +27,34 @@ import static java.util.Objects.requireNonNull;
 public class TpchTableHandle
         implements ConnectorTableHandle
 {
+    private final String schemaName;
     private final String tableName;
     private final double scaleFactor;
     private final TupleDomain<ColumnHandle> constraint;
 
-    public TpchTableHandle(String tableName, double scaleFactor)
+    public TpchTableHandle(String schemaName, String tableName, double scaleFactor)
     {
-        this(tableName, scaleFactor, TupleDomain.all());
+        this(schemaName, tableName, scaleFactor, TupleDomain.all());
     }
 
     @JsonCreator
     public TpchTableHandle(
+            @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("scaleFactor") double scaleFactor,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         checkArgument(scaleFactor > 0, "Scale factor must be larger than 0");
         this.scaleFactor = scaleFactor;
         this.constraint = requireNonNull(constraint, "constraint is null");
+    }
+
+    @JsonProperty
+    public String getSchemaName()
+    {
+        return schemaName;
     }
 
     @JsonProperty
@@ -69,13 +78,13 @@ public class TpchTableHandle
     @Override
     public String toString()
     {
-        return tableName + ":sf" + scaleFactor;
+        return schemaName + ":" + tableName;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableName, scaleFactor, constraint);
+        return Objects.hash(schemaName, tableName, scaleFactor, constraint);
     }
 
     @Override
@@ -88,7 +97,8 @@ public class TpchTableHandle
             return false;
         }
         TpchTableHandle other = (TpchTableHandle) obj;
-        return Objects.equals(this.tableName, other.tableName) &&
+        return Objects.equals(this.schemaName, other.schemaName) &&
+                Objects.equals(this.tableName, other.tableName) &&
                 Objects.equals(this.scaleFactor, other.scaleFactor) &&
                 Objects.equals(this.constraint, other.constraint);
     }

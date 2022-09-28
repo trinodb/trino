@@ -16,7 +16,8 @@ package io.trino.spi.block;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.function.BiConsumer;
+import java.util.OptionalInt;
+import java.util.function.ObjLongConsumer;
 
 import static java.lang.String.format;
 
@@ -44,6 +45,12 @@ public class SingleArrayBlockWriter
     }
 
     @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty();
+    }
+
+    @Override
     public long getSizeInBytes()
     {
         return blockBuilder.getSizeInBytes() - initialBlockBuilderSize;
@@ -56,10 +63,10 @@ public class SingleArrayBlockWriter
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(blockBuilder, blockBuilder.getRetainedSizeInBytes());
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -94,22 +101,6 @@ public class SingleArrayBlockWriter
     public BlockBuilder writeBytes(Slice source, int sourceIndex, int length)
     {
         blockBuilder.writeBytes(source, sourceIndex, length);
-        return this;
-    }
-
-    @Override
-    public BlockBuilder appendStructure(Block block)
-    {
-        blockBuilder.appendStructure(block);
-        entryAdded();
-        return this;
-    }
-
-    @Override
-    public BlockBuilder appendStructureInternal(Block block, int position)
-    {
-        blockBuilder.appendStructureInternal(block, position);
-        entryAdded();
         return this;
     }
 
@@ -153,7 +144,7 @@ public class SingleArrayBlockWriter
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
     {
         throw new UnsupportedOperationException();
     }

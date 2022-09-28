@@ -84,7 +84,7 @@ public class ImplementExceptDistinctAsUnion
     @Override
     public Result apply(ExceptNode node, Captures captures, Context context)
     {
-        SetOperationNodeTranslator translator = new SetOperationNodeTranslator(metadata, context.getSymbolAllocator(), context.getIdAllocator());
+        SetOperationNodeTranslator translator = new SetOperationNodeTranslator(context.getSession(), metadata, context.getSymbolAllocator(), context.getIdAllocator());
         SetOperationNodeTranslator.TranslationResult result = translator.makeSetContainmentPlanForDistinct(node);
 
         // except predicate: the row must be present in the first source and absent in all the other sources

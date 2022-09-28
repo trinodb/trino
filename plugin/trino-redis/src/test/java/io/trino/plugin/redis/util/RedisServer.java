@@ -22,18 +22,35 @@ import java.io.Closeable;
 public class RedisServer
         implements Closeable
 {
+    public static final String DEFAULT_VERSION = "2.8.9";
+    public static final String LATEST_VERSION = "7.0.0";
     private static final int PORT = 6379;
+
+    public static final String USER = "test";
+    public static final String PASSWORD = "password";
 
     private final GenericContainer<?> container;
     private final JedisPool jedisPool;
 
     public RedisServer()
     {
-        container = new GenericContainer<>("redis:2.8.9")
-                .withExposedPorts(PORT);
-        container.start();
+        this(DEFAULT_VERSION, false);
+    }
 
-        jedisPool = new JedisPool(container.getContainerIpAddress(), container.getMappedPort(PORT));
+    public RedisServer(String version, boolean setAccessControl)
+    {
+        container = new GenericContainer<>("redis:" + version)
+                .withExposedPorts(PORT);
+        if (setAccessControl) {
+            container.withCommand("redis-server", "--requirepass", PASSWORD);
+            container.start();
+            jedisPool = new JedisPool(container.getHost(), container.getMappedPort(PORT), null, PASSWORD);
+            jedisPool.getResource().aclSetUser(USER, "on", ">" + PASSWORD, "~*:*", "+@all");
+        }
+        else {
+            container.start();
+            jedisPool = new JedisPool(container.getHost(), container.getMappedPort(PORT));
+        }
     }
 
     public JedisPool getJedisPool()
@@ -48,7 +65,7 @@ public class RedisServer
 
     public HostAndPort getHostAndPort()
     {
-        return HostAndPort.fromParts(container.getContainerIpAddress(), container.getMappedPort(PORT));
+        return HostAndPort.fromParts(container.getHost(), container.getMappedPort(PORT));
     }
 
     @Override

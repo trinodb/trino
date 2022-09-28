@@ -14,10 +14,9 @@
 package io.trino.spi.type;
 
 import com.google.common.base.Throwables;
-import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.block.Int128ArrayBlockBuilder;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
@@ -26,14 +25,13 @@ import java.math.BigDecimal;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static java.lang.Math.signum;
 import static org.testng.Assert.assertEquals;
 
 public class TestLongDecimalType
 {
     private static final LongDecimalType TYPE = (LongDecimalType) LongDecimalType.createDecimalType(20, 10);
-    private static final MethodHandle TYPE_COMPARISON = new TypeOperators().getComparisonOperator(TYPE, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+    private static final MethodHandle TYPE_COMPARISON = new TypeOperators().getComparisonUnorderedLastOperator(TYPE, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
 
     @Test
     public void testCompareTo()
@@ -72,9 +70,9 @@ public class TestLongDecimalType
 
     private Block decimalAsBlock(String value)
     {
-        Slice slice = encodeScaledValue(new BigDecimal(value));
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, slice.length());
-        TYPE.writeSlice(blockBuilder, slice);
+        Int128 decimal = Decimals.valueOf(new BigDecimal(value));
+        BlockBuilder blockBuilder = new Int128ArrayBlockBuilder(null, 1);
+        TYPE.writeObject(blockBuilder, decimal);
         return blockBuilder.build();
     }
 }

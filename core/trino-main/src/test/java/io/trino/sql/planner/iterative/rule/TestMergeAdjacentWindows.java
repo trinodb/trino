@@ -15,8 +15,8 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -31,7 +31,6 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -46,10 +45,10 @@ import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 public class TestMergeAdjacentWindows
         extends BaseRuleTest
 {
-    private static final MetadataManager METADATA = createTestMetadataManager();
-    private static final ResolvedFunction AVG = createWindowFunctionSignature("avg");
-    private static final ResolvedFunction SUM = createWindowFunctionSignature("sum");
-    private static final ResolvedFunction LAG = createWindowFunctionSignature("lag");
+    private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
+    private static final ResolvedFunction AVG = FUNCTION_RESOLUTION.resolveFunction(QualifiedName.of("avg"), fromTypes(DOUBLE));
+    private static final ResolvedFunction SUM = FUNCTION_RESOLUTION.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
+    private static final ResolvedFunction LAG = FUNCTION_RESOLUTION.resolveFunction(QualifiedName.of("lag"), fromTypes(DOUBLE));
 
     private static final String columnAAlias = "ALIAS_A";
     private static final ExpectedValueProvider<WindowNode.Specification> specificationA =
@@ -216,10 +215,5 @@ public class TestMergeAdjacentWindows
                 Arrays.stream(symbols).map(SymbolReference::new).collect(Collectors.toList()),
                 DEFAULT_FRAME,
                 false);
-    }
-
-    private static ResolvedFunction createWindowFunctionSignature(String name)
-    {
-        return METADATA.resolveFunction(QualifiedName.of(name), fromTypes(DOUBLE));
     }
 }

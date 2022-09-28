@@ -14,6 +14,7 @@
 package io.trino.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.raptor.legacy.backup.BackupService;
 import io.trino.plugin.raptor.legacy.metadata.BucketShards;
 import io.trino.plugin.raptor.legacy.metadata.ShardManager;
@@ -22,16 +23,16 @@ import io.trino.plugin.raptor.legacy.util.SynchronizedResultIterator;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
-import org.skife.jdbi.v2.ResultIterator;
+import org.jdbi.v3.core.result.ResultIterator;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -71,17 +72,17 @@ public class RaptorSplitManager
     private final ExecutorService executor;
 
     @Inject
-    public RaptorSplitManager(RaptorConnectorId connectorId, NodeSupplier nodeSupplier, ShardManager shardManager, BackupService backupService)
+    public RaptorSplitManager(CatalogName catalogName, NodeSupplier nodeSupplier, ShardManager shardManager, BackupService backupService)
     {
-        this(connectorId, nodeSupplier, shardManager, requireNonNull(backupService, "backupService is null").isBackupAvailable());
+        this(catalogName, nodeSupplier, shardManager, backupService.isBackupAvailable());
     }
 
-    public RaptorSplitManager(RaptorConnectorId connectorId, NodeSupplier nodeSupplier, ShardManager shardManager, boolean backupAvailable)
+    public RaptorSplitManager(CatalogName catalogName, NodeSupplier nodeSupplier, ShardManager shardManager, boolean backupAvailable)
     {
         this.nodeSupplier = requireNonNull(nodeSupplier, "nodeSupplier is null");
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.backupAvailable = backupAvailable;
-        this.executor = newCachedThreadPool(daemonThreadsNamed("raptor-split-" + connectorId + "-%s"));
+        this.executor = newCachedThreadPool(daemonThreadsNamed("raptor-split-" + catalogName + "-%s"));
     }
 
     @PreDestroy
@@ -95,8 +96,8 @@ public class RaptorSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle handle,
-            SplitSchedulingStrategy splitSchedulingStrategy,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
         RaptorTableHandle table = (RaptorTableHandle) handle;
         long tableId = table.getTableId();
@@ -160,7 +161,7 @@ public class RaptorSplitManager
         }
 
         @Override
-        public synchronized CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
+        public synchronized CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
         {
             checkState((future == null) || future.isDone(), "previous batch not completed");
             future = supplyAsync(batchSupplier(maxSize), executor);

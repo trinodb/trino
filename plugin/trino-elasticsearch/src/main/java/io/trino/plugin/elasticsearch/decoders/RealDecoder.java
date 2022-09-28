@@ -13,6 +13,9 @@
  */
 package io.trino.plugin.elasticsearch.decoders;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.plugin.elasticsearch.DecoderDescriptor;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
@@ -48,8 +51,13 @@ public class RealDecoder
             decoded = ((Number) value).floatValue();
         }
         else if (value instanceof String) {
+            String stringValue = (String) value;
+            if (stringValue.isEmpty()) {
+                output.appendNull();
+                return;
+            }
             try {
-                decoded = Float.parseFloat((String) value);
+                decoded = Float.parseFloat(stringValue);
             }
             catch (NumberFormatException e) {
                 throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as REAL: %s", path, value));
@@ -60,5 +68,29 @@ public class RealDecoder
         }
 
         REAL.writeLong(output, Float.floatToRawIntBits(decoded));
+    }
+
+    public static class Descriptor
+            implements DecoderDescriptor
+    {
+        private final String path;
+
+        @JsonCreator
+        public Descriptor(String path)
+        {
+            this.path = path;
+        }
+
+        @JsonProperty
+        public String getPath()
+        {
+            return path;
+        }
+
+        @Override
+        public Decoder createDecoder()
+        {
+            return new RealDecoder(path);
+        }
     }
 }

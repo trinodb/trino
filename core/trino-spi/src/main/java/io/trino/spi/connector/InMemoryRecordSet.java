@@ -17,6 +17,11 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimeWithTimeZone;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 
@@ -30,8 +35,6 @@ import java.util.List;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.isLongDecimal;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
@@ -244,13 +247,13 @@ public class InMemoryRecordSet
                     checkArgument(value instanceof Block,
                             "Expected value %d to be an instance of Block, but is a %s", i, value.getClass().getSimpleName());
                 }
-                else if (isShortDecimal(type)) {
+                else if (type instanceof DecimalType decimalType && decimalType.isShort()) {
                     checkArgument(value instanceof Long,
                             "Expected value %d to be an instance of Long, but is a %s", i, value.getClass().getSimpleName());
                 }
-                else if (isLongDecimal(type)) {
-                    checkArgument(value instanceof Slice,
-                            "Expected value %d to be an instance of Slice, but is a %s", i, value.getClass().getSimpleName());
+                else if (type instanceof DecimalType decimalType && !decimalType.isShort()) {
+                    checkArgument(value instanceof Int128,
+                            "Expected value %d to be an instance of LongDecimal, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else {
                     throw new IllegalStateException("Unsupported column type " + types.get(i));
@@ -306,6 +309,18 @@ public class InMemoryRecordSet
             }
             else if (value instanceof Slice) {
                 completedBytes += ((Slice) value).length();
+            }
+            else if (value instanceof LongTimestamp) {
+                completedBytes += LongTimestamp.INSTANCE_SIZE;
+            }
+            else if (value instanceof LongTimestampWithTimeZone) {
+                completedBytes += LongTimestampWithTimeZone.INSTANCE_SIZE;
+            }
+            else if (value instanceof LongTimeWithTimeZone) {
+                completedBytes += LongTimeWithTimeZone.INSTANCE_SIZE;
+            }
+            else if (value instanceof Int128) {
+                completedBytes += Int128.INSTANCE_SIZE;
             }
             else {
                 throw new IllegalArgumentException("Unknown type: " + value.getClass());

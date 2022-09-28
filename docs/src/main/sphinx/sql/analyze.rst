@@ -19,9 +19,6 @@ To list all available properties, run the following query::
 
     SELECT * FROM system.metadata.analyze_properties
 
-Currently, this statement is only supported by the
-:ref:`Hive connector <hive_analyze>`.
-
 Examples
 --------
 

@@ -16,7 +16,6 @@ package io.trino.plugin.accumulo;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.accumulo.conf.AccumuloConfig;
@@ -64,11 +63,12 @@ public final class AccumuloQueryRunner
                         .put(AccumuloConfig.USERNAME, server.getUser())
                         .put(AccumuloConfig.PASSWORD, server.getPassword())
                         .put(AccumuloConfig.ZOOKEEPER_METADATA_ROOT, "/presto-accumulo-test")
-                        .build();
+                        .buildOrThrow();
 
         queryRunner.createCatalog("accumulo", "accumulo", accumuloProperties);
 
         if (!tpchLoaded) {
+            queryRunner.execute("CREATE SCHEMA accumulo.tpch");
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), TpchTable.getTables());
             server.getConnector().tableOperations().addSplits("tpch.orders", ImmutableSortedSet.of(new Text(new LexicoderRowSerializer().encode(BIGINT, 7500L))));
             tpchLoaded = true;
@@ -128,8 +128,7 @@ public final class AccumuloQueryRunner
                 break;
         }
 
-        LOG.info("Running import for %s", target, sql);
-        LOG.info("%s", sql);
+        LOG.info("Running import for %s%n%s", target, sql);
         long start = System.nanoTime();
         long rows = queryRunner.execute(session, sql).getUpdateCount().getAsLong();
         LOG.info("Imported %s rows for %s in %s", rows, target, nanosSince(start));
@@ -143,7 +142,6 @@ public final class AccumuloQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
         DistributedQueryRunner queryRunner = createAccumuloQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
         Thread.sleep(10);
         Logger log = Logger.get(AccumuloQueryRunner.class);

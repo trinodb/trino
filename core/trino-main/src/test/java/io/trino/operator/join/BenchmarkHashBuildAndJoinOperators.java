@@ -18,7 +18,7 @@ import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.RowPagesBuilder;
-import io.trino.execution.Lifespan;
+import io.trino.Session;
 import io.trino.operator.DriverContext;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.Operator;
@@ -44,8 +44,10 @@ import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
+import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.RunnerException;
 import org.testng.annotations.Test;
@@ -68,6 +70,8 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.jmh.Benchmarks.benchmark;
+import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
+import static io.trino.operator.OperatorFactories.JoinOperatorType.innerJoin;
 import static io.trino.operator.join.JoinBridgeManager.lookupAllAtOnce;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -78,10 +82,10 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
-import static org.openjdk.jmh.annotations.Scope.Thread;
 
 @SuppressWarnings("MethodMayBeStatic")
-@State(Thread)
+@State(Scope.Benchmark)
+@Threads(Threads.MAX)
 @OutputTimeUnit(MILLISECONDS)
 @BenchmarkMode(AverageTime)
 @Fork(3)
@@ -94,11 +98,10 @@ public class BenchmarkHashBuildAndJoinOperators
     private static final PlanNodeId TEST_PLAN_NODE_ID = new PlanNodeId("test");
     private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
 
-    @State(Thread)
+    @State(Scope.Benchmark)
     public static class BuildContext
     {
         protected static final int ROWS_PER_PAGE = 1024;
-        protected static final int BUILD_ROWS_NUMBER = 8_000_000;
 
         @Param({"varchar", "bigint", "all"})
         protected String hashColumns = "bigint";
@@ -108,6 +111,9 @@ public class BenchmarkHashBuildAndJoinOperators
 
         @Param({"1", "5"})
         protected int buildRowsRepetition = 1;
+
+        @Param({"10", "100", "10000", "100000", "1000000", "8000000"})
+        protected int buildRowsNumber = 8_000_000;
 
         protected ExecutorService executor;
         protected ScheduledExecutorService scheduledExecutor;
@@ -138,9 +144,14 @@ public class BenchmarkHashBuildAndJoinOperators
             initializeBuildPages();
         }
 
+        public Session getSession()
+        {
+            return TEST_SESSION;
+        }
+
         public TaskContext createTaskContext()
         {
-            return TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.of(2, GIGABYTE));
+            return TestingTaskContext.createTaskContext(executor, scheduledExecutor, getSession(), DataSize.of(2, GIGABYTE));
         }
 
         public OptionalInt getHashChannel()
@@ -167,10 +178,10 @@ public class BenchmarkHashBuildAndJoinOperators
         {
             RowPagesBuilder buildPagesBuilder = rowPagesBuilder(buildHashEnabled, hashChannels, ImmutableList.of(VARCHAR, BIGINT, BIGINT));
 
-            int maxValue = BUILD_ROWS_NUMBER / buildRowsRepetition + 40;
+            int maxValue = buildRowsNumber / buildRowsRepetition + 40;
             int rows = 0;
-            while (rows < BUILD_ROWS_NUMBER) {
-                int newRows = Math.min(BUILD_ROWS_NUMBER - rows, ROWS_PER_PAGE);
+            while (rows < buildRowsNumber) {
+                int newRows = Math.min(buildRowsNumber - rows, ROWS_PER_PAGE);
                 buildPagesBuilder.addSequencePage(newRows, (rows + 20) % maxValue, (rows + 30) % maxValue, (rows + 40) % maxValue);
                 buildPagesBuilder.pageBreak();
                 rows += newRows;
@@ -183,7 +194,7 @@ public class BenchmarkHashBuildAndJoinOperators
         }
     }
 
-    @State(Thread)
+    @State(Scope.Benchmark)
     public static class JoinContext
             extends BuildContext
     {
@@ -195,7 +206,7 @@ public class BenchmarkHashBuildAndJoinOperators
         @Param({"bigint", "all"})
         protected String outputColumns = "bigint";
 
-        @Param({"1", "4"})
+        @Param({"1", "16"})
         protected int partitionCount = 1;
 
         protected List<Page> probePages;
@@ -229,12 +240,11 @@ public class BenchmarkHashBuildAndJoinOperators
             }
 
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = getLookupSourceFactoryManager(this, outputChannels, partitionCount);
-            joinOperatorFactory = operatorFactories.innerJoin(
+            joinOperatorFactory = operatorFactories.spillingJoin(
+                    innerJoin(false, false),
                     HASH_JOIN_OPERATOR_ID,
                     TEST_PLAN_NODE_ID,
                     lookupSourceFactory,
-                    false,
-                    false,
                     false,
                     types,
                     hashChannels,
@@ -267,9 +277,9 @@ public class BenchmarkHashBuildAndJoinOperators
             while (remainingRows > 0) {
                 double roll = random.nextDouble();
 
-                int columnA = 20 + remainingRows;
-                int columnB = 30 + remainingRows;
-                int columnC = 40 + remainingRows;
+                int columnA = 20 + (remainingRows % buildRowsNumber);
+                int columnB = 30 + (remainingRows % buildRowsNumber);
+                int columnC = 40 + (remainingRows % buildRowsNumber);
 
                 int rowsCount = 1;
                 if (matchRate < 1) {
@@ -344,7 +354,8 @@ public class BenchmarkHashBuildAndJoinOperators
                 10_000,
                 new PagesIndex.TestingFactory(false),
                 false,
-                SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory());
+                SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory(),
+                incrementalLoadFactorHashArraySizeSupplier(buildContext.getSession()));
 
         Operator[] operators = IntStream.range(0, partitionCount)
                 .mapToObj(i -> buildContext.createTaskContext()
@@ -377,7 +388,7 @@ public class BenchmarkHashBuildAndJoinOperators
             }
         }
 
-        LookupSourceFactory lookupSourceFactory = lookupSourceFactoryManager.getJoinBridge(Lifespan.taskWide());
+        LookupSourceFactory lookupSourceFactory = lookupSourceFactoryManager.getJoinBridge();
         ListenableFuture<LookupSourceProvider> lookupSourceProvider = lookupSourceFactory.createLookupSourceProvider();
         for (Operator operator : operators) {
             operator.finish();

@@ -13,10 +13,13 @@
  */
 package io.trino.plugin.phoenix5;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Streams;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
@@ -30,12 +33,34 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.phoenix5.PhoenixQueryRunner.createPhoenixQueryRunner;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static io.trino.sql.planner.plan.TopNNode.Step.FINAL;
+import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
+import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
+import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
+import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestPhoenixConnectorTest
@@ -48,7 +73,7 @@ public class TestPhoenixConnectorTest
             throws Exception
     {
         testingPhoenixServer = TestingPhoenixServer.getInstance();
-        return createPhoenixQueryRunner(testingPhoenixServer, ImmutableMap.of());
+        return createPhoenixQueryRunner(testingPhoenixServer, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @AfterClass(alwaysRun = true)
@@ -66,11 +91,24 @@ public class TestPhoenixConnectorTest
             case SUPPORTS_AGGREGATION_PUSHDOWN:
                 return false;
 
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
                 return false;
 
             case SUPPORTS_RENAME_TABLE:
+            case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
+            case SUPPORTS_TRUNCATE:
+                return false;
+
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
+                return false;
+
+            case SUPPORTS_ROW_TYPE:
                 return false;
 
             default:
@@ -98,6 +136,46 @@ public class TestPhoenixConnectorTest
                 // TODO (https://github.com/trinodb/trino/issues/7205) support column rename in Phoenix
                 .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
         throw new SkipException("Rename column is not yet supported by Phoenix connector");
+    }
+
+    @Override
+    public void testAlterTableRenameColumnToLongName()
+    {
+        assertThatThrownBy(super::testAlterTableRenameColumnToLongName)
+                // TODO (https://github.com/trinodb/trino/issues/7205) support column rename in Phoenix
+                .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
+        throw new SkipException("Rename column is not yet supported by Phoenix connector");
+    }
+
+    @Override
+    public void testRenameColumnName(String columnName)
+    {
+        // The column name is rejected when creating a table
+        if (columnName.equals("a\"quote")) {
+            super.testRenameColumnName(columnName);
+            return;
+        }
+        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
+                // TODO (https://github.com/trinodb/trino/issues/7205) support column rename in Phoenix
+                .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
+        throw new SkipException("Rename column is not yet supported by Phoenix connector");
+    }
+
+    @Override
+    public void testAddAndDropColumnName(String columnName)
+    {
+        // TODO: Investigate why these two case fail
+        if (columnName.equals("an'apostrophe")) {
+            assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
+                    .hasMessageContaining("Syntax error. Mismatched input");
+            throw new SkipException("TODO");
+        }
+        if (columnName.equals("a\\backslash`")) {
+            assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
+                    .hasMessageContaining("Undefined column");
+            throw new SkipException("TODO");
+        }
+        super.testAddAndDropColumnName(columnName);
     }
 
     @Override
@@ -145,10 +223,7 @@ public class TestPhoenixConnectorTest
     {
         assertThatThrownBy(super::testInsertArray)
                 // TODO (https://github.com/trinodb/trino/issues/6421) array with double null stored as array with 0
-                .hasMessageContaining("Actual rows (up to 100 of 1 extra rows shown, 2 rows in total):\n" +
-                        "    [0.0, null]\n" +
-                        "Expected rows (up to 100 of 1 missing rows shown, 2 rows in total):\n" +
-                        "    [null, null]");
+                .hasMessage("Phoenix JDBC driver replaced 'null' with '0.0' at index 1 in [0.0]");
     }
 
     @Override
@@ -165,10 +240,28 @@ public class TestPhoenixConnectorTest
     }
 
     @Override
-    public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        // TODO enable the test
-        throw new SkipException("test fails on Phoenix");
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("time(6)") ||
+                typeName.equals("timestamp") ||
+                typeName.equals("timestamp(6)") ||
+                typeName.equals("timestamp(3) with time zone") ||
+                typeName.equals("timestamp(6) with time zone")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        if (typeName.equals("time")) {
+            // TODO Enable when adding support reading time column
+            return Optional.empty();
+        }
+
+        if (typeName.equals("date") && dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-05'")) {
+            // Phoenix connector returns +10 days during julian->gregorian switch. The test case exists in TestPhoenixTypeMapping.testDate().
+            return Optional.empty();
+        }
+
+        return Optional.of(dataMappingTestSetup);
     }
 
     @Override
@@ -193,6 +286,91 @@ public class TestPhoenixConnectorTest
                         ")");
     }
 
+    @Override
+    public void testCharVarcharComparison()
+    {
+        // test overridden because super uses all-space char values ('  ') that are null-out by Phoenix
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_char_varchar",
+                "(k, v) AS VALUES" +
+                        "   (-1, CAST(NULL AS char(3))), " +
+                        "   (3, CAST('x  ' AS char(3)))")) {
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(2))",
+                    // The value is included because both sides of the comparison are coerced to char(3)
+                    "VALUES (3, 'x  ')");
+
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(4))",
+                    // The value is included because both sides of the comparison are coerced to char(4)
+                    "VALUES (3, 'x  ')");
+        }
+    }
+
+    @Override
+    public void testVarcharCharComparison()
+    {
+        // test overridden because Phoenix nulls-out '' varchar value, impacting results
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_varchar_char",
+                "(k, v) AS VALUES" +
+                        "   (-1, CAST(NULL AS varchar(3))), " +
+                        "   (0, CAST('' AS varchar(3)))," + // '' gets replaced with null in Phoenix
+                        "   (1, CAST(' ' AS varchar(3))), " +
+                        "   (2, CAST('  ' AS varchar(3))), " +
+                        "   (3, CAST('   ' AS varchar(3)))," +
+                        "   (4, CAST('x' AS varchar(3)))," +
+                        "   (5, CAST('x ' AS varchar(3)))," +
+                        "   (6, CAST('x  ' AS varchar(3)))")) {
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS char(2))",
+                    // The 3-spaces value is included because both sides of the comparison are coerced to char(3)
+                    "VALUES (1, ' '), (2, '  '), (3, '   ')");
+
+            // value that's not all-spaces
+            assertQuery(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS char(2))",
+                    // The 3-spaces value is included because both sides of the comparison are coerced to char(3)
+                    "VALUES (4, 'x'), (5, 'x '), (6, 'x  ')");
+        }
+    }
+
+    @Override
+    public void testCharTrailingSpace()
+    {
+        assertThatThrownBy(super::testCharTrailingSpace)
+                .hasMessageContaining("The table does not have a primary key. tableName=TPCH.CHAR_TRAILING_SPACE");
+        throw new SkipException("Implement test for Phoenix");
+    }
+
+    // Overridden because Phoenix requires a ROWID column
+    @Override
+    public void testCountDistinctWithStringTypes()
+    {
+        assertThatThrownBy(super::testCountDistinctWithStringTypes).hasStackTraceContaining("Illegal data. CHAR types may only contain single byte characters");
+        // Skipping the ą test case because it is not supported
+        List<String> rows = Streams.mapWithIndex(Stream.of("a", "b", "A", "B", " a ", "a", "b", " b "), (value, idx) -> String.format("%d, '%2$s', '%2$s'", idx, value))
+                .collect(toImmutableList());
+        String tableName = "count_distinct_strings" + randomTableSuffix();
+
+        try (TestTable testTable = new TestTable(getQueryRunner()::execute, tableName, "(id int, t_char CHAR(5), t_varchar VARCHAR(5)) WITH (ROWKEYS='id')", rows)) {
+            assertQuery("SELECT count(DISTINCT t_varchar) FROM " + testTable.getName(), "VALUES 6");
+            assertQuery("SELECT count(DISTINCT t_char) FROM " + testTable.getName(), "VALUES 6");
+            assertQuery("SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName(), "VALUES (6, 6)");
+        }
+    }
+
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
+    }
+
     @Test
     public void testSchemaOperations()
     {
@@ -201,7 +379,7 @@ public class TestPhoenixConnectorTest
 
         assertThatThrownBy(() -> getQueryRunner().execute("DROP SCHEMA new_schema"))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessage("ERROR 723 (43M06): Cannot mutate schema as schema has existing tables schemaName=NEW_SCHEMA");
+                .hasMessageContaining("Cannot drop non-empty schema 'new_schema'");
 
         assertUpdate("DROP TABLE new_schema.test");
         assertUpdate("DROP SCHEMA new_schema");
@@ -217,9 +395,9 @@ public class TestPhoenixConnectorTest
     public void testUnsupportedType()
             throws Exception
     {
-        executeInPhoenix("CREATE TABLE tpch.test_timestamp (pk bigint primary key, val1 timestamp)");
-        executeInPhoenix("UPSERT INTO tpch.test_timestamp (pk, val1) VALUES (1, null)");
-        executeInPhoenix("UPSERT INTO tpch.test_timestamp (pk, val1) VALUES (2, '2002-05-30T09:30:10.5')");
+        onRemoteDatabase().execute("CREATE TABLE tpch.test_timestamp (pk bigint primary key, val1 timestamp)");
+        onRemoteDatabase().execute("UPSERT INTO tpch.test_timestamp (pk, val1) VALUES (1, null)");
+        onRemoteDatabase().execute("UPSERT INTO tpch.test_timestamp (pk, val1) VALUES (2, '2002-05-30T09:30:10.5')");
         assertUpdate("INSERT INTO test_timestamp VALUES (3)", 1);
         assertQuery("SELECT * FROM test_timestamp", "VALUES 1, 2, 3");
         assertQuery(
@@ -234,6 +412,15 @@ public class TestPhoenixConnectorTest
                 "INSERT INTO test_timestamp VALUES (4, '2002-05-30 09:30:10.500')",
                 "Underlying type that is mapped to VARCHAR is not supported for INSERT: TIMESTAMP");
         assertUpdate("DROP TABLE tpch.test_timestamp");
+    }
+
+    @Test
+    public void testDefaultDecimalTable()
+            throws Exception
+    {
+        onRemoteDatabase().execute("CREATE TABLE tpch.test_null_decimal (pk bigint primary key, val1 decimal)");
+        onRemoteDatabase().execute("UPSERT INTO tpch.test_null_decimal (pk, val1) VALUES (1, 2)");
+        assertQuery("SELECT * FROM tpch.test_null_decimal", "VALUES (1, 2) ");
     }
 
     private Session withUnsupportedType(UnsupportedTypeHandling unsupportedTypeHandling)
@@ -280,8 +467,8 @@ public class TestPhoenixConnectorTest
             throws Exception
     {
         assertUpdate("CREATE TABLE test_primary_table (pk bigint, val1 double, val2 double, val3 double) with(rowkeys = 'pk')");
-        executeInPhoenix("CREATE LOCAL INDEX test_local_index ON tpch.test_primary_table (val1)");
-        executeInPhoenix("CREATE INDEX test_global_index ON tpch.test_primary_table (val2)");
+        onRemoteDatabase().execute("CREATE LOCAL INDEX test_local_index ON tpch.test_primary_table (val1)");
+        onRemoteDatabase().execute("CREATE INDEX test_global_index ON tpch.test_primary_table (val2)");
         assertUpdate("INSERT INTO test_primary_table VALUES (1, 1.1, 1.2, 1.3)", 1);
         assertQuery("SELECT val1,val3 FROM test_primary_table where val1 < 1.2", "SELECT 1.1,1.3");
         assertQuery("SELECT val2,val3 FROM test_primary_table where val2 < 1.3", "SELECT 1.2,1.3");
@@ -292,7 +479,7 @@ public class TestPhoenixConnectorTest
     public void testCaseInsensitiveNameMatching()
             throws Exception
     {
-        executeInPhoenix("CREATE TABLE tpch.\"TestCaseInsensitive\" (\"pK\" bigint primary key, \"Val1\" double)");
+        onRemoteDatabase().execute("CREATE TABLE tpch.\"TestCaseInsensitive\" (\"pK\" bigint primary key, \"Val1\" double)");
         assertUpdate("INSERT INTO testcaseinsensitive VALUES (1, 1.1)", 1);
         assertQuery("SELECT Val1 FROM testcaseinsensitive where Val1 < 1.2", "SELECT 1.1");
     }
@@ -301,10 +488,207 @@ public class TestPhoenixConnectorTest
     public void testMissingColumnsOnInsert()
             throws Exception
     {
-        executeInPhoenix("CREATE TABLE tpch.test_col_insert(pk VARCHAR NOT NULL PRIMARY KEY, col1 VARCHAR, col2 VARCHAR)");
+        onRemoteDatabase().execute("CREATE TABLE tpch.test_col_insert(pk VARCHAR NOT NULL PRIMARY KEY, col1 VARCHAR, col2 VARCHAR)");
         assertUpdate("INSERT INTO test_col_insert(pk, col1) VALUES('1', 'val1')", 1);
         assertUpdate("INSERT INTO test_col_insert(pk, col2) VALUES('1', 'val2')", 1);
         assertQuery("SELECT * FROM test_col_insert", "SELECT 1, 'val1', 'val2'");
+    }
+
+    @Override
+    public void testTopNPushdown()
+    {
+        throw new SkipException("Phoenix does not support topN push down, but instead replaces partial topN with partial Limit.");
+    }
+
+    @Test
+    public void testReplacePartialTopNWithLimit()
+    {
+        List<PlanMatchPattern.Ordering> orderBy = ImmutableList.of(sort("orderkey", ASCENDING, LAST));
+
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10"))
+                .matches(output(
+                        topN(10, orderBy, FINAL,
+                                exchange(LOCAL, GATHER, ImmutableList.of(),
+                                        exchange(REMOTE, GATHER, ImmutableList.of(),
+                                                limit(
+                                                        10,
+                                                        ImmutableList.of(),
+                                                        true,
+                                                        orderBy.stream()
+                                                                .map(PlanMatchPattern.Ordering::getField)
+                                                                .collect(toImmutableList()),
+                                                        tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))))))));
+
+        orderBy = ImmutableList.of(sort("orderkey", ASCENDING, FIRST));
+
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey NULLS FIRST LIMIT 10"))
+                .matches(output(
+                        topN(10, orderBy, FINAL,
+                                exchange(LOCAL, GATHER, ImmutableList.of(),
+                                        exchange(REMOTE, GATHER, ImmutableList.of(),
+                                                limit(
+                                                        10,
+                                                        ImmutableList.of(),
+                                                        true,
+                                                        orderBy.stream()
+                                                                .map(PlanMatchPattern.Ordering::getField)
+                                                                .collect(toImmutableList()),
+                                                        tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))))))));
+
+        orderBy = ImmutableList.of(sort("orderkey", DESCENDING, LAST));
+
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey DESC LIMIT 10"))
+                .matches(output(
+                        topN(10, orderBy, FINAL,
+                                exchange(LOCAL, GATHER, ImmutableList.of(),
+                                        exchange(REMOTE, GATHER, ImmutableList.of(),
+                                                limit(
+                                                        10,
+                                                        ImmutableList.of(),
+                                                        true,
+                                                        orderBy.stream()
+                                                                .map(PlanMatchPattern.Ordering::getField)
+                                                                .collect(toImmutableList()),
+                                                        tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))))))));
+
+        orderBy = ImmutableList.of(sort("orderkey", ASCENDING, LAST), sort("custkey", ASCENDING, LAST));
+
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey, custkey LIMIT 10"))
+                .matches(output(
+                        project(
+                                topN(10, orderBy, FINAL,
+                                        exchange(LOCAL, GATHER, ImmutableList.of(),
+                                                exchange(REMOTE, GATHER, ImmutableList.of(),
+                                                        limit(
+                                                                10,
+                                                                ImmutableList.of(),
+                                                                true,
+                                                                orderBy.stream()
+                                                                        .map(PlanMatchPattern.Ordering::getField)
+                                                                        .collect(toImmutableList()),
+                                                                tableScan("orders", ImmutableMap.of("orderkey", "orderkey", "custkey", "custkey")))))))));
+
+        orderBy = ImmutableList.of(sort("orderkey", ASCENDING, LAST), sort("custkey", DESCENDING, LAST));
+
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey, custkey DESC LIMIT 10"))
+                .matches(output(
+                        project(
+                                topN(10, orderBy, FINAL,
+                                        exchange(LOCAL, GATHER, ImmutableList.of(),
+                                                exchange(REMOTE, GATHER, ImmutableList.of(),
+                                                        limit(
+                                                                10,
+                                                                ImmutableList.of(),
+                                                                true,
+                                                                orderBy.stream()
+                                                                        .map(PlanMatchPattern.Ordering::getField)
+                                                                        .collect(toImmutableList()),
+                                                                tableScan("orders", ImmutableMap.of("orderkey", "orderkey", "custkey", "custkey")))))))));
+    }
+
+    /*
+     * Make sure that partial topN is replaced with a partial limit when the input is presorted.
+     */
+    @Test
+    public void testUseSortedPropertiesForPartialTopNElimination()
+    {
+        String tableName = "test_propagate_table_scan_sorting_properties";
+        // salting ensures multiple splits
+        String createTableSql = format("" +
+                        "CREATE TABLE %s WITH (salt_buckets = 5) AS " +
+                        "SELECT * FROM tpch.tiny.customer",
+                tableName);
+        assertUpdate(createTableSql, 1500L);
+
+        String expected = "SELECT custkey FROM customer ORDER BY 1 NULLS FIRST LIMIT 100";
+        String actual = format("SELECT custkey FROM %s ORDER BY 1 NULLS FIRST LIMIT 100", tableName);
+        assertQuery(getSession(), actual, expected, assertPartialLimitWithPreSortedInputsCount(getSession(), 1));
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Override
+    public void testNativeQuerySimple()
+    {
+        // not implemented
+        assertQueryFails("SELECT * FROM TABLE(system.query(query => 'SELECT 1'))", "line 1:21: Table function system.query not registered");
+    }
+
+    @Override
+    public void testNativeQueryParameters()
+    {
+        // not implemented
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query_simple", "SELECT * FROM TABLE(system.query(query => ?))")
+                .addPreparedStatement("my_query", "SELECT * FROM TABLE(system.query(query => format('SELECT %s FROM %s', ?, ?)))")
+                .build();
+        assertQueryFails(session, "EXECUTE my_query_simple USING 'SELECT 1 a'", "line 1:21: Table function system.query not registered");
+        assertQueryFails(session, "EXECUTE my_query USING 'a', '(SELECT 2 a) t'", "line 1:21: Table function system.query not registered");
+    }
+
+    @Override
+    public void testNativeQuerySelectFromNation()
+    {
+        // not implemented
+        assertQueryFails(
+                format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
+                "line 1:21: Table function system.query not registered");
+    }
+
+    @Override
+    public void testNativeQuerySelectFromTestTable()
+    {
+        // not implemented
+        try (TestTable testTable = simpleTable()) {
+            assertQueryFails(
+                    format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName()),
+                    "line 1:21: Table function system.query not registered");
+        }
+    }
+
+    @Override
+    public void testNativeQueryCreateStatement()
+    {
+        // not implemented
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
+                .hasMessage("line 1:21: Table function system.query not registered");
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+    }
+
+    @Override
+    public void testNativeQueryInsertStatementTableDoesNotExist()
+    {
+        // not implemented
+        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .hasMessage("line 1:21: Table function system.query not registered");
+    }
+
+    @Override
+    public void testNativeQueryInsertStatementTableExists()
+    {
+        // not implemented
+        try (TestTable testTable = simpleTable()) {
+            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
+                    .hasMessage("line 1:21: Table function system.query not registered");
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("VALUES BIGINT '1', BIGINT '2'");
+        }
+    }
+
+    @Override
+    public void testNativeQueryIncorrectSyntax()
+    {
+        // not implemented
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .hasMessage("line 1:21: Table function system.query not registered");
+    }
+
+    @Override
+    protected TestTable simpleTable()
+    {
+        // override because Phoenix requires primary key specification
+        return new PhoenixTestTable(onRemoteDatabase(), "tpch.simple_table", "(col BIGINT PRIMARY KEY)", ImmutableList.of("1", "2"));
     }
 
     @Override
@@ -314,25 +698,62 @@ public class TestPhoenixConnectorTest
     }
 
     @Override
+    protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
+    {
+        assertThat(e)
+                .hasMessageContaining("Concurrent modification to table");
+    }
+
+    @Override
+    public void testCreateSchemaWithLongName()
+    {
+        // TODO: Find the maximum table schema length in Phoenix and enable this test.
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    public void testCreateTableWithLongTableName()
+    {
+        // TODO: Find the maximum table name length in Phoenix and enable this test.
+        // Table name length with 65536 chars throws "startRow's length must be less than or equal to 32767 to meet the criteria for a row key."
+        // 32767 chars still causes the same error and shorter names (e.g. 10000) causes timeout.
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    public void testCreateTableWithLongColumnName()
+    {
+        // TODO: Find the maximum column name length in Phoenix and enable this test.
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    public void testAlterTableAddLongColumnName()
+    {
+        // TODO: Find the maximum column name length in Phoenix and enable this test.
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(32767);
+    }
+
+    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return sql -> {
             try {
-                executeInPhoenix(sql);
+                try (Connection connection = DriverManager.getConnection(testingPhoenixServer.getJdbcUrl());
+                        Statement statement = connection.createStatement()) {
+                    statement.execute(sql);
+                    connection.commit();
+                }
             }
             catch (SQLException e) {
                 throw new RuntimeException(e);
             }
         };
-    }
-
-    private void executeInPhoenix(String sql)
-            throws SQLException
-    {
-        try (Connection connection = DriverManager.getConnection(testingPhoenixServer.getJdbcUrl());
-                Statement statement = connection.createStatement()) {
-            statement.execute(sql);
-            connection.commit();
-        }
     }
 }

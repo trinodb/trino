@@ -47,17 +47,17 @@ public final class MaxDataSizeForStats
     @CombineFunction
     public static void combine(@AggregationState NullableLongState state, @AggregationState NullableLongState otherState)
     {
-        update(state, otherState.getLong());
+        update(state, otherState.getValue());
     }
 
     private static void update(NullableLongState state, long size)
     {
         if (state.isNull()) {
             state.setNull(false);
-            state.setLong(size);
+            state.setValue(size);
         }
         else {
-            state.setLong(max(state.getLong(), size));
+            state.setValue(max(state.getValue(), size));
         }
     }
 

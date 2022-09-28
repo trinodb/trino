@@ -159,14 +159,10 @@ public class MultipleDistinctAggregationToMarkDistinct
         }
 
         return Result.ofPlanNode(
-                new AggregationNode(
-                        parent.getId(),
-                        subPlan,
-                        newAggregations,
-                        parent.getGroupingSets(),
-                        ImmutableList.of(),
-                        parent.getStep(),
-                        parent.getHashSymbol(),
-                        parent.getGroupIdSymbol()));
+                AggregationNode.builderFrom(parent)
+                        .setSource(subPlan)
+                        .setAggregations(newAggregations)
+                        .setPreGroupedSymbols(ImmutableList.of())
+                        .build());
     }
 }

@@ -46,7 +46,7 @@ public final class AtopPageSourceProvider
     @Inject
     public AtopPageSourceProvider(AtopConnectorConfig config, AtopFactory atopFactory, TypeManager typeManager)
     {
-        readerPermits = new Semaphore(requireNonNull(config, "config is null").getConcurrentReadersPerNode());
+        readerPermits = new Semaphore(config.getConcurrentReadersPerNode());
         this.atopFactory = requireNonNull(atopFactory, "atopFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }

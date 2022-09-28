@@ -24,13 +24,13 @@ import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.type.DateTimes;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeField;
-import org.joda.time.DateTimeZone;
 import org.joda.time.Days;
 import org.joda.time.LocalDate;
 import org.joda.time.chrono.ISOChronology;
@@ -50,10 +50,9 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.Int128Math.rescale;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_SECOND;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.rescale;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
@@ -155,10 +154,11 @@ public final class DateTimeFunctions
 
         @LiteralParameters({"p", "s"})
         @SqlType("timestamp(9) with time zone")
-        public static LongTimestampWithTimeZone fromLong(@LiteralParameter("s") long scale, ConnectorSession session, @SqlType("decimal(p, s)") Slice unixTimeNanos)
+        public static LongTimestampWithTimeZone fromLong(@LiteralParameter("s") long scale, ConnectorSession session, @SqlType("decimal(p, s)") Int128 unixTimeNanos)
         {
             // TODO (https://github.com/trinodb/trino/issues/5781)
-            BigInteger unixTimeNanosInt = unscaledDecimalToBigInteger(rescale(unixTimeNanos, -(int) scale));
+            Int128 decimal = rescale(unixTimeNanos, -(int) scale);
+            BigInteger unixTimeNanosInt = decimal.toBigInteger();
             long epochSeconds = unixTimeNanosInt.divide(BigInteger.valueOf(NANOSECONDS_PER_SECOND)).longValue();
             long nanosOfSecond = unixTimeNanosInt.remainder(BigInteger.valueOf(NANOSECONDS_PER_SECOND)).longValue();
             long picosOfSecond = nanosOfSecond * PICOSECONDS_PER_NANOSECOND;
@@ -647,23 +647,6 @@ public final class DateTimeFunctions
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
-    }
-
-    // HACK WARNING!
-    // This method does calculate difference between timezone offset on current date (session start)
-    // and 1970-01-01 (same timezone). This is used to be able to avoid using fixed offset TZ for
-    // places where TZ offset is explicitly accessed (namely AT TIME ZONE).
-    // DateTimeFormatter does format specified instance in specified time zone calculating offset for
-    // that time zone based on provided instance. As Trino TIME type is represented as millis since
-    // 00:00.000 of some day UTC, we always use timezone offset that was valid on 1970-01-01.
-    // Best effort without changing representation of TIME WITH TIME ZONE is to use offset of the timezone
-    // based on session start time.
-    // By adding this difference to instance that we would like to convert to other TZ, we can
-    // get exact value of utcMillis for current session start time.
-    // Silent assumption is made, that no changes in TZ offsets were done on 1970-01-01.
-    public static long valueToSessionTimeZoneOffsetDiff(long epochMillis, DateTimeZone timeZone)
-    {
-        return timeZone.getOffset(0) - timeZone.getOffset(epochMillis);
     }
 
     @ScalarFunction("to_milliseconds")

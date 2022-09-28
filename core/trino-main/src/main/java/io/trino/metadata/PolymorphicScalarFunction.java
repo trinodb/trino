@@ -18,9 +18,11 @@ import com.google.common.primitives.Primitives;
 import io.trino.metadata.PolymorphicScalarFunctionBuilder.MethodAndNativeContainerTypes;
 import io.trino.metadata.PolymorphicScalarFunctionBuilder.MethodsGroup;
 import io.trino.metadata.PolymorphicScalarFunctionBuilder.SpecializeContext;
-import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
-import io.trino.operator.scalar.ChoicesScalarFunctionImplementation.ScalarImplementationChoice;
-import io.trino.operator.scalar.ScalarFunctionImplementation;
+import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
+import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction.ScalarImplementationChoice;
+import io.trino.operator.scalar.SpecializedSqlScalarFunction;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.trino.spi.type.Type;
@@ -48,32 +50,33 @@ class PolymorphicScalarFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         ImmutableList.Builder<ScalarImplementationChoice> implementationChoices = ImmutableList.builder();
 
+        FunctionMetadata metadata = getFunctionMetadata();
+        FunctionBinding functionBinding = SignatureBinder.bindFunction(metadata.getFunctionId(), metadata.getSignature(), boundSignature);
         for (PolymorphicScalarFunctionChoice choice : choices) {
             implementationChoices.add(getScalarFunctionImplementationChoice(functionBinding, choice));
         }
 
-        return new ChoicesScalarFunctionImplementation(functionBinding, implementationChoices.build());
+        return new ChoicesSpecializedSqlScalarFunction(boundSignature, implementationChoices.build());
     }
 
     private ScalarImplementationChoice getScalarFunctionImplementationChoice(
             FunctionBinding functionBinding,
             PolymorphicScalarFunctionChoice choice)
     {
-        List<Type> argumentTypes = functionBinding.getBoundSignature().getArgumentTypes();
-        Type returnType = functionBinding.getBoundSignature().getReturnType();
-        SpecializeContext context = new SpecializeContext(functionBinding, argumentTypes, returnType);
+        SpecializeContext context = new SpecializeContext(functionBinding);
+
         Optional<MethodAndNativeContainerTypes> matchingMethod = Optional.empty();
 
         Optional<MethodsGroup> matchingMethodsGroup = Optional.empty();
         for (MethodsGroup candidateMethodsGroup : choice.getMethodsGroups()) {
             for (MethodAndNativeContainerTypes candidateMethod : candidateMethodsGroup.getMethods()) {
-                if (matchesParameterAndReturnTypes(candidateMethod, argumentTypes, returnType, choice.getArgumentConventions(), choice.getReturnConvention())) {
+                if (matchesParameterAndReturnTypes(candidateMethod, functionBinding.getBoundSignature(), choice.getArgumentConventions(), choice.getReturnConvention())) {
                     if (matchingMethod.isPresent()) {
-                        throw new IllegalStateException("two matching methods (" + matchingMethod.get().getMethod().getName() + " and " + candidateMethod.getMethod().getName() + ") for parameter types " + argumentTypes);
+                        throw new IllegalStateException("two matching methods (" + matchingMethod.get().getMethod().getName() + " and " + candidateMethod.getMethod().getName() + ") for parameter types " + functionBinding.getBoundSignature().getArgumentTypes());
                     }
 
                     matchingMethod = Optional.of(candidateMethod);
@@ -81,7 +84,7 @@ class PolymorphicScalarFunction
                 }
             }
         }
-        checkState(matchingMethod.isPresent(), "no matching method for parameter types %s", argumentTypes);
+        checkState(matchingMethod.isPresent(), "no matching method for parameter types %s", functionBinding.getBoundSignature());
 
         List<Object> extraParameters = computeExtraParameters(matchingMethodsGroup.get(), context);
         MethodHandle methodHandle = applyExtraParameters(matchingMethod.get().getMethod(), extraParameters, choice.getArgumentConventions());
@@ -95,19 +98,18 @@ class PolymorphicScalarFunction
 
     private static boolean matchesParameterAndReturnTypes(
             MethodAndNativeContainerTypes methodAndNativeContainerTypes,
-            List<Type> resolvedTypes,
-            Type returnType,
+            BoundSignature boundSignature,
             List<InvocationArgumentConvention> argumentConventions,
             InvocationReturnConvention returnConvention)
     {
         Method method = methodAndNativeContainerTypes.getMethod();
-        checkState(method.getParameterCount() >= resolvedTypes.size(),
-                "method %s has not enough arguments: %s (should have at least %s)", method.getName(), method.getParameterCount(), resolvedTypes.size());
+        checkState(method.getParameterCount() >= boundSignature.getArity(),
+                "method %s has not enough arguments: %s (should have at least %s)", method.getName(), method.getParameterCount(), boundSignature.getArity());
 
         Class<?>[] methodParameterJavaTypes = method.getParameterTypes();
         int methodParameterIndex = 0;
-        for (int i = 0; i < resolvedTypes.size(); i++) {
-            Type resolvedType = resolvedTypes.get(i);
+        for (int i = 0; i < boundSignature.getArity(); i++) {
+            Type resolvedType = boundSignature.getArgumentType(i);
             InvocationArgumentConvention argumentConvention = argumentConventions.get(i);
 
             Class<?> expectedType = null;
@@ -129,6 +131,11 @@ class PolymorphicScalarFunction
                     }
                     actualType = resolvedType.getJavaType();
                     break;
+                case IN_OUT:
+                    // any type is supported, so just ignore this check
+                    actualType = resolvedType.getJavaType();
+                    expectedType = resolvedType.getJavaType();
+                    break;
                 default:
                     throw new UnsupportedOperationException("Unknown argument convention: " + argumentConvention);
             }
@@ -137,7 +144,7 @@ class PolymorphicScalarFunction
             }
             methodParameterIndex += argumentConvention.getParameterCount();
         }
-        return method.getReturnType().equals(getNullAwareContainerType(returnType.getJavaType(), returnConvention));
+        return method.getReturnType().equals(getNullAwareContainerType(boundSignature.getReturnType().getJavaType(), returnConvention));
     }
 
     private static List<Object> computeExtraParameters(MethodsGroup methodsGroup, SpecializeContext context)

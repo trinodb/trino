@@ -19,12 +19,15 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.trino.execution.buffer.PagesSerde.PagesSerdeContext;
+import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -41,6 +44,8 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.testng.annotations.Test;
 
+import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
@@ -174,7 +179,19 @@ public class BenchmarkBlockSerde
         return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
     }
 
-    private static List<SerializedPage> serializePages(BenchmarkData data)
+    @Benchmark
+    public Object serializeRow(RowTypeBenchmarkData data)
+    {
+        return serializePages(data);
+    }
+
+    @Benchmark
+    public Object deserializeRow(RowTypeBenchmarkData data)
+    {
+        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
+    }
+
+    private static List<Slice> serializePages(BenchmarkData data)
     {
         PagesSerdeContext context = new PagesSerdeContext();
         return data.getPages().stream()
@@ -197,35 +214,7 @@ public class BenchmarkBlockSerde
 
             Iterator<?> values = createValues(ROWS, valueGenerator, nullChance);
             while (values.hasNext()) {
-                Object value = values.next();
-                if (value == null) {
-                    blockBuilder.appendNull();
-                }
-                else if (BIGINT.equals(type)) {
-                    BIGINT.writeLong(blockBuilder, ((Number) value).longValue());
-                }
-                else if (Decimals.isLongDecimal(type)) {
-                    type.writeSlice(blockBuilder, Decimals.encodeUnscaledValue(((SqlDecimal) value).toBigDecimal().unscaledValue()));
-                }
-                else if (type instanceof VarcharType) {
-                    Slice slice = truncateToLength(utf8Slice((String) value), type);
-                    type.writeSlice(blockBuilder, slice);
-                }
-                else if (TIMESTAMP_PICOS.equals(type)) {
-                    TIMESTAMP_PICOS.writeObject(blockBuilder, value);
-                }
-                else if (INTEGER.equals(type)) {
-                    blockBuilder.writeInt((int) value);
-                }
-                else if (SMALLINT.equals(type)) {
-                    blockBuilder.writeShort((short) value);
-                }
-                else if (TINYINT.equals(type)) {
-                    blockBuilder.writeByte((byte) value);
-                }
-                else {
-                    throw new IllegalArgumentException("Unsupported type " + type);
-                }
+                writeValue(type, values.next(), blockBuilder);
                 pageBuilder.declarePosition();
                 if (pageBuilder.isFull()) {
                     pagesBuilder.add(pageBuilder.build());
@@ -242,6 +231,51 @@ public class BenchmarkBlockSerde
             writePages(pagesSerde, new OutputStreamSliceOutput(sliceOutput), pages.iterator());
 
             setup(sliceOutput.slice(), pagesSerde, pages);
+        }
+
+        private void writeValue(Type type, Object value, BlockBuilder blockBuilder)
+        {
+            if (value == null) {
+                blockBuilder.appendNull();
+            }
+            else if (BIGINT.equals(type)) {
+                BIGINT.writeLong(blockBuilder, ((Number) value).longValue());
+            }
+            else if (Decimals.isLongDecimal(type)) {
+                type.writeObject(blockBuilder, Int128.valueOf(((SqlDecimal) value).toBigDecimal().unscaledValue()));
+            }
+            else if (type instanceof VarcharType) {
+                Slice slice = truncateToLength(utf8Slice((String) value), type);
+                type.writeSlice(blockBuilder, slice);
+            }
+            else if (TIMESTAMP_PICOS.equals(type)) {
+                TIMESTAMP_PICOS.writeObject(blockBuilder, value);
+            }
+            else if (INTEGER.equals(type)) {
+                blockBuilder.writeInt((int) value);
+            }
+            else if (SMALLINT.equals(type)) {
+                blockBuilder.writeShort((short) value);
+            }
+            else if (TINYINT.equals(type)) {
+                blockBuilder.writeByte((byte) value);
+            }
+            else if (type instanceof RowType) {
+                BlockBuilder row = blockBuilder.beginBlockEntry();
+                List<?> values = (List<?>) value;
+                if (values.size() != type.getTypeParameters().size()) {
+                    throw new IllegalArgumentException("Size of types and values must have the same size");
+                }
+                List<SimpleEntry<Type, Object>> pairs = new ArrayList<>();
+                for (int i = 0; i < type.getTypeParameters().size(); i++) {
+                    pairs.add(new SimpleEntry<>(type.getTypeParameters().get(i), ((List<?>) value).get(i)));
+                }
+                pairs.forEach(p -> writeValue(p.getKey(), p.getValue(), row));
+                blockBuilder.closeEntry();
+            }
+            else {
+                throw new IllegalArgumentException("Unsupported type " + type);
+            }
         }
     }
 
@@ -360,10 +394,22 @@ public class BenchmarkBlockSerde
         {
             PagesSerde pagesSerde = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false).createPagesSerde();
 
-            List<Page> pages = ImmutableList.copyOf(getTablePages("lineitem", 0.1));
+            List<Page> pages = ImmutableList.copyOf(getTablePages("lineitem", 0.1, DecimalTypeMapping.DOUBLE));
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(0);
             writePages(pagesSerde, new OutputStreamSliceOutput(sliceOutput), pages.listIterator());
             setup(sliceOutput.slice(), pagesSerde, pages);
+        }
+    }
+
+    @State(Thread)
+    public static class RowTypeBenchmarkData
+            extends TypeBenchmarkData
+    {
+        @Setup
+        public void setup()
+        {
+            RowType type = RowType.anonymous(ImmutableList.of(BIGINT));
+            super.setup(type, (random -> BenchmarkDataGenerator.randomRow(type.getTypeParameters(), random)));
         }
     }
 

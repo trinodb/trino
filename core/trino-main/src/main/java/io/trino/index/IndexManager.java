@@ -14,48 +14,33 @@
 package io.trino.index;
 
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.IndexHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorIndex;
 import io.trino.spi.connector.ConnectorIndexProvider;
 import io.trino.spi.connector.ConnectorSession;
 
-import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import javax.inject.Inject;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
+import java.util.List;
+
 import static java.util.Objects.requireNonNull;
 
 public class IndexManager
 {
-    private final ConcurrentMap<CatalogName, ConnectorIndexProvider> providers = new ConcurrentHashMap<>();
+    private final CatalogServiceProvider<ConnectorIndexProvider> indexProvider;
 
-    public void addIndexProvider(CatalogName catalogName, ConnectorIndexProvider indexProvider)
+    @Inject
+    public IndexManager(CatalogServiceProvider<ConnectorIndexProvider> indexProvider)
     {
-        requireNonNull(catalogName, "catalogName is null");
-        requireNonNull(indexProvider, "indexProvider is null");
-        checkState(providers.putIfAbsent(catalogName, indexProvider) == null, "IndexProvider for connector '%s' is already registered", catalogName);
-    }
-
-    public void removeIndexProvider(CatalogName catalogName)
-    {
-        providers.remove(catalogName);
+        this.indexProvider = requireNonNull(indexProvider, "indexProvider is null");
     }
 
     public ConnectorIndex getIndex(Session session, IndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema)
     {
-        ConnectorSession connectorSession = session.toConnectorSession(indexHandle.getCatalogName());
-        ConnectorIndexProvider provider = getProvider(indexHandle);
+        ConnectorSession connectorSession = session.toConnectorSession(indexHandle.getCatalogHandle());
+        ConnectorIndexProvider provider = indexProvider.getService(indexHandle.getCatalogHandle());
         return provider.getIndex(indexHandle.getTransactionHandle(), connectorSession, indexHandle.getConnectorHandle(), lookupSchema, outputSchema);
-    }
-
-    private ConnectorIndexProvider getProvider(IndexHandle handle)
-    {
-        ConnectorIndexProvider result = providers.get(handle.getCatalogName());
-        checkArgument(result != null, "No index provider for connector '%s'", handle.getCatalogName());
-        return result;
     }
 }

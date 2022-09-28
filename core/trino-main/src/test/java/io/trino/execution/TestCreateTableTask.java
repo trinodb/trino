@@ -15,31 +15,27 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
+import io.trino.connector.MockConnectorFactory;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.metadata.AbstractMockMetadata;
-import io.trino.metadata.Catalog;
-import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
-import io.trino.metadata.MaterializedViewPropertyManager;
-import io.trino.metadata.MetadataManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
-import io.trino.spi.type.TypeSignature;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.CreateTable;
@@ -49,9 +45,11 @@ import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.TableElement;
+import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.transaction.TransactionManager;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -63,7 +61,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -76,18 +73,18 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.QueryUtil.identifier;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CREATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
-import static io.trino.testing.TestingSession.createBogusTestingCatalog;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
+import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
-import static java.util.Collections.emptySet;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -97,42 +94,54 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestCreateTableTask
 {
-    private static final String CATALOG_NAME = "catalog";
+    private static final String OTHER_CATALOG_NAME = "other_catalog";
+    private static final CatalogHandle OTHER_CATALOG_HANDLE = createTestCatalogHandle("other_catalog");
     private static final ConnectorTableMetadata PARENT_TABLE = new ConnectorTableMetadata(
             new SchemaTableName("schema", "parent_table"),
             List.of(new ColumnMetadata("a", SMALLINT), new ColumnMetadata("b", BIGINT)),
             Map.of("baz", "property_value"));
 
+    private LocalQueryRunner queryRunner;
     private Session testSession;
     private MockMetadata metadata;
+    private PlannerContext plannerContext;
     private TransactionManager transactionManager;
+    private ColumnPropertyManager columnPropertyManager;
+    private TablePropertyManager tablePropertyManager;
 
     @BeforeMethod
     public void setUp()
     {
-        CatalogManager catalogManager = new CatalogManager();
-        transactionManager = createTestTransactionManager(catalogManager);
-        TablePropertyManager tablePropertyManager = new TablePropertyManager();
-        MaterializedViewPropertyManager materializedViewPropertyManager = new MaterializedViewPropertyManager();
-        ColumnPropertyManager columnPropertyManager = new ColumnPropertyManager();
-        Catalog testCatalog = createBogusTestingCatalog(CATALOG_NAME);
-        catalogManager.registerCatalog(testCatalog);
-        tablePropertyManager.addProperties(
-                testCatalog.getConnectorCatalogName(),
-                ImmutableList.of(stringProperty("baz", "test property", null, false)));
-        materializedViewPropertyManager.addProperties(
-                testCatalog.getConnectorCatalogName(),
-                ImmutableList.of(stringProperty("foo", "test materialized view property", null, false)));
-        columnPropertyManager.addProperties(testCatalog.getConnectorCatalogName(), ImmutableList.of());
-        testSession = testSessionBuilder()
+        queryRunner = LocalQueryRunner.create(testSessionBuilder()
+                .setCatalog(TEST_CATALOG_NAME)
+                .build());
+        transactionManager = queryRunner.getTransactionManager();
+        queryRunner.createCatalog(
+                TEST_CATALOG_NAME,
+                MockConnectorFactory.builder()
+                        .withTableProperties(() -> ImmutableList.of(stringProperty("baz", "test property", null, false)))
+                        .build(),
+                ImmutableMap.of());
+        queryRunner.createCatalog(
+                OTHER_CATALOG_NAME,
+                MockConnectorFactory.builder().withName("other_mock").build(),
+                ImmutableMap.of());
+
+        tablePropertyManager = queryRunner.getTablePropertyManager();
+        columnPropertyManager = queryRunner.getColumnPropertyManager();
+        testSession = Session.builder(queryRunner.getDefaultSession())
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
-        metadata = new MockMetadata(
-                tablePropertyManager,
-                materializedViewPropertyManager,
-                columnPropertyManager,
-                testCatalog.getConnectorCatalogName(),
-                emptySet());
+        metadata = new MockMetadata();
+        plannerContext = plannerContextBuilder().withMetadata(metadata).build();
+    }
+
+    @AfterMethod(alwaysRun = true)
+    public void tearDown()
+    {
+        if (queryRunner != null) {
+            queryRunner.close();
+        }
     }
 
     @Test
@@ -144,7 +153,8 @@ public class TestCreateTableTask
                 ImmutableList.of(),
                 Optional.empty());
 
-        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), output -> {}));
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
+        getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {}));
         assertEquals(metadata.getCreateTableCallCount(), 1);
     }
 
@@ -157,7 +167,8 @@ public class TestCreateTableTask
                 ImmutableList.of(),
                 Optional.empty());
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), output -> {})))
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
+        assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {})))
                 .hasErrorCode(ALREADY_EXISTS)
                 .hasMessage("Table already exists");
 
@@ -173,9 +184,10 @@ public class TestCreateTableTask
                 ImmutableList.of(new Property(new Identifier("foo"), new StringLiteral("bar"))),
                 Optional.empty());
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), output -> {})))
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
+        assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {})))
                 .hasErrorCode(INVALID_TABLE_PROPERTY)
-                .hasMessage("Catalog 'catalog' does not support table property 'foo'");
+                .hasMessage("Catalog 'test-catalog' table property 'foo' does not exist");
 
         assertEquals(metadata.getCreateTableCallCount(), 0);
     }
@@ -190,7 +202,8 @@ public class TestCreateTableTask
                 new ColumnDefinition(identifier("c"), toSqlType(VARBINARY), false, emptyList(), Optional.empty()));
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, ImmutableList.of(), Optional.empty());
 
-        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), output -> {}));
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
+        getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {}));
         assertEquals(metadata.getCreateTableCallCount(), 1);
         List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().get(0).getColumns();
         assertEquals(columns.size(), 3);
@@ -222,18 +235,20 @@ public class TestCreateTableTask
                 ImmutableList.of(),
                 Optional.empty());
 
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         assertTrinoExceptionThrownBy(() ->
-                getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), output -> {})))
+                getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {})))
                 .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("Catalog 'catalog' does not support non-null column for column name 'b'");
+                .hasMessage("Catalog 'test-catalog' does not support non-null column for column name 'b'");
     }
 
     @Test
     public void testCreateLike()
     {
-        CreateTable statement = getCreatleLikeStatement(false);
+        CreateTable statement = getCreateLikeStatement(false);
 
-        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, List.of(), output -> {}));
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
+        getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {}));
         assertEquals(metadata.getCreateTableCallCount(), 1);
 
         assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
@@ -242,11 +257,12 @@ public class TestCreateTableTask
     }
 
     @Test
-    public void testCreateLikeWithProperties()
+    public void testCreateLikeIncludingProperties()
     {
-        CreateTable statement = getCreatleLikeStatement(true);
+        CreateTable statement = getCreateLikeStatement(true);
 
-        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, List.of(), output -> {}));
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
+        getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {}));
         assertEquals(metadata.getCreateTableCallCount(), 1);
 
         assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
@@ -256,35 +272,66 @@ public class TestCreateTableTask
     }
 
     @Test
+    public void testCreateLikeExcludingPropertiesAcrossCatalogs()
+    {
+        CreateTable statement = getCreateLikeStatement(QualifiedName.of(OTHER_CATALOG_NAME, "other_schema", "test_table"), false);
+
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
+        getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {}));
+        assertEquals(metadata.getCreateTableCallCount(), 1);
+
+        assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
+                .isEqualTo(PARENT_TABLE.getColumns());
+    }
+
+    @Test
+    public void testCreateLikeIncludingPropertiesAcrossCatalogs()
+    {
+        CreateTable failingStatement = getCreateLikeStatement(QualifiedName.of(OTHER_CATALOG_NAME, "other_schema", "test_table"), true);
+
+        CreateTableTask failingCreateTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
+        assertThatThrownBy(() -> getFutureValue(failingCreateTableTask.internalExecute(failingStatement, testSession, List.of(), output -> {})))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("CREATE TABLE LIKE table INCLUDING PROPERTIES across catalogs is not supported");
+    }
+
+    @Test
     public void testCreateLikeDenyPermission()
     {
-        CreateTable statement = getCreatleLikeStatement(false);
+        CreateTable statement = getCreateLikeStatement(false);
 
         TestingAccessControlManager accessControl = new TestingAccessControlManager(transactionManager, new EventListenerManager(new EventListenerConfig()));
         accessControl.deny(privilege("parent_table", SELECT_COLUMN));
 
-        assertThatThrownBy(() -> getFutureValue(new CreateTableTask().internalExecute(statement, metadata, accessControl, testSession, List.of(), output -> {})))
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, accessControl, columnPropertyManager, tablePropertyManager);
+        assertThatThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {})))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("Cannot reference columns of table");
     }
 
     @Test
-    public void testCreateLikeWithPropertiesDenyPermission()
+    public void testCreateLikeIncludingPropertiesDenyPermission()
     {
-        CreateTable statement = getCreatleLikeStatement(true);
+        CreateTable statement = getCreateLikeStatement(true);
 
         TestingAccessControlManager accessControl = new TestingAccessControlManager(transactionManager, new EventListenerManager(new EventListenerConfig()));
         accessControl.deny(privilege("parent_table", SHOW_CREATE_TABLE));
 
-        assertThatThrownBy(() -> getFutureValue(new CreateTableTask().internalExecute(statement, metadata, accessControl, testSession, List.of(), output -> {})))
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, accessControl, columnPropertyManager, tablePropertyManager);
+        assertThatThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {})))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("Cannot reference properties of table");
     }
 
-    private CreateTable getCreatleLikeStatement(boolean includingProperties)
+    private static CreateTable getCreateLikeStatement(boolean includingProperties)
+    {
+        return getCreateLikeStatement(QualifiedName.of("test_table"), includingProperties);
+    }
+
+    private static CreateTable getCreateLikeStatement(QualifiedName name, boolean includingProperties)
     {
         return new CreateTable(
-                QualifiedName.of("test_table"),
+                name,
                 List.of(new LikeClause(QualifiedName.of(PARENT_TABLE.getTable().getTableName()), includingProperties ? Optional.of(INCLUDING) : Optional.empty())),
                 true,
                 ImmutableList.of(),
@@ -294,28 +341,8 @@ public class TestCreateTableTask
     private static class MockMetadata
             extends AbstractMockMetadata
     {
-        private final MetadataManager metadata;
-        private final TablePropertyManager tablePropertyManager;
-        private final MaterializedViewPropertyManager materializedViewPropertyManager;
-        private final ColumnPropertyManager columnPropertyManager;
-        private final CatalogName catalogHandle;
         private final List<ConnectorTableMetadata> tables = new CopyOnWriteArrayList<>();
-        private Set<ConnectorCapabilities> connectorCapabilities;
-
-        public MockMetadata(
-                TablePropertyManager tablePropertyManager,
-                MaterializedViewPropertyManager materializedViewPropertyManager,
-                ColumnPropertyManager columnPropertyManager,
-                CatalogName catalogHandle,
-                Set<ConnectorCapabilities> connectorCapabilities)
-        {
-            this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
-            this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
-            this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
-            this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
-            this.connectorCapabilities = immutableEnumSet(requireNonNull(connectorCapabilities, "connectorCapabilities is null"));
-            this.metadata = createTestMetadataManager();
-        }
+        private Set<ConnectorCapabilities> connectorCapabilities = ImmutableSet.of();
 
         @Override
         public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
@@ -327,46 +354,13 @@ public class TestCreateTableTask
         }
 
         @Override
-        public TablePropertyManager getTablePropertyManager()
+        public Optional<CatalogHandle> getCatalogHandle(Session session, String catalogName)
         {
-            return tablePropertyManager;
-        }
-
-        @Override
-        public MaterializedViewPropertyManager getMaterializedViewPropertyManager()
-        {
-            return materializedViewPropertyManager;
-        }
-
-        @Override
-        public ColumnPropertyManager getColumnPropertyManager()
-        {
-            return columnPropertyManager;
-        }
-
-        @Override
-        public Type getType(TypeSignature signature)
-        {
-            return metadata.getType(signature);
-        }
-
-        @Override
-        public Type getType(TypeId id)
-        {
-            return metadata.getType(id);
-        }
-
-        @Override
-        public Type fromSqlType(String sqlType)
-        {
-            return metadata.fromSqlType(sqlType);
-        }
-
-        @Override
-        public Optional<CatalogName> getCatalogHandle(Session session, String catalogName)
-        {
-            if (catalogHandle.getCatalogName().equals(catalogName)) {
-                return Optional.of(catalogHandle);
+            if (catalogName.equals(TEST_CATALOG_NAME)) {
+                return Optional.of(TEST_CATALOG_HANDLE);
+            }
+            if (catalogName.equals(OTHER_CATALOG_NAME)) {
+                return Optional.of(OTHER_CATALOG_HANDLE);
             }
             return Optional.empty();
         }
@@ -377,10 +371,9 @@ public class TestCreateTableTask
             if (tableName.asSchemaTableName().equals(PARENT_TABLE.getTable())) {
                 return Optional.of(
                         new TableHandle(
-                                new CatalogName(CATALOG_NAME),
+                                TEST_CATALOG_HANDLE,
                                 new TestingTableHandle(tableName.asSchemaTableName()),
-                                TestingConnectorTransactionHandle.INSTANCE,
-                                Optional.empty()));
+                                TestingConnectorTransactionHandle.INSTANCE));
             }
             return Optional.empty();
         }
@@ -390,7 +383,7 @@ public class TestCreateTableTask
         {
             if ((tableHandle.getConnectorHandle() instanceof TestingTableHandle)) {
                 if (((TestingTableHandle) tableHandle.getConnectorHandle()).getTableName().equals(PARENT_TABLE.getTable())) {
-                    return new TableMetadata(new CatalogName("catalog"), PARENT_TABLE);
+                    return new TableMetadata(TEST_CATALOG_NAME, PARENT_TABLE);
                 }
             }
 
@@ -408,13 +401,7 @@ public class TestCreateTableTask
         }
 
         @Override
-        public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName)
+        public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogHandle catalogHandle)
         {
             return connectorCapabilities;
         }

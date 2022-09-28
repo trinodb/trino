@@ -29,7 +29,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
-import static io.trino.spi.function.OperatorType.COMPARISON;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.Slices.sliceRepresentation;
@@ -62,11 +62,6 @@ public final class VarcharType
         return new VarcharType(length);
     }
 
-    public static TypeSignature getParametrizedVarcharSignature(String param)
-    {
-        return new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.typeVariable(param));
-    }
-
     private final int length;
 
     private VarcharType(int length)
@@ -74,7 +69,7 @@ public final class VarcharType
         super(
                 new TypeSignature(
                         StandardTypes.VARCHAR,
-                        singletonList(TypeSignatureParameter.numericParameter((long) length))),
+                        singletonList(TypeSignatureParameter.numericParameter(length))),
                 Slice.class);
 
         if (length < 0) {
@@ -255,13 +250,13 @@ public final class VarcharType
         return block.hash(position, 0, block.getSliceLength(position));
     }
 
-    @ScalarOperator(COMPARISON)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(Slice left, Slice right)
     {
         return left.compareTo(right);
     }
 
-    @ScalarOperator(COMPARISON)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
     {
         int leftLength = leftBlock.getSliceLength(leftPosition);

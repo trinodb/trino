@@ -34,14 +34,21 @@ public class Procedure
     private final String schema;
     private final String name;
     private final List<Argument> arguments;
+    private final boolean requireNamedArguments;
     private final MethodHandle methodHandle;
 
     public Procedure(String schema, String name, List<Argument> arguments, MethodHandle methodHandle)
+    {
+        this(schema, name, arguments, methodHandle, false);
+    }
+
+    public Procedure(String schema, String name, List<Argument> arguments, MethodHandle methodHandle, boolean requireNamedArguments)
     {
         this.schema = checkNotNullOrEmpty(schema, "schema").toLowerCase(ENGLISH);
         this.name = checkNotNullOrEmpty(name, "name").toLowerCase(ENGLISH);
         this.arguments = List.copyOf(requireNonNull(arguments, "arguments is null"));
         this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
+        this.requireNamedArguments = requireNamedArguments;
 
         Set<String> names = new HashSet<>();
         for (Argument argument : arguments) {
@@ -85,6 +92,11 @@ public class Procedure
         return methodHandle;
     }
 
+    public boolean requiresNamedArguments()
+    {
+        return requireNamedArguments;
+    }
+
     @Override
     public String toString()
     {
@@ -112,7 +124,21 @@ public class Procedure
 
         public Argument(String name, Type type, boolean required, @Nullable Object defaultValue)
         {
+            this(name, false, type, required, defaultValue);
+        }
+
+        /**
+         * @deprecated Available for transition period only. After the transition period non-uppercase names will always be allowed.
+         */
+        @Deprecated
+        public Argument(String name, boolean allowNonUppercaseName, Type type, boolean required, @Nullable Object defaultValue)
+        {
             this.name = checkNotNullOrEmpty(name, "name");
+            if (!allowNonUppercaseName && !name.equals(name.toUpperCase(ENGLISH))) {
+                throw new IllegalArgumentException("Argument name not uppercase. Previously argument names were matched incorrectly. " +
+                        "This is now fixed and for backwards compatibility of CALL statements, the argument must be declared in uppercase. " +
+                        "You can pass allowNonUppercaseName boolean flag if you want to register non-uppercase argument name.");
+            }
             this.type = requireNonNull(type, "type is null");
             this.required = required;
             this.defaultValue = defaultValue;

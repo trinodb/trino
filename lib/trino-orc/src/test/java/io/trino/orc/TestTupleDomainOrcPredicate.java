@@ -25,6 +25,8 @@ import io.trino.orc.metadata.statistics.StringStatistics;
 import io.trino.orc.metadata.statistics.TimestampStatistics;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.Type;
@@ -50,7 +52,6 @@ import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -100,7 +101,7 @@ public class TestTupleDomainOrcPredicate
         if (trueValueCount != null) {
             booleanStatistics = new BooleanStatistics(trueValueCount);
         }
-        return new ColumnStatistics(numberOfValues, 2L, booleanStatistics, null, null, null, null, null, null, null, null);
+        return new ColumnStatistics(numberOfValues, 2L, booleanStatistics, null, null, null, null, null, null, null, null, null);
     }
 
     @Test
@@ -129,7 +130,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics integerColumnStats(Long numberOfValues, Long minimum, Long maximum)
     {
-        return new ColumnStatistics(numberOfValues, 9L, null, new IntegerStatistics(minimum, maximum, null), null, null, null, null, null, null, null);
+        return new ColumnStatistics(numberOfValues, 9L, null, new IntegerStatistics(minimum, maximum, null), null, null, null, null, null, null, null, null);
     }
 
     @Test
@@ -158,7 +159,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics doubleColumnStats(Long numberOfValues, Double minimum, Double maximum)
     {
-        return new ColumnStatistics(numberOfValues, 9L, null, null, new DoubleStatistics(minimum, maximum), null, null, null, null, null, null);
+        return new ColumnStatistics(numberOfValues, 9L, null, null, new DoubleStatistics(minimum, maximum), null, null, null, null, null, null, null);
     }
 
     @Test
@@ -248,7 +249,7 @@ public class TestTupleDomainOrcPredicate
         Slice minimumSlice = minimum == null ? null : utf8Slice(minimum);
         Slice maximumSlice = maximum == null ? null : utf8Slice(maximum);
         // sum and minAverageValueSizeInBytes are not used in this test; they could be arbitrary numbers
-        return new ColumnStatistics(numberOfValues, 10L, null, null, null, new StringStatistics(minimumSlice, maximumSlice, 100L), null, null, null, null, null);
+        return new ColumnStatistics(numberOfValues, 10L, null, null, null, null, new StringStatistics(minimumSlice, maximumSlice, 100L), null, null, null, null, null);
     }
 
     @Test
@@ -277,7 +278,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics dateColumnStats(Long numberOfValues, Integer minimum, Integer maximum)
     {
-        return new ColumnStatistics(numberOfValues, 5L, null, null, null, null, new DateStatistics(minimum, maximum), null, null, null, null);
+        return new ColumnStatistics(numberOfValues, 5L, null, null, null, null, null, new DateStatistics(minimum, maximum), null, null, null, null);
     }
 
     @Test
@@ -529,7 +530,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics timeStampColumnStats(Long numberOfValues, Long minimum, Long maximum)
     {
-        return new ColumnStatistics(numberOfValues, 5L, null, null, null, null, null, new TimestampStatistics(minimum, maximum), null, null, null);
+        return new ColumnStatistics(numberOfValues, 5L, null, null, null, null, null, null, new TimestampStatistics(minimum, maximum), null, null, null);
     }
 
     @Test
@@ -585,7 +586,7 @@ public class TestTupleDomainOrcPredicate
     {
         BigDecimal minimumDecimal = minimum == null ? null : new BigDecimal(minimum);
         BigDecimal maximumDecimal = maximum == null ? null : new BigDecimal(maximum);
-        return new ColumnStatistics(numberOfValues, 9L, null, null, null, null, null, null, new DecimalStatistics(minimumDecimal, maximumDecimal, SHORT_DECIMAL_VALUE_BYTES), null, null);
+        return new ColumnStatistics(numberOfValues, 9L, null, null, null, null, null, null, null, new DecimalStatistics(minimumDecimal, maximumDecimal, SHORT_DECIMAL_VALUE_BYTES), null, null);
     }
 
     @Test
@@ -607,7 +608,7 @@ public class TestTupleDomainOrcPredicate
     private static ColumnStatistics binaryColumnStats(Long numberOfValues)
     {
         // sum and minAverageValueSizeInBytes are not used in this test; they could be arbitrary numbers
-        return new ColumnStatistics(numberOfValues, 10L, null, null, null, null, null, null, null, new BinaryStatistics(100L), null);
+        return new ColumnStatistics(numberOfValues, 10L, null, null, null, null, null, null, null, null, new BinaryStatistics(100L), null);
     }
 
     private static Long shortDecimal(String value)
@@ -615,8 +616,8 @@ public class TestTupleDomainOrcPredicate
         return new BigDecimal(value).unscaledValue().longValue();
     }
 
-    private static Slice longDecimal(String value)
+    private static Int128 longDecimal(String value)
     {
-        return encodeScaledValue(new BigDecimal(value));
+        return Decimals.valueOf(new BigDecimal(value));
     }
 }

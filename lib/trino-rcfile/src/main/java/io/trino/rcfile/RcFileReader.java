@@ -195,7 +195,7 @@ public class RcFileReader
         for (int i = 0; i < metadataEntries; i++) {
             metadataBuilder.put(readLengthPrefixedString(input).toStringUtf8(), readLengthPrefixedString(input).toStringUtf8());
         }
-        metadata = metadataBuilder.build();
+        metadata = metadataBuilder.buildOrThrow();
         validateWrite(validation -> validation.getMetadata().equals(metadata), "Unexpected metadata");
 
         // get column count from metadata
@@ -428,7 +428,7 @@ public class RcFileReader
         if (columnIndex >= columns.length) {
             Type type = readColumns.get(columnIndex);
             Block nullBlock = type.createBlockBuilder(null, 1, 0).appendNull().build();
-            return new RunLengthEncodedBlock(nullBlock, currentChunkRowCount);
+            return RunLengthEncodedBlock.create(nullBlock, currentChunkRowCount);
         }
 
         return columns[columnIndex].readBlock(rowGroupPosition, currentChunkRowCount);
@@ -523,7 +523,7 @@ public class RcFileReader
         try (RcFileReader rcFileReader = new RcFileReader(
                 input,
                 encoding,
-                readTypes.build(),
+                readTypes.buildOrThrow(),
                 codecFactory,
                 0,
                 input.getSize(),

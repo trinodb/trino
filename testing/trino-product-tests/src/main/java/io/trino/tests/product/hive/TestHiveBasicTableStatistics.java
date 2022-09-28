@@ -27,10 +27,9 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.tests.product.TestGroups.SKIP_ON_CDH;
-import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
-import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.hive.util.TableLocationUtils.getTableLocation;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -59,7 +58,7 @@ public class TestHiveBasicTableStatistics
         }
     }
 
-    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore automatically gathers raw data size statistics on its own */)
+    @Test
     public void testCreateExternalUnpartitioned()
     {
         String tableName = "test_basic_statistics_external_unpartitioned_presto";
@@ -158,7 +157,7 @@ public class TestHiveBasicTableStatistics
 
         try {
             BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
-            // Metastore can auto-gather table statistics. This is not relevant for Presto, since we do not use table-level statistics in case of a partitioned table.
+            // Metastore can auto-gather table statistics. This is not relevant for Trino, since we do not use table-level statistics in case of a partitioned table.
             if (tableStatistics.getNumRows().isEmpty()) {
                 assertThatStatisticsAreNotPresent(tableStatistics);
             }
@@ -176,7 +175,7 @@ public class TestHiveBasicTableStatistics
         }
     }
 
-    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore automatically gathers raw data size statistics on its own */)
+    @Test
     public void testAnalyzePartitioned()
     {
         String tableName = "test_basic_statistics_analyze_partitioned";
@@ -196,7 +195,7 @@ public class TestHiveBasicTableStatistics
 
         try {
             BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
-            // Metastore can auto-gather table statistics. This is not relevant for Presto, since we do not use table-level statistics in case of a partitioned table.
+            // Metastore can auto-gather table statistics. This is not relevant for Trino, since we do not use table-level statistics in case of a partitioned table.
             if (tableStatistics.getNumRows().isEmpty()) {
                 assertThatStatisticsAreNotPresent(tableStatistics);
             }
@@ -272,7 +271,7 @@ public class TestHiveBasicTableStatistics
 
         try {
             BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
-            // Metastore can auto-gather table statistics. This is not relevant for Presto, since we do not use table-level statistics in case of a partitioned table.
+            // Metastore can auto-gather table statistics. This is not relevant for Trino, since we do not use table-level statistics in case of a partitioned table.
             if (tableStatistics.getNumRows().isEmpty()) {
                 assertThatStatisticsAreNotPresent(tableStatistics);
             }
@@ -354,7 +353,7 @@ public class TestHiveBasicTableStatistics
 
         try {
             BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
-            // Metastore can auto-gather table statistics. This is not relevant for Presto, since we do not use table-level statistics in case of a partitioned table.
+            // Metastore can auto-gather table statistics. This is not relevant for Trino, since we do not use table-level statistics in case of a partitioned table.
             if (tableStatistics.getNumRows().isEmpty()) {
                 assertThatStatisticsAreNotPresent(tableStatistics);
             }

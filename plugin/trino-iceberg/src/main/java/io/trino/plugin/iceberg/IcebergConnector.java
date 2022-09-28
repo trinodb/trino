@@ -17,19 +17,19 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.HiveTransactionHandle;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorCapabilities;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.spi.transaction.IsolationLevel.SERIALIZABLE;
@@ -49,58 +50,51 @@ public class IcebergConnector
 {
     private final LifeCycleManager lifeCycleManager;
     private final IcebergTransactionManager transactionManager;
-    private final IcebergMetadataFactory metadataFactory;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final ConnectorPageSinkProvider pageSinkProvider;
     private final ConnectorNodePartitioningProvider nodePartitioningProvider;
-    private final Set<SystemTable> systemTables;
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> schemaProperties;
     private final List<PropertyMetadata<?>> tableProperties;
-    private final ConnectorAccessControl accessControl;
+    private final List<PropertyMetadata<?>> materializedViewProperties;
+    private final List<PropertyMetadata<?>> analyzeProperties;
+    private final Optional<ConnectorAccessControl> accessControl;
     private final Set<Procedure> procedures;
+    private final Set<TableProcedureMetadata> tableProcedures;
 
     public IcebergConnector(
             LifeCycleManager lifeCycleManager,
             IcebergTransactionManager transactionManager,
-            IcebergMetadataFactory metadataFactory,
             ConnectorSplitManager splitManager,
             ConnectorPageSourceProvider pageSourceProvider,
             ConnectorPageSinkProvider pageSinkProvider,
             ConnectorNodePartitioningProvider nodePartitioningProvider,
-            Set<SystemTable> systemTables,
-            List<PropertyMetadata<?>> sessionProperties,
+            Set<SessionPropertiesProvider> sessionPropertiesProviders,
             List<PropertyMetadata<?>> schemaProperties,
             List<PropertyMetadata<?>> tableProperties,
-            ConnectorAccessControl accessControl,
-            Set<Procedure> procedures)
+            List<PropertyMetadata<?>> materializedViewProperties,
+            List<PropertyMetadata<?>> analyzeProperties,
+            Optional<ConnectorAccessControl> accessControl,
+            Set<Procedure> procedures,
+            Set<TableProcedureMetadata> tableProcedures)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
-        this.systemTables = ImmutableSet.copyOf(requireNonNull(systemTables, "systemTables is null"));
-        this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
+        this.sessionProperties = sessionPropertiesProviders.stream()
+                .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
+                .collect(toImmutableList());
         this.schemaProperties = ImmutableList.copyOf(requireNonNull(schemaProperties, "schemaProperties is null"));
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
+        this.materializedViewProperties = ImmutableList.copyOf(requireNonNull(materializedViewProperties, "materializedViewProperties is null"));
+        this.analyzeProperties = ImmutableList.copyOf(requireNonNull(analyzeProperties, "analyzeProperties is null"));
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
-        this.procedures = requireNonNull(procedures, "procedures is null");
-    }
-
-    @Override
-    public Optional<ConnectorHandleResolver> getHandleResolver()
-    {
-        return Optional.of(new IcebergHandleResolver());
-    }
-
-    @Override
-    public boolean isSingleStatementWritesOnly()
-    {
-        return true;
+        this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
+        this.tableProcedures = ImmutableSet.copyOf(requireNonNull(tableProcedures, "tableProcedures is null"));
     }
 
     @Override
@@ -110,9 +104,9 @@ public class IcebergConnector
     }
 
     @Override
-    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
+    public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transaction)
     {
-        ConnectorMetadata metadata = transactionManager.get(transaction);
+        ConnectorMetadata metadata = transactionManager.get(transaction, session.getIdentity());
         return new ClassLoaderSafeConnectorMetadata(metadata, getClass().getClassLoader());
     }
 
@@ -141,15 +135,15 @@ public class IcebergConnector
     }
 
     @Override
-    public Set<SystemTable> getSystemTables()
-    {
-        return systemTables;
-    }
-
-    @Override
     public Set<Procedure> getProcedures()
     {
         return procedures;
+    }
+
+    @Override
+    public Set<TableProcedureMetadata> getTableProcedures()
+    {
+        return tableProcedures;
     }
 
     @Override
@@ -173,39 +167,40 @@ public class IcebergConnector
     @Override
     public List<PropertyMetadata<?>> getMaterializedViewProperties()
     {
-        return tableProperties;
+        return materializedViewProperties;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getAnalyzeProperties()
+    {
+        return analyzeProperties;
     }
 
     @Override
     public ConnectorAccessControl getAccessControl()
     {
-        return accessControl;
+        return accessControl.orElseThrow(UnsupportedOperationException::new);
     }
 
     @Override
-    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
         checkConnectorSupports(SERIALIZABLE, isolationLevel);
-        ConnectorTransactionHandle transaction = new HiveTransactionHandle();
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            transactionManager.put(transaction, metadataFactory.create());
-        }
+        ConnectorTransactionHandle transaction = new HiveTransactionHandle(autoCommit);
+        transactionManager.begin(transaction);
         return transaction;
     }
 
     @Override
     public void commit(ConnectorTransactionHandle transaction)
     {
-        transactionManager.remove(transaction);
+        transactionManager.commit(transaction);
     }
 
     @Override
     public void rollback(ConnectorTransactionHandle transaction)
     {
-        IcebergMetadata metadata = transactionManager.remove(transaction);
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            metadata.rollback();
-        }
+        transactionManager.rollback(transaction);
     }
 
     @Override

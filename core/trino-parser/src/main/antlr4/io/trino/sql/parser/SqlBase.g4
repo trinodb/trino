@@ -59,20 +59,28 @@ statement
     | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
     | INSERT INTO qualifiedName columnAliases? query                   #insertInto
     | DELETE FROM qualifiedName (WHERE booleanExpression)?             #delete
-    | ALTER TABLE (IF EXISTS)? from=qualifiedName RENAME TO to=qualifiedName        #renameTable
+    | TRUNCATE TABLE qualifiedName                                     #truncateTable
     | COMMENT ON TABLE qualifiedName IS (string | NULL)                #commentTable
+    | COMMENT ON VIEW qualifiedName IS (string | NULL)                 #commentView
     | COMMENT ON COLUMN qualifiedName IS (string | NULL)               #commentColumn
+    | ALTER TABLE (IF EXISTS)? from=qualifiedName
+        RENAME TO to=qualifiedName                                     #renameTable
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ADD COLUMN (IF NOT EXISTS)? column=columnDefinition            #addColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         RENAME COLUMN (IF EXISTS)? from=identifier TO to=identifier    #renameColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP COLUMN (IF EXISTS)? column=qualifiedName                  #dropColumn
-    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
-        ADD COLUMN (IF NOT EXISTS)? column=columnDefinition            #addColumn
     | ALTER TABLE tableName=qualifiedName SET AUTHORIZATION principal  #setTableAuthorization
+    | ALTER TABLE tableName=qualifiedName
+        SET PROPERTIES propertyAssignments                             #setTableProperties
+    | ALTER TABLE tableName=qualifiedName
+        EXECUTE procedureName=identifier
+        ('(' (callArgument (',' callArgument)*)? ')')?
+        (WHERE where=booleanExpression)?                               #tableExecute
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
-    | CREATE (OR REPLACE)?  MATERIALIZED VIEW
-        (IF NOT EXISTS)?
-        qualifiedName
+    | CREATE (OR REPLACE)? MATERIALIZED VIEW
+        (IF NOT EXISTS)? qualifiedName
         (COMMENT string)?
         (WITH properties)? AS query                                    #createMaterializedView
     | CREATE (OR REPLACE)? VIEW qualifiedName
@@ -80,38 +88,49 @@ statement
         (SECURITY (DEFINER | INVOKER))? AS query                       #createView
     | REFRESH MATERIALIZED VIEW qualifiedName                          #refreshMaterializedView
     | DROP MATERIALIZED VIEW (IF EXISTS)? qualifiedName                #dropMaterializedView
+    | ALTER MATERIALIZED VIEW (IF EXISTS)? from=qualifiedName
+        RENAME TO to=qualifiedName                                     #renameMaterializedView
+    | ALTER MATERIALIZED VIEW qualifiedName
+        SET PROPERTIES propertyAssignments                             #setMaterializedViewProperties
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | ALTER VIEW from=qualifiedName RENAME TO to=qualifiedName         #renameView
     | ALTER VIEW from=qualifiedName SET AUTHORIZATION principal        #setViewAuthorization
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
     | CREATE ROLE name=identifier
-        (WITH ADMIN grantor)?                                          #createRole
-    | DROP ROLE name=identifier                                        #dropRole
+        (WITH ADMIN grantor)?
+        (IN catalog=identifier)?                                       #createRole
+    | DROP ROLE name=identifier (IN catalog=identifier)?               #dropRole
     | GRANT
         roles
         TO principal (',' principal)*
         (WITH ADMIN OPTION)?
-        (GRANTED BY grantor)?                                          #grantRoles
+        (GRANTED BY grantor)?
+        (IN catalog=identifier)?                                       #grantRoles
     | REVOKE
         (ADMIN OPTION FOR)?
         roles
         FROM principal (',' principal)*
-        (GRANTED BY grantor)?                                          #revokeRoles
-    | SET ROLE (ALL | NONE | role=identifier)                          #setRole
+        (GRANTED BY grantor)?
+        (IN catalog=identifier)?                                       #revokeRoles
+    | SET ROLE (ALL | NONE | role=identifier)
+        (IN catalog=identifier)?                                       #setRole
     | GRANT
         (privilege (',' privilege)* | ALL PRIVILEGES)
         ON (SCHEMA | TABLE)? qualifiedName
         TO grantee=principal
         (WITH GRANT OPTION)?                                           #grant
+    | DENY
+        (privilege (',' privilege)* | ALL PRIVILEGES)
+        ON (SCHEMA | TABLE)? qualifiedName
+        TO grantee=principal                                           #deny
     | REVOKE
         (GRANT OPTION FOR)?
         (privilege (',' privilege)* | ALL PRIVILEGES)
         ON (SCHEMA | TABLE)? qualifiedName
         FROM grantee=principal                                         #revoke
-    | SHOW GRANTS
-        (ON TABLE? qualifiedName)?                                     #showGrants
-    | EXPLAIN ANALYZE? VERBOSE?
-        ('(' explainOption (',' explainOption)* ')')? statement        #explain
+    | SHOW GRANTS (ON TABLE? qualifiedName)?                           #showGrants
+    | EXPLAIN ('(' explainOption (',' explainOption)* ')')? statement  #explain
+    | EXPLAIN ANALYZE VERBOSE? statement                               #explainAnalyze
     | SHOW CREATE TABLE qualifiedName                                  #showCreateTable
     | SHOW CREATE SCHEMA qualifiedName                                 #showCreateSchema
     | SHOW CREATE VIEW qualifiedName                                   #showCreateView
@@ -175,19 +194,30 @@ likeClause
     ;
 
 properties
-    : '(' property (',' property)* ')'
+    : '(' propertyAssignments ')'
+    ;
+
+propertyAssignments
+    : property (',' property)*
     ;
 
 property
-    : identifier EQ expression
+    : identifier EQ propertyValue
     ;
 
-queryNoWith:
-      queryTerm
+propertyValue
+    : DEFAULT       #defaultPropertyValue
+    | expression    #nonDefaultPropertyValue
+    ;
+
+queryNoWith
+    : queryTerm
       (ORDER BY sortItem (',' sortItem)*)?
       (OFFSET offset=rowCount (ROW | ROWS)?)?
-      ((LIMIT limit=limitRowCount) | (FETCH (FIRST | NEXT) (fetchFirst=rowCount)? (ROW | ROWS) (ONLY | WITH TIES)))?
-      ;
+      ( (LIMIT limit=limitRowCount)
+      | (FETCH (FIRST | NEXT) (fetchFirst=rowCount)? (ROW | ROWS) (ONLY | WITH TIES))
+      )?
+    ;
 
 limitRowCount
     : ALL
@@ -209,7 +239,7 @@ queryPrimary
     : querySpecification                   #queryPrimaryDefault
     | TABLE qualifiedName                  #table
     | VALUES expression (',' expression)*  #inlineTable
-    | '(' queryNoWith  ')'                 #subquery
+    | '(' queryNoWith ')'                  #subquery
     ;
 
 sortItem
@@ -272,8 +302,8 @@ relation
       ( CROSS JOIN right=sampledRelation
       | joinType JOIN rightRelation=relation joinCriteria
       | NATURAL joinType JOIN right=sampledRelation
-      )                                           #joinRelation
-    | sampledRelation                             #relationDefault
+      )                                                     #joinRelation
+    | sampledRelation                                       #relationDefault
     ;
 
 joinType
@@ -299,20 +329,37 @@ sampleType
     | SYSTEM
     ;
 
+trimsSpecification
+    : LEADING
+    | TRAILING
+    | BOTH
+    ;
+
+listAggOverflowBehavior
+    : ERROR
+    | TRUNCATE string? listaggCountIndication
+    ;
+
+listaggCountIndication
+    : WITH COUNT
+    | WITHOUT COUNT
+    ;
+
 patternRecognition
     : aliasedRelation (
         MATCH_RECOGNIZE '('
-                (PARTITION BY partition+=expression (',' partition+=expression)*)?
-                (ORDER BY sortItem (',' sortItem)*)?
-                (MEASURES measureDefinition (',' measureDefinition)*)?
-                rowsPerMatch?
-                (AFTER MATCH skipTo)?
-                (INITIAL | SEEK)?
-                PATTERN '(' rowPattern ')'
-                (SUBSET subsetDefinition (',' subsetDefinition)*)?
-                DEFINE variableDefinition (',' variableDefinition)*
-            ')'
-        (AS? identifier columnAliases?)?)?
+          (PARTITION BY partition+=expression (',' partition+=expression)*)?
+          (ORDER BY sortItem (',' sortItem)*)?
+          (MEASURES measureDefinition (',' measureDefinition)*)?
+          rowsPerMatch?
+          (AFTER MATCH skipTo)?
+          (INITIAL | SEEK)?
+          PATTERN '(' rowPattern ')'
+          (SUBSET subsetDefinition (',' subsetDefinition)*)?
+          DEFINE variableDefinition (',' variableDefinition)*
+        ')'
+        (AS? identifier columnAliases?)?
+      )?
     ;
 
 measureDefinition
@@ -355,11 +402,46 @@ columnAliases
     ;
 
 relationPrimary
-    : qualifiedName                                                   #tableName
+    : qualifiedName queryPeriod?                                      #tableName
     | '(' query ')'                                                   #subqueryRelation
     | UNNEST '(' expression (',' expression)* ')' (WITH ORDINALITY)?  #unnest
     | LATERAL '(' query ')'                                           #lateral
+    | TABLE '(' tableFunctionCall ')'                                 #tableFunctionInvocation
     | '(' relation ')'                                                #parenthesizedRelation
+    ;
+
+tableFunctionCall
+    : qualifiedName '(' (tableFunctionArgument (',' tableFunctionArgument)*)?
+      (COPARTITION copartitionTables (',' copartitionTables)*)? ')'
+    ;
+
+tableFunctionArgument
+    : (identifier '=>')? (tableArgument | descriptorArgument | expression) // descriptor before expression to avoid parsing descriptor as a function call
+    ;
+
+tableArgument
+    : tableArgumentRelation
+        (PARTITION BY ('(' (expression (',' expression)*)? ')' | expression))?
+        (PRUNE WHEN EMPTY | KEEP WHEN EMPTY)?
+        (ORDER BY ('(' sortItem (',' sortItem)* ')' | sortItem))?
+    ;
+
+tableArgumentRelation
+    : TABLE '(' qualifiedName ')' (AS? identifier columnAliases?)?  #tableArgumentTable
+    | TABLE '(' query ')' (AS? identifier columnAliases?)?          #tableArgumentQuery
+    ;
+
+descriptorArgument
+    : DESCRIPTOR '(' descriptorField (',' descriptorField)* ')'
+    | CAST '(' NULL AS DESCRIPTOR ')'
+    ;
+
+descriptorField
+    : identifier type?
+    ;
+
+copartitionTables
+    : '(' qualifiedName ',' qualifiedName (',' qualifiedName)* ')'
     ;
 
 expression
@@ -367,10 +449,10 @@ expression
     ;
 
 booleanExpression
-    : valueExpression predicate[$valueExpression.ctx]?             #predicated
-    | NOT booleanExpression                                        #logicalNot
-    | left=booleanExpression operator=AND right=booleanExpression  #logicalBinary
-    | left=booleanExpression operator=OR right=booleanExpression   #logicalBinary
+    : valueExpression predicate[$valueExpression.ctx]?  #predicated
+    | NOT booleanExpression                             #logicalNot
+    | booleanExpression AND booleanExpression           #and
+    | booleanExpression OR booleanExpression            #or
     ;
 
 // workaround for https://github.com/antlr/antlr4/issues/780
@@ -407,9 +489,14 @@ primaryExpression
     | POSITION '(' valueExpression IN valueExpression ')'                                 #position
     | '(' expression (',' expression)+ ')'                                                #rowConstructor
     | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
-    | qualifiedName '(' ASTERISK ')' filter? over?                                        #functionCall
+    | name=LISTAGG '(' setQuantifier? expression (',' string)?
+        (ON OVERFLOW listAggOverflowBehavior)? ')'
+        (WITHIN GROUP '(' ORDER BY sortItem (',' sortItem)* ')')                          #listagg
+    | processingMode? qualifiedName '(' (label=identifier '.')? ASTERISK ')'
+        filter? over?                                                                     #functionCall
     | processingMode? qualifiedName '(' (setQuantifier? expression (',' expression)*)?
         (ORDER BY sortItem (',' sortItem)*)? ')' filter? (nullTreatment? over)?           #functionCall
+    | identifier over                                                                     #measure
     | identifier '->' expression                                                          #lambda
     | '(' (identifier (',' identifier)*)? ')' '->' expression                             #lambda
     | '(' query ')'                                                                       #subqueryExpression
@@ -432,11 +519,91 @@ primaryExpression
     | name=CURRENT_CATALOG                                                                #currentCatalog
     | name=CURRENT_SCHEMA                                                                 #currentSchema
     | name=CURRENT_PATH                                                                   #currentPath
+    | TRIM '(' (trimsSpecification? trimChar=valueExpression? FROM)?
+        trimSource=valueExpression ')'                                                    #trim
+    | TRIM '(' trimSource=valueExpression ',' trimChar=valueExpression ')'                #trim
     | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'       #substring
     | NORMALIZE '(' valueExpression (',' normalForm)? ')'                                 #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
     | '(' expression ')'                                                                  #parenthesizedExpression
     | GROUPING '(' (qualifiedName (',' qualifiedName)*)? ')'                              #groupingOperation
+    | JSON_EXISTS '(' jsonPathInvocation (jsonExistsErrorBehavior ON ERROR)? ')'          #jsonExists
+    | JSON_VALUE '('
+        jsonPathInvocation
+        (RETURNING type)?
+        (emptyBehavior=jsonValueBehavior ON EMPTY)?
+        (errorBehavior=jsonValueBehavior ON ERROR)?
+      ')'                                                                                 #jsonValue
+    | JSON_QUERY '('
+        jsonPathInvocation
+        (RETURNING type (FORMAT jsonRepresentation)?)?
+        (jsonQueryWrapperBehavior WRAPPER)?
+        ((KEEP | OMIT) QUOTES (ON SCALAR TEXT_STRING)?)?
+        (emptyBehavior=jsonQueryBehavior ON EMPTY)?
+        (errorBehavior=jsonQueryBehavior ON ERROR)?
+      ')'                                                                                 #jsonQuery
+    | JSON_OBJECT '('
+        (
+          jsonObjectMember (',' jsonObjectMember)*
+          (NULL ON NULL | ABSENT ON NULL)?
+          (WITH UNIQUE KEYS? | WITHOUT UNIQUE KEYS?)?
+        )?
+        (RETURNING type (FORMAT jsonRepresentation)?)?
+      ')'                                                                                 #jsonObject
+    | JSON_ARRAY '('
+        (
+          jsonValueExpression (',' jsonValueExpression)*
+          (NULL ON NULL | ABSENT ON NULL)?
+        )?
+        (RETURNING type (FORMAT jsonRepresentation)?)?
+     ')'                                                                                  #jsonArray
+    ;
+
+jsonPathInvocation
+    : jsonValueExpression ',' path=string
+        (PASSING jsonArgument (',' jsonArgument)*)?
+    ;
+
+jsonValueExpression
+    : expression (FORMAT jsonRepresentation)?
+    ;
+
+jsonRepresentation
+    : JSON (ENCODING (UTF8 | UTF16 | UTF32))? // TODO add implementation-defined JSON representation option
+    ;
+
+jsonArgument
+    : jsonValueExpression AS identifier
+    ;
+
+jsonExistsErrorBehavior
+    : TRUE
+    | FALSE
+    | UNKNOWN
+    | ERROR
+    ;
+
+jsonValueBehavior
+    : ERROR
+    | NULL
+    | DEFAULT expression
+    ;
+
+jsonQueryWrapperBehavior
+    : WITHOUT ARRAY?
+    | WITH (CONDITIONAL | UNCONDITIONAL)? ARRAY?
+    ;
+
+jsonQueryBehavior
+    : ERROR
+    | NULL
+    | EMPTY ARRAY
+    | EMPTY OBJECT
+    ;
+
+jsonObjectMember
+    : KEY? expression VALUE jsonValueExpression
+    | expression ':' jsonValueExpression
     ;
 
 processingMode
@@ -528,6 +695,16 @@ over
     ;
 
 windowFrame
+    : (MEASURES measureDefinition (',' measureDefinition)*)?
+      frameExtent
+      (AFTER MATCH skipTo)?
+      (INITIAL | SEEK)?
+      (PATTERN '(' rowPattern ')')?
+      (SUBSET subsetDefinition (',' subsetDefinition)*)?
+      (DEFINE variableDefinition (',' variableDefinition)*)?
+    ;
+
+frameExtent
     : frameType=RANGE start=frameBound
     | frameType=ROWS start=frameBound
     | frameType=GROUPS start=frameBound
@@ -603,11 +780,20 @@ pathSpecification
     ;
 
 privilege
-    : SELECT | DELETE | INSERT
+    : CREATE | SELECT | DELETE | INSERT | UPDATE
     ;
 
 qualifiedName
     : identifier ('.' identifier)*
+    ;
+
+queryPeriod
+    : FOR rangeType AS OF end=valueExpression
+    ;
+
+rangeType
+    : TIMESTAMP
+    | VERSION
     ;
 
 grantor
@@ -642,32 +828,35 @@ number
 
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
-    : ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
-    | BERNOULLI
-    | CALL | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CURRENT
-    | DATA | DATE | DAY | DEFINE | DEFINER | DESC | DISTRIBUTED | DOUBLE
-    | EMPTY | EXCLUDING | EXPLAIN
+    : ABSENT | ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
+    | BERNOULLI | BOTH
+    | CALL | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | COUNT | CURRENT
+    | DATA | DATE | DAY | DEFAULT | DEFINE | DEFINER | DENY | DESC | DESCRIPTOR | DISTRIBUTED | DOUBLE
+    | EMPTY | ENCODING | ERROR | EXCLUDING | EXPLAIN
     | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FUNCTIONS
     | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
     | IF | IGNORE | INCLUDING | INITIAL | INPUT | INTERVAL | INVOKER | IO | ISOLATION
     | JSON
-    | LAST | LATERAL | LEVEL | LIMIT | LOCAL | LOGICAL
+    | KEEP | KEY | KEYS
+    | LAST | LATERAL | LEADING | LEVEL | LIMIT | LOCAL | LOGICAL
     | MAP | MATCH | MATCHED | MATCHES | MATCH_RECOGNIZE | MATERIALIZED | MEASURES | MERGE | MINUTE | MONTH
     | NEXT | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
-    | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OUTPUT | OVER
-    | PARTITION | PARTITIONS | PAST | PATH | PATTERN | PER | PERMUTE | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES
-    | RANGE | READ | REFRESH | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS | RUNNING
-    | SCHEMA | SCHEMAS | SECOND | SECURITY | SEEK | SERIALIZABLE | SESSION | SET | SETS
+    | OBJECT | OF | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OUTPUT | OVER | OVERFLOW
+    | PARTITION | PARTITIONS | PASSING | PAST | PATH | PATTERN | PER | PERMUTE | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES | PRUNE
+    | QUOTES
+    | RANGE | READ | REFRESH | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURNING | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS | RUNNING
+    | SCALAR | SCHEMA | SCHEMAS | SECOND | SECURITY | SEEK | SERIALIZABLE | SESSION | SET | SETS
     | SHOW | SOME | START | STATS | SUBSET | SUBSTRING | SYSTEM
-    | TABLES | TABLESAMPLE | TEXT | TIES | TIME | TIMESTAMP | TO | TRANSACTION | TRY_CAST | TYPE
-    | UNBOUNDED | UNCOMMITTED | UNMATCHED | UPDATE | USE | USER
-    | VALIDATE | VERBOSE | VIEW
-    | WINDOW | WITHOUT | WORK | WRITE
+    | TABLES | TABLESAMPLE | TEXT | TEXT_STRING | TIES | TIME | TIMESTAMP | TO | TRAILING | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
+    | UNBOUNDED | UNCOMMITTED | UNCONDITIONAL | UNIQUE | UNKNOWN | UNMATCHED | UPDATE | USE | USER | UTF16 | UTF32 | UTF8
+    | VALIDATE | VALUE | VERBOSE | VERSION | VIEW
+    | WINDOW | WITHIN | WITHOUT | WORK | WRAPPER | WRITE
     | YEAR
     | ZONE
     ;
 
+ABSENT: 'ABSENT';
 ADD: 'ADD';
 ADMIN: 'ADMIN';
 AFTER: 'AFTER';
@@ -683,6 +872,7 @@ AT: 'AT';
 AUTHORIZATION: 'AUTHORIZATION';
 BERNOULLI: 'BERNOULLI';
 BETWEEN: 'BETWEEN';
+BOTH: 'BOTH';
 BY: 'BY';
 CALL: 'CALL';
 CASCADE: 'CASCADE';
@@ -694,7 +884,10 @@ COLUMNS: 'COLUMNS';
 COMMENT: 'COMMENT';
 COMMIT: 'COMMIT';
 COMMITTED: 'COMMITTED';
+CONDITIONAL: 'CONDITIONAL';
 CONSTRAINT: 'CONSTRAINT';
+COUNT: 'COUNT';
+COPARTITION: 'COPARTITION';
 CREATE: 'CREATE';
 CROSS: 'CROSS';
 CUBE: 'CUBE';
@@ -711,18 +904,23 @@ DATA: 'DATA';
 DATE: 'DATE';
 DAY: 'DAY';
 DEALLOCATE: 'DEALLOCATE';
+DEFAULT: 'DEFAULT';
+DEFINE: 'DEFINE';
 DEFINER: 'DEFINER';
 DELETE: 'DELETE';
+DENY: 'DENY';
 DESC: 'DESC';
 DESCRIBE: 'DESCRIBE';
-DEFINE: 'DEFINE';
+DESCRIPTOR: 'DESCRIPTOR';
 DISTINCT: 'DISTINCT';
 DISTRIBUTED: 'DISTRIBUTED';
 DOUBLE: 'DOUBLE';
 DROP: 'DROP';
 ELSE: 'ELSE';
 EMPTY: 'EMPTY';
+ENCODING: 'ENCODING';
 END: 'END';
+ERROR: 'ERROR';
 ESCAPE: 'ESCAPE';
 EXCEPT: 'EXCEPT';
 EXCLUDING: 'EXCLUDING';
@@ -767,12 +965,22 @@ IS: 'IS';
 ISOLATION: 'ISOLATION';
 JOIN: 'JOIN';
 JSON: 'JSON';
+JSON_ARRAY: 'JSON_ARRAY';
+JSON_EXISTS: 'JSON_EXISTS';
+JSON_OBJECT: 'JSON_OBJECT';
+JSON_QUERY: 'JSON_QUERY';
+JSON_VALUE: 'JSON_VALUE';
+KEEP: 'KEEP';
+KEY: 'KEY';
+KEYS: 'KEYS';
 LAST: 'LAST';
 LATERAL: 'LATERAL';
+LEADING: 'LEADING';
 LEFT: 'LEFT';
 LEVEL: 'LEVEL';
 LIKE: 'LIKE';
 LIMIT: 'LIMIT';
+LISTAGG: 'LISTAGG';
 LOCAL: 'LOCAL';
 LOCALTIME: 'LOCALTIME';
 LOCALTIMESTAMP: 'LOCALTIMESTAMP';
@@ -800,6 +1008,8 @@ NOT: 'NOT';
 NULL: 'NULL';
 NULLIF: 'NULLIF';
 NULLS: 'NULLS';
+OBJECT: 'OBJECT';
+OF: 'OF';
 OFFSET: 'OFFSET';
 OMIT: 'OMIT';
 ON: 'ON';
@@ -812,8 +1022,10 @@ ORDINALITY: 'ORDINALITY';
 OUTER: 'OUTER';
 OUTPUT: 'OUTPUT';
 OVER: 'OVER';
+OVERFLOW: 'OVERFLOW';
 PARTITION: 'PARTITION';
 PARTITIONS: 'PARTITIONS';
+PASSING: 'PASSING';
 PAST: 'PAST';
 PATH: 'PATH';
 PATTERN: 'PATTERN';
@@ -825,6 +1037,8 @@ PRECISION: 'PRECISION';
 PREPARE: 'PREPARE';
 PRIVILEGES: 'PRIVILEGES';
 PROPERTIES: 'PROPERTIES';
+PRUNE: 'PRUNE';
+QUOTES: 'QUOTES';
 RANGE: 'RANGE';
 READ: 'READ';
 RECURSIVE: 'RECURSIVE';
@@ -835,6 +1049,7 @@ REPLACE: 'REPLACE';
 RESET: 'RESET';
 RESPECT: 'RESPECT';
 RESTRICT: 'RESTRICT';
+RETURNING: 'RETURNING';
 REVOKE: 'REVOKE';
 RIGHT: 'RIGHT';
 ROLE: 'ROLE';
@@ -844,6 +1059,7 @@ ROLLUP: 'ROLLUP';
 ROW: 'ROW';
 ROWS: 'ROWS';
 RUNNING: 'RUNNING';
+SCALAR: 'SCALAR';
 SCHEMA: 'SCHEMA';
 SCHEMAS: 'SCHEMAS';
 SECOND: 'SECOND';
@@ -865,45 +1081,59 @@ TABLE: 'TABLE';
 TABLES: 'TABLES';
 TABLESAMPLE: 'TABLESAMPLE';
 TEXT: 'TEXT';
+TEXT_STRING: 'STRING';
 THEN: 'THEN';
 TIES: 'TIES';
 TIME: 'TIME';
 TIMESTAMP: 'TIMESTAMP';
 TO: 'TO';
+TRAILING: 'TRAILING';
 TRANSACTION: 'TRANSACTION';
+TRIM: 'TRIM';
 TRUE: 'TRUE';
+TRUNCATE: 'TRUNCATE';
 TRY_CAST: 'TRY_CAST';
 TYPE: 'TYPE';
 UESCAPE: 'UESCAPE';
 UNBOUNDED: 'UNBOUNDED';
 UNCOMMITTED: 'UNCOMMITTED';
+UNCONDITIONAL: 'UNCONDITIONAL';
 UNION: 'UNION';
+UNIQUE: 'UNIQUE';
+UNKNOWN: 'UNKNOWN';
 UNMATCHED: 'UNMATCHED';
 UNNEST: 'UNNEST';
 UPDATE: 'UPDATE';
 USE: 'USE';
 USER: 'USER';
 USING: 'USING';
+UTF16: 'UTF16';
+UTF32: 'UTF32';
+UTF8: 'UTF8';
 VALIDATE: 'VALIDATE';
+VALUE: 'VALUE';
 VALUES: 'VALUES';
 VERBOSE: 'VERBOSE';
+VERSION: 'VERSION';
 VIEW: 'VIEW';
 WHEN: 'WHEN';
 WHERE: 'WHERE';
 WINDOW: 'WINDOW';
 WITH: 'WITH';
+WITHIN: 'WITHIN';
 WITHOUT: 'WITHOUT';
 WORK: 'WORK';
+WRAPPER: 'WRAPPER';
 WRITE: 'WRITE';
 YEAR: 'YEAR';
 ZONE: 'ZONE';
 
-EQ  : '=';
-NEQ : '<>' | '!=';
-LT  : '<';
-LTE : '<=';
-GT  : '>';
-GTE : '>=';
+EQ: '=';
+NEQ: '<>' | '!=';
+LT: '<';
+LTE: '<=';
+GT: '>';
+GTE: '>=';
 
 PLUS: '+';
 MINUS: '-';
@@ -911,7 +1141,7 @@ ASTERISK: '*';
 SLASH: '/';
 PERCENT: '%';
 CONCAT: '||';
-QUESTION_MARK : '?';
+QUESTION_MARK: '?';
 
 STRING
     : '\'' ( ~'\'' | '\'\'' )* '\''
@@ -925,7 +1155,7 @@ UNICODE_STRING
 // its a correct literal when the AST is being constructed. This
 // allows us to provide more meaningful error messages to the user
 BINARY_LITERAL
-    :  'X\'' (~'\'')* '\''
+    : 'X\'' (~'\'')* '\''
     ;
 
 INTEGER_VALUE

@@ -15,7 +15,6 @@ package io.trino.plugin.phoenix5;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -28,6 +27,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -47,7 +47,7 @@ public final class PhoenixQueryRunner
     {
     }
 
-    public static DistributedQueryRunner createPhoenixQueryRunner(TestingPhoenixServer server, Map<String, String> extraProperties)
+    public static DistributedQueryRunner createPhoenixQueryRunner(TestingPhoenixServer server, Map<String, String> extraProperties, List<TpchTable<?>> tables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
@@ -60,19 +60,13 @@ public final class PhoenixQueryRunner
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("phoenix.connection-url", server.getJdbcUrl())
                 .put("case-insensitive-name-matching", "true")
-                .build();
+                .buildOrThrow();
 
         queryRunner.installPlugin(new PhoenixPlugin());
         queryRunner.createCatalog("phoenix", "phoenix5", properties);
 
-        if (!server.isTpchLoaded()) {
-            createSchema(server, TPCH_SCHEMA);
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), TpchTable.getTables());
-            server.setTpchLoaded();
-        }
-        else {
-            server.waitTpchLoaded();
-        }
+        createSchema(server, TPCH_SCHEMA);
+        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
 
         return queryRunner;
     }
@@ -84,7 +78,7 @@ public final class PhoenixQueryRunner
         properties.setProperty("phoenix.schema.isNamespaceMappingEnabled", "true");
         try (Connection connection = DriverManager.getConnection(phoenixServer.getJdbcUrl(), properties);
                 Statement statement = connection.createStatement()) {
-            statement.execute(format("CREATE SCHEMA %s", schema));
+            statement.execute(format("CREATE SCHEMA IF NOT EXISTS %s", schema));
         }
     }
 
@@ -121,7 +115,7 @@ public final class PhoenixQueryRunner
             tableProperties = "WITH (ROWKEYS = 'PARTKEY,SUPPKEY')";
         }
         @Language("SQL")
-        String sql = format("CREATE TABLE %s %s AS SELECT * FROM %s", target, tableProperties, source);
+        String sql = format("CREATE TABLE IF NOT EXISTS %s %s AS SELECT * FROM %s", target, tableProperties, source);
 
         LOG.debug("Running import for %s %s", target, sql);
         long rows = queryRunner.execute(session, sql).getUpdateCount().getAsLong();
@@ -139,11 +133,10 @@ public final class PhoenixQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
-
         DistributedQueryRunner queryRunner = createPhoenixQueryRunner(
                 TestingPhoenixServer.getInstance(),
-                ImmutableMap.of("http-server.http.port", "8080"));
+                ImmutableMap.of("http-server.http.port", "8080"),
+                TpchTable.getTables());
 
         Logger log = Logger.get(PhoenixQueryRunner.class);
         log.info("======== SERVER STARTED ========");

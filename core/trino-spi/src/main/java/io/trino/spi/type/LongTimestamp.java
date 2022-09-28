@@ -13,6 +13,8 @@
  */
 package io.trino.spi.type;
 
+import org.openjdk.jol.info.ClassLayout;
+
 import java.util.Objects;
 
 import static io.trino.spi.type.Timestamps.formatTimestamp;
@@ -20,6 +22,8 @@ import static io.trino.spi.type.Timestamps.formatTimestamp;
 public final class LongTimestamp
         implements Comparable<LongTimestamp>
 {
+    public static final int INSTANCE_SIZE = ClassLayout.parseClass(LongTimestamp.class).instanceSize();
+
     private static final int PICOSECONDS_PER_MICROSECOND = 1_000_000;
 
     private final long epochMicros;

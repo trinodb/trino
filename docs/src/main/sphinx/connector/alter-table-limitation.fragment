@@ -1,0 +1,16 @@
+ALTER TABLE
+^^^^^^^^^^^
+
+The connector does not support renaming tables across multiple schemas. For
+example, the following statement is supported:
+
+.. code-block:: sql
+
+    ALTER TABLE catalog.schema_one.table_one RENAME TO catalog.schema_one.table_two
+
+The following statement attempts to rename a table across schemas, and therefore
+is not supported:
+
+.. code-block:: sql
+
+    ALTER TABLE catalog.schema_one.table_one RENAME TO catalog.schema_two.table_two

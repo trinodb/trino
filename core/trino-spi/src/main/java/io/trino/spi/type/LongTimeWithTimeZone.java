@@ -13,6 +13,8 @@
  */
 package io.trino.spi.type;
 
+import org.openjdk.jol.info.ClassLayout;
+
 import java.util.Objects;
 
 import static io.trino.spi.type.TimeWithTimeZoneTypes.normalize;
@@ -20,6 +22,8 @@ import static io.trino.spi.type.TimeWithTimeZoneTypes.normalize;
 public final class LongTimeWithTimeZone
         implements Comparable<LongTimeWithTimeZone>
 {
+    public static final int INSTANCE_SIZE = ClassLayout.parseClass(LongTimeWithTimeZone.class).instanceSize();
+
     private final long picoseconds;
     private final int offsetMinutes;
 

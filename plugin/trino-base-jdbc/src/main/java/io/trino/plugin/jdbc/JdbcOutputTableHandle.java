@@ -39,7 +39,7 @@ public class JdbcOutputTableHandle
     private final List<String> columnNames;
     private final List<Type> columnTypes;
     private final Optional<List<JdbcTypeHandle>> jdbcColumnTypes;
-    private final String temporaryTableName;
+    private final Optional<String> temporaryTableName;
 
     @JsonCreator
     public JdbcOutputTableHandle(
@@ -49,7 +49,7 @@ public class JdbcOutputTableHandle
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("columnTypes") List<Type> columnTypes,
             @JsonProperty("jdbcColumnTypes") Optional<List<JdbcTypeHandle>> jdbcColumnTypes,
-            @JsonProperty("temporaryTableName") String temporaryTableName)
+            @JsonProperty("temporaryTableName") Optional<String> temporaryTableName)
     {
         this.catalogName = catalogName;
         this.schemaName = schemaName;
@@ -61,7 +61,6 @@ public class JdbcOutputTableHandle
         checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes sizes don't match");
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.columnTypes = ImmutableList.copyOf(columnTypes);
-        requireNonNull(jdbcColumnTypes, "jdbcColumnTypes is null");
         jdbcColumnTypes.ifPresent(jdbcTypeHandles -> checkArgument(jdbcTypeHandles.size() == columnNames.size(), "columnNames and jdbcColumnTypes sizes don't match"));
         this.jdbcColumnTypes = jdbcColumnTypes.map(ImmutableList::copyOf);
     }
@@ -105,7 +104,7 @@ public class JdbcOutputTableHandle
     }
 
     @JsonProperty
-    public String getTemporaryTableName()
+    public Optional<String> getTemporaryTableName()
     {
         return temporaryTableName;
     }

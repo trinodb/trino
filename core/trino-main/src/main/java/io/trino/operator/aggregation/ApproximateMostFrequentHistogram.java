@@ -145,10 +145,10 @@ public class ApproximateMostFrequentHistogram<K>
     @VisibleForTesting
     public Map<K, Long> getBuckets()
     {
-        ImmutableMap.Builder<K, Long> buckets = new ImmutableMap.Builder<>();
+        ImmutableMap.Builder<K, Long> buckets = ImmutableMap.builder();
         forEachBucket(buckets::put);
 
-        return buckets.build();
+        return buckets.buildOrThrow();
     }
 
     public long estimatedInMemorySize()

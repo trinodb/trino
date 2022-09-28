@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.pinot;
 
-import io.trino.plugin.pinot.query.PinotQuery;
+import io.trino.plugin.pinot.query.PinotQueryInfo;
 
 import java.util.Optional;
 
@@ -23,12 +23,12 @@ import static java.lang.String.format;
 public class PinotInsufficientServerResponseException
         extends PinotException
 {
-    public PinotInsufficientServerResponseException(PinotQuery query, int numberOfServersResponded, int numberOfServersQueried)
+    public PinotInsufficientServerResponseException(PinotQueryInfo query, int numberOfServersResponded, int numberOfServersQueried)
     {
         this(query, format("Only %s out of %s servers responded for query %s", numberOfServersResponded, numberOfServersQueried, query.getQuery()));
     }
 
-    public PinotInsufficientServerResponseException(PinotQuery query, String message)
+    public PinotInsufficientServerResponseException(PinotQueryInfo query, String message)
     {
         super(PINOT_INSUFFICIENT_SERVER_RESPONSE, Optional.of(query.getQuery()), message, true);
     }

@@ -27,7 +27,6 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -47,14 +46,15 @@ public class PipelineStats
     private final int totalDrivers;
     private final int queuedDrivers;
     private final int queuedPartitionedDrivers;
+    private final long queuedPartitionedSplitsWeight;
     private final int runningDrivers;
     private final int runningPartitionedDrivers;
+    private final long runningPartitionedSplitsWeight;
     private final int blockedDrivers;
     private final int completedDrivers;
 
     private final DataSize userMemoryReservation;
     private final DataSize revocableMemoryReservation;
-    private final DataSize systemMemoryReservation;
 
     private final DistributionSnapshot queuedTime;
     private final DistributionSnapshot elapsedTime;
@@ -78,8 +78,12 @@ public class PipelineStats
     private final DataSize processedInputDataSize;
     private final long processedInputPositions;
 
+    private final Duration inputBlockedTime;
+
     private final DataSize outputDataSize;
     private final long outputPositions;
+
+    private final Duration outputBlockedTime;
 
     private final DataSize physicalWrittenDataSize;
 
@@ -100,14 +104,15 @@ public class PipelineStats
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
             @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
+            @JsonProperty("queuedPartitionedSplitsWeight") long queuedPartitionedSplitsWeight,
             @JsonProperty("runningDrivers") int runningDrivers,
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
+            @JsonProperty("runningPartitionedSplitsWeight") long runningPartitionedSplitsWeight,
             @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
-            @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
 
             @JsonProperty("queuedTime") DistributionSnapshot queuedTime,
             @JsonProperty("elapsedTime") DistributionSnapshot elapsedTime,
@@ -131,8 +136,12 @@ public class PipelineStats
             @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
             @JsonProperty("processedInputPositions") long processedInputPositions,
 
+            @JsonProperty("inputBlockedTime") Duration inputBlockedTime,
+
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
+
+            @JsonProperty("outputBlockedTime") Duration outputBlockedTime,
 
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
 
@@ -154,10 +163,14 @@ public class PipelineStats
         this.queuedDrivers = queuedDrivers;
         checkArgument(queuedPartitionedDrivers >= 0, "queuedPartitionedDrivers is negative");
         this.queuedPartitionedDrivers = queuedPartitionedDrivers;
+        checkArgument(queuedPartitionedSplitsWeight >= 0, "queuedPartitionedSplitsWeight must be positive");
+        this.queuedPartitionedSplitsWeight = queuedPartitionedSplitsWeight;
         checkArgument(runningDrivers >= 0, "runningDrivers is negative");
         this.runningDrivers = runningDrivers;
         checkArgument(runningPartitionedDrivers >= 0, "runningPartitionedDrivers is negative");
         this.runningPartitionedDrivers = runningPartitionedDrivers;
+        checkArgument(runningPartitionedSplitsWeight >= 0, "runningPartitionedSplitsWeight must be positive");
+        this.runningPartitionedSplitsWeight = runningPartitionedSplitsWeight;
         checkArgument(blockedDrivers >= 0, "blockedDrivers is negative");
         this.blockedDrivers = blockedDrivers;
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
@@ -165,7 +178,6 @@ public class PipelineStats
 
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
-        this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
 
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
@@ -193,9 +205,13 @@ public class PipelineStats
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
         this.processedInputPositions = processedInputPositions;
 
+        this.inputBlockedTime = requireNonNull(inputBlockedTime, "inputBlockedTime is null");
+
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+
+        this.outputBlockedTime = requireNonNull(outputBlockedTime, "outputBlockedTime is null");
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
 
@@ -261,6 +277,12 @@ public class PipelineStats
     }
 
     @JsonProperty
+    public long getQueuedPartitionedSplitsWeight()
+    {
+        return queuedPartitionedSplitsWeight;
+    }
+
+    @JsonProperty
     public int getRunningDrivers()
     {
         return runningDrivers;
@@ -270,6 +292,12 @@ public class PipelineStats
     public int getRunningPartitionedDrivers()
     {
         return runningPartitionedDrivers;
+    }
+
+    @JsonProperty
+    public long getRunningPartitionedSplitsWeight()
+    {
+        return runningPartitionedSplitsWeight;
     }
 
     @JsonProperty
@@ -294,12 +322,6 @@ public class PipelineStats
     public DataSize getRevocableMemoryReservation()
     {
         return revocableMemoryReservation;
-    }
-
-    @JsonProperty
-    public DataSize getSystemMemoryReservation()
-    {
-        return systemMemoryReservation;
     }
 
     @JsonProperty
@@ -393,6 +415,12 @@ public class PipelineStats
     }
 
     @JsonProperty
+    public Duration getInputBlockedTime()
+    {
+        return inputBlockedTime;
+    }
+
+    @JsonProperty
     public Duration getPhysicalInputReadTime()
     {
         return physicalInputReadTime;
@@ -408,6 +436,12 @@ public class PipelineStats
     public long getOutputPositions()
     {
         return outputPositions;
+    }
+
+    @JsonProperty
+    public Duration getOutputBlockedTime()
+    {
+        return outputBlockedTime;
     }
 
     @JsonProperty
@@ -440,13 +474,14 @@ public class PipelineStats
                 totalDrivers,
                 queuedDrivers,
                 queuedPartitionedDrivers,
+                queuedPartitionedSplitsWeight,
                 runningDrivers,
                 runningPartitionedDrivers,
+                runningPartitionedSplitsWeight,
                 blockedDrivers,
                 completedDrivers,
                 userMemoryReservation,
                 revocableMemoryReservation,
-                systemMemoryReservation,
                 queuedTime,
                 elapsedTime,
                 totalScheduledTime,
@@ -463,12 +498,22 @@ public class PipelineStats
                 rawInputPositions,
                 processedInputDataSize,
                 processedInputPositions,
+                inputBlockedTime,
                 outputDataSize,
                 outputPositions,
+                outputBlockedTime,
                 physicalWrittenDataSize,
-                operatorSummaries.stream()
-                        .map(OperatorStats::summarize)
-                        .collect(Collectors.toList()),
+                summarizeOperatorStats(operatorSummaries),
                 ImmutableList.of());
+    }
+
+    private static List<OperatorStats> summarizeOperatorStats(List<OperatorStats> operatorSummaries)
+    {
+        // Use an exact size ImmutableList builder to avoid a redundant copy in the PipelineStats constructor
+        ImmutableList.Builder<OperatorStats> results = ImmutableList.builderWithExpectedSize(operatorSummaries.size());
+        for (OperatorStats operatorStats : operatorSummaries) {
+            results.add(operatorStats.summarize());
+        }
+        return results.build();
     }
 }

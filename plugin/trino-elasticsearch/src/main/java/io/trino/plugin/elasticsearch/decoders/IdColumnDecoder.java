@@ -14,6 +14,7 @@
 package io.trino.plugin.elasticsearch.decoders;
 
 import io.airlift.slice.Slices;
+import io.trino.plugin.elasticsearch.DecoderDescriptor;
 import io.trino.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
 
@@ -28,5 +29,15 @@ public class IdColumnDecoder
     public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
         VARCHAR.writeSlice(output, Slices.utf8Slice(hit.getId()));
+    }
+
+    public static class Descriptor
+            implements DecoderDescriptor
+    {
+        @Override
+        public Decoder createDecoder()
+        {
+            return new IdColumnDecoder();
+        }
     }
 }

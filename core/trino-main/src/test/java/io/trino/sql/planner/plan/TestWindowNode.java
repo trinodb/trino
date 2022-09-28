@@ -19,8 +19,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
-import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.server.ExpressionSerialization.ExpressionDeserializer;
 import io.trino.server.ExpressionSerialization.ExpressionSerializer;
 import io.trino.server.SliceSerialization.SliceDeserializer;
@@ -47,14 +47,13 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.testng.Assert.assertEquals;
 
 public class TestWindowNode
 {
-    private final MetadataManager metadata = createTestMetadataManager();
+    private final TestingFunctionResolution functionResolution;
     private SymbolAllocator symbolAllocator;
     private ValuesNode sourceNode;
     private Symbol columnA;
@@ -65,6 +64,8 @@ public class TestWindowNode
 
     public TestWindowNode()
     {
+        functionResolution = new TestingFunctionResolution();
+
         // dependencies copied from ServerMainModule.java to avoid depending on whole ServerMainModule here
         SqlParser sqlParser = new SqlParser();
         ObjectMapperProvider provider = new ObjectMapperProvider();
@@ -72,7 +73,7 @@ public class TestWindowNode
                 Slice.class, new SliceSerializer(),
                 Expression.class, new ExpressionSerializer()));
         provider.setJsonDeserializers(ImmutableMap.of(
-                Type.class, new TypeDeserializer(metadata),
+                Type.class, new TypeDeserializer(functionResolution.getPlannerContext().getTypeManager()),
                 Slice.class, new SliceDeserializer(),
                 Expression.class, new ExpressionDeserializer(sqlParser),
                 TypeSignature.class, new TypeSignatureDeserializer()));
@@ -100,7 +101,7 @@ public class TestWindowNode
             throws Exception
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", BIGINT);
-        ResolvedFunction resolvedFunction = metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(BIGINT));
+        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(BIGINT));
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,
                 FrameBound.Type.UNBOUNDED_PRECEDING,

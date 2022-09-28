@@ -31,31 +31,36 @@ import static org.testng.Assert.assertEquals;
 
 public class TestBaseJdbcConfig
 {
+    private static final Duration ZERO = Duration.succinctDuration(0, MINUTES);
+
     @Test
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(BaseJdbcConfig.class)
                 .setConnectionUrl(null)
                 .setJdbcTypesMappedToVarchar("")
-                .setMetadataCacheTtl(new Duration(0, MINUTES))
-                .setCacheMissing(false));
+                .setMetadataCacheTtl(ZERO)
+                .setCacheMissing(false)
+                .setCacheMaximumSize(10000));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("connection-url", "jdbc:h2:mem:config")
                 .put("jdbc-types-mapped-to-varchar", "mytype,struct_type1")
                 .put("metadata.cache-ttl", "1s")
                 .put("metadata.cache-missing", "true")
-                .build();
+                .put("metadata.cache-maximum-size", "5000")
+                .buildOrThrow();
 
         BaseJdbcConfig expected = new BaseJdbcConfig()
                 .setConnectionUrl("jdbc:h2:mem:config")
                 .setJdbcTypesMappedToVarchar("mytype, struct_type1")
                 .setMetadataCacheTtl(new Duration(1, SECONDS))
-                .setCacheMissing(true);
+                .setCacheMissing(true)
+                .setCacheMaximumSize(5000);
 
         assertFullMapping(properties, expected);
 
@@ -71,6 +76,24 @@ public class TestBaseJdbcConfig
                 .hasMessageContaining("must match the following regular expression: ^jdbc:[a-z0-9]+:(?s:.*)$");
         buildConfig(ImmutableMap.of("connection-url", "jdbc:protocol:uri"));
         buildConfig(ImmutableMap.of("connection-url", "jdbc:protocol:"));
+    }
+
+    @Test
+    public void testCacheConfigValidation()
+    {
+        BaseJdbcConfig explicitCacheSize = new BaseJdbcConfig()
+                .setMetadataCacheTtl(new Duration(1, SECONDS))
+                .setCacheMaximumSize(5000);
+        explicitCacheSize.validate();
+        BaseJdbcConfig defaultCacheSize = new BaseJdbcConfig()
+                .setMetadataCacheTtl(new Duration(1, SECONDS));
+        defaultCacheSize.validate();
+        assertThatThrownBy(() -> new BaseJdbcConfig()
+                .setMetadataCacheTtl(ZERO)
+                .setCacheMaximumSize(100000)
+                .validate())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("metadata.cache-ttl must be set to a non-zero value when metadata.cache-maximum-size is set");
     }
 
     private static void buildConfig(Map<String, String> properties)

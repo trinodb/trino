@@ -14,34 +14,42 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.plugin.hive.AcidInfo;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.AcidUtils;
 import org.apache.hadoop.hive.ql.io.BucketCodec;
+import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static io.trino.plugin.hive.BackgroundHiveSplitLoader.hasAttemptId;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
@@ -57,33 +65,48 @@ public class OrcDeletedRows
     private static final int BUCKET_ID_INDEX = 1;
     private static final int ROW_ID_INDEX = 2;
 
+    private static final long DELETED_ROWS_MEMORY_INCREASE_YIELD_THREHOLD = 32 * 1204 * 1024;
+
     private final String sourceFileName;
     private final OrcDeleteDeltaPageSourceFactory pageSourceFactory;
-    private final String sessionUser;
+    private final ConnectorIdentity identity;
     private final Configuration configuration;
     private final HdfsEnvironment hdfsEnvironment;
     private final AcidInfo acidInfo;
     private final OptionalInt bucketNumber;
+    private final LocalMemoryContext memoryUsage;
 
+    private State state = State.NOT_LOADED;
+    @Nullable
+    private Loader loader;
     @Nullable
     private Set<RowId> deletedRows;
+
+    private enum State {
+        NOT_LOADED,
+        LOADING,
+        LOADED,
+        CLOSED
+    }
 
     public OrcDeletedRows(
             String sourceFileName,
             OrcDeleteDeltaPageSourceFactory pageSourceFactory,
-            String sessionUser,
+            ConnectorIdentity identity,
             Configuration configuration,
             HdfsEnvironment hdfsEnvironment,
             AcidInfo acidInfo,
-            OptionalInt bucketNumber)
+            OptionalInt bucketNumber,
+            AggregatedMemoryContext memoryContext)
     {
         this.sourceFileName = requireNonNull(sourceFileName, "sourceFileName is null");
         this.pageSourceFactory = requireNonNull(pageSourceFactory, "pageSourceFactory is null");
-        this.sessionUser = requireNonNull(sessionUser, "sessionUser is null");
+        this.identity = requireNonNull(identity, "identity is null");
         this.configuration = requireNonNull(configuration, "configuration is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.acidInfo = requireNonNull(acidInfo, "acidInfo is null");
         this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
+        this.memoryUsage = memoryContext.newLocalMemoryContext(OrcDeletedRows.class.getSimpleName());
     }
 
     public MaskDeletedRowsFunction getMaskDeletedRowsFunction(Page sourcePage, OptionalLong startRowId)
@@ -160,7 +183,7 @@ public class OrcDeletedRows
             if (positionCount == block.getPositionCount()) {
                 return block;
             }
-            return new DictionaryBlock(positionCount, block, validPositions);
+            return DictionaryBlock.create(positionCount, block, validPositions);
         }
 
         private void loadValidPositions()
@@ -218,51 +241,161 @@ public class OrcDeletedRows
 
     private Set<RowId> getDeletedRows()
     {
-        if (deletedRows != null) {
-            return deletedRows;
+        checkState(state == State.LOADED, "expected LOADED state but was %s", state);
+        verify(deletedRows != null, "deleted rows null despite LOADED state");
+        return deletedRows;
+    }
+
+    /**
+     * Triggers loading of deleted rows ids. Single call to the method may load just part of ids.
+     * If more ids to be loaded remain,  method returns false and should be called once again.
+     * Final call will return true and the loaded ids can be consumed via {@link #getMaskDeletedRowsFunction(Page, OptionalLong)}
+     *
+     * @return true when fully loaded, and false if this method should be called again
+     */
+    public boolean loadOrYield()
+    {
+        checkState(state != State.CLOSED, "already closed");
+
+        if (state == State.NOT_LOADED) {
+            loader = new Loader();
+            state = State.LOADING;
         }
 
-        ImmutableSet.Builder<RowId> deletedRowsBuilder = ImmutableSet.builder();
-        for (AcidInfo.DeleteDeltaInfo deleteDeltaInfo : acidInfo.getDeleteDeltas()) {
-            Path path = createPath(acidInfo, deleteDeltaInfo, sourceFileName);
+        if (state == State.LOADING) {
+            verify(loader != null, "loader not set despite LOADING state");
+            Optional<Set<RowId>> loadedRowIds = loader.loadOrYield();
+            if (loadedRowIds.isPresent()) {
+                deletedRows = loadedRowIds.get();
+                try {
+                    loader.close();
+                }
+                catch (IOException e) {
+                    throw new TrinoException(HIVE_CURSOR_ERROR, "Failed to close deletedRows loader", e);
+                }
+                loader = null;
+                state = State.LOADED;
+            }
+        }
 
-            try {
-                FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
-                FileStatus fileStatus = hdfsEnvironment.doAs(sessionUser, () -> fileSystem.getFileStatus(path));
+        if (state == State.LOADED) {
+            return true;
+        }
+        return false;
+    }
 
-                try (ConnectorPageSource pageSource = pageSourceFactory.createPageSource(fileStatus.getPath(), fileStatus.getLen()).orElseGet(() -> new EmptyPageSource())) {
-                    while (!pageSource.isFinished()) {
-                        Page page = pageSource.getNextPage();
-                        if (page != null) {
-                            for (int i = 0; i < page.getPositionCount(); i++) {
-                                long originalTransaction = BIGINT.getLong(page.getBlock(ORIGINAL_TRANSACTION_INDEX), i);
-                                int encodedBucketValue = toIntExact(INTEGER.getLong(page.getBlock(BUCKET_ID_INDEX), i));
-                                BucketCodec bucketCodec = BucketCodec.determineVersion(encodedBucketValue);
-                                int bucket = bucketCodec.decodeWriterId(encodedBucketValue);
-                                int statement = bucketCodec.decodeStatementId(encodedBucketValue);
-                                long row = BIGINT.getLong(page.getBlock(ROW_ID_INDEX), i);
-                                RowId rowId = new RowId(originalTransaction, bucket, statement, row);
-                                deletedRowsBuilder.add(rowId);
+    public void close()
+            throws IOException
+    {
+        if (state == State.CLOSED) {
+            return;
+        }
+        if (loader != null) {
+            loader.close();
+            loader = null;
+        }
+        state = State.CLOSED;
+    }
+
+    private class Loader
+    {
+        private ImmutableSet.Builder<RowId> deletedRowsBuilder = ImmutableSet.builder();
+        private int deletedRowsBuilderSize;
+        @Nullable
+        private Iterator<AcidInfo.DeleteDeltaInfo> deleteDeltas;
+        @Nullable
+        private ConnectorPageSource currentPageSource;
+        @Nullable
+        private Path currentPath;
+        @Nullable
+        private Page currentPage;
+        private int currentPagePosition;
+
+        public Optional<Set<RowId>> loadOrYield()
+        {
+            long initialMemorySize = retainedMemorySize(deletedRowsBuilderSize, currentPage);
+
+            if (deleteDeltas == null) {
+                deleteDeltas = acidInfo.getDeleteDeltas().iterator();
+            }
+
+            while (deleteDeltas.hasNext() || currentPageSource != null) {
+                try {
+                    if (currentPageSource == null) {
+                        AcidInfo.DeleteDeltaInfo deleteDeltaInfo = deleteDeltas.next();
+                        currentPath = createPath(acidInfo, deleteDeltaInfo, sourceFileName);
+                        FileSystem fileSystem = hdfsEnvironment.getFileSystem(identity, currentPath, configuration);
+                        FileStatus fileStatus = hdfsEnvironment.doAs(identity, () -> fileSystem.getFileStatus(currentPath));
+                        currentPageSource = pageSourceFactory.createPageSource(fileStatus.getPath(), fileStatus.getLen()).orElseGet(() -> new EmptyPageSource());
+                    }
+
+                    while (!currentPageSource.isFinished() || currentPage != null) {
+                        if (currentPage == null) {
+                            currentPage = currentPageSource.getNextPage();
+                            currentPagePosition = 0;
+                        }
+
+                        if (currentPage == null) {
+                            continue;
+                        }
+
+                        while (currentPagePosition < currentPage.getPositionCount()) {
+                            long originalTransaction = BIGINT.getLong(currentPage.getBlock(ORIGINAL_TRANSACTION_INDEX), currentPagePosition);
+                            int encodedBucketValue = toIntExact(INTEGER.getLong(currentPage.getBlock(BUCKET_ID_INDEX), currentPagePosition));
+                            BucketCodec bucketCodec = BucketCodec.determineVersion(encodedBucketValue);
+                            int bucket = bucketCodec.decodeWriterId(encodedBucketValue);
+                            int statement = bucketCodec.decodeStatementId(encodedBucketValue);
+                            long row = BIGINT.getLong(currentPage.getBlock(ROW_ID_INDEX), currentPagePosition);
+                            RowId rowId = new RowId(originalTransaction, bucket, statement, row);
+                            deletedRowsBuilder.add(rowId);
+                            deletedRowsBuilderSize++;
+                            currentPagePosition++;
+
+                            if (deletedRowsBuilderSize % 1000 == 0) {
+                                long currentMemorySize = retainedMemorySize(deletedRowsBuilderSize, currentPage);
+                                if (currentMemorySize - initialMemorySize >= DELETED_ROWS_MEMORY_INCREASE_YIELD_THREHOLD) {
+                                    memoryUsage.setBytes(currentMemorySize);
+                                    return Optional.empty();
+                                }
                             }
                         }
+                        currentPage = null;
                     }
+                    currentPageSource.close();
+                    currentPageSource = null;
+                }
+                catch (FileNotFoundException ignored) {
+                    // source file does not have a delete delta file in this location
+                }
+                catch (TrinoException e) {
+                    throw e;
+                }
+                catch (OrcCorruptionException e) {
+                    throw new TrinoException(HIVE_BAD_DATA, "Failed to read ORC delete delta file: " + currentPath, e);
+                }
+                catch (RuntimeException | IOException e) {
+                    throw new TrinoException(HIVE_CURSOR_ERROR, "Failed to read ORC delete delta file: " + currentPath, e);
                 }
             }
-            catch (FileNotFoundException ignored) {
-                // source file does not have a delete delta file in this location
-            }
-            catch (TrinoException e) {
-                throw e;
-            }
-            catch (OrcCorruptionException e) {
-                throw new TrinoException(HIVE_BAD_DATA, "Failed to read ORC delete delta file: " + path, e);
-            }
-            catch (RuntimeException | IOException e) {
-                throw new TrinoException(HIVE_CURSOR_ERROR, "Failed to read ORC delete delta file: " + path, e);
+
+            Set<RowId> builtDeletedRows = deletedRowsBuilder.build();
+            memoryUsage.setBytes(retainedMemorySize(builtDeletedRows.size(), null));
+            return Optional.of(builtDeletedRows);
+        }
+
+        public void close()
+                throws IOException
+        {
+            if (currentPageSource != null) {
+                currentPageSource.close();
+                currentPageSource = null;
             }
         }
-        deletedRows = deletedRowsBuilder.build();
-        return deletedRows;
+    }
+
+    private long retainedMemorySize(int rowCount, @Nullable Page currentPage)
+    {
+        return sizeOfObjectArray(rowCount) + (long) rowCount * RowId.INSTANCE_SIZE + (currentPage != null ? currentPage.getRetainedSizeInBytes() : 0);
     }
 
     private static Path createPath(AcidInfo acidInfo, AcidInfo.DeleteDeltaInfo deleteDeltaInfo, String fileName)
@@ -284,6 +417,8 @@ public class OrcDeletedRows
 
     private static class RowId
     {
+        public static final int INSTANCE_SIZE = ClassLayout.parseClass(RowId.class).instanceSize();
+
         private final long originalTransaction;
         private final int bucket;
         private final int statementId;

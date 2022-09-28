@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreClient;
-import io.trino.tempto.assertions.QueryAssert;
+import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
+import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
@@ -27,12 +27,14 @@ import io.trino.testng.services.Flaky;
 import io.trino.tests.product.hive.util.TemporaryHiveTable;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
+import org.assertj.core.api.Assertions;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.sql.Date;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
@@ -51,8 +53,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.HIVE_TRANSACTIONAL;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.hive.BucketingType.BUCKETED_V2;
@@ -63,6 +65,8 @@ import static io.trino.tests.product.hive.TransactionalTableType.ACID;
 import static io.trino.tests.product.hive.TransactionalTableType.INSERT_ONLY;
 import static io.trino.tests.product.hive.util.TableLocationUtils.getTablePath;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -70,13 +74,15 @@ import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestHiveTransactionalTable
         extends HiveProductTest
 {
     private static final Logger log = Logger.get(TestHiveTransactionalTable.class);
 
-    private static final int TEST_TIMEOUT = 15 * 60 * 1000;
+    public static final int TEST_TIMEOUT = 15 * 60 * 1000;
 
     // Hive original file path end looks like /000000_0
     // New Trino original file path end looks like /000000_132574635756428963553891918669625313402
@@ -148,44 +154,44 @@ public class TestHiveTransactionalTable
             onHive().executeQuery("INSERT OVERWRITE TABLE " + tableName + hivePartitionString + " VALUES (21, 1)");
 
             String selectFromOnePartitionsSql = "SELECT col, fcol FROM " + tableName + " ORDER BY col";
-            assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(21, 1));
+            assertThat(onTrino().executeQuery(selectFromOnePartitionsSql)).containsOnly(row(21, 1));
 
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (22, 2)");
-            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(21, 1), row(22, 2));
+            assertThat(onTrino().executeQuery(selectFromOnePartitionsSql)).containsExactlyInOrder(row(21, 1), row(22, 2));
 
             // test filtering
-            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE fcol = 1 ORDER BY col")).containsOnly(row(21, 1));
+            assertThat(onTrino().executeQuery("SELECT col, fcol FROM " + tableName + " WHERE fcol = 1 ORDER BY col")).containsOnly(row(21, 1));
 
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (24, 4)");
             onHive().executeQuery("DELETE FROM " + tableName + " where fcol=4");
 
             // test filtering
-            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE fcol = 1 ORDER BY col")).containsOnly(row(21, 1));
+            assertThat(onTrino().executeQuery("SELECT col, fcol FROM " + tableName + " WHERE fcol = 1 ORDER BY col")).containsOnly(row(21, 1));
 
             // test minor compacted data read
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (20, 3)");
 
-            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE col=20")).containsExactly(row(20, 3));
+            assertThat(onTrino().executeQuery("SELECT col, fcol FROM " + tableName + " WHERE col=20")).containsExactlyInOrder(row(20, 3));
 
             compactTableAndWait(MINOR, tableName, hivePartitionString, new Duration(6, MINUTES));
-            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(21, 1), row(22, 2));
+            assertThat(onTrino().executeQuery(selectFromOnePartitionsSql)).containsExactlyInOrder(row(20, 3), row(21, 1), row(22, 2));
 
             // delete a row
             onHive().executeQuery("DELETE FROM " + tableName + " WHERE fcol=2");
-            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(21, 1));
+            assertThat(onTrino().executeQuery(selectFromOnePartitionsSql)).containsExactlyInOrder(row(20, 3), row(21, 1));
 
-            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE col=20")).containsExactly(row(20, 3));
+            assertThat(onTrino().executeQuery("SELECT col, fcol FROM " + tableName + " WHERE col=20")).containsExactlyInOrder(row(20, 3));
 
             // update the existing row
             String predicate = "fcol = 1" + (isPartitioned ? " AND part_col = 2 " : "");
             onHive().executeQuery("UPDATE " + tableName + " SET col = 23 WHERE " + predicate);
-            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(23, 1));
+            assertThat(onTrino().executeQuery(selectFromOnePartitionsSql)).containsExactlyInOrder(row(20, 3), row(23, 1));
 
-            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE col=20")).containsExactly(row(20, 3));
+            assertThat(onTrino().executeQuery("SELECT col, fcol FROM " + tableName + " WHERE col=20")).containsExactlyInOrder(row(20, 3));
 
             // test major compaction
             compactTableAndWait(MAJOR, tableName, hivePartitionString, new Duration(6, MINUTES));
-            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(23, 1));
+            assertThat(onTrino().executeQuery(selectFromOnePartitionsSql)).containsExactlyInOrder(row(20, 3), row(23, 1));
         }
     }
 
@@ -242,20 +248,20 @@ public class TestHiveTransactionalTable
 
             onHive().executeQuery("INSERT OVERWRITE TABLE " + tableName + hivePartitionString + " SELECT 1");
             String selectFromOnePartitionsSql = "SELECT col FROM " + tableName + predicate + " ORDER BY COL";
-            assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(1));
+            assertThat(onTrino().executeQuery(selectFromOnePartitionsSql)).containsOnly(row(1));
 
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " SELECT 2");
-            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(1), row(2));
+            assertThat(onTrino().executeQuery(selectFromOnePartitionsSql)).containsExactlyInOrder(row(1), row(2));
 
-            assertThat(query("SELECT col FROM " + tableName + " WHERE col=2")).containsExactly(row(2));
+            assertThat(onTrino().executeQuery("SELECT col FROM " + tableName + " WHERE col=2")).containsExactlyInOrder(row(2));
 
             // test minor compacted data read
             compactTableAndWait(MINOR, tableName, hivePartitionString, new Duration(6, MINUTES));
-            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(1), row(2));
-            assertThat(query("SELECT col FROM " + tableName + " WHERE col=2")).containsExactly(row(2));
+            assertThat(onTrino().executeQuery(selectFromOnePartitionsSql)).containsExactlyInOrder(row(1), row(2));
+            assertThat(onTrino().executeQuery("SELECT col FROM " + tableName + " WHERE col=2")).containsExactlyInOrder(row(2));
 
             onHive().executeQuery("INSERT OVERWRITE TABLE " + tableName + hivePartitionString + " SELECT 3");
-            assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(3));
+            assertThat(onTrino().executeQuery(selectFromOnePartitionsSql)).containsOnly(row(3));
 
             if (getHiveVersionMajor() >= 4) {
                 // Major compaction on insert only table does not work prior to Hive 4:
@@ -264,7 +270,7 @@ public class TestHiveTransactionalTable
                 // test major compaction
                 onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " SELECT 4");
                 compactTableAndWait(MAJOR, tableName, hivePartitionString, new Duration(6, MINUTES));
-                assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(3), row(4));
+                assertThat(onTrino().executeQuery(selectFromOnePartitionsSql)).containsOnly(row(3), row(4));
             }
         }
     }
@@ -297,20 +303,20 @@ public class TestHiveTransactionalTable
             onHive().executeQuery("ALTER TABLE " + tableName + " SET " + hiveTableProperties(ACID, bucketingType));
 
             // read with original files
-            assertThat(query("SELECT col, fcol FROM " + tableName)).containsOnly(row(21, 1), row(22, 2));
-            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE fcol = 1")).containsOnly(row(21, 1));
+            assertThat(onTrino().executeQuery("SELECT col, fcol FROM " + tableName)).containsOnly(row(21, 1), row(22, 2));
+            assertThat(onTrino().executeQuery("SELECT col, fcol FROM " + tableName + " WHERE fcol = 1")).containsOnly(row(21, 1));
 
             // read with original files and insert delta
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (20, 3)");
-            assertThat(query("SELECT col, fcol FROM " + tableName)).containsOnly(row(20, 3), row(21, 1), row(22, 2));
+            assertThat(onTrino().executeQuery("SELECT col, fcol FROM " + tableName)).containsOnly(row(20, 3), row(21, 1), row(22, 2));
 
             // read with original files and delete delta
             onHive().executeQuery("DELETE FROM " + tableName + " WHERE fcol = 2");
-            assertThat(query("SELECT col, fcol FROM " + tableName)).containsOnly(row(20, 3), row(21, 1));
+            assertThat(onTrino().executeQuery("SELECT col, fcol FROM " + tableName)).containsOnly(row(20, 3), row(21, 1));
 
             // read with original files and insert+delete delta (UPDATE)
             onHive().executeQuery("UPDATE " + tableName + " SET col = 23 WHERE fcol = 1" + (isPartitioned ? " AND part_col = 2 " : ""));
-            assertThat(query("SELECT col, fcol FROM " + tableName)).containsOnly(row(20, 3), row(23, 1));
+            assertThat(onTrino().executeQuery("SELECT col, fcol FROM " + tableName)).containsOnly(row(20, 3), row(23, 1));
         }
         finally {
             onHive().executeQuery("DROP TABLE " + tableName);
@@ -340,30 +346,30 @@ public class TestHiveTransactionalTable
             onHive().executeQuery("ALTER TABLE " + tableName + " SET " + hiveTableProperties(ACID, bucketingType));
 
             // read with original files
-            assertThat(query("SELECT col, fcol FROM " + tableName)).containsOnly(row(21, 1), row(22, 2));
-            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE fcol = 1")).containsOnly(row(21, 1));
+            assertThat(onTrino().executeQuery("SELECT col, fcol FROM " + tableName)).containsOnly(row(21, 1), row(22, 2));
+            assertThat(onTrino().executeQuery("SELECT col, fcol FROM " + tableName + " WHERE fcol = 1")).containsOnly(row(21, 1));
 
             if (isPartitioned) {
-                query("INSERT INTO " + tableName + "(col, fcol, part_col) VALUES (20, 4, 2)");
+                onTrino().executeQuery("INSERT INTO " + tableName + "(col, fcol, part_col) VALUES (20, 4, 2)");
             }
             else {
-                query("INSERT INTO " + tableName + "(col, fcol) VALUES (20, 4)");
+                onTrino().executeQuery("INSERT INTO " + tableName + "(col, fcol) VALUES (20, 4)");
             }
 
             // read with original files and insert delta
             if (isPartitioned) {
-                query("INSERT INTO " + tableName + "(col, fcol, part_col) VALUES (20, 3, 2)");
+                onTrino().executeQuery("INSERT INTO " + tableName + "(col, fcol, part_col) VALUES (20, 3, 2)");
             }
             else {
-                query("INSERT INTO " + tableName + "(col, fcol) VALUES (20, 3)");
+                onTrino().executeQuery("INSERT INTO " + tableName + "(col, fcol) VALUES (20, 3)");
             }
 
-            assertThat(query("SELECT col, fcol FROM " + tableName)).containsOnly(row(20, 3), row(20, 4), row(21, 1), row(22, 2));
+            assertThat(onTrino().executeQuery("SELECT col, fcol FROM " + tableName)).containsOnly(row(20, 3), row(20, 4), row(21, 1), row(22, 2));
 
             // read with original files and delete delta
             onHive().executeQuery("DELETE FROM " + tableName + " WHERE fcol = 2");
 
-            assertThat(query("SELECT col, fcol FROM " + tableName)).containsOnly(row(20, 3), row(20, 4), row(21, 1));
+            assertThat(onTrino().executeQuery("SELECT col, fcol FROM " + tableName)).containsOnly(row(20, 3), row(20, 4), row(21, 1));
         });
     }
 
@@ -390,23 +396,23 @@ public class TestHiveTransactionalTable
             onHive().executeQuery("ALTER TABLE " + tableName + " SET " + hiveTableProperties(ACID, bucketingType));
 
             // read with original files
-            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE col < 12")).containsOnly(row(10, 100), row(11, 110));
+            assertThat(onTrino().executeQuery("SELECT col, fcol FROM " + tableName + " WHERE col < 12")).containsOnly(row(10, 100), row(11, 110));
 
             String fields = isPartitioned ? "(col, fcol, part_col)" : "(col, fcol)";
-            query(format("INSERT INTO %s %s VALUES %s", tableName, fields, makeValues(30, 5, 2, isPartitioned, 3)));
-            query(format("INSERT INTO %s %s VALUES %s", tableName, fields, makeValues(40, 5, 2, isPartitioned, 3)));
+            onTrino().executeQuery(format("INSERT INTO %s %s VALUES %s", tableName, fields, makeValues(30, 5, 2, isPartitioned, 3)));
+            onTrino().executeQuery(format("INSERT INTO %s %s VALUES %s", tableName, fields, makeValues(40, 5, 2, isPartitioned, 3)));
 
-            query("DELETE FROM " + tableName + " WHERE col IN (11, 12)");
-            query("DELETE FROM " + tableName + " WHERE col IN (16, 17)");
-            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE fcol >= 100")).containsOnly(row(10, 100), row(13, 130), row(14, 140), row(15, 150), row(18, 180), row(19, 190));
+            onTrino().executeQuery("DELETE FROM " + tableName + " WHERE col IN (11, 12)");
+            onTrino().executeQuery("DELETE FROM " + tableName + " WHERE col IN (16, 17)");
+            assertThat(onTrino().executeQuery("SELECT col, fcol FROM " + tableName + " WHERE fcol >= 100")).containsOnly(row(10, 100), row(13, 130), row(14, 140), row(15, 150), row(18, 180), row(19, 190));
 
             // read with original files and delete delta
-            query("DELETE FROM " + tableName + " WHERE col = 18 OR col = 14 OR (fcol = 2 AND (col / 2) * 2 = col)");
+            onTrino().executeQuery("DELETE FROM " + tableName + " WHERE col = 18 OR col = 14 OR (fcol = 2 AND (col / 2) * 2 = col)");
 
             assertThat(onHive().executeQuery("SELECT col, fcol FROM " + tableName))
                     .containsOnly(row(10, 100), row(13, 130), row(15, 150), row(19, 190), row(31, 2), row(33, 2), row(41, 2), row(43, 2));
 
-            assertThat(query("SELECT col, fcol FROM " + tableName))
+            assertThat(onTrino().executeQuery("SELECT col, fcol FROM " + tableName))
                     .containsOnly(row(10, 100), row(13, 130), row(15, 150), row(19, 190), row(31, 2), row(33, 2), row(41, 2), row(43, 2));
         });
     }
@@ -447,11 +453,11 @@ public class TestHiveTransactionalTable
             onHive().executeQuery("ALTER TABLE " + tableName + " SET " + hiveTableProperties(INSERT_ONLY, bucketingType));
 
             // read with original files
-            assertThat(query("SELECT col FROM " + tableName + (isPartitioned ? " WHERE part_col = 2 " : "" + " ORDER BY col"))).containsOnly(row(1), row(2));
+            assertThat(onTrino().executeQuery("SELECT col FROM " + tableName + (isPartitioned ? " WHERE part_col = 2 " : "" + " ORDER BY col"))).containsOnly(row(1), row(2));
 
             // read with original files and delta
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (3)");
-            assertThat(query("SELECT col FROM " + tableName + (isPartitioned ? " WHERE part_col = 2 " : "" + " ORDER BY col"))).containsOnly(row(1), row(2), row(3));
+            assertThat(onTrino().executeQuery("SELECT col FROM " + tableName + (isPartitioned ? " WHERE part_col = 2 " : "" + " ORDER BY col"))).containsOnly(row(1), row(2), row(3));
         }
         finally {
             onHive().executeQuery("DROP TABLE " + tableName);
@@ -473,8 +479,8 @@ public class TestHiveTransactionalTable
                     "STORED AS ORC " +
                     "TBLPROPERTIES ('transactional'='true')");
 
-            assertThat(() -> query("SELECT * FROM " + tableName))
-                    .failsWithMessage("Failed to open transaction. Transactional tables support requires Hive metastore version at least 3.0");
+            assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM " + tableName))
+                    .hasMessageContaining("Failed to open transaction. Transactional tables support requires Hive metastore version at least 3.0");
         }
     }
 
@@ -507,12 +513,12 @@ public class TestHiveTransactionalTable
 
         try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(format("ctas_transactional_%s", randomTableSuffix()))) {
             String tableName = table.getName();
-            query("CREATE TABLE " + tableName + " " +
+            onTrino().executeQuery("CREATE TABLE " + tableName + " " +
                     trinoTableProperties(ACID, isPartitioned, bucketingType) +
                     " AS SELECT * FROM (VALUES (21, 1, 1), (22, 1, 2), (23, 2, 2)) t(col, fcol, partcol)");
 
             // can we query from Trino
-            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE partcol = 2 ORDER BY col"))
+            assertThat(onTrino().executeQuery("SELECT col, fcol FROM " + tableName + " WHERE partcol = 2 ORDER BY col"))
                     .containsOnly(row(22, 1), row(23, 2));
 
             // can we query from Hive
@@ -525,12 +531,35 @@ public class TestHiveTransactionalTable
     public void testCreateAcidTable(boolean isPartitioned, BucketingType bucketingType)
     {
         withTemporaryTable("create_transactional", true, isPartitioned, bucketingType, tableName -> {
-            query("CREATE TABLE " + tableName + " (col INTEGER, fcol INTEGER, partcol INTEGER)" +
+            onTrino().executeQuery("CREATE TABLE " + tableName + " (col INTEGER, fcol INTEGER, partcol INTEGER)" +
                     trinoTableProperties(ACID, isPartitioned, bucketingType));
 
-            query("INSERT INTO " + tableName + " VALUES (1, 2, 3)");
-            assertThat(query("SELECT * FROM " + tableName)).containsOnly(row(1, 2, 3));
+            onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1, 2, 3)");
+            assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).containsOnly(row(1, 2, 3));
         });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "acidFormatColumnNames")
+    public void testAcidTableColumnNameConflict(String columnName)
+    {
+        withTemporaryTable("acid_column_name_conflict", true, true, NONE, tableName -> {
+            onHive().executeQuery("CREATE TABLE " + tableName + " (`" + columnName + "` INTEGER, fcol INTEGER, partcol INTEGER) STORED AS ORC " + hiveTableProperties(ACID, NONE));
+            onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1, 2, 3)");
+            assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).containsOnly(row(1, 2, 3));
+        });
+    }
+
+    @DataProvider
+    public Object[][] acidFormatColumnNames()
+    {
+        return new Object[][] {
+                {"operation"},
+                {"originalTransaction"},
+                {"bucket"},
+                {"rowId"},
+                {"row"},
+                {"currentTransaction"},
+        };
     }
 
     @Test(groups = HIVE_TRANSACTIONAL)
@@ -539,7 +568,13 @@ public class TestHiveTransactionalTable
         withTemporaryTable("unpartitioned_transactional_insert", true, false, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column1 INT, column2 BIGINT) WITH (transactional = true)", tableName));
 
-            onTrino().executeQuery(format("INSERT INTO %s VALUES (11, 100), (12, 200), (13, 300)", tableName));
+            String insertQuery = format("INSERT INTO %s VALUES (11, 100), (12, 200), (13, 300)", tableName);
+
+            // ensure that we treat ACID tables as implicitly bucketed on INSERT
+            String explainOutput = (String) onTrino().executeQuery("EXPLAIN " + insertQuery).row(0).get(0);
+            Assertions.assertThat(explainOutput).contains("Output partitioning: hive:HivePartitioningHandle{buckets=1");
+
+            onTrino().executeQuery(insertQuery);
 
             verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(11, 100L), row(12, 200L), row(13, 300L));
 
@@ -621,7 +656,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    public void testTransactionalUnpartitionedDelete(HiveOrTrino inserter, HiveOrTrino deleter)
+    public void testTransactionalUnpartitionedDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("unpartitioned_delete", true, false, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column1 INTEGER, column2 BIGINT) WITH (format = 'ORC', transactional = true)", tableName));
@@ -639,7 +674,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    public void testMultiDelete(HiveOrTrino inserter, HiveOrTrino deleter)
+    public void testMultiDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("unpartitioned_multi_delete", true, false, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column1 INT, column2 BIGINT) WITH (transactional = true)", tableName));
@@ -682,7 +717,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    public void testTransactionalMetadataDelete(HiveOrTrino inserter, HiveOrTrino deleter)
+    public void testTransactionalMetadataDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("metadata_delete", true, true, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column1 INT, column2 BIGINT) WITH (transactional = true, partitioned_by = ARRAY['column2'])", tableName));
@@ -702,23 +737,23 @@ public class TestHiveTransactionalTable
         withTemporaryTable("non_transactional_metadata_delete", false, true, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column2 BIGINT, column1 INT) WITH (partitioned_by = ARRAY['column1'])", tableName));
 
-            execute(HiveOrTrino.TRINO, format("INSERT INTO %s (column1, column2) VALUES %s, %s",
+            execute(Engine.TRINO, format("INSERT INTO %s (column1, column2) VALUES %s, %s",
                     tableName,
                     makeInsertValues(1, 1, 10),
                     makeInsertValues(2, 1, 10)));
 
-            execute(HiveOrTrino.TRINO, format("INSERT INTO %s (column1, column2) VALUES %s, %s",
+            execute(Engine.TRINO, format("INSERT INTO %s (column1, column2) VALUES %s, %s",
                     tableName,
                     makeInsertValues(1, 11, 20),
                     makeInsertValues(2, 11, 20)));
 
-            execute(HiveOrTrino.TRINO, format("DELETE FROM %s WHERE column1 = 1", tableName));
+            execute(Engine.TRINO, format("DELETE FROM %s WHERE column1 = 1", tableName));
             verifySelectForTrinoAndHive("SELECT COUNT(*) FROM " + tableName, "column1 = 1", row(0));
         });
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    public void testUnpartitionedDeleteAll(HiveOrTrino inserter, HiveOrTrino deleter)
+    public void testUnpartitionedDeleteAll(Engine inserter, Engine deleter)
     {
         withTemporaryTable("unpartitioned_delete_all", true, false, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column1 INT, column2 BIGINT) WITH (transactional = true)", tableName));
@@ -729,7 +764,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    public void testMultiColumnDelete(HiveOrTrino inserter, HiveOrTrino deleter)
+    public void testMultiColumnDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("multi_column_delete", true, false, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column1 INT, column2 BIGINT) WITH (transactional = true)", tableName));
@@ -741,7 +776,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    public void testPartitionAndRowsDelete(HiveOrTrino inserter, HiveOrTrino deleter)
+    public void testPartitionAndRowsDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("partition_and_rows_delete", true, true, NONE, tableName -> {
             onTrino().executeQuery("CREATE TABLE " + tableName +
@@ -754,7 +789,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    public void testPartitionedInsertAndRowLevelDelete(HiveOrTrino inserter, HiveOrTrino deleter)
+    public void testPartitionedInsertAndRowLevelDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("partitioned_row_level_delete", true, true, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column2 INT, column1 BIGINT) WITH (transactional = true, partitioned_by = ARRAY['column1'])", tableName));
@@ -778,7 +813,7 @@ public class TestHiveTransactionalTable
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
-    public void testBucketedPartitionedDelete(HiveOrTrino inserter, HiveOrTrino deleter)
+    public void testBucketedPartitionedDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("bucketed_partitioned_delete", true, true, NONE, tableName -> {
             onHive().executeQuery(format("CREATE TABLE %s (purchase STRING) PARTITIONED BY (customer STRING) CLUSTERED BY (purchase) INTO 3 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional' = 'true')", tableName));
@@ -824,8 +859,45 @@ public class TestHiveTransactionalTable
         });
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testDeleteAfterDelete()
+    {
+        withTemporaryTable("delete_after_delete", true, false, NONE, tableName -> {
+            onTrino().executeQuery(format("CREATE TABLE %s (id INT) WITH (transactional = true)", tableName));
+
+            onTrino().executeQuery(format("INSERT INTO %s VALUES (1), (2), (3)", tableName));
+
+            onTrino().executeQuery(format("DELETE FROM %s WHERE id = 2", tableName));
+
+            verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1), row(3));
+
+            onTrino().executeQuery("DELETE FROM " + tableName);
+
+            assertThat(onTrino().executeQuery("SELECT count(*) FROM " + tableName)).containsOnly(row(0));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testDeleteAfterDeleteWithPredicate()
+    {
+        withTemporaryTable("delete_after_delete_predicate", true, false, NONE, tableName -> {
+            onTrino().executeQuery(format("CREATE TABLE %s (id INT) WITH (transactional = true)", tableName));
+
+            onTrino().executeQuery(format("INSERT INTO %s VALUES (1), (2), (3)", tableName));
+
+            onTrino().executeQuery(format("DELETE FROM %s WHERE id = 2", tableName));
+
+            verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1), row(3));
+
+            // A predicate sufficient to fool statistics-based optimization
+            onTrino().executeQuery(format("DELETE FROM %s WHERE id != 2", tableName));
+
+            assertThat(onTrino().executeQuery("SELECT count(*) FROM " + tableName)).containsOnly(row(0));
+        });
+    }
+
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    public void testBucketedUnpartitionedDelete(HiveOrTrino inserter, HiveOrTrino deleter)
+    public void testBucketedUnpartitionedDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("bucketed_unpartitioned_delete", true, true, NONE, tableName -> {
             onHive().executeQuery(format("CREATE TABLE %s (customer STRING, purchase STRING) CLUSTERED BY (purchase) INTO 3 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional' = 'true')", tableName));
@@ -854,8 +926,21 @@ public class TestHiveTransactionalTable
         });
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testDeleteOverManySplits()
+    {
+        withTemporaryTable("delete_select", true, false, NONE, tableName -> {
+            onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true) AS SELECT * FROM tpch.sf10.orders", tableName));
+
+            log.info("About to delete selected rows");
+            onTrino().executeQuery(format("DELETE FROM %s WHERE clerk = 'Clerk#000004942'", tableName));
+
+            verifySelectForTrinoAndHive("SELECT COUNT(*) FROM " + tableName, "clerk = 'Clerk#000004942'", row(0));
+        });
+    }
+
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    public void testCorrectSelectCountStar(HiveOrTrino inserter, HiveOrTrino deleter)
+    public void testCorrectSelectCountStar(Engine inserter, Engine deleter)
     {
         withTemporaryTable("select_count_star_delete", true, true, NONE, tableName -> {
             onHive().executeQuery(format("CREATE TABLE %s (col1 INT, col2 BIGINT) PARTITIONED BY (col3 STRING) STORED AS ORC TBLPROPERTIES ('transactional'='true')", tableName));
@@ -867,7 +952,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "insertersProvider", timeOut = TEST_TIMEOUT)
-    public void testInsertOnlyMultipleWriters(boolean bucketed, HiveOrTrino inserter1, HiveOrTrino inserter2)
+    public void testInsertOnlyMultipleWriters(boolean bucketed, Engine inserter1, Engine inserter2)
     {
         log.info("testInsertOnlyMultipleWriters bucketed %s, inserter1 %s, inserter2 %s", bucketed, inserter1, inserter2);
         withTemporaryTable("insert_only_partitioned", true, true, NONE, tableName -> {
@@ -890,6 +975,39 @@ public class TestHiveTransactionalTable
         });
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testInsertFailsInExplicitTrinoTransaction()
+    {
+        withTemporaryTable("insert_fail_explicit_transaction", true, false, NONE, tableName -> {
+            onTrino().executeQuery(format("CREATE TABLE %s (a_string varchar) WITH (format = 'ORC', transactional = true)", tableName));
+            onTrino().executeQuery("START TRANSACTION");
+            assertQueryFailure(() -> onTrino().executeQuery(format("INSERT INTO %s (a_string) VALUES ('Commander Bun Bun')", tableName)))
+                    .hasMessageContaining("Inserting into Hive transactional tables is not supported in explicit transactions (use autocommit mode)");
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testUpdateFailsInExplicitTrinoTransaction()
+    {
+        withTemporaryTable("update_fail_explicit_transaction", true, false, NONE, tableName -> {
+            onTrino().executeQuery(format("CREATE TABLE %s (a_string varchar) WITH (format = 'ORC', transactional = true)", tableName));
+            onTrino().executeQuery("START TRANSACTION");
+            assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET a_string = 'Commander Bun Bun'", tableName)))
+                    .hasMessageContaining("Updating transactional tables is not supported in explicit transactions (use autocommit mode)");
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testDeleteFailsInExplicitTrinoTransaction()
+    {
+        withTemporaryTable("delete_fail_explicit_transaction", true, false, NONE, tableName -> {
+            onTrino().executeQuery(format("CREATE TABLE %s (a_string varchar) WITH (format = 'ORC', transactional = true)", tableName));
+            onTrino().executeQuery("START TRANSACTION");
+            assertQueryFailure(() -> onTrino().executeQuery(format("DELETE FROM %s WHERE a_string = 'Commander Bun Bun'", tableName)))
+                    .hasMessageContaining("Deleting from Hive transactional tables is not supported in explicit transactions (use autocommit mode)");
+        });
+    }
+
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "transactionModeProvider")
     public void testColumnRenamesOrcPartitioned(boolean transactional)
     {
@@ -900,8 +1018,8 @@ public class TestHiveTransactionalTable
             testOrcColumnRenames(tableName);
 
             log.info("About to rename partition column old_state to new_state");
-            assertThat(() -> onTrino().executeQuery(format("ALTER TABLE %s RENAME COLUMN old_state TO new_state", tableName)))
-                    .failsWithMessage("Renaming partition columns is not supported");
+            assertQueryFailure(() -> onTrino().executeQuery(format("ALTER TABLE %s RENAME COLUMN old_state TO new_state", tableName)))
+                    .hasMessageContaining("Renaming partition columns is not supported");
         });
     }
 
@@ -1014,8 +1132,8 @@ public class TestHiveTransactionalTable
             assertThat(onHive().executeQuery("SELECT * FROM " + tableName))
                     .containsOnly(row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"));
             log.info("This shows that Trino gets an exception trying to widen the type");
-            assertThat(() -> onTrino().executeQuery("SELECT * FROM " + tableName))
-                    .failsWithMessageMatching(".*Malformed ORC file. Cannot read SQL type 'integer' from ORC stream '.*.age' of type BYTE with attributes.*");
+            assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM " + tableName))
+                    .hasMessageMatching(".*Malformed ORC file. Cannot read SQL type 'integer' from ORC stream '.*.age' of type BYTE with attributes.*");
         });
     }
 
@@ -1065,8 +1183,8 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES ('Fred', 'cards')", tableName));
 
             log.info("About to fail update");
-            assertThat(() -> onTrino().executeQuery(format("UPDATE %s SET purchase = 'bread' WHERE customer = 'Fred'", tableName)))
-                    .failsWithMessage("Hive update is only supported for ACID transactional tables");
+            assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET purchase = 'bread' WHERE customer = 'Fred'", tableName)))
+                    .hasMessageContaining("Hive update is only supported for ACID transactional tables");
         });
     }
 
@@ -1082,8 +1200,8 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES ('Fred', 'cards')", tableName));
 
             log.info("About to fail update");
-            assertThat(() -> onTrino().executeQuery(format("UPDATE %s SET purchase = 'bread' WHERE customer = 'Fred'", tableName)))
-                    .failsWithMessage("Hive update is only supported for ACID transactional tables");
+            assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET purchase = 'bread' WHERE customer = 'Fred'", tableName)))
+                    .hasMessageContaining("Hive update is only supported for ACID transactional tables");
         });
     }
 
@@ -1097,8 +1215,8 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES ('Fred', 'cards')", tableName));
 
             log.info("About to fail delete");
-            assertThat(() -> onTrino().executeQuery(format("DELETE FROM %s WHERE customer = 'Fred'", tableName)))
-                    .failsWithMessage("Deletes must match whole partitions for non-transactional tables");
+            assertQueryFailure(() -> onTrino().executeQuery(format("DELETE FROM %s WHERE customer = 'Fred'", tableName)))
+                    .hasMessageContaining("Deletes must match whole partitions for non-transactional tables");
         });
     }
 
@@ -1114,8 +1232,8 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES ('Fred', 'cards')", tableName));
 
             log.info("About to fail delete");
-            assertThat(() -> onTrino().executeQuery(format("DELETE FROM %s WHERE customer = 'Fred'", tableName)))
-                    .failsWithMessage("Deletes must match whole partitions for non-transactional tables");
+            assertQueryFailure(() -> onTrino().executeQuery(format("DELETE FROM %s WHERE customer = 'Fred'", tableName)))
+                    .hasMessageContaining("Deletes must match whole partitions for non-transactional tables");
         });
     }
 
@@ -1129,8 +1247,8 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery(format("INSERT INTO %s (col1, col2, col3) VALUES (17, 'S1', 7)", tableName));
 
             log.info("About to fail update");
-            assertThat(() -> onTrino().executeQuery(format("UPDATE %s SET col3 = 17 WHERE col3 = 7", tableName)))
-                    .failsWithMessage("Updating Hive table partition columns is not supported");
+            assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET col3 = 17 WHERE col3 = 7", tableName)))
+                    .hasMessageContaining("Updating Hive table partition columns is not supported");
         });
     }
 
@@ -1144,8 +1262,8 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES ('Fred', 'cards')", tableName));
 
             log.info("About to fail update");
-            assertThat(() -> onTrino().executeQuery(format("UPDATE %s SET purchase = 'bread' WHERE customer = 'Fred'", tableName)))
-                    .failsWithMessage("Updating Hive table bucket columns is not supported");
+            assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET purchase = 'bread' WHERE customer = 'Fred'", tableName)))
+                    .hasMessageContaining("Updating Hive table bucket columns is not supported");
         });
     }
 
@@ -1159,8 +1277,8 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery(format("INSERT INTO %s (col1, col2, col3) VALUES (17, 'S1', 7)", tableName));
 
             log.info("About to fail update");
-            assertThat(() -> onTrino().executeQuery(format("UPDATE %s SET col1 = col2 WHERE col3 = 7", tableName)))
-                    .failsWithMessage("UPDATE table column types don't match SET expressions: Table: [integer], Expressions: [varchar]");
+            assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET col1 = col2 WHERE col3 = 7", tableName)))
+                    .hasMessageContaining("UPDATE table column types don't match SET expressions: Table: [integer], Expressions: [varchar]");
         });
     }
 
@@ -1370,7 +1488,6 @@ public class TestHiveTransactionalTable
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateWithSubqueryPredicate()
     {
-        // TODO support UPDATE with correlated subquery in assignment
         withTemporaryTable("test_update_subquery", true, false, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column1 INT, column2 varchar) WITH (transactional = true)", tableName));
             onTrino().executeQuery(format("INSERT INTO %s VALUES (1, 'x')", tableName));
@@ -1381,7 +1498,8 @@ public class TestHiveTransactionalTable
             verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "row updated"), row(2, "y"));
 
             withTemporaryTable("second_table", true, false, NONE, secondTable -> {
-                onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true) AS TABLE tpch.tiny.region", secondTable));
+                onTrino().executeQuery(format("CREATE TABLE %s (regionkey bigint, name varchar(25), comment varchar(152)) WITH (transactional = true)", secondTable));
+                onTrino().executeQuery(format("INSERT INTO %s SELECT * FROM tpch.tiny.region", secondTable));
 
                 // UPDATE while reading from another transactional table. Multiple transactional could interfere with ConnectorMetadata.beginQuery
                 onTrino().executeQuery(format("UPDATE %s SET column2 = 'another row updated' WHERE column1 = (SELECT min(regionkey) + 2 FROM %s)", tableName, secondTable));
@@ -1389,16 +1507,17 @@ public class TestHiveTransactionalTable
             });
 
             // WHERE with correlated subquery
-            assertThat(() -> onTrino().executeQuery(format("UPDATE %s SET column2 = 'row updated yet again' WHERE column2 = (SELECT name FROM tpch.tiny.region WHERE regionkey = column1)", tableName)))
-                    // TODO (https://github.com/trinodb/trino/issues/3325) support correlated UPDATE
-                    .failsWithMessageMatching("\\Qjava.sql.SQLException: Query failed (#\\E\\S+\\Q): Invalid descendant for DeleteNode or UpdateNode: io.trino.sql.planner.plan.MarkDistinctNode");
+            onTrino().executeQuery(format("UPDATE %s SET column2 = 'row updated yet again' WHERE column2 = (SELECT name FROM tpch.tiny.region WHERE regionkey = column1)", tableName));
+            verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "row updated"), row(2, "another row updated"));
+
+            onTrino().executeQuery(format("UPDATE %s SET column2 = 'row updated yet again' WHERE column2 != (SELECT name FROM tpch.tiny.region WHERE regionkey = column1)", tableName));
+            verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "row updated yet again"), row(2, "row updated yet again"));
         });
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateWithSubqueryAssignment()
     {
-        // TODO support UPDATE with correlated subquery in assignment
         withTemporaryTable("test_update_subquery", true, false, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column1 INT, column2 varchar) WITH (transactional = true)", tableName));
             onTrino().executeQuery(format("INSERT INTO %s VALUES (1, 'x')", tableName));
@@ -1409,18 +1528,81 @@ public class TestHiveTransactionalTable
             verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "MIDDLE EAST"), row(2, "MIDDLE EAST"));
 
             withTemporaryTable("second_table", true, false, NONE, secondTable -> {
-                onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true) AS TABLE tpch.tiny.region", secondTable));
+                onTrino().executeQuery(format("CREATE TABLE %s (regionkey bigint, name varchar(25), comment varchar(152)) WITH (transactional = true)", secondTable));
+                onTrino().executeQuery(format("INSERT INTO %s SELECT * FROM tpch.tiny.region", secondTable));
 
                 // UPDATE while reading from another transactional table. Multiple transactional could interfere with ConnectorMetadata.beginQuery
                 onTrino().executeQuery(format("UPDATE %s SET column2 = (SELECT min(name) FROM %s)", tableName, secondTable));
-                // TODO (https://github.com/trinodb/trino/issues/8268) verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "AFRICA"), row(2, "AFRICA"));
-                verifySelect("onTrino", onTrino(), "SELECT * FROM " + tableName, "true", row(1, "AFRICA"), row(2, "AFRICA"));
+                verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "AFRICA"), row(2, "AFRICA"));
+
+                onTrino().executeQuery(format("UPDATE %s SET column2 = (SELECT name FROM %s WHERE column1 = regionkey + 1)", tableName, secondTable));
+                verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "AFRICA"), row(2, "AMERICA"));
             });
 
             // SET with correlated subquery
-            assertThat(() -> onTrino().executeQuery(format("UPDATE %s SET column2 = (SELECT name FROM tpch.tiny.region WHERE column1 = regionkey)", tableName)))
-                    // TODO (https://github.com/trinodb/trino/issues/3325) support correlated UPDATE
-                    .failsWithMessageMatching("\\Qjava.sql.SQLException: Query failed (#\\E\\S+\\Q): Invalid descendant for DeleteNode or UpdateNode: io.trino.sql.planner.plan.MarkDistinctNode");
+            onTrino().executeQuery(format("UPDATE %s SET column2 = (SELECT name FROM tpch.tiny.region WHERE column1 = regionkey)", tableName));
+            verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "AMERICA"), row(2, "ASIA"));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testAcidUpdateDuplicateUpdateValue()
+    {
+        withTemporaryTable("test_update_bug", true, false, NONE, tableName -> {
+            onTrino().executeQuery(
+                    format("CREATE TABLE %s (", tableName) +
+                            " yyyy integer," +
+                            " week_number integer," +
+                            " week_start_date date," +
+                            " week_end_date date," +
+                            " genre_summary_status smallint," +
+                            " shop_summary_status smallint)" +
+                            " WITH (transactional = true)");
+
+            onTrino().executeQuery(format("INSERT INTO %s", tableName) +
+                    "(yyyy, week_number, week_start_date, week_end_date, genre_summary_status, shop_summary_status) VALUES" +
+                    "  (2021, 20,  DATE '2021-09-10', DATE '2021-09-10', 20, 20)" +
+                    ", (2021, 30,  DATE '2021-09-09', DATE '2021-09-09', 30, 30)" +
+                    ", (2021, 999, DATE '2018-12-24', DATE '2018-12-24', 999, 999)" +
+                    ", (2021, 30,  DATE '2021-09-09', DATE '2021-09-10', 30, 30)");
+
+            onTrino().executeQuery(format("UPDATE %s", tableName) +
+                    " SET genre_summary_status = 1, shop_summary_status = 1" +
+                    " WHERE week_start_date = DATE '2021-09-19' - (INTERVAL '08' DAY)" +
+                    "    OR week_start_date = DATE '2021-09-19' - (INTERVAL '09' DAY)");
+
+            assertThat(onTrino().executeQuery("SELECT * FROM " + tableName))
+                    .contains(
+                            row(2021, 20, Date.valueOf("2021-09-10"), Date.valueOf("2021-09-10"), 1, 1),
+                            row(2021, 30, Date.valueOf("2021-09-09"), Date.valueOf("2021-09-09"), 30, 30),
+                            row(2021, 999, Date.valueOf("2018-12-24"), Date.valueOf("2018-12-24"), 999, 999),
+                            row(2021, 30, Date.valueOf("2021-09-09"), Date.valueOf("2021-09-10"), 30, 30));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testAcidUpdateMultipleDuplicateValues()
+    {
+        withTemporaryTable("test_update_multiple", true, false, NONE, tableName -> {
+            onTrino().executeQuery(
+                    format("CREATE TABLE %s (c1 int, c2 int, c3 int, c4 int, c5 int, c6 int) WITH (transactional = true)", tableName));
+
+            log.info("Inserting into table");
+            onTrino().executeQuery(format("INSERT INTO %s (c1, c2, c3, c4, c5, c6) VALUES (1, 2, 3, 4, 5, 6)", tableName));
+
+            log.info("Performing first update");
+            onTrino().executeQuery(format("UPDATE %s SET c1 = 2, c2 = 4, c3 = 2, c4 = 4, c5 = 4, c6 = 2", tableName));
+
+            log.info("Checking first results");
+            assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).contains(row(2, 4, 2, 4, 4, 2));
+
+            log.info("Performing second update");
+            onTrino().executeQuery(format("UPDATE %s SET c1 = c1 + c2, c2 = c3 + c4, c3 = c1 + c2, c4 = c4 + c3, c5 = c3 + c4, c6 = c4 + c3", tableName));
+
+            log.info("Checking second results");
+            assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).contains(row(6, 6, 6, 6, 6, 6));
+
+            log.info("Finished");
         });
     }
 
@@ -1479,11 +1661,31 @@ public class TestHiveTransactionalTable
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
     public void testDeleteWholePartition()
     {
-        withTemporaryTable("delete_partitioned", true, true, NONE, tableName -> {
-            onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true, partitioned_by = ARRAY['regionkey'])" +
-                    " AS SELECT nationkey, name, regionkey FROM tpch.tiny.nation", tableName));
+        testDeleteWholePartition(false);
+    }
 
-            verifyOriginalFiles(tableName, "WHERE regionkey = 4");
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testDeleteWholePartitionWithOriginalFiles()
+    {
+        testDeleteWholePartition(true);
+    }
+
+    private void testDeleteWholePartition(boolean withOriginalFiles)
+    {
+        withTemporaryTable("delete_partitioned", true, true, NONE, tableName -> {
+            if (withOriginalFiles) {
+                onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true, partitioned_by = ARRAY['regionkey'])" +
+                        " AS SELECT nationkey, name, regionkey FROM tpch.tiny.nation", tableName));
+                verifyOriginalFiles(tableName, "WHERE regionkey = 4");
+            }
+            else {
+                onTrino().executeQuery(format("CREATE TABLE %s (" +
+                        "    nationkey bigint," +
+                        "    name varchar(25)," +
+                        "    regionkey bigint)" +
+                        " WITH (transactional = true, partitioned_by = ARRAY['regionkey'])", tableName));
+                onTrino().executeQuery(format("INSERT INTO %s SELECT nationkey, name, regionkey FROM tpch.tiny.nation", tableName));
+            }
 
             verifySelectForTrinoAndHive("SELECT count(*) FROM " + tableName, "true", row(25));
 
@@ -1527,6 +1729,45 @@ public class TestHiveTransactionalTable
         });
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testInsertRowIdCorrectness()
+    {
+        withTemporaryTable("test_insert_row_id_correctness", true, false, NONE, tableName -> {
+            // We use tpch.tiny.supplier because it is the smallest table that
+            // is written as multiple pages by the ORC writer. If it stops
+            // being split into pages, this test won't detect issues arising
+            // from row numbering across pages, which is its original purpose.
+            onTrino().executeQuery(format(
+                    "CREATE TABLE %s (" +
+                            "  suppkey bigint," +
+                            "  name varchar(25)," +
+                            "  address varchar(40)," +
+                            "  nationkey bigint," +
+                            "  phone varchar(15)," +
+                            "  acctbal double," +
+                            "  comment varchar(101))" +
+                            "WITH (transactional = true)", tableName));
+            onTrino().executeQuery(format("INSERT INTO %s select * from tpch.tiny.supplier", tableName));
+
+            int supplierRows = 100;
+            assertThat(onTrino().executeQuery("SELECT count(*) FROM " + tableName))
+                    .containsOnly(row(supplierRows));
+
+            String queryTarget = format(" FROM %s WHERE suppkey = 10", tableName);
+
+            assertThat(onTrino().executeQuery("SELECT count(*)" + queryTarget))
+                    .as("Only one matching row exists")
+                    .containsOnly(row(1));
+            assertThat(onTrino().executeQuery("DELETE" + queryTarget))
+                    .as("Only one row is reported as deleted")
+                    .containsOnly(row(1));
+
+            assertThat(onTrino().executeQuery("SELECT count(*) FROM " + tableName))
+                    .as("Only one row was actually deleted")
+                    .containsOnly(row(supplierRows - 1));
+        });
+    }
+
     private void verifyOriginalFiles(String tableName, String whereClause)
     {
         QueryResult result = onTrino().executeQuery(format("SELECT DISTINCT \"$path\" FROM %s %s", tableName, whereClause));
@@ -1538,42 +1779,25 @@ public class TestHiveTransactionalTable
     public Object[][] insertersProvider()
     {
         return new Object[][] {
-                {false, HiveOrTrino.HIVE, HiveOrTrino.TRINO},
-                {false, HiveOrTrino.TRINO, HiveOrTrino.TRINO},
-                {true, HiveOrTrino.HIVE, HiveOrTrino.TRINO},
-                {true, HiveOrTrino.TRINO, HiveOrTrino.TRINO},
+                {false, Engine.HIVE, Engine.TRINO},
+                {false, Engine.TRINO, Engine.TRINO},
+                {true, Engine.HIVE, Engine.TRINO},
+                {true, Engine.TRINO, Engine.TRINO},
         };
     }
 
-    private enum HiveOrTrino
+    private static QueryResult execute(Engine engine, String sql, QueryExecutor.QueryParam... params)
     {
-        HIVE,
-        TRINO
-    }
-
-    private static QueryResult execute(HiveOrTrino hiveOrTrino, String sql, QueryExecutor.QueryParam... params)
-    {
-        return executorFor(hiveOrTrino).executeQuery(sql, params);
-    }
-
-    private static QueryExecutor executorFor(HiveOrTrino hiveOrTrino)
-    {
-        switch (hiveOrTrino) {
-            case HIVE:
-                return onHive();
-            case TRINO:
-                return onTrino();
-        }
-        throw new IllegalStateException("Unknown enum value " + hiveOrTrino);
+        return engine.queryExecutor().executeQuery(sql, params);
     }
 
     @DataProvider
     public Object[][] inserterAndDeleterProvider()
     {
         return new Object[][] {
-                {HiveOrTrino.HIVE, HiveOrTrino.TRINO},
-                {HiveOrTrino.TRINO, HiveOrTrino.TRINO},
-                {HiveOrTrino.TRINO, HiveOrTrino.HIVE}
+                {Engine.HIVE, Engine.TRINO},
+                {Engine.TRINO, Engine.TRINO},
+                {Engine.TRINO, Engine.HIVE}
         };
     }
 
@@ -1582,10 +1806,8 @@ public class TestHiveTransactionalTable
         if (transactional) {
             ensureTransactionalHive();
         }
-        String tableName = null;
         try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(tableName(rootName, isPartitioned, bucketingType))) {
-            tableName = table.getName();
-            testRunner.accept(tableName);
+            testRunner.accept(table.getName());
         }
     }
 
@@ -1604,14 +1826,14 @@ public class TestHiveTransactionalTable
                 "STORED AS ORC " +
                 "TBLPROPERTIES ('transactional'='true')");
 
-        ThriftHiveMetastoreClient client = testHiveMetastoreClientFactory.createMetastoreClient();
+        ThriftMetastoreClient client = testHiveMetastoreClientFactory.createMetastoreClient();
         try {
             String selectFromOnePartitionsSql = "SELECT col FROM " + tableName + " ORDER BY COL";
 
             // Create `delta-A` file
             onHive().executeQuery("INSERT INTO TABLE " + tableName + " VALUES (1),(2)");
-            QueryResult onePartitionQueryResult = query(selectFromOnePartitionsSql);
-            assertThat(onePartitionQueryResult).containsExactly(row(1), row(2));
+            QueryResult onePartitionQueryResult = onTrino().executeQuery(selectFromOnePartitionsSql);
+            assertThat(onePartitionQueryResult).containsExactlyInOrder(row(1), row(2));
 
             String tableLocation = getTablePath(tableName);
 
@@ -1635,20 +1857,162 @@ public class TestHiveTransactionalTable
             hdfsCopyAll(deltaA, deltaB);
 
             // Verify that data from delta-A and delta-B is visible
-            onePartitionQueryResult = query(selectFromOnePartitionsSql);
+            onePartitionQueryResult = onTrino().executeQuery(selectFromOnePartitionsSql);
             assertThat(onePartitionQueryResult).containsOnly(row(1), row(1), row(2), row(2));
 
             // Copy content of `delta-A` to `delta-C` (which is an aborted transaction)
             hdfsCopyAll(deltaA, deltaC);
 
             // Verify that delta, corresponding to aborted transaction, is not getting read
-            onePartitionQueryResult = query(selectFromOnePartitionsSql);
+            onePartitionQueryResult = onTrino().executeQuery(selectFromOnePartitionsSql);
             assertThat(onePartitionQueryResult).containsOnly(row(1), row(1), row(2), row(2));
         }
         finally {
             client.close();
             onHive().executeQuery("DROP TABLE " + tableName);
         }
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testDoubleUpdateAndThenReadFromHive()
+    {
+        withTemporaryTable("test_double_update", true, false, NONE, tableName -> {
+            onTrino().executeQuery(
+                    "CREATE TABLE test_double_update ( " +
+                            "column1 INT, " +
+                            "column2 VARCHAR " +
+                            ") " +
+                            "WITH ( " +
+                            "   transactional = true " +
+                            ");");
+            onTrino().executeQuery("INSERT INTO test_double_update VALUES(1, 'x')");
+            onTrino().executeQuery("INSERT INTO test_double_update VALUES(2, 'y')");
+            onTrino().executeQuery("UPDATE test_double_update SET column2 = 'xy1'");
+            onTrino().executeQuery("UPDATE test_double_update SET column2 = 'xy2'");
+            verifySelectForTrinoAndHive("SELECT * FROM test_double_update", "true", row(1, "xy2"), row(2, "xy2"));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testDeleteWithOriginalFiles()
+    {
+        withTemporaryTable("test_delete_with_original_files", true, false, NONE, tableName -> {
+            // these 3 properties are necessary to make sure there is more than 1 original file created
+            onTrino().executeQuery("SET SESSION scale_writers = true");
+            onTrino().executeQuery("SET SESSION writer_min_size = '4kB'");
+            onTrino().executeQuery("SET SESSION task_scale_writers_enabled = false");
+            onTrino().executeQuery("SET SESSION task_writer_count = 2");
+            onTrino().executeQuery(format(
+                    "CREATE TABLE %s WITH (transactional = true) AS SELECT * FROM tpch.sf1000.orders LIMIT 100000", tableName));
+
+            verify(onTrino().executeQuery(format("SELECT DISTINCT \"$path\" FROM %s", tableName)).getRowsCount() >= 2,
+                    "There should be at least 2 files");
+            validateFileIsDirectlyUnderTableLocation(tableName);
+
+            onTrino().executeQuery(format("DELETE FROM %s", tableName));
+            verifySelectForTrinoAndHive(format("SELECT COUNT(*) FROM %s", tableName), "TRUE", row(0));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testDeleteWithOriginalFilesWithWhereClause()
+    {
+        withTemporaryTable("test_delete_with_original_files_with_where_clause", true, false, NONE, tableName -> {
+            // these 3 properties are necessary to make sure there is more than 1 original file created
+            onTrino().executeQuery("SET SESSION scale_writers = true");
+            onTrino().executeQuery("SET SESSION writer_min_size = '4kB'");
+            onTrino().executeQuery("SET SESSION task_scale_writers_enabled = false");
+            onTrino().executeQuery("SET SESSION task_writer_count = 2");
+            onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true) AS SELECT * FROM tpch.sf1000.orders LIMIT 100000", tableName));
+
+            verify(onTrino().executeQuery(format("SELECT DISTINCT \"$path\" FROM %s", tableName)).getRowsCount() >= 2,
+                    "There should be at least 2 files");
+            validateFileIsDirectlyUnderTableLocation(tableName);
+            int sizeBeforeDeletion = onTrino().executeQuery(format("SELECT orderkey FROM %s", tableName)).rows().size();
+
+            onTrino().executeQuery(format("DELETE FROM %s WHERE (orderkey %% 2) = 0", tableName));
+            assertThat(onTrino().executeQuery(format("SELECT COUNT (orderkey) FROM %s WHERE orderkey %%2 = 0", tableName))).containsOnly(row(0));
+
+            int sizeOnTrinoWithWhere = onTrino().executeQuery(format("SELECT orderkey FROM %s WHERE orderkey %%2 = 1", tableName)).rows().size();
+            int sizeOnHiveWithWhere = onHive().executeQuery(format("SELECT orderkey FROM %s WHERE orderkey %%2 = 1", tableName)).rows().size();
+            int sizeOnTrinoWithoutWhere = onTrino().executeQuery(format("SELECT orderkey FROM %s", tableName)).rows().size();
+
+            verify(sizeOnHiveWithWhere == sizeOnTrinoWithWhere);
+            verify(sizeOnTrinoWithWhere == sizeOnTrinoWithoutWhere);
+            verify(sizeBeforeDeletion > sizeOnTrinoWithoutWhere);
+        });
+    }
+
+    private void validateFileIsDirectlyUnderTableLocation(String tableName)
+    {
+        onTrino().executeQuery(format("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM %s", tableName))
+                .column(1)
+                .forEach(path -> verify(path.toString().endsWith(tableName.toLowerCase(ENGLISH)),
+                        "files in %s are not directly under table location"));
+    }
+
+    @Test
+    public void testDeleteAfterMajorCompaction()
+    {
+        withTemporaryTable("test_delete_after_major_compaction", true, false, NONE, tableName -> {
+            onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true) AS SELECT * FROM tpch.tiny.nation", tableName));
+            compactTableAndWait(MAJOR, tableName, "", new Duration(3, MINUTES));
+            onTrino().executeQuery(format("DELETE FROM %s", tableName));
+            verifySelectForTrinoAndHive(format("SELECT COUNT(*) FROM %s", tableName), "true", row(0));
+        });
+    }
+
+    @Test
+    public void testUnbucketedPartitionedTransactionalTableWithTaskWriterCountGreaterThanOne()
+    {
+        unbucketedTransactionalTableWithTaskWriterCountGreaterThanOne(true);
+    }
+
+    @Test
+    public void testUnbucketedTransactionalTableWithTaskWriterCountGreaterThanOne()
+    {
+        unbucketedTransactionalTableWithTaskWriterCountGreaterThanOne(false);
+    }
+
+    private void unbucketedTransactionalTableWithTaskWriterCountGreaterThanOne(boolean isPartitioned)
+    {
+        withTemporaryTable(format("test_unbucketed%s_transactional_table_with_task_writer_count_greater_than_one", isPartitioned ? "_partitioned" : ""), true, isPartitioned, NONE, tableName -> {
+            onTrino().executeQuery(format(
+                    "CREATE TABLE %s " +
+                            "WITH (" +
+                            "format='ORC', " +
+                            "transactional=true " +
+                            "%s" +
+                            ") AS SELECT orderkey, orderstatus, totalprice, orderdate, clerk, shippriority, \"comment\", custkey, orderpriority " +
+                            "FROM tpch.sf1000.orders LIMIT 0", tableName, isPartitioned ? ", partitioned_by = ARRAY['orderpriority']" : ""));
+            onTrino().executeQuery("SET SESSION scale_writers = true");
+            onTrino().executeQuery("SET SESSION writer_min_size = '4kB'");
+            onTrino().executeQuery("SET SESSION task_scale_writers_enabled = false");
+            onTrino().executeQuery("SET SESSION task_writer_count = 4");
+            onTrino().executeQuery("SET SESSION hive.target_max_file_size = '1MB'");
+
+            onTrino().executeQuery(
+                    format(
+                            "INSERT INTO %s SELECT orderkey, orderstatus, totalprice, orderdate, clerk, shippriority, \"comment\", custkey, orderpriority " +
+                                    "FROM tpch.sf1000.orders LIMIT 100000", tableName));
+            assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s", tableName))).containsOnly(row(100000));
+            int numberOfCreatedFiles = onTrino().executeQuery(format("SELECT DISTINCT \"$path\" FROM %s", tableName)).getRowsCount();
+            int expectedNumberOfPartitions = isPartitioned ? 5 : 1;
+            assertEquals(numberOfCreatedFiles, expectedNumberOfPartitions, format("There should be only %s files created", expectedNumberOfPartitions));
+
+            int sizeBeforeDeletion = onTrino().executeQuery(format("SELECT orderkey FROM %s", tableName)).rows().size();
+
+            onTrino().executeQuery(format("DELETE FROM %s WHERE (orderkey %% 2) = 0", tableName));
+            assertThat(onTrino().executeQuery(format("SELECT COUNT (orderkey) FROM %s WHERE orderkey %% 2 = 0", tableName))).containsOnly(row(0));
+
+            int sizeOnTrinoWithWhere = onTrino().executeQuery(format("SELECT orderkey FROM %s WHERE orderkey %% 2 = 1", tableName)).rows().size();
+            int sizeOnHiveWithWhere = onHive().executeQuery(format("SELECT orderkey FROM %s WHERE orderkey %% 2 = 1", tableName)).rows().size();
+            int sizeOnTrinoWithoutWhere = onTrino().executeQuery(format("SELECT orderkey FROM %s", tableName)).rows().size();
+
+            assertEquals(sizeOnHiveWithWhere, sizeOnTrinoWithWhere);
+            assertEquals(sizeOnTrinoWithWhere, sizeOnTrinoWithoutWhere);
+            assertTrue(sizeBeforeDeletion > sizeOnTrinoWithoutWhere);
+        });
     }
 
     private void hdfsDeleteAll(String directory)
@@ -1746,7 +2110,7 @@ public class TestHiveTransactionalTable
             verify(startedCompactions.size() < 2, "Expected at most 1 compaction");
 
             if (startedCompactions.isEmpty()) {
-                log.info("Compaction has not started yet. Existing compactions: " + getTableCompactions(compactMode, tableName, Optional.empty()));
+                log.info("Compaction has not started yet. Existing compactions: %s", getTableCompactions(compactMode, tableName, Optional.empty()));
                 continue;
             }
 
@@ -1807,13 +2171,13 @@ public class TestHiveTransactionalTable
                 singleRow.put(columnName, (String) row.get(column));
             }
 
-            rows.add(singleRow.build());
+            rows.add(singleRow.buildOrThrow());
         }
 
         return rows.build().stream();
     }
 
-    private static String tableName(String testName, boolean isPartitioned, BucketingType bucketingType)
+    public static String tableName(String testName, boolean isPartitioned, BucketingType bucketingType)
     {
         return format("test_%s_%b_%s_%s", testName, isPartitioned, bucketingType.name(), randomTableSuffix());
     }
@@ -1851,13 +2215,13 @@ public class TestHiveTransactionalTable
         }
     }
 
-    private static void verifySelectForTrinoAndHive(String select, String whereClause, QueryAssert.Row... rows)
+    public static void verifySelectForTrinoAndHive(String select, String whereClause, Row... rows)
     {
         verifySelect("onTrino", onTrino(), select, whereClause, rows);
         verifySelect("onHive", onHive(), select, whereClause, rows);
     }
 
-    private static void verifySelect(String name, QueryExecutor executor, String select, String whereClause, QueryAssert.Row... rows)
+    public static void verifySelect(String name, QueryExecutor executor, String select, String whereClause, Row... rows)
     {
         String fullQuery = format("%s WHERE %s", select, whereClause);
 

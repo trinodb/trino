@@ -77,7 +77,7 @@ SELECT
 FROM
   (
    SELECT
-     '${database}.${schema}.store channel' "channel"
+     'store channel' "channel"
    , "concat"('store', "store_id") "id"
    , "sales"
    , "returns"

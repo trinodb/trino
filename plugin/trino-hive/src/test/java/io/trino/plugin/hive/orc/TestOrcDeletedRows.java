@@ -21,7 +21,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import org.apache.hadoop.conf.Configuration;
+import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.AcidUtils;
 import org.apache.hadoop.mapred.JobConf;
@@ -32,6 +32,8 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -151,22 +153,30 @@ public class TestOrcDeletedRows
 
     private static OrcDeletedRows createOrcDeletedRows(AcidInfo acidInfo, String sourceFileName)
     {
-        JobConf configuration = new JobConf(new Configuration(false));
+        JobConf configuration = new JobConf(newEmptyConfiguration());
         OrcDeleteDeltaPageSourceFactory pageSourceFactory = new OrcDeleteDeltaPageSourceFactory(
                 new OrcReaderOptions(),
-                "test",
+                ConnectorIdentity.ofUser("test"),
                 configuration,
                 HDFS_ENVIRONMENT,
                 new FileFormatDataSourceStats());
 
-        return new OrcDeletedRows(
+        OrcDeletedRows deletedRows = new OrcDeletedRows(
                 sourceFileName,
                 pageSourceFactory,
-                "test",
+                ConnectorIdentity.ofUser("test"),
                 configuration,
                 HDFS_ENVIRONMENT,
                 acidInfo,
-                OptionalInt.of(0));
+                OptionalInt.of(0),
+                newSimpleAggregatedMemoryContext());
+
+        // ensure deletedRows is loaded
+        while (!deletedRows.loadOrYield()) {
+            // do nothing
+        }
+
+        return deletedRows;
     }
 
     private Page createTestPage(int originalTransactionStart, int originalTransactionEnd)
@@ -180,7 +190,7 @@ public class TestOrcDeletedRows
         return new Page(
                 size,
                 originalTransaction.build(),
-                new RunLengthEncodedBlock(bucketBlock, size),
-                new RunLengthEncodedBlock(rowIdBlock, size));
+                RunLengthEncodedBlock.create(bucketBlock, size),
+                RunLengthEncodedBlock.create(rowIdBlock, size));
     }
 }

@@ -13,8 +13,6 @@
  */
 package io.trino.operator;
 
-import io.trino.execution.Lifespan;
-
 public interface OperatorFactory
 {
     Operator createOperator(DriverContext driverContext);
@@ -25,26 +23,8 @@ public interface OperatorFactory
      * <p>
      * This method will be called only once.
      * Implementation doesn't need to worry about duplicate invocations.
-     * <p>
-     * It is guaranteed that this will only be invoked after {@link #noMoreOperators(Lifespan)}
-     * has been invoked for all applicable driver groups.
      */
     void noMoreOperators();
-
-    /**
-     * Declare that createOperator will not be called any more for the specified Lifespan,
-     * and release any resources associated with this factory.
-     * <p>
-     * This method will be called only once for each Lifespan.
-     * Implementation doesn't need to worry about duplicate invocations.
-     * <p>
-     * It is guaranteed that this method will be invoked for all applicable driver groups
-     * before {@link #noMoreOperators()} is invoked.
-     */
-    default void noMoreOperators(Lifespan lifespan)
-    {
-        // do nothing
-    }
 
     OperatorFactory duplicate();
 }

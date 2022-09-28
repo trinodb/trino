@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -27,14 +28,17 @@ public class JdbcNamedRelationHandle
 {
     private final SchemaTableName schemaTableName;
     private final RemoteTableName remoteTableName;
+    private final Optional<String> comment;
 
     @JsonCreator
     public JdbcNamedRelationHandle(
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-            @JsonProperty("remoteTableName") RemoteTableName remoteTableName)
+            @JsonProperty("remoteTableName") RemoteTableName remoteTableName,
+            @JsonProperty("comment") Optional<String> comment)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.remoteTableName = requireNonNull(remoteTableName, "remoteTableName is null");
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
     @JsonProperty
@@ -47,6 +51,12 @@ public class JdbcNamedRelationHandle
     public RemoteTableName getRemoteTableName()
     {
         return remoteTableName;
+    }
+
+    @JsonProperty
+    public Optional<String> getComment()
+    {
+        return comment;
     }
 
     @Override

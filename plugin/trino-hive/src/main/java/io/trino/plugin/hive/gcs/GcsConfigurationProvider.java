@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.hive.gcs;
 
-import com.google.cloud.hadoop.gcsio.GoogleCloudStorageFileSystem;
-import io.trino.plugin.hive.DynamicConfigurationProvider;
+import io.trino.hdfs.DynamicConfigurationProvider;
+import io.trino.hdfs.HdfsContext;
 import org.apache.hadoop.conf.Configuration;
 
 import java.net.URI;
 
-import static io.trino.plugin.hive.DynamicConfigurationProvider.setCacheKey;
-import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import static com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem.SCHEME;
+import static io.trino.hdfs.DynamicConfigurationProvider.setCacheKey;
 import static io.trino.plugin.hive.gcs.GcsAccessTokenProvider.GCS_ACCESS_TOKEN_CONF;
 
 public class GcsConfigurationProvider
@@ -31,7 +31,7 @@ public class GcsConfigurationProvider
     @Override
     public void updateConfiguration(Configuration configuration, HdfsContext context, URI uri)
     {
-        if (!uri.getScheme().equals(GoogleCloudStorageFileSystem.SCHEME)) {
+        if (!uri.getScheme().equals(SCHEME)) {
             return;
         }
 

@@ -16,7 +16,6 @@ package io.trino.operator.join;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.execution.Lifespan;
 import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
@@ -26,9 +25,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -47,7 +44,6 @@ public class LookupOuterOperator
         private final List<Type> buildOutputTypes;
         private final JoinBridgeManager<?> joinBridgeManager;
 
-        private final Set<Lifespan> createdLifespans = new HashSet<>();
         private boolean closed;
 
         public LookupOuterOperatorFactory(
@@ -73,27 +69,17 @@ public class LookupOuterOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "LookupOuterOperatorFactory is closed");
-            Lifespan lifespan = driverContext.getLifespan();
-            if (createdLifespans.contains(lifespan)) {
-                throw new IllegalStateException("Only one outer operator can be created per Lifespan");
-            }
-            createdLifespans.add(lifespan);
 
-            ListenableFuture<OuterPositionIterator> outerPositionsFuture = joinBridgeManager.getOuterPositionsFuture(lifespan);
+            ListenableFuture<OuterPositionIterator> outerPositionsFuture = joinBridgeManager.getOuterPositionsFuture();
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LookupOuterOperator.class.getSimpleName());
-            joinBridgeManager.outerOperatorCreated(lifespan);
-            return new LookupOuterOperator(operatorContext, outerPositionsFuture, probeOutputTypes, buildOutputTypes, () -> joinBridgeManager.outerOperatorClosed(lifespan));
-        }
-
-        @Override
-        public void noMoreOperators(Lifespan lifespan)
-        {
-            joinBridgeManager.outerOperatorFactoryClosed(lifespan);
+            joinBridgeManager.outerOperatorCreated();
+            return new LookupOuterOperator(operatorContext, outerPositionsFuture, probeOutputTypes, buildOutputTypes, () -> joinBridgeManager.outerOperatorClosed());
         }
 
         @Override
         public void noMoreOperators()
         {
+            joinBridgeManager.outerOperatorFactoryClosed();
             if (closed) {
                 return;
             }

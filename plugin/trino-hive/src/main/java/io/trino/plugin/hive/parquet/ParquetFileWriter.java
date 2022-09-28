@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.parquet;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.FileWriter;
@@ -25,48 +26,69 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
+import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Callable;
+import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.trino.parquet.ParquetWriteValidation.ParquetWriteValidationBuilder;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetFileWriter
         implements FileWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ParquetFileWriter.class).instanceSize();
+    private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     private final ParquetWriter parquetWriter;
     private final Callable<Void> rollbackAction;
     private final int[] fileInputColumnIndexes;
     private final List<Block> nullBlocks;
+    private final Optional<Supplier<ParquetDataSource>> validationInputFactory;
+    private long validationCpuNanos;
 
     public ParquetFileWriter(
             OutputStream outputStream,
             Callable<Void> rollbackAction,
             List<Type> fileColumnTypes,
+            List<String> fileColumnNames,
             MessageType messageType,
             Map<List<String>, Type> primitiveTypes,
             ParquetWriterOptions parquetWriterOptions,
             int[] fileInputColumnIndexes,
-            CompressionCodecName compressionCodecName)
+            CompressionCodecName compressionCodecName,
+            String trinoVersion,
+            Optional<DateTimeZone> parquetTimeZone,
+            Optional<Supplier<ParquetDataSource>> validationInputFactory)
     {
         requireNonNull(outputStream, "outputStream is null");
+        requireNonNull(trinoVersion, "trinoVersion is null");
+        this.validationInputFactory = requireNonNull(validationInputFactory, "validationInputFactory is null");
 
         this.parquetWriter = new ParquetWriter(
                 outputStream,
                 messageType,
                 primitiveTypes,
                 parquetWriterOptions,
-                compressionCodecName);
+                compressionCodecName,
+                trinoVersion,
+                parquetTimeZone,
+                validationInputFactory.isPresent()
+                        ? Optional.of(new ParquetWriteValidationBuilder(fileColumnTypes, fileColumnNames))
+                        : Optional.empty());
 
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction is null");
         this.fileInputColumnIndexes = requireNonNull(fileInputColumnIndexes, "fileInputColumnIndexes is null");
@@ -83,11 +105,11 @@ public class ParquetFileWriter
     @Override
     public long getWrittenBytes()
     {
-        return parquetWriter.getWrittenBytes();
+        return parquetWriter.getWrittenBytes() + parquetWriter.getBufferedBytes();
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return INSTANCE_SIZE + parquetWriter.getRetainedBytes();
     }
@@ -99,7 +121,7 @@ public class ParquetFileWriter
         for (int i = 0; i < fileInputColumnIndexes.length; i++) {
             int inputColumnIndex = fileInputColumnIndexes[i];
             if (inputColumnIndex < 0) {
-                blocks[i] = new RunLengthEncodedBlock(nullBlocks.get(i), dataPage.getPositionCount());
+                blocks[i] = RunLengthEncodedBlock.create(nullBlocks.get(i), dataPage.getPositionCount());
             }
             else {
                 blocks[i] = dataPage.getBlock(inputColumnIndex);
@@ -129,6 +151,19 @@ public class ParquetFileWriter
             }
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write parquet to Hive", e);
         }
+
+        if (validationInputFactory.isPresent()) {
+            try {
+                try (ParquetDataSource input = validationInputFactory.get().get()) {
+                    long startThreadCpuTime = THREAD_MX_BEAN.getCurrentThreadCpuTime();
+                    parquetWriter.validate(input);
+                    validationCpuNanos += THREAD_MX_BEAN.getCurrentThreadCpuTime() - startThreadCpuTime;
+                }
+            }
+            catch (IOException | UncheckedIOException e) {
+                throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);
+            }
+        }
     }
 
     @Override
@@ -150,7 +185,7 @@ public class ParquetFileWriter
     @Override
     public long getValidationCpuNanos()
     {
-        return 0;
+        return validationCpuNanos;
     }
 
     @Override

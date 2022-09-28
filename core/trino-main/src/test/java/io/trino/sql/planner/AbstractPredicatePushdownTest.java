@@ -33,7 +33,6 @@ import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -66,14 +65,14 @@ public abstract class AbstractPredicatePushdownTest
         assertPlan(
                 "SELECT * FROM orders JOIN lineitem ON orders.orderkey = lineitem.orderkey AND cast(lineitem.linenumber AS varchar) = '2'",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
+                        join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
                                 anyTree(
-                                        filter("cast(LINEITEM_LINENUMBER as varchar) = cast('2' as varchar)",
+                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
+                                anyTree(
+                                        filter("cast(LINEITEM_LINENUMBER as varchar) = VARCHAR '2'",
                                                 tableScan("lineitem", ImmutableMap.of(
                                                         "LINEITEM_OK", "orderkey",
-                                                        "LINEITEM_LINENUMBER", "linenumber")))),
-                                anyTree(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))));
+                                                        "LINEITEM_LINENUMBER", "linenumber")))))));
     }
 
     @Test
@@ -269,8 +268,7 @@ public abstract class AbstractPredicatePushdownTest
                 "SELECT orderstatus FROM orders WHERE orderstatus = 'O'",
                 // predicate matches exactly single partition, no FilterNode needed
                 output(
-                        exchange(
-                                tableScan("orders"))),
+                        tableScan("orders")),
                 allOptimizers);
 
         assertPlan(

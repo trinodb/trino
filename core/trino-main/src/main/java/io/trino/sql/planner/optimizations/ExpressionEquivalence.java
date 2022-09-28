@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import io.trino.Session;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.DesugarArrayConstructorRewriter;
@@ -46,7 +47,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.metadata.Signature.mangleOperatorName;
+import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -60,12 +61,14 @@ public class ExpressionEquivalence
 {
     private static final Ordering<RowExpression> ROW_EXPRESSION_ORDERING = Ordering.from(new RowExpressionComparator());
     private final Metadata metadata;
+    private final FunctionManager functionManager;
     private final TypeAnalyzer typeAnalyzer;
     private final CanonicalizationVisitor canonicalizationVisitor;
 
-    public ExpressionEquivalence(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    public ExpressionEquivalence(Metadata metadata, FunctionManager functionManager, TypeAnalyzer typeAnalyzer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.canonicalizationVisitor = new CanonicalizationVisitor();
     }
@@ -97,6 +100,7 @@ public class ExpressionEquivalence
                 typeAnalyzer.getTypes(session, types, expression),
                 symbolInput,
                 metadata,
+                functionManager,
                 session,
                 false);
     }
@@ -104,10 +108,6 @@ public class ExpressionEquivalence
     private static class CanonicalizationVisitor
             implements RowExpressionVisitor<RowExpression, Void>
     {
-        public CanonicalizationVisitor()
-        {
-        }
-
         @Override
         public RowExpression visitCall(CallExpression call, Void context)
         {

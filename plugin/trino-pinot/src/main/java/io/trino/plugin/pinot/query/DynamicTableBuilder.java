@@ -14,158 +14,261 @@
 package io.trino.plugin.pinot.query;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.pinot.PinotColumnHandle;
+import io.trino.plugin.pinot.PinotException;
 import io.trino.plugin.pinot.PinotMetadata;
+import io.trino.plugin.pinot.PinotTypeConverter;
+import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ColumnNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
-import org.apache.pinot.common.request.AggregationInfo;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.Type;
 import org.apache.pinot.common.request.BrokerRequest;
-import org.apache.pinot.common.request.SelectionSort;
+import org.apache.pinot.common.request.PinotQuery;
+import org.apache.pinot.common.request.context.ExpressionContext;
+import org.apache.pinot.common.request.context.FunctionContext;
+import org.apache.pinot.common.request.context.OrderByExpressionContext;
+import org.apache.pinot.common.utils.DataSchema;
+import org.apache.pinot.core.query.aggregation.function.AggregationFunction;
+import org.apache.pinot.core.query.reduce.PostAggregationHandler;
+import org.apache.pinot.core.query.request.context.QueryContext;
+import org.apache.pinot.core.query.request.context.utils.BrokerRequestToQueryContextConverter;
+import org.apache.pinot.segment.spi.AggregationFunctionType;
 import org.apache.pinot.sql.parsers.CalciteSqlCompiler;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.pinot.query.FilterToPinotSqlConverter.convertFilter;
+import static io.trino.plugin.pinot.PinotColumnHandle.fromNonAggregateColumnHandle;
+import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
+import static io.trino.plugin.pinot.query.PinotExpressionRewriter.rewriteExpression;
+import static io.trino.plugin.pinot.query.PinotPatterns.WILDCARD;
+import static io.trino.plugin.pinot.query.PinotSqlFormatter.formatExpression;
+import static io.trino.plugin.pinot.query.PinotSqlFormatter.formatFilter;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static org.apache.pinot.segment.spi.AggregationFunctionType.COUNT;
+import static org.apache.pinot.segment.spi.AggregationFunctionType.DISTINCTCOUNT;
+import static org.apache.pinot.segment.spi.AggregationFunctionType.DISTINCTCOUNTHLL;
+import static org.apache.pinot.segment.spi.AggregationFunctionType.getAggregationFunctionType;
 
 public final class DynamicTableBuilder
 {
     private static final CalciteSqlCompiler REQUEST_COMPILER = new CalciteSqlCompiler();
-    private static final String COLUMN_KEY = "column";
-    private static final String WILDCARD = "*";
-    public static final Set<String> DOUBLE_AGGREGATIONS = ImmutableSet.of("distinctcounthll", "avg");
-    public static final Set<String> BIGINT_AGGREGATIONS = ImmutableSet.of("count", "distinctcount");
     public static final String OFFLINE_SUFFIX = "_OFFLINE";
     public static final String REALTIME_SUFFIX = "_REALTIME";
+    private static final Set<AggregationFunctionType> NON_NULL_ON_EMPTY_AGGREGATIONS = EnumSet.of(COUNT, DISTINCTCOUNT, DISTINCTCOUNTHLL);
 
     private DynamicTableBuilder()
     {
     }
 
-    public static DynamicTable buildFromPql(PinotMetadata pinotMetadata, SchemaTableName schemaTableName)
+    public static DynamicTable buildFromPql(PinotMetadata pinotMetadata, SchemaTableName schemaTableName, PinotClient pinotClient, PinotTypeConverter typeConverter)
     {
         requireNonNull(pinotMetadata, "pinotMetadata is null");
         requireNonNull(schemaTableName, "schemaTableName is null");
+        requireNonNull(typeConverter, "typeConverter is null");
         String query = schemaTableName.getTableName();
         BrokerRequest request = REQUEST_COMPILER.compileToBrokerRequest(query);
-        String pinotTableName = stripSuffix(request.getQuerySource().getTableName());
-        Optional<String> suffix = getSuffix(request.getQuerySource().getTableName());
+        PinotQuery pinotQuery = request.getPinotQuery();
+        QueryContext queryContext = BrokerRequestToQueryContextConverter.convert(request);
+        String tableName = request.getQuerySource().getTableName();
+        String trinoTableName = stripSuffix(tableName).toLowerCase(ENGLISH);
+        String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableName(trinoTableName);
+        Optional<String> suffix = getSuffix(tableName);
 
-        Map<String, ColumnHandle> columnHandles = pinotMetadata.getPinotColumnHandles(pinotTableName);
-        List<String> selectionColumns = ImmutableList.of();
+        Map<String, ColumnHandle> columnHandles = pinotMetadata.getPinotColumnHandles(trinoTableName);
         List<OrderByExpression> orderBy = ImmutableList.of();
-        if (request.getSelections() != null) {
-            selectionColumns = resolvePinotColumns(schemaTableName, request.getSelections().getSelectionColumns(), columnHandles);
-            if (request.getSelections().getSelectionSortSequence() != null) {
-                ImmutableList.Builder<OrderByExpression> orderByBuilder = ImmutableList.builder();
-                for (SelectionSort sortItem : request.getSelections().getSelectionSortSequence()) {
-                    PinotColumnHandle columnHandle = (PinotColumnHandle) columnHandles.get(sortItem.getColumn());
-                    if (columnHandle == null) {
-                        throw new ColumnNotFoundException(schemaTableName, sortItem.getColumn());
-                    }
-                    orderByBuilder.add(new OrderByExpression(columnHandle.getColumnName(), sortItem.isIsAsc()));
-                }
-                orderBy = orderByBuilder.build();
+        PinotTypeResolver pinotTypeResolver = new PinotTypeResolver(pinotClient, typeConverter, pinotTableName);
+        List<PinotColumnHandle> selectColumns = ImmutableList.of();
+
+        Map<String, PinotColumnNameAndTrinoType> aggregateTypes = ImmutableMap.of();
+        if (queryContext.getAggregationFunctions() != null) {
+            checkState(queryContext.getAggregationFunctions().length > 0, "Aggregation Functions is empty");
+            aggregateTypes = getAggregateTypes(schemaTableName, queryContext, columnHandles, typeConverter);
+        }
+
+        if (queryContext.getSelectExpressions() != null) {
+            checkState(!queryContext.getSelectExpressions().isEmpty(), "Pinot selections is empty");
+            selectColumns = getPinotColumns(schemaTableName, queryContext.getSelectExpressions(), queryContext.getAliasList(), columnHandles, pinotTypeResolver, aggregateTypes);
+        }
+
+        if (queryContext.getOrderByExpressions() != null) {
+            ImmutableList.Builder<OrderByExpression> orderByBuilder = ImmutableList.builder();
+            for (OrderByExpressionContext orderByExpressionContext : queryContext.getOrderByExpressions()) {
+                ExpressionContext expressionContext = orderByExpressionContext.getExpression();
+                PinotColumnHandle pinotColumnHandle = getPinotColumnHandle(schemaTableName, expressionContext, Optional.empty(), columnHandles, pinotTypeResolver, aggregateTypes);
+                orderByBuilder.add(new OrderByExpression(pinotColumnHandle.getExpression(), orderByExpressionContext.isAsc()));
             }
+            orderBy = orderByBuilder.build();
         }
 
-        List<String> groupByColumns;
-        if (request.getGroupBy() == null) {
-            groupByColumns = ImmutableList.of();
-        }
-        else {
-            groupByColumns = resolvePinotColumns(schemaTableName, request.getGroupBy().getExpressions(), columnHandles);
+        List<PinotColumnHandle> groupByColumns = ImmutableList.of();
+        if (queryContext.getGroupByExpressions() != null) {
+            groupByColumns = getPinotColumns(schemaTableName, queryContext.getGroupByExpressions(), ImmutableList.of(), columnHandles, pinotTypeResolver, aggregateTypes);
         }
 
-        Optional<String> filter;
-        if (request.getFilterQuery() != null) {
-            filter = Optional.of(convertFilter(request.getPinotQuery(), columnHandles));
-        }
-        else {
-            filter = Optional.empty();
+        Optional<String> havingExpression = Optional.empty();
+        if (queryContext.getHavingFilter() != null) {
+            String formatted = formatFilter(schemaTableName, queryContext.getHavingFilter(), columnHandles);
+            havingExpression = Optional.of(formatted);
         }
 
-        ImmutableList.Builder<AggregationExpression> aggregationExpressionBuilder = ImmutableList.builder();
-        if (request.getAggregationsInfo() != null) {
-            for (AggregationInfo aggregationInfo : request.getAggregationsInfo()) {
-                String baseColumnName = aggregationInfo.getAggregationParams().get(COLUMN_KEY);
-                AggregationExpression aggregationExpression;
-                if (baseColumnName.equals(WILDCARD)) {
-                    aggregationExpression = new AggregationExpression(getOutputColumnName(aggregationInfo, baseColumnName),
-                            baseColumnName,
-                            aggregationInfo.getAggregationType());
-                }
-                else {
-                    PinotColumnHandle columnHandle = (PinotColumnHandle) columnHandles.get(baseColumnName);
-                    if (columnHandle == null) {
-                        throw new ColumnNotFoundException(schemaTableName, aggregationInfo.getAggregationParams().get(COLUMN_KEY));
-                    }
-                    aggregationExpression = new AggregationExpression(
-                            getOutputColumnName(aggregationInfo, columnHandle.getColumnName()),
-                            columnHandle.getColumnName(),
-                            aggregationInfo.getAggregationType());
-                }
-
-                aggregationExpressionBuilder.add(aggregationExpression);
-            }
+        Optional<String> filter = Optional.empty();
+        if (pinotQuery.getFilterExpression() != null) {
+            String formatted = formatFilter(schemaTableName, queryContext.getFilter(), columnHandles);
+            filter = Optional.of(formatted);
         }
 
-        return new DynamicTable(pinotTableName, suffix, selectionColumns, groupByColumns, filter, aggregationExpressionBuilder.build(), orderBy, getTopNOrLimit(request), getOffset(request), query);
+        return new DynamicTable(pinotTableName, suffix, selectColumns, filter, groupByColumns, ImmutableList.of(), havingExpression, orderBy, OptionalLong.of(queryContext.getLimit()), getOffset(queryContext), query);
     }
 
-    private static List<String> resolvePinotColumns(SchemaTableName schemaTableName, List<String> trinoColumnNames, Map<String, ColumnHandle> columnHandles)
+    private static List<PinotColumnHandle> getPinotColumns(SchemaTableName schemaTableName, List<ExpressionContext> expressions, List<String> aliases, Map<String, ColumnHandle> columnHandles, PinotTypeResolver pinotTypeResolver, Map<String, PinotColumnNameAndTrinoType> aggregateTypes)
     {
-        ImmutableList.Builder<String> pinotColumnNamesBuilder = ImmutableList.builder();
-        for (String trinoColumnName : trinoColumnNames) {
-            if (trinoColumnName.equals(WILDCARD)) {
-                pinotColumnNamesBuilder.addAll(columnHandles.values().stream().map(handle -> ((PinotColumnHandle) handle).getColumnName()).collect(toImmutableList()));
+        ImmutableList.Builder<PinotColumnHandle> pinotColumnsBuilder = ImmutableList.builder();
+        for (int index = 0; index < expressions.size(); index++) {
+            ExpressionContext expressionContext = expressions.get(index);
+            Optional<String> alias = getAlias(aliases, index);
+            // Only substitute * with columns for top level SELECT *.
+            // Since Pinot doesn't support subqueries yet, we can only have one occurrence of SELECT *
+            if (expressionContext.getType() == ExpressionContext.Type.IDENTIFIER && expressionContext.getIdentifier().equals(WILDCARD)) {
+                pinotColumnsBuilder.addAll(columnHandles.values().stream()
+                        .map(handle -> fromNonAggregateColumnHandle((PinotColumnHandle) handle))
+                        .collect(toImmutableList()));
             }
             else {
-                PinotColumnHandle columnHandle = (PinotColumnHandle) columnHandles.get(trinoColumnName);
-                if (columnHandle == null) {
-                    throw new ColumnNotFoundException(schemaTableName, trinoColumnName);
-                }
-                pinotColumnNamesBuilder.add(columnHandle.getColumnName());
+                pinotColumnsBuilder.add(getPinotColumnHandle(schemaTableName, expressionContext, alias, columnHandles, pinotTypeResolver, aggregateTypes));
             }
         }
-        return pinotColumnNamesBuilder.build();
+        return pinotColumnsBuilder.build();
     }
 
-    private static String getOutputColumnName(AggregationInfo aggregationInfo, String pinotColumnName)
+    private static PinotColumnHandle getPinotColumnHandle(SchemaTableName schemaTableName, ExpressionContext expressionContext, Optional<String> alias, Map<String, ColumnHandle> columnHandles, PinotTypeResolver pinotTypeResolver, Map<String, PinotColumnNameAndTrinoType> aggregateTypes)
     {
-        return format("%s(%s)", aggregationInfo.getAggregationType(), pinotColumnName).toLowerCase(ENGLISH);
-    }
-
-    private static OptionalLong getTopNOrLimit(BrokerRequest request)
-    {
-        if (request.getGroupBy() != null) {
-            return OptionalLong.of(request.getGroupBy().getTopN());
-        }
-        else if (request.getSelections() != null) {
-            return OptionalLong.of(request.getSelections().getSize());
+        ExpressionContext rewritten = rewriteExpression(schemaTableName, expressionContext, columnHandles);
+        // If there is no alias, pinot autogenerates the column name:
+        String columnName = rewritten.toString();
+        String pinotExpression = formatExpression(schemaTableName, rewritten);
+        Type trinoType;
+        boolean isAggregate = hasAggregate(rewritten);
+        if (isAggregate) {
+            trinoType = requireNonNull(aggregateTypes.get(columnName).getTrinoType(), format("Unexpected aggregate expression: '%s'", rewritten));
+            // For aggregation queries, the column name is set by the schema returned from PostAggregationHandler, see getAggregateTypes
+            columnName = aggregateTypes.get(columnName).getPinotColumnName();
         }
         else {
-            return OptionalLong.empty();
+            trinoType = pinotTypeResolver.resolveExpressionType(rewritten, schemaTableName, columnHandles);
+            if (!aggregateTypes.isEmpty() && trinoType instanceof ArrayType) {
+                trinoType = ((ArrayType) trinoType).getElementType();
+            }
         }
+
+        return new PinotColumnHandle(alias.orElse(columnName), trinoType, pinotExpression, alias.isPresent(), isAggregate, isReturnNullOnEmptyGroup(expressionContext), Optional.empty(), Optional.empty());
     }
 
-    private static OptionalLong getOffset(BrokerRequest request)
+    private static Optional<String> getAlias(List<String> aliases, int index)
     {
-        if (request.getSelections() != null && request.getSelections().getOffset() > 0) {
-            return OptionalLong.of(request.getSelections().getOffset());
+        // SELECT * is expanded to all columns with no aliases
+        if (index >= aliases.size()) {
+            return Optional.empty();
         }
-        else {
-            return OptionalLong.empty();
+        return Optional.ofNullable(aliases.get(index));
+    }
+
+    private static boolean isAggregate(ExpressionContext expressionContext)
+    {
+        return expressionContext.getType() == ExpressionContext.Type.FUNCTION && expressionContext.getFunction().getType() == FunctionContext.Type.AGGREGATION;
+    }
+
+    private static boolean hasAggregate(ExpressionContext expressionContext)
+    {
+        switch (expressionContext.getType()) {
+            case IDENTIFIER:
+            case LITERAL:
+                return false;
+            case FUNCTION:
+                if (isAggregate(expressionContext)) {
+                    return true;
+                }
+                for (ExpressionContext argument : expressionContext.getFunction().getArguments()) {
+                    if (hasAggregate(argument)) {
+                        return true;
+                    }
+                }
+                return false;
         }
+        throw new PinotException(PINOT_EXCEPTION, Optional.empty(), format("Unsupported expression type '%s'", expressionContext.getType()));
+    }
+
+    private static Map<String, PinotColumnNameAndTrinoType> getAggregateTypes(SchemaTableName schemaTableName, QueryContext queryContext, Map<String, ColumnHandle> columnHandles, PinotTypeConverter typeConverter)
+    {
+        // A mapping from pinot expression to the returned pinot column name and trino type
+        // Note: the column name is set by the PostAggregationHandler
+        List<ExpressionContext> aggregateColumnExpressions = queryContext.getSelectExpressions().stream()
+                .filter(DynamicTableBuilder::hasAggregate)
+                .collect(toImmutableList());
+        queryContext = new QueryContext.Builder()
+                .setAliasList(queryContext.getAliasList())
+                .setSelectExpressions(aggregateColumnExpressions)
+                .build();
+        DataSchema preAggregationSchema = getPreAggregationDataSchema(queryContext);
+        PostAggregationHandler postAggregationHandler = new PostAggregationHandler(queryContext, preAggregationSchema);
+        DataSchema postAggregationSchema = postAggregationHandler.getResultDataSchema();
+        ImmutableMap.Builder<String, PinotColumnNameAndTrinoType> aggregationTypesBuilder = ImmutableMap.builder();
+        for (int index = 0; index < postAggregationSchema.size(); index++) {
+            aggregationTypesBuilder.put(
+                    // ExpressionContext#toString performs quoting of literals
+                    // Quoting of identifiers is not done to match the corresponding column name in the ResultTable returned from Pinot. Quoting will be done by `DynamicTablePqlExtractor`.
+                    rewriteExpression(schemaTableName,
+                            aggregateColumnExpressions.get(index),
+                            columnHandles).toString(),
+                    new PinotColumnNameAndTrinoType(
+                            postAggregationSchema.getColumnName(index),
+                            typeConverter.toTrinoType(postAggregationSchema.getColumnDataType(index))));
+        }
+        return aggregationTypesBuilder.buildOrThrow();
+    }
+
+    // Extracted from org.apache.pinot.core.query.reduce.AggregationDataTableReducer
+    private static DataSchema getPreAggregationDataSchema(QueryContext queryContext)
+    {
+        AggregationFunction<?, ?>[] aggregationFunctions = queryContext.getAggregationFunctions();
+        int numAggregationFunctions = aggregationFunctions.length;
+        String[] columnNames = new String[numAggregationFunctions];
+        DataSchema.ColumnDataType[] columnDataTypes = new DataSchema.ColumnDataType[numAggregationFunctions];
+        for (int i = 0; i < numAggregationFunctions; i++) {
+            AggregationFunction<?, ?> aggregationFunction = aggregationFunctions[i];
+            columnNames[i] = aggregationFunction.getResultColumnName();
+            columnDataTypes[i] = aggregationFunction.getFinalResultColumnType();
+        }
+        return new DataSchema(columnNames, columnDataTypes);
+    }
+
+    // To keep consistent behavior with pushed down aggregates, only return non null on an empty group
+    // if the top level function is in NON_NULL_ON_EMPTY_AGGREGATIONS.
+    // For all other cases, keep the same behavior as Pinot, since likely the same results are expected.
+    private static boolean isReturnNullOnEmptyGroup(ExpressionContext expressionContext)
+    {
+        if (isAggregate(expressionContext)) {
+            return !NON_NULL_ON_EMPTY_AGGREGATIONS.contains(getAggregationFunctionType(expressionContext.getFunction().getFunctionName()));
+        }
+        return true;
+    }
+
+    private static OptionalLong getOffset(QueryContext queryContext)
+    {
+        if (queryContext.getOffset() > 0) {
+            return OptionalLong.of(queryContext.getOffset());
+        }
+        return OptionalLong.empty();
     }
 
     private static String stripSuffix(String tableName)
@@ -174,12 +277,10 @@ public final class DynamicTableBuilder
         if (tableName.toUpperCase(ENGLISH).endsWith(OFFLINE_SUFFIX)) {
             return tableName.substring(0, tableName.length() - OFFLINE_SUFFIX.length());
         }
-        else if (tableName.toUpperCase(ENGLISH).endsWith(REALTIME_SUFFIX)) {
+        if (tableName.toUpperCase(ENGLISH).endsWith(REALTIME_SUFFIX)) {
             return tableName.substring(0, tableName.length() - REALTIME_SUFFIX.length());
         }
-        else {
-            return tableName;
-        }
+        return tableName;
     }
 
     private static Optional<String> getSuffix(String tableName)
@@ -188,11 +289,31 @@ public final class DynamicTableBuilder
         if (tableName.toUpperCase(ENGLISH).endsWith(OFFLINE_SUFFIX)) {
             return Optional.of(OFFLINE_SUFFIX);
         }
-        else if (tableName.toUpperCase(ENGLISH).endsWith(REALTIME_SUFFIX)) {
+        if (tableName.toUpperCase(ENGLISH).endsWith(REALTIME_SUFFIX)) {
             return Optional.of(REALTIME_SUFFIX);
         }
-        else {
-            return Optional.empty();
+        return Optional.empty();
+    }
+
+    private static class PinotColumnNameAndTrinoType
+    {
+        private final String pinotColumnName;
+        private final Type trinoType;
+
+        public PinotColumnNameAndTrinoType(String pinotColumnName, Type trinoType)
+        {
+            this.pinotColumnName = requireNonNull(pinotColumnName, "pinotColumnName is null");
+            this.trinoType = requireNonNull(trinoType, "trinoType is null");
+        }
+
+        public String getPinotColumnName()
+        {
+            return pinotColumnName;
+        }
+
+        public Type getTrinoType()
+        {
+            return trinoType;
         }
     }
 }

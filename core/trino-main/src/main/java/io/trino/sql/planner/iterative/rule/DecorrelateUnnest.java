@@ -16,10 +16,10 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -45,24 +45,22 @@ import io.trino.sql.planner.plan.WindowNode.Specification;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.StringLiteral;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.matching.Pattern.nonEmpty;
+import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.iterative.rule.ImplementLimitWithTies.rewriteLimitWithTiesWithPartitioning;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
@@ -246,6 +244,7 @@ public class DecorrelateUnnest
                 ordinalitySymbol,
                 uniqueSymbol,
                 rewrittenUnnest,
+                context.getSession(),
                 metadata,
                 context.getLookup(),
                 context.getIdAllocator(),
@@ -316,6 +315,7 @@ public class DecorrelateUnnest
         private final Symbol ordinalitySymbol;
         private final Symbol uniqueSymbol;
         private final PlanNode sequenceSource;
+        private final Session session;
         private final Metadata metadata;
         private final Lookup lookup;
         private final PlanNodeIdAllocator idAllocator;
@@ -326,6 +326,7 @@ public class DecorrelateUnnest
                 Symbol ordinalitySymbol,
                 Symbol uniqueSymbol,
                 PlanNode sequenceSource,
+                Session session,
                 Metadata metadata,
                 Lookup lookup,
                 PlanNodeIdAllocator idAllocator,
@@ -335,6 +336,7 @@ public class DecorrelateUnnest
             this.ordinalitySymbol = requireNonNull(ordinalitySymbol, "ordinalitySymbol is null");
             this.uniqueSymbol = requireNonNull(uniqueSymbol, "uniqueSymbol is null");
             this.sequenceSource = requireNonNull(sequenceSource, "sequenceSource is null");
+            this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.lookup = requireNonNull(lookup, "lookup is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
@@ -347,12 +349,13 @@ public class DecorrelateUnnest
                 Symbol ordinalitySymbol,
                 Symbol uniqueSymbol,
                 PlanNode sequenceSource,
+                Session session,
                 Metadata metadata,
                 Lookup lookup,
                 PlanNodeIdAllocator idAllocator,
                 SymbolAllocator symbolAllocator)
         {
-            return new Rewriter(leftOutputs, ordinalitySymbol, uniqueSymbol, sequenceSource, metadata, lookup, idAllocator, symbolAllocator)
+            return new Rewriter(leftOutputs, ordinalitySymbol, uniqueSymbol, sequenceSource, session, metadata, lookup, idAllocator, symbolAllocator)
                     .rewrite(root)
                     .getPlan();
         }
@@ -404,16 +407,13 @@ public class DecorrelateUnnest
                         Optional.of(2),
                         Optional.empty());
             }
-            ResolvedFunction fail = metadata.resolveFunction(QualifiedName.of("fail"), fromTypes(VARCHAR));
             Expression predicate = new IfExpression(
                     new ComparisonExpression(
                             GREATER_THAN,
                             rowNumberSymbol.toSymbolReference(),
                             new GenericLiteral("BIGINT", "1")),
                     new Cast(
-                            new FunctionCall(
-                                    fail.toQualifiedName(),
-                                    ImmutableList.of(new Cast(new StringLiteral("Scalar sub-query has returned multiple rows"), toSqlType(VARCHAR)))),
+                            failFunction(metadata, session, SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
                             toSqlType(BOOLEAN)),
                     TRUE_LITERAL);
 
@@ -428,7 +428,7 @@ public class DecorrelateUnnest
 
             if (node.isWithTies()) {
                 return new RewriteResult(
-                        rewriteLimitWithTiesWithPartitioning(node, source.getPlan(), metadata, idAllocator, symbolAllocator, ImmutableList.of(uniqueSymbol)),
+                        rewriteLimitWithTiesWithPartitioning(node, source.getPlan(), session, metadata, idAllocator, symbolAllocator, ImmutableList.of(uniqueSymbol)),
                         Optional.empty());
             }
 
@@ -466,7 +466,7 @@ public class DecorrelateUnnest
             // Do not reuse source's rowNumberSymbol, because it might not follow the TopNNode's ordering.
             Symbol rowNumberSymbol = symbolAllocator.newSymbol("row_number", BIGINT);
             WindowNode.Function rowNumberFunction = new WindowNode.Function(
-                    metadata.resolveFunction(QualifiedName.of("row_number"), ImmutableList.of()),
+                    metadata.resolveFunction(session, QualifiedName.of("row_number"), ImmutableList.of()),
                     ImmutableList.of(),
                     DEFAULT_FRAME,
                     false);

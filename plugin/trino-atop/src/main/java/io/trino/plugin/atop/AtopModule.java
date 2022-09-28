@@ -16,7 +16,6 @@ package io.trino.plugin.atop;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.trino.plugin.base.CatalogName;
 import io.trino.spi.NodeManager;
 import io.trino.spi.type.TypeManager;
 
@@ -30,15 +29,13 @@ public class AtopModule
     private final TypeManager typeManager;
     private final NodeManager nodeManager;
     private final String environment;
-    private final String catalogName;
 
-    public AtopModule(Class<? extends AtopFactory> atopFactoryClass, TypeManager typeManager, NodeManager nodeManager, String environment, String catalogName)
+    public AtopModule(Class<? extends AtopFactory> atopFactoryClass, TypeManager typeManager, NodeManager nodeManager, String environment)
     {
         this.atopFactoryClass = requireNonNull(atopFactoryClass, "atopFactoryClass is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.environment = requireNonNull(environment, "environment is null");
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
     }
 
     @Override
@@ -47,7 +44,6 @@ public class AtopModule
         binder.bind(TypeManager.class).toInstance(typeManager);
         binder.bind(NodeManager.class).toInstance(nodeManager);
         binder.bind(Environment.class).toInstance(new Environment(environment));
-        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
         binder.bind(AtopConnector.class).in(Scopes.SINGLETON);
         binder.bind(AtopMetadata.class).in(Scopes.SINGLETON);
         binder.bind(AtopSplitManager.class).in(Scopes.SINGLETON);

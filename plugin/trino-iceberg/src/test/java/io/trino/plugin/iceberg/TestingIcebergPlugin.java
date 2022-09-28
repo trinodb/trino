@@ -14,29 +14,36 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.spi.Plugin;
+import com.google.inject.Module;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.connector.ConnectorFactory;
 
+import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class TestingIcebergPlugin
-        implements Plugin
+        extends IcebergPlugin
 {
-    private final Optional<HiveMetastore> metastore;
-    private final boolean trackMetadataIo;
+    private final Optional<Module> icebergCatalogModule;
+    private final Optional<TrinoFileSystemFactory> fileSystemFactory;
+    private final Module module;
 
-    public TestingIcebergPlugin(HiveMetastore metastore, boolean trackMetadataIo)
+    public TestingIcebergPlugin(Optional<Module> icebergCatalogModule, Optional<TrinoFileSystemFactory> fileSystemFactory, Module module)
     {
-        this.metastore = Optional.of(requireNonNull(metastore, "metastore is null"));
-        this.trackMetadataIo = trackMetadataIo;
+        this.icebergCatalogModule = requireNonNull(icebergCatalogModule, "icebergCatalogModule is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.module = requireNonNull(module, "module is null");
     }
 
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new TestingIcebergConnectorFactory(metastore, trackMetadataIo));
+        List<ConnectorFactory> connectorFactories = ImmutableList.copyOf(super.getConnectorFactories());
+        verify(connectorFactories.size() == 1, "Unexpected connector factories: %s", connectorFactories);
+
+        return ImmutableList.of(new TestingIcebergConnectorFactory(icebergCatalogModule, fileSystemFactory, module));
     }
 }

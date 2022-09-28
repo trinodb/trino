@@ -58,9 +58,7 @@ public class PruneDistinctAggregation
         if (rewriter.isRewritten()) {
             return Result.ofPlanNode(replaceChildren(node, newSources));
         }
-        else {
-            return Result.empty();
-        }
+        return Result.empty();
     }
 
     private static boolean isDistinctOperator(AggregationNode node)
@@ -139,15 +137,10 @@ public class PruneDistinctAggregation
                 return rewrittenNode;
             }
 
-            return new AggregationNode(
-                    node.getId(),
-                    rewrittenNode,
-                    node.getAggregations(),
-                    node.getGroupingSets(),
-                    ImmutableList.of(),
-                    node.getStep(),
-                    node.getHashSymbol(),
-                    node.getGroupIdSymbol());
+            return AggregationNode.builderFrom(node)
+                    .setSource(rewrittenNode)
+                    .setPreGroupedSymbols(ImmutableList.of())
+                    .build();
         }
     }
 }

@@ -27,16 +27,15 @@ import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.control.TryCatch;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -65,8 +64,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.subtract;
 import static io.airlift.bytecode.instruction.VariableInstruction.incrementVariable;
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -87,40 +84,37 @@ public final class MapTransformValuesFunction
 
     private MapTransformValuesFunction()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        "transform_values",
-                        ImmutableList.of(typeVariable("K"), typeVariable("V1"), typeVariable("V2")),
-                        ImmutableList.of(),
-                        mapType(new TypeSignature("K"), new TypeSignature("V2")),
-                        ImmutableList.of(
-                                mapType(new TypeSignature("K"), new TypeSignature("V1")),
-                                functionType(new TypeSignature("K"), new TypeSignature("V1"), new TypeSignature("V2"))),
-                        false),
-                false,
-                ImmutableList.of(
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(false)),
-                false,
-                false,
-                "Apply lambda to each entry of the map and transform the value",
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name("transform_values")
+                        .typeVariable("K")
+                        .typeVariable("V1")
+                        .typeVariable("V2")
+                        .returnType(mapType(new TypeSignature("K"), new TypeSignature("V2")))
+                        .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V1")))
+                        .argumentType(functionType(new TypeSignature("K"), new TypeSignature("V1"), new TypeSignature("V2")))
+                        .build())
+                .nondeterministic()
+                .description("Apply lambda to each entry of the map and transform the value")
+                .build());
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
-        Type keyType = functionBinding.getTypeVariable("K");
-        Type valueType = functionBinding.getTypeVariable("V1");
-        Type transformedValueType = functionBinding.getTypeVariable("V2");
-        Type resultMapType = functionBinding.getBoundSignature().getReturnType();
-        return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+        MapType inputMapType = (MapType) boundSignature.getArgumentType(0);
+        Type inputValueType = inputMapType.getValueType();
+        MapType outputMapType = (MapType) boundSignature.getReturnType();
+        Type keyType = outputMapType.getKeyType();
+        Type outputValueType = outputMapType.getValueType();
+
+        return new ChoicesSpecializedSqlScalarFunction(
+                boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, FUNCTION),
                 ImmutableList.of(BinaryFunctionInterface.class),
-                generateTransform(keyType, valueType, transformedValueType, resultMapType),
-                Optional.of(STATE_FACTORY.bindTo(resultMapType)));
+                generateTransform(keyType, inputValueType, outputValueType, outputMapType),
+                Optional.of(STATE_FACTORY.bindTo(outputMapType)));
     }
 
     @UsedByGeneratedCode
@@ -234,14 +228,16 @@ public final class MapTransformValuesFunction
                                         "Close builder before throwing to avoid subsequent calls finding it in an inconsistent state if we are in a TRY() call.",
                                         transformedValueElement.set(function.invoke("apply", Object.class, keyElement.cast(Object.class), valueElement.cast(Object.class))
                                                 .cast(transformedValueJavaType)),
-                                        new BytecodeBlock()
-                                                .append(mapBlockBuilder.invoke("closeEntry", BlockBuilder.class).pop())
-                                                .append(pageBuilder.invoke("declarePosition", void.class))
-                                                .putVariable(transformationException)
-                                                .append(invokeStatic(Throwables.class, "throwIfUnchecked", void.class, transformationException))
-                                                .append(newInstance(RuntimeException.class, transformationException))
-                                                .throwObject(),
-                                        type(Throwable.class)))
+                                        ImmutableList.of(
+                                                new TryCatch.CatchBlock(
+                                                        new BytecodeBlock()
+                                                                .append(mapBlockBuilder.invoke("closeEntry", BlockBuilder.class).pop())
+                                                                .append(pageBuilder.invoke("declarePosition", void.class))
+                                                                .putVariable(transformationException)
+                                                                .append(invokeStatic(Throwables.class, "throwIfUnchecked", void.class, transformationException))
+                                                                .append(newInstance(RuntimeException.class, transformationException))
+                                                                .throwObject(),
+                                                        ImmutableList.of(type(Throwable.class))))))
                         .append(keySqlType.invoke("appendTo", void.class, block, position, blockBuilder))
                         .append(writeTransformedValueElement)));
 

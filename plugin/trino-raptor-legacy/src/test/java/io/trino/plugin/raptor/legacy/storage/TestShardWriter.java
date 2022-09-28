@@ -32,15 +32,15 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.raptor.legacy.storage.OrcTestingUtil.createReader;
 import static io.trino.plugin.raptor.legacy.storage.OrcTestingUtil.fileOrcDataSource;
 import static io.trino.plugin.raptor.legacy.storage.OrcTestingUtil.octets;
@@ -53,6 +53,8 @@ import static io.trino.testing.StructuralTestUtil.arrayBlockOf;
 import static io.trino.testing.StructuralTestUtil.arrayBlocksEqual;
 import static io.trino.testing.StructuralTestUtil.mapBlockOf;
 import static io.trino.testing.StructuralTestUtil.mapBlocksEqual;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static java.nio.file.Files.createTempDirectory;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -60,21 +62,22 @@ import static org.testng.Assert.assertTrue;
 
 public class TestShardWriter
 {
-    private File directory;
+    private Path directory;
 
     private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
 
     @BeforeClass
     public void setup()
+            throws IOException
     {
-        directory = createTempDir();
+        directory = createTempDirectory(null);
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {
-        deleteRecursively(directory.toPath(), ALLOW_INSECURE);
+        deleteRecursively(directory, ALLOW_INSECURE);
     }
 
     @Test
@@ -84,11 +87,11 @@ public class TestShardWriter
         List<Long> columnIds = ImmutableList.of(1L, 2L, 4L, 6L, 7L, 8L, 9L, 10L);
         ArrayType arrayType = new ArrayType(BIGINT);
         ArrayType arrayOfArrayType = new ArrayType(arrayType);
-        Type mapType = createTestMetadataManager().getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+        Type mapType = TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.typeParameter(createVarcharType(10).getTypeSignature()),
                 TypeSignatureParameter.typeParameter(BOOLEAN.getTypeSignature())));
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10), VARBINARY, DOUBLE, BOOLEAN, arrayType, mapType, arrayOfArrayType);
-        File file = new File(directory, System.nanoTime() + ".orc");
+        File file = directory.resolve(System.nanoTime() + ".orc").toFile();
 
         byte[] bytes1 = octets(0x00, 0xFE, 0xFF);
         byte[] bytes3 = octets(0x01, 0x02, 0x19, 0x80);
@@ -99,7 +102,7 @@ public class TestShardWriter
                 .row(456L, "bye \u2603", wrappedBuffer(bytes3), Double.NaN, false, arrayBlockOf(BIGINT), mapBlockOf(createVarcharType(5), BOOLEAN, "k3", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT)));
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(new EmptyClassLoader());
-                OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
+                OrcFileWriter writer = new OrcFileWriter(TESTING_TYPE_MANAGER, columnIds, columnTypes, file)) {
             writer.appendPages(rowPagesBuilder.build());
         }
 
@@ -184,7 +187,7 @@ public class TestShardWriter
                     .put(8L, arrayType.getTypeId())
                     .put(9L, mapType.getTypeId())
                     .put(10L, arrayOfArrayType.getTypeId())
-                    .build()));
+                    .buildOrThrow()));
         }
 
         File crcFile = new File(file.getParentFile(), "." + file.getName() + ".crc");

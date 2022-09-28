@@ -30,6 +30,9 @@ import static org.testcontainers.containers.MySQLContainer.MYSQL_PORT;
 public class TestingMySqlServer
         implements AutoCloseable
 {
+    public static final String DEFAULT_IMAGE = "mysql:8.0.30";
+    public static final String LEGACY_IMAGE = "mysql:5.7.35";
+
     private final MySQLContainer<?> container;
     private final Closeable cleanup;
 
@@ -40,7 +43,7 @@ public class TestingMySqlServer
 
     public TestingMySqlServer(boolean globalTransactionEnable)
     {
-        this("mysql:8.0.12", globalTransactionEnable);
+        this(DEFAULT_IMAGE, globalTransactionEnable);
     }
 
     public TestingMySqlServer(String dockerImageName, boolean globalTransactionEnable)
@@ -56,7 +59,11 @@ public class TestingMySqlServer
         execute(format("GRANT ALL PRIVILEGES ON *.* TO '%s'", container.getUsername()), "root", container.getPassword());
     }
 
-    protected void configureContainer(MySQLContainer<?> container) {}
+    private void configureContainer(MySQLContainer<?> container)
+    {
+        // MySQL configuration provided by default by testcontainers causes MySQL to produce poor estimates in CARDINALITY column of INFORMATION_SCHEMA.STATISTICS table.
+        container.addParameter("TC_MY_CNF", null);
+    }
 
     public Connection createConnection()
             throws SQLException
@@ -97,7 +104,7 @@ public class TestingMySqlServer
 
     public String getJdbcUrl()
     {
-        return format("jdbc:mysql://%s:%s?useSSL=false&allowPublicKeyRetrieval=true", container.getContainerIpAddress(), container.getMappedPort(MYSQL_PORT));
+        return format("jdbc:mysql://%s:%s?useSSL=false&allowPublicKeyRetrieval=true", container.getHost(), container.getMappedPort(MYSQL_PORT));
     }
 
     @Override

@@ -38,58 +38,71 @@ import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMNS;
 import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMN_TYPES;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_DDL;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestS3SelectRecordCursor
 {
     private static final String LAZY_SERDE_CLASS_NAME = LazySimpleSerDe.class.getName();
 
-    private static final HiveColumnHandle ARTICLE_COLUMN = createBaseColumn("article", 1, HIVE_STRING, VARCHAR, REGULAR, Optional.empty());
-    private static final HiveColumnHandle AUTHOR_COLUMN = createBaseColumn("author", 1, HIVE_STRING, VARCHAR, REGULAR, Optional.empty());
-    private static final HiveColumnHandle DATE_ARTICLE_COLUMN = createBaseColumn("date_pub", 1, HIVE_INT, DATE, REGULAR, Optional.empty());
-    private static final HiveColumnHandle QUANTITY_COLUMN = createBaseColumn("quantity", 1, HIVE_INT, INTEGER, REGULAR, Optional.empty());
+    protected static final HiveColumnHandle ARTICLE_COLUMN = createBaseColumn("article", 1, HIVE_STRING, VARCHAR, REGULAR, Optional.empty());
+    protected static final HiveColumnHandle AUTHOR_COLUMN = createBaseColumn("author", 1, HIVE_STRING, VARCHAR, REGULAR, Optional.empty());
+    protected static final HiveColumnHandle DATE_ARTICLE_COLUMN = createBaseColumn("date_pub", 1, HIVE_INT, DATE, REGULAR, Optional.empty());
+    protected static final HiveColumnHandle QUANTITY_COLUMN = createBaseColumn("quantity", 1, HIVE_INT, INTEGER, REGULAR, Optional.empty());
     private static final HiveColumnHandle[] DEFAULT_TEST_COLUMNS = {ARTICLE_COLUMN, AUTHOR_COLUMN, DATE_ARTICLE_COLUMN, QUANTITY_COLUMN};
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Invalid Thrift DDL struct article \\{ \\}")
+    @Test
     public void shouldThrowIllegalArgumentExceptionWhenSerialDDLHasNoColumns()
     {
         String ddlSerializationValue = "struct article { }";
-        buildSplitSchema(ddlSerializationValue, DEFAULT_TEST_COLUMNS);
+        assertThatThrownBy(() -> buildSplitSchema(ddlSerializationValue, DEFAULT_TEST_COLUMNS))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Invalid Thrift DDL struct article \\{ \\}");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Thrift DDL should start with struct")
+    @Test
     public void shouldThrowIllegalArgumentExceptionWhenSerialDDLNotStartingWithStruct()
     {
         String ddlSerializationValue = "foo article { varchar article varchar }";
-        buildSplitSchema(ddlSerializationValue, DEFAULT_TEST_COLUMNS);
+        assertThatThrownBy(() -> buildSplitSchema(ddlSerializationValue, DEFAULT_TEST_COLUMNS))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Thrift DDL should start with struct");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Invalid Thrift DDL struct article \\{varchar article\\}")
+    @Test
     public void shouldThrowIllegalArgumentExceptionWhenSerialDDLNotStartingWithStruct2()
     {
         String ddlSerializationValue = "struct article {varchar article}";
-        buildSplitSchema(ddlSerializationValue, DEFAULT_TEST_COLUMNS);
+        assertThatThrownBy(() -> buildSplitSchema(ddlSerializationValue, DEFAULT_TEST_COLUMNS))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Invalid Thrift DDL struct article \\{varchar article\\}");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Invalid Thrift DDL struct article varchar article varchar \\}")
+    @Test
     public void shouldThrowIllegalArgumentExceptionWhenMissingOpenStartStruct()
     {
         String ddlSerializationValue = "struct article varchar article varchar }";
-        buildSplitSchema(ddlSerializationValue, DEFAULT_TEST_COLUMNS);
+        assertThatThrownBy(() -> buildSplitSchema(ddlSerializationValue, DEFAULT_TEST_COLUMNS))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Invalid Thrift DDL struct article varchar article varchar \\}");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Invalid Thrift DDL struct article\\{varchar article varchar author date date_pub int quantity")
+    @Test
     public void shouldThrowIllegalArgumentExceptionWhenDDlFormatNotCorrect()
     {
         String ddlSerializationValue = "struct article{varchar article varchar author date date_pub int quantity";
-        buildSplitSchema(ddlSerializationValue, DEFAULT_TEST_COLUMNS);
+        assertThatThrownBy(() -> buildSplitSchema(ddlSerializationValue, DEFAULT_TEST_COLUMNS))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Invalid Thrift DDL struct article\\{varchar article varchar author date date_pub int quantity");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Invalid Thrift DDL struct article \\{ varchar article varchar author date date_pub int quantity ")
+    @Test
     public void shouldThrowIllegalArgumentExceptionWhenEndOfStructNotFound()
     {
         String ddlSerializationValue = "struct article { varchar article varchar author date date_pub int quantity ";
-        buildSplitSchema(ddlSerializationValue, DEFAULT_TEST_COLUMNS);
+        assertThatThrownBy(() -> buildSplitSchema(ddlSerializationValue, DEFAULT_TEST_COLUMNS))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Invalid Thrift DDL struct article \\{ varchar article varchar author date date_pub int quantity ");
     }
 
     @Test

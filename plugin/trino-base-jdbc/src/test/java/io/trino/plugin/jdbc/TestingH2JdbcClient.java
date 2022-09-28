@@ -14,20 +14,29 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
-import io.trino.plugin.jdbc.expression.ImplementCountAll;
+import io.airlift.log.Logger;
+import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
+import io.trino.plugin.jdbc.aggregation.ImplementCountAll;
+import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
+import io.trino.plugin.jdbc.expression.RewriteVariable;
 import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
+import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
 
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.Types;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -35,8 +44,9 @@ import java.util.Optional;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMappingUsingSqlDate;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunctionUsingSqlDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
@@ -68,15 +78,39 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 class TestingH2JdbcClient
         extends BaseJdbcClient
 {
+    private static final Logger log = Logger.get(TestingH2JdbcClient.class);
+
     private static final JdbcTypeHandle BIGINT_TYPE_HANDLE = new JdbcTypeHandle(Types.BIGINT, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
 
     public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
-        super(config, "\"", connectionFactory, new DefaultIdentifierMapping());
+        this(config, connectionFactory, new DefaultIdentifierMapping());
+    }
+
+    public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
+    {
+        super(config, "\"", connectionFactory, new DefaultQueryBuilder(), identifierMapping);
     }
 
     @Override
-    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<List<ColumnHandle>> groupingSets)
+    public Collection<String> listSchemas(Connection connection)
+    {
+        // listing schemas in H2 may fail with NullPointerException when a schema is concurrently dropped
+        return Failsafe.with(new RetryPolicy<Collection<String>>()
+                        .withMaxAttempts(100)
+                        .onRetry(event -> log.warn(event.getLastFailure(), "Failed to list schemas, retrying")))
+                .get(() -> super.listSchemas(connection));
+    }
+
+    @Override
+    public Optional<String> getTableComment(ResultSet resultSet)
+    {
+        // Don't return a comment until the connector supports creating tables with comment
+        return Optional.empty();
+    }
+
+    @Override
+    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
     {
         // GROUP BY with GROUPING SETS is not supported
         return groupingSets.size() == 1;
@@ -85,7 +119,11 @@ class TestingH2JdbcClient
     @Override
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
-        return new AggregateFunctionRewriter(this::quoted, ImmutableSet.of(new ImplementCountAll(BIGINT_TYPE_HANDLE)))
+        return new AggregateFunctionRewriter<>(
+                JdbcConnectorExpressionRewriterBuilder.newBuilder()
+                        .add(new RewriteVariable(this::quoted))
+                        .build(),
+                ImmutableSet.of(new ImplementCountAll(BIGINT_TYPE_HANDLE)))
                 .rewrite(session, aggregate, assignments);
     }
 
@@ -126,7 +164,7 @@ class TestingH2JdbcClient
                 return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), true));
 
             case Types.DATE:
-                return Optional.of(dateColumnMapping());
+                return Optional.of(dateColumnMappingUsingSqlDate());
 
             case Types.TIME:
                 return Optional.of(timeColumnMapping(TIME_MILLIS));
@@ -173,8 +211,14 @@ class TestingH2JdbcClient
             return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
         }
 
+        if (type instanceof CharType) {
+            CharType charType = (CharType) type;
+            String dataType = "char(" + charType.getLength() + ")";
+            return WriteMapping.sliceMapping(dataType, charWriteFunction());
+        }
+
         if (type == DATE) {
-            return WriteMapping.longMapping("date", dateWriteFunction());
+            return WriteMapping.longMapping("date", dateWriteFunctionUsingSqlDate());
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());

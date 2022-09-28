@@ -21,13 +21,12 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.FailureInfo;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.memory.VersionedMemoryPoolId;
 import io.trino.metadata.Metadata;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
+import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.spi.TrinoException;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.type.Type;
@@ -73,7 +72,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 public class TestQueryStateMachine
@@ -93,11 +91,10 @@ public class TestQueryStateMachine
     private static final List<String> OUTPUT_FIELD_NAMES = ImmutableList.of("a", "b", "c");
     private static final List<Type> OUTPUT_FIELD_TYPES = ImmutableList.of(BIGINT, BIGINT, BIGINT);
     private static final String UPDATE_TYPE = "update type";
-    private static final VersionedMemoryPoolId MEMORY_POOL = new VersionedMemoryPoolId(new MemoryPoolId("pool"), 42);
     private static final Map<String, String> SET_SESSION_PROPERTIES = ImmutableMap.<String, String>builder()
             .put("fruit", "apple")
             .put("drink", "coffee")
-            .build();
+            .buildOrThrow();
     private static final List<String> RESET_SESSION_PROPERTIES = ImmutableList.of("candy");
     private static final Optional<QueryType> QUERY_TYPE = Optional.of(QueryType.SELECT);
 
@@ -129,6 +126,9 @@ public class TestQueryStateMachine
         assertState(stateMachine, RUNNING);
 
         assertTrue(stateMachine.transitionToFinishing());
+        assertState(stateMachine, FINISHING);
+
+        stateMachine.resultsConsumed();
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertState(stateMachine, FINISHED);
     }
@@ -155,6 +155,7 @@ public class TestQueryStateMachine
         assertState(stateMachine, RUNNING);
 
         assertTrue(stateMachine.transitionToFinishing());
+        stateMachine.resultsConsumed();
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertState(stateMachine, FINISHED);
     }
@@ -171,6 +172,7 @@ public class TestQueryStateMachine
         assertAllTimeSpentInQueueing(RUNNING, QueryStateMachine::transitionToRunning);
 
         assertAllTimeSpentInQueueing(FINISHED, stateMachine -> {
+            stateMachine.resultsConsumed();
             stateMachine.transitionToFinishing();
             tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         });
@@ -220,6 +222,7 @@ public class TestQueryStateMachine
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToPlanning();
         assertTrue(stateMachine.transitionToFinishing());
+        stateMachine.resultsConsumed();
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertState(stateMachine, FINISHED);
 
@@ -250,6 +253,7 @@ public class TestQueryStateMachine
 
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToStarting();
+        stateMachine.resultsConsumed();
         assertTrue(stateMachine.transitionToFinishing());
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertState(stateMachine, FINISHED);
@@ -279,6 +283,7 @@ public class TestQueryStateMachine
         assertFalse(stateMachine.transitionToRunning());
         assertState(stateMachine, RUNNING);
 
+        stateMachine.resultsConsumed();
         assertTrue(stateMachine.transitionToFinishing());
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertState(stateMachine, FINISHED);
@@ -294,6 +299,8 @@ public class TestQueryStateMachine
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
         assertTrue(stateMachine.transitionToFinishing());
+        assertState(stateMachine, FINISHING);
+        stateMachine.resultsConsumed();
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertFinalState(stateMachine, FINISHED);
     }
@@ -343,6 +350,7 @@ public class TestQueryStateMachine
 
         mockTicker.increment(400, MILLISECONDS);
         assertTrue(stateMachine.transitionToFinishing());
+        stateMachine.resultsConsumed();
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertState(stateMachine, FINISHED);
 
@@ -438,7 +446,6 @@ public class TestQueryStateMachine
     {
         assertEquals(stateMachine.getQueryId(), TEST_SESSION.getQueryId());
         assertEqualSessionsWithoutTransactionId(stateMachine.getSession(), TEST_SESSION);
-        assertSame(stateMachine.getMemoryPool(), MEMORY_POOL);
         assertEquals(stateMachine.getSetSessionProperties(), SET_SESSION_PROPERTIES);
         assertEquals(stateMachine.getResetSessionProperties(), RESET_SESSION_PROPERTIES);
 
@@ -451,7 +458,6 @@ public class TestQueryStateMachine
         assertEquals(queryInfo.getOutput(), OUTPUT);
         assertEquals(queryInfo.getFieldNames(), OUTPUT_FIELD_NAMES);
         assertEquals(queryInfo.getUpdateType(), UPDATE_TYPE);
-        assertEquals(queryInfo.getMemoryPool(), MEMORY_POOL.getId());
         assertTrue(queryInfo.getQueryType().isPresent());
         assertEquals(queryInfo.getQueryType().get(), QUERY_TYPE.get());
 
@@ -511,9 +517,11 @@ public class TestQueryStateMachine
         AccessControlManager accessControl = new AccessControlManager(
                 transactionManager,
                 emptyEventListenerManager(),
-                new AccessControlConfig());
+                new AccessControlConfig(),
+                DefaultSystemAccessControl.NAME);
         accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
+                Optional.empty(),
                 QUERY,
                 Optional.empty(),
                 TEST_SESSION,
@@ -531,7 +539,6 @@ public class TestQueryStateMachine
         stateMachine.setOutput(OUTPUT);
         stateMachine.setColumns(OUTPUT_FIELD_NAMES, OUTPUT_FIELD_TYPES);
         stateMachine.setUpdateType(UPDATE_TYPE);
-        stateMachine.setMemoryPool(MEMORY_POOL);
         for (Entry<String, String> entry : SET_SESSION_PROPERTIES.entrySet()) {
             stateMachine.addSetSessionProperties(entry.getKey(), entry.getValue());
         }
@@ -552,6 +559,6 @@ public class TestQueryStateMachine
         assertEquals(actual.getUserAgent(), expected.getUserAgent());
         assertEquals(actual.getStart(), expected.getStart());
         assertEquals(actual.getSystemProperties(), expected.getSystemProperties());
-        assertEquals(actual.getConnectorProperties(), expected.getConnectorProperties());
+        assertEquals(actual.getCatalogProperties(), expected.getCatalogProperties());
     }
 }

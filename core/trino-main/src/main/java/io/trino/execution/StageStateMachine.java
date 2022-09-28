@@ -18,18 +18,19 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.stats.Distribution;
 import io.airlift.units.Duration;
-import io.trino.Session;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.operator.BlockedReason;
 import io.trino.operator.OperatorStats;
 import io.trino.operator.PipelineStats;
 import io.trino.operator.TaskStats;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.util.Failures;
+import io.trino.util.Optionals;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -41,7 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -53,15 +54,12 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.execution.StageState.ABORTED;
-import static io.trino.execution.StageState.CANCELED;
 import static io.trino.execution.StageState.FAILED;
 import static io.trino.execution.StageState.FINISHED;
-import static io.trino.execution.StageState.FLUSHING;
+import static io.trino.execution.StageState.PENDING;
 import static io.trino.execution.StageState.PLANNED;
 import static io.trino.execution.StageState.RUNNING;
-import static io.trino.execution.StageState.SCHEDULED;
 import static io.trino.execution.StageState.SCHEDULING;
-import static io.trino.execution.StageState.SCHEDULING_SPLITS;
 import static io.trino.execution.StageState.TERMINAL_STAGE_STATES;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -77,7 +75,6 @@ public class StageStateMachine
 
     private final StageId stageId;
     private final PlanFragment fragment;
-    private final Session session;
     private final Map<PlanNodeId, TableInfo> tables;
     private final SplitSchedulerStats scheduledStats;
 
@@ -96,14 +93,12 @@ public class StageStateMachine
 
     public StageStateMachine(
             StageId stageId,
-            Session session,
             PlanFragment fragment,
             Map<PlanNodeId, TableInfo> tables,
-            ExecutorService executor,
+            Executor executor,
             SplitSchedulerStats schedulerStats)
     {
         this.stageId = requireNonNull(stageId, "stageId is null");
-        this.session = requireNonNull(session, "session is null");
         this.fragment = requireNonNull(fragment, "fragment is null");
         this.tables = ImmutableMap.copyOf(requireNonNull(tables, "tables is null"));
         this.scheduledStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -117,11 +112,6 @@ public class StageStateMachine
     public StageId getStageId()
     {
         return stageId;
-    }
-
-    public Session getSession()
-    {
-        return session;
     }
 
     public StageState getState()
@@ -144,40 +134,25 @@ public class StageStateMachine
         stageState.addStateChangeListener(stateChangeListener);
     }
 
-    public synchronized boolean transitionToScheduling()
+    public boolean transitionToScheduling()
     {
         return stageState.compareAndSet(PLANNED, SCHEDULING);
     }
 
-    public synchronized boolean transitionToSchedulingSplits()
-    {
-        return stageState.setIf(SCHEDULING_SPLITS, currentState -> currentState == PLANNED || currentState == SCHEDULING);
-    }
-
-    public synchronized boolean transitionToScheduled()
-    {
-        schedulingComplete.compareAndSet(null, DateTime.now());
-        return stageState.setIf(SCHEDULED, currentState -> currentState == PLANNED || currentState == SCHEDULING || currentState == SCHEDULING_SPLITS);
-    }
-
     public boolean transitionToRunning()
     {
-        return stageState.setIf(RUNNING, currentState -> currentState != RUNNING && currentState != FLUSHING && !currentState.isDone());
+        schedulingComplete.compareAndSet(null, DateTime.now());
+        return stageState.setIf(RUNNING, currentState -> currentState != RUNNING && !currentState.isDone());
     }
 
-    public boolean transitionToFlushing()
+    public boolean transitionToPending()
     {
-        return stageState.setIf(FLUSHING, currentState -> currentState != FLUSHING && !currentState.isDone());
+        return stageState.setIf(PENDING, currentState -> currentState != PENDING && !currentState.isDone());
     }
 
     public boolean transitionToFinished()
     {
         return stageState.setIf(FINISHED, currentState -> !currentState.isDone());
-    }
-
-    public boolean transitionToCanceled()
-    {
-        return stageState.setIf(CANCELED, currentState -> !currentState.isDone());
     }
 
     public boolean transitionToAborted()
@@ -222,7 +197,7 @@ public class StageStateMachine
         requireNonNull(finalTaskInfos, "finalTaskInfos is null");
         checkState(stageState.get().isDone());
         StageInfo stageInfo = getStageInfo(() -> finalTaskInfos);
-        checkArgument(stageInfo.isCompleteInfo(), "finalTaskInfos are not all done");
+        checkArgument(stageInfo.isFinalStageInfo(), "finalTaskInfos are not all done");
         finalStageInfo.compareAndSet(Optional.empty(), Optional.of(stageInfo));
     }
 
@@ -259,9 +234,11 @@ public class StageStateMachine
         // information, the stage could finish, and the task states would
         // never be visible.
         StageState state = stageState.get();
-        boolean isScheduled = state == RUNNING || state == FLUSHING || state.isDone();
+        boolean isScheduled = state == RUNNING || state == StageState.PENDING || state.isDone();
 
         List<TaskInfo> taskInfos = ImmutableList.copyOf(taskInfosSupplier.get());
+
+        int failedTasks = 0;
 
         int totalDrivers = 0;
         int queuedDrivers = 0;
@@ -269,11 +246,14 @@ public class StageStateMachine
         int completedDrivers = 0;
 
         long cumulativeUserMemory = 0;
+        long failedCumulativeUserMemory = 0;
         long userMemoryReservation = 0;
         long totalMemoryReservation = 0;
 
         long totalScheduledTime = 0;
+        long failedScheduledTime = 0;
         long totalCpuTime = 0;
+        long failedCpuTime = 0;
 
         long physicalInputDataSize = 0;
         long physicalInputPositions = 0;
@@ -292,21 +272,31 @@ public class StageStateMachine
             TaskState taskState = taskInfo.getTaskStatus().getState();
             TaskStats taskStats = taskInfo.getStats();
 
+            if (taskState == TaskState.FAILED) {
+                failedTasks++;
+            }
+
             totalDrivers += taskStats.getTotalDrivers();
             queuedDrivers += taskStats.getQueuedDrivers();
             runningDrivers += taskStats.getRunningDrivers();
             completedDrivers += taskStats.getCompletedDrivers();
 
             cumulativeUserMemory += taskStats.getCumulativeUserMemory();
+            if (taskState == TaskState.FAILED) {
+                failedCumulativeUserMemory += taskStats.getCumulativeUserMemory();
+            }
 
             long taskUserMemory = taskStats.getUserMemoryReservation().toBytes();
-            long taskSystemMemory = taskStats.getSystemMemoryReservation().toBytes();
             long taskRevocableMemory = taskStats.getRevocableMemoryReservation().toBytes();
             userMemoryReservation += taskUserMemory;
-            totalMemoryReservation += taskUserMemory + taskSystemMemory + taskRevocableMemory;
+            totalMemoryReservation += taskUserMemory + taskRevocableMemory;
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
+            if (taskState == TaskState.FAILED) {
+                failedScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
+                failedCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
+            }
             if (!taskState.isDone()) {
                 fullyBlocked &= taskStats.isFullyBlocked();
                 blockedReasons.addAll(taskStats.getBlockedReasons());
@@ -333,6 +323,8 @@ public class StageStateMachine
         return new BasicStageStats(
                 isScheduled,
 
+                failedTasks,
+
                 totalDrivers,
                 queuedDrivers,
                 runningDrivers,
@@ -349,11 +341,14 @@ public class StageStateMachine
                 rawInputPositions,
 
                 cumulativeUserMemory,
+                failedCumulativeUserMemory,
                 succinctBytes(userMemoryReservation),
                 succinctBytes(totalMemoryReservation),
 
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(failedCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(failedScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
                 fullyBlocked,
                 blockedReasons,
@@ -379,6 +374,7 @@ public class StageStateMachine
         int totalTasks = taskInfos.size();
         int runningTasks = 0;
         int completedTasks = 0;
+        int failedTasks = 0;
 
         int totalDrivers = 0;
         int queuedDrivers = 0;
@@ -387,34 +383,56 @@ public class StageStateMachine
         int completedDrivers = 0;
 
         long cumulativeUserMemory = 0;
-        long userMemoryReservation = 0;
-        long revocableMemoryReservation = 0;
-        long totalMemoryReservation = 0;
+        long failedCumulativeUserMemory = 0;
+        long userMemoryReservation = currentUserMemory.get();
+        long revocableMemoryReservation = currentRevocableMemory.get();
+        long totalMemoryReservation = currentTotalMemory.get();
         long peakUserMemoryReservation = peakUserMemory.get();
         long peakRevocableMemoryReservation = peakRevocableMemory.get();
 
         long totalScheduledTime = 0;
+        long failedScheduledTime = 0;
         long totalCpuTime = 0;
+        long failedCpuTime = 0;
         long totalBlockedTime = 0;
 
         long physicalInputDataSize = 0;
+        long failedPhysicalInputDataSize = 0;
         long physicalInputPositions = 0;
+        long failedPhysicalInputPositions = 0;
         long physicalInputReadTime = 0;
+        long failedPhysicalInputReadTime = 0;
 
         long internalNetworkInputDataSize = 0;
+        long failedInternalNetworkInputDataSize = 0;
         long internalNetworkInputPositions = 0;
+        long failedInternalNetworkInputPositions = 0;
 
         long rawInputDataSize = 0;
+        long failedRawInputDataSize = 0;
         long rawInputPositions = 0;
+        long failedRawInputPositions = 0;
 
         long processedInputDataSize = 0;
+        long failedProcessedInputDataSize = 0;
         long processedInputPositions = 0;
+        long failedProcessedInputPositions = 0;
+
+        long inputBlockedTime = 0;
+        long failedInputBlockedTime = 0;
 
         long bufferedDataSize = 0;
+        Optional<TDigestHistogram> outputBufferUtilization = Optional.empty();
         long outputDataSize = 0;
+        long failedOutputDataSize = 0;
         long outputPositions = 0;
+        long failedOutputPositions = 0;
+
+        long outputBlockedTime = 0;
+        long failedOutputBlockedTime = 0;
 
         long physicalWrittenDataSize = 0;
+        long failedPhysicalWrittenDataSize = 0;
 
         int fullGcCount = 0;
         int fullGcTaskCount = 0;
@@ -435,6 +453,10 @@ public class StageStateMachine
                 runningTasks++;
             }
 
+            if (taskState == TaskState.FAILED) {
+                failedTasks++;
+            }
+
             TaskStats taskStats = taskInfo.getStats();
 
             totalDrivers += taskStats.getTotalDrivers();
@@ -444,17 +466,17 @@ public class StageStateMachine
             completedDrivers += taskStats.getCompletedDrivers();
 
             cumulativeUserMemory += taskStats.getCumulativeUserMemory();
-
-            long taskUserMemory = taskStats.getUserMemoryReservation().toBytes();
-            long taskSystemMemory = taskStats.getSystemMemoryReservation().toBytes();
-            long taskRevocableMemory = taskStats.getRevocableMemoryReservation().toBytes();
-            userMemoryReservation += taskUserMemory;
-            revocableMemoryReservation += taskRevocableMemory;
-            totalMemoryReservation += taskUserMemory + taskSystemMemory + taskRevocableMemory;
+            if (taskState == TaskState.FAILED) {
+                failedCumulativeUserMemory += taskStats.getCumulativeUserMemory();
+            }
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
             totalBlockedTime += taskStats.getTotalBlockedTime().roundTo(NANOSECONDS);
+            if (taskState == TaskState.FAILED) {
+                failedScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
+                failedCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
+            }
             if (!taskState.isDone()) {
                 fullyBlocked &= taskStats.isFullyBlocked();
                 blockedReasons.addAll(taskStats.getBlockedReasons());
@@ -473,11 +495,40 @@ public class StageStateMachine
             processedInputDataSize += taskStats.getProcessedInputDataSize().toBytes();
             processedInputPositions += taskStats.getProcessedInputPositions();
 
+            inputBlockedTime += taskStats.getInputBlockedTime().roundTo(NANOSECONDS);
+
             bufferedDataSize += taskInfo.getOutputBuffers().getTotalBufferedBytes();
+            outputBufferUtilization = Optionals.combine(outputBufferUtilization, taskInfo.getOutputBuffers().getUtilization(), TDigestHistogram::mergeWith);
             outputDataSize += taskStats.getOutputDataSize().toBytes();
             outputPositions += taskStats.getOutputPositions();
 
+            outputBlockedTime += taskStats.getOutputBlockedTime().roundTo(NANOSECONDS);
+
             physicalWrittenDataSize += taskStats.getPhysicalWrittenDataSize().toBytes();
+
+            if (taskState == TaskState.FAILED) {
+                failedPhysicalInputDataSize += taskStats.getPhysicalInputDataSize().toBytes();
+                failedPhysicalInputPositions += taskStats.getPhysicalInputPositions();
+                failedPhysicalInputReadTime += taskStats.getPhysicalInputReadTime().roundTo(NANOSECONDS);
+
+                failedInternalNetworkInputDataSize += taskStats.getInternalNetworkInputDataSize().toBytes();
+                failedInternalNetworkInputPositions += taskStats.getInternalNetworkInputPositions();
+
+                failedRawInputDataSize += taskStats.getRawInputDataSize().toBytes();
+                failedRawInputPositions += taskStats.getRawInputPositions();
+
+                failedProcessedInputDataSize += taskStats.getProcessedInputDataSize().toBytes();
+                failedProcessedInputPositions += taskStats.getProcessedInputPositions();
+
+                failedInputBlockedTime += taskStats.getInputBlockedTime().roundTo(NANOSECONDS);
+
+                failedOutputDataSize += taskStats.getOutputDataSize().toBytes();
+                failedOutputPositions += taskStats.getOutputPositions();
+
+                failedPhysicalWrittenDataSize += taskStats.getPhysicalWrittenDataSize().toBytes();
+
+                failedOutputBlockedTime += taskStats.getOutputBlockedTime().roundTo(NANOSECONDS);
+            }
 
             fullGcCount += taskStats.getFullGcCount();
             fullGcTaskCount += taskStats.getFullGcCount() > 0 ? 1 : 0;
@@ -502,6 +553,7 @@ public class StageStateMachine
                 totalTasks,
                 runningTasks,
                 completedTasks,
+                failedTasks,
 
                 totalDrivers,
                 queuedDrivers,
@@ -510,33 +562,53 @@ public class StageStateMachine
                 completedDrivers,
 
                 cumulativeUserMemory,
+                failedCumulativeUserMemory,
                 succinctBytes(userMemoryReservation),
                 succinctBytes(revocableMemoryReservation),
                 succinctBytes(totalMemoryReservation),
                 succinctBytes(peakUserMemoryReservation),
                 succinctBytes(peakRevocableMemoryReservation),
                 succinctDuration(totalScheduledTime, NANOSECONDS),
+                succinctDuration(failedScheduledTime, NANOSECONDS),
                 succinctDuration(totalCpuTime, NANOSECONDS),
+                succinctDuration(failedCpuTime, NANOSECONDS),
                 succinctDuration(totalBlockedTime, NANOSECONDS),
                 fullyBlocked && runningTasks > 0,
                 blockedReasons,
 
                 succinctBytes(physicalInputDataSize),
+                succinctBytes(failedPhysicalInputDataSize),
                 physicalInputPositions,
+                failedPhysicalInputPositions,
                 succinctDuration(physicalInputReadTime, NANOSECONDS),
+                succinctDuration(failedPhysicalInputReadTime, NANOSECONDS),
 
                 succinctBytes(internalNetworkInputDataSize),
+                succinctBytes(failedInternalNetworkInputDataSize),
                 internalNetworkInputPositions,
+                failedInternalNetworkInputPositions,
 
                 succinctBytes(rawInputDataSize),
+                succinctBytes(failedRawInputDataSize),
                 rawInputPositions,
+                failedRawInputPositions,
 
                 succinctBytes(processedInputDataSize),
+                succinctBytes(failedProcessedInputDataSize),
                 processedInputPositions,
+                failedProcessedInputPositions,
+                succinctDuration(inputBlockedTime, NANOSECONDS),
+                succinctDuration(failedInputBlockedTime, NANOSECONDS),
                 succinctBytes(bufferedDataSize),
+                outputBufferUtilization,
                 succinctBytes(outputDataSize),
+                succinctBytes(failedOutputDataSize),
                 outputPositions,
+                failedOutputPositions,
+                succinctDuration(outputBlockedTime, NANOSECONDS),
+                succinctDuration(failedOutputBlockedTime, NANOSECONDS),
                 succinctBytes(physicalWrittenDataSize),
+                succinctBytes(failedPhysicalWrittenDataSize),
 
                 new StageGcStatistics(
                         stageId.getId(),
@@ -553,9 +625,11 @@ public class StageStateMachine
         if (state == FAILED) {
             failureInfo = failureCause.get();
         }
-        return new StageInfo(stageId,
+        return new StageInfo(
+                stageId,
                 state,
                 fragment,
+                fragment.getPartitioning().isCoordinatorOnly(),
                 fragment.getTypes(),
                 stageStats,
                 taskInfos,

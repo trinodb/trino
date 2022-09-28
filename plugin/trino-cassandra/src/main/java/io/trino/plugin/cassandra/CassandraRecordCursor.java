@@ -13,9 +13,10 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
 import io.airlift.slice.Slice;
+import io.trino.plugin.cassandra.CassandraType.Kind;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.TimeZoneKey;
@@ -24,7 +25,6 @@ import io.trino.spi.type.Type;
 import java.util.List;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.cassandra.CassandraType.TIMESTAMP;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static java.lang.Float.floatToRawIntBits;
 
@@ -32,13 +32,14 @@ public class CassandraRecordCursor
         implements RecordCursor
 {
     private final List<CassandraType> cassandraTypes;
+    private final CassandraTypeManager cassandraTypeManager;
     private final ResultSet rs;
     private Row currentRow;
-    private long count;
 
-    public CassandraRecordCursor(CassandraSession cassandraSession, List<CassandraType> cassandraTypes, String cql)
+    public CassandraRecordCursor(CassandraSession cassandraSession, CassandraTypeManager cassandraTypeManager, List<CassandraType> cassandraTypes, String cql)
     {
         this.cassandraTypes = cassandraTypes;
+        this.cassandraTypeManager = cassandraTypeManager;
         rs = cassandraSession.execute(cql);
         currentRow = null;
     }
@@ -46,9 +47,9 @@ public class CassandraRecordCursor
     @Override
     public boolean advanceNextPosition()
     {
-        if (!rs.isExhausted()) {
-            currentRow = rs.one();
-            count++;
+        Row row = rs.one();
+        if (row != null) {
+            currentRow = row;
             return true;
         }
         return false;
@@ -68,7 +69,7 @@ public class CassandraRecordCursor
     @Override
     public long getCompletedBytes()
     {
-        return count;
+        return 0;
     }
 
     @Override
@@ -80,13 +81,13 @@ public class CassandraRecordCursor
     @Override
     public double getDouble(int i)
     {
-        switch (getCassandraType(i)) {
+        switch (getCassandraType(i).getKind()) {
             case DOUBLE:
                 return currentRow.getDouble(i);
             case FLOAT:
                 return currentRow.getFloat(i);
             case DECIMAL:
-                return currentRow.getDecimal(i).doubleValue();
+                return currentRow.getBigDecimal(i).doubleValue();
             default:
                 throw new IllegalStateException("Cannot retrieve double for " + getCassandraType(i));
         }
@@ -95,7 +96,7 @@ public class CassandraRecordCursor
     @Override
     public long getLong(int i)
     {
-        switch (getCassandraType(i)) {
+        switch (getCassandraType(i).getKind()) {
             case INT:
                 return currentRow.getInt(i);
             case SMALLINT:
@@ -106,9 +107,9 @@ public class CassandraRecordCursor
             case COUNTER:
                 return currentRow.getLong(i);
             case TIMESTAMP:
-                return packDateTimeWithZone(currentRow.getTimestamp(i).getTime(), TimeZoneKey.UTC_KEY);
+                return packDateTimeWithZone(currentRow.getInstant(i).toEpochMilli(), TimeZoneKey.UTC_KEY);
             case DATE:
-                return currentRow.getDate(i).getDaysSinceEpoch();
+                return currentRow.getLocalDate(i).toEpochDay();
             case FLOAT:
                 return floatToRawIntBits(currentRow.getFloat(i));
             default:
@@ -124,10 +125,10 @@ public class CassandraRecordCursor
     @Override
     public Slice getSlice(int i)
     {
-        if (getCassandraType(i) == TIMESTAMP) {
+        if (getCassandraType(i).getKind() == Kind.TIMESTAMP) {
             throw new IllegalArgumentException("Timestamp column can not be accessed with getSlice");
         }
-        NullableValue value = cassandraTypes.get(i).getColumnValue(currentRow, i);
+        NullableValue value = cassandraTypeManager.getColumnValue(cassandraTypes.get(i), currentRow, i);
         if (value.getValue() instanceof Slice) {
             return (Slice) value.getValue();
         }
@@ -135,9 +136,16 @@ public class CassandraRecordCursor
     }
 
     @Override
-    public Object getObject(int field)
+    public Object getObject(int i)
     {
-        throw new UnsupportedOperationException();
+        CassandraType cassandraType = cassandraTypes.get(i);
+        switch (cassandraType.getKind()) {
+            case TUPLE:
+            case UDT:
+                return cassandraTypeManager.getColumnValue(cassandraType, currentRow, i).getValue();
+            default:
+                throw new IllegalArgumentException("getObject cannot be called for " + cassandraType);
+        }
     }
 
     @Override
@@ -149,8 +157,8 @@ public class CassandraRecordCursor
     @Override
     public boolean isNull(int i)
     {
-        if (getCassandraType(i) == TIMESTAMP) {
-            return currentRow.getTimestamp(i) == null;
+        if (getCassandraType(i).getKind() == Kind.TIMESTAMP) {
+            return currentRow.getInstant(i) == null;
         }
         return currentRow.isNull(i);
     }

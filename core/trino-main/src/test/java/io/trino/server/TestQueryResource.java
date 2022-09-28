@@ -85,6 +85,40 @@ public class TestQueryResource
     }
 
     @Test
+    public void testIdempotentResults()
+    {
+        String sql = "SELECT * FROM tpch.tiny.lineitem";
+
+        Request request = preparePost()
+                .setHeader(TRINO_HEADERS.requestUser(), "user")
+                .setUri(uriBuilderFrom(server.getBaseUrl().resolve("/v1/statement")).build())
+                .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
+                .build();
+
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+        URI uri = queryResults.getNextUri();
+        while (uri != null) {
+            QueryResults attempt1 = client.execute(
+                    prepareGet()
+                            .setHeader(TRINO_HEADERS.requestUser(), "user")
+                            .setUri(uri)
+                            .build(),
+                    createJsonResponseHandler(jsonCodec(QueryResults.class)));
+
+            QueryResults attempt2 = client.execute(
+                    prepareGet()
+                            .setHeader(TRINO_HEADERS.requestUser(), "user")
+                            .setUri(uri)
+                            .build(),
+                    createJsonResponseHandler(jsonCodec(QueryResults.class)));
+
+            assertEquals(attempt2.getData(), attempt1.getData());
+
+            uri = attempt1.getNextUri();
+        }
+    }
+
+    @Test
     public void testGetQueryInfos()
     {
         runToCompletion("SELECT 1");

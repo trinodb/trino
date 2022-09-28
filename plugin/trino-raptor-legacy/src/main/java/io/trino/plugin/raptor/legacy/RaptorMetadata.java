@@ -38,20 +38,22 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
-import io.trino.spi.connector.ConnectorNewTableLayout;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.ConnectorTableLayoutHandle;
+import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTablePartitioning;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.RetryMode;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
@@ -60,10 +62,11 @@ import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.Type;
-import org.skife.jdbi.v2.IDBI;
+import org.jdbi.v3.core.Jdbi;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -78,6 +81,7 @@ import java.util.function.LongConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -87,6 +91,7 @@ import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.SHARD_UUID_COLUMN
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.SHARD_UUID_COLUMN_TYPE;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.bucketNumberColumnHandle;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.isHiddenColumn;
+import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.mergeRowIdHandle;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.shardRowIdHandle;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.shardUuidColumnHandle;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
@@ -113,6 +118,8 @@ import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
+import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -134,19 +141,19 @@ public class RaptorMetadata
     private static final JsonCodec<ConnectorViewDefinition> VIEW_CODEC =
             new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ConnectorViewDefinition.class);
 
-    private final IDBI dbi;
+    private final Jdbi dbi;
     private final MetadataDao dao;
     private final ShardManager shardManager;
     private final LongConsumer beginDeleteForTableId;
 
     private final AtomicReference<Long> currentTransactionId = new AtomicReference<>();
 
-    public RaptorMetadata(IDBI dbi, ShardManager shardManager)
+    public RaptorMetadata(Jdbi dbi, ShardManager shardManager)
     {
         this(dbi, shardManager, tableId -> {});
     }
 
-    public RaptorMetadata(IDBI dbi, ShardManager shardManager, LongConsumer beginDeleteForTableId)
+    public RaptorMetadata(Jdbi dbi, ShardManager shardManager, LongConsumer beginDeleteForTableId)
     {
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.dao = onDemandDao(dbi, MetadataDao.class);
@@ -244,13 +251,17 @@ public class RaptorMetadata
             columns.add(hiddenColumn(BUCKET_NUMBER_COLUMN_NAME, INTEGER));
         }
 
-        return new ConnectorTableMetadata(tableName, columns, properties.build());
+        return new ConnectorTableMetadata(tableName, columns, properties.buildOrThrow());
     }
 
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        return dao.listTables(schemaName.orElse(null));
+        // Deduplicate with set because state may change concurrently
+        return ImmutableSet.<SchemaTableName>builder()
+                .addAll(dao.listTables(schemaName.orElse(null)))
+                .addAll(listViews(session, schemaName))
+                .build().asList();
     }
 
     @Override
@@ -270,7 +281,7 @@ public class RaptorMetadata
             builder.put(bucketNumberColumn.getColumnName(), bucketNumberColumn);
         }
 
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     @Override
@@ -296,12 +307,6 @@ public class RaptorMetadata
             columns.put(tableColumn.getTable(), columnMetadata);
         }
         return Multimaps.asMap(columns.build());
-    }
-
-    @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
     }
 
     @Override
@@ -356,7 +361,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata metadata)
+    public Optional<ConnectorTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata metadata)
     {
         ImmutableMap.Builder<String, RaptorColumnHandle> map = ImmutableMap.builder();
         long columnId = 1;
@@ -365,7 +370,7 @@ public class RaptorMetadata
             columnId++;
         }
 
-        Optional<DistributionInfo> distribution = getOrCreateDistribution(map.build(), metadata.getProperties());
+        Optional<DistributionInfo> distribution = getOrCreateDistribution(map.buildOrThrow(), metadata.getProperties());
         if (distribution.isEmpty()) {
             return Optional.empty();
         }
@@ -374,13 +379,11 @@ public class RaptorMetadata
                 .map(RaptorColumnHandle::getColumnName)
                 .collect(toList());
 
-        ConnectorPartitioningHandle partitioning = getPartitioningHandle(distribution.get().getDistributionId());
-        return Optional.of(new ConnectorNewTableLayout(partitioning, partitionColumns));
-    }
+        long distributionId = distribution.get().getDistributionId();
+        List<String> bucketAssignments = shardManager.getBucketAssignments(distributionId);
+        ConnectorPartitioningHandle partitioning = new RaptorPartitioningHandle(distributionId, bucketAssignments);
 
-    private RaptorPartitioningHandle getPartitioningHandle(long distributionId)
-    {
-        return new RaptorPartitioningHandle(distributionId, shardManager.getBucketAssignments(distributionId));
+        return Optional.of(new ConnectorTableLayout(partitioning, partitionColumns));
     }
 
     private Optional<DistributionInfo> getOrCreateDistribution(Map<String, RaptorColumnHandle> columnHandleMap, Map<String, Object> properties)
@@ -451,8 +454,8 @@ public class RaptorMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
-        Optional<ConnectorNewTableLayout> layout = getNewTableLayout(session, tableMetadata);
-        finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), ImmutableList.of(), ImmutableList.of());
+        Optional<ConnectorTableLayout> layout = getNewTableLayout(session, tableMetadata);
+        finishCreateTable(session, beginCreateTable(session, tableMetadata, layout, NO_RETRIES), ImmutableList.of(), ImmutableList.of());
     }
 
     @Override
@@ -466,7 +469,7 @@ public class RaptorMetadata
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         RaptorTableHandle table = (RaptorTableHandle) tableHandle;
-        runTransaction(dbi, (handle, status) -> {
+        runTransaction(dbi, handle -> {
             MetadataDao dao = handle.attach(MetadataDao.class);
             dao.renameTable(table.getTableId(), newTableName.getSchemaName(), newTableName.getTableName());
             return null;
@@ -476,6 +479,10 @@ public class RaptorMetadata
     @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
+        if (column.getComment() != null) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with comments");
+        }
+
         RaptorTableHandle table = (RaptorTableHandle) tableHandle;
 
         // Always add new columns to the end.
@@ -542,14 +549,21 @@ public class RaptorMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
+        if (retryMode != NO_RETRIES) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
+        }
+        if (tableMetadata.getComment().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
+        }
+
         if (viewExists(session, tableMetadata.getTable())) {
             throw new TrinoException(ALREADY_EXISTS, "View already exists: " + tableMetadata.getTable());
         }
 
         Optional<RaptorPartitioningHandle> partitioning = layout
-                .map(ConnectorNewTableLayout::getPartitioning)
+                .map(ConnectorTableLayout::getPartitioning)
                 .map(Optional::get)
                 .map(RaptorPartitioningHandle.class::cast);
 
@@ -558,6 +572,9 @@ public class RaptorMetadata
 
         long columnId = 1;
         for (ColumnMetadata column : tableMetadata.getColumns()) {
+            if (column.getComment() != null) {
+                throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+            }
             columnHandles.add(new RaptorColumnHandle(column.getName(), columnId, column.getType()));
             columnTypes.add(column.getType());
             columnId++;
@@ -660,7 +677,7 @@ public class RaptorMetadata
         long transactionId = table.getTransactionId();
         long updateTime = session.getStart().toEpochMilli();
 
-        long newTableId = runTransaction(dbi, (dbiHandle, status) -> {
+        long newTableId = runTransaction(dbi, dbiHandle -> {
             MetadataDao dao = dbiHandle.attach(MetadataDao.class);
 
             Long distributionId = table.getDistributionId().isPresent() ? table.getDistributionId().getAsLong() : null;
@@ -704,8 +721,12 @@ public class RaptorMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public RaptorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
+        if (retryMode != NO_RETRIES) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
+        }
+
         RaptorTableHandle handle = (RaptorTableHandle) tableHandle;
         long tableId = handle.getTableId();
 
@@ -783,8 +804,12 @@ public class RaptorMetadata
     }
 
     @Override
-    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
     {
+        if (retryMode != NO_RETRIES) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
+        }
+
         RaptorTableHandle handle = (RaptorTableHandle) tableHandle;
 
         beginDeleteForTableId.accept(handle.getTableId());
@@ -811,37 +836,74 @@ public class RaptorMetadata
     public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
         RaptorTableHandle table = (RaptorTableHandle) tableHandle;
-        long transactionId = table.getTransactionId().getAsLong();
-        long tableId = table.getTableId();
+        finishDelete(session, table, table.getTransactionId().orElseThrow(), fragments);
+    }
+
+    private void finishDelete(ConnectorSession session, RaptorTableHandle tableHandle, long transactionId, Collection<Slice> fragments)
+    {
+        long tableId = tableHandle.getTableId();
 
         List<ColumnInfo> columns = getColumnHandles(session, tableHandle).values().stream()
                 .map(RaptorColumnHandle.class::cast)
                 .map(ColumnInfo::fromHandle).collect(toList());
 
-        ImmutableSet.Builder<UUID> oldShardUuidsBuilder = ImmutableSet.builder();
-        ImmutableList.Builder<ShardInfo> newShardsBuilder = ImmutableList.builder();
+        Set<UUID> oldShardUuids = new HashSet<>();
+        List<ShardInfo> newShards = new ArrayList<>();
 
-        fragments.stream()
-                .map(fragment -> SHARD_DELTA_CODEC.fromJson(fragment.getBytes()))
-                .forEach(delta -> {
-                    oldShardUuidsBuilder.addAll(delta.getOldShardUuids());
-                    newShardsBuilder.addAll(delta.getNewShards());
-                });
+        for (Slice fragment : fragments) {
+            ShardDelta delta = SHARD_DELTA_CODEC.fromJson(fragment.getBytes());
+            for (UUID uuid : delta.getOldShardUuids()) {
+                verify(oldShardUuids.add(uuid), "duplicate old shard: %s", uuid);
+            }
+            newShards.addAll(delta.getNewShards());
+        }
 
-        Set<UUID> oldShardUuids = oldShardUuidsBuilder.build();
-        List<ShardInfo> newShards = newShardsBuilder.build();
         OptionalLong updateTime = OptionalLong.of(session.getStart().toEpochMilli());
 
-        log.info("Finishing delete for tableId %s (removed: %s, rewritten: %s)", tableId, oldShardUuids.size() - newShards.size(), newShards.size());
+        log.info("Finishing update for tableId %s (removed: %s, new: %s)", tableId, oldShardUuids.size(), newShards.size());
         shardManager.replaceShardUuids(transactionId, tableId, columns, oldShardUuids, newShards, updateTime);
 
         clearRollback();
     }
 
     @Override
-    public boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
+    public RowChangeParadigm getRowChangeParadigm(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return false;
+        return DELETE_ROW_AND_INSERT_ROW;
+    }
+
+    @Override
+    public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return mergeRowIdHandle();
+    }
+
+    @Override
+    public Optional<ConnectorPartitioningHandle> getUpdateLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return ((RaptorTableHandle) tableHandle).getDistributionId().<ConnectorPartitioningHandle>map(distributionId ->
+                        new RaptorBucketedUpdateHandle(distributionId, shardManager.getBucketAssignments(distributionId)))
+                .or(() -> Optional.of(RaptorUnbucketedUpdateHandle.INSTANCE));
+    }
+
+    @Override
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    {
+        RaptorTableHandle handle = (RaptorTableHandle) tableHandle;
+
+        beginDeleteForTableId.accept(handle.getTableId());
+
+        RaptorInsertTableHandle insertHandle = beginInsert(session, handle, ImmutableList.of(), retryMode);
+
+        return new RaptorMergeTableHandle(handle, insertHandle);
+    }
+
+    @Override
+    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        RaptorMergeTableHandle handle = (RaptorMergeTableHandle) tableHandle;
+        long transactionId = handle.getInsertTableHandle().getTransactionId();
+        finishDelete(session, handle.getTableHandle(), transactionId, fragments);
     }
 
     @Override
@@ -896,7 +958,7 @@ public class RaptorMetadata
         for (ViewResult view : dao.getViews(schemaName.orElse(null), null)) {
             map.put(view.getName(), VIEW_CODEC.fromJson(view.getData()));
         }
-        return map.build();
+        return map.buildOrThrow();
     }
 
     @Override

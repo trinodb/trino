@@ -13,17 +13,12 @@
  */
 package io.trino.plugin.raptor.legacy.metadata;
 
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
+import org.jdbi.v3.core.mapper.reflect.ColumnName;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 
-import static io.trino.plugin.raptor.legacy.util.DatabaseUtil.getOptionalInt;
-import static io.trino.plugin.raptor.legacy.util.DatabaseUtil.getOptionalLong;
 import static java.util.Objects.requireNonNull;
 
 public class TableMetadataRow
@@ -43,7 +38,7 @@ public class TableMetadataRow
             OptionalLong temporalColumnId,
             Optional<String> distributionName,
             OptionalInt bucketCount,
-            boolean organized)
+            @ColumnName("organization_enabled") boolean organized)
     {
         this.tableId = tableId;
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -87,23 +82,5 @@ public class TableMetadataRow
     public boolean isOrganized()
     {
         return organized;
-    }
-
-    public static class Mapper
-            implements ResultSetMapper<TableMetadataRow>
-    {
-        @Override
-        public TableMetadataRow map(int index, ResultSet rs, StatementContext context)
-                throws SQLException
-        {
-            return new TableMetadataRow(
-                    rs.getLong("table_id"),
-                    rs.getString("schema_name"),
-                    rs.getString("table_name"),
-                    getOptionalLong(rs, "temporal_column_id"),
-                    Optional.ofNullable(rs.getString("distribution_name")),
-                    getOptionalInt(rs, "bucket_count"),
-                    rs.getBoolean("organization_enabled"));
-        }
     }
 }

@@ -68,16 +68,16 @@ public class BooleanColumnReader
 
     private byte[] nonNullValueTemp = new byte[0];
 
-    private final LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext memoryContext;
 
-    public BooleanColumnReader(Type type, OrcColumn column, LocalMemoryContext systemMemoryContext)
+    public BooleanColumnReader(Type type, OrcColumn column, LocalMemoryContext memoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
         verifyStreamType(column, type, BooleanType.class::isInstance);
 
         this.column = requireNonNull(column, "column is null");
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }
 
     @Override
@@ -155,7 +155,7 @@ public class BooleanColumnReader
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (nonNullValueTemp.length < minNonNullValueSize) {
             nonNullValueTemp = new byte[minNonNullValueSize];
-            systemMemoryContext.setBytes(sizeOf(nonNullValueTemp));
+            memoryContext.setBytes(sizeOf(nonNullValueTemp));
         }
 
         dataStream.getSetBits(nonNullValueTemp, nonNullCount);
@@ -214,7 +214,7 @@ public class BooleanColumnReader
     @Override
     public void close()
     {
-        systemMemoryContext.close();
+        memoryContext.close();
     }
 
     @Override

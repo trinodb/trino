@@ -17,7 +17,10 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.EncodingStats;
 import org.apache.parquet.column.statistics.BinaryStatistics;
+import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
+import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.Types;
 import org.testng.annotations.Test;
 
 import java.util.Set;
@@ -45,25 +48,25 @@ public class TestPredicateUtils
     @Test
     public void testIsStatisticsOverflow()
     {
-        assertFalse(isStatisticsOverflow(TINYINT, new ParquetIntegerStatistics(-10L, 10L)));
-        assertTrue(isStatisticsOverflow(TINYINT, new ParquetIntegerStatistics(-129L, 10L)));
-        assertTrue(isStatisticsOverflow(TINYINT, new ParquetIntegerStatistics(-10L, 129L)));
+        assertFalse(isStatisticsOverflow(TINYINT, -10L, 10L));
+        assertTrue(isStatisticsOverflow(TINYINT, -129L, 10L));
+        assertTrue(isStatisticsOverflow(TINYINT, -10L, 129L));
 
-        assertFalse(isStatisticsOverflow(SMALLINT, new ParquetIntegerStatistics(-32_000L, 32_000L)));
-        assertTrue(isStatisticsOverflow(SMALLINT, new ParquetIntegerStatistics(-100_000L, 32_000L)));
-        assertTrue(isStatisticsOverflow(SMALLINT, new ParquetIntegerStatistics(-32_000L, 100_000L)));
+        assertFalse(isStatisticsOverflow(SMALLINT, -32_000L, 32_000L));
+        assertTrue(isStatisticsOverflow(SMALLINT, -100_000L, 32_000L));
+        assertTrue(isStatisticsOverflow(SMALLINT, -32_000L, 100_000L));
 
-        assertFalse(isStatisticsOverflow(INTEGER, new ParquetIntegerStatistics(-2_000_000_000L, 2_000_000_000L)));
-        assertTrue(isStatisticsOverflow(INTEGER, new ParquetIntegerStatistics(-3_000_000_000L, 2_000_000_000L)));
-        assertTrue(isStatisticsOverflow(INTEGER, new ParquetIntegerStatistics(-2_000_000_000L, 3_000_000_000L)));
+        assertFalse(isStatisticsOverflow(INTEGER, -2_000_000_000L, 2_000_000_000L));
+        assertTrue(isStatisticsOverflow(INTEGER, -3_000_000_000L, 2_000_000_000L));
+        assertTrue(isStatisticsOverflow(INTEGER, -2_000_000_000L, 3_000_000_000L));
 
         // short decimal
-        assertFalse(isStatisticsOverflow(createDecimalType(5, 0), new ParquetIntegerStatistics(-10_000L, 10_000L)));
-        assertTrue(isStatisticsOverflow(createDecimalType(5, 0), new ParquetIntegerStatistics(-100_000L, 10_000L)));
-        assertTrue(isStatisticsOverflow(createDecimalType(5, 0), new ParquetIntegerStatistics(-10_000L, 100_000L)));
+        assertFalse(isStatisticsOverflow(createDecimalType(5, 0), -10_000L, 10_000L));
+        assertTrue(isStatisticsOverflow(createDecimalType(5, 0), -100_000L, 10_000L));
+        assertTrue(isStatisticsOverflow(createDecimalType(5, 0), -10_000L, 100_000L));
 
         // long decimal
-        assertFalse(isStatisticsOverflow(createDecimalType(19, 0), new ParquetIntegerStatistics(-1_000_000_000_000_000_000L, 1_000_000_000_000_000_000L)));
+        assertFalse(isStatisticsOverflow(createDecimalType(19, 0), -1_000_000_000_000_000_000L, 1_000_000_000_000_000_000L));
     }
 
     @Test
@@ -108,7 +111,9 @@ public class TestPredicateUtils
                 .addDictEncoding(PLAIN)
                 .addDataEncodings(ImmutableSet.copyOf(dataEncodings)).build();
 
-        return ColumnChunkMetaData.get(fromDotString("column"), BINARY, UNCOMPRESSED, encodingStats, encodingStats.getDataEncodings(), new BinaryStatistics(), 0, 0, 1, 1, 1);
+        PrimitiveType type = Types.optional(BINARY).named("");
+        Statistics<?> stats = Statistics.createStats(type);
+        return ColumnChunkMetaData.get(fromDotString("column"), type, UNCOMPRESSED, encodingStats, encodingStats.getDataEncodings(), stats, 0, 0, 1, 1, 1);
     }
 
     @SuppressWarnings("deprecation")

@@ -16,7 +16,6 @@ package io.trino.sql.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 public class CurrentSchema
@@ -47,7 +46,7 @@ public class CurrentSchema
     @Override
     public int hashCode()
     {
-        return Objects.hash();
+        return getClass().hashCode();
     }
 
     @Override

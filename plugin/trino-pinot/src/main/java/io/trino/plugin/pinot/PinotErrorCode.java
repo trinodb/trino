@@ -24,6 +24,7 @@ public enum PinotErrorCode
         implements ErrorCodeSupplier
 {
     PINOT_UNSUPPORTED_COLUMN_TYPE(0, EXTERNAL), // schema issues
+    PINOT_AMBIGUOUS_TABLE_NAME(1, EXTERNAL), // Duplicate case insensitive table name
     PINOT_INSUFFICIENT_SERVER_RESPONSE(2, EXTERNAL), // numServersResponded < numServersQueried
     PINOT_EXCEPTION(3, EXTERNAL), // Exception reported by pinot
     PINOT_HTTP_ERROR(4, EXTERNAL), // Some non okay http error code

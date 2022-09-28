@@ -1,8 +1,9 @@
 Accumulo connector
 ==================
 
-Overview
---------
+.. raw:: html
+
+  <img src="../_static/img/accumulo.png" class="connector-logo">
 
 The Accumulo connector supports reading and writing data from
 `Apache Accumulo <https://accumulo.apache.org/>`_.
@@ -24,6 +25,15 @@ JAR file to Accumulo's ``lib/ext`` directory on each TabletServer node.
 
     # TabletServer should pick up new JAR files in ext directory, but may require restart
 
+Requirements
+------------
+
+To connect to Accumulo, you need:
+
+* Accumulo versions 1.x starting with 1.7.4. Versions 2.x are not supported.
+* Network access from the Trino coordinator and workers to the Accumulo
+  Zookeeper server. Port 2181 is the default port.
+
 Connector configuration
 -----------------------
 
@@ -43,7 +53,7 @@ Configuration variables
 -----------------------
 
 ================================================ ====================== ========== =====================================================================================
-Property Name                                    Default Value          Required   Description
+Property name                                    Default value          Required   Description
 ================================================ ====================== ========== =====================================================================================
 ``accumulo.instance``                            (none)                 Yes        Name of the Accumulo instance
 ``accumulo.zookeepers``                          (none)                 Yes        ZooKeeper connect string
@@ -53,15 +63,6 @@ Property Name                                    Default Value          Required
 ``accumulo.cardinality.cache.size``              ``100000``             No         Sets the size of the index cardinality cache
 ``accumulo.cardinality.cache.expire.duration``   ``5m``                 No         Sets the expiration duration of the cardinality cache.
 ================================================ ====================== ========== =====================================================================================
-
-Unsupported features
---------------------
-
-The following features are not supported:
-
-* Adding columns via ``ALTER TABLE``: While you cannot add columns via SQL, you can using a tool.
-  See the below section on `Adding Columns <#adding-columns>`__ for more details.
-* ``DELETE``: Deletion of rows is not yet implemented for the connector.
 
 Usage
 -----
@@ -446,7 +447,7 @@ Table property usage example:
     );
 
 ==================== ================ ======================================================================================================
-Property Name        Default Value    Description
+Property name        Default value    Description
 ==================== ================ ======================================================================================================
 ``column_mapping``   (generated)      Comma-delimited list of column metadata: ``col_name:col_family:col_qualifier,[...]``.
                                       Required for external tables.  Not setting this property results in auto-generated column names.
@@ -472,7 +473,7 @@ Note that session properties are prefixed with the catalog name::
     SET SESSION accumulo.column_filter_optimizations_enabled = false;
 
 ============================================= ============= =======================================================================================================
-Property Name                                 Default Value Description
+Property name                                 Default value Description
 ============================================= ============= =======================================================================================================
 ``optimize_locality_enabled``                 ``true``      Set to true to enable data locality for non-indexed scans
 ``optimize_split_ranges_enabled``             ``true``      Set to true to split non-indexed queries by tablet splits. Should generally be true.
@@ -689,3 +690,20 @@ the output of the ``DESCRIBE`` statement.
       index_columns = 'b,c',
       external = true
     );
+
+.. _accumulo-sql-support:
+
+SQL support
+-----------
+
+The connector provides read and write access to data and metadata in
+the Accumulo database. In addition to the :ref:`globally available
+<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
+statements, the connector supports the following features:
+
+* :doc:`/sql/insert`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`

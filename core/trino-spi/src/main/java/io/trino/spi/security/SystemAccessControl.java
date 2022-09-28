@@ -18,32 +18,44 @@ import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.function.FunctionKind;
 import io.trino.spi.type.Type;
 
 import java.security.Principal;
+import java.util.Collection;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
+import static io.trino.spi.security.AccessDeniedException.denyCommentView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
+import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
 import static io.trino.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyCreateView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
+import static io.trino.spi.security.AccessDeniedException.denyDenySchemaPrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyDenyTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
 import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedView;
+import static io.trino.spi.security.AccessDeniedException.denyDropRole;
 import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteQuery;
+import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
@@ -51,23 +63,31 @@ import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyKillQuery;
 import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
+import static io.trino.spi.security.AccessDeniedException.denyRenameMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
+import static io.trino.spi.security.AccessDeniedException.denyRevokeRoles;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
+import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetUser;
 import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
+import static io.trino.spi.security.AccessDeniedException.denyShowCurrentRoles;
+import static io.trino.spi.security.AccessDeniedException.denyShowRoleAuthorizationDescriptors;
+import static io.trino.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoles;
 import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
+import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static io.trino.spi.security.AccessDeniedException.denyViewQuery;
 import static java.lang.String.format;
@@ -113,6 +133,19 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
+    default void checkCanViewQueryOwnedBy(SystemSecurityContext context, Identity queryOwner)
+    {
+        checkCanViewQueryOwnedBy(context, queryOwner.getUser());
+    }
+
+    /**
+     * Checks if identity can view a query owned by the specified user.  The method
+     * will not be called when the current user is the query owner.
+     *
+     * @throws AccessDeniedException if not allowed
+     * @deprecated Implement {@link #checkCanViewQueryOwnedBy(SystemSecurityContext, Identity)} instead.
+     */
+    @Deprecated
     default void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
     {
         denyViewQuery();
@@ -122,6 +155,24 @@ public interface SystemAccessControl
      * Filter the list of users to those the identity view query owned by the user.  The method
      * will not be called with the current user in the set.
      */
+    default Collection<Identity> filterViewQueryOwnedBy(SystemSecurityContext context, Collection<Identity> queryOwners)
+    {
+        Set<String> ownerUsers = queryOwners.stream()
+                .map(Identity::getUser)
+                .collect(Collectors.toSet());
+        Set<String> allowedUsers = filterViewQueryOwnedBy(context, ownerUsers);
+        return queryOwners.stream()
+                .filter(owner -> allowedUsers.contains(owner.getUser()))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Filter the list of users to those the identity view query owned by the user.  The method
+     * will not be called with the current user in the set.
+     *
+     * @deprecated Implement {@link #filterViewQueryOwnedBy(SystemSecurityContext, Collection)} instead.
+     */
+    @Deprecated
     default Set<String> filterViewQueryOwnedBy(SystemSecurityContext context, Set<String> queryOwners)
     {
         return emptySet();
@@ -133,6 +184,19 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
+    default void checkCanKillQueryOwnedBy(SystemSecurityContext context, Identity queryOwner)
+    {
+        checkCanKillQueryOwnedBy(context, queryOwner.getUser());
+    }
+
+    /**
+     * Checks if identity can kill a query owned by the specified user.  The method
+     * will not be called when the current user is the query owner.
+     *
+     * @throws AccessDeniedException if not allowed
+     * @deprecated Implement {@link #checkCanKillQueryOwnedBy(SystemSecurityContext, Identity)} instead.
+     */
+    @Deprecated
     default void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
     {
         denyKillQuery();
@@ -272,11 +336,11 @@ public interface SystemAccessControl
     }
 
     /**
-     * Check if identity is allowed to create the specified table in a catalog.
+     * Check if identity is allowed to create the specified table with properties in a catalog.
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
+    default void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
     {
         denyCreateTable(table.toString());
     }
@@ -302,6 +366,16 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to alter properties to the specified table in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetTableProperties(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Optional<Object>> properties)
+    {
+        denySetTableProperties(table.toString());
+    }
+
+    /**
      * Check if identity is allowed to comment the specified table in a catalog.
      *
      * @throws AccessDeniedException if not allowed
@@ -309,6 +383,16 @@ public interface SystemAccessControl
     default void checkCanSetTableComment(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         denyCommentTable(table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to comment the specified view in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetViewComment(SystemSecurityContext context, CatalogSchemaTableName view)
+    {
+        denyCommentView(view.toString());
     }
 
     /**
@@ -436,6 +520,16 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to truncate the specified table in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanTruncateTable(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        denyTruncateTable(table.toString());
+    }
+
+    /**
      * Check if identity is allowed to update the supplied columns in the specified table in a catalog.
      *
      * @throws AccessDeniedException if not allowed
@@ -500,7 +594,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    default void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Object> properties)
     {
         denyCreateMaterializedView(materializedView.toString());
     }
@@ -516,6 +610,16 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to set the properties of the specified materialized view in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetMaterializedViewProperties(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Optional<Object>> properties)
+    {
+        denySetMaterializedViewProperties(materializedView.toString());
+    }
+
+    /**
      * Check if identity is allowed to drop the specified materialized view in a catalog.
      *
      * @throws AccessDeniedException if not allowed
@@ -523,6 +627,16 @@ public interface SystemAccessControl
     default void checkCanDropMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
     {
         denyDropMaterializedView(materializedView.toString());
+    }
+
+    /**
+     * Check if identity is allowed to rename the specified materialized view in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanRenameMaterializedView(SystemSecurityContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
+    {
+        denyRenameMaterializedView(view.toString(), newView.toString());
     }
 
     /**
@@ -534,6 +648,17 @@ public interface SystemAccessControl
     {
         String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(Locale.ENGLISH), grantee.getName());
         denyGrantExecuteFunctionPrivilege(functionName, context.getIdentity(), granteeAsString);
+    }
+
+    /**
+     * Check if identity is allowed to grant an access to the function execution to grantee.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, FunctionKind functionKind, CatalogSchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(Locale.ENGLISH), grantee.getName());
+        denyGrantExecuteFunctionPrivilege(functionName.toString(), context.getIdentity(), granteeAsString);
     }
 
     /**
@@ -557,6 +682,16 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to deny the specified privilege to the grantee on the specified schema.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanDenySchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, TrinoPrincipal grantee)
+    {
+        denyDenySchemaPrivilege(privilege.toString(), schema.toString());
+    }
+
+    /**
      * Check if identity is allowed to revoke the specified privilege on the specified schema from the revokee.
      *
      * @throws AccessDeniedException if not allowed
@@ -577,6 +712,16 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to deny the specified privilege to the grantee on the specified table.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanDenyTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, TrinoPrincipal grantee)
+    {
+        denyDenyTablePrivilege(privilege.toString(), table.toString());
+    }
+
+    /**
      * Check if identity is allowed to revoke the specified privilege on the specified table from the revokee.
      *
      * @throws AccessDeniedException if not allowed
@@ -587,13 +732,83 @@ public interface SystemAccessControl
     }
 
     /**
-     * Check if identity is allowed to show roles on the specified catalog.
+     * Check if identity is allowed to show roles.
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanShowRoles(SystemSecurityContext context, String catalogName)
+    default void checkCanShowRoles(SystemSecurityContext context)
     {
-        denyShowRoles(catalogName);
+        denyShowRoles();
+    }
+
+    /**
+     * Check if identity is allowed to create the specified role.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanCreateRole(SystemSecurityContext context, String role, Optional<TrinoPrincipal> grantor)
+    {
+        denyCreateRole(role);
+    }
+
+    /**
+     * Check if identity is allowed to drop the specified role.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanDropRole(SystemSecurityContext context, String role)
+    {
+        denyDropRole(role);
+    }
+
+    /**
+     * Check if identity is allowed to grant the specified roles to the specified principals.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanGrantRoles(SystemSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor)
+    {
+        denyGrantRoles(roles, grantees);
+    }
+
+    /**
+     * Check if identity is allowed to revoke the specified roles from the specified principals.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanRevokeRoles(SystemSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor)
+    {
+        denyRevokeRoles(roles, grantees);
+    }
+
+    /**
+     * Check if identity is allowed to show role authorization descriptors (i.e. RoleGrants).
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanShowRoleAuthorizationDescriptors(SystemSecurityContext context)
+    {
+        denyShowRoleAuthorizationDescriptors();
+    }
+
+    /**
+     * Check if identity is allowed to show current roles.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanShowCurrentRoles(SystemSecurityContext context)
+    {
+        denyShowCurrentRoles();
+    }
+
+    /**
+     * Check if identity is allowed to show its own role grants.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanShowRoleGrants(SystemSecurityContext context)
+    {
+        denyShowRoleGrants();
     }
 
     /**
@@ -617,28 +832,48 @@ public interface SystemAccessControl
     }
 
     /**
-     * Get a row filter associated with the given table and identity.
-     * <p>
-     * The filter must be a scalar SQL expression of boolean type over the columns in the table.
+     * Check if identity is allowed to execute the specified function
      *
-     * @return the filter, or {@link Optional#empty()} if not applicable
+     * @throws AccessDeniedException if not allowed
      */
-    default Optional<ViewExpression> getRowFilter(SystemSecurityContext context, CatalogSchemaTableName tableName)
+    default void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
     {
-        return Optional.empty();
+        denyExecuteFunction(functionName.toString());
     }
 
     /**
-     * Get a column mask associated with the given table, column and identity.
+     * Check if identity is allowed to execute the specified table procedure on specified table
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName table, String procedure)
+    {
+        denyExecuteTableProcedure(table.toString(), procedure);
+    }
+
+    /**
+     * Get row filters associated with the given table and identity.
      * <p>
-     * The mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
+     * Each filter must be a scalar SQL expression of boolean type over the columns in the table.
+     *
+     * @return the list of filters, or empty list if not applicable
+     */
+    default List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName)
+    {
+        return List.of();
+    }
+
+    /**
+     * Get column masks associated with the given table, column and identity.
+     * <p>
+     * Each mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
      * must be written in terms of columns in the table.
      *
-     * @return the mask, or {@link Optional#empty()} if not applicable
+     * @return the list of masks, or empty list if not applicable
      */
-    default Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    default List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
-        return Optional.empty();
+        return List.of();
     }
 
     /**

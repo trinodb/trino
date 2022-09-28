@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
@@ -37,28 +38,17 @@ public class CreateAndInsertDataSetup
     }
 
     @Override
-    public TestTable setupTestTable(List<ColumnSetup> inputs)
+    public TestTable setupTemporaryRelation(List<ColumnSetup> inputs)
     {
         TestTable testTable = createTestTable(inputs);
         try {
             insertRows(testTable, inputs);
         }
         catch (Exception e) {
-            closeQuietly(testTable);
+            closeAllSuppress(e, testTable);
             throw e;
         }
         return testTable;
-    }
-
-    // TODO replace with closeAllSuppress when https://github.com/airlift/airlift/pull/889 is available
-    private static void closeQuietly(AutoCloseable autoCloseable)
-    {
-        //noinspection EmptyTryBlock
-        try (AutoCloseable ignore = autoCloseable) {
-            // suppress empty try-catch warning
-        }
-        catch (Exception ignored) {
-        }
     }
 
     private void insertRows(TestTable testTable, List<ColumnSetup> inputs)

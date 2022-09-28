@@ -2,19 +2,22 @@
 Kudu connector
 ==============
 
+.. raw:: html
+
+  <img src="../_static/img/kudu.png" class="connector-logo">
+
 The Kudu connector allows querying, inserting and deleting data in `Apache Kudu`_.
 
 .. _Apache Kudu: https://kudu.apache.org/
 
+Requirements
+------------
 
-Compatibility
--------------
+To connect to Kudu, you need:
 
-The Kudu connector is compatible with all Apache Kudu versions starting from 1.0.
-
-If the connector uses features that are not available on the target server, an error is returned.
-Apache Kudu 1.8.0 is currently used for testing.
-
+* Kudu version 1.13.0 or higher.
+* Network access from the Trino coordinator and workers to Kudu. Port 7051 is
+  the default port.
 
 Configuration
 -------------
@@ -26,6 +29,9 @@ replacing the properties as appropriate:
 .. code-block:: properties
 
    connector.name=kudu
+
+   ## Defaults to NONE
+   kudu.authentication.type = NONE
 
    ## List of Kudu master addresses, at least one is needed (comma separated)
    ## Supported formats: example.com, example.com:7051, 192.0.2.1, 192.0.2.1:7051,
@@ -52,12 +58,32 @@ replacing the properties as appropriate:
    ## Default timeout used for user operations
    #kudu.client.default-operation-timeout = 30s
 
-   ## Default timeout to use when waiting on data from a socket
-   #kudu.client.default-socket-read-timeout = 10s
-
    ## Disable Kudu client's collection of statistics.
    #kudu.client.disable-statistics = false
 
+Kerberos support
+----------------
+
+In order to connect to a kudu cluster that uses ``kerberos``
+authentication, you need to configure the following kudu properties:
+
+.. code-block:: properties
+
+   kudu.authentication.type = KERBEROS
+
+   ## The kerberos client principal name
+   kudu.authentication.client.principal = clientprincipalname
+
+   ## The path to the kerberos keytab file
+   ## The configured client principal must exist in this keytab file
+   kudu.authentication.client.keytab = /path/to/keytab/file.keytab
+
+   ## The path to the krb5.conf kerberos config file
+   kudu.authentication.config = /path/to/kerberos/krb5.conf
+
+   ## Optional and defaults to "kudu"
+   ## If kudu is running with a custom SPN this needs to be configured
+   kudu.authentication.server.principal.primary = kudu
 
 Querying data
 -------------
@@ -66,7 +92,7 @@ Apache Kudu does not support schemas, i.e. namespaces for tables.
 The connector can optionally emulate schemas by table naming conventions.
 
 Default behaviour (without schema emulation)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The emulation of schemas is disabled by default.
 In this case all Kudu tables are part of the ``default`` schema.
@@ -80,7 +106,7 @@ E.g. To query a Kudu table named ``special.table!`` use ``SELECT * FROM kudu.def
 
 
 Example
-^^^^^^^
+~~~~~~~
 
 * Create a users table in the default schema::
 
@@ -95,8 +121,7 @@ Example
 
   On creating a Kudu table you must/can specify additional information about
   the primary key, encoding, and compression of columns and hash or range
-  partitioning. Details see in section
-  `Create Table`_.
+  partitioning. For details see the :ref:`kudu-create-table` section.
 
 * Describe the table::
 
@@ -119,8 +144,10 @@ Example
 
     SELECT * FROM kudu.default.users;
 
-Behaviour with schema emulation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. _behavior-with-schema-emulation:
+
+Behavior with schema emulation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If schema emulation has been enabled in the connector properties, i.e. ``etc/catalog/kudu.properties``,
 tables are mapped to schemas depending on some conventions.
@@ -129,7 +156,7 @@ tables are mapped to schemas depending on some conventions.
   the mapping works like:
 
   +----------------------------+---------------------------------+
-  | Kudu Table Name            | Trino Qualified Name            |
+  | Kudu table name            | Trino qualified name            |
   +============================+=================================+
   | ``orders``                 | ``kudu.default.orders``         |
   +----------------------------+---------------------------------+
@@ -146,7 +173,7 @@ tables are mapped to schemas depending on some conventions.
   the mapping works like:
 
   +----------------------------+---------------------------------+
-  | Kudu Table Name            | Trino Qualified Name            |
+  | Kudu table name            | Trino qualified name            |
   +============================+=================================+
   | ``orders``                 | ``kudu.default.orders``         |
   +----------------------------+---------------------------------+
@@ -168,7 +195,7 @@ Data type mapping
 The data types of Trino and Kudu are mapped as far as possible:
 
 +-----------------------+-----------------------+-----------------------+
-| Trino Data Type       | Kudu Data Type        | Comment               |
+| Trino data type       | Kudu data type        | Comment               |
 +=======================+=======================+=======================+
 | ``BOOLEAN``           | ``BOOL``              |                       |
 +-----------------------+-----------------------+-----------------------+
@@ -195,31 +222,31 @@ The data types of Trino and Kudu are mapped as far as possible:
 | ``DECIMAL``           | ``DECIMAL``           | only supported for    |
 |                       |                       | Kudu server >= 1.7.0  |
 +-----------------------+-----------------------+-----------------------+
-| ``CHAR``              | -                     | not supported         |
+| ``CHAR``              | \-                    | not supported         |
 +-----------------------+-----------------------+-----------------------+
-| ``DATE``              | -                     | not supported [2]_    |
+| ``DATE``              | \-                    | not supported [2]_    |
 +-----------------------+-----------------------+-----------------------+
-| ``TIME``              | -                     | not supported         |
+| ``TIME``              | \-                    | not supported         |
 +-----------------------+-----------------------+-----------------------+
-| ``JSON``              | -                     | not supported         |
+| ``JSON``              | \-                    | not supported         |
 +-----------------------+-----------------------+-----------------------+
-| ``TIME WITH           | -                     | not supported         |
+| ``TIME WITH           | \-                    | not supported         |
 | TIMEZONE``            |                       |                       |
 +-----------------------+-----------------------+-----------------------+
-| ``TIMESTAMP WITH TIME | -                     | not supported         |
+| ``TIMESTAMP WITH TIME | \-                    | not supported         |
 | ZONE``                |                       |                       |
 +-----------------------+-----------------------+-----------------------+
-| ``INTERVAL YEAR TO MO | -                     | not supported         |
+| ``INTERVAL YEAR TO MO | \-                    | not supported         |
 | NTH``                 |                       |                       |
 +-----------------------+-----------------------+-----------------------+
-| ``INTERVAL DAY TO SEC | -                     | not supported         |
+| ``INTERVAL DAY TO SEC | \-                    | not supported         |
 | OND``                 |                       |                       |
 +-----------------------+-----------------------+-----------------------+
-| ``ARRAY``             | -                     | not supported         |
+| ``ARRAY``             | \-                    | not supported         |
 +-----------------------+-----------------------+-----------------------+
-| ``MAP``               | -                     | not supported         |
+| ``MAP``               | \-                    | not supported         |
 +-----------------------+-----------------------+-----------------------+
-| ``IPADDRESS``         | -                     | not supported         |
+| ``IPADDRESS``         | \-                    | not supported         |
 +-----------------------+-----------------------+-----------------------+
 
 
@@ -229,67 +256,56 @@ The data types of Trino and Kudu are mapped as far as possible:
 .. [2] On performing ``CREATE TABLE ... AS ...`` from a Trino table to Kudu,
    a ``DATE`` column is converted to ``STRING``
 
+.. _kudu-sql-support:
 
-Supported Trino SQL statements
--------------------------------
+SQL support
+-----------
 
-+------------------------------------------+-------------------------------+
-| Trino SQL statement                      | Comment                       |
-+==========================================+===============================+
-| ``SELECT``                               |                               |
-+------------------------------------------+-------------------------------+
-| ``INSERT INTO ... VALUES``               | Behaves like ``upsert``       |
-+------------------------------------------+-------------------------------+
-| ``INSERT INTO ... SELECT ...``           | Behaves like ``upsert``       |
-+------------------------------------------+-------------------------------+
-| ``DELETE``                               |                               |
-+------------------------------------------+-------------------------------+
-| ``CREATE SCHEMA``                        | Only allowed, if schema       |
-|                                          | emulation is enabled          |
-+------------------------------------------+-------------------------------+
-| ``DROP SCHEMA``                          | Only allowed, if schema       |
-|                                          | emulation is enabled          |
-+------------------------------------------+-------------------------------+
-| ``CREATE TABLE``                         | See `Create Table`_           |
-+------------------------------------------+-------------------------------+
-| ``CREATE TABLE ... AS``                  |                               |
-+------------------------------------------+-------------------------------+
-| ``DROP TABLE``                           |                               |
-+------------------------------------------+-------------------------------+
-| ``ALTER TABLE ... RENAME TO ...``        |                               |
-+------------------------------------------+-------------------------------+
-| ``ALTER TABLE ... RENAME COLUMN ...``    | Only allowed, if not part of  |
-|                                          | primary key                   |
-+------------------------------------------+-------------------------------+
-| ``ALTER TABLE ... ADD COLUMN ...``       | See `Add Column`_             |
-+------------------------------------------+-------------------------------+
-| ``ALTER TABLE ... DROP COLUMN ...``      | Only allowed, if not part of  |
-|                                          | primary key                   |
-+------------------------------------------+-------------------------------+
-| ``SHOW SCHEMAS``                         |                               |
-+------------------------------------------+-------------------------------+
-| ``SHOW TABLES``                          |                               |
-+------------------------------------------+-------------------------------+
-| ``SHOW CREATE TABLE``                    |                               |
-+------------------------------------------+-------------------------------+
-| ``SHOW COLUMNS FROM``                    |                               |
-+------------------------------------------+-------------------------------+
-| ``DESCRIBE``                             | Same as ``SHOW COLUMNS FROM`` |
-+------------------------------------------+-------------------------------+
-| ``CALL kudu.system.add_range_partition`` | Adds range partition to a     |
-|                                          | table. See `Managing range    |
-|                                          | partitions`_                  |
-+------------------------------------------+-------------------------------+
-| ``CALL kudu.system.drop_range_partition``| Drops a range partition       |
-|                                          | from a table. See `Managing   |
-|                                          | range partitions`_            |
-+------------------------------------------+-------------------------------+
+The connector provides read and write access to data and metadata in
+Kudu. In addition to the :ref:`globally available
+<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
+statements, the connector supports the following features:
 
-``ALTER SCHEMA ... RENAME TO ...`` is not supported.
+* :doc:`/sql/insert`, see also :ref:`kudu-insert`
+* :doc:`/sql/delete`
+* :doc:`/sql/merge`
+* :doc:`/sql/create-table`, see also :ref:`kudu-create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/alter-table`, see also :ref:`kudu-alter-table`
+* :doc:`/sql/create-schema`, see also :ref:`kudu-create-schema`
+* :doc:`/sql/drop-schema`, see also :ref:`kudu-drop-schema`
 
+.. _kudu-insert:
 
-Create table
-------------
+Inserting into tables
+^^^^^^^^^^^^^^^^^^^^^
+
+``INSERT INTO ... values`` and ``INSERT INTO ... select`` behave like
+``UPSERT``.
+
+.. include:: sql-delete-limitation.fragment
+
+.. _kudu-create-schema:
+
+Creating schemas
+^^^^^^^^^^^^^^^^
+
+``CREATE SCHEMA`` is only allowed if schema emulation is enabled. See the
+:ref:`behavior-with-schema-emulation` section.
+
+.. _kudu-drop-schema:
+
+Dropping schemas
+^^^^^^^^^^^^^^^^
+
+``DROP SCHEMA`` is only allowed if schema emulation is enabled. See the
+:ref:`behavior-with-schema-emulation` section.
+
+.. _kudu-create-table:
+
+Creating a table
+^^^^^^^^^^^^^^^^
 
 On creating a Kudu table, you need to provide the columns and their types, of
 course, but Kudu needs information about partitioning and optionally
@@ -331,7 +347,7 @@ For more details see `Partitioning Design`_.
 
 
 Column properties
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 Besides column name and type, you can specify some more properties of a column.
 
@@ -371,8 +387,7 @@ Besides column name and type, you can specify some more properties of a column.
 .. _`Column compression`: https://kudu.apache.org/docs/schema_design.html#compression
 
 
-Example
-^^^^^^^
+Example:
 
 .. code-block:: sql
 
@@ -383,8 +398,33 @@ Example
        ...
     ) WITH (...);
 
+.. _kudu-alter-table:
+
+Changing tables
+^^^^^^^^^^^^^^^
+
+Adding a column to an existing table uses the SQL statement ``ALTER TABLE ... ADD COLUMN ...``.
+You can specify the same column properties as on creating a table.
+
+Example::
+
+    ALTER TABLE mytable ADD COLUMN extraInfo varchar WITH (nullable = true, encoding = 'plain')
+
+See also `Column Properties`_.
+
+``ALTER TABLE ... RENAME COLUMN`` is only allowed if not part of a primary key.
+
+``ALTER TABLE ... DROP COLUMN`` is only allowed if not part of a primary key.
+
+Procedures
+----------
+
+* ``CALL kudu.system.add_range_partition`` see :ref:`managing-range-partitions`
+
+* ``CALL kudu.system.drop_range_partition`` see :ref:`managing-range-partitions`
+
 Partitioning design
-~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^
 
 A table must have at least one partitioning (either hash or range).
 It can have at most one range partitioning, but multiple hash partitioning 'levels'.
@@ -397,7 +437,7 @@ several table properties.
 
 
 Hash partitioning
-^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~
 
 You can provide the first hash partition group with two table properties:
 
@@ -444,7 +484,7 @@ As a result you have table with 2 x 3 = 6 partitions.
 
 
 Range partitioning
-^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~
 
 You can provide at most one range partitioning in Apache Kudu. The columns
 are defined with the table property ``partition_by_range_columns``.
@@ -478,7 +518,7 @@ Two range partitions are created with a split at “2018-01-01T00:00:00”.
 
 
 Table property ``range_partitions``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 With the ``range_partitions`` table property you specify the concrete
 range partitions to be created. The range partition definition itself
@@ -510,8 +550,10 @@ three range partitions are created:
 This means any attempt to add rows with ``event_time`` of year 2018 or greater fails, as no partition is defined.
 The next section shows how to define a new range partition for an existing table.
 
+.. _managing-range-partitions:
+
 Managing range partitions
-^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For existing tables, there are procedures to add and drop a range
 partition.
@@ -543,7 +585,7 @@ partition.
     Examples:
 
     +-------------------------------+----------------------------------------------+
-    | Trino Data Type               | JSON string example                          |
+    | Trino data Type               | JSON string example                          |
     +===============================+==============================================+
     | ``BIGINT``                    | ``‘{“lower”: 0, “upper”: 1000000}’``         |
     +-------------------------------+----------------------------------------------+
@@ -573,21 +615,7 @@ Use the SQL statement ``SHOW CREATE TABLE`` to query the existing
 range partitions (they are shown in the table property
 ``range_partitions``).
 
-Add column
-----------
-
-Adding a column to an existing table uses the SQL statement ``ALTER TABLE ... ADD COLUMN ...``.
-You can specify the same column properties as on creating a table.
-
-Example::
-
-    ALTER TABLE mytable ADD COLUMN extraInfo varchar WITH (nullable = true, encoding = 'plain')
-
-See also `Column Properties`_.
-
-
 Limitations
 -----------
 
 -  Only lower case table and column names in Kudu are supported.
--  Using a secured Kudu cluster has not been tested.

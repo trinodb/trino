@@ -24,8 +24,6 @@ import io.trino.failuredetector.FailureDetector;
 import io.trino.failuredetector.NoOpFailureDetector;
 import io.trino.server.ui.NoWebUiAuthenticationFilter;
 import io.trino.server.ui.WebUiAuthenticationFilter;
-import io.trino.transaction.NoOpTransactionManager;
-import io.trino.transaction.TransactionManager;
 
 import javax.inject.Singleton;
 
@@ -42,9 +40,6 @@ public class WorkerModule
 
         // Install no-op resource group manager on workers, since only coordinators manage resource groups.
         binder.bind(ResourceGroupManager.class).to(NoOpResourceGroupManager.class).in(Scopes.SINGLETON);
-
-        // Install no-op transaction manager on workers, since only coordinators manage transactions.
-        binder.bind(TransactionManager.class).to(NoOpTransactionManager.class).in(Scopes.SINGLETON);
 
         // Install no-op failure detector on workers, since only coordinators need global node selection.
         binder.bind(FailureDetector.class).to(NoOpFailureDetector.class).in(Scopes.SINGLETON);

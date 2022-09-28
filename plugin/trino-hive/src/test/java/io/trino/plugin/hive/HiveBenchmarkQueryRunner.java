@@ -14,10 +14,8 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Files;
 import io.trino.Session;
 import io.trino.benchmark.BenchmarkSuite;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.tpch.TpchConnectorFactory;
@@ -26,12 +24,13 @@ import io.trino.testing.LocalQueryRunner;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
@@ -43,7 +42,7 @@ public final class HiveBenchmarkQueryRunner
             throws IOException
     {
         String outputDirectory = requireNonNull(System.getProperty("outputDirectory"), "Must specify -DoutputDirectory=...");
-        File tempDir = Files.createTempDir();
+        File tempDir = Files.createTempDirectory(null).toFile();
         try (LocalQueryRunner localQueryRunner = createLocalQueryRunner(tempDir)) {
             new BenchmarkSuite(localQueryRunner, outputDirectory).runAllBenchmarks();
         }
@@ -68,17 +67,16 @@ public final class HiveBenchmarkQueryRunner
         File hiveDir = new File(tempDir, "hive_data");
         HiveMetastore metastore = createTestingFileHiveMetastore(hiveDir);
 
-        HiveIdentity identity = new HiveIdentity(SESSION);
-        metastore.createDatabase(identity,
+        metastore.createDatabase(
                 Database.builder()
                         .setDatabaseName("tpch")
-                        .setOwnerName("public")
-                        .setOwnerType(PrincipalType.ROLE)
+                        .setOwnerName(Optional.of("public"))
+                        .setOwnerType(Optional.of(PrincipalType.ROLE))
                         .build());
 
         Map<String, String> hiveCatalogConfig = ImmutableMap.<String, String>builder()
                 .put("hive.max-split-size", "10GB")
-                .build();
+                .buildOrThrow();
 
         localQueryRunner.createCatalog("hive", new TestingHiveConnectorFactory(metastore), hiveCatalogConfig);
 

@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.session.db;
 
-import com.mysql.jdbc.jdbc2.optional.MysqlDataSource;
+import com.mysql.cj.jdbc.MysqlDataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
@@ -32,7 +32,6 @@ public class SessionPropertiesDaoProvider
     @Inject
     public SessionPropertiesDaoProvider(DbSessionPropertyManagerConfig config)
     {
-        requireNonNull(config, "config is null");
         String url = requireNonNull(config.getConfigDbUrl(), "db url is null");
 
         MysqlDataSource dataSource = new MysqlDataSource();

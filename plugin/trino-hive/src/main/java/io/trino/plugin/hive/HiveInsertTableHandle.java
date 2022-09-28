@@ -36,7 +36,8 @@ public class HiveInsertTableHandle
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
             @JsonProperty("tableStorageFormat") HiveStorageFormat tableStorageFormat,
             @JsonProperty("partitionStorageFormat") HiveStorageFormat partitionStorageFormat,
-            @JsonProperty("transaction") AcidTransaction transaction)
+            @JsonProperty("transaction") AcidTransaction transaction,
+            @JsonProperty("retriesEnabled") boolean retriesEnabled)
     {
         super(
                 schemaName,
@@ -47,6 +48,7 @@ public class HiveInsertTableHandle
                 bucketProperty,
                 tableStorageFormat,
                 partitionStorageFormat,
-                transaction);
+                transaction,
+                retriesEnabled);
     }
 }

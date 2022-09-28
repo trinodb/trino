@@ -13,12 +13,18 @@
  */
 package io.trino.spi.eventlistener;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.time.Instant;
 import java.util.Optional;
 import java.util.StringJoiner;
 
 import static java.util.Objects.requireNonNull;
 
+/**
+ * This class is JSON serializable for convenience and serialization compatibility is not guaranteed across versions.
+ */
 public class SplitCompletedEvent
 {
     private final String queryId;
@@ -35,6 +41,7 @@ public class SplitCompletedEvent
 
     private final String payload;
 
+    @JsonCreator
     public SplitCompletedEvent(
             String queryId,
             String stageId,
@@ -59,51 +66,61 @@ public class SplitCompletedEvent
         this.payload = requireNonNull(payload, "payload is null");
     }
 
+    @JsonProperty
     public String getQueryId()
     {
         return queryId;
     }
 
+    @JsonProperty
     public String getStageId()
     {
         return stageId;
     }
 
+    @JsonProperty
     public String getTaskId()
     {
         return taskId;
     }
 
+    @JsonProperty
     public Instant getCreateTime()
     {
         return createTime;
     }
 
+    @JsonProperty
     public Optional<Instant> getStartTime()
     {
         return startTime;
     }
 
+    @JsonProperty
     public Optional<Instant> getEndTime()
     {
         return endTime;
     }
 
+    @JsonProperty
     public SplitStatistics getStatistics()
     {
         return statistics;
     }
 
+    @JsonProperty
     public Optional<SplitFailureInfo> getFailureInfo()
     {
         return failureInfo;
     }
 
+    @JsonProperty
     public String getPayload()
     {
         return payload;
     }
 
+    @JsonProperty
     public Optional<String> getCatalogName()
     {
         return catalogName;

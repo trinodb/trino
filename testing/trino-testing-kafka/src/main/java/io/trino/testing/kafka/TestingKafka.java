@@ -87,9 +87,11 @@ public final class TestingKafka
         network = Network.newNetwork();
         closer.register(network::close);
         kafka = new KafkaContainer(KAFKA_IMAGE_NAME.withTag(confluentPlatformVersion))
+                .withStartupAttempts(3)
                 .withNetwork(network)
                 .withNetworkAliases("kafka");
         schemaRegistry = new GenericContainer<>(SCHEMA_REGISTRY_IMAGE_NAME.withTag(confluentPlatformVersion))
+                .withStartupAttempts(3)
                 .withNetwork(network)
                 .withNetworkAliases("schema-registry")
                 .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:9092")
@@ -213,7 +215,7 @@ public final class TestingKafka
 
     public String getConnectString()
     {
-        return kafka.getContainerIpAddress() + ":" + kafka.getMappedPort(KAFKA_PORT);
+        return kafka.getHost() + ":" + kafka.getMappedPort(KAFKA_PORT);
     }
 
     private <K, V> KafkaProducer<K, V> createProducer(Map<String, String> extraProperties)
@@ -240,7 +242,7 @@ public final class TestingKafka
 
     public String getSchemaRegistryConnectString()
     {
-        return "http://" + schemaRegistry.getContainerIpAddress() + ":" + schemaRegistry.getMappedPort(SCHEMA_REGISTRY_PORT);
+        return "http://" + schemaRegistry.getHost() + ":" + schemaRegistry.getMappedPort(SCHEMA_REGISTRY_PORT);
     }
 
     public Network getNetwork()

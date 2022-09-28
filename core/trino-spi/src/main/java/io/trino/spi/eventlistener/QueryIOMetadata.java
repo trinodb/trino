@@ -13,27 +13,36 @@
  */
 package io.trino.spi.eventlistener;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
+/**
+ * This class is JSON serializable for convenience and serialization compatibility is not guaranteed across versions.
+ */
 public class QueryIOMetadata
 {
     private final List<QueryInputMetadata> inputs;
     private final Optional<QueryOutputMetadata> output;
 
+    @JsonCreator
     public QueryIOMetadata(List<QueryInputMetadata> inputs, Optional<QueryOutputMetadata> output)
     {
         this.inputs = requireNonNull(inputs, "inputs is null");
         this.output = requireNonNull(output, "output is null");
     }
 
+    @JsonProperty
     public List<QueryInputMetadata> getInputs()
     {
         return inputs;
     }
 
+    @JsonProperty
     public Optional<QueryOutputMetadata> getOutput()
     {
         return output;
