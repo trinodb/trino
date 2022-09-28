@@ -26,7 +26,7 @@ import java.util.List;
 
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtLeastScalar;
-import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isEmpty;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static io.trino.sql.planner.plan.Patterns.join;
 
@@ -58,7 +58,7 @@ public class ReplaceRedundantJoinWithSource
     @Override
     public Result apply(JoinNode node, Captures captures, Context context)
     {
-        if (isAtMost(node.getLeft(), context.getLookup(), 0) || isAtMost(node.getRight(), context.getLookup(), 0)) {
+        if (isEmpty(node.getLeft(), context.getLookup()) || isEmpty(node.getRight(), context.getLookup())) {
             return Result.empty();
         }
 

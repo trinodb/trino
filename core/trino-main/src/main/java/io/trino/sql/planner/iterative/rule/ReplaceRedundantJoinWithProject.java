@@ -29,7 +29,7 @@ import io.trino.sql.tree.NullLiteral;
 import java.util.List;
 
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isEmpty;
 import static io.trino.sql.planner.plan.Patterns.join;
 
 /**
@@ -52,8 +52,8 @@ public class ReplaceRedundantJoinWithProject
     @Override
     public Result apply(JoinNode node, Captures captures, Context context)
     {
-        boolean leftSourceEmpty = isAtMost(node.getLeft(), context.getLookup(), 0);
-        boolean rightSourceEmpty = isAtMost(node.getRight(), context.getLookup(), 0);
+        boolean leftSourceEmpty = isEmpty(node.getLeft(), context.getLookup());
+        boolean rightSourceEmpty = isEmpty(node.getRight(), context.getLookup());
 
         return switch (node.getType()) {
             case INNER -> Result.empty();
