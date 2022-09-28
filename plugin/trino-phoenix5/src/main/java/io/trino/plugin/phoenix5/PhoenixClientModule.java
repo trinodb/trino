@@ -77,7 +77,7 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 import static io.trino.plugin.phoenix5.ConfigurationInstantiator.newEmptyConfiguration;
-import static io.trino.plugin.phoenix5.PhoenixClient.PHOENIX_MAX_LIST_EXPRESSIONS;
+import static io.trino.plugin.phoenix5.PhoenixClient.DEFAULT_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_CONFIG_ERROR;
 import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -103,7 +103,8 @@ public class PhoenixClientModule
         binder.bind(ConnectorPageSinkProvider.class).annotatedWith(ForClassLoaderSafe.class).to(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(ClassLoaderSafeConnectorPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(QueryBuilder.class).to(DefaultQueryBuilder.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(PHOENIX_MAX_LIST_EXPRESSIONS);
+        newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class));
+        configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setDomainCompactionThreshold(DEFAULT_DOMAIN_COMPACTION_THRESHOLD));
 
         configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
         bindSessionPropertiesProvider(binder, TypeHandlingJdbcSessionProperties.class);
