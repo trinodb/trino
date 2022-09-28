@@ -48,8 +48,8 @@
 * Reduce query latency when using a Glue catalog for metadata. ({issue}`13875`)
 * Fix materalized views temporarily appearing empty when a refresh is about to
   complete. ({issue}`14145`)
-* Fix potential table corruption when changing a table before committing to the
-  Hive metastore has completed. ({issue}`14118`)
+* Fix potential table corruption when changing a table before it is known if
+  committing to the Hive metastore has failed or succeeded. ({issue}`14174`)
 
 ## SPI
 
