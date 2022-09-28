@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static java.util.Objects.requireNonNull;
 
 public class LazyExchangeDataSource
@@ -95,7 +96,7 @@ public class LazyExchangeDataSource
             return immediateVoidFuture();
         }
         if (!initializationFuture.isDone()) {
-            return initializationFuture;
+            return nonCancellationPropagating(initializationFuture);
         }
         ExchangeDataSource dataSource = delegate.get();
         if (dataSource == null) {
