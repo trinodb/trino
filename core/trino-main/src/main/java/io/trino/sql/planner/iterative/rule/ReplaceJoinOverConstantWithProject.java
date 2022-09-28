@@ -18,6 +18,7 @@ import io.trino.matching.Pattern;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.optimizations.Cardinality;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -31,8 +32,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtLeastScalar;
-import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isEmpty;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
 import static io.trino.sql.planner.plan.Patterns.join;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
@@ -88,7 +88,12 @@ public class ReplaceJoinOverConstantWithProject
     @Override
     public Result apply(JoinNode node, Captures captures, Context context)
     {
-        if (isEmpty(node.getLeft(), context.getLookup()) || isEmpty(node.getRight(), context.getLookup())) {
+        Cardinality leftCardinality = extractCardinality(node.getLeft(), context.getLookup());
+        if (leftCardinality.isEmpty()) {
+            return Result.empty();
+        }
+        Cardinality rightCardinality = extractCardinality(node.getRight(), context.getLookup());
+        if (rightCardinality.isEmpty()) {
             return Result.empty();
         }
 
@@ -108,7 +113,7 @@ public class ReplaceJoinOverConstantWithProject
                 yield Result.empty();
             }
             case LEFT -> {
-                if (canInlineLeftSource && isAtLeastScalar(right, context.getLookup())) {
+                if (canInlineLeftSource && rightCardinality.isAtLeastScalar()) {
                     yield Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
                 }
                 if (canInlineRightSource) {
@@ -120,16 +125,16 @@ public class ReplaceJoinOverConstantWithProject
                 if (canInlineLeftSource) {
                     yield Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
                 }
-                if (canInlineRightSource && isAtLeastScalar(left, context.getLookup())) {
+                if (canInlineRightSource && leftCardinality.isAtLeastScalar()) {
                     yield Result.ofPlanNode(appendProjection(left, node.getLeftOutputSymbols(), right, node.getRightOutputSymbols(), context.getIdAllocator()));
                 }
                 yield Result.empty();
             }
             case FULL -> {
-                if (canInlineLeftSource && isAtLeastScalar(right, context.getLookup())) {
+                if (canInlineLeftSource && rightCardinality.isAtLeastScalar()) {
                     yield Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
                 }
-                if (canInlineRightSource && isAtLeastScalar(left, context.getLookup())) {
+                if (canInlineRightSource && leftCardinality.isAtLeastScalar()) {
                     yield Result.ofPlanNode(appendProjection(left, node.getLeftOutputSymbols(), right, node.getRightOutputSymbols(), context.getIdAllocator()));
                 }
                 yield Result.empty();
