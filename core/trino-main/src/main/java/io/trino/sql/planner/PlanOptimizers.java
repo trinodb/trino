@@ -726,7 +726,9 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         costCalculator,
-                        ImmutableSet.of(new EliminateCrossJoins(plannerContext, typeAnalyzer))), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
+                        ImmutableSet.of(
+                                new EliminateCrossJoins(plannerContext, typeAnalyzer), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
+                                new RemoveRedundantJoin())),
                 new StatsRecordingPlanOptimizer(
                         optimizerStats,
                         new PredicatePushDown(plannerContext, typeAnalyzer, true, false)),
