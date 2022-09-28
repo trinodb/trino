@@ -32,7 +32,7 @@ import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtLeastScalar;
-import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isEmpty;
 import static io.trino.sql.planner.plan.Patterns.join;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
@@ -88,7 +88,7 @@ public class ReplaceJoinOverConstantWithProject
     @Override
     public Result apply(JoinNode node, Captures captures, Context context)
     {
-        if (isAtMost(node.getLeft(), context.getLookup(), 0) || isAtMost(node.getRight(), context.getLookup(), 0)) {
+        if (isEmpty(node.getLeft(), context.getLookup()) || isEmpty(node.getRight(), context.getLookup())) {
             return Result.empty();
         }
 

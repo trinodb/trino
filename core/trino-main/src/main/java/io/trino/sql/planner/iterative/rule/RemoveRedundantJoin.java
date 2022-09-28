@@ -21,7 +21,7 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.JoinNode.Type;
 import io.trino.sql.planner.plan.ValuesNode;
 
-import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isEmpty;
 import static io.trino.sql.planner.plan.Patterns.join;
 
 public class RemoveRedundantJoin
@@ -40,8 +40,8 @@ public class RemoveRedundantJoin
     {
         if (canRemoveJoin(
                 node.getType(),
-                isAtMost(node.getLeft(), context.getLookup(), 0),
-                isAtMost(node.getRight(), context.getLookup(), 0))) {
+                isEmpty(node.getLeft(), context.getLookup()),
+                isEmpty(node.getRight(), context.getLookup()))) {
             return Result.ofPlanNode(
                     new ValuesNode(
                             context.getIdAllocator().getNextId(),
