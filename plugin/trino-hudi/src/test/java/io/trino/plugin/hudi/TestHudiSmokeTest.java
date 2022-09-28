@@ -37,7 +37,7 @@ public class TestHudiSmokeTest
     }
 
     @Test
-    public void readNonPartitionedTable()
+    public void testReadNonPartitionedTable()
     {
         assertQuery(
                 "SELECT rowid, name FROM " + HUDI_NON_PART_COW,
@@ -45,7 +45,7 @@ public class TestHudiSmokeTest
     }
 
     @Test
-    public void readPartitionedTables()
+    public void testReadPartitionedTables()
     {
         assertQuery("SELECT symbol, max(ts) FROM " + STOCK_TICKS_COW + " GROUP BY symbol HAVING symbol = 'GOOG'",
                 "SELECT * FROM VALUES ('GOOG', '2018-08-31 10:59:00')");
