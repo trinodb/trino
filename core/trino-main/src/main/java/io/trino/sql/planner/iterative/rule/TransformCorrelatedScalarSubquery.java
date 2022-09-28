@@ -14,13 +14,13 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Range;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.BigintType;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.optimizations.Cardinality;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
@@ -114,10 +114,10 @@ public class TransformCorrelatedScalarSubquery
                 .recurseOnlyWhen(ProjectNode.class::isInstance)
                 .removeFirst();
 
-        Range<Long> subqueryCardinality = extractCardinality(rewrittenSubquery, context.getLookup());
-        boolean producesAtMostOneRow = Range.closed(0L, 1L).encloses(subqueryCardinality);
+        Cardinality subqueryCardinality = extractCardinality(rewrittenSubquery, context.getLookup());
+        boolean producesAtMostOneRow = subqueryCardinality.isAtMostScalar();
         if (producesAtMostOneRow) {
-            boolean producesSingleRow = Range.singleton(1L).encloses(subqueryCardinality);
+            boolean producesSingleRow = subqueryCardinality.isScalar();
             return Result.ofPlanNode(new CorrelatedJoinNode(
                     context.getIdAllocator().getNextId(),
                     correlatedJoinNode.getInput(),
