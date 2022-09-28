@@ -31,10 +31,11 @@ import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.s3.HiveS3Config;
 import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 import io.trino.plugin.hudi.testing.HudiTablesInitializer;
-import io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer;
+import io.trino.plugin.hudi.testing.TpchHudiTablesInitializer;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.tpch.TpchTable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
@@ -48,6 +49,7 @@ import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_SECRET_KEY
 import static io.trino.testing.DistributedQueryRunner.builder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
 
 public final class S3HudiQueryRunner
 {
@@ -147,7 +149,7 @@ public final class S3HudiQueryRunner
     }
 
     public static void main(String[] args)
-            throws InterruptedException
+            throws Exception
     {
         Logging.initialize();
         Logger log = Logger.get(S3HudiQueryRunner.class);
@@ -155,22 +157,22 @@ public final class S3HudiQueryRunner
         String bucketName = "test-bucket";
         HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(bucketName);
         hiveMinioDataLake.start();
-
-        DistributedQueryRunner queryRunner = null;
-        try (DistributedQueryRunner runner = create(
+        /*
+         * Please set the below VM arguments for the main method to run:
+         *
+         * -ea --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED
+         *
+         * TODO: We need to set above arguments due to Hudi's deep reflection based ObjectSizeEstimator.
+         *       Higher versions of jdk block illegal reflective access. This will not be needed after
+         *       https://issues.apache.org/jira/browse/HUDI-4687 is fixed.
+         */
+        DistributedQueryRunner queryRunner = create(
                 HUDI_MINIO_TESTS.getCatalogName(),
                 HUDI_MINIO_TESTS.getSchemaName(),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
-                new ResourceHudiTablesInitializer(),
-                hiveMinioDataLake)) {
-            queryRunner = runner;
-        }
-        catch (Throwable t) {
-            log.error(t);
-            System.exit(1);
-        }
-        Thread.sleep(100);
+                new TpchHudiTablesInitializer(COPY_ON_WRITE, TpchTable.getTables()),
+                hiveMinioDataLake);
 
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
