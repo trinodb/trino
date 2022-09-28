@@ -191,6 +191,7 @@ import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.trino.plugin.hive.HiveSessionProperties.NON_TRANSACTIONAL_OPTIMIZE_ENABLED;
 import static io.trino.plugin.hive.HiveSessionProperties.getDeltaLakeCatalogName;
 import static io.trino.plugin.hive.HiveSessionProperties.getHiveStorageFormat;
+import static io.trino.plugin.hive.HiveSessionProperties.getHudiCatalogName;
 import static io.trino.plugin.hive.HiveSessionProperties.getIcebergCatalogName;
 import static io.trino.plugin.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
 import static io.trino.plugin.hive.HiveSessionProperties.getQueryPartitionFilterRequiredSchemas;
@@ -275,6 +276,7 @@ import static io.trino.plugin.hive.util.HiveUtil.getRegularColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.hiveColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
+import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.hive.util.HiveUtil.isSparkBucketedTable;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
@@ -3799,7 +3801,8 @@ public class HiveMetadata
         }
 
         Optional<CatalogSchemaTableName> catalogSchemaTableName = redirectTableToIceberg(session, table.get())
-                .or(() -> redirectTableToDeltaLake(session, table.get()));
+                .or(() -> redirectTableToDeltaLake(session, table.get()))
+                .or(() -> redirectTableToHudi(session, table.get()));
 
         // stitch back the suffix we cut off.
         return catalogSchemaTableName.map(name -> new CatalogSchemaTableName(
@@ -3828,6 +3831,18 @@ public class HiveMetadata
             return Optional.empty();
         }
         if (isDeltaLakeTable(table)) {
+            return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, table.getSchemaTableName()));
+        }
+        return Optional.empty();
+    }
+
+    private Optional<CatalogSchemaTableName> redirectTableToHudi(ConnectorSession session, Table table)
+    {
+        Optional<String> targetCatalogName = getHudiCatalogName(session);
+        if (targetCatalogName.isEmpty()) {
+            return Optional.empty();
+        }
+        if (isHudiTable(table)) {
             return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, table.getSchemaTableName()));
         }
         return Optional.empty();

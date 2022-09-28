@@ -116,6 +116,7 @@ public class TestHiveConfig
                 .setSizeBasedSplitWeightsEnabled(true)
                 .setMinimumAssignedSplitWeight(0.05)
                 .setDeltaLakeCatalogName(null)
+                .setHudiCatalogName(null)
                 .setAutoPurge(false)
                 .setPartitionProjectionEnabled(false));
     }
@@ -203,6 +204,7 @@ public class TestHiveConfig
                 .put("hive.size-based-split-weights-enabled", "false")
                 .put("hive.minimum-assigned-split-weight", "1.0")
                 .put("hive.delta-lake-catalog-name", "delta")
+                .put("hive.hudi-catalog-name", "hudi")
                 .put("hive.auto-purge", "true")
                 .put(CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED, "true")
                 .buildOrThrow();
@@ -287,6 +289,7 @@ public class TestHiveConfig
                 .setSizeBasedSplitWeightsEnabled(false)
                 .setMinimumAssignedSplitWeight(1.0)
                 .setDeltaLakeCatalogName("delta")
+                .setHudiCatalogName("hudi")
                 .setAutoPurge(true)
                 .setPartitionProjectionEnabled(true);
 
