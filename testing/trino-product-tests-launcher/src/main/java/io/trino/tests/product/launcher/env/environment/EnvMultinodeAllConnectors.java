@@ -57,6 +57,7 @@ public final class EnvMultinodeAllConnectors
                         "elasticsearch",
                         "gsheets",
                         "hive",
+                        "hudi",
                         "iceberg",
                         "kafka",
                         "kinesis",
