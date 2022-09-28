@@ -19,12 +19,17 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.ZonedDateTime;
+
 import static io.trino.plugin.hudi.HudiQueryRunner.createHudiQueryRunner;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COW_PT_TBL;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_MOR;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 
 public class TestHudiSmokeTest
         extends AbstractTestQueryFramework
@@ -112,5 +117,45 @@ public class TestHudiSmokeTest
                         "   location = \\E'.*/hudi_cow_pt_tbl',\n\\Q" +
                         "   partitioned_by = ARRAY['dt','hh']\n" +
                         ")");
+    }
+
+    @Test
+    public void testPathColumn()
+    {
+        String path = (String) computeScalar("SELECT \"$path\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1");
+        assertThat(toPath(path)).exists();
+    }
+
+    @Test
+    public void testFileSizeColumn()
+            throws Exception
+    {
+        String path = (String) computeScalar("SELECT \"$path\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1");
+        long fileSize = (long) computeScalar("SELECT \"$file_size\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1");
+        assertEquals(fileSize, Files.size(toPath(path)));
+    }
+
+    @Test
+    public void testFileModifiedColumn()
+            throws Exception
+    {
+        String path = (String) computeScalar("SELECT \"$path\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1");
+        ZonedDateTime fileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1");
+        assertEquals(fileModifiedTime.toInstant().toEpochMilli(), Files.getLastModifiedTime(toPath(path)).toInstant().toEpochMilli());
+    }
+
+    @Test
+    public void testPartitionColumn()
+    {
+        assertQuery("SELECT \"$partition\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1", "VALUES 'dt=2021-12-09/hh=10'");
+        assertQuery("SELECT \"$partition\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 2", "VALUES 'dt=2021-12-09/hh=11'");
+
+        assertQueryFails("SELECT \"$partition\" FROM " + HUDI_NON_PART_COW, ".* Column '\\$partition' cannot be resolved");
+    }
+
+    private static Path toPath(String path)
+    {
+        // Remove leading 'file:' because $path column returns 'file:/path-to-file' in case of local file system
+        return Path.of(path.replaceFirst("^file:", ""));
     }
 }

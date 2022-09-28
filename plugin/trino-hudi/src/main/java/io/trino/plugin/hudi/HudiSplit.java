@@ -37,6 +37,7 @@ public class HudiSplit
     private final long start;
     private final long length;
     private final long fileSize;
+    private final long fileModifiedTime;
     private final List<HostAddress> addresses;
     private final TupleDomain<HiveColumnHandle> predicate;
     private final List<HivePartitionKey> partitionKeys;
@@ -48,6 +49,7 @@ public class HudiSplit
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
             @JsonProperty("fileSize") long fileSize,
+            @JsonProperty("fileModifiedTime") long fileModifiedTime,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("predicate") TupleDomain<HiveColumnHandle> predicate,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
@@ -61,6 +63,7 @@ public class HudiSplit
         this.start = start;
         this.length = length;
         this.fileSize = fileSize;
+        this.fileModifiedTime = fileModifiedTime;
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.predicate = requireNonNull(predicate, "predicate is null");
         this.partitionKeys = ImmutableList.copyOf(requireNonNull(partitionKeys, "partitionKeys is null"));
@@ -88,6 +91,7 @@ public class HudiSplit
                 .put("start", start)
                 .put("length", length)
                 .put("fileSize", fileSize)
+                .put("fileModifiedTime", fileModifiedTime)
                 .buildOrThrow();
     }
 
@@ -123,6 +127,12 @@ public class HudiSplit
     }
 
     @JsonProperty
+    public long getFileModifiedTime()
+    {
+        return fileModifiedTime;
+    }
+
+    @JsonProperty
     public TupleDomain<HiveColumnHandle> getPredicate()
     {
         return predicate;
@@ -142,6 +152,7 @@ public class HudiSplit
                 .addValue(start)
                 .addValue(length)
                 .addValue(fileSize)
+                .addValue(fileModifiedTime)
                 .toString();
     }
 }
