@@ -85,23 +85,15 @@ public final class HudiQueryRunner
     }
 
     public static void main(String[] args)
-            throws InterruptedException
+            throws Exception
     {
         Logging.initialize();
         Logger log = Logger.get(HudiQueryRunner.class);
 
-        DistributedQueryRunner queryRunner = null;
-        try (DistributedQueryRunner runner = createHudiQueryRunner(
+        DistributedQueryRunner queryRunner = createHudiQueryRunner(
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
-                new ResourceHudiTablesInitializer())) {
-            queryRunner = runner;
-        }
-        catch (Throwable t) {
-            log.error(t);
-            System.exit(1);
-        }
-        Thread.sleep(100);
+                new ResourceHudiTablesInitializer());
 
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
