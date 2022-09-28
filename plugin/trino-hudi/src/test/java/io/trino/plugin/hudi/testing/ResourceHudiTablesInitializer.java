@@ -32,10 +32,10 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hudi.common.model.HoodieTableType;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -46,6 +46,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.google.common.io.Resources.getResource;
 import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.trino.plugin.hive.HiveType.HIVE_DOUBLE;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
@@ -69,7 +70,7 @@ public class ResourceHudiTablesInitializer
             throws Exception
     {
         Path basePath = Path.of(dataDir);
-        copyDir(Paths.get("src/test/resources/hudi-testing-data"), basePath);
+        copyDir(new File(getResource("hudi-testing-data").toURI()).toPath(), basePath);
         Logger.get(getClass()).info("Prepared table data in %s", basePath);
 
         for (TestingTable table : TestingTable.values()) {
