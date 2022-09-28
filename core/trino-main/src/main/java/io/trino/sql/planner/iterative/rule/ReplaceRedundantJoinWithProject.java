@@ -18,6 +18,7 @@ import io.trino.matching.Pattern;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
@@ -52,39 +53,40 @@ public class ReplaceRedundantJoinWithProject
     @Override
     public Result apply(JoinNode node, Captures captures, Context context)
     {
-        boolean leftSourceEmpty = isEmpty(node.getLeft(), context.getLookup());
-        boolean rightSourceEmpty = isEmpty(node.getRight(), context.getLookup());
+        Lookup lookup = context.getLookup();
+        PlanNode left = node.getLeft();
+        PlanNode right = node.getRight();
 
         return switch (node.getType()) {
             case INNER -> Result.empty();
-            case LEFT -> !leftSourceEmpty && rightSourceEmpty ?
+            case LEFT -> !isEmpty(left, lookup) && isEmpty(right, lookup) ?
                     Result.ofPlanNode(appendNulls(
-                            node.getLeft(),
+                            left,
                             node.getLeftOutputSymbols(),
                             node.getRightOutputSymbols(),
                             context.getIdAllocator(),
                             context.getSymbolAllocator())) :
                     Result.empty();
-            case RIGHT -> leftSourceEmpty && !rightSourceEmpty ?
+            case RIGHT -> isEmpty(left, lookup) && !isEmpty(right, lookup) ?
                     Result.ofPlanNode(appendNulls(
-                            node.getRight(),
+                            right,
                             node.getRightOutputSymbols(),
                             node.getLeftOutputSymbols(),
                             context.getIdAllocator(),
                             context.getSymbolAllocator())) :
                     Result.empty();
             case FULL -> {
-                if (leftSourceEmpty && !rightSourceEmpty) {
+                if (isEmpty(left, lookup) && !isEmpty(right, lookup)) {
                     yield Result.ofPlanNode(appendNulls(
-                            node.getRight(),
+                            right,
                             node.getRightOutputSymbols(),
                             node.getLeftOutputSymbols(),
                             context.getIdAllocator(),
                             context.getSymbolAllocator()));
                 }
-                if (!leftSourceEmpty && rightSourceEmpty) {
+                if (!isEmpty(left, lookup) && isEmpty(right, lookup)) {
                     yield Result.ofPlanNode(appendNulls(
-                            node.getLeft(),
+                            left,
                             node.getLeftOutputSymbols(),
                             node.getRightOutputSymbols(),
                             context.getIdAllocator(),
