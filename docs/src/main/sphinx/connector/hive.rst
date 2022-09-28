@@ -797,10 +797,11 @@ Table redirection
 
 .. include:: table-redirection.fragment
 
-The connector supports redirection from Hive tables to Iceberg
+The connector supports redirection from Hive tables to Iceberg, Hudi
 and Delta Lake tables with the following catalog configuration properties:
 
 - ``hive.iceberg-catalog-name`` for redirecting the query to :doc:`/connector/iceberg`
+- ``hive.hudi-catalog-name`` for redirecting the query to :doc:`/connector/hudi`
 - ``hive.delta-lake-catalog-name`` for redirecting the query to :doc:`/connector/delta-lake`
 
 .. _hive-sql-support:
