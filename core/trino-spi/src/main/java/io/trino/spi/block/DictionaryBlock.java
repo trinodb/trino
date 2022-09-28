@@ -86,7 +86,7 @@ public class DictionaryBlock
                 newIds[position] = dictionaryBlock.getId(ids[position]);
             }
             dictionary = dictionaryBlock.getDictionary();
-            dictionarySourceId = dictionaryBlock.getDictionarySourceId();
+            dictionarySourceId = randomDictionaryId();
             ids = newIds;
         }
         return new DictionaryBlock(0, positionCount, dictionary, ids, false, false, dictionarySourceId);
