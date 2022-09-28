@@ -188,6 +188,14 @@ public final class HiveUtil
     public static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
     public static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
 
+    public static final String HUDI_TABLE_TYPE_NAME = "type";
+    public static final String HUDI_TABLE_TYPE_VALUE1 = "cow";
+    public static final String HUDI_TABLE_TYPE_VALUE2 = "mor";
+    public static final String HUDI_TABLE_INPUTFORMAT_VALUE1 = "org.apache.hudi.hadoop.HoodieParquetInputFormat";
+    public static final String HUDI_TABLE_INPUTFORMAT_VALUE2 = "org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat";
+    public static final String HUDI_TABLE_INPUTFORMAT_VALUE3 = "com.uber.hoodie.hadoop.HoodieInputFormat";
+    public static final String HUDI_TABLE_INPUTFORMAT_VALUE4 = "com.uber.hoodie.hadoop.HoodieRealtimeInputFormat";
+
     private static final LocalDateTime EPOCH_DAY = new LocalDateTime(1970, 1, 1, 0, 0);
     private static final DateTimeFormatter HIVE_DATE_PARSER;
     private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
@@ -1151,6 +1159,23 @@ public final class HiveUtil
     public static boolean isIcebergTable(Map<String, String> tableParameters)
     {
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(tableParameters.get(ICEBERG_TABLE_TYPE_NAME));
+    }
+
+    public static boolean isHudiTable(Table table)
+    {
+        return isHudiTable(table.getParameters(), table.getStorage().getStorageFormat().getInputFormat());
+    }
+
+    public static boolean isHudiTable(Map<String, String> tableParameters, String inputFormat)
+    {
+        if (tableParameters.containsKey(HUDI_TABLE_TYPE_NAME)
+                && (HUDI_TABLE_TYPE_VALUE1.equalsIgnoreCase(tableParameters.get(HUDI_TABLE_TYPE_NAME)) || HUDI_TABLE_TYPE_VALUE2.equalsIgnoreCase(tableParameters.get(HUDI_TABLE_TYPE_NAME))))
+        {
+            return true;
+        }
+
+        return inputFormat.equals(HUDI_TABLE_INPUTFORMAT_VALUE1) || inputFormat.equals(HUDI_TABLE_INPUTFORMAT_VALUE2)
+                || inputFormat.equals(HUDI_TABLE_INPUTFORMAT_VALUE3) || inputFormat.equals(HUDI_TABLE_INPUTFORMAT_VALUE4);
     }
 
     public static boolean isSparkBucketedTable(Table table)

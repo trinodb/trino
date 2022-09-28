@@ -167,6 +167,7 @@ public class HiveConfig
 
     private Optional<String> icebergCatalogName = Optional.empty();
     private Optional<String> deltaLakeCatalogName = Optional.empty();
+    private Optional<String> hudiCatalogName = Optional.empty();
 
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
 
@@ -1214,6 +1215,19 @@ public class HiveConfig
     public HiveConfig setDeltaLakeCatalogName(String deltaLakeCatalogName)
     {
         this.deltaLakeCatalogName = Optional.ofNullable(deltaLakeCatalogName);
+        return this;
+    }
+
+    public Optional<String> getHudiCatalogName()
+    {
+        return hudiCatalogName;
+    }
+
+    @Config("hive.hudi-catalog-name")
+    @ConfigDescription("Catalog to redirect to when a Hudi table is referenced")
+    public HiveConfig setHudiCatalogName(String hudiCatalogName)
+    {
+        this.hudiCatalogName = Optional.ofNullable(hudiCatalogName);
         return this;
     }
 
