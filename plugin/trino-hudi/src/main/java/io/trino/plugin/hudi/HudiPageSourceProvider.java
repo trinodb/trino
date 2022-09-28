@@ -115,6 +115,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 
 public class HudiPageSourceProvider
         implements ConnectorPageSourceProvider
@@ -158,16 +159,20 @@ public class HudiPageSourceProvider
         // just send regular columns to create parquet page source
         // for partition columns, separate blocks will be created
         List<HiveColumnHandle> regularColumns = hiveColumns.stream()
-                .filter(columnHandle -> !columnHandle.isPartitionKey())
+                .filter(columnHandle -> !columnHandle.isPartitionKey() && !columnHandle.isHidden())
                 .collect(Collectors.toList());
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         TrinoInputFile inputFile = fileSystem.newInputFile(path.toString(), split.getFileSize());
         ConnectorPageSource dataPageSource = createPageSource(session, regularColumns, split, inputFile, dataSourceStats, options, timeZone);
 
         return new HudiPageSource(
+                toPartitionName(split.getPartitionKeys()),
                 hiveColumns,
                 convertPartitionValues(hiveColumns, split.getPartitionKeys()), // create blocks for partition values
-                dataPageSource);
+                dataPageSource,
+                path,
+                split.getFileSize(),
+                split.getFileModifiedTime());
     }
 
     private static ConnectorPageSource createPageSource(
@@ -343,5 +348,16 @@ public class HudiPageSourceProvider
                     format("Can not parse partition value '%s' of type '%s' for partition column '%s'", partitionValue, partitionDataType, partitionColumnName),
                     e);
         }
+    }
+
+    private static String toPartitionName(List<HivePartitionKey> partitions)
+    {
+        ImmutableList.Builder<String> partitionNames = ImmutableList.builderWithExpectedSize(partitions.size());
+        ImmutableList.Builder<String> partitionValues = ImmutableList.builderWithExpectedSize(partitions.size());
+        for (HivePartitionKey partition : partitions) {
+            partitionNames.add(partition.getName());
+            partitionValues.add(partition.getValue());
+        }
+        return makePartName(partitionNames.build(), partitionValues.build());
     }
 }
