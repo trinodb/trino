@@ -445,7 +445,7 @@ public class ParquetReader
             List<Slice> slices = allocateBlock(fieldId);
             columnReader.setPageReader(createPageReader(slices, metadata, columnDescriptor, offsetIndex), currentGroupRowRanges);
         }
-        ColumnChunk columnChunk = columnReader.readPrimitive(field);
+        ColumnChunk columnChunk = columnReader.readPrimitive();
 
         // update max size per primitive column chunk
         long bytesPerCell = columnChunk.getBlock().getSizeInBytes() / batchSize;

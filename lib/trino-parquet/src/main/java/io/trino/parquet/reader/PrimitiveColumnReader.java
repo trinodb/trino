@@ -18,7 +18,6 @@ import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV1;
 import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
-import io.trino.parquet.Field;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetTypeUtils;
 import io.trino.parquet.PrimitiveField;
@@ -214,7 +213,7 @@ public abstract class PrimitiveColumnReader
         nextBatchSize = batchSize;
     }
 
-    public ColumnChunk readPrimitive(Field field)
+    public ColumnChunk readPrimitive()
     {
         // Pre-allocate these arrays to the necessary size. This saves a substantial amount of
         // CPU time by avoiding container resizing.
