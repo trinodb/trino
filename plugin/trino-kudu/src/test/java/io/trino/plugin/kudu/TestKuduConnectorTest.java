@@ -442,11 +442,11 @@ public class TestKuduConnectorTest
     {
         // Overridden because DDL in base class can't create Kudu table due to lack of primary key and required table properties
         String tableName = "test_long_column" + randomTableSuffix();
-        String basColumnName = "col";
+        String baseColumnName = "col";
 
         int maxLength = maxColumnNameLength().orElseThrow();
 
-        String validColumnName = basColumnName + "z".repeat(maxLength - basColumnName.length());
+        String validColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
         assertUpdate("CREATE TABLE " + tableName + " (" +
                 "id INT WITH (primary_key=true)," +
                 validColumnName + " bigint)" +
