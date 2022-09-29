@@ -113,7 +113,7 @@ public class TestColumnReader
                 }
             }
             else {
-                Block block = reader.readPrimitive(columnReaderProvider.getField()).getBlock();
+                Block block = reader.readPrimitive().getBlock();
                 assertThat(block.getPositionCount()).isEqualTo(batchSize);
                 for (int i = 0; i < block.getPositionCount(); i++) {
                     long selectedRowNumber = rowRangesIterator.next();
