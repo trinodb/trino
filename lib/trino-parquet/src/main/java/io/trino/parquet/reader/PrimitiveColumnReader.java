@@ -176,9 +176,9 @@ public abstract class PrimitiveColumnReader
         this.indexIterator = null;
     }
 
-    public PageReader getPageReader()
+    public boolean hasPageReader()
     {
-        return pageReader;
+        return pageReader != null;
     }
 
     public void setPageReader(PageReader pageReader, RowRanges rowRanges)

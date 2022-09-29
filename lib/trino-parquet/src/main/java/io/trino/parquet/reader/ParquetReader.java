@@ -438,7 +438,7 @@ public class ParquetReader
         ColumnDescriptor columnDescriptor = field.getDescriptor();
         int fieldId = field.getId();
         PrimitiveColumnReader columnReader = columnReaders.get(fieldId);
-        if (columnReader.getPageReader() == null) {
+        if (!columnReader.hasPageReader()) {
             validateParquet(currentBlockMetadata.getRowCount() > 0, "Row group has 0 rows");
             ColumnChunkMetaData metadata = getColumnChunkMetaData(currentBlockMetadata, columnDescriptor);
             OffsetIndex offsetIndex = getFilteredOffsetIndex(currentRowGroup, currentBlockMetadata.getRowCount(), metadata.getPath());
