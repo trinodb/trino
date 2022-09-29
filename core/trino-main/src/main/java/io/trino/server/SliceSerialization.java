@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import com.fasterxml.jackson.core.Base64Variants;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
@@ -23,8 +24,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
-
-import static com.google.common.io.BaseEncoding.base64;
 
 public final class SliceSerialization
 {
@@ -37,14 +36,12 @@ public final class SliceSerialization
         public void serialize(Slice slice, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
                 throws IOException
         {
-            String encoded;
             if (slice.hasByteArray()) {
-                encoded = base64().encode(slice.byteArray(), slice.byteArrayOffset(), slice.length());
+                jsonGenerator.writeBinary(Base64Variants.MIME_NO_LINEFEEDS, slice.byteArray(), slice.byteArrayOffset(), slice.length());
             }
             else {
-                encoded = base64().encode(slice.getBytes());
+                jsonGenerator.writeBinary(Base64Variants.MIME_NO_LINEFEEDS, slice.getInput(), slice.length());
             }
-            jsonGenerator.writeString(encoded);
         }
     }
 
@@ -55,8 +52,7 @@ public final class SliceSerialization
         public Slice deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
                 throws IOException
         {
-            String encoded = jsonParser.readValueAs(String.class);
-            return Slices.wrappedBuffer(base64().decode(encoded));
+            return Slices.wrappedBuffer(jsonParser.getBinaryValue(Base64Variants.MIME_NO_LINEFEEDS));
         }
     }
 }
