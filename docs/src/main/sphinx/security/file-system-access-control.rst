@@ -448,6 +448,34 @@ function from any catalog:
       ]
     }
 
+.. _verify_rules:
+
+Verify configuration
+^^^^^^^^^^^^^^^^^^^^
+
+To verify the system-access control file is configured properly, set the
+rules to completely block access to all users of the system:
+
+.. code-block:: json
+
+    {
+      "catalogs": [
+        {
+          "catalog": "system",
+          "allow": "none"
+        }
+      ]
+    }
+
+Restart your cluster to activate the rules for your cluster. With the
+Trino :doc:`CLI </client/cli>` run a query to test authorization:
+
+.. code-block:: text
+
+  trino> SELECT * FROM system.runtime.nodes;
+  Query 20200824_183358_00000_c62aw failed: Access Denied: Cannot access catalog system
+
+Remove these rules and restart the Trino cluster.
 
 .. _system-file-auth-session-property:
 
