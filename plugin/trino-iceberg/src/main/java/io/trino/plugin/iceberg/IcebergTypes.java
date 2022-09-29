@@ -16,7 +16,6 @@ package io.trino.plugin.iceberg;
 import io.airlift.slice.Slices;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
-import io.trino.spi.type.UuidType;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
@@ -28,6 +27,9 @@ import java.util.UUID;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
+import static java.lang.Float.floatToIntBits;
+import static java.lang.Math.multiplyExact;
 
 public final class IcebergTypes
 {
@@ -43,21 +45,21 @@ public final class IcebergTypes
         }
         if (icebergType instanceof Types.BooleanType) {
             //noinspection RedundantCast
-            return (Boolean) value;
+            return (boolean) value;
         }
         if (icebergType instanceof Types.IntegerType) {
-            return ((Integer) value).longValue();
+            return (long) (int) value;
         }
         if (icebergType instanceof Types.LongType) {
             //noinspection RedundantCast
-            return (Long) value;
+            return (long) value;
         }
         if (icebergType instanceof Types.FloatType) {
-            return (long) Float.floatToIntBits((Float) value);
+            return (long) floatToIntBits((float) value);
         }
         if (icebergType instanceof Types.DoubleType) {
             //noinspection RedundantCast
-            return (Double) value;
+            return (double) value;
         }
         if (icebergType instanceof Types.DecimalType icebergDecimalType) {
             DecimalType trinoDecimalType = DecimalType.createDecimalType(icebergDecimalType.precision(), icebergDecimalType.scale());
@@ -77,10 +79,10 @@ public final class IcebergTypes
             return Slices.wrappedBuffer(((ByteBuffer) value).array().clone());
         }
         if (icebergType instanceof Types.DateType) {
-            return ((Integer) value).longValue();
+            return (long) (int) value;
         }
         if (icebergType instanceof Types.TimeType) {
-            return Math.multiplyExact((Long) value, PICOSECONDS_PER_MICROSECOND);
+            return multiplyExact((long) value, PICOSECONDS_PER_MICROSECOND);
         }
         if (icebergType instanceof Types.TimestampType icebergTimestampType) {
             long epochMicros = (long) value;
@@ -90,7 +92,7 @@ public final class IcebergTypes
             return epochMicros;
         }
         if (icebergType instanceof Types.UUIDType) {
-            return UuidType.javaUuidToTrinoUuid((UUID) value);
+            return javaUuidToTrinoUuid((UUID) value);
         }
 
         throw new UnsupportedOperationException("Unsupported iceberg type: " + icebergType);
