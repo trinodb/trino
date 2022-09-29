@@ -49,6 +49,7 @@ import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.OU
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -384,10 +385,41 @@ public class TestIcebergMetadataFileOperations
         assertUpdate("DROP TABLE test_varchar_as_date_predicate");
     }
 
+    @Test
+    public void testRemoveOrphanFiles()
+    {
+        String tableName = "test_remove_orphan_files_" + randomTableSuffix();
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "remove_orphan_files_min_retention", "0s")
+                .build();
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2), ('three', 3)", 2);
+        assertUpdate("DELETE FROM " + tableName + " WHERE key = 'two'", 1);
+
+        assertFileSystemAccesses(
+                sessionWithShortRetentionUnlocked,
+                "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')",
+                ImmutableMultiset.builder()
+                        .add(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM))
+                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 4)
+                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 4)
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), 24)
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 24)
+                        .build());
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private void assertFileSystemAccesses(@Language("SQL") String query, Multiset<Object> expectedAccesses)
     {
+        assertFileSystemAccesses(TEST_SESSION, query, expectedAccesses);
+    }
+
+    private void assertFileSystemAccesses(Session session, @Language("SQL") String query, Multiset<Object> expectedAccesses)
+    {
         resetCounts();
-        getDistributedQueryRunner().executeWithQueryId(TEST_SESSION, query);
+        getDistributedQueryRunner().executeWithQueryId(session, query);
         assertThat(ImmutableMultiset.<Object>copyOf(getOperations())).containsExactlyInAnyOrderElementsOf(expectedAccesses);
     }
 
