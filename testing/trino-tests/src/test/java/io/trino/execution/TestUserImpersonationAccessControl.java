@@ -95,14 +95,14 @@ public class TestUserImpersonationAccessControl
                     .build();
 
             // start query
-            StatementClient client = newStatementClient(httpClient, clientSession, "SELECT * FROM tpch.tiny.nation");
+            try (StatementClient client = newStatementClient(httpClient, clientSession, "SELECT * FROM tpch.tiny.nation")) {
+                // wait for query to be fully scheduled
+                while (client.isRunning() && !client.currentStatusInfo().getStats().isScheduled()) {
+                    client.advance();
+                }
 
-            // wait for query to be fully scheduled
-            while (client.isRunning() && !client.currentStatusInfo().getStats().isScheduled()) {
-                client.advance();
+                return client.currentStatusInfo().getError();
             }
-
-            return client.currentStatusInfo().getError();
         }
         finally {
             // close the client since, query is not managed by the client protocol
