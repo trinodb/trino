@@ -347,6 +347,7 @@ jobs:
             !:trino-elasticsearch,
             !:trino-faulttolerant-tests,
             !:trino-hive,
+            !:trino-hudi,
             !:trino-iceberg,
             !:trino-jdbc,!:trino-base-jdbc,!:trino-thrift,!:trino-memory,
             !:trino-kafka,
@@ -427,6 +428,7 @@ jobs:
             - { modules: plugin/trino-elasticsearch }
             - { modules: plugin/trino-hive }
             - { modules: plugin/trino-hive, profile: test-parquet }
+            - { modules: plugin/trino-hudi }
             - { modules: plugin/trino-iceberg }
             - { modules: plugin/trino-iceberg, profile: cloud-tests }
             - { modules: plugin/trino-kafka }
