@@ -16,6 +16,7 @@ package io.trino.spi;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
+import io.trino.spi.block.LazyBlock;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
@@ -25,6 +26,8 @@ import java.util.List;
 import java.util.Map;
 
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.block.DictionaryBlock.createProjectedDictionaryBlock;
+import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -294,9 +297,13 @@ public final class Page
     {
         requireNonNull(retainedPositions, "retainedPositions is null");
 
+        if (offset != 0) {
+            retainedPositions = Arrays.copyOfRange(retainedPositions, offset, offset + length);
+        }
+        MultiBlockPositionsExtractor multiBlockPositionsExtractor = new MultiBlockPositionsExtractor(retainedPositions, length);
         Block[] blocks = new Block[this.blocks.length];
         for (int i = 0; i < blocks.length; i++) {
-            blocks[i] = this.blocks[i].getPositions(retainedPositions, offset, length);
+            blocks[i] = multiBlockPositionsExtractor.getPositions(this.blocks[i]);
         }
         return wrapBlocksWithoutCopy(length, blocks);
     }
@@ -370,6 +377,76 @@ public final class Page
         public List<Integer> getIndexes()
         {
             return indexes;
+        }
+    }
+
+    private static class MultiBlockPositionsExtractor
+    {
+        private final Map<DictionaryId, DictionaryIds> unnestedIds = new HashMap<>();
+        private final DictionaryId newDictionaryId = randomDictionaryId();
+        private final int[] positions;
+        private final int length;
+
+        private MultiBlockPositionsExtractor(int[] positions, int length)
+        {
+            this.positions = positions;
+            this.length = length;
+        }
+
+        /**
+         * Returns new Block with only selected {@link #positions}.
+         * For results that are {@link DictionaryBlock}s, if the {@link DictionaryBlock#ids} are equal
+         * then also {@link DictionaryBlock#getDictionarySourceId()} will be equal.
+         */
+        public Block getPositions(Block block)
+        {
+            if (block instanceof DictionaryBlock) {
+                DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
+                DictionaryIds ids = unnestedIds.computeIfAbsent(dictionaryBlock.getDictionarySourceId(), key -> unnestDictionaryIds(dictionaryBlock, positions));
+                return createProjectedDictionaryBlock(ids.ids.length, dictionaryBlock.getDictionary(), ids.ids, ids.dictionaryId);
+            }
+
+            if (block instanceof LazyBlock) {
+                // because putting dictionary block over lazy block might produce nested dictionary blocks
+                return block.getPositions(positions, 0, length);
+            }
+
+            // use dictionary to project selected positions in order to avoid data copy
+            return createProjectedDictionaryBlock(length, block, positions, newDictionaryId);
+        }
+
+        // based on io.trino.spi.block.DictionaryBlock.getPositions
+        private static DictionaryIds unnestDictionaryIds(DictionaryBlock block, int[] positions)
+        {
+            int length = positions.length;
+            Block dictionary = block.getDictionary();
+            int[] newIds = new int[length];
+            boolean isCompact = block.isCompact() && length >= dictionary.getPositionCount();
+            boolean[] seen = null;
+            if (isCompact) {
+                seen = new boolean[dictionary.getPositionCount()];
+            }
+            for (int i = 0; i < length; i++) {
+                newIds[i] = block.getId(positions[i]);
+                if (isCompact) {
+                    seen[newIds[i]] = true;
+                }
+            }
+            for (int i = 0; i < dictionary.getPositionCount() && isCompact; i++) {
+                isCompact = seen[i];
+            }
+            return new DictionaryIds(newIds);
+        }
+    }
+
+    private static class DictionaryIds
+    {
+        private final DictionaryId dictionaryId = DictionaryId.randomDictionaryId();
+        private final int[] ids;
+
+        private DictionaryIds(int[] ids)
+        {
+            this.ids = requireNonNull(ids, "ids is null");
         }
     }
 }
