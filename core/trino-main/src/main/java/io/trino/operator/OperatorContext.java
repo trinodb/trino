@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.CounterStat;
-import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -513,9 +512,7 @@ public class OperatorContext
 
     public static Metrics getOperatorMetrics(Metrics operatorMetrics, long inputPositions)
     {
-        TDigest digest = new TDigest();
-        digest.add(inputPositions);
-        return operatorMetrics.mergeWith(new Metrics(ImmutableMap.of("Input distribution", new TDigestHistogram(digest))));
+        return operatorMetrics.mergeWith(new Metrics(ImmutableMap.of("Input distribution", TDigestHistogram.fromValue(inputPositions))));
     }
 
     public static Metrics getConnectorMetrics(Metrics connectorMetrics, long physicalInputReadTimeNanos)
