@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
@@ -36,15 +37,17 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 @DefunctConfig("kudu.client.default-socket-read-timeout")
 public class KuduClientConfig
 {
+    public static final Duration DEFAULT_OPERATION_TIMEOUT = new Duration(30, TimeUnit.SECONDS);
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private List<String> masterAddresses = ImmutableList.of();
-    private Duration defaultAdminOperationTimeout = new Duration(30, TimeUnit.SECONDS);
-    private Duration defaultOperationTimeout = new Duration(30, TimeUnit.SECONDS);
+    private Duration defaultAdminOperationTimeout = DEFAULT_OPERATION_TIMEOUT;
+    private Duration defaultOperationTimeout = DEFAULT_OPERATION_TIMEOUT;
     private boolean disableStatistics;
     private boolean schemaEmulationEnabled;
     private String schemaEmulationPrefix = "presto::";
     private Duration dynamicFilteringWaitTimeout = new Duration(0, MINUTES);
+    private KuduScannerConfig scannerConfig;
 
     @NotNull
     @Size(min = 1)
@@ -142,6 +145,50 @@ public class KuduClientConfig
     public KuduClientConfig setDynamicFilteringWaitTimeout(Duration dynamicFilteringWaitTimeout)
     {
         this.dynamicFilteringWaitTimeout = dynamicFilteringWaitTimeout;
+        return this;
+    }
+
+    public KuduScannerConfig getScannerConfig()
+    {
+        return scannerConfig;
+    }
+
+    public DataSize getScannerBatchSize()
+    {
+        return scannerConfig.getBatchSize();
+    }
+
+    @Config("kudu.scanner.batch-size")
+    @ConfigDescription("Maximum size of data returned by the scanner on each batch")
+    public KuduClientConfig setScannerBatchSize(DataSize scannerBatchSize)
+    {
+        scannerConfig = scannerConfig.withBatchSize(scannerBatchSize);
+        return this;
+    }
+
+    public Duration getScannerKeepaliveInterval()
+    {
+        return scannerConfig.getKeepaliveInterval();
+    }
+
+    @Config("kudu.scanner.keepalive-interval")
+    @ConfigDescription("Period at which to send keep-alive requests to the tablet server to ensure that this scanner will not time out")
+    public KuduClientConfig setScannerKeepaliveInterval(Duration scannerKeepaliveInterval)
+    {
+        this.scannerConfig = scannerConfig.withKeepaliveInterval(scannerKeepaliveInterval);
+        return this;
+    }
+
+    public Duration getScannerScanRequestTimeout()
+    {
+        return scannerConfig.getScanRequestTimeout();
+    }
+
+    @Config("kudu.scanner.scan-request-timeout")
+    @ConfigDescription("how long each scan request to a server can last")
+    public KuduClientConfig setScannerScanRequestTimeout(Duration scannerScanRequestTimeout)
+    {
+        scannerConfig = scannerConfig.withScanRequestTimeout(scannerScanRequestTimeout);
         return this;
     }
 }
