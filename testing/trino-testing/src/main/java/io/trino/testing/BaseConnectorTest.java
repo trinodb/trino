@@ -2250,13 +2250,13 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
 
         String tableName = "test_long_column" + randomTableSuffix();
-        String basColumnName = "col";
+        String baseColumnName = "col";
 
         int maxLength = maxColumnNameLength()
                 // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
                 .orElse(65536 + 5);
 
-        String validColumnName = basColumnName + "z".repeat(maxLength - basColumnName.length());
+        String validColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
         assertUpdate("CREATE TABLE " + tableName + " (" + validColumnName + " bigint)");
         assertTrue(columnExists(tableName, validColumnName));
         assertUpdate("DROP TABLE " + tableName);
@@ -2281,12 +2281,12 @@ public abstract class BaseConnectorTest
         String tableName = "test_long_column" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
 
-        String basColumnName = "col";
+        String baseColumnName = "col";
         int maxLength = maxColumnNameLength()
                 // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
                 .orElse(65536 + 5);
 
-        String validTargetColumnName = basColumnName + "z".repeat(maxLength - basColumnName.length());
+        String validTargetColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN " + validTargetColumnName + " int");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
         assertQuery("SELECT x FROM " + tableName, "VALUES 123");
