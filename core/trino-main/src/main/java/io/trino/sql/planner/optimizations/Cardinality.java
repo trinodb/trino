@@ -15,8 +15,15 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.Range;
 
+import static java.util.Objects.requireNonNull;
+
 public record Cardinality(Range<Long> cardinalityRange)
 {
+    public Cardinality
+    {
+        requireNonNull(cardinalityRange, "cardinalityRange is null");
+    }
+
     public boolean isEmpty()
     {
         return isAtMost(0);
