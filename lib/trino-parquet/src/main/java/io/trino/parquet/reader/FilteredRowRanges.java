@@ -13,15 +13,28 @@
  */
 package io.trino.parquet.reader;
 
-import java.util.Optional;
+import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 
-public interface ColumnReader
+import static java.util.Objects.requireNonNull;
+
+public class FilteredRowRanges
 {
-    boolean hasPageReader();
+    private final RowRanges parquetRowRanges;
+    private final long rowCount;
 
-    void setPageReader(PageReader pageReader, Optional<FilteredRowRanges> rowRanges);
+    public FilteredRowRanges(RowRanges parquetRowRanges)
+    {
+        this.parquetRowRanges = requireNonNull(parquetRowRanges, "parquetRowRanges is null");
+        this.rowCount = parquetRowRanges.rowCount();
+    }
 
-    void prepareNextRead(int batchSize);
+    public RowRanges getParquetRowRanges()
+    {
+        return parquetRowRanges;
+    }
 
-    ColumnChunk readPrimitive();
+    public long getRowCount()
+    {
+        return rowCount;
+    }
 }

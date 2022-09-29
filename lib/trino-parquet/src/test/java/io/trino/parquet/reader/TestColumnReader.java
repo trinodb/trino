@@ -91,7 +91,7 @@ public class TestColumnReader
         List<TestingPage> testingPages = getTestingPages(nullPositionsProvider, pageRowRanges);
         reader.setPageReader(
                 getPageReader(testingPages, columnReaderInput.dictionaryEncoded()),
-                selectedRows.orElse(null));
+                selectedRows.map(FilteredRowRanges::new));
 
         int rowCount = selectedRows.map(ranges -> toIntExact(ranges.rowCount()))
                 .orElseGet(() -> pagesRowCount(testingPages));
