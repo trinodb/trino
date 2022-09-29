@@ -57,6 +57,7 @@ import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * Contains information about {@link Operator} execution.
@@ -510,9 +511,12 @@ public class OperatorContext
                 .orElseGet(() -> ImmutableList.of(getOperatorStats()));
     }
 
-    public static Metrics getOperatorMetrics(Metrics operatorMetrics, long inputPositions)
+    public static Metrics getOperatorMetrics(Metrics operatorMetrics, long inputPositions, double cpuTimeSeconds, double wallTimeSeconds)
     {
-        return operatorMetrics.mergeWith(new Metrics(ImmutableMap.of("Input distribution", TDigestHistogram.fromValue(inputPositions))));
+        return operatorMetrics.mergeWith(new Metrics(ImmutableMap.of(
+                "Input distribution", TDigestHistogram.fromValue(inputPositions),
+                "CPU time distribution (s)", TDigestHistogram.fromValue(cpuTimeSeconds),
+                "Wall time distribution (s)", TDigestHistogram.fromValue(wallTimeSeconds))));
     }
 
     public static Metrics getConnectorMetrics(Metrics connectorMetrics, long physicalInputReadTimeNanos)
@@ -566,7 +570,11 @@ public class OperatorContext
                 outputPositions.getTotalCount(),
 
                 dynamicFilterSplitsProcessed.get(),
-                getOperatorMetrics(metrics.get(), inputPositionsCount),
+                getOperatorMetrics(
+                        metrics.get(),
+                        inputPositionsCount,
+                        new Duration(addInputTiming.getCpuNanos() + getOutputTiming.getCpuNanos() + finishTiming.getCpuNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
+                        new Duration(addInputTiming.getWallNanos() + getOutputTiming.getWallNanos() + finishTiming.getWallNanos(), NANOSECONDS).convertTo(SECONDS).getValue()),
                 getConnectorMetrics(connectorMetrics.get(), physicalInputReadTimeNanos.get()),
 
                 DataSize.ofBytes(physicalWrittenDataSize.get()),
