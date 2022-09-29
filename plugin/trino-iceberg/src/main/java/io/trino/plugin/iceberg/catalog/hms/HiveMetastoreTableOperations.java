@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.hms;
 
+import io.airlift.log.Logger;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
@@ -41,6 +42,7 @@ import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_
 public class HiveMetastoreTableOperations
         extends AbstractMetastoreTableOperations
 {
+    private static final Logger log = Logger.get(HiveMetastoreTableOperations.class);
     private final ThriftMetastore thriftMetastore;
 
     public HiveMetastoreTableOperations(
@@ -97,7 +99,16 @@ public class HiveMetastoreTableOperations
             }
         }
         finally {
-            thriftMetastore.releaseTableLock(lockId);
+            try {
+                thriftMetastore.releaseTableLock(lockId);
+            }
+            catch (RuntimeException e) {
+                // Release lock step has failed. Not throwing this exception, after commit has already succeeded.
+                // So, that underlying iceberg API will not do the metadata cleanup, otherwise table will be in unusable state.
+                // If configured and supported, the unreleased lock will be automatically released by the metastore after not hearing a heartbeat for a while,
+                // or otherwise it might need to be manually deleted from the metastore backend storage.
+                log.error(e, "Failed to release lock %s when committing to table %s", lockId, tableName);
+            }
         }
 
         shouldRefresh = true;
