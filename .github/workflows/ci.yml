@@ -337,34 +337,34 @@ jobs:
       - name: Maven Tests
         run: |
           $MAVEN test ${MAVEN_TEST} -pl '
-            !:trino-main,
-            !:trino-tests,
-            !:trino-faulttolerant-tests,
-            !:trino-raptor-legacy,
             !:trino-accumulo,
+            !:trino-bigquery'
             !:trino-cassandra,
             !:trino-clickhouse,
             !:trino-delta-lake,
-            !:trino-hive,
-            !:trino-elasticsearch,
-            !:trino-mongodb,
-            !:trino-kafka,
-            !:trino-pinot,
-            !:trino-redis,
-            !:trino-mysql,
-            !:trino-postgresql,
-            !:trino-sqlserver,
-            !:trino-mariadb,
-            !:trino-oracle,
-            !:trino-kudu,
-            !:trino-druid,
-            !:trino-iceberg,
-            !:trino-phoenix5,
-            !:trino-jdbc,!:trino-base-jdbc,!:trino-thrift,!:trino-memory,
             !:trino-docs,!:trino-server,!:trino-server-rpm,
-            !:trino-test-jdbc-compatibility-old-server,
+            !:trino-druid,
+            !:trino-elasticsearch,
+            !:trino-faulttolerant-tests,
+            !:trino-hive,
+            !:trino-iceberg,
+            !:trino-jdbc,!:trino-base-jdbc,!:trino-thrift,!:trino-memory,
+            !:trino-kafka,
+            !:trino-kudu,
+            !:trino-main,
+            !:trino-mariadb,
+            !:trino-mongodb,
+            !:trino-mysql,
+            !:trino-oracle,
+            !:trino-phoenix5,
+            !:trino-pinot,
+            !:trino-postgresql,
+            !:trino-raptor-legacy,
+            !:trino-redis,
             !:trino-singlestore,
-            !:trino-bigquery'
+            !:trino-sqlserver,
+            !:trino-test-jdbc-compatibility-old-server,
+            !:trino-tests,
       - name: Upload test results
         uses: actions/upload-artifact@v3
         # Upload all test reports only on failure, because the artifacts are large
@@ -415,38 +415,38 @@ jobs:
           touch gib-impacted.log
           cat <<EOF > .github/test-matrix.yaml
           include:
+            - { modules: [ client/trino-jdbc, plugin/trino-base-jdbc, plugin/trino-thrift, plugin/trino-memory ] }
             - { modules: core/trino-main }
-            - { modules: testing/trino-tests }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive-1 }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive-2 }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
-            - { modules: plugin/trino-raptor-legacy }
             - { modules: plugin/trino-accumulo }
+            - { modules: plugin/trino-bigquery }
             - { modules: plugin/trino-cassandra }
             - { modules: plugin/trino-clickhouse }
             - { modules: plugin/trino-delta-lake }
             - { modules: plugin/trino-delta-lake, profile: cloud-tests }
+            - { modules: plugin/trino-druid }
+            - { modules: plugin/trino-elasticsearch }
             - { modules: plugin/trino-hive }
             - { modules: plugin/trino-hive, profile: test-parquet }
-            - { modules: plugin/trino-elasticsearch }
-            - { modules: plugin/trino-mongodb }
-            - { modules: plugin/trino-kafka }
-            - { modules: plugin/trino-pinot }
-            - { modules: plugin/trino-redis }
-            - { modules: plugin/trino-mysql }
-            - { modules: plugin/trino-postgresql }
-            - { modules: plugin/trino-sqlserver }
-            - { modules: plugin/trino-singlestore }
-            - { modules: plugin/trino-mariadb }
-            - { modules: plugin/trino-oracle }
-            - { modules: plugin/trino-kudu }
-            - { modules: plugin/trino-druid }
             - { modules: plugin/trino-iceberg }
             - { modules: plugin/trino-iceberg, profile: cloud-tests }
+            - { modules: plugin/trino-kafka }
+            - { modules: plugin/trino-kudu }
+            - { modules: plugin/trino-mariadb }
+            - { modules: plugin/trino-mongodb }
+            - { modules: plugin/trino-mysql }
+            - { modules: plugin/trino-oracle }
             - { modules: plugin/trino-phoenix5 }
-            - { modules: [ client/trino-jdbc, plugin/trino-base-jdbc, plugin/trino-thrift, plugin/trino-memory ] }
-            - { modules: plugin/trino-bigquery }
+            - { modules: plugin/trino-pinot }
+            - { modules: plugin/trino-postgresql }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-redis }
+            - { modules: plugin/trino-singlestore }
+            - { modules: plugin/trino-sqlserver }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive-1 }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive-2 }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
+            - { modules: testing/trino-tests }
           EOF
           ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json
           echo "Matrix: $(jq '.' matrix.json)"
