@@ -30,12 +30,12 @@ import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.bytes.BytesUtils;
 import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
-import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 import org.apache.parquet.io.ParquetDecodingException;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.PrimitiveIterator;
 
@@ -101,7 +101,7 @@ public abstract class PrimitiveColumnReader
     }
 
     @Override
-    public void setPageReader(PageReader pageReader, RowRanges rowRanges)
+    public void setPageReader(PageReader pageReader, Optional<FilteredRowRanges> rowRanges)
     {
         this.pageReader = requireNonNull(pageReader, "pageReader");
         DictionaryPage dictionaryPage = pageReader.readDictionaryPage();
@@ -119,8 +119,8 @@ public abstract class PrimitiveColumnReader
         }
         checkArgument(pageReader.getTotalValueCount() > 0, "page is empty");
         totalValueCount = pageReader.getTotalValueCount();
-        if (rowRanges != null) {
-            indexIterator = rowRanges.iterator();
+        if (rowRanges.isPresent()) {
+            indexIterator = rowRanges.get().getParquetRowRanges().iterator();
             // If rowRanges is empty for a row-group, then no page needs to be read, and we should not reach here
             checkArgument(indexIterator.hasNext(), "rowRanges is empty");
             targetRow = indexIterator.next();
