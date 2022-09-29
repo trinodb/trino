@@ -616,6 +616,13 @@ Property Name                                        Description
 ``hive.metastore.glue.endpoint-url``                 Glue API endpoint URL (optional).
                                                      Example: ``https://glue.us-east-1.amazonaws.com``
 
+``hive.metastore.glue.sts.region``                   AWS region of the STS service to authenticate with. This is
+                                                     required when running in a GovCloud region.
+                                                     Example: ``us-gov-east-1``
+
+``hive.metastore.glue.sts.endpoint``                 STS endpoint URL to use when authenticating to Glue (optional).
+                                                     Example: ``https://sts.us-gov-east-1.amazonaws.com``
+
 ``hive.metastore.glue.pin-client-to-current-region`` Pin Glue requests to the same region as the EC2 instance
                                                      where Trino is running, defaults to ``false``.
 
