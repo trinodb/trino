@@ -46,6 +46,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getTableInput;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
@@ -103,7 +104,7 @@ public class GlueIcebergTableOperations
         verify(version == -1, "commitNewTable called on a table which already exists");
         String newMetadataLocation = writeNewMetadata(metadata, 0);
         TableInput tableInput = getTableInput(tableName, owner, ImmutableMap.<String, String>builder()
-                        .put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE)
+                        .put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
                         .put(METADATA_LOCATION_PROP, newMetadataLocation)
                         .buildOrThrow());
 
@@ -119,7 +120,7 @@ public class GlueIcebergTableOperations
     {
         String newMetadataLocation = writeNewMetadata(metadata, version + 1);
         TableInput tableInput = getTableInput(tableName, owner, ImmutableMap.<String, String>builder()
-                .put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE)
+                .put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
                 .put(METADATA_LOCATION_PROP, newMetadataLocation)
                 .put(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation)
                 .buildOrThrow());
