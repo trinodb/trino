@@ -298,6 +298,80 @@ public class TestUnwrapCastInComparison
     }
 
     @Test
+    public void testBetween()
+    {
+        // representable
+        testUnwrap("smallint", "a BETWEEN DOUBLE '1' AND DOUBLE '2'", "a BETWEEN SMALLINT '1' AND SMALLINT '2'");
+        testUnwrap("bigint", "a BETWEEN DOUBLE '1' AND DOUBLE '2'", "a BETWEEN BIGINT '1' AND BIGINT '2'");
+        testUnwrap("decimal(7, 2)", "a BETWEEN DOUBLE '1.23' AND DOUBLE '4.56'", "a BETWEEN CAST(DECIMAL '1.23' AS decimal(7, 2)) AND CAST(DECIMAL '4.56' AS decimal(7, 2))");
+        // cast down is possible
+        testUnwrap("decimal(7, 2)", "CAST(a AS DECIMAL(12,2)) BETWEEN CAST(DECIMAL '111.00' AS decimal(12,2)) AND CAST(DECIMAL '222.0' AS decimal(12,2))", "a BETWEEN CAST(DECIMAL '111.00' AS decimal(7, 2)) AND CAST(DECIMAL '222.00' AS decimal(7, 2))");
+
+        // non-representable, min cast round down, max cast round down
+        testUnwrap("bigint", "a BETWEEN DOUBLE '1.1' AND DOUBLE '2.2'", "a > BIGINT '1' AND a <= BIGINT '2'");
+        // non-representable, min cast round down, max cast round up
+        testUnwrap("bigint", "a BETWEEN DOUBLE '1.1' AND DOUBLE '1.9'", "a > BIGINT '1' AND a < BIGINT '2'");
+        // non-representable, min cast round down, max cast no rounding
+        testUnwrap("bigint", "a BETWEEN DOUBLE '1.1' AND DOUBLE '2'", "a > BIGINT '1' AND a <= BIGINT '2'");
+        // non-representable, min cast round up, max cast round down
+        testUnwrap("bigint", "a BETWEEN DOUBLE '1.9' AND DOUBLE '2.2'", "a BETWEEN BIGINT '2' AND BIGINT '2'");
+        // non-representable, min cast round up, max cast round up
+        testUnwrap("bigint", "a BETWEEN DOUBLE '1.9' AND DOUBLE '2.9'", "a >= BIGINT '2' AND a < BIGINT '3'");
+        // non-representable, min cast round up, max cast no rounding
+        testUnwrap("bigint", "a BETWEEN DOUBLE '1.9' AND DOUBLE '3'", "a BETWEEN BIGINT '2' AND BIGINT '3'");
+        // non-representable, min cast no rounding, max cast round down
+        testUnwrap("bigint", "a BETWEEN DOUBLE '2' AND DOUBLE '3.2'", "a BETWEEN BIGINT '2' AND BIGINT '3'");
+        // non-representable, min cast no rounding, max cast round up
+        testUnwrap("bigint", "a BETWEEN DOUBLE '2' AND DOUBLE '2.9'", "a >= BIGINT '2' AND a < BIGINT '3'");
+        // non-representable, min cast no rounding, max cast no rounding
+        testUnwrap("bigint", "a BETWEEN DOUBLE '2' AND DOUBLE '3'", "a BETWEEN BIGINT '2' AND BIGINT '3'");
+
+        // cast down not possible
+        testUnwrap("decimal(7, 2)", "CAST(a AS DECIMAL(12,2)) BETWEEN CAST(DECIMAL '1111111111.00' AS decimal(12,2)) AND CAST(DECIMAL '2222222222.0' AS decimal(12,2))", "CAST(a AS decimal(12,2)) BETWEEN CAST(DECIMAL '1111111111.00' AS decimal(12, 2)) AND CAST(DECIMAL '2222222222.00' AS decimal(12, 2))");
+
+        // illegal range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '5' AND DOUBLE '4'", "a IS NULL AND NULL");
+
+        // nan
+        testUnwrap("smallint", "a BETWEEN nan() AND DOUBLE '2'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a BETWEEN DOUBLE '2' AND nan()", "a IS NULL AND NULL");
+
+        // min and max below bottom of range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '-50000' AND DOUBLE '-40000'", "a IS NULL AND NULL");
+        // min below bottom of range, max at the bottom of range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '-32768.1' AND DOUBLE '-32768'", "a = SMALLINT '-32768'");
+        testUnwrap("smallint", "a BETWEEN DOUBLE '-32768.1' AND DOUBLE '-32767.9'", "a = SMALLINT '-32768'");
+        // min below bottom of range, max within range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '-32768.1' AND DOUBLE '0'", "a <= SMALLINT '0'");
+        // min at the bottom of range, max within range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '-32768' AND DOUBLE '0'", "a <= SMALLINT '0'");
+        // min round to bottom of range, max within range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '-32767.9' AND DOUBLE '0'", "a > SMALLINT '-32768' AND a <= SMALLINT '0'");
+        // min above bottom of range, max within range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '-32767' AND DOUBLE '0'", "a BETWEEN SMALLINT '-32767' AND SMALLINT '0'");
+        // min & max below within of range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '32765' AND DOUBLE '32766'", "a BETWEEN SMALLINT '32765' AND SMALLINT '32766'");
+        // min within and max round to top of range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '32765.9' AND DOUBLE '32766.9'", "a >= SMALLINT '32766' AND a < SMALLINT '32767'");
+        // min below and max at the top of range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '32760' AND DOUBLE '32767'", "a >= SMALLINT '32760'");
+        // min below and max above top of range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '32760.1' AND DOUBLE '32768.1'", "a > SMALLINT '32760'");
+        // min at the top of range and max above top of range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '32767' AND DOUBLE '32768.1'", "a = SMALLINT '32767'");
+        testUnwrap("smallint", "a BETWEEN DOUBLE '32766.9' AND DOUBLE '32768.1'", "a = SMALLINT '32767'");
+        // min and max above top of range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '40000' AND DOUBLE '50000'", "a IS NULL AND NULL");
+        // min below range and max at the top of range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '-40000' AND DOUBLE '32767'", "NOT (a IS NULL) OR NULL");
+        // min below range and max above range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '-40000' AND DOUBLE '40000'", "NOT (a IS NULL) OR NULL");
+
+        // -2^64 constant
+        testUnwrap("bigint", "a BETWEEN DOUBLE '-18446744073709551616' AND DOUBLE '0'", "a <= BIGINT '0'");
+    }
+
+    @Test
     public void testDistinctFrom()
     {
         // representable
@@ -446,6 +520,7 @@ public class TestUnwrapCastInComparison
 
         // long timestamp, long timestamp with time zone
         testUnwrap(warsawSession, "timestamp(9)", "a > TIMESTAMP '2020-10-26 11:02:18.123456 UTC'", "a > TIMESTAMP '2020-10-26 12:02:18.123456000'");
+        testUnwrap(warsawSession, "timestamp(9)", "a BETWEEN TIMESTAMP '2020-10-26 11:02:18.123456 UTC' AND TIMESTAMP '2020-10-26 12:03:20.345678 UTC'", "a BETWEEN TIMESTAMP '2020-10-26 12:02:18.123456000' AND TIMESTAMP '2020-10-26 13:03:20.345678000'");
         testUnwrap(losAngelesSession, "timestamp(9)", "a > TIMESTAMP '2020-10-26 11:02:18.123456 UTC'", "a > TIMESTAMP '2020-10-26 04:02:18.123456000'");
 
         // maximum precision
@@ -543,6 +618,7 @@ public class TestUnwrapCastInComparison
 
         // DECIMAL(p)->DOUBLE not injective for p > 15
         testUnwrap("decimal(16)", "a = DOUBLE '1'", "CAST(a AS DOUBLE) = 1E0");
+        testUnwrap("decimal(16)", "a BETWEEN DOUBLE '1' AND DOUBLE '2'", "CAST(a AS DOUBLE) BETWEEN 1E0 AND 2E0");
 
         // DECIMAL(p)->REAL not injective for p > 7
         testUnwrap("decimal(8)", "a = REAL '1'", "CAST(a AS REAL) = REAL '1.0'");
@@ -592,6 +668,12 @@ public class TestUnwrapCastInComparison
         testUnwrap("timestamp(6)", "CAST(a AS DATE) >= DATE '1981-06-22'", "a >= TIMESTAMP '1981-06-22 00:00:00.000000'");
         testUnwrap("timestamp(9)", "CAST(a AS DATE) >= DATE '1981-06-22'", "a >= TIMESTAMP '1981-06-22 00:00:00.000000000'");
         testUnwrap("timestamp(12)", "CAST(a AS DATE) >= DATE '1981-06-22'", "a >= TIMESTAMP '1981-06-22 00:00:00.000000000000'");
+
+        // between
+        testUnwrap("timestamp(3)", "CAST(a AS DATE) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", "a BETWEEN TIMESTAMP '1981-06-22 00:00:00.000' AND TIMESTAMP '1981-07-23 23:59:59.999'");
+        testUnwrap("timestamp(6)", "CAST(a AS DATE) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", "a BETWEEN TIMESTAMP '1981-06-22 00:00:00.000000' AND TIMESTAMP '1981-07-23 23:59:59.999999'");
+        testUnwrap("timestamp(9)", "CAST(a AS DATE) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", "a BETWEEN TIMESTAMP '1981-06-22 00:00:00.000000000' AND TIMESTAMP '1981-07-23 23:59:59.999999999'");
+        testUnwrap("timestamp(12)", "CAST(a AS DATE) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", "a BETWEEN TIMESTAMP '1981-06-22 00:00:00.000000000000' AND TIMESTAMP '1981-07-23 23:59:59.999999999999'");
 
         // is distinct
         testUnwrap("timestamp(3)", "CAST(a AS DATE) IS DISTINCT FROM DATE '1981-06-22'", "a IS NULL OR a < TIMESTAMP '1981-06-22 00:00:00.000' OR a >= TIMESTAMP '1981-06-23 00:00:00.000'");
@@ -658,6 +740,12 @@ public class TestUnwrapCastInComparison
         testUnwrap("timestamp(6)", "date(a) >= DATE '1981-06-22'", "a >= TIMESTAMP '1981-06-22 00:00:00.000000'");
         testUnwrap("timestamp(9)", "date(a) >= DATE '1981-06-22'", "a >= TIMESTAMP '1981-06-22 00:00:00.000000000'");
         testUnwrap("timestamp(12)", "date(a) >= DATE '1981-06-22'", "a >= TIMESTAMP '1981-06-22 00:00:00.000000000000'");
+
+        // between
+        testUnwrap("timestamp(3)", "date(a) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", "a BETWEEN TIMESTAMP '1981-06-22 00:00:00.000' AND TIMESTAMP '1981-07-23 23:59:59.999'");
+        testUnwrap("timestamp(6)", "date(a) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", "a BETWEEN TIMESTAMP '1981-06-22 00:00:00.000000' AND TIMESTAMP '1981-07-23 23:59:59.999999'");
+        testUnwrap("timestamp(9)", "date(a) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", "a BETWEEN TIMESTAMP '1981-06-22 00:00:00.000000000' AND TIMESTAMP '1981-07-23 23:59:59.999999999'");
+        testUnwrap("timestamp(12)", "date(a) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", "a BETWEEN TIMESTAMP '1981-06-22 00:00:00.000000000000' AND TIMESTAMP '1981-07-23 23:59:59.999999999999'");
 
         // is distinct
         testUnwrap("timestamp(3)", "date(a) IS DISTINCT FROM DATE '1981-06-22'", "a IS NULL OR a < TIMESTAMP '1981-06-22 00:00:00.000' OR a >= TIMESTAMP '1981-06-23 00:00:00.000'");
