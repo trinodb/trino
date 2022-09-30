@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.testing.QueryRunner;
 import org.apache.iceberg.FileFormat;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -106,5 +107,35 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
         assertThat(metadataFiles).isNotEmpty().filteredOn(filePath -> filePath.contains("#")).isEmpty();
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMetadataLocationWithDoubleSlash()
+    {
+        // Regression test for https://github.com/trinodb/trino/issues/14299
+        String schemaName = getSession().getSchema().orElseThrow();
+        String tableName = "test_meatdata_location_with_double_slash_" + randomTableSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 col", 1);
+
+        // Update metadata location to contain double slash
+        String tableId = onMetastore("SELECT tbl_id FROM TBLS t INNER JOIN DBS db ON t.db_id = db.db_id WHERE db.name = '" + schemaName + "' and t.tbl_name = '" + tableName + "'");
+        String metadataLocation = onMetastore("SELECT param_value FROM TABLE_PARAMS WHERE param_key = 'metadata_location' AND tbl_id = " + tableId);
+
+        // Simulate corrupted metadata location as Trino 393-394 was doing
+        String newMetadataLocation = metadataLocation.replace("/metadata/", "//metadata/");
+        onMetastore("UPDATE TABLE_PARAMS SET param_value = '" + newMetadataLocation + "' WHERE tbl_id = " + tableId + " AND param_key = 'metadata_location'");
+
+        // Confirm read and write operations succeed
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1), (2)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private String onMetastore(@Language("SQL") String sql)
+    {
+        return hiveMinioDataLake.getHiveHadoop().runOnMetastore(sql);
     }
 }
