@@ -30,6 +30,7 @@ import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.fs.HiveFileIterator;
+import io.trino.plugin.hive.fs.TrinoFileStatus;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
@@ -571,7 +572,7 @@ public class BackgroundHiveSplitLoader
             ListenableFuture<Void> lastResult = immediateVoidFuture(); // TODO document in addToQueue() that it is sufficient to hold on to last returned future
             for (Path readPath : readPaths) {
                 // list all files in the partition
-                List<LocatedFileStatus> files = new ArrayList<>();
+                List<TrinoFileStatus> files = new ArrayList<>();
                 try {
                     Iterators.addAll(files, new HiveFileIterator(table, readPath, fs, directoryLister, namenodeStats, FAIL, ignoreAbsentPartitions));
                 }
@@ -589,11 +590,11 @@ public class BackgroundHiveSplitLoader
             }
 
             for (HdfsFileStatusWithId hdfsFileStatusWithId : fileStatusOriginalFiles) {
-                List<LocatedFileStatus> locatedFileStatuses = ImmutableList.of((LocatedFileStatus) hdfsFileStatusWithId.getFileStatus());
+                List<TrinoFileStatus> fileStatuses = ImmutableList.of(new TrinoFileStatus((LocatedFileStatus) hdfsFileStatusWithId.getFileStatus()));
                 Optional<AcidInfo> acidInfo = isFullAcid
                         ? Optional.of(acidInfoBuilder.buildWithRequiredOriginalFiles(getRequiredBucketNumber(hdfsFileStatusWithId.getFileStatus().getPath())))
                         : Optional.empty();
-                lastResult = hiveSplitSource.addToQueue(getBucketedSplits(locatedFileStatuses, splitFactory, tableBucketInfo.get(), bucketConversion, splittable, acidInfo));
+                lastResult = hiveSplitSource.addToQueue(getBucketedSplits(fileStatuses, splitFactory, tableBucketInfo.get(), bucketConversion, splittable, acidInfo));
             }
 
             return lastResult;
@@ -683,13 +684,13 @@ public class BackgroundHiveSplitLoader
     {
         FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, parent);
 
-        Map<Path, LocatedFileStatus> fileStatuses = new HashMap<>();
+        Map<Path, TrinoFileStatus> fileStatuses = new HashMap<>();
         HiveFileIterator fileStatusIterator = new HiveFileIterator(table, parent, targetFilesystem, directoryLister, namenodeStats, IGNORED, false);
         fileStatusIterator.forEachRemaining(status -> fileStatuses.put(getPathWithoutSchemeAndAuthority(status.getPath()), status));
 
-        List<LocatedFileStatus> locatedFileStatuses = new ArrayList<>();
+        List<TrinoFileStatus> locatedFileStatuses = new ArrayList<>();
         for (Path path : paths) {
-            LocatedFileStatus status = fileStatuses.get(getPathWithoutSchemeAndAuthority(path));
+            TrinoFileStatus status = fileStatuses.get(getPathWithoutSchemeAndAuthority(path));
             // This check will catch all directories in the manifest since HiveFileIterator will not return any directories.
             // Some files may not be listed by HiveFileIterator - if those are included in the manifest this check will fail as well.
             if (status == null) {
@@ -735,7 +736,7 @@ public class BackgroundHiveSplitLoader
                             ? Optional.of(acidInfoBuilder.buildWithRequiredOriginalFiles(getRequiredBucketNumber(fileStatus.getPath())))
                             : Optional.empty();
                     return splitFactory.createInternalHiveSplit(
-                            (LocatedFileStatus) fileStatus,
+                            new TrinoFileStatus((LocatedFileStatus) fileStatus),
                             OptionalInt.empty(),
                             OptionalInt.empty(),
                             splittable,
@@ -780,7 +781,7 @@ public class BackgroundHiveSplitLoader
     }
 
     private List<InternalHiveSplit> getBucketedSplits(
-            List<LocatedFileStatus> files,
+            List<TrinoFileStatus> files,
             InternalHiveSplitFactory splitFactory,
             BucketSplitInfo bucketSplitInfo,
             Optional<BucketConversion> bucketConversion,
@@ -795,8 +796,8 @@ public class BackgroundHiveSplitLoader
         checkState(readBucketCount <= tableBucketCount, "readBucketCount(%s) should be less than or equal to tableBucketCount(%s)", readBucketCount, tableBucketCount);
 
         // build mapping of file name to bucket
-        ListMultimap<Integer, LocatedFileStatus> bucketFiles = ArrayListMultimap.create();
-        for (LocatedFileStatus file : files) {
+        ListMultimap<Integer, TrinoFileStatus> bucketFiles = ArrayListMultimap.create();
+        for (TrinoFileStatus file : files) {
             String fileName = file.getPath().getName();
             OptionalInt bucket = getBucketNumber(fileName);
             if (bucket.isPresent()) {
@@ -860,7 +861,7 @@ public class BackgroundHiveSplitLoader
                                 "partition bucket count: " + partitionBucketCount + ", effective reading bucket count: " + readBucketCount + ")");
             }
             if (!eligibleTableBucketNumbers.isEmpty()) {
-                for (LocatedFileStatus file : bucketFiles.get(partitionBucketNumber)) {
+                for (TrinoFileStatus file : bucketFiles.get(partitionBucketNumber)) {
                     // OrcDeletedRows will load only delete delta files matching current bucket id,
                     // so we can pass all delete delta locations here, without filtering.
                     eligibleTableBucketNumbers.stream()
@@ -873,7 +874,7 @@ public class BackgroundHiveSplitLoader
     }
 
     @VisibleForTesting
-    static void validateFileBuckets(ListMultimap<Integer, LocatedFileStatus> bucketFiles, int partitionBucketCount, String tableName, String partitionName)
+    static void validateFileBuckets(ListMultimap<Integer, TrinoFileStatus> bucketFiles, int partitionBucketCount, String tableName, String partitionName)
     {
         if (bucketFiles.isEmpty()) {
             return;
