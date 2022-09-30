@@ -338,7 +338,7 @@ jobs:
         run: |
           $MAVEN test ${MAVEN_TEST} -pl '
             !:trino-accumulo,
-            !:trino-bigquery'
+            !:trino-bigquery',
             !:trino-cassandra,
             !:trino-clickhouse,
             !:trino-delta-lake,
@@ -365,7 +365,7 @@ jobs:
             !:trino-singlestore,
             !:trino-sqlserver,
             !:trino-test-jdbc-compatibility-old-server,
-            !:trino-tests,
+            !:trino-tests
       - name: Upload test results
         uses: actions/upload-artifact@v3
         # Upload all test reports only on failure, because the artifacts are large
