@@ -13,19 +13,19 @@
  */
 package io.trino.plugin.hive.fs;
 
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.IOException;
-import java.util.Iterator;
 
 import static java.util.Objects.requireNonNull;
 
-class SimpleRemoteIterator
+public class TrinoFileStatusRemoteIterator
         implements RemoteIterator<TrinoFileStatus>
 {
-    private final Iterator<TrinoFileStatus> iterator;
+    private final RemoteIterator<LocatedFileStatus> iterator;
 
-    public SimpleRemoteIterator(Iterator<TrinoFileStatus> iterator)
+    public TrinoFileStatusRemoteIterator(RemoteIterator<LocatedFileStatus> iterator)
     {
         this.iterator = requireNonNull(iterator, "iterator is null");
     }
@@ -41,6 +41,6 @@ class SimpleRemoteIterator
     public TrinoFileStatus next()
             throws IOException
     {
-        return iterator.next();
+        return new TrinoFileStatus(iterator.next());
     }
 }

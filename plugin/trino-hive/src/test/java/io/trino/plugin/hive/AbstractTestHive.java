@@ -34,6 +34,8 @@ import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.fs.DirectoryLister;
+import io.trino.plugin.hive.fs.TrinoFileStatus;
+import io.trino.plugin.hive.fs.TrinoFileStatusRemoteIterator;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -132,7 +134,6 @@ import io.trino.testing.TestingNodeManager;
 import io.trino.type.BlockTypeOperators;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.hive.metastore.TableType;
@@ -6175,19 +6176,19 @@ public abstract class AbstractTestHive
         private final AtomicInteger listCount = new AtomicInteger();
 
         @Override
-        public RemoteIterator<LocatedFileStatus> list(FileSystem fs, Table table, Path path)
+        public RemoteIterator<TrinoFileStatus> list(FileSystem fs, Table table, Path path)
                 throws IOException
         {
             listCount.incrementAndGet();
-            return fs.listLocatedStatus(path);
+            return new TrinoFileStatusRemoteIterator(fs.listLocatedStatus(path));
         }
 
         @Override
-        public RemoteIterator<LocatedFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
+        public RemoteIterator<TrinoFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
                 throws IOException
         {
             listCount.incrementAndGet();
-            return fs.listFiles(path, true);
+            return new TrinoFileStatusRemoteIterator(fs.listFiles(path, true));
         }
 
         public int getListCount()
