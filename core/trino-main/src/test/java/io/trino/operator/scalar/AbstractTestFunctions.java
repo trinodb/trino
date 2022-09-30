@@ -195,7 +195,7 @@ public abstract class AbstractTestFunctions
 
     // this help function should only be used when the map contains null value
     // otherwise, use ImmutableMap.of()
-    protected static <K, V> Map<K, V> asMap(List<K> keyList, List<V> valueList)
+    public static <K, V> Map<K, V> asMap(List<K> keyList, List<V> valueList)
     {
         if (keyList.size() != valueList.size()) {
             fail("keyList should have same size with valueList");
