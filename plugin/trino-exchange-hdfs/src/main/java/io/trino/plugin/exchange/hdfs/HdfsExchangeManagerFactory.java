@@ -11,12 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.exchange.filesystem;
+package io.trino.plugin.exchange.hdfs;
 
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.jmx.PrefixObjectNameGeneratorModule;
+import io.trino.plugin.exchange.filesystem.FileSystemExchangeManager;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeManagerFactory;
 import org.weakref.jmx.guice.MBeanModule;
@@ -25,15 +26,15 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-public class FileSystemExchangeManagerFactory
+public class HdfsExchangeManagerFactory
         implements ExchangeManagerFactory
 {
-    static final String FILESYSTEM = "filesystem";
+    static final String NAME = "hdfs";
 
     @Override
     public String getName()
     {
-        return "filesystem";
+        return NAME;
     }
 
     @Override
@@ -44,8 +45,8 @@ public class FileSystemExchangeManagerFactory
         Bootstrap app = new Bootstrap(
                 new MBeanModule(),
                 new MBeanServerModule(),
-                new PrefixObjectNameGeneratorModule("io.trino.plugin.exchange.filesystem", "trino.plugin.exchange.filesystem"),
-                new FileSystemExchangeModule());
+                new PrefixObjectNameGeneratorModule("io.trino.plugin.exchange.hdfs", "trino.plugin.exchange.hdfs"),
+                new HdfsExchangeModule());
 
         Injector injector = app
                 .doNotInitializeLogging()

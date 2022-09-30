@@ -294,4 +294,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/exchange-hdfs">
+        <artifact id="${project.groupId}:trino-exchange-hdfs:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>
