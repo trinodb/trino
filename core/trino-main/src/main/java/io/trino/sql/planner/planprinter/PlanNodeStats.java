@@ -24,6 +24,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.util.MoreMaps.mergeMaps;
 import static java.lang.Double.max;
@@ -103,6 +104,14 @@ public class PlanNodeStats
     public Set<String> getOperatorTypes()
     {
         return operatorStats.keySet();
+    }
+
+    public Set<String> getInputOperatorTypes()
+    {
+        return operatorStats.entrySet().stream()
+                .filter(entry -> entry.getValue().isInputOperator())
+                .map(Map.Entry::getKey)
+                .collect(toImmutableSet());
     }
 
     public long getPlanNodeInputPositions()

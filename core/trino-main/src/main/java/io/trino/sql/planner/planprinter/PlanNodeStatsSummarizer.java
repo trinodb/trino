@@ -107,18 +107,17 @@ public final class PlanNodeStatsSummarizer
 
                 planNodeBlockedMillis.merge(planNodeId, operatorStats.getBlockedWall().toMillis(), Long::sum);
 
-                // A plan node like LocalExchange consists of LocalExchangeSource which links to another pipeline containing LocalExchangeSink
-                if (operatorStats.getPlanNodeId().equals(inputPlanNode) && !pipelineStats.isInputPipeline()) {
-                    continue;
-                }
-                if (processedNodes.contains(planNodeId)) {
-                    continue;
-                }
+                boolean inputOperator = !processedNodes.contains(planNodeId)
+                        // A plan node like LocalExchange consists of LocalExchangeSource which links to another pipeline containing LocalExchangeSink
+                        && (!operatorStats.getPlanNodeId().equals(inputPlanNode) || pipelineStats.isInputPipeline())
+                        // HACK: skip dynamic filtering operator as for broadcast join it will be executed by single node only
+                        && !operatorStats.getOperatorType().equals("DynamicFilterSourceOperator");
 
                 basicOperatorStats.merge(planNodeId,
                         ImmutableMap.of(
                                 operatorStats.getOperatorType(),
                                 new BasicOperatorStats(
+                                        inputOperator,
                                         operatorStats.getTotalDrivers(),
                                         operatorStats.getInputPositions(),
                                         operatorStats.getSumSquaredInputPositions(),
@@ -126,10 +125,12 @@ public final class PlanNodeStatsSummarizer
                                         operatorStats.getConnectorMetrics())),
                         (map1, map2) -> mergeMaps(map1, map2, BasicOperatorStats::merge));
 
-                planNodeInputPositions.merge(planNodeId, operatorStats.getInputPositions(), Long::sum);
-                planNodeInputBytes.merge(planNodeId, operatorStats.getInputDataSize().toBytes(), Long::sum);
-                planNodeSpilledDataSize.merge(planNodeId, operatorStats.getSpilledDataSize().toBytes(), Long::sum);
-                processedNodes.add(planNodeId);
+                if (inputOperator) {
+                    planNodeInputPositions.merge(planNodeId, operatorStats.getInputPositions(), Long::sum);
+                    planNodeInputBytes.merge(planNodeId, operatorStats.getInputDataSize().toBytes(), Long::sum);
+                    planNodeSpilledDataSize.merge(planNodeId, operatorStats.getSpilledDataSize().toBytes(), Long::sum);
+                    processedNodes.add(planNodeId);
+                }
             }
 
             // Gather output statistics

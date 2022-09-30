@@ -15,10 +15,12 @@ package io.trino.sql.planner.planprinter;
 
 import io.trino.spi.metrics.Metrics;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 class BasicOperatorStats
 {
+    private final boolean inputOperator;
     private final long totalDrivers;
     private final long inputPositions;
     private final double sumSquaredInputPositions;
@@ -26,17 +28,24 @@ class BasicOperatorStats
     private final Metrics connectorMetrics;
 
     public BasicOperatorStats(
+            boolean inputOperator,
             long totalDrivers,
             long inputPositions,
             double sumSquaredInputPositions,
             Metrics metrics,
             Metrics connectorMetrics)
     {
+        this.inputOperator = inputOperator;
         this.totalDrivers = totalDrivers;
         this.inputPositions = inputPositions;
         this.sumSquaredInputPositions = sumSquaredInputPositions;
         this.metrics = requireNonNull(metrics, "metrics is null");
         this.connectorMetrics = requireNonNull(connectorMetrics, "connectorMetrics is null");
+    }
+
+    public boolean isInputOperator()
+    {
+        return inputOperator;
     }
 
     public long getTotalDrivers()
@@ -66,7 +75,9 @@ class BasicOperatorStats
 
     public static BasicOperatorStats merge(BasicOperatorStats first, BasicOperatorStats second)
     {
+        checkArgument(first.inputOperator == second.inputOperator);
         return new BasicOperatorStats(
+                first.inputOperator,
                 first.totalDrivers + second.totalDrivers,
                 first.inputPositions + second.inputPositions,
                 first.sumSquaredInputPositions + second.sumSquaredInputPositions,

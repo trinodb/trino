@@ -160,15 +160,19 @@ public class TextRenderer
             return;
         }
 
-        Map<String, String> translatedOperatorTypes = translateOperatorTypes(stats.getOperatorTypes());
-        for (String operator : translatedOperatorTypes.keySet()) {
-            String translatedOperatorType = translatedOperatorTypes.get(operator);
+        Set<String> operatorTypes = stats.getOperatorTypes();
+        for (String operator : operatorTypes) {
             Metrics metrics = metricsGetter.apply(stats.getOperatorStats().get(operator));
             if (metrics.getMetrics().isEmpty()) {
                 continue;
             }
 
-            output.append(translatedOperatorType + label).append("\n");
+            if (operatorTypes.size() > 1) {
+                output.append(operator + " " + label + "\n");
+            }
+            else {
+                output.append(label + "\n");
+            }
             Map<String, Metric<?>> sortedMap = new TreeMap<>(metrics.getMetrics());
             sortedMap.forEach((name, metric) -> output.append(format("  '%s' = %s\n", name, metric)));
         }
@@ -178,7 +182,7 @@ public class TextRenderer
     {
         Map<String, Double> inputAverages = stats.getOperatorInputPositionsAverages();
         Map<String, Double> inputStdDevs = stats.getOperatorInputPositionsStdDevs();
-        Map<String, String> translatedOperatorTypes = translateOperatorTypes(stats.getOperatorTypes());
+        Map<String, String> translatedOperatorTypes = translateOperatorTypes(stats.getInputOperatorTypes());
 
         for (String operator : translatedOperatorTypes.keySet()) {
             String translatedOperatorType = translatedOperatorTypes.get(operator);
@@ -245,13 +249,6 @@ public class TextRenderer
             return ImmutableMap.of(
                     "LookupJoinOperator", "Left (probe) ",
                     "HashBuilderOperator", "Right (build) ");
-        }
-
-        if (operators.contains("LookupJoinOperator") && operators.contains("DynamicFilterSourceOperator")) {
-            // join plan node
-            return ImmutableMap.of(
-                    "LookupJoinOperator", "Left (probe) ",
-                    "DynamicFilterSourceOperator", "Right (build) ");
         }
 
         return ImmutableMap.of();
