@@ -106,6 +106,7 @@ public final class PlanNodeStatsSummarizer
                 planNodeCpuMillis.merge(planNodeId, cpuMillis, Long::sum);
 
                 planNodeBlockedMillis.merge(planNodeId, operatorStats.getBlockedWall().toMillis(), Long::sum);
+                planNodeSpilledDataSize.merge(planNodeId, operatorStats.getSpilledDataSize().toBytes(), Long::sum);
 
                 boolean inputOperator = !processedNodes.contains(planNodeId)
                         // A plan node like LocalExchange consists of LocalExchangeSource which links to another pipeline containing LocalExchangeSink
@@ -128,7 +129,6 @@ public final class PlanNodeStatsSummarizer
                 if (inputOperator) {
                     planNodeInputPositions.merge(planNodeId, operatorStats.getInputPositions(), Long::sum);
                     planNodeInputBytes.merge(planNodeId, operatorStats.getInputDataSize().toBytes(), Long::sum);
-                    planNodeSpilledDataSize.merge(planNodeId, operatorStats.getSpilledDataSize().toBytes(), Long::sum);
                     processedNodes.add(planNodeId);
                 }
             }
