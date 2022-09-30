@@ -107,7 +107,7 @@ public final class PlanNodeStatsSummarizer
 
                 planNodeBlockedMillis.merge(planNodeId, operatorStats.getBlockedWall().toMillis(), Long::sum);
 
-                // A pipeline like hash build before join might link to another "internal" pipelines which provide actual input for this plan node
+                // A plan node like LocalExchange consists of LocalExchangeSource which links to another pipeline containing LocalExchangeSink
                 if (operatorStats.getPlanNodeId().equals(inputPlanNode) && !pipelineStats.isInputPipeline()) {
                     continue;
                 }
