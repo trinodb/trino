@@ -64,6 +64,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.sql.ExpressionUtils.and;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.ExpressionUtils.or;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
@@ -150,6 +151,26 @@ public class UnwrapDateTruncInComparison
         {
             ComparisonExpression expression = (ComparisonExpression) treeRewriter.defaultRewrite((Expression) node, null);
             return unwrapDateTrunc(expression);
+        }
+
+        @Override
+        public Expression rewriteBetweenPredicate(BetweenPredicate node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            BetweenPredicate expression = (BetweenPredicate) treeRewriter.defaultRewrite((Expression) node, null);
+            return unwrapDateTrunc(expression);
+        }
+
+        private Expression unwrapDateTrunc(BetweenPredicate expression)
+        {
+            if (!(expression.getValue() instanceof FunctionCall call) ||
+                    !extractFunctionName(call.getName()).equals("date_trunc") ||
+                    call.getArguments().size() != 2) {
+                return expression;
+            }
+
+            return and(
+                    new ComparisonExpression(GREATER_THAN_OR_EQUAL, expression.getValue(), expression.getMin()),
+                    new ComparisonExpression(LESS_THAN_OR_EQUAL, expression.getValue(), expression.getMax()));
         }
 
         // Simplify `date_trunc(unit, d) ? value`
