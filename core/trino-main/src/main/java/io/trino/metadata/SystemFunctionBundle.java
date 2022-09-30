@@ -281,7 +281,6 @@ import static io.trino.operator.scalar.ArrayReduceFunction.ARRAY_REDUCE_FUNCTION
 import static io.trino.operator.scalar.ArraySubscriptOperator.ARRAY_SUBSCRIPT;
 import static io.trino.operator.scalar.ArrayToElementConcatFunction.ARRAY_TO_ELEMENT_CONCAT_FUNCTION;
 import static io.trino.operator.scalar.ArrayToJsonCast.ARRAY_TO_JSON;
-import static io.trino.operator.scalar.ArrayToJsonCast.LEGACY_ARRAY_TO_JSON;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_FUNCTION;
 import static io.trino.operator.scalar.CastFromUnknownOperator.CAST_FROM_UNKNOWN;
 import static io.trino.operator.scalar.ConcatFunction.VARBINARY_CONCAT;
@@ -301,14 +300,12 @@ import static io.trino.operator.scalar.Least.LEAST;
 import static io.trino.operator.scalar.MapConstructor.MAP_CONSTRUCTOR;
 import static io.trino.operator.scalar.MapElementAtFunction.MAP_ELEMENT_AT;
 import static io.trino.operator.scalar.MapFilterFunction.MAP_FILTER_FUNCTION;
-import static io.trino.operator.scalar.MapToJsonCast.LEGACY_MAP_TO_JSON;
 import static io.trino.operator.scalar.MapToJsonCast.MAP_TO_JSON;
 import static io.trino.operator.scalar.MapTransformValuesFunction.MAP_TRANSFORM_VALUES_FUNCTION;
 import static io.trino.operator.scalar.MapZipWithFunction.MAP_ZIP_WITH_FUNCTION;
 import static io.trino.operator.scalar.MathFunctions.DECIMAL_MOD_FUNCTION;
 import static io.trino.operator.scalar.Re2JCastToRegexpFunction.castCharToRe2JRegexp;
 import static io.trino.operator.scalar.Re2JCastToRegexpFunction.castVarcharToRe2JRegexp;
-import static io.trino.operator.scalar.RowToJsonCast.LEGACY_ROW_TO_JSON;
 import static io.trino.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static io.trino.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
 import static io.trino.operator.scalar.TryCastFunction.TRY_CAST;
@@ -558,6 +555,7 @@ public final class SystemFunctionBundle
                 .aggregates(MaxByNAggregationFunction.class)
                 .aggregates(CountColumn.class)
                 .functions(JSON_TO_ROW, JSON_STRING_TO_ROW, ROW_TO_ROW_CAST)
+                .functions(ROW_TO_JSON, ARRAY_TO_JSON, MAP_TO_JSON)
                 .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)
                 .function(CONCAT_WS)
                 .function(DECIMAL_TO_DECIMAL_CAST)
@@ -716,13 +714,6 @@ public final class SystemFunctionBundle
                 builder.scalars(Re2JRegexpFunctions.class);
                 builder.scalar(Re2JRegexpReplaceLambdaFunction.class);
                 break;
-        }
-
-        if (featuresConfig.isLegacyRowToJsonCast()) {
-            builder.functions(LEGACY_ROW_TO_JSON, LEGACY_ARRAY_TO_JSON, LEGACY_MAP_TO_JSON);
-        }
-        else {
-            builder.functions(ROW_TO_JSON, ARRAY_TO_JSON, MAP_TO_JSON);
         }
 
         return builder.build();
