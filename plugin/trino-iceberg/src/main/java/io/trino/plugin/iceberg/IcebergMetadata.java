@@ -205,6 +205,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPER
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergUtil.canEnforceColumnConstraintInSpecs;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
+import static io.trino.plugin.iceberg.IcebergUtil.fileName;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
@@ -1271,7 +1272,7 @@ public class IcebergMetadata
                 Stream.of(versionHintLocation(table)))
                 .collect(toImmutableList());
         Set<String> validMetadataFiles = concat(manifests.stream(), manifestLists.stream(), otherMetadataFiles.stream())
-                .map(IcebergMetadata::fileName)
+                .map(IcebergUtil::fileName)
                 .collect(toImmutableSet());
         scanAndDeleteInvalidFiles(table, session, schemaTableName, expireTimestamp, validMetadataFiles, "metadata");
     }
@@ -1295,11 +1296,6 @@ public class IcebergMetadata
         catch (IOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed accessing data for table: " + schemaTableName, e);
         }
-    }
-
-    private static String fileName(String path)
-    {
-        return path.substring(path.lastIndexOf('/') + 1);
     }
 
     @Override
