@@ -152,6 +152,93 @@ public class UnwrapDateTruncInComparison
             return unwrapDateTrunc(expression);
         }
 
+        @Override
+        public Expression rewriteBetweenPredicate(BetweenPredicate node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            BetweenPredicate expression = (BetweenPredicate) treeRewriter.defaultRewrite((Expression) node, null);
+            return unwrapDateTrunc(expression);
+        }
+
+        /**
+         * Given constant temporal unit U, the constant expressions:
+         * <ul>
+         *     <li>tmin</li>
+         *     <li>tmax</li>
+         * </ul>
+         * and epsilon as the minimum unit of precision for the temporal
+         * type of the expression dt, rewrite expression of the form
+         * <pre>date_trunc(U, dt) BETWEEN tmin AND tmax</pre>
+         * <p>
+         * into
+         * <pre>dt BETWEEN tmin AND floor(tmax, U) + U - epsilon</pre>
+         * <p>
+         */
+        private Expression unwrapDateTrunc(BetweenPredicate expression)
+        {
+            if (!(expression.getValue() instanceof FunctionCall call) ||
+                    !extractFunctionName(call.getName()).equals("date_trunc") ||
+                    call.getArguments().size() != 2) {
+                return expression;
+            }
+
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, expression);
+            Expression unitExpression = call.getArguments().get(0);
+            if (!(expressionTypes.get(NodeRef.of(unitExpression)) instanceof VarcharType) || !isEffectivelyLiteral(plannerContext, session, unitExpression)) {
+                return expression;
+            }
+            Slice unitName = (Slice) new ExpressionInterpreter(unitExpression, plannerContext, session, expressionTypes)
+                    .optimize(NoOpSymbolResolver.INSTANCE);
+            if (unitName == null) {
+                return expression;
+            }
+
+            Expression argument = call.getArguments().get(1);
+            Type argumentType = expressionTypes.get(NodeRef.of(argument));
+
+            Type minType = expressionTypes.get(NodeRef.of(expression.getMin()));
+            Type maxType = expressionTypes.get(NodeRef.of(expression.getMax()));
+            verify(argumentType.equals(minType), "Mismatched types: %s and %s", argumentType, minType);
+            verify(argumentType.equals(maxType), "Mismatched types: %s and %s", argumentType, maxType);
+
+            Object min = new ExpressionInterpreter(expression.getMin(), plannerContext, session, expressionTypes)
+                    .optimize(NoOpSymbolResolver.INSTANCE);
+            Object max = new ExpressionInterpreter(expression.getMax(), plannerContext, session, expressionTypes)
+                    .optimize(NoOpSymbolResolver.INSTANCE);
+
+            if (min == null || min instanceof NullLiteral || max == null || max instanceof NullLiteral) {
+                return new Cast(new NullLiteral(), toSqlType(BOOLEAN));
+            }
+
+            if (min instanceof Expression || max instanceof Expression) {
+                return expression;
+            }
+            if (minType instanceof TimestampWithTimeZoneType || maxType instanceof TimestampWithTimeZoneType) {
+                // Cannot replace with a range due to how date_trunc operates on value's local date/time.
+                // I.e. unwrapping is possible only when values are all of some fixed zone and the zone is known.
+                return expression;
+            }
+
+            Optional<SupportedUnit> unitIfSupported = Enums.getIfPresent(SupportedUnit.class, unitName.toStringUtf8().toUpperCase(Locale.ENGLISH)).toJavaUtil();
+            if (unitIfSupported.isEmpty()) {
+                return expression;
+            }
+            SupportedUnit unit = unitIfSupported.get();
+            if (minType == DATE && (unit == SupportedUnit.DAY || unit == SupportedUnit.HOUR)) {
+                // DAY case handled by CanonicalizeExpressionRewriter, other is illegal, will fail
+                return expression;
+            }
+
+            ResolvedFunction resolvedFunction = plannerContext.getMetadata().decodeFunction(call.getName());
+            Object rangeHigh = functionInvoker.invoke(resolvedFunction, session.toConnectorSession(), ImmutableList.of(unitName, max));
+            int compareMax = compare(maxType, rangeHigh, max);
+            verify(compareMax <= 0, "Truncation of %s value %s resulted in a bigger value %s", maxType, max, rangeHigh);
+
+            return new BetweenPredicate(
+                    argument,
+                    toExpression(min, minType),
+                    toExpression(calculateRangeEndInclusive(rangeHigh, maxType, unit), maxType));
+        }
+
         // Simplify `date_trunc(unit, d) ? value`
         private Expression unwrapDateTrunc(ComparisonExpression expression)
         {
