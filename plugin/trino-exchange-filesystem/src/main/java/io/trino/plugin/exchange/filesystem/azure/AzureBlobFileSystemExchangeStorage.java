@@ -270,7 +270,7 @@ public class AzureBlobFileSystemExchangeStorage
     private static class AzureExchangeStorageReader
             implements ExchangeStorageReader
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(AzureExchangeStorageReader.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(AzureExchangeStorageReader.class).instanceSize());
 
         private final BlobServiceAsyncClient blobServiceAsyncClient;
         @GuardedBy("this")
@@ -460,7 +460,7 @@ public class AzureBlobFileSystemExchangeStorage
     private static class AzureExchangeStorageWriter
             implements ExchangeStorageWriter
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(AzureExchangeStorageWriter.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(AzureExchangeStorageWriter.class).instanceSize());
 
         private final BlockBlobAsyncClient blockBlobAsyncClient;
         private final int blockSize;

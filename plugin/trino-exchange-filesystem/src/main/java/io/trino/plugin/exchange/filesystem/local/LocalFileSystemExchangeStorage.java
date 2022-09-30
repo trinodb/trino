@@ -148,7 +148,7 @@ public class LocalFileSystemExchangeStorage
     private static class LocalExchangeStorageReader
             implements ExchangeStorageReader
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(LocalExchangeStorageReader.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LocalExchangeStorageReader.class).instanceSize());
 
         @GuardedBy("this")
         private final Queue<ExchangeSourceFile> sourceFiles;
@@ -239,7 +239,7 @@ public class LocalFileSystemExchangeStorage
     private static class LocalExchangeStorageWriter
             implements ExchangeStorageWriter
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(LocalExchangeStorageWriter.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LocalExchangeStorageWriter.class).instanceSize());
 
         private final OutputStream outputStream;
 

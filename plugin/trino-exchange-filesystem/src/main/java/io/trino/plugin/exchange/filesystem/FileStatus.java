@@ -23,12 +23,13 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class FileStatus
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FileStatus.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(FileStatus.class).instanceSize());
 
     private final String filePath;
     private final long fileSize;

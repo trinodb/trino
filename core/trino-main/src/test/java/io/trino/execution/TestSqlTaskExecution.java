@@ -81,6 +81,7 @@ import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCoun
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -481,7 +482,7 @@ public class TestSqlTaskExecution
     public static class TestingSplit
             implements ConnectorSplit
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestingSplit.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TestingSplit.class).instanceSize());
 
         private final int begin;
         private final int end;

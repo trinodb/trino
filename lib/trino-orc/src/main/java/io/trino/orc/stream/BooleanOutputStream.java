@@ -27,11 +27,12 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static java.lang.Math.toIntExact;
 
 public class BooleanOutputStream
         implements ValueOutputStream<BooleanStreamCheckpoint>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BooleanOutputStream.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BooleanOutputStream.class).instanceSize());
     private final ByteOutputStream byteOutputStream;
     private final List<Integer> checkpointBitOffsets = new ArrayList<>();
 

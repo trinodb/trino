@@ -25,11 +25,12 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class HiveColumnProjectionInfo
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(HiveColumnProjectionInfo.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(HiveColumnProjectionInfo.class).instanceSize());
 
     private final List<Integer> dereferenceIndices;
     private final List<String> dereferenceNames;

@@ -19,13 +19,14 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public class SingleMapBlockWriter
         extends AbstractSingleMapBlock
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMapBlockWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleMapBlockWriter.class).instanceSize());
 
     private final int offset;
     private final BlockBuilder keyBlockBuilder;

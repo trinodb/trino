@@ -20,12 +20,13 @@ import org.openjdk.jol.info.ClassLayout;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.unnest.UnnestOperator.ensureCapacity;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayUnnester
         implements Unnester
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayUnnester.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ArrayUnnester.class).instanceSize());
 
     private final UnnestBlockBuilder blockBuilder = new UnnestBlockBuilder();
     private int[] arrayLengths = new int[0];

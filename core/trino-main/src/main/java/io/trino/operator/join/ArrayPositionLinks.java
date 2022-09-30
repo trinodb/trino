@@ -22,12 +22,13 @@ import java.util.Arrays;
 import java.util.List;
 
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class ArrayPositionLinks
         implements PositionLinks
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayPositionLinks.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ArrayPositionLinks.class).instanceSize());
 
     public static class FactoryBuilder
             implements PositionLinks.FactoryBuilder

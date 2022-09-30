@@ -52,6 +52,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.parquet.ColumnStatisticsValidation.ColumnStatistics;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
 import static io.trino.parquet.ParquetWriteValidation.IndexReferenceValidation.fromIndexReference;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetWriteValidation
@@ -442,9 +443,9 @@ public class ParquetWriteValidation
 
     public static class ParquetWriteValidationBuilder
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(ParquetWriteValidationBuilder.class).instanceSize();
-        private static final int COLUMN_DESCRIPTOR_INSTANCE_SIZE = ClassLayout.parseClass(ColumnDescriptor.class).instanceSize();
-        private static final int PRIMITIVE_TYPE_INSTANCE_SIZE = ClassLayout.parseClass(PrimitiveType.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ParquetWriteValidationBuilder.class).instanceSize());
+        private static final int COLUMN_DESCRIPTOR_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ColumnDescriptor.class).instanceSize());
+        private static final int PRIMITIVE_TYPE_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(PrimitiveType.class).instanceSize());
 
         private final List<Type> types;
         private final List<String> columnNames;

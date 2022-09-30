@@ -26,10 +26,12 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.ArrayList;
 import java.util.List;
 
+import static java.lang.Math.toIntExact;
+
 public class LearnStateFactory
         implements AccumulatorStateFactory<LearnState>
 {
-    private static final long ARRAY_LIST_SIZE = ClassLayout.parseClass(ArrayList.class).instanceSize();
+    private static final long ARRAY_LIST_SIZE = toIntExact(ClassLayout.parseClass(ArrayList.class).instanceSize());
     private static final long SVM_PARAMETERS_SIZE = ClassLayout.parseClass(svm_parameter.class).instanceSize();
 
     @Override

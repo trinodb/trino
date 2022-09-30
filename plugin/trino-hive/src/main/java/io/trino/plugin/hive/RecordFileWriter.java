@@ -54,6 +54,7 @@ import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createRecordWriter;
 import static io.trino.plugin.hive.util.HiveWriteUtils.getRowColumnInspectors;
 import static io.trino.plugin.hive.util.HiveWriteUtils.initializeSerializer;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
@@ -61,7 +62,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFacto
 public class RecordFileWriter
         implements FileWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RecordFileWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RecordFileWriter.class).instanceSize());
 
     private final Path path;
     private final JobConf conf;
