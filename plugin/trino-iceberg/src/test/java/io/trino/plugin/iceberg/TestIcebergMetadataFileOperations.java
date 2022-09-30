@@ -404,8 +404,8 @@ public class TestIcebergMetadataFileOperations
                         .add(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM))
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 4)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 4)
-                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), 24)
-                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 24)
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), 6)
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 6)
                         .build());
 
         assertUpdate("DROP TABLE " + tableName);
