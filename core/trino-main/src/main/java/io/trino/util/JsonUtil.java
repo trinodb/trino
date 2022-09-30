@@ -251,7 +251,7 @@ public final class JsonUtil
         void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
                 throws IOException;
 
-        static JsonGeneratorWriter createJsonGeneratorWriter(Type type, boolean legacyRowToJson)
+        static JsonGeneratorWriter createJsonGeneratorWriter(Type type)
         {
             if (type instanceof UnknownType) {
                 return new UnknownJsonGeneratorWriter();
@@ -290,22 +290,22 @@ public final class JsonUtil
                 ArrayType arrayType = (ArrayType) type;
                 return new ArrayJsonGeneratorWriter(
                         arrayType,
-                        createJsonGeneratorWriter(arrayType.getElementType(), legacyRowToJson));
+                        createJsonGeneratorWriter(arrayType.getElementType()));
             }
             if (type instanceof MapType) {
                 MapType mapType = (MapType) type;
                 return new MapJsonGeneratorWriter(
                         mapType,
                         createObjectKeyProvider(mapType.getKeyType()),
-                        createJsonGeneratorWriter(mapType.getValueType(), legacyRowToJson));
+                        createJsonGeneratorWriter(mapType.getValueType()));
             }
             if (type instanceof RowType) {
                 List<Type> fieldTypes = type.getTypeParameters();
                 List<JsonGeneratorWriter> fieldWriters = new ArrayList<>(fieldTypes.size());
                 for (int i = 0; i < fieldTypes.size(); i++) {
-                    fieldWriters.add(createJsonGeneratorWriter(fieldTypes.get(i), legacyRowToJson));
+                    fieldWriters.add(createJsonGeneratorWriter(fieldTypes.get(i)));
                 }
-                return new RowJsonGeneratorWriter((RowType) type, fieldWriters, legacyRowToJson);
+                return new RowJsonGeneratorWriter((RowType) type, fieldWriters);
             }
 
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
@@ -616,13 +616,11 @@ public final class JsonUtil
     {
         private final RowType type;
         private final List<JsonGeneratorWriter> fieldWriters;
-        private final boolean legacyRowToJson;
 
-        public RowJsonGeneratorWriter(RowType type, List<JsonGeneratorWriter> fieldWriters, boolean legacyRowToJson)
+        public RowJsonGeneratorWriter(RowType type, List<JsonGeneratorWriter> fieldWriters)
         {
             this.type = type;
             this.fieldWriters = fieldWriters;
-            this.legacyRowToJson = legacyRowToJson;
         }
 
         @Override
@@ -635,22 +633,13 @@ public final class JsonUtil
             else {
                 Block rowBlock = type.getObject(block, position);
 
-                if (legacyRowToJson) {
-                    jsonGenerator.writeStartArray();
-                    for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-                        fieldWriters.get(i).writeJsonValue(jsonGenerator, rowBlock, i);
-                    }
-                    jsonGenerator.writeEndArray();
+                List<TypeSignatureParameter> typeSignatureParameters = type.getTypeSignature().getParameters();
+                jsonGenerator.writeStartObject();
+                for (int i = 0; i < rowBlock.getPositionCount(); i++) {
+                    jsonGenerator.writeFieldName(typeSignatureParameters.get(i).getNamedTypeSignature().getName().orElse(""));
+                    fieldWriters.get(i).writeJsonValue(jsonGenerator, rowBlock, i);
                 }
-                else {
-                    List<TypeSignatureParameter> typeSignatureParameters = type.getTypeSignature().getParameters();
-                    jsonGenerator.writeStartObject();
-                    for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-                        jsonGenerator.writeFieldName(typeSignatureParameters.get(i).getNamedTypeSignature().getName().orElse(""));
-                        fieldWriters.get(i).writeJsonValue(jsonGenerator, rowBlock, i);
-                    }
-                    jsonGenerator.writeEndObject();
-                }
+                jsonGenerator.writeEndObject();
             }
         }
     }
