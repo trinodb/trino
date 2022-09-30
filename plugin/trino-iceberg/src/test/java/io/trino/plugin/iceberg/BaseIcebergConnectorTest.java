@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.hdfs.HdfsContext;
 import io.trino.metadata.Metadata;
@@ -122,6 +123,7 @@ import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
@@ -4191,7 +4193,7 @@ public abstract class BaseIcebergConnectorTest
                 3);
         // Test uses relatively small table (60K rows). When engine doesn't redistribute data for writes,
         // occasionally a worker node doesn't get any data and fewer files get created.
-        assertEventually(() -> {
+        assertEventually(new Duration(3, MINUTES), () -> {
             testRepartitionData(
                     sessionRepartitionMany,
                     sourceRelation,
