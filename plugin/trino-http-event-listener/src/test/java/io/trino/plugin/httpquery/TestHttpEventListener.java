@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.trino.operator.RetryPolicy;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryContext;
@@ -179,6 +180,7 @@ public class TestHttpEventListener
                 0,
                 true,
                 Collections.emptyList(),
+                List.of(Optional.of(TDigestHistogram.fromValue(42))),
                 Collections.emptyList(),
                 Optional.empty());
 
