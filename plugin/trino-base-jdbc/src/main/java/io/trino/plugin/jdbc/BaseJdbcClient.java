@@ -73,6 +73,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.JdbcPassThroughQueryHandle.tableHandleForPassThroughQuery;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.isNonTransactionalInsert;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
@@ -254,16 +255,7 @@ public abstract class BaseJdbcClient
             throw new TrinoException(JDBC_ERROR, "Failed to get table handle for prepared query. " + firstNonNull(e.getMessage(), e), e);
         }
 
-        return new JdbcTableHandle(
-                new JdbcQueryRelationHandle(preparedQuery),
-                TupleDomain.all(),
-                ImmutableList.of(),
-                Optional.empty(),
-                OptionalLong.empty(),
-                Optional.of(columns.build()),
-                // The query is opaque, so we don't know referenced tables
-                Optional.empty(),
-                0);
+        return tableHandleForPassThroughQuery(preparedQuery, columns.build());
     }
 
     @Override

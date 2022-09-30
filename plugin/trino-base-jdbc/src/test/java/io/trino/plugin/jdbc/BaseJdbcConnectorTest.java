@@ -1631,6 +1631,10 @@ public abstract class BaseJdbcConnectorTest
         assertQuery(
                 format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
                 "VALUES 'ALGERIA'");
+
+        assertQuery(
+                format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE regionkey = 0 AND nationkey > 14 ORDER BY name DESC'))", getSession().getSchema().orElseThrow()),
+                "VALUES 'MOZAMBIQUE', 'MOROCCO'");
     }
 
     @Test

@@ -65,6 +65,16 @@ public class DefaultQueryBuilder
             TupleDomain<ColumnHandle> tupleDomain,
             Optional<String> additionalPredicate)
     {
+        if (baseRelation instanceof JdbcPassThroughQueryHandle passThroughQueryHandle) {
+            verify(tupleDomain.isAll(), "Query pass-through handle cannot contain additional constraints");
+            verify(columnExpressions.isEmpty(), "Query pass-through handle cannot contain additional constraints");
+            verify(groupingSets.isEmpty(), "Query pass-through handle cannot contain additional grouping sets");
+            verify(additionalPredicate.isEmpty(), "Query pass-through handle cannot contain additional predicate");
+
+            // We don't want to wrap passed query
+            return passThroughQueryHandle.getPreparedQuery();
+        }
+
         if (!tupleDomain.isNone()) {
             Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().orElseThrow();
             columns.stream()
