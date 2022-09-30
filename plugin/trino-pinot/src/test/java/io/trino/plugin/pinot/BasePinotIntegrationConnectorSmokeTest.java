@@ -1314,7 +1314,7 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
         // Pinot broker requests do not handle limits greater than Integer.MAX_VALUE
         // Note that -2147483648 is due to an integer overflow in Pinot: https://github.com/apache/pinot/issues/7242
         assertQueryFails("SELECT * FROM \"SELECT string_col, long_col FROM " + ALL_TYPES_TABLE + " LIMIT " + ((long) Integer.MAX_VALUE + 1) + "\"",
-                "Query select \"string_col\", \"long_col\" from alltypes limit -2147483648 encountered exception org.apache.pinot.common.response.broker.QueryProcessingException@\\w+ with query \"select \"string_col\", \"long_col\" from alltypes limit -2147483648\"");
+                "(?s)Query select \"string_col\", \"long_col\" from alltypes limit -2147483648 encountered exception .* with query \"select \"string_col\", \"long_col\" from alltypes limit -2147483648\"");
 
         List<String> tooManyBrokerRowsTableValues = new ArrayList<>();
         for (int i = 0; i < MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES; i++) {
