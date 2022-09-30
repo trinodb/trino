@@ -57,6 +57,10 @@ import org.bson.Document;
 import org.bson.types.Binary;
 import org.bson.types.ObjectId;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -78,15 +82,21 @@ import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.spi.HostAddress.fromParts;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -514,6 +524,28 @@ public class MongoSession
 
         if (type instanceof VarcharType) {
             return Optional.of(((Slice) trinoNativeValue).toStringUtf8());
+        }
+
+        if (type == DATE) {
+            long days = (long) trinoNativeValue;
+            return Optional.of(LocalDate.ofEpochDay(days));
+        }
+
+        if (type == TIME_MILLIS) {
+            long picos = (long) trinoNativeValue;
+            return Optional.of(LocalTime.ofNanoOfDay(roundDiv(picos, PICOSECONDS_PER_NANOSECOND)));
+        }
+
+        if (type == TIMESTAMP_MILLIS) {
+            long millisUtc = (long) trinoNativeValue;
+            Instant instant = Instant.ofEpochMilli(millisUtc);
+            return Optional.of(LocalDateTime.ofInstant(instant, UTC));
+        }
+
+        if (type == TIMESTAMP_TZ_MILLIS) {
+            long millisUtc = (long) trinoNativeValue;
+            Instant instant = Instant.ofEpochMilli(millisUtc);
+            return Optional.of(LocalDateTime.ofInstant(instant, UTC));
         }
 
         return Optional.empty();
