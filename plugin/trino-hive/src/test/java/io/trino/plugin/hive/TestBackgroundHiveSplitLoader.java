@@ -31,6 +31,7 @@ import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.HiveColumnHandle.ColumnType;
 import io.trino.plugin.hive.fs.CachingDirectoryLister;
 import io.trino.plugin.hive.fs.DirectoryLister;
+import io.trino.plugin.hive.fs.TrinoFileStatus;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
@@ -831,7 +832,7 @@ public class TestBackgroundHiveSplitLoader
     @Test
     public void testValidateFileBuckets()
     {
-        ListMultimap<Integer, LocatedFileStatus> bucketFiles = ArrayListMultimap.create();
+        ListMultimap<Integer, TrinoFileStatus> bucketFiles = ArrayListMultimap.create();
         bucketFiles.put(1, null);
         bucketFiles.put(3, null);
         bucketFiles.put(4, null);
