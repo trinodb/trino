@@ -32,6 +32,7 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -57,7 +58,7 @@ public class GroupedTypedHistogram
 {
     private static final float MAX_FILL_RATIO = 0.5f;
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedTypedHistogram.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupedTypedHistogram.class).instanceSize());
     private static final int EMPTY_BUCKET = -1;
     private static final int NULL = -1;
     private final int bucketId;

@@ -30,6 +30,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -37,7 +38,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class AcidInfo
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(AcidInfo.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(AcidInfo.class).instanceSize());
 
     private final String partitionLocation;
     private final List<DeleteDeltaInfo> deleteDeltas;
@@ -135,7 +136,7 @@ public class AcidInfo
 
     public static class DeleteDeltaInfo
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(DeleteDeltaInfo.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DeleteDeltaInfo.class).instanceSize());
 
         private final String directoryName;
 
@@ -186,7 +187,7 @@ public class AcidInfo
 
     public static class OriginalFileInfo
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(OriginalFileInfo.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(OriginalFileInfo.class).instanceSize());
 
         private final String name;
         private final long fileSize;

@@ -28,12 +28,13 @@ import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class JdbcColumnHandle
         implements ColumnHandle
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(JdbcColumnHandle.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(JdbcColumnHandle.class).instanceSize());
 
     private final String columnName;
     private final JdbcTypeHandle jdbcTypeHandle;

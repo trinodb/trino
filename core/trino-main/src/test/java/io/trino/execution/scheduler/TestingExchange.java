@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class TestingExchange
@@ -134,7 +135,7 @@ public class TestingExchange
     public static class TestingExchangeSourceHandle
             implements ExchangeSourceHandle
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestingExchangeSourceHandle.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TestingExchangeSourceHandle.class).instanceSize());
 
         private final int partitionId;
         private final long sizeInBytes;

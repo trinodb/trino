@@ -75,7 +75,7 @@ import static java.util.Objects.requireNonNull;
 public class OrcRecordReader
         implements Closeable
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcRecordReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(OrcRecordReader.class).instanceSize());
 
     private final OrcDataSource orcDataSource;
 

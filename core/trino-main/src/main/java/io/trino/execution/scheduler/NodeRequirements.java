@@ -25,11 +25,12 @@ import java.util.Set;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class NodeRequirements
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(NodeRequirements.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(NodeRequirements.class).instanceSize());
 
     private final Optional<CatalogHandle> catalogHandle;
     private final Set<HostAddress> addresses;

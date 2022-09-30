@@ -26,11 +26,12 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateBlockResetSize;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateNewArraySize;
 import static java.lang.Math.max;
+import static java.lang.Math.toIntExact;
 
 public class LongPositionsAppender
         implements PositionsAppender
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongPositionsAppender.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LongPositionsAppender.class).instanceSize());
     private static final Block NULL_VALUE_BLOCK = new LongArrayBlock(1, Optional.of(new boolean[] {true}), new long[1]);
 
     private boolean initialized;

@@ -40,7 +40,7 @@ import static java.util.Objects.requireNonNull;
 public final class DefaultPagesHash
         implements PagesHash
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DefaultPagesHash.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DefaultPagesHash.class).instanceSize());
     private static final DataSize CACHE_SIZE = DataSize.of(128, KILOBYTE);
     private final LongArrayList addresses;
     private final PagesHashStrategy pagesHashStrategy;

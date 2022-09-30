@@ -40,7 +40,7 @@ public class SlicePositionsAppender
         implements PositionsAppender
 {
     private static final int EXPECTED_BYTES_PER_ENTRY = 32;
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SlicePositionsAppender.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SlicePositionsAppender.class).instanceSize());
     private static final Block NULL_VALUE_BLOCK = new VariableWidthBlock(1, EMPTY_SLICE, new int[] {0, 0}, Optional.of(new boolean[] {true}));
 
     private boolean initialized;
