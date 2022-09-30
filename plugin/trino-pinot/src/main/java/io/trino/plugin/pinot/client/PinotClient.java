@@ -547,10 +547,13 @@ public class PinotClient
             if (response.getExceptionsSize() > 0 && response.getProcessingExceptions() != null && !response.getProcessingExceptions().isEmpty()) {
                 // Pinot is known to return exceptions with benign errorcodes like 200
                 // so we treat any exception as an error
+                String processingExceptionMessage = response.getProcessingExceptions().stream()
+                        .map(e -> "code: '%s' message: '%s'".formatted(e.getErrorCode(), e.getMessage()))
+                        .collect(joining(","));
                 throw new PinotException(
                         PINOT_EXCEPTION,
                         Optional.of(query.getQuery()),
-                        format("Query %s encountered exception %s", query.getQuery(), response.getProcessingExceptions().get(0)));
+                        format("Query %s encountered exception %s", query.getQuery(), processingExceptionMessage));
             }
             if (response.getNumServersQueried() == 0 || response.getNumServersResponded() == 0 || response.getNumServersQueried() > response.getNumServersResponded()) {
                 throw new PinotInsufficientServerResponseException(query, response.getNumServersResponded(), response.getNumServersQueried());
