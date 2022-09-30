@@ -520,15 +520,15 @@ public class PlanPrinter
         }
 
         builder.append(
-                new PlanPrinter(
-                        fragment.getRoot(),
-                        typeProvider,
-                        tableInfoSupplier,
-                        dynamicFilterDomainStats,
-                        valuePrinter,
-                        fragment.getStatsAndCosts(),
-                        planNodeStats,
-                        anonymizer).toText(verbose, 1))
+                        new PlanPrinter(
+                                fragment.getRoot(),
+                                typeProvider,
+                                tableInfoSupplier,
+                                dynamicFilterDomainStats,
+                                valuePrinter,
+                                fragment.getStatsAndCosts(),
+                                planNodeStats,
+                                anonymizer).toText(verbose, 1))
                 .append("\n");
 
         return builder.toString();
@@ -1780,12 +1780,12 @@ public class PlanPrinter
         private String formatOrderingScheme(OrderingScheme orderingScheme, int preSortedOrderPrefix)
         {
             List<String> orderBy = Stream.concat(
-                    orderingScheme.getOrderBy().stream()
-                            .limit(preSortedOrderPrefix)
-                            .map(symbol -> "<" + anonymizer.anonymize(symbol) + " " + orderingScheme.getOrdering(symbol) + ">"),
-                    orderingScheme.getOrderBy().stream()
-                            .skip(preSortedOrderPrefix)
-                            .map(symbol -> anonymizer.anonymize(symbol) + " " + orderingScheme.getOrdering(symbol)))
+                            orderingScheme.getOrderBy().stream()
+                                    .limit(preSortedOrderPrefix)
+                                    .map(symbol -> "<" + anonymizer.anonymize(symbol) + " " + orderingScheme.getOrdering(symbol) + ">"),
+                            orderingScheme.getOrderBy().stream()
+                                    .skip(preSortedOrderPrefix)
+                                    .map(symbol -> anonymizer.anonymize(symbol) + " " + orderingScheme.getOrdering(symbol)))
                     .collect(toImmutableList());
             return formatCollection(orderBy, Objects::toString);
         }
