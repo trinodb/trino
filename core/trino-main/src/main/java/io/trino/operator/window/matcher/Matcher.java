@@ -24,6 +24,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.List;
 
 import static io.trino.operator.window.matcher.MatchResult.NO_MATCH;
+import static java.lang.Math.toIntExact;
 
 public class Matcher
 {
@@ -33,7 +34,7 @@ public class Matcher
 
     private static class Runtime
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(Runtime.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Runtime.class).instanceSize());
 
         // a helper structure for identifying equivalent threads
         // program pointer (instruction) --> list of threads that have reached this instruction

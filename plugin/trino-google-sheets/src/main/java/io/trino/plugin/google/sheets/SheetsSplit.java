@@ -25,12 +25,13 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.List;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SheetsSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SheetsSplit.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SheetsSplit.class).instanceSize());
 
     private final String schemaName;
     private final String tableName;

@@ -26,12 +26,13 @@ import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 @ThreadSafe
 public final class MapHashTables
 {
-    public static final int INSTANCE_SIZE = ClassLayout.parseClass(MapHashTables.class).instanceSize();
+    public static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(MapHashTables.class).instanceSize());
 
     // inverse of hash fill ratio, must be integer
     static final int HASH_MULTIPLIER = 2;

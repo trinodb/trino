@@ -28,12 +28,13 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SingleTypedHistogram
         implements TypedHistogram
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleTypedHistogram.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleTypedHistogram.class).instanceSize());
     private static final float FILL_RATIO = 0.75f;
 
     private final int expectedSize;

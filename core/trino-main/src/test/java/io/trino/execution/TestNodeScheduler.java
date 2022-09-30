@@ -80,6 +80,7 @@ import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -874,7 +875,7 @@ public class TestNodeScheduler
     private static class TestSplitLocal
             implements ConnectorSplit
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestSplitLocal.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TestSplitLocal.class).instanceSize());
 
         private final HostAddress address;
         private final SplitWeight splitWeight;
@@ -967,7 +968,7 @@ public class TestNodeScheduler
     private static class TestSplitRemote
             implements ConnectorSplit
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestSplitRemote.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TestSplitRemote.class).instanceSize());
 
         private final List<HostAddress> hosts;
         private final SplitWeight splitWeight;

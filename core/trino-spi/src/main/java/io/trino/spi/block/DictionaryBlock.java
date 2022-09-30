@@ -30,13 +30,14 @@ import static io.trino.spi.block.BlockUtil.checkValidPositions;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 public class DictionaryBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DictionaryBlock.class).instanceSize() + ClassLayout.parseClass(DictionaryId.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DictionaryBlock.class).instanceSize() + ClassLayout.parseClass(DictionaryId.class).instanceSize());
     private static final int NULL_NOT_FOUND = -1;
 
     private final int positionCount;

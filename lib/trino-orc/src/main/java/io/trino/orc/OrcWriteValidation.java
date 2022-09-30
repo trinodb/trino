@@ -104,6 +104,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.floorDiv;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -759,7 +760,7 @@ public class OrcWriteValidation
 
     private static class RowGroupStatistics
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(RowGroupStatistics.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RowGroupStatistics.class).instanceSize());
 
         private final OrcWriteValidationMode validationMode;
         private final SortedMap<OrcColumnId, ColumnStatistics> columnStatistics;
@@ -818,7 +819,7 @@ public class OrcWriteValidation
 
     public static class OrcWriteValidationBuilder
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcWriteValidationBuilder.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(OrcWriteValidationBuilder.class).instanceSize());
 
         private final OrcWriteValidationMode validationMode;
 

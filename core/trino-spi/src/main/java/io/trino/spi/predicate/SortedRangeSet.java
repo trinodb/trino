@@ -51,6 +51,7 @@ import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Boolean.TRUE;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
@@ -66,7 +67,7 @@ import static java.util.stream.Collectors.joining;
 public final class SortedRangeSet
         implements ValueSet
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SortedRangeSet.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SortedRangeSet.class).instanceSize());
 
     private final Type type;
     private final MethodHandle equalOperator;

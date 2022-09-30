@@ -56,6 +56,7 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -68,7 +69,7 @@ public class FileSystemExchangeSink
     public static final String COMMITTED_MARKER_FILE_NAME = "committed";
     public static final String DATA_FILE_SUFFIX = ".data";
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FileSystemExchangeSink.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(FileSystemExchangeSink.class).instanceSize());
 
     private final FileSystemExchangeStorage exchangeStorage;
     private final FileSystemExchangeStats stats;
@@ -240,7 +241,7 @@ public class FileSystemExchangeSink
     @ThreadSafe
     private static class BufferedStorageWriter
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(BufferedStorageWriter.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BufferedStorageWriter.class).instanceSize());
 
         private final FileSystemExchangeStorage exchangeStorage;
         private final FileSystemExchangeStats stats;
@@ -393,7 +394,7 @@ public class FileSystemExchangeSink
     @ThreadSafe
     private static class BufferPool
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(BufferPool.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BufferPool.class).instanceSize());
 
         private final FileSystemExchangeStats stats;
         private final int maxNumBuffers;

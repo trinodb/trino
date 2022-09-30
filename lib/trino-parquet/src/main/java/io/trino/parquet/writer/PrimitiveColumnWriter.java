@@ -57,7 +57,7 @@ import static java.util.Objects.requireNonNull;
 public class PrimitiveColumnWriter
         implements ColumnWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PrimitiveColumnWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(PrimitiveColumnWriter.class).instanceSize());
 
     private final ColumnDescriptor columnDescriptor;
     private final CompressionCodecName compressionCodec;

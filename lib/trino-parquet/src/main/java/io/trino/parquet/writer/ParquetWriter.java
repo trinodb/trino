@@ -78,7 +78,7 @@ import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_
 public class ParquetWriter
         implements Closeable
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ParquetWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ParquetWriter.class).instanceSize());
 
     private static final int CHUNK_MAX_BYTES = toIntExact(DataSize.of(128, MEGABYTE).toBytes());
 

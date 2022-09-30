@@ -19,6 +19,7 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -27,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 public class UnnestingPositionsAppender
         implements PositionsAppender
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(UnnestingPositionsAppender.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(UnnestingPositionsAppender.class).instanceSize());
 
     private final PositionsAppender delegate;
 

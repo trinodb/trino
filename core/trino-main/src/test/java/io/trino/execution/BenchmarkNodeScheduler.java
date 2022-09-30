@@ -72,6 +72,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.trino.SystemSessionProperties.MAX_UNACKNOWLEDGED_SPLITS_PER_TASK;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static java.lang.Math.toIntExact;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 
@@ -248,7 +249,7 @@ public class BenchmarkNodeScheduler
     private static class TestSplitRemote
             implements ConnectorSplit
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestSplitRemote.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TestSplitRemote.class).instanceSize());
 
         private final List<HostAddress> hosts;
 

@@ -26,11 +26,12 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateBlockResetSize;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateNewArraySize;
 import static java.lang.Math.max;
+import static java.lang.Math.toIntExact;
 
 public class BytePositionsAppender
         implements PositionsAppender
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BytePositionsAppender.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BytePositionsAppender.class).instanceSize());
     private static final Block NULL_VALUE_BLOCK = new ByteArrayBlock(1, Optional.of(new boolean[] {true}), new byte[1]);
 
     private boolean initialized;

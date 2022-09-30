@@ -26,12 +26,13 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class FileSystemExchangeSourceHandle
         implements ExchangeSourceHandle
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FileSystemExchangeSourceHandle.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(FileSystemExchangeSourceHandle.class).instanceSize());
 
     private final int partitionId;
     private final List<FileStatus> files;

@@ -42,6 +42,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -57,7 +58,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 public class EquatableValueSet
         implements ValueSet
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(EquatableValueSet.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(EquatableValueSet.class).instanceSize());
 
     private final Type type;
     private final boolean inclusive;
@@ -433,7 +434,7 @@ public class EquatableValueSet
 
     public static class ValueEntry
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(ValueEntry.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ValueEntry.class).instanceSize());
 
         private final Type type;
         private final Block block;

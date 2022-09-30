@@ -32,12 +32,13 @@ import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeColumnHandle
         implements ColumnHandle
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DeltaLakeColumnHandle.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DeltaLakeColumnHandle.class).instanceSize());
 
     public static final String ROW_ID_COLUMN_NAME = "$row_id";
     public static final Type ROW_ID_COLUMN_TYPE = BIGINT;
