@@ -145,7 +145,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.sql.ExpressionFormatter.formatExpression;
 import static io.trino.sql.ExpressionFormatter.formatGroupBy;
 import static io.trino.sql.ExpressionFormatter.formatOrderBy;
 import static io.trino.sql.ExpressionFormatter.formatSkipTo;
@@ -172,8 +171,13 @@ public final class SqlFormatter
     static String formatName(QualifiedName name)
     {
         return name.getOriginalParts().stream()
-                .map(ExpressionFormatter::formatExpression)
+                .map(SqlFormatter::formatExpression)
                 .collect(joining("."));
+    }
+
+    private static String formatExpression(Expression expression)
+    {
+        return ExpressionFormatter.formatExpression(expression);
     }
 
     private static class Formatter
@@ -237,7 +241,7 @@ public final class SqlFormatter
         {
             builder.append("UNNEST(")
                     .append(node.getExpressions().stream()
-                            .map(ExpressionFormatter::formatExpression)
+                            .map(SqlFormatter::formatExpression)
                             .collect(joining(", ")))
                     .append(")");
             if (node.isWithOrdinality()) {
@@ -323,7 +327,7 @@ public final class SqlFormatter
                 builder.append("\n");
                 append(indent, "PARTITION BY ")
                         .append(node.getPartitionBy().get().stream()
-                                .map(ExpressionFormatter::formatExpression)
+                                .map(SqlFormatter::formatExpression)
                                 .collect(joining(", ")));
             }
             node.getEmptyTableTreatment().ifPresent(treatment -> {
@@ -387,7 +391,7 @@ public final class SqlFormatter
             if (!parameters.isEmpty()) {
                 builder.append(" USING ");
                 builder.append(parameters.stream()
-                        .map(ExpressionFormatter::formatExpression)
+                        .map(SqlFormatter::formatExpression)
                         .collect(joining(", ")));
             }
             return null;
@@ -561,7 +565,7 @@ public final class SqlFormatter
             if (!node.getAliases().isEmpty()) {
                 builder.append(" AS (")
                         .append(Joiner.on(", ").join(node.getAliases().stream()
-                                .map(ExpressionFormatter::formatExpression)
+                                .map(SqlFormatter::formatExpression)
                                 .collect(toImmutableList())))
                         .append(")");
             }
@@ -654,7 +658,7 @@ public final class SqlFormatter
             if (!node.getPartitionBy().isEmpty()) {
                 append(indent + 1, "PARTITION BY ")
                         .append(node.getPartitionBy().stream()
-                                .map(ExpressionFormatter::formatExpression)
+                                .map(SqlFormatter::formatExpression)
                                 .collect(joining(", ")))
                         .append("\n");
             }
@@ -707,7 +711,7 @@ public final class SqlFormatter
                 append(indent + 1, "SUBSET");
                 formatDefinitionList(node.getSubsets().stream()
                         .map(subset -> formatExpression(subset.getName()) + " = " + subset.getIdentifiers().stream()
-                                .map(ExpressionFormatter::formatExpression).collect(joining(", ", "(", ")")))
+                                .map(SqlFormatter::formatExpression).collect(joining(", ", "(", ")")))
                         .collect(toImmutableList()), indent + 2);
             }
             append(indent + 1, "DEFINE");
@@ -866,13 +870,13 @@ public final class SqlFormatter
 
             if (!node.getColumns().isEmpty()) {
                 builder.append(node.getColumns().stream()
-                        .map(ExpressionFormatter::formatExpression)
+                        .map(SqlFormatter::formatExpression)
                         .collect(joining(", ", "(", ")")));
             }
 
             builder.append("VALUES ");
             builder.append(node.getValues().stream()
-                    .map(ExpressionFormatter::formatExpression)
+                    .map(SqlFormatter::formatExpression)
                     .collect(joining(", ", "(", ")")));
 
             return null;
@@ -1285,7 +1289,7 @@ public final class SqlFormatter
 
             node.getColumnAliases().ifPresent(columnAliases -> {
                 String columnList = columnAliases.stream()
-                        .map(ExpressionFormatter::formatExpression)
+                        .map(SqlFormatter::formatExpression)
                         .collect(joining(", "));
                 builder.append(format("( %s )", columnList));
             });
@@ -1976,7 +1980,7 @@ public final class SqlFormatter
         public Void visitSetTimeZone(SetTimeZone node, Integer indent)
         {
             builder.append("SET TIME ZONE ");
-            builder.append(node.getTimeZone().map(ExpressionFormatter::formatExpression).orElse("LOCAL"));
+            builder.append(node.getTimeZone().map(SqlFormatter::formatExpression).orElse("LOCAL"));
             return null;
         }
 
@@ -2027,7 +2031,7 @@ public final class SqlFormatter
     {
         if ((columns != null) && (!columns.isEmpty())) {
             String formattedColumns = columns.stream()
-                    .map(ExpressionFormatter::formatExpression)
+                    .map(SqlFormatter::formatExpression)
                     .collect(joining(", "));
 
             builder.append(" (")
