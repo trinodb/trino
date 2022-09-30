@@ -27,6 +27,7 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
+            <version>1.7</version> <!-- JDK8 support dropped by version 1.8+ -->
         </dependency>
 
         <dependency>
@@ -73,6 +74,13 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-blackhole</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <!-- Exclude JDK 8 incompatible version -->
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>units</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -84,6 +92,11 @@
                     <groupId>commons-logging</groupId>
                     <artifactId>commons-logging</artifactId>
                 </exclusion>
+                <!-- Exclude JDK 8 incompatible version -->
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>units</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
@@ -91,36 +104,78 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <!-- Exclude JDK 8 incompatible version -->
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>units</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-memory</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <!-- Exclude JDK 8 incompatible version -->
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>units</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-parser</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <!-- Exclude JDK 8 incompatible version -->
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>units</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-password-authenticators</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <!-- Exclude JDK 8 incompatible version -->
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>units</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <!-- Exclude JDK 8 incompatible version -->
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>units</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-testing</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <!-- Exclude JDK 8 incompatible version -->
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>units</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -133,6 +188,13 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-tpch</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <!-- Exclude JDK 8 incompatible version -->
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>units</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
