@@ -71,11 +71,11 @@ public class TestHiveAnalyzeCorruptStatistics
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 col", 1);
 
         // Insert duplicated row to simulate broken column statistics status https://github.com/trinodb/trino/issues/13787
-        assertEquals(onMetastore("SELECT COUNT(1) FROM TAB_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'"), "1\n");
+        assertEquals(onMetastore("SELECT COUNT(1) FROM TAB_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'"), "1");
         onMetastore("INSERT INTO TAB_COL_STATS  " +
                 "SELECT cs_id + 1, db_name, table_name, column_name, column_type, tbl_id, long_low_value, long_high_value, double_high_value, double_low_value, big_decimal_low_value, big_decimal_high_value, num_nulls, num_distincts, avg_col_len, max_col_len, num_trues, num_falses, last_analyzed " +
                 "FROM TAB_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'");
-        assertEquals(onMetastore("SELECT COUNT(1) FROM TAB_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'"), "2\n");
+        assertEquals(onMetastore("SELECT COUNT(1) FROM TAB_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'"), "2");
     }
 
     private String onMetastore(@Language("SQL") String sql)

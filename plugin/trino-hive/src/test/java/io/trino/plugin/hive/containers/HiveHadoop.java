@@ -90,7 +90,7 @@ public class HiveHadoop
 
     public String runOnMetastore(String query)
     {
-        return executeInContainerFailOnError("mysql", "-D", "metastore", "-uroot", "-proot", "--batch", "--column-names=false", "-e", query);
+        return executeInContainerFailOnError("mysql", "-D", "metastore", "-uroot", "-proot", "--batch", "--column-names=false", "-e", query).replaceAll("\n$", "");
     }
 
     public HostAndPort getHiveMetastoreEndpoint()
