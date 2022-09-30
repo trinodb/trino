@@ -13,6 +13,7 @@
  */
 package io.trino.testing.assertions;
 
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
@@ -33,6 +34,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class Assert
         extends org.testng.Assert
 {
+    private static Logger log = Logger.get(Assert.class);
+
     private Assert() {}
 
     @SuppressModernizer // Assert.assertEquals(Iterable, Iterable) is forbidden, advising to use this class as a safety-adding wrapper.
@@ -82,6 +85,7 @@ public class Assert
                     throw e;
                 }
             }
+            log.warn("Retrying");
             try {
                 Thread.sleep(retryFrequency.toMillis());
             }
