@@ -124,8 +124,8 @@ writing data. Data types may not map the same way in both directions between
 Trino and the data source. Refer to the following sections for type mapping in
 each direction.
 
-Singlestore to Trino read type mapping
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Singlestore to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The connector maps Singlestore types to the corresponding Trino types following
 this table:
@@ -218,8 +218,8 @@ this table:
 
 No other types are supported.
 
-Trino to Singlestore write type mapping
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Trino to Singlestore type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The connector maps Trino types to the corresponding Singlestore types following
 this table:
