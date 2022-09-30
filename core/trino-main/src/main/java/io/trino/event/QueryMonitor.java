@@ -220,6 +220,7 @@ public class QueryMonitor
                         true,
                         ImmutableList.of(),
                         ImmutableList.of(),
+                        ImmutableList.of(),
                         Optional.empty()),
                 createQueryContext(
                         queryInfo.getSession(),
@@ -324,6 +325,7 @@ public class QueryMonitor
                 queryStats.getCompletedDrivers(),
                 queryInfo.isFinalQueryInfo(),
                 getCpuDistributions(queryInfo),
+                getStageOutputBufferUtilizationDistributions(queryInfo),
                 operatorSummaries.build(),
                 serializedPlanNodeStatsAndCosts);
     }
@@ -701,6 +703,29 @@ public class QueryMonitor
                 (long) snapshot.getMax(),
                 (long) snapshot.getTotal(),
                 snapshot.getTotal() / snapshot.getCount());
+    }
+
+    private static List<Optional<io.trino.spi.metrics.Distribution<?>>> getStageOutputBufferUtilizationDistributions(QueryInfo queryInfo)
+    {
+        if (queryInfo.getOutputStage().isEmpty()) {
+            return ImmutableList.of();
+        }
+
+        ImmutableList.Builder<Optional<io.trino.spi.metrics.Distribution<?>>> builder = ImmutableList.builder();
+        populateStageOutputBufferUtilizationDistribution(queryInfo.getOutputStage().get(), builder);
+
+        return builder.build();
+    }
+
+    private static void populateStageOutputBufferUtilizationDistribution(StageInfo stageInfo, ImmutableList.Builder<Optional<io.trino.spi.metrics.Distribution<?>>> distributions)
+    {
+        Optional<io.trino.spi.metrics.Distribution<?>> distribution = stageInfo.getStageStats().getOutputBufferUtilization()
+                // cast to ?
+                .map(dist -> dist);
+        distributions.add(distribution);
+        for (StageInfo subStage : stageInfo.getSubStages()) {
+            populateStageOutputBufferUtilizationDistribution(subStage, distributions);
+        }
     }
 
     private static class FragmentNode
