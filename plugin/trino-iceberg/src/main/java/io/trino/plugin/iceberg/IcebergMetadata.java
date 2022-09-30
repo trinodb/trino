@@ -98,6 +98,7 @@ import io.trino.spi.type.TypeManager;
 import org.apache.datasketches.theta.CompactSketch;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.DeleteFile;
@@ -107,11 +108,12 @@ import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.IsolationLevel;
 import org.apache.iceberg.ManifestFile;
+import org.apache.iceberg.ManifestFiles;
+import org.apache.iceberg.ManifestReader;
 import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
-import org.apache.iceberg.ReachableFileUtil;
 import org.apache.iceberg.RewriteFiles;
 import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.Schema;
@@ -155,7 +157,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -168,9 +169,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.collect.Sets.difference;
-import static com.google.common.collect.Sets.union;
-import static com.google.common.collect.Streams.concat;
-import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.replaceWithNewVariables;
@@ -1242,39 +1240,55 @@ public class IcebergMetadata
 
         long expireTimestampMillis = session.getStart().toEpochMilli() - retention.toMillis();
         removeOrphanFiles(table, session, executeHandle.getSchemaTableName(), expireTimestampMillis);
-        removeOrphanMetadataFiles(table, session, executeHandle.getSchemaTableName(), expireTimestampMillis);
     }
 
     private void removeOrphanFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, long expireTimestamp)
     {
-        Set<String> validDataFilePaths = stream(table.snapshots())
-                .map(Snapshot::snapshotId)
-                .flatMap(snapshotId -> stream(table.newScan().useSnapshot(snapshotId).planFiles()))
-                .map(fileScanTask -> fileName(fileScanTask.file().path().toString()))
-                .collect(toImmutableSet());
-        Set<String> validDeleteFilePaths = stream(table.snapshots())
-                .map(Snapshot::snapshotId)
-                .flatMap(snapshotId -> stream(table.newScan().useSnapshot(snapshotId).planFiles()))
-                .flatMap(fileScanTask -> fileScanTask.deletes().stream().map(file -> fileName(file.path().toString())))
-                .collect(Collectors.toUnmodifiableSet());
-        scanAndDeleteInvalidFiles(table, session, schemaTableName, expireTimestamp, union(validDataFilePaths, validDeleteFilePaths), "/data");
+        Set<String> processedManifestFilePaths = new HashSet<>();
+        // Similarly to issues like https://github.com/trinodb/trino/issues/13759, equivalent paths may have different String
+        // representations due to things like double slashes. Using file names may result in retaining files which could be removed.
+        // However, in practice Iceberg metadata and data files have UUIDs in their names which makes this unlikely.
+        ImmutableSet.Builder<String> validMetadataFileNames = ImmutableSet.builder();
+        ImmutableSet.Builder<String> validDataFileNames = ImmutableSet.builder();
+
+        for (Snapshot snapshot : table.snapshots()) {
+            if (snapshot.manifestListLocation() != null) {
+                validMetadataFileNames.add(fileName(snapshot.manifestListLocation()));
+            }
+
+            for (ManifestFile manifest : snapshot.allManifests(table.io())) {
+                if (!processedManifestFilePaths.add(manifest.path())) {
+                    // Already read this manifest
+                    continue;
+                }
+
+                validMetadataFileNames.add(fileName(manifest.path()));
+                try (ManifestReader<? extends ContentFile<?>> manifestReader = readerForManifest(table, manifest)) {
+                    for (ContentFile<?> contentFile : manifestReader) {
+                        validDataFileNames.add(fileName(contentFile.path().toString()));
+                    }
+                }
+                catch (IOException e) {
+                    throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Unable to list manifest file content from " + manifest.path(), e);
+                }
+            }
+        }
+
+        metadataFileLocations(table, false).stream()
+                .map(IcebergUtil::fileName)
+                .forEach(validMetadataFileNames::add);
+        validMetadataFileNames.add(fileName(versionHintLocation(table)));
+
+        scanAndDeleteInvalidFiles(table, session, schemaTableName, expireTimestamp, validDataFileNames.build(), "data");
+        scanAndDeleteInvalidFiles(table, session, schemaTableName, expireTimestamp, validMetadataFileNames.build(), "metadata");
     }
 
-    private void removeOrphanMetadataFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, long expireTimestamp)
+    private static ManifestReader<? extends ContentFile<?>> readerForManifest(Table table, ManifestFile manifest)
     {
-        ImmutableSet<String> manifests = stream(table.snapshots())
-                .flatMap(snapshot -> snapshot.allManifests(table.io()).stream())
-                .map(ManifestFile::path)
-                .collect(toImmutableSet());
-        List<String> manifestLists = ReachableFileUtil.manifestListLocations(table);
-        List<String> otherMetadataFiles = concat(
-                metadataFileLocations(table, false).stream(),
-                Stream.of(versionHintLocation(table)))
-                .collect(toImmutableList());
-        Set<String> validMetadataFiles = concat(manifests.stream(), manifestLists.stream(), otherMetadataFiles.stream())
-                .map(IcebergUtil::fileName)
-                .collect(toImmutableSet());
-        scanAndDeleteInvalidFiles(table, session, schemaTableName, expireTimestamp, validMetadataFiles, "metadata");
+        return switch (manifest.content()) {
+            case DATA -> ManifestFiles.read(manifest, table.io());
+            case DELETES -> ManifestFiles.readDeleteManifest(manifest, table.io(), table.specs());
+        };
     }
 
     private void scanAndDeleteInvalidFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, long expireTimestamp, Set<String> validFiles, String subfolder)
