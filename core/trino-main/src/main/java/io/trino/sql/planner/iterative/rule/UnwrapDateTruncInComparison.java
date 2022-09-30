@@ -281,12 +281,12 @@ public class UnwrapDateTruncInComparison
                     };
                     long endExclusiveMicros = endExclusive.toEpochSecond(ZoneOffset.UTC) * MICROSECONDS_PER_SECOND
                             + LongMath.divide(endExclusive.getNano(), NANOSECONDS_PER_MICROSECOND, UNNECESSARY);
-                    return endExclusiveMicros - scaleFactor(timestampType.getPrecision(), 6);
+                    return endExclusiveMicros - scaleFactor(timestampType.getPrecision(), TimestampType.MAX_SHORT_PRECISION);
                 }
                 LongTimestamp longTimestamp = (LongTimestamp) rangeStart;
                 verify(longTimestamp.getPicosOfMicro() == 0, "Unexpected picos in %s, value not rounded to %s", rangeStart, rangeUnit);
-                long endInclusiveMicros = (long) calculateRangeEndInclusive(longTimestamp.getEpochMicros(), createTimestampType(6), rangeUnit);
-                return new LongTimestamp(endInclusiveMicros, toIntExact(PICOSECONDS_PER_MICROSECOND - scaleFactor(timestampType.getPrecision(), 12)));
+                long endInclusiveMicros = (long) calculateRangeEndInclusive(longTimestamp.getEpochMicros(), createTimestampType(TimestampType.MAX_SHORT_PRECISION), rangeUnit);
+                return new LongTimestamp(endInclusiveMicros, toIntExact(PICOSECONDS_PER_MICROSECOND - scaleFactor(timestampType.getPrecision(), TimestampType.MAX_PRECISION)));
             }
             throw new UnsupportedOperationException("Unsupported type: " + type);
         }
