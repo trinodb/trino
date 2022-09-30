@@ -47,6 +47,7 @@ import static io.trino.sql.analyzer.RegexLibrary.JONI;
         "deprecated.legacy-map-subscript",
         "deprecated.legacy-order-by",
         "deprecated.legacy-row-field-ordinal-access",
+        "deprecated.legacy-row-to-json-cast",
         "deprecated.legacy-timestamp",
         "deprecated.legacy-unnest-array-rows",
         "experimental-syntax-enabled",
@@ -73,7 +74,6 @@ public class FeaturesConfig
     private DataSize writerMinSize = DataSize.of(32, DataSize.Unit.MEGABYTE);
     private DataIntegrityVerification exchangeDataIntegrityVerification = DataIntegrityVerification.ABORT;
     private boolean exchangeCompressionEnabled;
-    private boolean legacyRowToJsonCast;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean omitDateTimeTypePrecision;
     private int maxRecursionDepth = 10;
@@ -120,18 +120,6 @@ public class FeaturesConfig
     public FeaturesConfig setOmitDateTimeTypePrecision(boolean value)
     {
         this.omitDateTimeTypePrecision = value;
-        return this;
-    }
-
-    public boolean isLegacyRowToJsonCast()
-    {
-        return legacyRowToJsonCast;
-    }
-
-    @Config("deprecated.legacy-row-to-json-cast")
-    public FeaturesConfig setLegacyRowToJsonCast(boolean legacyRowToJsonCast)
-    {
-        this.legacyRowToJsonCast = legacyRowToJsonCast;
         return this;
     }
 
