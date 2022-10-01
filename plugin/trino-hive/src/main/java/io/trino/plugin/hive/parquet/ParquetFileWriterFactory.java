@@ -57,6 +57,7 @@ import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_LE
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
+import static io.trino.plugin.hive.HiveSessionProperties.isParquetOptimizedReaderEnabled;
 import static io.trino.plugin.hive.HiveSessionProperties.isParquetOptimizedWriterValidate;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
@@ -161,6 +162,7 @@ public class ParquetFileWriterFactory
                     fileInputColumnIndexes,
                     compressionCodecName,
                     nodeVersion.toString(),
+                    isParquetOptimizedReaderEnabled(session),
                     Optional.of(parquetTimeZone),
                     validationInputFactory));
         }

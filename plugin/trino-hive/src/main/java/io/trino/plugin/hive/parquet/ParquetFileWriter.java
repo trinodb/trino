@@ -73,6 +73,7 @@ public class ParquetFileWriter
             int[] fileInputColumnIndexes,
             CompressionCodecName compressionCodecName,
             String trinoVersion,
+            boolean useBatchColumnReadersForVerification,
             Optional<DateTimeZone> parquetTimeZone,
             Optional<Supplier<ParquetDataSource>> validationInputFactory)
             throws IOException
@@ -88,6 +89,7 @@ public class ParquetFileWriter
                 parquetWriterOptions,
                 compressionCodecName,
                 trinoVersion,
+                useBatchColumnReadersForVerification,
                 parquetTimeZone,
                 validationInputFactory.isPresent()
                         ? Optional.of(new ParquetWriteValidationBuilder(fileColumnTypes, fileColumnNames))

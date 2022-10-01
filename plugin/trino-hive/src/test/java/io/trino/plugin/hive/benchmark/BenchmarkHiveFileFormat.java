@@ -17,10 +17,13 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.hadoop.HadoopNative;
 import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveConfig;
+import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.tpch.OrderColumn;
@@ -51,8 +54,9 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.SESSION;
+import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.HiveTestUtils.mapType;
+import static io.trino.plugin.hive.benchmark.BenchmarkFileFormat.TRINO_OPTIMIZED_PARQUET;
 import static io.trino.plugin.hive.benchmark.BenchmarkFileFormatsUtils.MIN_DATA_SIZE;
 import static io.trino.plugin.hive.benchmark.BenchmarkFileFormatsUtils.createTempDir;
 import static io.trino.plugin.hive.benchmark.BenchmarkFileFormatsUtils.createTpchDataSet;
@@ -72,6 +76,12 @@ import static io.trino.tpch.TpchTable.ORDERS;
 @SuppressWarnings({"UseOfSystemOutOrSystemErr", "ResultOfMethodCallIgnored"})
 public class BenchmarkHiveFileFormat
 {
+    private static final ConnectorSession SESSION = getHiveSession(
+            new HiveConfig(), new ParquetReaderConfig().setOptimizedReaderEnabled(false));
+
+    private static final ConnectorSession SESSION_OPTIMIZED_PARQUET_READER = getHiveSession(
+            new HiveConfig(), new ParquetReaderConfig().setOptimizedReaderEnabled(true));
+
     static {
         HadoopNative.requireHadoopNative();
     }
@@ -101,6 +111,7 @@ public class BenchmarkHiveFileFormat
             "TRINO_RCTEXT",
             "TRINO_ORC",
             "TRINO_PARQUET",
+            "TRINO_OPTIMIZED_PARQUET",
             "HIVE_RCBINARY",
             "HIVE_RCTEXT",
             "HIVE_ORC",
@@ -161,7 +172,7 @@ public class BenchmarkHiveFileFormat
         }
         List<Page> pages = new ArrayList<>(100);
         try (ConnectorPageSource pageSource = fileFormat.createFileFormatReader(
-                SESSION,
+                TRINO_OPTIMIZED_PARQUET.equals(benchmarkFileFormat) ? SESSION_OPTIMIZED_PARQUET_READER : SESSION,
                 HDFS_ENVIRONMENT,
                 dataFile,
                 data.getColumnNames(),

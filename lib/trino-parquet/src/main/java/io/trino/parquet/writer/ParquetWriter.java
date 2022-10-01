@@ -89,6 +89,7 @@ public class ParquetWriter
     private final int chunkMaxLogicalBytes;
     private final Map<List<String>, Type> primitiveTypes;
     private final CompressionCodecName compressionCodecName;
+    private final boolean useBatchColumnReadersForVerification;
     private final Optional<DateTimeZone> parquetTimeZone;
 
     private final ImmutableList.Builder<RowGroup> rowGroupBuilder = ImmutableList.builder();
@@ -109,6 +110,7 @@ public class ParquetWriter
             ParquetWriterOptions writerOption,
             CompressionCodecName compressionCodecName,
             String trinoVersion,
+            boolean useBatchColumnReadersForVerification,
             Optional<DateTimeZone> parquetTimeZone,
             Optional<ParquetWriteValidationBuilder> validationBuilder)
     {
@@ -118,6 +120,7 @@ public class ParquetWriter
         this.primitiveTypes = requireNonNull(primitiveTypes, "primitiveTypes is null");
         this.writerOption = requireNonNull(writerOption, "writerOption is null");
         this.compressionCodecName = requireNonNull(compressionCodecName, "compressionCodecName is null");
+        this.useBatchColumnReadersForVerification = useBatchColumnReadersForVerification;
         this.parquetTimeZone = requireNonNull(parquetTimeZone, "parquetTimeZone is null");
         this.createdBy = formatCreatedBy(requireNonNull(trinoVersion, "trinoVersion is null"));
 
@@ -268,7 +271,7 @@ public class ParquetWriter
                 input,
                 parquetTimeZone.orElseThrow(),
                 newSimpleAggregatedMemoryContext(),
-                new ParquetReaderOptions(),
+                new ParquetReaderOptions().withBatchColumnReaders(useBatchColumnReadersForVerification),
                 exception -> {
                     throwIfUnchecked(exception);
                     return new RuntimeException(exception);

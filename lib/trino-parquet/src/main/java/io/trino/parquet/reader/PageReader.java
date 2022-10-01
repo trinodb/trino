@@ -24,7 +24,7 @@ import java.util.LinkedList;
 
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
 
-final class PageReader
+public final class PageReader
 {
     private final CompressionCodecName codec;
     private final long valueCount;
