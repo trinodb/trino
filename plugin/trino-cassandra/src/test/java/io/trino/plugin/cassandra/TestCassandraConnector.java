@@ -77,7 +77,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
@@ -395,7 +395,7 @@ public class TestCassandraConnector
                 else if (DateType.DATE.equals(type)) {
                     toIntExact(cursor.getLong(columnIndex));
                 }
-                else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+                else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
                     cursor.getLong(columnIndex);
                 }
                 else if (DOUBLE.equals(type)) {

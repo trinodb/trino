@@ -74,7 +74,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -322,7 +322,7 @@ public class MaterializedResult
                 type.writeObject(blockBuilder, new LongTimestamp(micros, ((SqlTimestamp) value).getPicosOfMicros()));
             }
         }
-        else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+        else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
             long millisUtc = ((SqlTimestampWithTimeZone) value).getMillisUtc();
             TimeZoneKey timeZoneKey = ((SqlTimestampWithTimeZone) value).getTimeZoneKey();
             type.writeLong(blockBuilder, packDateTimeWithZone(millisUtc, timeZoneKey));

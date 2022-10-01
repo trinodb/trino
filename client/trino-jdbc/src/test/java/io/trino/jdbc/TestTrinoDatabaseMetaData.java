@@ -822,7 +822,7 @@ public class TestTrinoDatabaseMetaData
                 assertColumnSpec(rs, Types.TIMESTAMP, 28L, null, 6L, null, createTimestampType(6));
                 assertColumnSpec(rs, Types.TIMESTAMP, 31L, null, 9L, null, createTimestampType(9));
                 assertColumnSpec(rs, Types.TIMESTAMP, 34L, null, 12L, null, createTimestampType(12));
-                assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 59L, null, 3L, null, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
+                assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 59L, null, 3L, null, TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS);
                 assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 55L, null, 0L, null, createTimestampWithTimeZoneType(0));
                 assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 59L, null, 3L, null, createTimestampWithTimeZoneType(3));
                 assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 62L, null, 6L, null, createTimestampWithTimeZoneType(6));

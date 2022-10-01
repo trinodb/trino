@@ -41,7 +41,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -108,20 +108,20 @@ public class TestJsonEncoder
         assertSupportedDataType(() -> singleColumnEncoder(createUnboundedVarcharType()));
 
         assertSupportedDataType(() -> singleColumnEncoder(TIMESTAMP_MILLIS, RFC2822, ""));
-        assertSupportedDataType(() -> singleColumnEncoder(TIMESTAMP_WITH_TIME_ZONE, RFC2822, ""));
+        assertSupportedDataType(() -> singleColumnEncoder(TIMESTAMP_TZ_MILLIS, RFC2822, ""));
 
         for (DateTimeFormat dataFormat : ImmutableList.of(CUSTOM_DATE_TIME, ISO8601)) {
             assertSupportedDataType(() -> singleColumnEncoder(DATE, dataFormat, "yyyy-dd-MM"));
             assertSupportedDataType(() -> singleColumnEncoder(TIME_MILLIS, dataFormat, "kk:mm:ss.SSS"));
             assertSupportedDataType(() -> singleColumnEncoder(TIME_WITH_TIME_ZONE, dataFormat, "kk:mm:ss.SSS Z"));
             assertSupportedDataType(() -> singleColumnEncoder(TIMESTAMP_MILLIS, dataFormat, "yyyy-dd-MM kk:mm:ss.SSS"));
-            assertSupportedDataType(() -> singleColumnEncoder(TIMESTAMP_WITH_TIME_ZONE, dataFormat, "yyyy-dd-MM kk:mm:ss.SSS Z"));
+            assertSupportedDataType(() -> singleColumnEncoder(TIMESTAMP_TZ_MILLIS, dataFormat, "yyyy-dd-MM kk:mm:ss.SSS Z"));
         }
 
         for (DateTimeFormat dataFormat : ImmutableList.of(MILLISECONDS_SINCE_EPOCH, SECONDS_SINCE_EPOCH)) {
             assertSupportedDataType(() -> singleColumnEncoder(TIME_MILLIS, dataFormat, null));
             assertSupportedDataType(() -> singleColumnEncoder(TIMESTAMP_MILLIS, dataFormat, null));
-            assertSupportedDataType(() -> singleColumnEncoder(TIMESTAMP_WITH_TIME_ZONE, dataFormat, null));
+            assertSupportedDataType(() -> singleColumnEncoder(TIMESTAMP_TZ_MILLIS, dataFormat, null));
         }
 
         assertUnsupportedColumnTypeException(() -> singleColumnEncoder(REAL));
@@ -132,7 +132,7 @@ public class TestJsonEncoder
         assertUnsupportedDataFormatException(() -> singleColumnEncoder(TIME_MILLIS));
         assertUnsupportedDataFormatException(() -> singleColumnEncoder(TIME_WITH_TIME_ZONE));
         assertUnsupportedDataFormatException(() -> singleColumnEncoder(TIMESTAMP_MILLIS));
-        assertUnsupportedDataFormatException(() -> singleColumnEncoder(TIMESTAMP_WITH_TIME_ZONE));
+        assertUnsupportedDataFormatException(() -> singleColumnEncoder(TIMESTAMP_TZ_MILLIS));
 
         for (DateTimeFormat dataFormat : ImmutableList.of(MILLISECONDS_SINCE_EPOCH, SECONDS_SINCE_EPOCH)) {
             assertUnsupportedColumnTypeException(() -> singleColumnEncoder(DATE, dataFormat, null));
