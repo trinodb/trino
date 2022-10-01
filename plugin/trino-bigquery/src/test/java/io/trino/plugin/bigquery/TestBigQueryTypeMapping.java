@@ -529,6 +529,18 @@ public class TestBigQueryTypeMapping
     public void testArray()
     {
         SqlDataTypeTest.create()
+                .addRoundTrip("ARRAY(BOOLEAN)", "ARRAY[true]", new ArrayType(BOOLEAN), "ARRAY[true]")
+                .addRoundTrip("ARRAY(INT)", "ARRAY[1]", new ArrayType(BIGINT), "ARRAY[BIGINT '1']")
+                .addRoundTrip("ARRAY(VARCHAR)", "ARRAY['string']", new ArrayType(VARCHAR), "ARRAY[VARCHAR 'string']")
+                .addRoundTrip("ARRAY(ROW(x INT, y VARCHAR))",
+                        "ARRAY[ROW(1, 'string')]",
+                        new ArrayType(RowType.from(ImmutableList.of(new Field(Optional.of("x"), BIGINT), new Field(Optional.of("y"), VARCHAR)))),
+                        "ARRAY[CAST(ROW(1, 'string') AS ROW(x BIGINT, y VARCHAR))]")
+                .addRoundTrip("ARRAY(BOOLEAN)", "ARRAY[]", new ArrayType(BOOLEAN), "CAST(ARRAY[] AS ARRAY<BOOLEAN>)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test.array"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test.array"));
+
+        SqlDataTypeTest.create()
                 .addRoundTrip("ARRAY<BOOLEAN>", "[true]", new ArrayType(BOOLEAN), "ARRAY[true]")
                 .addRoundTrip("ARRAY<INT64>", "[1]", new ArrayType(BIGINT), "ARRAY[BIGINT '1']")
                 .addRoundTrip("ARRAY<STRING>", "['string']", new ArrayType(VARCHAR), "ARRAY[VARCHAR 'string']")
@@ -543,8 +555,38 @@ public class TestBigQueryTypeMapping
     }
 
     @Test
+    public void testUnsupportedNullArray()
+    {
+        // BigQuery translates a NULL ARRAY into an empty ARRAY in the query result
+        // This test ensures that the connector disallows writing a NULL ARRAY
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test.test_null_array", "(col ARRAY(INT))")) {
+            assertQueryFails("INSERT INTO " + table.getName() + " VALUES (NULL)", "NULL value not allowed for NOT NULL column: col");
+        }
+    }
+
+    @Test
     public void testStruct()
     {
+        SqlDataTypeTest.create()
+                .addRoundTrip("ROW(x INT)",
+                        "ROW(1)",
+                        RowType.from(ImmutableList.of(new Field(Optional.of("x"), BIGINT))),
+                        "CAST(ROW(1) AS ROW(x BIGINT))")
+                .addRoundTrip("ROW(x INT, y VARCHAR)",
+                        "(1, 'string')",
+                        RowType.from(ImmutableList.of(new Field(Optional.of("x"), BIGINT), new Field(Optional.of("y"), VARCHAR))),
+                        "CAST(ROW(1, 'string') AS ROW(x BIGINT, y VARCHAR))")
+                .addRoundTrip("ROW(x ROW(y VARCHAR))",
+                        "ROW(ROW('nested'))",
+                        RowType.from(ImmutableList.of(new Field(Optional.of("x"), RowType.from(ImmutableList.of(new Field(Optional.of("y"), VARCHAR)))))),
+                        "CAST(ROW(ROW('nested')) AS ROW(X ROW(Y VARCHAR)))")
+                .addRoundTrip("ROW(x INT)",
+                        "NULL",
+                        RowType.from(ImmutableList.of(new Field(Optional.of("x"), BIGINT))),
+                        "CAST(NULL AS ROW(x BIGINT))")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test.row"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test.row"));
+
         SqlDataTypeTest.create()
                 .addRoundTrip("STRUCT<x INT64>",
                         "STRUCT(1)",
