@@ -13,193 +13,301 @@
  */
 package io.trino.type;
 
-import io.trino.operator.scalar.AbstractTestFunctions;
-import io.trino.spi.type.TimeZoneKey;
-import io.trino.testing.TestingSession;
-import org.joda.time.DateTimeZone;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
-import java.time.LocalDateTime;
-
+import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampType.createTimestampType;
-import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
-import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.OperatorType.SUBTRACT;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestTimestamp
-        extends AbstractTestFunctions
 {
-    private static final TimeZoneKey TIME_ZONE_KEY = TestingSession.DEFAULT_TIME_ZONE_KEY;
-    private static final DateTimeZone DATE_TIME_ZONE = getDateTimeZone(TIME_ZONE_KEY);
+    private QueryAssertions assertions;
 
-    public TestTimestamp()
+    @BeforeAll
+    public void init()
     {
-        super(testSessionBuilder()
-                .setTimeZoneKey(TIME_ZONE_KEY)
-                .build());
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
     }
 
     @Test
     public void testCastFromVarcharContainingTimeZone()
     {
-        assertFunction(
-                "cast('2001-1-22 03:04:05.321 +07:09' as timestamp)",
-                TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 3, 4, 5, 321_000_000)));
-        assertFunction(
-                "cast('2001-1-22 03:04:05 +07:09' as timestamp)",
-                TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 3, 4, 5)));
-        assertFunction(
-                "cast('2001-1-22 03:04 +07:09' as timestamp)",
-                TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 3, 4, 0)));
-        assertFunction(
-                "cast('2001-1-22 +07:09' as timestamp)",
-                TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 0, 0, 0)));
+        assertThat(assertions.expression("CAST('2001-1-22 03:04:05.321 +07:09' AS timestamp)"))
+                .matches("TIMESTAMP '2001-1-22 03:04:05.321'");
 
-        assertFunction(
-                "cast('2001-1-22 03:04:05.321 Asia/Oral' as timestamp)",
-                TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 3, 4, 5, 321_000_000)));
-        assertFunction(
-                "cast('2001-1-22 03:04:05 Asia/Oral' as timestamp)",
-                TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 3, 4, 5)));
-        assertFunction(
-                "cast('2001-1-22 03:04 Asia/Oral' as timestamp)",
-                TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 3, 4, 0)));
-        assertFunction(
-                "cast('2001-1-22 Asia/Oral' as timestamp)",
-                TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 0, 0, 0)));
+        assertThat(assertions.expression("CAST('2001-1-22 03:04:05 +07:09' AS timestamp)"))
+                .matches("TIMESTAMP '2001-1-22 03:04:05.000'");
+
+        assertThat(assertions.expression("CAST('2001-1-22 03:04 +07:09' AS timestamp)"))
+                .matches("TIMESTAMP '2001-1-22 03:04:00.000'");
+
+        assertThat(assertions.expression("CAST('2001-1-22 +07:09' AS timestamp)"))
+                .matches("TIMESTAMP '2001-1-22 00:00:00.000'");
+
+        assertThat(assertions.expression("CAST('2001-1-22 03:04:05.321 Asia/Oral' AS timestamp)"))
+                .matches("TIMESTAMP '2001-1-22 03:04:05.321'");
+
+        assertThat(assertions.expression("CAST('2001-1-22 03:04:05 Asia/Oral' AS timestamp)"))
+                .matches("TIMESTAMP '2001-1-22 03:04:05.000'");
+
+        assertThat(assertions.expression("CAST('2001-1-22 03:04 Asia/Oral' AS timestamp)"))
+                .matches("TIMESTAMP '2001-1-22 03:04:00.000'");
+
+        assertThat(assertions.expression("CAST('2001-1-22 Asia/Oral' AS timestamp)"))
+                .matches("TIMESTAMP '2001-1-22 00:00:00.000'");
     }
 
     @Test
     public void testSubtract()
     {
-        functionAssertions.assertFunctionString("TIMESTAMP '2017-03-30 14:15:16.432' - TIMESTAMP '2016-03-29 03:04:05.321'",
-                INTERVAL_DAY_TIME,
-                "366 11:11:11.111");
+        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '2017-03-30 14:15:16.432'", "TIMESTAMP '2016-03-29 03:04:05.321'"))
+                .matches("INTERVAL '366 11:11:11.111' DAY TO SECOND");
 
-        functionAssertions.assertFunctionString("TIMESTAMP '2016-03-29 03:04:05.321' - TIMESTAMP '2017-03-30 14:15:16.432'",
-                INTERVAL_DAY_TIME,
-                "-366 11:11:11.111");
+        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '2016-03-29 03:04:05.321'", "TIMESTAMP '2017-03-30 14:15:16.432'"))
+                .matches("INTERVAL '-366 11:11:11.111' DAY TO SECOND");
     }
 
     @Test
     public void testEqual()
     {
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' = TIMESTAMP '2001-1-22 03:04:05.321'", BOOLEAN, true);
-        assertFunction("TIMESTAMP '2001-1-22' = TIMESTAMP '2001-1-22'", BOOLEAN, true);
+        assertThat(assertions.operator(EQUAL, "TIMESTAMP '2001-1-22 03:04:05.321'", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .isEqualTo(true);
 
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' = TIMESTAMP '2001-1-22 03:04:05.333'", BOOLEAN, false);
-        assertFunction("TIMESTAMP '2001-1-22' = TIMESTAMP '2001-1-11'", BOOLEAN, false);
+        assertThat(assertions.operator(EQUAL, "TIMESTAMP '2001-1-22'", "TIMESTAMP '2001-1-22'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(EQUAL, "TIMESTAMP '2001-1-22 03:04:05.321'", "TIMESTAMP '2001-1-22 03:04:05.333'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "TIMESTAMP '2001-1-22'", "TIMESTAMP '2001-1-11'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testNotEqual()
     {
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' <> TIMESTAMP '2001-1-22 03:04:05.333'", BOOLEAN, true);
-        assertFunction("TIMESTAMP '2001-1-22' <> TIMESTAMP '2001-1-11'", BOOLEAN, true);
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("b", "TIMESTAMP '2001-1-22 03:04:05.333'"))
+                .isEqualTo(true);
 
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' <> TIMESTAMP '2001-1-22 03:04:05.321'", BOOLEAN, false);
-        assertFunction("TIMESTAMP '2001-1-22' <> TIMESTAMP '2001-1-22'", BOOLEAN, false);
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "TIMESTAMP '2001-1-22'")
+                .binding("b", "TIMESTAMP '2001-1-11'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("b", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "TIMESTAMP '2001-1-22'")
+                .binding("b", "TIMESTAMP '2001-1-22'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testLessThan()
     {
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' < TIMESTAMP '2001-1-22 03:04:05.333'", BOOLEAN, true);
-        assertFunction("TIMESTAMP '2001-1-22' < TIMESTAMP '2001-1-23'", BOOLEAN, true);
+        assertThat(assertions.operator(LESS_THAN, "TIMESTAMP '2001-1-22 03:04:05.321'", "TIMESTAMP '2001-1-22 03:04:05.333'"))
+                .isEqualTo(true);
 
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' < TIMESTAMP '2001-1-22 03:04:05.321'", BOOLEAN, false);
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' < TIMESTAMP '2001-1-22 03:04:05'", BOOLEAN, false);
-        assertFunction("TIMESTAMP '2001-1-22' < TIMESTAMP '2001-1-22'", BOOLEAN, false);
-        assertFunction("TIMESTAMP '2001-1-22' < TIMESTAMP '2001-1-20'", BOOLEAN, false);
+        assertThat(assertions.operator(LESS_THAN, "TIMESTAMP '2001-1-22'", "TIMESTAMP '2001-1-23'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN, "TIMESTAMP '2001-1-22 03:04:05.321'", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "TIMESTAMP '2001-1-22 03:04:05.321'", "TIMESTAMP '2001-1-22 03:04:05'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "TIMESTAMP '2001-1-22'", "TIMESTAMP '2001-1-22'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "TIMESTAMP '2001-1-22'", "TIMESTAMP '2001-1-20'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testLessThanOrEqual()
     {
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' <= TIMESTAMP '2001-1-22 03:04:05.333'", BOOLEAN, true);
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' <= TIMESTAMP '2001-1-22 03:04:05.321'", BOOLEAN, true);
-        assertFunction("TIMESTAMP '2001-1-22' <= TIMESTAMP '2001-1-23'", BOOLEAN, true);
-        assertFunction("TIMESTAMP '2001-1-22' <= TIMESTAMP '2001-1-22'", BOOLEAN, true);
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIMESTAMP '2001-1-22 03:04:05.321'", "TIMESTAMP '2001-1-22 03:04:05.333'"))
+                .isEqualTo(true);
 
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' <= TIMESTAMP '2001-1-22 03:04:05'", BOOLEAN, false);
-        assertFunction("TIMESTAMP '2001-1-22' <= TIMESTAMP '2001-1-20'", BOOLEAN, false);
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIMESTAMP '2001-1-22 03:04:05.321'", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIMESTAMP '2001-1-22'", "TIMESTAMP '2001-1-23'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIMESTAMP '2001-1-22'", "TIMESTAMP '2001-1-22'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIMESTAMP '2001-1-22 03:04:05.321'", "TIMESTAMP '2001-1-22 03:04:05'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIMESTAMP '2001-1-22'", "TIMESTAMP '2001-1-20'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testGreaterThan()
     {
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' > TIMESTAMP '2001-1-22 03:04:05.111'", BOOLEAN, true);
-        assertFunction("TIMESTAMP '2001-1-22' > TIMESTAMP '2001-1-11'", BOOLEAN, true);
+        assertThat(assertions.expression("a > b")
+                .binding("a", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("b", "TIMESTAMP '2001-1-22 03:04:05.111'"))
+                .isEqualTo(true);
 
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' > TIMESTAMP '2001-1-22 03:04:05.321'", BOOLEAN, false);
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' > TIMESTAMP '2001-1-22 03:04:05.333'", BOOLEAN, false);
-        assertFunction("TIMESTAMP '2001-1-22' > TIMESTAMP '2001-1-22'", BOOLEAN, false);
-        assertFunction("TIMESTAMP '2001-1-22' > TIMESTAMP '2001-1-23'", BOOLEAN, false);
+        assertThat(assertions.expression("a > b")
+                .binding("a", "TIMESTAMP '2001-1-22'")
+                .binding("b", "TIMESTAMP '2001-1-11'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("b", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("b", "TIMESTAMP '2001-1-22 03:04:05.333'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "TIMESTAMP '2001-1-22'")
+                .binding("b", "TIMESTAMP '2001-1-22'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "TIMESTAMP '2001-1-22'")
+                .binding("b", "TIMESTAMP '2001-1-23'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testGreaterThanOrEqual()
     {
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' >= TIMESTAMP '2001-1-22 03:04:05.111'", BOOLEAN, true);
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' >= TIMESTAMP '2001-1-22 03:04:05.321'", BOOLEAN, true);
-        assertFunction("TIMESTAMP '2001-1-22' >= TIMESTAMP '2001-1-11'", BOOLEAN, true);
-        assertFunction("TIMESTAMP '2001-1-22' >= TIMESTAMP '2001-1-22'", BOOLEAN, true);
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("b", "TIMESTAMP '2001-1-22 03:04:05.111'"))
+                .isEqualTo(true);
 
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' >= TIMESTAMP '2001-1-22 03:04:05.333'", BOOLEAN, false);
-        assertFunction("TIMESTAMP '2001-1-22' >= TIMESTAMP '2001-1-23'", BOOLEAN, false);
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("b", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "TIMESTAMP '2001-1-22'")
+                .binding("b", "TIMESTAMP '2001-1-11'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "TIMESTAMP '2001-1-22'")
+                .binding("b", "TIMESTAMP '2001-1-22'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("b", "TIMESTAMP '2001-1-22 03:04:05.333'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "TIMESTAMP '2001-1-22'")
+                .binding("b", "TIMESTAMP '2001-1-23'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testBetween()
     {
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' between TIMESTAMP '2001-1-22 03:04:05.111' and TIMESTAMP '2001-1-22 03:04:05.333'", BOOLEAN, true);
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' between TIMESTAMP '2001-1-22 03:04:05.321' and TIMESTAMP '2001-1-22 03:04:05.333'", BOOLEAN, true);
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' between TIMESTAMP '2001-1-22 03:04:05.111' and TIMESTAMP '2001-1-22 03:04:05.321'", BOOLEAN, true);
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' between TIMESTAMP '2001-1-22 03:04:05.321' and TIMESTAMP '2001-1-22 03:04:05.321'", BOOLEAN, true);
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("low", "TIMESTAMP '2001-1-22 03:04:05.111'")
+                .binding("high", "TIMESTAMP '2001-1-22 03:04:05.333'"))
+                .isEqualTo(true);
 
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' between TIMESTAMP '2001-1-22 03:04:05.322' and TIMESTAMP '2001-1-22 03:04:05.333'", BOOLEAN, false);
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' between TIMESTAMP '2001-1-22 03:04:05.311' and TIMESTAMP '2001-1-22 03:04:05.312'", BOOLEAN, false);
-        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' between TIMESTAMP '2001-1-22 03:04:05.333' and TIMESTAMP '2001-1-22 03:04:05.111'", BOOLEAN, false);
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("low", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("high", "TIMESTAMP '2001-1-22 03:04:05.333'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("low", "TIMESTAMP '2001-1-22 03:04:05.111'")
+                .binding("high", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("low", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("high", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("low", "TIMESTAMP '2001-1-22 03:04:05.322'")
+                .binding("high", "TIMESTAMP '2001-1-22 03:04:05.333'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("low", "TIMESTAMP '2001-1-22 03:04:05.311'")
+                .binding("high", "TIMESTAMP '2001-1-22 03:04:05.312'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("low", "TIMESTAMP '2001-1-22 03:04:05.333'")
+                .binding("high", "TIMESTAMP '2001-1-22 03:04:05.111'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testGreatest()
     {
-        assertFunction("greatest(TIMESTAMP '2013-03-30 01:05', TIMESTAMP '2012-03-30 01:05')",
-                createTimestampType(0),
-                sqlTimestampOf(0, 2013, 3, 30, 1, 5, 0, 0));
-        assertFunction("greatest(TIMESTAMP '2013-03-30 01:05', TIMESTAMP '2012-03-30 01:05', TIMESTAMP '2012-05-01 01:05')",
-                createTimestampType(0),
-                sqlTimestampOf(0, 2013, 3, 30, 1, 5, 0, 0));
+        assertThat(assertions.function("greatest", "TIMESTAMP '2013-03-30 01:05'", "TIMESTAMP '2012-03-30 01:05'"))
+                .matches("TIMESTAMP '2013-03-30 01:05'");
+
+        assertThat(assertions.function("greatest", "TIMESTAMP '2013-03-30 01:05'", "TIMESTAMP '2012-03-30 01:05'", "TIMESTAMP '2012-05-01 01:05'"))
+                .matches("TIMESTAMP '2013-03-30 01:05'");
     }
 
     @Test
     public void testLeast()
     {
-        assertFunction("least(TIMESTAMP '2013-03-30 01:05', TIMESTAMP '2012-03-30 01:05')",
-                createTimestampType(0),
-                sqlTimestampOf(0, 2012, 3, 30, 1, 5, 0, 0));
-        assertFunction("least(TIMESTAMP '2013-03-30 01:05', TIMESTAMP '2012-03-30 01:05', TIMESTAMP '2012-05-01 01:05')",
-                createTimestampType(0),
-                sqlTimestampOf(0, 2012, 3, 30, 1, 5, 0, 0));
+        assertThat(assertions.function("least", "TIMESTAMP '2013-03-30 01:05'", "TIMESTAMP '2012-03-30 01:05'"))
+                .matches("TIMESTAMP '2012-03-30 01:05'");
+
+        assertThat(assertions.function("least", "TIMESTAMP '2013-03-30 01:05'", "TIMESTAMP '2012-03-30 01:05'", "TIMESTAMP '2012-05-01 01:05'"))
+                .matches("TIMESTAMP '2012-03-30 01:05'");
     }
 
     @Test
     public void testIndeterminate()
     {
-        assertOperator(INDETERMINATE, "cast(null as TIMESTAMP)", BOOLEAN, true);
-        assertOperator(INDETERMINATE, "TIMESTAMP '2012-03-30 01:05'", BOOLEAN, false);
+        assertThat(assertions.operator(INDETERMINATE, "CAST(null AS TIMESTAMP)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(INDETERMINATE, "TIMESTAMP '2012-03-30 01:05'"))
+                .isEqualTo(false);
     }
 }
