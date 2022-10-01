@@ -21,23 +21,23 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class ArrayConstructor
+public class Array
         extends Expression
 {
     public static final String ARRAY_CONSTRUCTOR = "ARRAY_CONSTRUCTOR";
     private final List<Expression> values;
 
-    public ArrayConstructor(List<Expression> values)
+    public Array(List<Expression> values)
     {
         this(Optional.empty(), values);
     }
 
-    public ArrayConstructor(NodeLocation location, List<Expression> values)
+    public Array(NodeLocation location, List<Expression> values)
     {
         this(Optional.of(location), values);
     }
 
-    private ArrayConstructor(Optional<NodeLocation> location, List<Expression> values)
+    private Array(Optional<NodeLocation> location, List<Expression> values)
     {
         super(location);
         requireNonNull(values, "values is null");
@@ -52,7 +52,7 @@ public class ArrayConstructor
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitArrayConstructor(this, context);
+        return visitor.visitArray(this, context);
     }
 
     @Override
@@ -71,7 +71,7 @@ public class ArrayConstructor
             return false;
         }
 
-        ArrayConstructor that = (ArrayConstructor) o;
+        Array that = (Array) o;
         return Objects.equals(values, that.values);
     }
 
