@@ -15,10 +15,9 @@ package org.apache.parquet.internal.filter2.columnindex;
 
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 
-import java.util.Objects;
 import java.util.stream.IntStream;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.trino.parquet.reader.FilteredRowRanges.RowRange;
 import static java.util.Objects.requireNonNull;
 
 public class TestingRowRanges
@@ -66,68 +65,13 @@ public class TestingRowRanges
         @Override
         public long getFirstRowIndex(int pageIndex)
         {
-            return rowRanges[pageIndex].getStart();
+            return rowRanges[pageIndex].start();
         }
 
         @Override
         public long getLastRowIndex(int pageIndex, long rowGroupRowCount)
         {
-            return rowRanges[pageIndex].getEnd();
-        }
-    }
-
-    public static RowRange range(long start, long end)
-    {
-        return new RowRange(start, end);
-    }
-
-    public static class RowRange
-    {
-        private final long start;
-        private final long end;
-
-        private RowRange(long start, long end)
-        {
-            this.start = start;
-            this.end = end;
-        }
-
-        public long getStart()
-        {
-            return start;
-        }
-
-        public long getEnd()
-        {
-            return end;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            RowRange rowRange = (RowRange) o;
-            return start == rowRange.start && end == rowRange.end;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(start, end);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("start", start)
-                    .add("end", end)
-                    .toString();
+            return rowRanges[pageIndex].end();
         }
     }
 }

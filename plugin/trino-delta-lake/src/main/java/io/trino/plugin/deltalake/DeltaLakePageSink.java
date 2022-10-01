@@ -491,6 +491,7 @@ public class DeltaLakePageSink
                     identityMapping,
                     compressionCodecName,
                     trinoVersion,
+                    false,
                     Optional.empty(),
                     Optional.empty());
         }

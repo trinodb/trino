@@ -90,6 +90,7 @@ import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CURSOR_ERROR;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_MISSING_DATA;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNSUPPORTED_FILE_FORMAT;
+import static io.trino.plugin.hudi.HudiSessionProperties.isParquetOptimizedReaderEnabled;
 import static io.trino.plugin.hudi.HudiSessionProperties.shouldUseParquetColumnNames;
 import static io.trino.plugin.hudi.HudiUtil.getHudiFileFormat;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -239,7 +240,7 @@ public class HudiPageSourceProvider
                     dataSource,
                     timeZone,
                     newSimpleAggregatedMemoryContext(),
-                    options,
+                    options.withBatchColumnReaders(isParquetOptimizedReaderEnabled(session)),
                     exception -> handleException(dataSourceId, exception),
                     Optional.of(parquetPredicate),
                     columnIndexes.build(),

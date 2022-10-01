@@ -237,6 +237,7 @@ public class DeltaLakeMergeSink
                     IntStream.range(0, dataColumns.size()).toArray(),
                     compressionCodecName,
                     trinoVersion,
+                    false,
                     Optional.empty(),
                     Optional.empty());
         }

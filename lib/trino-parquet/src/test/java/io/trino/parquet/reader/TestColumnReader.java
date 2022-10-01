@@ -19,6 +19,8 @@ import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.reader.decoders.ValueDecoders;
+import io.trino.parquet.reader.flat.FlatColumnReader;
 import io.trino.spi.block.Block;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -54,6 +56,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
+import static io.trino.parquet.reader.FilteredRowRanges.RowRange;
+import static io.trino.parquet.reader.TestingColumnReader.toTrinoDictionaryPage;
+import static io.trino.parquet.reader.flat.IntColumnAdapter.INT_ADAPTER;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.concat;
@@ -62,8 +67,6 @@ import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.column.Encoding.RLE_DICTIONARY;
 import static org.apache.parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED;
-import static org.apache.parquet.internal.filter2.columnindex.TestingRowRanges.RowRange;
-import static org.apache.parquet.internal.filter2.columnindex.TestingRowRanges.range;
 import static org.apache.parquet.internal.filter2.columnindex.TestingRowRanges.toRowRange;
 import static org.apache.parquet.internal.filter2.columnindex.TestingRowRanges.toRowRanges;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
@@ -86,7 +89,7 @@ public class TestColumnReader
             List<RowRange> pageRowRanges)
     {
         ColumnReaderProvider columnReaderProvider = columnReaderInput.columnReaderProvider();
-        PrimitiveColumnReader reader = columnReaderProvider.createColumnReader();
+        ColumnReader reader = columnReaderProvider.createColumnReader();
         NullPositionsProvider nullPositionsProvider = columnReaderInput.getPageNullPositionsProvider();
         List<TestingPage> testingPages = getTestingPages(nullPositionsProvider, pageRowRanges);
         reader.setPageReader(
@@ -98,7 +101,7 @@ public class TestColumnReader
         List<Long> valuesRead = new ArrayList<>(rowCount);
         List<Long> expectedValues = new ArrayList<>(rowCount);
         PrimitiveIterator.OfLong rowRangesIterator = selectedRows.map(RowRanges::iterator)
-                .orElseGet(() -> LongStream.range(pageRowRanges.get(0).getStart(), rowCount).iterator());
+                .orElseGet(() -> LongStream.range(pageRowRanges.get(0).start(), rowCount).iterator());
         Set<Integer> required = getRequiredPositions(testingPages);
 
         int readCount = 0;
@@ -170,18 +173,20 @@ public class TestColumnReader
     private enum ColumnReaderProvider
     {
         INT_PRIMITIVE_NO_NULLS(() -> new IntColumnReader(FIELD), FIELD),
-        INT_PRIMITIVE_NULLABLE(() -> new IntColumnReader(NULLABLE_FIELD), NULLABLE_FIELD);
+        INT_PRIMITIVE_NULLABLE(() -> new IntColumnReader(NULLABLE_FIELD), NULLABLE_FIELD),
+        INT_FLAT_NO_NULLS(() -> new FlatColumnReader<>(FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER), FIELD),
+        INT_FLAT_NULLABLE(() -> new FlatColumnReader<>(NULLABLE_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER), NULLABLE_FIELD);
 
-        private final Supplier<PrimitiveColumnReader> columnReader;
+        private final Supplier<ColumnReader> columnReader;
         private final PrimitiveField field;
 
-        ColumnReaderProvider(Supplier<PrimitiveColumnReader> columnReader, PrimitiveField field)
+        ColumnReaderProvider(Supplier<ColumnReader> columnReader, PrimitiveField field)
         {
             this.columnReader = requireNonNull(columnReader, "columnReader is null");
             this.field = requireNonNull(field, "field is null");
         }
 
-        PrimitiveColumnReader createColumnReader()
+        ColumnReader createColumnReader()
         {
             return columnReader.get();
         }
@@ -324,7 +329,7 @@ public class TestColumnReader
                     boolean[] required = positions.getRequiredPositions();
                     return IntStream.range(0, required.length)
                             .filter(idx -> required[idx])
-                            .map(idx -> idx + toIntExact(positions.getPageRowRange().getStart()))
+                            .map(idx -> idx + toIntExact(positions.getPageRowRange().start()))
                             .boxed();
                 })
                 .collect(toImmutableSet());
@@ -373,7 +378,7 @@ public class TestColumnReader
                 getParquetEncoding(encoder.getEncoding()),
                 Slices.wrappedBuffer(encodePlainValues(encoder, values, valueCount)),
                 rowCount * 4,
-                OptionalLong.of(toIntExact(testingPage.getPageRowRange().getStart())),
+                OptionalLong.of(toIntExact(testingPage.getPageRowRange().start())),
                 null,
                 false);
         encoder.reset();
@@ -383,8 +388,8 @@ public class TestColumnReader
     private static int getPageValues(TestingPage testingPage, int[] values)
     {
         RowRange pageRowRange = testingPage.getPageRowRange();
-        int start = toIntExact(pageRowRange.getStart());
-        int end = toIntExact(pageRowRange.getEnd()) + 1;
+        int start = toIntExact(pageRowRange.start());
+        int end = toIntExact(pageRowRange.end()) + 1;
         boolean[] required = testingPage.getRequiredPositions();
         int valueCount = 0;
         for (int i = start; i < end; i++) {
@@ -433,7 +438,7 @@ public class TestColumnReader
         return pageRowRanges.stream()
                 .map(rowRange -> new TestingPage(
                         rowRange,
-                        nullPositionsProvider.getRequiredPositions(toIntExact(rowRange.getEnd() + 1 - rowRange.getStart()))))
+                        nullPositionsProvider.getRequiredPositions(toIntExact(rowRange.end() + 1 - rowRange.start()))))
                 .collect(toImmutableList());
     }
 
@@ -460,20 +465,12 @@ public class TestColumnReader
 
         public int getRowCount()
         {
-            return toIntExact(pageRowRange.getEnd() + 1 - pageRowRange.getStart());
+            return toIntExact(pageRowRange.end() + 1 - pageRowRange.start());
         }
     }
 
-    private static DictionaryPage toTrinoDictionaryPage(org.apache.parquet.column.page.DictionaryPage dictionary)
+    private static RowRange range(long start, long end)
     {
-        try {
-            return new DictionaryPage(
-                    Slices.wrappedBuffer(dictionary.getBytes().toByteArray()),
-                    dictionary.getDictionarySize(),
-                    getParquetEncoding(dictionary.getEncoding()));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return new RowRange(start, end);
     }
 }
