@@ -14,33 +14,21 @@
 package io.trino.type;
 
 import io.trino.operator.scalar.AbstractTestFunctions;
-import io.trino.spi.type.SqlDate;
-import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.TestingSession;
-import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
-import java.util.concurrent.TimeUnit;
 
-import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.DateTimeTestingUtils.sqlTimeOf;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
-import static io.trino.type.JsonType.JSON;
 import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class TestTimestamp
         extends AbstractTestFunctions
@@ -103,30 +91,6 @@ public class TestTimestamp
         functionAssertions.assertFunctionString("TIMESTAMP '2016-03-29 03:04:05.321' - TIMESTAMP '2017-03-30 14:15:16.432'",
                 INTERVAL_DAY_TIME,
                 "-366 11:11:11.111");
-    }
-
-    @Test
-    public void testLiteral()
-    {
-        assertFunction("TIMESTAMP '2013-03-30 01:05'", createTimestampType(0), sqlTimestampOf(0, 2013, 3, 30, 1, 5, 0, 0));
-        assertFunction("TIMESTAMP '2013-03-30 02:05'", createTimestampType(0), sqlTimestampOf(0, 2013, 3, 30, 2, 5, 0, 0));
-        assertFunction("TIMESTAMP '2013-03-30 03:05'", createTimestampType(0), sqlTimestampOf(0, 2013, 3, 30, 3, 5, 0, 0));
-
-        assertFunction("TIMESTAMP '2001-01-22 03:04:05.321'", createTimestampType(3), sqlTimestampOf(3, 2001, 1, 22, 3, 4, 5, 321));
-        assertFunction("TIMESTAMP '2001-01-22 03:04:05'", createTimestampType(0), sqlTimestampOf(0, 2001, 1, 22, 3, 4, 5, 0));
-        assertFunction("TIMESTAMP '2001-01-22 03:04'", createTimestampType(0), sqlTimestampOf(0, 2001, 1, 22, 3, 4, 0, 0));
-        assertFunction("TIMESTAMP '2001-01-22'", createTimestampType(0), sqlTimestampOf(0, 2001, 1, 22, 0, 0, 0, 0));
-
-        assertFunction("TIMESTAMP '2001-1-2 3:4:5.321'", createTimestampType(3), sqlTimestampOf(3, 2001, 1, 2, 3, 4, 5, 321));
-        assertFunction("TIMESTAMP '2001-1-2 3:4:5'", createTimestampType(0), sqlTimestampOf(0, 2001, 1, 2, 3, 4, 5, 0));
-        assertFunction("TIMESTAMP '2001-1-2 3:4'", createTimestampType(0), sqlTimestampOf(0, 2001, 1, 2, 3, 4, 0, 0));
-        assertFunction("TIMESTAMP '2001-1-2'", createTimestampType(0), sqlTimestampOf(0, 2001, 1, 2, 0, 0, 0, 0));
-
-        assertFunction("TIMESTAMP '123001-01-22 03:04:05.321'", createTimestampType(3), sqlTimestampOf(3, 123001, 1, 22, 3, 4, 5, 321));
-        assertFunction("TIMESTAMP '+123001-01-22 03:04:05.321'", createTimestampType(3), sqlTimestampOf(3, 123001, 1, 22, 3, 4, 5, 321));
-        assertFunction("TIMESTAMP '-123001-01-22 03:04:05.321'", createTimestampType(3), sqlTimestampOf(3, -123001, 1, 22, 3, 4, 5, 321));
-
-        assertInvalidFunction("TIMESTAMP 'text'", INVALID_LITERAL, "line 1:1: 'text' is not a valid timestamp literal");
     }
 
     @Test
@@ -208,79 +172,6 @@ public class TestTimestamp
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' between TIMESTAMP '2001-1-22 03:04:05.322' and TIMESTAMP '2001-1-22 03:04:05.333'", BOOLEAN, false);
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' between TIMESTAMP '2001-1-22 03:04:05.311' and TIMESTAMP '2001-1-22 03:04:05.312'", BOOLEAN, false);
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' between TIMESTAMP '2001-1-22 03:04:05.333' and TIMESTAMP '2001-1-22 03:04:05.111'", BOOLEAN, false);
-    }
-
-    @Test
-    public void testCastToDate()
-    {
-        long millis = new DateTime(2001, 1, 22, 0, 0, UTC).getMillis();
-        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as date)", DATE, new SqlDate((int) TimeUnit.MILLISECONDS.toDays(millis)));
-    }
-
-    @Test
-    public void testCastToTime()
-    {
-        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as time)", TIME_MILLIS, sqlTimeOf(3, 4, 5, 321));
-    }
-
-    @Test
-    public void testCastToTimestampWithTimeZone()
-    {
-        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as timestamp with time zone)",
-                TIMESTAMP_TZ_MILLIS,
-                SqlTimestampWithTimeZone.newInstance(3, new DateTime(2001, 1, 22, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), 0, TimeZoneKey.getTimeZoneKey(DATE_TIME_ZONE.getID())));
-        functionAssertions.assertFunctionString("cast(TIMESTAMP '2001-1-22 03:04:05.321' as timestamp with time zone)",
-                TIMESTAMP_TZ_MILLIS,
-                "2001-01-22 03:04:05.321 " + DATE_TIME_ZONE.getID());
-    }
-
-    @Test
-    public void testCastToVarchar()
-    {
-        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as varchar)", VARCHAR, "2001-01-22 03:04:05.321");
-        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05' as varchar)", VARCHAR, "2001-01-22 03:04:05");
-        assertFunction("cast(TIMESTAMP '2001-1-22 03:04' as varchar)", VARCHAR, "2001-01-22 03:04:00");
-        assertFunction("cast(TIMESTAMP '2001-1-22' as varchar)", VARCHAR, "2001-01-22 00:00:00");
-    }
-
-    @Test
-    public void testCastToJson()
-    {
-        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as json)", JSON, "\"2001-01-22 03:04:05.321\"");
-        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05' as json)", JSON, "\"2001-01-22 03:04:05\"");
-        assertFunction("cast(TIMESTAMP '2001-1-22 03:04' as json)", JSON, "\"2001-01-22 03:04:00\"");
-        assertFunction("cast(TIMESTAMP '2001-1-22' as json)", JSON, "\"2001-01-22 00:00:00\"");
-
-        assertFunction("cast(ARRAY[TIMESTAMP '2001-1-22 03:04:05.321'] as json)", JSON, "[\"2001-01-22 03:04:05.321\"]");
-        assertFunction("cast(ARRAY[TIMESTAMP '2001-1-22 03:04:05'] as json)", JSON, "[\"2001-01-22 03:04:05\"]");
-        assertFunction("cast(ARRAY[TIMESTAMP '2001-1-22 03:04'] as json)", JSON, "[\"2001-01-22 03:04:00\"]");
-        assertFunction("cast(ARRAY[TIMESTAMP '2001-1-22'] as json)", JSON, "[\"2001-01-22 00:00:00\"]");
-    }
-
-    @Test
-    public void testCastFromVarchar()
-    {
-        assertFunction("cast('2001-1-22 03:04:05.321' as timestamp)",
-                TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 2001, 1, 22, 3, 4, 5, 321));
-        assertFunction("cast('2001-1-22 03:04:05' as timestamp)",
-                TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 2001, 1, 22, 3, 4, 5, 0));
-        assertFunction("cast('2001-1-22 03:04' as timestamp)",
-                TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 2001, 1, 22, 3, 4, 0, 0));
-        assertFunction("cast('2001-1-22' as timestamp)",
-                TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 2001, 1, 22, 0, 0, 0, 0));
-        assertFunction("cast('\n\t 2001-1-22 03:04:05.321' as timestamp)",
-                TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 2001, 1, 22, 3, 4, 5, 321));
-        assertFunction("cast('2001-1-22 03:04:05.321 \t\n' as timestamp)",
-                TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 2001, 1, 22, 3, 4, 5, 321));
-        assertFunction("cast('\n\t 2001-1-22 03:04:05.321 \t\n' as timestamp)",
-                TIMESTAMP_MILLIS,
-                sqlTimestampOf(3, 2001, 1, 22, 3, 4, 5, 321));
     }
 
     @Test
