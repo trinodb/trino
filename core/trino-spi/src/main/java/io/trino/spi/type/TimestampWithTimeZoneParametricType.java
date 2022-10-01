@@ -30,7 +30,7 @@ public class TimestampWithTimeZoneParametricType
     public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
         if (parameters.isEmpty()) {
-            return TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+            return TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
         }
         if (parameters.size() != 1) {
             throw new IllegalArgumentException("Expected exactly one parameter for TIMESTAMP WITH TIME ZONE");

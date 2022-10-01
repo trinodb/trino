@@ -56,7 +56,7 @@ import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -149,7 +149,7 @@ public class TestHistogram
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 QualifiedName.of("histogram"),
-                fromTypes(TIMESTAMP_WITH_TIME_ZONE),
+                fromTypes(TIMESTAMP_TZ_MILLIS),
                 ImmutableMap.of(SqlTimestampWithTimeZone.newInstance(3, unpackMillisUtc(timestampWithTimeZone1), 0, unpackZoneKey(timestampWithTimeZone1)), 2L, SqlTimestampWithTimeZone.newInstance(3, unpackMillisUtc(timestampWithTimeZone2), 0, unpackZoneKey(timestampWithTimeZone2)), 1L),
                 createLongsBlock(timestampWithTimeZone1, timestampWithTimeZone1, timestampWithTimeZone2));
     }

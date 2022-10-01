@@ -291,7 +291,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -5290,7 +5290,7 @@ public abstract class AbstractTestHive
                 else if (TIMESTAMP_MILLIS.equals(column.getType())) {
                     assertInstanceOf(value, SqlTimestamp.class);
                 }
-                else if (TIMESTAMP_WITH_TIME_ZONE.equals(column.getType())) {
+                else if (TIMESTAMP_TZ_MILLIS.equals(column.getType())) {
                     assertInstanceOf(value, SqlTimestampWithTimeZone.class);
                 }
                 else if (DATE.equals(column.getType())) {

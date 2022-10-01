@@ -29,7 +29,7 @@ import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -72,7 +72,7 @@ class ISO8601HashRedisFieldDecoder
             if (type.equals(TIME_MILLIS)) {
                 return millis * PICOSECONDS_PER_MILLISECOND;
             }
-            if (type.equals(TIMESTAMP_WITH_TIME_ZONE) || type.equals(TIME_WITH_TIME_ZONE)) {
+            if (type.equals(TIMESTAMP_TZ_MILLIS) || type.equals(TIME_WITH_TIME_ZONE)) {
                 return packDateTimeWithZone(millis, getTimeZoneKey(dateTime.getZone().getID()));
             }
 

@@ -53,7 +53,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -1374,7 +1374,7 @@ public class TestCassandraConnectorTest
                 INTEGER,
                 BIGINT,
                 VARBINARY,
-                TIMESTAMP_WITH_TIME_ZONE,
+                TIMESTAMP_TZ_MILLIS,
                 createUnboundedVarcharType(),
                 BOOLEAN,
                 DOUBLE,

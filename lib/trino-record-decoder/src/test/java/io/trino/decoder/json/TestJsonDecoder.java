@@ -43,7 +43,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -147,21 +147,21 @@ public class TestJsonDecoder
         singleColumnDecoder(createVarcharType(100), null);
 
         singleColumnDecoder(TIMESTAMP_MILLIS, "rfc2822");
-        singleColumnDecoder(TIMESTAMP_WITH_TIME_ZONE, "rfc2822");
+        singleColumnDecoder(TIMESTAMP_TZ_MILLIS, "rfc2822");
 
         for (String dataFormat : ImmutableSet.of("iso8601", "custom-date-time")) {
             singleColumnDecoder(DATE, dataFormat);
             singleColumnDecoder(TIME_MILLIS, dataFormat);
             singleColumnDecoder(TIME_WITH_TIME_ZONE, dataFormat);
             singleColumnDecoder(TIMESTAMP_MILLIS, dataFormat);
-            singleColumnDecoder(TIMESTAMP_WITH_TIME_ZONE, dataFormat);
+            singleColumnDecoder(TIMESTAMP_TZ_MILLIS, dataFormat);
         }
 
         for (String dataFormat : ImmutableSet.of("seconds-since-epoch", "milliseconds-since-epoch")) {
             singleColumnDecoder(TIME_MILLIS, dataFormat);
             singleColumnDecoder(TIME_WITH_TIME_ZONE, dataFormat);
             singleColumnDecoder(TIMESTAMP_MILLIS, dataFormat);
-            singleColumnDecoder(TIMESTAMP_WITH_TIME_ZONE, dataFormat);
+            singleColumnDecoder(TIMESTAMP_TZ_MILLIS, dataFormat);
         }
 
         // some unsupported types
@@ -174,7 +174,7 @@ public class TestJsonDecoder
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIME_MILLIS, null));
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIME_WITH_TIME_ZONE, null));
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIMESTAMP_MILLIS, null));
-        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIMESTAMP_WITH_TIME_ZONE, null));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIMESTAMP_TZ_MILLIS, null));
 
         // non temporal types are not supported by temporal field decoders
         for (String dataFormat : ImmutableSet.of("iso8601", "custom-date-time", "seconds-since-epoch", "milliseconds-since-epoch", "rfc2822")) {
