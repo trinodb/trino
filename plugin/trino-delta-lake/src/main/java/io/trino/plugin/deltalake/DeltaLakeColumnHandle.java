@@ -30,7 +30,7 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnType.SYNTHESIZED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -55,7 +55,7 @@ public class DeltaLakeColumnHandle
     public static final Type FILE_SIZE_TYPE = BIGINT;
 
     public static final String FILE_MODIFIED_TIME_COLUMN_NAME = "$file_modified_time";
-    public static final Type FILE_MODIFIED_TIME_TYPE = TIMESTAMP_WITH_TIME_ZONE;
+    public static final Type FILE_MODIFIED_TIME_TYPE = TIMESTAMP_TZ_MILLIS;
 
     private final String name;
     private final Type type;

@@ -52,7 +52,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
@@ -549,7 +549,7 @@ public class TestKafkaConnectorTest
                         .addField(TIME_MILLIS, CUSTOM_DATE_TIME.toString(), "HH:mm:ss.SSS", "TIME '01:02:03.456'")
                         .addField(TIME_WITH_TIME_ZONE, CUSTOM_DATE_TIME.toString(), "HH:mm:ss.SSS Z", "TIME '01:02:03.456 -04:00'")
                         .addField(TIMESTAMP_MILLIS, CUSTOM_DATE_TIME.toString(), "yyyy-dd-MM HH:mm:ss.SSS", "TIMESTAMP '2020-07-15 01:02:03.456'")
-                        .addField(TIMESTAMP_WITH_TIME_ZONE, CUSTOM_DATE_TIME.toString(), "yyyy-dd-MM HH:mm:ss.SSS Z", "TIMESTAMP '2020-07-15 01:02:03.456 -04:00'")
+                        .addField(TIMESTAMP_TZ_MILLIS, CUSTOM_DATE_TIME.toString(), "yyyy-dd-MM HH:mm:ss.SSS Z", "TIMESTAMP '2020-07-15 01:02:03.456 -04:00'")
                         .build())
                 .add(JsonDateTimeTestCase.builder()
                         .setTopicName(JSON_ISO8601_TABLE_NAME)
@@ -557,12 +557,12 @@ public class TestKafkaConnectorTest
                         .addField(TIME_MILLIS, ISO8601.toString(), "TIME '01:02:03.456'")
                         .addField(TIME_WITH_TIME_ZONE, ISO8601.toString(), "TIME '01:02:03.456 -04:00'")
                         .addField(TIMESTAMP_MILLIS, ISO8601.toString(), "TIMESTAMP '2020-07-15 01:02:03.456'")
-                        .addField(TIMESTAMP_WITH_TIME_ZONE, ISO8601.toString(), "TIMESTAMP '2020-07-15 01:02:03.456 -04:00'")
+                        .addField(TIMESTAMP_TZ_MILLIS, ISO8601.toString(), "TIMESTAMP '2020-07-15 01:02:03.456 -04:00'")
                         .build())
                 .add(JsonDateTimeTestCase.builder()
                         .setTopicName(JSON_RFC2822_TABLE_NAME)
                         .addField(TIMESTAMP_MILLIS, RFC2822.toString(), "TIMESTAMP '2020-07-15 01:02:03'")
-                        .addField(TIMESTAMP_WITH_TIME_ZONE, RFC2822.toString(), "TIMESTAMP '2020-07-15 01:02:03 -04:00'")
+                        .addField(TIMESTAMP_TZ_MILLIS, RFC2822.toString(), "TIMESTAMP '2020-07-15 01:02:03 -04:00'")
                         .build())
                 .add(JsonDateTimeTestCase.builder()
                         .setTopicName(JSON_MILLISECONDS_TABLE_NAME)
