@@ -41,7 +41,7 @@ import static io.trino.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
 import static io.trino.spi.type.StandardTypes.IPADDRESS;
 import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.StandardTypes.UUID;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -69,7 +69,7 @@ public class TestFixJsonDataUtils
         assertQueryResult(new TypeSignature(INTERVAL_YEAR_TO_MONTH), "INTERVAL '3' MONTH", "INTERVAL '3' MONTH");
         assertQueryResult(TIMESTAMP_MILLIS.getTypeSignature(), "2001-08-22 03:04:05.321", "2001-08-22 03:04:05.321");
         assertQueryResult(TIMESTAMP_WITH_TIME_ZONE.getTypeSignature(), "2001-08-22 03:04:05.321 America/Los_Angeles", "2001-08-22 03:04:05.321 America/Los_Angeles");
-        assertQueryResult(TIME.getTypeSignature(), "01:02:03.456", "01:02:03.456");
+        assertQueryResult(TIME_MILLIS.getTypeSignature(), "01:02:03.456", "01:02:03.456");
         assertQueryResult(TIMESTAMP_WITH_TIME_ZONE.getTypeSignature(), "01:02:03.456 America/Los_Angeles", "01:02:03.456 America/Los_Angeles");
         assertQueryResult(VARBINARY.getTypeSignature(), "garbage", Base64.getDecoder().decode("garbage"));
         assertQueryResult(VARCHAR.getTypeSignature(), "teststring", "teststring");

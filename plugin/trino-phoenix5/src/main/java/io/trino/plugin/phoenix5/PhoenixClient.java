@@ -172,7 +172,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -542,7 +542,7 @@ public class PhoenixClient
         if (type == DATE) {
             return WriteMapping.longMapping("date", dateWriteFunctionUsingString());
         }
-        if (TIME.equals(type)) {
+        if (TIME_MILLIS.equals(type)) {
             return WriteMapping.longMapping("time", timeWriteFunctionUsingSqlTime());
         }
         // Phoenix doesn't support _WITH_TIME_ZONE

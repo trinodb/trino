@@ -44,7 +44,7 @@ import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
@@ -165,7 +165,7 @@ public class RedisLoader
             if (DATE.equals(type)) {
                 return value;
             }
-            if (TIME.equals(type)) {
+            if (TIME_MILLIS.equals(type)) {
                 return ISO8601_FORMATTER.print(parseLegacyTime(timeZoneKey, (String) value));
             }
             if (TIMESTAMP_MILLIS.equals(type)) {

@@ -804,7 +804,7 @@ public class TestTrinoDatabaseMetaData
                 assertColumnSpec(rs, Types.VARCHAR, (long) Integer.MAX_VALUE, null, null, (long) Integer.MAX_VALUE, createUnboundedVarcharType());
                 assertColumnSpec(rs, Types.CHAR, 345L, null, null, 345L, createCharType(345));
                 assertColumnSpec(rs, Types.VARBINARY, (long) Integer.MAX_VALUE, null, null, (long) Integer.MAX_VALUE, VarbinaryType.VARBINARY);
-                assertColumnSpec(rs, Types.TIME, 12L, null, 3L, null, TimeType.TIME);
+                assertColumnSpec(rs, Types.TIME, 12L, null, 3L, null, TimeType.TIME_MILLIS);
                 assertColumnSpec(rs, Types.TIME, 8L, null, 0L, null, createTimeType(0));
                 assertColumnSpec(rs, Types.TIME, 12L, null, 3L, null, createTimeType(3));
                 assertColumnSpec(rs, Types.TIME, 15L, null, 6L, null, createTimeType(6));

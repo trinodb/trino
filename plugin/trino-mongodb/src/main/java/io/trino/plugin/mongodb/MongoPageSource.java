@@ -72,7 +72,7 @@ import static io.trino.spi.type.Decimals.isLongDecimal;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
@@ -194,7 +194,7 @@ public class MongoPageSource
                     long utcMillis = ((Date) value).getTime();
                     type.writeLong(output, TimeUnit.MILLISECONDS.toDays(utcMillis));
                 }
-                else if (type.equals(TIME)) {
+                else if (type.equals(TIME_MILLIS)) {
                     long millis = UTC_CHRONOLOGY.millisOfDay().get(((Date) value).getTime());
                     type.writeLong(output, multiplyExact(millis, PICOSECONDS_PER_MILLISECOND));
                 }

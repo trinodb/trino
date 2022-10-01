@@ -223,7 +223,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
@@ -633,7 +633,7 @@ public class ExpressionAnalyzer
                     if (node.getPrecision() != null) {
                         yield setExpressionType(node, createTimeType(node.getPrecision()));
                     }
-                    yield setExpressionType(node, TIME);
+                    yield setExpressionType(node, TIME_MILLIS);
                 }
                 case TIMESTAMP -> setExpressionType(node, createTimestampWithTimeZoneType(firstNonNull(node.getPrecision(), TimestampWithTimeZoneType.DEFAULT_PRECISION)));
                 case LOCALTIMESTAMP -> {
