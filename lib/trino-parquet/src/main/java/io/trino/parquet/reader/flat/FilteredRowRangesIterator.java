@@ -196,6 +196,17 @@ public class FilteredRowRangesIterator
         verify(pageFirstRowIndex <= rangeEnd);
     }
 
+    /**
+     * Returns whether the current page with the provided value count
+     * is fully contained within the current row range.
+     */
+    @Override
+    public boolean isPageFullyConsumed(int pageValueCount)
+    {
+        return pageFirstRowIndex >= currentRange.start()
+                && (pageFirstRowIndex + pageValueCount) <= currentRange.end() + 1;
+    }
+
     private void nextRange()
     {
         currentRange = rowRangeIterator.next();
