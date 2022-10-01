@@ -305,25 +305,25 @@ class RelationPlanner
         PlanBuilder planBuilder = newPlanBuilder(plan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext)
                 .withScope(analysis.getAccessControlScope(table), plan.getFieldMappings()); // The fields in the access control scope has the same layout as those for the table scope
 
+        Map<Symbol, Expression> assignments = new LinkedHashMap<>();
+        for (Symbol symbol : planBuilder.getRoot().getOutputSymbols()) {
+            assignments.put(symbol, symbol.toSymbolReference());
+        }
+
         for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
             Field field = plan.getDescriptor().getFieldByIndex(i);
 
             for (Expression mask : columnMasks.getOrDefault(field.getName().orElseThrow(), ImmutableList.of())) {
                 planBuilder = subqueryPlanner.handleSubqueries(planBuilder, mask, analysis.getSubqueries(mask));
-
-                Map<Symbol, Expression> assignments = new LinkedHashMap<>();
-                for (Symbol symbol : planBuilder.getRoot().getOutputSymbols()) {
-                    assignments.put(symbol, symbol.toSymbolReference());
-                }
                 assignments.put(plan.getFieldMappings().get(i), coerceIfNecessary(analysis, mask, planBuilder.rewrite(mask)));
-
-                planBuilder = planBuilder
-                        .withNewRoot(new ProjectNode(
-                                idAllocator.getNextId(),
-                                planBuilder.getRoot(),
-                                Assignments.copyOf(assignments)));
             }
         }
+
+        planBuilder = planBuilder
+                .withNewRoot(new ProjectNode(
+                        idAllocator.getNextId(),
+                        planBuilder.getRoot(),
+                        Assignments.copyOf(assignments)));
 
         return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings(), outerContext);
     }

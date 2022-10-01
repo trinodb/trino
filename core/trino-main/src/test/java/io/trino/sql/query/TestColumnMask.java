@@ -212,7 +212,8 @@ public class TestColumnMask
                 USER,
                 new ViewExpression(USER, Optional.empty(), Optional.empty(), "custkey * 2"));
 
-        assertThat(assertions.query("SELECT custkey FROM orders WHERE orderkey = 1")).matches("VALUES BIGINT '-740'");
+        // When there are multiple masks on the same column, the latter one overrides the previous ones
+        assertThat(assertions.query("SELECT custkey FROM orders WHERE orderkey = 1")).matches("VALUES BIGINT '740'");
     }
 
     @Test
@@ -842,12 +843,13 @@ public class TestColumnMask
 
         // Mask "comment" and "orderstatus" using "clerk" ("clerk" appears between "orderstatus" and "comment" in table definition)
         // "comment" and "orderstatus" are masked as the condition on "clerk" is satisfied
+        // This is to showcase that the three maskings are done simultaneously, not in a "sequential" or "chained" manner.
         accessControl.reset();
         accessControl.columnMask(
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "clerk",
                 USER,
-                new ViewExpression(USER, Optional.empty(), Optional.empty(), "cast(regexp_replace(clerk,'(Clerk#)','***#') as varchar(15))"));
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "cast('###' as varchar(15))"));
 
         accessControl.columnMask(
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
@@ -862,6 +864,6 @@ public class TestColumnMask
                 new ViewExpression(USER, Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'([1-9]+)') IN ('951'), '***', comment)"));
 
         assertThat(assertions.query(query))
-                .matches("VALUES (CAST('***' as varchar(79)), '*', CAST('***#000000951' as varchar(15)))");
+                .matches("VALUES (CAST('***' as varchar(79)), '*', CAST('###' as varchar(15)))");
     }
 }
