@@ -76,7 +76,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static io.trino.spi.type.TimestampType.TIMESTAMP;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
@@ -341,7 +341,7 @@ public class TestCassandraConnector
                     assertEquals(INTEGER.getLong(udtValue, 2), -2147483648);
                     assertEquals(BIGINT.getLong(udtValue, 3), -9223372036854775808L);
                     assertEquals(VARBINARY.getSlice(udtValue, 4).toStringUtf8(), "01234");
-                    assertEquals(TIMESTAMP.getLong(udtValue, 5), 117964800000L);
+                    assertEquals(TIMESTAMP_MILLIS.getLong(udtValue, 5), 117964800000L);
                     assertEquals(VARCHAR.getSlice(udtValue, 6).toStringUtf8(), "ansi");
                     assertTrue(BOOLEAN.getBoolean(udtValue, 7));
                     assertEquals(DOUBLE.getDouble(udtValue, 8), 99999999999999997748809823456034029568D);
