@@ -179,6 +179,26 @@ with ORC files performed by the Iceberg connector.
     - Enable bloom filters for predicate pushdown.
     - ``false``
 
+Parquet format configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following properties are used to configure the read and write operations
+with Parquet files performed by the Iceberg connector.
+
+.. list-table:: Parquet format configuration properties
+    :widths: 30, 50, 20
+    :header-rows: 1
+
+    * - Property Name
+      - Description
+      - Default
+    * - ``parquet.optimized-reader.enabled``
+      - Whether batched column readers should be used when reading Parquet files
+        for improved performance. Set this property to ``false`` to disable the
+        optimized parquet reader by default. The equivalent catalog session
+        property is ``parquet_optimized_reader_enabled``.
+      - ``true``
+
 .. _iceberg-authorization:
 
 Authorization checks
