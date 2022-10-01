@@ -66,6 +66,7 @@ public final class IcebergSessionProperties
     private static final String ORC_WRITER_MAX_STRIPE_ROWS = "orc_writer_max_stripe_rows";
     private static final String ORC_WRITER_MAX_DICTIONARY_MEMORY = "orc_writer_max_dictionary_memory";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
+    private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String PARQUET_WRITER_BATCH_SIZE = "parquet_writer_batch_size";
@@ -189,6 +190,11 @@ public final class IcebergSessionProperties
                         PARQUET_MAX_READ_BLOCK_SIZE,
                         "Parquet: Maximum size of a block to read",
                         parquetReaderConfig.getMaxReadBlockSize(),
+                        false))
+                .add(booleanProperty(
+                        PARQUET_OPTIMIZED_READER_ENABLED,
+                        "Use optimized Parquet reader",
+                        parquetReaderConfig.isOptimizedReaderEnabled(),
                         false))
                 .add(dataSizeProperty(
                         PARQUET_WRITER_BLOCK_SIZE,
@@ -356,6 +362,11 @@ public final class IcebergSessionProperties
     public static DataSize getParquetMaxReadBlockSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_MAX_READ_BLOCK_SIZE, DataSize.class);
+    }
+
+    public static boolean isParquetOptimizedReaderEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_OPTIMIZED_READER_ENABLED, Boolean.class);
     }
 
     public static DataSize getParquetWriterPageSize(ConnectorSession session)

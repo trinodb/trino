@@ -92,6 +92,7 @@ import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectSufficientColumns;
 import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.hive.HiveSessionProperties.isParquetIgnoreStatistics;
+import static io.trino.plugin.hive.HiveSessionProperties.isParquetOptimizedReaderEnabled;
 import static io.trino.plugin.hive.HiveSessionProperties.isParquetUseColumnIndex;
 import static io.trino.plugin.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static io.trino.plugin.hive.parquet.ParquetPageSource.handleException;
@@ -178,7 +179,8 @@ public class ParquetPageSourceFactory
                 stats,
                 options.withIgnoreStatistics(isParquetIgnoreStatistics(session))
                         .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
-                        .withUseColumnIndex(isParquetUseColumnIndex(session)),
+                        .withUseColumnIndex(isParquetUseColumnIndex(session))
+                        .withBatchColumnReaders(isParquetOptimizedReaderEnabled(session)),
                 Optional.empty()));
     }
 

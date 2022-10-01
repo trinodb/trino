@@ -1105,6 +1105,36 @@ public abstract class AbstractTestParquetReader
                 .isInstanceOf(TrinoException.class);
     }
 
+    @Test
+    public void testParquetShortDecimalWriteToTrinoIntegerBlockWithNonZeroScale()
+    {
+        assertThatThrownBy(() -> {
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT32 test (DECIMAL(%d, %d)); }", 8, 1));
+            tester.testRoundTrip(javaIntObjectInspector, ImmutableList.of(1), ImmutableList.of(1), INTEGER, Optional.of(parquetSchema));
+        }).hasMessage("Unsupported Trino column type (integer) for Parquet column ([test] optional int32 test (DECIMAL(8,1)))")
+                .isInstanceOf(TrinoException.class);
+    }
+
+    @Test
+    public void testParquetShortDecimalWriteToTrinoSmallBlockWithNonZeroScale()
+    {
+        assertThatThrownBy(() -> {
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT32 test (DECIMAL(%d, %d)); }", 8, 1));
+            tester.testRoundTrip(javaShortObjectInspector, ImmutableList.of((short) 1), ImmutableList.of((short) 1), SMALLINT, Optional.of(parquetSchema));
+        }).hasMessage("Unsupported Trino column type (smallint) for Parquet column ([test] optional int32 test (DECIMAL(8,1)))")
+                .isInstanceOf(TrinoException.class);
+    }
+
+    @Test
+    public void testParquetShortDecimalWriteToTrinoTinyBlockWithNonZeroScale()
+    {
+        assertThatThrownBy(() -> {
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT32 test (DECIMAL(%d, %d)); }", 8, 1));
+            tester.testRoundTrip(javaByteObjectInspector, ImmutableList.of((byte) 1), ImmutableList.of((byte) 1), TINYINT, Optional.of(parquetSchema));
+        }).hasMessage("Unsupported Trino column type (tinyint) for Parquet column ([test] optional int32 test (DECIMAL(8,1)))")
+                .isInstanceOf(TrinoException.class);
+    }
+
     @Test(dataProvider = "timestampPrecision")
     public void testTimestamp(HiveTimestampPrecision precision)
             throws Exception

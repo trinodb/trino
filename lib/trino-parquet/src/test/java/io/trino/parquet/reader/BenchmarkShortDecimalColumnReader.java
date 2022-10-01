@@ -42,6 +42,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalLong;
 
 import static io.trino.jmh.Benchmarks.benchmark;
@@ -124,8 +125,8 @@ public class BenchmarkShortDecimalColumnReader
     public int read()
             throws IOException
     {
-        ColumnReader columnReader = ColumnReaderFactory.create(field, UTC);
-        columnReader.setPageReader(new PageReader(UNCOMPRESSED, new LinkedList<>(dataPages), null, MAX_VALUES), null);
+        ColumnReader columnReader = ColumnReaderFactory.create(field, UTC, true);
+        columnReader.setPageReader(new PageReader(UNCOMPRESSED, new LinkedList<>(dataPages), null, MAX_VALUES), Optional.empty());
         int rowsRead = 0;
         while (rowsRead < MAX_VALUES) {
             int remaining = MAX_VALUES - rowsRead;

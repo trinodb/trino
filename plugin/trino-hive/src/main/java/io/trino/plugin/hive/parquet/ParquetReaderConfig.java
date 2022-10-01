@@ -98,6 +98,19 @@ public class ParquetReaderConfig
         return options.isUseColumnIndex();
     }
 
+    @Config("parquet.optimized-reader.enabled")
+    @ConfigDescription("Use optimized Parquet reader")
+    public ParquetReaderConfig setOptimizedReaderEnabled(boolean optimizedReaderEnabled)
+    {
+        options = options.withBatchColumnReaders(optimizedReaderEnabled);
+        return this;
+    }
+
+    public boolean isOptimizedReaderEnabled()
+    {
+        return options.useBatchColumnReaders();
+    }
+
     public ParquetReaderOptions toParquetReaderOptions()
     {
         return options;

@@ -501,7 +501,7 @@ public class ParquetReader
     private void initializeColumnReaders()
     {
         for (PrimitiveField field : primitiveFields) {
-            columnReaders.put(field.getId(), ColumnReaderFactory.create(field, timeZone));
+            columnReaders.put(field.getId(), ColumnReaderFactory.create(field, timeZone, options.useBatchColumnReaders()));
         }
     }
 

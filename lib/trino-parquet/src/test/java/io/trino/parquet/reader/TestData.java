@@ -14,7 +14,11 @@
 package io.trino.parquet.reader;
 
 import io.trino.spi.type.Decimals;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.function.IntFunction;
 
@@ -48,6 +52,66 @@ public final class TestData
             value >>= Byte.SIZE;
         }
         return result;
+    }
+
+    public static boolean[] generateMixedData(Random r, int size, int maxGroupSize)
+    {
+        List<Boolean> mixedList = new ArrayList<>();
+        while (mixedList.size() < size) {
+            boolean isGroup = r.nextBoolean();
+            int groupSize = r.nextInt(maxGroupSize);
+            if (isGroup) {
+                boolean value = r.nextBoolean();
+                for (int i = 0; i < groupSize; i++) {
+                    mixedList.add(value);
+                }
+            }
+            else {
+                for (int i = 0; i < groupSize; i++) {
+                    mixedList.add(r.nextBoolean());
+                }
+            }
+        }
+        boolean[] result = new boolean[size];
+        for (int i = 0; i < size; i++) {
+            result[i] = mixedList.get(i);
+        }
+        return result;
+    }
+
+    public static int[] generateMixedData(Random r, int size, int maxGroupSize, int bitWidth)
+    {
+        IntList mixedList = new IntArrayList();
+        while (mixedList.size() < size) {
+            boolean isGroup = r.nextBoolean();
+            int groupSize = r.nextInt(maxGroupSize);
+            if (isGroup) {
+                int value = randomInt(r, bitWidth);
+                for (int i = 0; i < groupSize; i++) {
+                    mixedList.add(value);
+                }
+            }
+            else {
+                for (int i = 0; i < groupSize; i++) {
+                    mixedList.add(randomInt(r, bitWidth));
+                }
+            }
+        }
+        int[] result = new int[size];
+        mixedList.getElements(0, result, 0, size);
+        return result;
+    }
+
+    public static int randomInt(Random r, int bitWidth)
+    {
+        checkArgument(bitWidth <= 32 && bitWidth >= 0, "bit width must be in range 0 - 32 inclusive");
+        if (bitWidth == 32) {
+            return r.nextInt();
+        }
+        else if (bitWidth == 31) {
+            return r.nextInt() & ((1 << 31) - 1);
+        }
+        return r.nextInt(1 << bitWidth);
     }
 
     private static long randomLong(Random r, int bitWidth)
