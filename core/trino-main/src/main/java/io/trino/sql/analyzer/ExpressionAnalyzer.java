@@ -63,7 +63,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.ArrayConstructor;
+import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
@@ -243,7 +243,7 @@ import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
-import static io.trino.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
+import static io.trino.sql.tree.Array.ARRAY_CONSTRUCTOR;
 import static io.trino.sql.tree.DereferenceExpression.isQualifiedAllFieldsReference;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
@@ -1013,7 +1013,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitArrayConstructor(ArrayConstructor node, StackableAstVisitorContext<Context> context)
+        protected Type visitArray(Array node, StackableAstVisitorContext<Context> context)
         {
             Type type = coerceToSingleType(context, "All ARRAY elements", node.getValues());
             Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeSignatureParameter.typeParameter(type.getTypeSignature())));
