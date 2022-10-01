@@ -164,7 +164,7 @@ public class MongoPageSink
             long days = type.getLong(block, position);
             return new Date(TimeUnit.DAYS.toMillis(days));
         }
-        if (type.equals(TimeType.TIME)) {
+        if (type.equals(TimeType.TIME_MILLIS)) {
             long picos = type.getLong(block, position);
             return new Date(roundDiv(picos, PICOSECONDS_PER_MILLISECOND));
         }

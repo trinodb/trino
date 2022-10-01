@@ -175,13 +175,13 @@ public class TestDateTimeFunctions
     @Test
     public void testLocalTime()
     {
-        functionAssertions.assertFunctionString("localtime", TimeType.TIME, "02:34:56.789");
+        functionAssertions.assertFunctionString("localtime", TimeType.TIME_MILLIS, "02:34:56.789");
 
         Session localSession = Session.builder(session)
                 .setStart(Instant.ofEpochMilli(new DateTime(2017, 3, 1, 14, 30, 0, 0, DATE_TIME_ZONE).getMillis()))
                 .build();
         try (FunctionAssertions localAssertion = new FunctionAssertions(localSession)) {
-            localAssertion.assertFunctionString("localtime", TimeType.TIME, "14:30:00.000");
+            localAssertion.assertFunctionString("localtime", TimeType.TIME_MILLIS, "14:30:00.000");
         }
 
         localSession = Session.builder(session)
@@ -190,7 +190,7 @@ public class TestDateTimeFunctions
                 .setStart(Instant.ofEpochMilli(new DateTime(2017, 3, 1, 15, 45, 0, 0, KATHMANDU_ZONE).getMillis()))
                 .build();
         try (FunctionAssertions localAssertion = new FunctionAssertions(localSession)) {
-            localAssertion.assertFunctionString("localtime", TimeType.TIME, "15:45:00.000");
+            localAssertion.assertFunctionString("localtime", TimeType.TIME_MILLIS, "15:45:00.000");
         }
     }
 
@@ -631,13 +631,13 @@ public class TestDateTimeFunctions
     {
         LocalTime result = TIME;
         result = result.withNano(0);
-        assertFunction("date_trunc('second', " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(result));
+        assertFunction("date_trunc('second', " + TIME_LITERAL + ")", TimeType.TIME_MILLIS, sqlTimeOf(result));
 
         result = result.withSecond(0);
-        assertFunction("date_trunc('minute', " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(result));
+        assertFunction("date_trunc('minute', " + TIME_LITERAL + ")", TimeType.TIME_MILLIS, sqlTimeOf(result));
 
         result = result.withMinute(0);
-        assertFunction("date_trunc('hour', " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(result));
+        assertFunction("date_trunc('hour', " + TIME_LITERAL + ")", TimeType.TIME_MILLIS, sqlTimeOf(result));
     }
 
     @Test
@@ -700,14 +700,14 @@ public class TestDateTimeFunctions
     @Test
     public void testAddFieldToTime()
     {
-        assertFunction("date_add('millisecond', 0, " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(TIME));
-        assertFunction("date_add('millisecond', 3, " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(TIME.plusNanos(3_000_000)));
-        assertFunction("date_add('second', 3, " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(TIME.plusSeconds(3)));
-        assertFunction("date_add('minute', 3, " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(TIME.plusMinutes(3)));
-        assertFunction("date_add('hour', 3, " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(TIME.plusHours(3)));
-        assertFunction("date_add('hour', 23, " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(TIME.plusHours(23)));
-        assertFunction("date_add('hour', -4, " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(TIME.minusHours(4)));
-        assertFunction("date_add('hour', -23, " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(TIME.minusHours(23)));
+        assertFunction("date_add('millisecond', 0, " + TIME_LITERAL + ")", TimeType.TIME_MILLIS, sqlTimeOf(TIME));
+        assertFunction("date_add('millisecond', 3, " + TIME_LITERAL + ")", TimeType.TIME_MILLIS, sqlTimeOf(TIME.plusNanos(3_000_000)));
+        assertFunction("date_add('second', 3, " + TIME_LITERAL + ")", TimeType.TIME_MILLIS, sqlTimeOf(TIME.plusSeconds(3)));
+        assertFunction("date_add('minute', 3, " + TIME_LITERAL + ")", TimeType.TIME_MILLIS, sqlTimeOf(TIME.plusMinutes(3)));
+        assertFunction("date_add('hour', 3, " + TIME_LITERAL + ")", TimeType.TIME_MILLIS, sqlTimeOf(TIME.plusHours(3)));
+        assertFunction("date_add('hour', 23, " + TIME_LITERAL + ")", TimeType.TIME_MILLIS, sqlTimeOf(TIME.plusHours(23)));
+        assertFunction("date_add('hour', -4, " + TIME_LITERAL + ")", TimeType.TIME_MILLIS, sqlTimeOf(TIME.minusHours(4)));
+        assertFunction("date_add('hour', -23, " + TIME_LITERAL + ")", TimeType.TIME_MILLIS, sqlTimeOf(TIME.minusHours(23)));
     }
 
     @Test
