@@ -30,6 +30,8 @@ public interface RowRangesIterator
 
     void resetForNewPage(OptionalLong firstRowIndex);
 
+    boolean isPageFullyConsumed(int pageValueCount);
+
     class AllRowRangesIterator
             implements RowRangesIterator
     {
@@ -53,6 +55,12 @@ public interface RowRangesIterator
 
         @Override
         public void resetForNewPage(OptionalLong firstRowIndex) {}
+
+        @Override
+        public boolean isPageFullyConsumed(int pageValueCount)
+        {
+            return true;
+        }
     }
 
     static RowRangesIterator createRowRangesIterator(Optional<FilteredRowRanges> filteredRowRanges)

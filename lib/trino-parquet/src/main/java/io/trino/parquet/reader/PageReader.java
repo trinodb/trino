@@ -109,4 +109,19 @@ public final class PageReader
             throw new RuntimeException("Error reading dictionary page", e);
         }
     }
+
+    public DataPage getNextPage()
+    {
+        return compressedPages.getFirst();
+    }
+
+    public boolean hasNext()
+    {
+        return !compressedPages.isEmpty();
+    }
+
+    public void skipNextPage()
+    {
+        compressedPages.removeFirst();
+    }
 }

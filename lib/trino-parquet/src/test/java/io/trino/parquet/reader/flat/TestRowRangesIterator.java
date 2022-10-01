@@ -36,6 +36,7 @@ public class TestRowRangesIterator
         assertThat(ranges.skipToRangeStart()).isEqualTo(0);
         assertThat(ranges.advanceRange(100)).isEqualTo(100);
         assertThat(ranges.seekForward(100)).isEqualTo(100);
+        assertThat(ranges.isPageFullyConsumed(100)).isTrue();
     }
 
     @Test
@@ -75,6 +76,25 @@ public class TestRowRangesIterator
         assertThatThrownBy(() -> createRowRangesIterator(range(20, 30), range(50, 99))
                 .resetForNewPage(OptionalLong.of(100)))
                 .isInstanceOf(VerifyException.class);
+    }
+
+    @Test
+    public void testIsPageFullyConsumed()
+    {
+        RowRangesIterator ranges = createRowRangesIterator(range(20, 30), range(50, 99));
+        ranges.resetForNewPage(OptionalLong.of(0));
+        assertThat(ranges.isPageFullyConsumed(5)).isFalse();
+        assertThat(ranges.isPageFullyConsumed(31)).isFalse();
+
+        ranges = createRowRangesIterator(range(20, 30), range(50, 99));
+        ranges.resetForNewPage(OptionalLong.of(20));
+        assertThat(ranges.isPageFullyConsumed(11)).isTrue();
+        assertThat(ranges.isPageFullyConsumed(12)).isFalse();
+
+        ranges = createRowRangesIterator(range(20, 30), range(50, 99));
+        ranges.resetForNewPage(OptionalLong.of(25));
+        assertThat(ranges.isPageFullyConsumed(6)).isTrue();
+        assertThat(ranges.isPageFullyConsumed(7)).isFalse();
     }
 
     @Test
