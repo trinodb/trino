@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
+import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.Array;
 import io.trino.sql.tree.Expression;
@@ -75,7 +76,7 @@ public final class DesugarArrayConstructorRewriter
             Array rewritten = treeRewriter.defaultRewrite(node, context);
             checkCondition(node.getValues().size() <= 254, TOO_MANY_ARGUMENTS, "Too many arguments for array constructor");
             return FunctionCallBuilder.resolve(session, metadata)
-                    .setName(QualifiedName.of(Array.ARRAY_CONSTRUCTOR))
+                    .setName(QualifiedName.of(ArrayConstructor.NAME))
                     .setArguments(getTypes(node.getValues()), rewritten.getValues())
                     .build();
         }
