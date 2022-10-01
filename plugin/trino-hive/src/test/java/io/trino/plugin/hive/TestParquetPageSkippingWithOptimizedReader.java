@@ -16,7 +16,7 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 
-public class TestParquetPageSkipping
+public class TestParquetPageSkippingWithOptimizedReader
         extends AbstractTestParquetPageSkipping
 {
     @Override
@@ -29,7 +29,7 @@ public class TestParquetPageSkipping
                                 "parquet.use-column-index", "true",
                                 // Small max-buffer-size allows testing mix of small and large ranges in HdfsParquetDataSource#planRead
                                 "parquet.max-buffer-size", "400B",
-                                "parquet.optimized-reader.enabled", "false"))
+                                "parquet.optimized-reader.enabled", "true"))
                 .build();
     }
 }
