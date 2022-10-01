@@ -24,7 +24,6 @@ import static java.util.Objects.requireNonNull;
 public class Array
         extends Expression
 {
-    public static final String ARRAY_CONSTRUCTOR = "ARRAY_CONSTRUCTOR";
     private final List<Expression> values;
 
     public Array(List<Expression> values)
