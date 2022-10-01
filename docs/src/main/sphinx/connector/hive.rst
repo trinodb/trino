@@ -525,6 +525,12 @@ with Parquet files performed by the Hive connector.
         definition. The equivalent catalog session property is
         ``parquet_use_column_names``.
       - ``true``
+    * - ``parquet.optimized-reader.enabled``
+      - Whether batched column readers should be used when reading Parquet files
+        for improved performance. Set this property to ``false`` to disable the
+        optimized parquet reader by default. The equivalent catalog session
+        property is ``parquet_optimized_reader_enabled``.
+      - ``true``
     * - ``parquet.optimized-writer.enabled``
       - Whether the optimized writer should be used when writing Parquet files.
         Set this property to ``true`` to use the optimized parquet writer by

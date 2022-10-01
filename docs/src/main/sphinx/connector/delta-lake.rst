@@ -219,6 +219,12 @@ connector.
         The equivalent catalog session property is
         ``parquet_optimized_writer_enabled``.
       - ``true``
+    * - ``parquet.optimized-reader.enabled``
+      - Whether batched column readers should be used when reading Parquet files
+        for improved performance. Set this property to ``false`` to disable the
+        optimized parquet reader by default. The equivalent catalog session
+        property is ``parquet_optimized_reader_enabled``.
+      - ``true``
 
 The following table describes :ref:`catalog session properties
 <session-properties-definition>` supported by the Delta Lake connector to
@@ -233,6 +239,10 @@ configure processing of Parquet files.
       - Default
     * - ``parquet_optimized_writer_enabled``
       - Whether the optimized writer should be used when writing Parquet files.
+      - ``true``
+    * - ``parquet_optimized_reader_enabled``
+      - Whether batched column readers should be used when reading Parquet files
+        for improved performance.
       - ``true``
     * - ``parquet_max_read_block_size``
       - The maximum block size used when reading Parquet files.
