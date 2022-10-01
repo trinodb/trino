@@ -17,7 +17,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.function.Function;
 
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.lang.String.format;
 
 public final class OracleDataTypes
@@ -30,7 +30,7 @@ public final class OracleDataTypes
     {
         return dataType(
                 "timestamp with time zone",
-                TIMESTAMP_WITH_TIME_ZONE,
+                TIMESTAMP_TZ_MILLIS,
                 DateTimeFormatter.ofPattern("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.SSS VV''")::format,
                 OracleDataTypes::normalizeForOracleStorage);
     }
@@ -40,7 +40,7 @@ public final class OracleDataTypes
     {
         return dataType(
                 "TIMESTAMP(3) WITH TIME ZONE",
-                TIMESTAMP_WITH_TIME_ZONE,
+                TIMESTAMP_TZ_MILLIS,
                 zonedDateTime -> {
                     String zoneId = zonedDateTime.getZone().getId();
                     if (zoneId.equals("Z")) {
