@@ -167,7 +167,7 @@ public class MongoPageSink
             long days = type.getLong(block, position);
             return LocalDate.ofEpochDay(days);
         }
-        if (type.equals(TimeType.TIME)) {
+        if (type.equals(TimeType.TIME_MILLIS)) {
             long picos = type.getLong(block, position);
             return LocalTime.ofNanoOfDay(roundDiv(picos, PICOSECONDS_PER_NANOSECOND));
         }
