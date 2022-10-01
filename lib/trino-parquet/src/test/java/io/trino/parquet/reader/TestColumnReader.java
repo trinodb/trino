@@ -359,7 +359,8 @@ public class TestColumnReader
                 UNCOMPRESSED,
                 inputPages,
                 dictionaryPage,
-                pagesRowCount(testingPages));
+                pagesRowCount(testingPages),
+                false);
     }
 
     private static List<DataPage> createDataPages(List<TestingPage> testingPage, ValuesWriter encoder)

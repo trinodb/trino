@@ -89,7 +89,7 @@ public class FlatColumnReader<BufferType>
 
             int chunkSize = Math.min(remainingPageValueCount, remainingInBatch);
             int nonNullCount;
-            if (field.isRequired()) {
+            if (isNonNull()) {
                 nonNullCount = chunkSize;
             }
             else {
@@ -201,7 +201,7 @@ public class FlatColumnReader<BufferType>
         }
         if (skipCount > 0) {
             int nonNullsCount;
-            if (field.isRequired()) {
+            if (isNonNull()) {
                 nonNullsCount = skipCount;
             }
             else {
@@ -261,7 +261,7 @@ public class FlatColumnReader<BufferType>
         Slice buffer = page.getSlice();
         ParquetEncoding definitionEncoding = page.getDefinitionLevelEncoding();
 
-        checkArgument(field.isRequired() || definitionEncoding == RLE, "Invalid definition level encoding: " + definitionEncoding);
+        checkArgument(isNonNull() || definitionEncoding == RLE, "Invalid definition level encoding: " + definitionEncoding);
         int alreadyRead = 0;
         if (definitionEncoding == RLE) {
             // Definition levels are skipped from file when the max definition level is 0 as the bit-width required to store them is 0.
@@ -290,6 +290,11 @@ public class FlatColumnReader<BufferType>
 
         valueDecoder = decodersProvider.create(page.getDataEncoding(), field, dictionary);
         valueDecoder.init(new SimpleSliceInputStream(page.getSlice()));
+    }
+
+    protected boolean isNonNull()
+    {
+        return field.isRequired() || pageReader.hasNoNulls();
     }
 
     @Override
@@ -332,7 +337,7 @@ public class FlatColumnReader<BufferType>
     {
         ColumnChunk columnChunk;
         seek();
-        if (field.isRequired()) {
+        if (isNonNull()) {
             columnChunk = readNoNull();
         }
         else {
