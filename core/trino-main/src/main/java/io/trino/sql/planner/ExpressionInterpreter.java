@@ -24,6 +24,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.likematcher.LikeMatcher;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.operator.scalar.ArraySubscriptOperator;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
@@ -1265,7 +1266,7 @@ public class ExpressionInterpreter
                     checkCondition(node.getValues().size() <= 254, NOT_SUPPORTED, "Too many arguments for array constructor");
                     return visitFunctionCall(
                             FunctionCallBuilder.resolve(session, metadata)
-                                    .setName(QualifiedName.of(Array.ARRAY_CONSTRUCTOR))
+                                    .setName(QualifiedName.of(ArrayConstructor.NAME))
                                     .setArguments(types(node.getValues()), node.getValues())
                                     .build(),
                             context);

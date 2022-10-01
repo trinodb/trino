@@ -1780,11 +1780,11 @@ public class TestExpressionInterpreter
     {
         optimize("ARRAY[]");
         assertOptimizedEquals("ARRAY[(unbound_long + 0), (unbound_long + 1), (unbound_long + 2)]",
-                "array_constructor((unbound_long + 0), (unbound_long + 1), (unbound_long + 2))");
+                "\"$array\"((unbound_long + 0), (unbound_long + 1), (unbound_long + 2))");
         assertOptimizedEquals("ARRAY[(bound_long + 0), (unbound_long + 1), (bound_long + 2)]",
-                "array_constructor((bound_long + 0), (unbound_long + 1), (bound_long + 2))");
+                "\"$array\"((bound_long + 0), (unbound_long + 1), (bound_long + 2))");
         assertOptimizedEquals("ARRAY[(bound_long + 0), (unbound_long + 1), NULL]",
-                "array_constructor((bound_long + 0), (unbound_long + 1), NULL)");
+                "\"$array\"((bound_long + 0), (unbound_long + 1), NULL)");
     }
 
     @Test
