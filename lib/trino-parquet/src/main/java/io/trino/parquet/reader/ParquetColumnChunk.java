@@ -21,6 +21,7 @@ import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetCorruptionException;
 import org.apache.parquet.column.Encoding;
+import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.format.DataPageHeader;
 import org.apache.parquet.format.DataPageHeaderV2;
 import org.apache.parquet.format.DictionaryPageHeader;
@@ -112,7 +113,12 @@ public class ParquetColumnChunk
                     break;
             }
         }
-        return new PageReader(descriptor.getColumnChunkMetaData().getCodec(), pages, dictionaryPage, valueCount);
+        // Parquet schema may specify a column definition as OPTIONAL even though there are no nulls in the actual data.
+        // Row-group column statistics can be used to identify such cases and switch to faster non-nullable read
+        // paths in FlatColumnReader.
+        Statistics<?> columnStatistics = descriptor.getColumnChunkMetaData().getStatistics();
+        boolean hasNoNulls = columnStatistics != null && columnStatistics.getNumNulls() == 0;
+        return new PageReader(descriptor.getColumnChunkMetaData().getCodec(), pages, dictionaryPage, valueCount, hasNoNulls);
     }
 
     private boolean hasMorePages(long valuesCountReadSoFar, int dataPageCountReadSoFar)
