@@ -126,7 +126,7 @@ public class BenchmarkShortDecimalColumnReader
             throws IOException
     {
         ColumnReader columnReader = ColumnReaderFactory.create(field, UTC, true);
-        columnReader.setPageReader(new PageReader(UNCOMPRESSED, new LinkedList<>(dataPages), null, MAX_VALUES), Optional.empty());
+        columnReader.setPageReader(new PageReader(UNCOMPRESSED, new LinkedList<>(dataPages), null, MAX_VALUES, false), Optional.empty());
         int rowsRead = 0;
         while (rowsRead < MAX_VALUES) {
             int remaining = MAX_VALUES - rowsRead;
