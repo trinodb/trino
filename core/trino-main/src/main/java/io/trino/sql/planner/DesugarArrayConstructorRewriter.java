@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
-import io.trino.sql.tree.ArrayConstructor;
+import io.trino.sql.tree.Array;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
@@ -70,12 +70,12 @@ public final class DesugarArrayConstructorRewriter
         }
 
         @Override
-        public Expression rewriteArrayConstructor(ArrayConstructor node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        public Expression rewriteArray(Array node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            ArrayConstructor rewritten = treeRewriter.defaultRewrite(node, context);
+            Array rewritten = treeRewriter.defaultRewrite(node, context);
             checkCondition(node.getValues().size() <= 254, TOO_MANY_ARGUMENTS, "Too many arguments for array constructor");
             return FunctionCallBuilder.resolve(session, metadata)
-                    .setName(QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR))
+                    .setName(QualifiedName.of(Array.ARRAY_CONSTRUCTOR))
                     .setArguments(getTypes(node.getValues()), rewritten.getValues())
                     .build();
         }

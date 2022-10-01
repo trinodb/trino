@@ -25,7 +25,7 @@ import io.trino.sql.tree.Analyze;
 import io.trino.sql.tree.AnchorPattern;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.ArrayConstructor;
+import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
@@ -2152,7 +2152,7 @@ class AstBuilder
     @Override
     public Node visitArrayConstructor(SqlBaseParser.ArrayConstructorContext context)
     {
-        return new ArrayConstructor(getLocation(context), visit(context.expression(), Expression.class));
+        return new Array(getLocation(context), visit(context.expression(), Expression.class));
     }
 
     @Override

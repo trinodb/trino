@@ -417,7 +417,7 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitArrayConstructor(ArrayConstructor node, C context)
+    protected R visitArray(Array node, C context)
     {
         return visitExpression(node, context);
     }

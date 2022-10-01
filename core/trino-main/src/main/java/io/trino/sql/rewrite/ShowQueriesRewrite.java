@@ -52,7 +52,7 @@ import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AllColumns;
-import io.trino.sql.tree.ArrayConstructor;
+import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.ColumnDefinition;
@@ -559,7 +559,7 @@ public final class ShowQueriesRewrite
 
             if (value instanceof List) {
                 List<?> list = (List<?>) value;
-                return new ArrayConstructor(list.stream()
+                return new Array(list.stream()
                         .map(Visitor::toExpression)
                         .collect(toList()));
             }

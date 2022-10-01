@@ -23,7 +23,7 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.scalar.TryFunction;
 import io.trino.sql.ExpressionUtils;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArrayConstructor;
+import io.trino.sql.tree.Array;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
@@ -324,7 +324,7 @@ public class TestEqualityInference
                 new InPredicate(nameReference("b"), new InListExpression(ImmutableList.of(new NullLiteral()))),
                 new SearchedCaseExpression(ImmutableList.of(new WhenClause(new IsNotNullPredicate(nameReference("b")), new NullLiteral())), Optional.empty()),
                 new SimpleCaseExpression(nameReference("b"), ImmutableList.of(new WhenClause(number(1), new NullLiteral())), Optional.empty()),
-                new SubscriptExpression(new ArrayConstructor(ImmutableList.of(new NullLiteral())), nameReference("b")));
+                new SubscriptExpression(new Array(ImmutableList.of(new NullLiteral())), nameReference("b")));
 
         for (Expression candidate : candidates) {
             EqualityInference inference = EqualityInference.newInstance(
