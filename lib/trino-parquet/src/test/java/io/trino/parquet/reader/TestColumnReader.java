@@ -131,7 +131,7 @@ public class TestColumnReader
             }
 
             readCount += batchSize;
-            batchSize = Math.min(batchSize * 2, rowCount - readCount);
+            batchSize = Math.min(Math.min(batchSize * 2, 512), rowCount - readCount);
         }
         assertThat(rowRangesIterator.hasNext()).isFalse();
         assertThat(valuesRead).isEqualTo(expectedValues);
@@ -157,7 +157,13 @@ public class TestColumnReader
                         ImmutableList.of(range(0, 127), range(128, 4095)),
                         ImmutableList.of(range(0, 767), range(768, 4095)),
                         ImmutableList.of(range(0, 255), range(256, 511), range(512, 767), range(768, 4095)),
-                        ImmutableList.of(range(0, 99), range(100, 199), range(200, 399), range(400, 599), range(600, 799), range(800, 999), range(1000, 4095)))
+                        // Parquet pages with small size to simulate cases of FlatColumnReader#seek skipping over parquet pages
+                        IntStream.rangeClosed(0, 4095 / 150).boxed()
+                                .map(i -> {
+                                    long start = i * 150;
+                                    return range(start, Math.min(start + 149, 4095));
+                                })
+                                .collect(toImmutableList()))
                 .collect(toDataProvider());
         Object[][] rangesWithNoPageSkipped = cartesianProduct(columnReaders, batchSkippers, rowRanges, pageRowRanges);
         Object[][] rangesWithPagesSkipped = cartesianProduct(
