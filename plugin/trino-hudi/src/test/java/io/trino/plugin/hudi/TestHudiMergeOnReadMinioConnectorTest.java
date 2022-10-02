@@ -13,13 +13,34 @@
  */
 package io.trino.plugin.hudi;
 
+import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hudi.testing.TpchHudiTablesInitializer;
+import io.trino.testing.QueryRunner;
+
+import static io.trino.plugin.hudi.S3HudiQueryRunner.HUDI_MINIO_TESTS;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.apache.hudi.common.model.HoodieTableType.MERGE_ON_READ;
 
 public class TestHudiMergeOnReadMinioConnectorTest
-        extends BaseHudiMinioConnectorTest
+        extends BaseHudiConnectorTest
 {
-    public TestHudiMergeOnReadMinioConnectorTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(MERGE_ON_READ);
+        String bucketName = "test-hudi-connector-" + randomTableSuffix();
+        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
+        hiveMinioDataLake.start();
+        hiveMinioDataLake.getMinioClient().ensureBucketExists(bucketName);
+
+        return S3HudiQueryRunner.create(
+                HUDI_MINIO_TESTS.getCatalogName(),
+                HUDI_MINIO_TESTS.getSchemaName(),
+                ImmutableMap.<String, String>builder()
+                        .put("hudi.columns-to-hide", columnsToHide())
+                        .buildOrThrow(),
+                new TpchHudiTablesInitializer(MERGE_ON_READ, REQUIRED_TPCH_TABLES),
+                hiveMinioDataLake);
     }
 }
