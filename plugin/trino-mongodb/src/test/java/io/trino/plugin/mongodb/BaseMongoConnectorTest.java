@@ -61,14 +61,20 @@ public abstract class BaseMongoConnectorTest
         client.close();
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
             case SUPPORTS_RENAME_SCHEMA:
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
+                return false;
+
             case SUPPORTS_RENAME_COLUMN:
                 return false;
+
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }

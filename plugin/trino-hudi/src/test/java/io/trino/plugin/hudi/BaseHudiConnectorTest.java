@@ -41,33 +41,30 @@ public abstract class BaseHudiConnectorTest
                 new TpchHudiTablesInitializer(getHoodieTableType(), REQUIRED_TPCH_TABLES));
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            // Optimizer
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
-            // DDL and DML on schemas and tables
             case SUPPORTS_CREATE_SCHEMA:
+                return false;
+
             case SUPPORTS_CREATE_TABLE:
-            case SUPPORTS_CREATE_TABLE_WITH_DATA:
-            case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_RENAME_TABLE:
                 return false;
 
-            // DDL and DML on columns
             case SUPPORTS_ADD_COLUMN:
-            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
-            case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
                 return false;
 
-            // Writing capabilities
-            case SUPPORTS_DELETE:
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
+
             case SUPPORTS_INSERT:
-            case SUPPORTS_MULTI_STATEMENT_WRITES:
                 return false;
 
             default:

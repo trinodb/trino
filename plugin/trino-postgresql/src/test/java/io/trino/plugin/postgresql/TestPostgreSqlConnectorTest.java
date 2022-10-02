@@ -92,13 +92,13 @@ public class TestPostgreSqlConnectorTest
         onRemoteDatabase().execute("CREATE EXTENSION file_fdw");
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
                 return false;
-
             case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN:
                 // TODO remove once super has this set to true
                 verify(!super.hasBehavior(connectorBehavior));
@@ -121,18 +121,19 @@ public class TestPostgreSqlConnectorTest
 
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
             case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
-            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
+                return false;
+
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
+                return false;
+
+            case SUPPORTS_COMMENT_ON_TABLE:
                 return false;
 
             case SUPPORTS_ARRAY:
                 // Arrays are supported conditionally. Check the defaults.
                 return new PostgreSqlConfig().getArrayMapping() != PostgreSqlConfig.ArrayMapping.DISABLED;
-
             case SUPPORTS_ROW_TYPE:
-                return false;
-
-            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 
             case SUPPORTS_CANCELLATION:

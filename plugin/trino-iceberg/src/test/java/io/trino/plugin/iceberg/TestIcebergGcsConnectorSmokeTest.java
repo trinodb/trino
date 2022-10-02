@@ -120,12 +120,14 @@ public class TestIcebergGcsConnectorSmokeTest
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        if (connectorBehavior == SUPPORTS_RENAME_SCHEMA) {
-            // GCS tests use the Hive Metastore catalog which does not support renaming schemas
-            return false;
-        }
+        switch (connectorBehavior) {
+            case SUPPORTS_RENAME_SCHEMA:
+                // GCS tests use the Hive Metastore catalog which does not support renaming schemas
+                return false;
 
-        return super.hasBehavior(connectorBehavior);
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 
     @Override

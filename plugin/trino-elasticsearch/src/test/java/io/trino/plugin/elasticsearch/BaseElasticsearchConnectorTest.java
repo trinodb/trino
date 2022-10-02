@@ -87,33 +87,31 @@ public abstract class BaseElasticsearchConnectorTest
                 catalogName);
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_LIMIT_PUSHDOWN:
+            case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
+
+            case SUPPORTS_CREATE_SCHEMA:
                 return false;
 
             case SUPPORTS_CREATE_TABLE:
+            case SUPPORTS_RENAME_TABLE:
                 return false;
 
             case SUPPORTS_ADD_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
                 return false;
 
-            case SUPPORTS_CREATE_SCHEMA:
-                return false;
-
-            case SUPPORTS_RENAME_TABLE:
-            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
             case SUPPORTS_INSERT:
-                return false;
-
-            case SUPPORTS_LIMIT_PUSHDOWN:
-            case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
             default:

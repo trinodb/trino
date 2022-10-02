@@ -49,6 +49,7 @@ public class TestTpchConnectorTest
         return TpchQueryRunnerBuilder.builder().build();
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -60,13 +61,11 @@ public class TestTpchConnectorTest
                 return false;
 
             case SUPPORTS_CREATE_TABLE:
+            case SUPPORTS_RENAME_TABLE:
                 return false;
 
             case SUPPORTS_ADD_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
-                return false;
-
-            case SUPPORTS_RENAME_TABLE:
                 return false;
 
             case SUPPORTS_COMMENT_ON_TABLE:
@@ -76,12 +75,7 @@ public class TestTpchConnectorTest
             case SUPPORTS_INSERT:
                 return false;
 
-            case SUPPORTS_DELETE:
-                return false;
-
             case SUPPORTS_ARRAY:
-                return false;
-
             case SUPPORTS_ROW_TYPE:
                 return false;
 
