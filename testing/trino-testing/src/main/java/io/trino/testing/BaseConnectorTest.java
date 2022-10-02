@@ -141,6 +141,10 @@ public abstract class BaseConnectorTest
 {
     private static final Logger log = Logger.get(BaseConnectorTest.class);
 
+    /**
+     * Make sure to group related behaviours together in the order and grouping they are declared in {@link TestingConnectorBehavior}.
+     * If required, annotate the method with {@code @SuppressWarnings("DuplicateBranchesInSwitch")}.
+     */
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return connectorBehavior.hasBehaviorByDefault(this::hasBehavior);
