@@ -50,6 +50,10 @@ public abstract class BaseConnectorSmokeTest
 {
     protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(NATION, REGION);
 
+    /**
+     * Make sure to group related behaviours together in the order and grouping they are declared in {@link TestingConnectorBehavior}.
+     * If required, annotate the method with {@code @SuppressWarnings("DuplicateBranchesInSwitch")}.
+     */
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return connectorBehavior.hasBehaviorByDefault(this::hasBehavior);
