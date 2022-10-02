@@ -173,7 +173,7 @@
                                 <!-- Allow removing things that were previously deprecated -->
                                 <item>
                                     <regex>true</regex>
-                                    <code>java\.(class|method)\.removed</code>
+                                    <code>java\.(class|method|field)\.removed</code>
                                     <old>
                                         <matcher>java</matcher>
                                         <match>@java.lang.Deprecated(*) ^*;</match>
