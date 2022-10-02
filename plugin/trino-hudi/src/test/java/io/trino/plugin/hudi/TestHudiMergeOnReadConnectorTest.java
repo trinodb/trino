@@ -13,16 +13,23 @@
  */
 package io.trino.plugin.hudi;
 
-import org.apache.hudi.common.model.HoodieTableType;
+import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.hudi.testing.TpchHudiTablesInitializer;
+import io.trino.testing.QueryRunner;
 
+import static io.trino.plugin.hudi.HudiQueryRunner.createHudiQueryRunner;
 import static org.apache.hudi.common.model.HoodieTableType.MERGE_ON_READ;
 
 public class TestHudiMergeOnReadConnectorTest
         extends BaseHudiConnectorTest
 {
     @Override
-    protected HoodieTableType getHoodieTableType()
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        return MERGE_ON_READ;
+        return createHudiQueryRunner(
+                ImmutableMap.of(),
+                ImmutableMap.of("hudi.columns-to-hide", columnsToHide()),
+                new TpchHudiTablesInitializer(MERGE_ON_READ, REQUIRED_TPCH_TABLES));
     }
 }
