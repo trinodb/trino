@@ -665,14 +665,17 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("nation_realtimeSpec.json"), nationTableName);
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_CREATE_SCHEMA,
-                    SUPPORTS_CREATE_TABLE,
-                    SUPPORTS_INSERT,
-                    SUPPORTS_RENAME_TABLE -> false;
+            case SUPPORTS_CREATE_SCHEMA -> false;
+
+            case SUPPORTS_CREATE_TABLE, SUPPORTS_RENAME_TABLE -> false;
+
+            case SUPPORTS_INSERT -> false;
+
             default -> super.hasBehavior(connectorBehavior);
         };
     }

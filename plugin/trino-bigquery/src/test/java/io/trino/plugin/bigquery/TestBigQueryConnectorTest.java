@@ -63,19 +63,30 @@ public class TestBigQueryConnectorTest
                 ImmutableMap.of());
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
             case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
+
             case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
             case SUPPORTS_RENAME_TABLE:
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
-            case SUPPORTS_DELETE:
+                return false;
+
             case SUPPORTS_ADD_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
+                return false;
+
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
+                return false;
+
             case SUPPORTS_NEGATIVE_DATE:
                 return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }

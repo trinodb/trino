@@ -82,28 +82,20 @@ public class TestCassandraConnectorTest
     private CassandraServer server;
     private CassandraSession session;
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_TRUNCATE:
-                return true;
+            case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
 
             case SUPPORTS_CREATE_SCHEMA:
                 return false;
 
-            case SUPPORTS_CREATE_VIEW:
-                return false;
-
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
             case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
-                return false;
-
             case SUPPORTS_RENAME_TABLE:
-                return false;
-
-            case SUPPORTS_ARRAY:
-            case SUPPORTS_ROW_TYPE:
                 return false;
 
             case SUPPORTS_ADD_COLUMN:
@@ -114,14 +106,19 @@ public class TestCassandraConnectorTest
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
-            case SUPPORTS_TOPN_PUSHDOWN:
+            case SUPPORTS_CREATE_VIEW:
                 return false;
 
             case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
 
             case SUPPORTS_DELETE:
+            case SUPPORTS_TRUNCATE:
                 return true;
+
+            case SUPPORTS_ARRAY:
+            case SUPPORTS_ROW_TYPE:
+                return false;
 
             default:
                 return super.hasBehavior(connectorBehavior);

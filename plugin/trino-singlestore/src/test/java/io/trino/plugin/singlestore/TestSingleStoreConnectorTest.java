@@ -62,6 +62,7 @@ public class TestSingleStoreConnectorTest
         singleStoreServer.close();
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -75,24 +76,27 @@ public class TestSingleStoreConnectorTest
 
             case SUPPORTS_JOIN_PUSHDOWN:
                 return true;
-
             case SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN:
             case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
                 return false;
 
+            case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
             case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
+            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
+                return false;
+
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
+                return false;
+
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
-            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
                 return false;
 
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
-                return false;
-
-            case SUPPORTS_RENAME_SCHEMA:
-            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 
             default:

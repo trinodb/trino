@@ -45,6 +45,7 @@ public abstract class BaseIcebergConnectorSmokeTest
         this.format = requireNonNull(format, "format is null");
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -62,6 +63,7 @@ public abstract class BaseIcebergConnectorSmokeTest
             case SUPPORTS_UPDATE:
             case SUPPORTS_MERGE:
                 return true;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }

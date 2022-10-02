@@ -160,12 +160,16 @@ public abstract class BaseIcebergConnectorTest
                 .build();
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
+
+            case SUPPORTS_COMMENT_ON_VIEW:
+                return true;
 
             case SUPPORTS_CREATE_VIEW:
                 return true;
@@ -181,8 +185,6 @@ public abstract class BaseIcebergConnectorTest
             case SUPPORTS_MERGE:
                 return true;
 
-            case SUPPORTS_COMMENT_ON_VIEW:
-                return true;
             default:
                 return super.hasBehavior(connectorBehavior);
         }

@@ -56,6 +56,7 @@ public abstract class BaseClickHouseConnectorTest
 {
     protected TestingClickHouseServer clickhouseServer;
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -65,14 +66,12 @@ public abstract class BaseClickHouseConnectorTest
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
+            case SUPPORTS_DELETE:
+                return false;
+
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
-                return false;
-
             case SUPPORTS_NEGATIVE_DATE:
-                return false;
-
-            case SUPPORTS_DELETE:
                 return false;
 
             default:

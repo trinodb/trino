@@ -54,6 +54,7 @@ public class TestJdbcConnectorTest
         return createH2QueryRunner(REQUIRED_TPCH_TABLES, properties);
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -63,14 +64,16 @@ public class TestJdbcConnectorTest
             case SUPPORTS_AGGREGATION_PUSHDOWN:
                 return false;
 
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 
-            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
-            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
+                return false;
+
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
-            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
                 return false;
 
             case SUPPORTS_ARRAY:
