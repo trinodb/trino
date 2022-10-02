@@ -220,12 +220,16 @@ public abstract class BaseHiveConnectorTest
         return queryRunner;
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
+
+            case SUPPORTS_COMMENT_ON_VIEW:
+                return true;
 
             case SUPPORTS_CREATE_VIEW:
                 return true;
@@ -234,8 +238,6 @@ public abstract class BaseHiveConnectorTest
                 return false;
 
             case SUPPORTS_DELETE:
-                return true;
-
             case SUPPORTS_UPDATE:
                 return true;
 
@@ -244,9 +246,6 @@ public abstract class BaseHiveConnectorTest
                 return false;
 
             case SUPPORTS_MULTI_STATEMENT_WRITES:
-                return true;
-
-            case SUPPORTS_COMMENT_ON_VIEW:
                 return true;
 
             default:
