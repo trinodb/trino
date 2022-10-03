@@ -18,6 +18,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.fileio.ForwardingFileIo;
+import io.trino.hdfs.FileSystemWithBatchDelete;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import org.apache.hadoop.fs.FileSystem;
@@ -26,10 +27,18 @@ import org.apache.iceberg.io.FileIO;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 
+import static io.trino.filesystem.FileSystemUtils.getRawFileSystem;
 import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.mapping;
+import static java.util.stream.Collectors.toList;
 
 class HdfsFileSystem
         implements TrinoFileSystem
@@ -73,6 +82,30 @@ class HdfsFileSystem
             }
             return null;
         });
+    }
+
+    @Override
+    public void deleteFiles(Collection<String> paths)
+            throws IOException
+    {
+        Map<Path, List<Path>> pathsGroupedByDirectory = paths.stream().collect(
+                groupingBy(
+                        path -> hadoopPath(path.replaceFirst("/[^/]*$", "")),
+                        mapping(HadoopPaths::hadoopPath, toList())));
+        for (Entry<Path, List<Path>> directoryWithPaths : pathsGroupedByDirectory.entrySet()) {
+            FileSystem rawFileSystem = getRawFileSystem(environment.getFileSystem(context, directoryWithPaths.getKey()));
+            environment.doAs(context.getIdentity(), () -> {
+                if (rawFileSystem instanceof FileSystemWithBatchDelete fileSystemWithBatchDelete) {
+                    fileSystemWithBatchDelete.deleteFiles(directoryWithPaths.getValue());
+                }
+                else {
+                    for (Path path : directoryWithPaths.getValue()) {
+                        rawFileSystem.delete(path, false);
+                    }
+                }
+                return null;
+            });
+        }
     }
 
     @Override
