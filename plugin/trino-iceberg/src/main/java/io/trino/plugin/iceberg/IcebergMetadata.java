@@ -152,6 +152,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -273,6 +274,8 @@ public class IcebergMetadata
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final TrinoCatalog catalog;
     private final TrinoFileSystemFactory fileSystemFactory;
+
+    private final Map<IcebergTableHandle, TableStatistics> tableStatisticsCache = new ConcurrentHashMap<>();
 
     private Transaction transaction;
 
@@ -2132,9 +2135,36 @@ public class IcebergMetadata
             return TableStatistics.empty();
         }
 
-        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
-        return TableStatisticsMaker.getTableStatistics(typeManager, session, handle, icebergTable);
+        IcebergTableHandle originalHandle = (IcebergTableHandle) tableHandle;
+        // Certain table handle attributes are not applicable to select queries (which need stats).
+        // If this changes, the caching logic may here may need to be revised.
+        checkArgument(originalHandle.getUpdatedColumns().isEmpty(), "Unexpected updated columns");
+        checkArgument(!originalHandle.isRecordScannedFiles(), "Unexpected scanned files recording set");
+        checkArgument(originalHandle.getMaxScannedFileSize().isEmpty(), "Unexpected max scanned file size set");
+
+        return tableStatisticsCache.computeIfAbsent(
+                new IcebergTableHandle(
+                        originalHandle.getSchemaName(),
+                        originalHandle.getTableName(),
+                        originalHandle.getTableType(),
+                        originalHandle.getSnapshotId(),
+                        originalHandle.getTableSchemaJson(),
+                        originalHandle.getPartitionSpecJson(),
+                        originalHandle.getFormatVersion(),
+                        originalHandle.getUnenforcedPredicate(),
+                        originalHandle.getEnforcedPredicate(),
+                        ImmutableSet.of(), // projectedColumns don't affect stats
+                        originalHandle.getNameMappingJson(),
+                        originalHandle.getTableLocation(),
+                        originalHandle.getStorageProperties(),
+                        NO_RETRIES, // retry mode doesn't affect stats
+                        originalHandle.getUpdatedColumns(),
+                        originalHandle.isRecordScannedFiles(),
+                        originalHandle.getMaxScannedFileSize()),
+                handle -> {
+                    Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
+                    return TableStatisticsMaker.getTableStatistics(typeManager, session, handle, icebergTable);
+                });
     }
 
     @Override
