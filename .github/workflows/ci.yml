@@ -517,7 +517,7 @@ jobs:
           contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'gcs-tests') && env.GCP_CREDENTIALS_KEY != ''
         run: |
           $MAVEN test ${MAVEN_TEST} -P gcs-tests -pl :trino-delta-lake \
-            -Dtesting.gcp-storage-bucket="trino-ci-test-us-east" \
+            -Dtesting.gcp-storage-bucket="trino-ci-test" \
             -Dtesting.gcp-credentials-key="${GCP_CREDENTIALS_KEY}"
       - name: Memsql Tests
         env:
