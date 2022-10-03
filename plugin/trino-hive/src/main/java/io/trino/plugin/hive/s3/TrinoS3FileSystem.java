@@ -49,6 +49,8 @@ import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
 import com.amazonaws.services.s3.model.CopyObjectRequest;
 import com.amazonaws.services.s3.model.CryptoConfiguration;
 import com.amazonaws.services.s3.model.DeleteObjectRequest;
+import com.amazonaws.services.s3.model.DeleteObjectsRequest;
+import com.amazonaws.services.s3.model.DeleteObjectsRequest.KeyVersion;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
@@ -74,6 +76,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.io.Closer;
 import com.google.common.net.MediaType;
@@ -81,6 +84,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.hdfs.FSDataInputStreamTail;
+import io.trino.hdfs.FileSystemWithBatchDelete;
 import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
@@ -115,6 +119,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
@@ -142,6 +147,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.toArray;
 import static com.google.common.hash.Hashing.md5;
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -169,6 +175,7 @@ import static org.apache.hadoop.fs.FSExceptionMessages.STREAM_IS_CLOSED;
 
 public class TrinoS3FileSystem
         extends FileSystem
+        implements FileSystemWithBatchDelete
 {
     public static final String S3_USER_AGENT_PREFIX = "trino.s3.user-agent-prefix";
     public static final String S3_CREDENTIALS_PROVIDER = "trino.s3.credentials-provider";
@@ -230,6 +237,7 @@ public class TrinoS3FileSystem
     private static final Set<String> GLACIER_STORAGE_CLASSES = ImmutableSet.of(Glacier.toString(), DeepArchive.toString());
     private static final MediaType DIRECTORY_MEDIA_TYPE = MediaType.create("application", "x-directory");
     private static final String S3_DEFAULT_ROLE_SESSION_NAME = "trino-session";
+    public static final int DELETE_BATCH_SIZE = 1000;
 
     private URI uri;
     private Path workingDirectory;
@@ -641,6 +649,35 @@ public class TrinoS3FileSystem
         catch (AmazonClientException e) {
             return false;
         }
+    }
+
+    @Override
+    public void deleteFiles(Collection<Path> paths)
+            throws IOException
+    {
+        try {
+            Iterable<List<Path>> partitions = Iterables.partition(paths, DELETE_BATCH_SIZE);
+            for (List<Path> currentBatch : partitions) {
+                deletePaths(currentBatch);
+            }
+        }
+        catch (AmazonClientException e) {
+            throw new IOException("Exception while batch deleting paths", e);
+        }
+    }
+
+    private void deletePaths(List<Path> paths)
+    {
+        List<KeyVersion> keys = paths.stream()
+                .map(TrinoS3FileSystem::keyFromPath)
+                .map(KeyVersion::new)
+                .collect(toImmutableList());
+        DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(getBucketName(uri))
+                .withRequesterPays(requesterPaysEnabled)
+                .withKeys(keys)
+                .withQuiet(true);
+
+        s3.deleteObjects(deleteObjectsRequest);
     }
 
     @Override

@@ -14,6 +14,8 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import io.minio.messages.Event;
+import io.trino.Session;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.testing.QueryRunner;
 import org.apache.iceberg.FileFormat;
@@ -21,13 +23,17 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_ACCESS_KEY;
 import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_SECRET_KEY;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseIcebergMinioConnectorSmokeTest
@@ -41,7 +47,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     public BaseIcebergMinioConnectorSmokeTest(FileFormat format)
     {
         super(format);
-        this.schemaName = "tpch_" + format.name().toLowerCase(Locale.ENGLISH);
+        this.schemaName = "tpch_" + format.name().toLowerCase(ENGLISH);
         this.bucketName = "test-iceberg-minio-smoke-test-" + randomTableSuffix();
     }
 
@@ -138,8 +144,66 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testExpireSnapshotsBatchDeletes()
+    {
+        String tableName = "test_expiring_snapshots_" + randomTableSuffix();
+        Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
+        String location = "s3://%s/%s/%s/".formatted(bucketName, schemaName, tableName);
+        Queue<Event> events = new ConcurrentLinkedQueue<>();
+        hiveMinioDataLake.getMinioClient().captureBucketNotifications(bucketName, event -> {
+            if (event.eventType().toString().toLowerCase(ENGLISH).contains("remove")) {
+                events.add(event);
+            }
+        });
+
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer) WITH (location='" + location + "')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
+        assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (VARCHAR 'one', 1), (VARCHAR 'two', 2)");
+
+        List<String> initialMetadataFiles = hiveMinioDataLake.getMinioClient().listObjects(bucketName, "/%s/%s/metadata".formatted(schemaName, tableName));
+        assertThat(initialMetadataFiles).isNotEmpty();
+
+        List<Long> initialSnapshots = getSnapshotIds(tableName);
+        assertThat(initialSnapshots).hasSizeGreaterThan(1);
+
+        assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
+
+        List<String> updatedMetadataFiles = hiveMinioDataLake.getMinioClient().listObjects(bucketName, "/%s/%s/metadata".formatted(schemaName, tableName));
+        assertThat(updatedMetadataFiles).isNotEmpty().hasSizeLessThan(initialMetadataFiles.size());
+
+        List<Long> updatedSnapshots = getSnapshotIds(tableName);
+        assertThat(updatedSnapshots).hasSize(1);
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (VARCHAR 'one', 1), (VARCHAR 'two', 2)");
+        assertThat(events).hasSize(2);
+        // if files were deleted in batch there should be only one request id because there was one request only
+        assertThat(events.stream()
+                .map(event -> event.responseElements().get("x-amz-request-id"))
+                .collect(toImmutableSet())).hasSize(1);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private String onMetastore(@Language("SQL") String sql)
     {
         return hiveMinioDataLake.getHiveHadoop().runOnMetastore(sql);
+    }
+
+    private Session prepareCleanUpSession()
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "expire_snapshots_min_retention", "0s")
+                .build();
+    }
+
+    private List<Long> getSnapshotIds(String tableName)
+    {
+        return getQueryRunner().execute(format("SELECT snapshot_id FROM \"%s$snapshots\"", tableName))
+                .getOnlyColumn()
+                .map(Long.class::cast)
+                .collect(toImmutableList());
     }
 }
