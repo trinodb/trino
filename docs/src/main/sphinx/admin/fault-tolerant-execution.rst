@@ -326,8 +326,9 @@ Exchange manager
 
 Exchange spooling is responsible for storing and managing spooled data for
 fault-tolerant execution. You can configure a filesystem-based exchange manager
-that stores spooled data in a specified location, such as an S3-compatible
-storage system, Google Cloud Storage (GCS), or a local filesystem.
+that stores spooled data in a specified location, such as :ref:`AWS S3
+<fte-exchange-aws-s3>` and S3-compatible systems, :ref:`Azure Blob Storage
+<fte-exchange-azure-blob>`, or :ref:`Google Cloud Storage <fte-exchange-gcs>`.
 
 Configuration
 ^^^^^^^^^^^^^
