@@ -278,6 +278,7 @@ public class TestFaultTolerantStageScheduler
             tasks = remoteTaskFactory.getTasks();
             assertThat(tasks).hasSize(6);
             assertThat(tasks).containsKey(getTaskId(4, 0));
+            assertTrue(sinkExchange.isNoMoreSinks());
 
             // not finished yet, will be finished when all tasks succeed
             assertFalse(scheduler.isFinished());
@@ -303,6 +304,8 @@ public class TestFaultTolerantStageScheduler
                     new TestingExchangeSinkHandle(2),
                     new TestingExchangeSinkHandle(3),
                     new TestingExchangeSinkHandle(4));
+
+            assertTrue(sinkExchange.isAllRequiredSinksFinished());
 
             assertTrue(scheduler.isFinished());
         }
@@ -864,6 +867,7 @@ public class TestFaultTolerantStageScheduler
             sourceExchange1.setSourceHandles(ImmutableList.of());
             TestingExchange sourceExchange2 = new TestingExchange();
             sourceExchange2.setSourceHandles(ImmutableList.of());
+            TestingExchange sinkExchange = new TestingExchange();
             FaultTolerantStageScheduler scheduler = createFaultTolerantTaskScheduler(
                     remoteTaskFactory,
                     (session, fragment, exchangeSourceHandles, getSplitTimeRecorder, bucketToPartition) -> {
@@ -871,7 +875,7 @@ public class TestFaultTolerantStageScheduler
                         return taskSource;
                     },
                     nodeAllocator,
-                    new TestingExchange(),
+                    sinkExchange,
                     ImmutableMap.of(
                             SOURCE_FRAGMENT_ID_1, sourceExchange1,
                             SOURCE_FRAGMENT_ID_2, sourceExchange2),
@@ -895,6 +899,8 @@ public class TestFaultTolerantStageScheduler
 
             future.set(ImmutableList.of());
             assertTrue(scheduler.isFinished());
+            assertTrue(sinkExchange.isNoMoreSinks());
+            assertTrue(sinkExchange.isAllRequiredSinksFinished());
         }
     }
 
