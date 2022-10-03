@@ -163,6 +163,8 @@ public class FaultTolerantStageScheduler
     @GuardedBy("this")
     private final Set<Integer> allPartitions = new HashSet<>();
     @GuardedBy("this")
+    private boolean noMorePartitions;
+    @GuardedBy("this")
     private final Queue<Integer> queuedPartitions = new ArrayDeque<>();
     @GuardedBy("this")
     private final Queue<PendingPartition> pendingPartitions = new ArrayDeque<>();
@@ -312,6 +314,10 @@ public class FaultTolerantStageScheduler
                                 if (taskSource.isFinished()) {
                                     dynamicFilterService.stageCannotScheduleMoreTasks(stage.getStageId(), 0, allPartitions.size());
                                     sinkExchange.noMoreSinks();
+                                    noMorePartitions = true;
+                                }
+                                if (noMorePartitions && finishedPartitions.keySet().containsAll(allPartitions)) {
+                                    sinkExchange.allRequiredSinksFinished();
                                 }
                                 return null;
                             }
@@ -617,6 +623,9 @@ public class FaultTolerantStageScheduler
                         case FINISHED:
                             finishedPartitions.put(partitionId, taskId.getAttemptId());
                             sinkExchange.sinkFinished(exchangeSinkHandle, taskId.getAttemptId());
+                            if (noMorePartitions && finishedPartitions.keySet().containsAll(allPartitions)) {
+                                sinkExchange.allRequiredSinksFinished();
+                            }
                             partitionToRemoteTaskMap.get(partitionId).forEach(RemoteTask::abort);
                             partitionMemoryEstimator.registerPartitionFinished(session, memoryLimits, taskStatus.getPeakMemoryReservation(), true, Optional.empty());
 
