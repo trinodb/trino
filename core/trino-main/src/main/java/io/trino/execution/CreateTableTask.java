@@ -227,14 +227,14 @@ public class CreateTableTask
                                     .collect(toImmutableSet()));
                 }
                 catch (AccessDeniedException e) {
-                    throw new AccessDeniedException("Cannot reference columns of table " + likeTableName);
+                    throw new AccessDeniedException("Cannot reference columns of table " + likeTableName, e);
                 }
                 if (propertiesOption == INCLUDING) {
                     try {
                         accessControl.checkCanShowCreateTable(session.toSecurityContext(), likeTableName);
                     }
                     catch (AccessDeniedException e) {
-                        throw new AccessDeniedException("Cannot reference properties of table " + likeTableName);
+                        throw new AccessDeniedException("Cannot reference properties of table " + likeTableName, e);
                     }
                 }
 
