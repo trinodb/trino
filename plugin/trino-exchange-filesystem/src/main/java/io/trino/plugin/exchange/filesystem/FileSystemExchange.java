@@ -145,7 +145,6 @@ public class FileSystemExchange
         synchronized (this) {
             noMoreSinks = true;
         }
-        checkInputReady();
     }
 
     @Override
@@ -178,27 +177,27 @@ public class FileSystemExchange
             FileSystemExchangeSinkHandle sinkHandle = (FileSystemExchangeSinkHandle) handle;
             finishedSinks.putIfAbsent(sinkHandle.getPartitionId(), taskAttemptId);
         }
-        checkInputReady();
     }
 
-    private void checkInputReady()
+    @Override
+    public void allRequiredSinksFinished()
     {
         verify(!Thread.holdsLock(this));
-        ListenableFuture<List<ExchangeSourceHandle>> exchangeSourceHandlesCreationFuture = null;
+        ListenableFuture<List<ExchangeSourceHandle>> exchangeSourceHandlesCreationFuture;
         synchronized (this) {
             if (exchangeSourceHandlesCreationStarted) {
                 return;
             }
-            if (noMoreSinks && finishedSinks.keySet().containsAll(allSinks)) {
-                // input is ready, create exchange source handles
-                exchangeSourceHandlesCreationStarted = true;
-                exchangeSourceHandlesCreationFuture = stats.getCreateExchangeSourceHandles().record(this::createExchangeSourceHandles);
-                exchangeSourceHandlesFuture.whenComplete((value, failure) -> {
-                    if (exchangeSourceHandlesFuture.isCancelled()) {
-                        exchangeSourceHandlesFuture.cancel(true);
-                    }
-                });
-            }
+            verify(noMoreSinks, "noMoreSinks is expected to be set");
+            verify(finishedSinks.keySet().containsAll(allSinks), "all sinks are expected to be finished");
+            // input is ready, create exchange source handles
+            exchangeSourceHandlesCreationStarted = true;
+            exchangeSourceHandlesCreationFuture = stats.getCreateExchangeSourceHandles().record(this::createExchangeSourceHandles);
+            exchangeSourceHandlesFuture.whenComplete((value, failure) -> {
+                if (exchangeSourceHandlesFuture.isCancelled()) {
+                    exchangeSourceHandlesFuture.cancel(true);
+                }
+            });
         }
         if (exchangeSourceHandlesCreationFuture != null) {
             Futures.addCallback(exchangeSourceHandlesCreationFuture, new FutureCallback<>() {

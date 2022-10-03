@@ -43,6 +43,7 @@ public class TestingExchange
     private final Set<TestingExchangeSinkHandle> allSinks = newConcurrentHashSet();
     private final AtomicBoolean noMoreSinks = new AtomicBoolean();
     private final CompletableFuture<List<ExchangeSourceHandle>> sourceHandles = new CompletableFuture<>();
+    private final AtomicBoolean allRequiredSinksFinished = new AtomicBoolean();
 
     @Override
     public ExchangeId getId()
@@ -85,6 +86,17 @@ public class TestingExchange
     public void sinkFinished(ExchangeSinkHandle sinkHandle, int taskAttemptId)
     {
         finishedSinks.add((TestingExchangeSinkHandle) sinkHandle);
+    }
+
+    @Override
+    public void allRequiredSinksFinished()
+    {
+        allRequiredSinksFinished.set(true);
+    }
+
+    public boolean isAllRequiredSinksFinished()
+    {
+        return allRequiredSinksFinished.get();
     }
 
     public Set<TestingExchangeSinkHandle> getFinishedSinkHandles()
