@@ -81,6 +81,12 @@ public interface Exchange
     void sinkFinished(ExchangeSinkHandle sinkHandle, int taskAttemptId);
 
     /**
+     * Called by the engine when all required sinks finished successfully.
+     * While some source tasks may still be running and writing to their sinks the data written to these sinks could be safely ignored after this method is invoked.
+     */
+    void allRequiredSinksFinished();
+
+    /**
      * Returns an {@link ExchangeSourceHandleSource} instance to be used to enumerate {@link ExchangeSourceHandle}s.
      *
      * @return Future containing a list of {@link ExchangeSourceHandle} to be sent to a

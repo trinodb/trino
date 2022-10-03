@@ -666,6 +666,7 @@ public class DeduplicatingDirectExchangeBuffer
             ListenableFuture<ExchangeSource> exchangeSourceFuture = FluentFuture.from(toListenableFuture(exchangeSink.finish()))
                     .transformAsync(ignored -> {
                         exchange.sinkFinished(sinkHandle, 0);
+                        exchange.allRequiredSinksFinished();
                         synchronized (this) {
                             exchangeSink = null;
                             sinkHandle = null;

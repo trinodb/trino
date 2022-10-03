@@ -155,6 +155,7 @@ public abstract class AbstractTestExchangeManager
                         1, "2-1-0"),
                 true);
         exchange.sinkFinished(sinkHandle2, 2);
+        exchange.allRequiredSinksFinished();
 
         ExchangeSourceHandleBatch sourceHandleBatch = exchange.getSourceHandles().getNextBatch().get();
         assertTrue(sourceHandleBatch.lastBatch());
@@ -228,6 +229,7 @@ public abstract class AbstractTestExchangeManager
                         .build(),
                 true);
         exchange.sinkFinished(sinkHandle2, 0);
+        exchange.allRequiredSinksFinished();
 
         ExchangeSourceHandleBatch sourceHandleBatch = exchange.getSourceHandles().getNextBatch().get();
         assertTrue(sourceHandleBatch.lastBatch());
