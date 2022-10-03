@@ -11,20 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem;
+package io.trino.hdfs;
 
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.FilterFileSystem;
+import org.apache.hadoop.fs.Path;
 
-public final class FileSystemUtils
+import java.io.IOException;
+import java.util.Collection;
+
+public interface FileSystemWithBatchDelete
 {
-    private FileSystemUtils() {}
-
-    public static FileSystem getRawFileSystem(FileSystem fileSystem)
-    {
-        if (fileSystem instanceof FilterFileSystem) {
-            return getRawFileSystem(((FilterFileSystem) fileSystem).getRawFileSystem());
-        }
-        return fileSystem;
-    }
+    void deleteFiles(Collection<Path> paths)
+            throws IOException;
 }

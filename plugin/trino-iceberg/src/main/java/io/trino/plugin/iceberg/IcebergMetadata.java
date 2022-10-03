@@ -152,6 +152,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -268,6 +269,8 @@ public class IcebergMetadata
 
     private static final String NUMBER_OF_DISTINCT_VALUES_NAME = "NUMBER_OF_DISTINCT_VALUES";
     private static final FunctionName NUMBER_OF_DISTINCT_VALUES_FUNCTION = new FunctionName(IcebergThetaSketchForStats.NAME);
+
+    private static final Integer DELETE_BATCH_SIZE = 1000;
 
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
@@ -1176,10 +1179,32 @@ public class IcebergMetadata
                 IcebergSessionProperties.EXPIRE_SNAPSHOTS_MIN_RETENTION);
 
         long expireTimestampMillis = session.getStart().toEpochMilli() - retention.toMillis();
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        List<String> pathsToDelete = new ArrayList<>();
+        // deleteFunction is not accessed from multiple threads unless .executeDeleteWith() is used
+        Consumer<String> deleteFunction = path -> {
+            pathsToDelete.add(path);
+            if (pathsToDelete.size() == DELETE_BATCH_SIZE) {
+                try {
+                    fileSystem.deleteFiles(pathsToDelete);
+                    pathsToDelete.clear();
+                }
+                catch (IOException e) {
+                    throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to delete files during snapshot expiration", e);
+                }
+            }
+        };
 
         table.expireSnapshots()
                 .expireOlderThan(expireTimestampMillis)
+                .deleteWith(deleteFunction)
                 .commit();
+        try {
+            fileSystem.deleteFiles(pathsToDelete);
+        }
+        catch (IOException e) {
+            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to delete files during snapshot expiration", e);
+        }
     }
 
     private static void validateTableExecuteParameters(
