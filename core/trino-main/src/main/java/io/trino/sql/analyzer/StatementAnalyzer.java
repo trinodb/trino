@@ -835,7 +835,7 @@ class StatementAnalyzer
                 accessControl.checkCanInsertIntoTable(session.toSecurityContext(), tableName);
             }
             catch (AccessDeniedException exception) {
-                throw new AccessDeniedException(format("Cannot ANALYZE (missing insert privilege) table %s", tableName));
+                throw new AccessDeniedException(format("Cannot ANALYZE (missing insert privilege) table %s", tableName), exception);
             }
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
