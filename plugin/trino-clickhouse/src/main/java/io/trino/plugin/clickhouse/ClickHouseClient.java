@@ -457,13 +457,6 @@ public class ClickHouseClient
     }
 
     @Override
-    public void dropTable(ConnectorSession session, JdbcTableHandle handle)
-    {
-        String sql = "DROP TABLE " + quoted(handle.asPlainTable().getRemoteTableName());
-        execute(session, sql);
-    }
-
-    @Override
     protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
             throws SQLException
     {
