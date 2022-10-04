@@ -949,16 +949,17 @@ public abstract class BaseJdbcClient
             String remoteSchemaName = identifierMapping.toRemoteSchemaName(identity, connection, schemaName);
             String newRemoteSchemaName = identifierMapping.toRemoteSchemaName(identity, connection, newSchemaName);
             verifySchemaName(connection.getMetaData(), newRemoteSchemaName);
-            execute(connection, renameSchemaSql(remoteSchemaName, newRemoteSchemaName));
+            renameSchema(session, connection, remoteSchemaName, newRemoteSchemaName);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
-    protected String renameSchemaSql(String remoteSchemaName, String newRemoteSchemaName)
+    protected void renameSchema(ConnectorSession session, Connection connection, String remoteSchemaName, String newRemoteSchemaName)
+            throws SQLException
     {
-        return "ALTER SCHEMA " + quoted(remoteSchemaName) + " RENAME TO " + quoted(newRemoteSchemaName);
+        execute(connection, "ALTER SCHEMA " + quoted(remoteSchemaName) + " RENAME TO " + quoted(newRemoteSchemaName));
     }
 
     protected void execute(ConnectorSession session, String query)
