@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.mongodb;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import com.mongodb.DBRef;
@@ -50,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -81,6 +83,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.join;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class MongoPageSource
@@ -90,7 +93,7 @@ public class MongoPageSource
     private static final int ROWS_PER_REQUEST = 1024;
 
     private final MongoCursor<Document> cursor;
-    private final List<String> columnNames;
+    private final List<MongoColumnHandle> columns;
     private final List<Type> columnTypes;
     private Document currentDoc;
     private boolean finished;
@@ -102,7 +105,7 @@ public class MongoPageSource
             MongoTableHandle tableHandle,
             List<MongoColumnHandle> columns)
     {
-        this.columnNames = columns.stream().map(MongoColumnHandle::getName).collect(toList());
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.columnTypes = columns.stream().map(MongoColumnHandle::getType).collect(toList());
         this.cursor = mongoSession.execute(tableHandle, columns);
         currentDoc = null;
@@ -148,7 +151,8 @@ public class MongoPageSource
             pageBuilder.declarePosition();
             for (int column = 0; column < columnTypes.size(); column++) {
                 BlockBuilder output = pageBuilder.getBlockBuilder(column);
-                appendTo(columnTypes.get(column), currentDoc.get(columnNames.get(column)), output);
+                MongoColumnHandle columnHandle = columns.get(column);
+                appendTo(columnTypes.get(column), getColumnValue(currentDoc, columnHandle), output);
             }
         }
 
@@ -358,6 +362,50 @@ public class MongoPageSource
 
         // not a convertible value
         output.appendNull();
+    }
+
+    private static Object getColumnValue(Document document, MongoColumnHandle mongoColumnHandle)
+    {
+        Object value = document.get(mongoColumnHandle.getBaseName());
+        if (mongoColumnHandle.isBaseColumn()) {
+            return value;
+        }
+        if (value instanceof DBRef dbRefValue) {
+            return getDbRefValue(dbRefValue, mongoColumnHandle);
+        }
+        Document documentValue = (Document) value;
+        for (String dereferenceName : mongoColumnHandle.getDereferenceNames()) {
+            // When parent field itself is null
+            if (documentValue == null) {
+                return null;
+            }
+            value = documentValue.get(dereferenceName);
+            if (value instanceof Document nestedDocument) {
+                documentValue = nestedDocument;
+            }
+            else if (value instanceof DBRef dbRefValue) {
+                // Assuming DBRefField is the leaf field
+                return getDbRefValue(dbRefValue, mongoColumnHandle);
+            }
+        }
+        return value;
+    }
+
+    private static Object getDbRefValue(DBRef dbRefValue, MongoColumnHandle columnHandle)
+    {
+        if (columnHandle.getType() instanceof RowType) {
+            return dbRefValue;
+        }
+        checkArgument(columnHandle.isDbRefField(), "columnHandle is not a dbRef field: " + columnHandle);
+        List<String> dereferenceNames = columnHandle.getDereferenceNames();
+        checkState(!dereferenceNames.isEmpty(), "dereferenceNames is empty");
+        String leafColumnName = dereferenceNames.get(dereferenceNames.size() - 1);
+        return switch (leafColumnName) {
+            case DATABASE_NAME -> dbRefValue.getDatabaseName();
+            case COLLECTION_NAME -> dbRefValue.getCollectionName();
+            case ID -> dbRefValue.getId();
+            default -> throw new IllegalStateException("Unsupported DBRef column name: " + leafColumnName);
+        };
     }
 
     @Override
