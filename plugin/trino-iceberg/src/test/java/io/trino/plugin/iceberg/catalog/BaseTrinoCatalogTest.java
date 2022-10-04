@@ -11,12 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.iceberg.catalog;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
@@ -29,11 +30,14 @@ import org.apache.iceberg.types.Types;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -48,40 +52,45 @@ public abstract class BaseTrinoCatalogTest
 
     protected abstract TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations);
 
+    protected Map<String, Object> defaultNamespaceProperties(String newNamespaceName)
+    {
+        return ImmutableMap.of();
+    }
+
     @Test
     public void testCreateNamespaceWithLocation()
     {
         TrinoCatalog catalog = createTrinoCatalog(false);
-
         String namespace = "test_create_namespace_with_location_" + randomTableSuffix();
-        catalog.createNamespace(SESSION, namespace, ImmutableMap.of(LOCATION_PROPERTY, "/a/path/"), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+        Map<String, Object> namespaceProperties = new HashMap<>(defaultNamespaceProperties(namespace));
+        String namespaceLocation = (String) namespaceProperties.computeIfAbsent(LOCATION_PROPERTY, ignored -> "/a/path/");
+        namespaceProperties = ImmutableMap.copyOf(namespaceProperties);
+        catalog.createNamespace(SESSION, namespace, namespaceProperties, new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
         assertThat(catalog.listNamespaces(SESSION)).contains(namespace);
-        assertEquals(catalog.loadNamespaceMetadata(SESSION, namespace), ImmutableMap.of(LOCATION_PROPERTY, "/a/path/"));
-        assertEquals(catalog.defaultTableLocation(SESSION, new SchemaTableName(namespace, "table")), "/a/path/table");
+        assertEquals(catalog.loadNamespaceMetadata(SESSION, namespace), namespaceProperties);
+        assertEquals(catalog.defaultTableLocation(SESSION, new SchemaTableName(namespace, "table")), namespaceLocation.replaceAll("/$", "") + "/table");
         catalog.dropNamespace(SESSION, namespace);
         assertThat(catalog.listNamespaces(SESSION)).doesNotContain(namespace);
     }
 
     @Test
     public void testCreateTable()
-            throws IOException
+            throws Exception
     {
         TrinoCatalog catalog = createTrinoCatalog(false);
-        Path tmpDirectory = Files.createTempDirectory("iceberg_catalog_test_create_table_");
-        tmpDirectory.toFile().deleteOnExit();
-
         String namespace = "test_create_table_" + randomTableSuffix();
         String table = "tableName";
         SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
         try {
-            catalog.createNamespace(SESSION, namespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+            catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+            String tableLocation = arbitraryTableLocation(catalog, SESSION, schemaTableName);
             catalog.newCreateTableTransaction(
                     SESSION,
                     schemaTableName,
                     new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
                     PartitionSpec.unpartitioned(),
-                    tmpDirectory.toAbsolutePath().toString(),
-                    ImmutableMap.of())
+                            tableLocation,
+                            ImmutableMap.of())
                     .commitTransaction();
             assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(schemaTableName);
             assertThat(catalog.listTables(SESSION, Optional.empty())).contains(schemaTableName);
@@ -91,7 +100,7 @@ public abstract class BaseTrinoCatalogTest
             assertEquals(icebergTable.schema().columns().size(), 1);
             assertEquals(icebergTable.schema().columns().get(0).name(), "col1");
             assertEquals(icebergTable.schema().columns().get(0).type(), Types.LongType.get());
-            assertEquals(icebergTable.location(), tmpDirectory.toAbsolutePath().toString());
+            assertEquals(icebergTable.location(), tableLocation);
             assertEquals(icebergTable.properties(), ImmutableMap.of());
 
             catalog.dropTable(SESSION, schemaTableName);
@@ -110,26 +119,23 @@ public abstract class BaseTrinoCatalogTest
 
     @Test
     public void testRenameTable()
-            throws IOException
+            throws Exception
     {
         TrinoCatalog catalog = createTrinoCatalog(false);
-        Path tmpDirectory = Files.createTempDirectory("iceberg_catalog_test_rename_table_");
-        tmpDirectory.toFile().deleteOnExit();
-
         String namespace = "test_rename_table_" + randomTableSuffix();
         String targetNamespace = "test_rename_table_" + randomTableSuffix();
 
         String table = "tableName";
         SchemaTableName sourceSchemaTableName = new SchemaTableName(namespace, table);
         try {
-            catalog.createNamespace(SESSION, namespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
-            catalog.createNamespace(SESSION, targetNamespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+            catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+            catalog.createNamespace(SESSION, targetNamespace, defaultNamespaceProperties(targetNamespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
             catalog.newCreateTableTransaction(
                     SESSION,
                     sourceSchemaTableName,
                     new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
                     PartitionSpec.unpartitioned(),
-                    tmpDirectory.toAbsolutePath().toString(),
+                    arbitraryTableLocation(catalog, SESSION, sourceSchemaTableName),
                     ImmutableMap.of())
                     .commitTransaction();
             assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(sourceSchemaTableName);
@@ -165,20 +171,31 @@ public abstract class BaseTrinoCatalogTest
             throws IOException
     {
         TrinoCatalog catalog = createTrinoCatalog(true);
-        Path tmpDirectory = Files.createTempDirectory("iceberg_catalog_test_rename_table_");
-        tmpDirectory.toFile().deleteOnExit();
-
         String namespace = "test_unique_table_locations_" + randomTableSuffix();
         String table = "tableName";
         SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
-        catalog.createNamespace(SESSION, namespace, ImmutableMap.of(LOCATION_PROPERTY, tmpDirectory.toString()), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+        Map<String, Object> namespaceProperties = new HashMap<>(defaultNamespaceProperties(namespace));
+        String namespaceLocation = (String) namespaceProperties.computeIfAbsent(LOCATION_PROPERTY, ignored -> {
+            try {
+                Path tmpDirectory = Files.createTempDirectory("iceberg_catalog_test_rename_table_");
+                tmpDirectory.toFile().deleteOnExit();
+                return tmpDirectory.toString();
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        });
+
+        catalog.createNamespace(SESSION, namespace, namespaceProperties, new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
         try {
             String location1 = catalog.defaultTableLocation(SESSION, schemaTableName);
             String location2 = catalog.defaultTableLocation(SESSION, schemaTableName);
             assertNotEquals(location1, location2);
 
-            assertEquals(Path.of(location1).getParent(), tmpDirectory);
-            assertEquals(Path.of(location2).getParent(), tmpDirectory);
+            assertThat(location1)
+                    .startsWith(namespaceLocation + "/");
+            assertThat(location2)
+                    .startsWith(namespaceLocation + "/");
         }
         finally {
             try {
@@ -246,6 +263,22 @@ public abstract class BaseTrinoCatalogTest
                 LOG.warn("Failed to clean up namespace: " + namespace);
             }
         }
+    }
+
+    private String arbitraryTableLocation(TrinoCatalog catalog, ConnectorSession session, SchemaTableName schemaTableName)
+            throws Exception
+    {
+        try {
+            return catalog.defaultTableLocation(session, schemaTableName);
+        }
+        catch (TrinoException e) {
+            if (!e.getErrorCode().equals(HIVE_DATABASE_LOCATION_ERROR.toErrorCode())) {
+                throw e;
+            }
+        }
+        Path tmpDirectory = Files.createTempDirectory("iceberg_catalog_test_arbitrary_location");
+        tmpDirectory.toFile().deleteOnExit();
+        return tmpDirectory.toString();
     }
 
     private void assertViewDefinition(ConnectorViewDefinition actualView, ConnectorViewDefinition expectedView)
