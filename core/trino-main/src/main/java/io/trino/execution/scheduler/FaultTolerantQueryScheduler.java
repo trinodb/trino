@@ -15,13 +15,13 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.exchange.ExchangeInput;
 import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.BasicStageStats;
 import io.trino.execution.NodeTaskMap;
@@ -41,6 +41,7 @@ import io.trino.spi.exchange.ExchangeContext;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeSourceHandle;
+import io.trino.spi.exchange.ExchangeSourceOutputSelector;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.SubPlan;
@@ -213,7 +214,7 @@ public class FaultTolerantQueryScheduler
                 session,
                 getFaultTolerantExecutionPartitionCount(session));
 
-        ImmutableList.Builder<FaultTolerantStageScheduler> schedulers = ImmutableList.builder();
+        Map<PlanFragmentId, FaultTolerantStageScheduler> schedulers = new HashMap<>();
         Map<PlanFragmentId, Exchange> exchanges = new HashMap<>();
         NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(session);
 
@@ -240,11 +241,15 @@ public class FaultTolerantQueryScheduler
                 exchanges.put(fragment.getId(), exchange);
 
                 ImmutableMap.Builder<PlanFragmentId, Exchange> sourceExchanges = ImmutableMap.builder();
+                ImmutableMap.Builder<PlanFragmentId, FaultTolerantStageScheduler> sourceSchedulers = ImmutableMap.builder();
                 for (SqlStage childStage : stageManager.getChildren(fragment.getId())) {
                     PlanFragmentId childFragmentId = childStage.getFragment().getId();
                     Exchange sourceExchange = exchanges.get(childFragmentId);
                     verify(sourceExchange != null, "exchange not found for fragment: %s", childFragmentId);
                     sourceExchanges.put(childFragmentId, sourceExchange);
+                    FaultTolerantStageScheduler sourceScheduler = schedulers.get(childFragmentId);
+                    verify(sourceScheduler != null, "scheduler not found for fragment: %s", childFragmentId);
+                    sourceSchedulers.put(childFragmentId, sourceScheduler);
                 }
 
                 FaultTolerantPartitioningScheme sourcePartitioningScheme = partitioningSchemeFactory.get(fragment.getPartitioning());
@@ -261,6 +266,7 @@ public class FaultTolerantQueryScheduler
                         systemTicker(),
                         exchange,
                         sinkPartitioningScheme,
+                        sourceSchedulers.buildOrThrow(),
                         sourceExchanges.buildOrThrow(),
                         sourcePartitioningScheme,
                         remainingTaskRetryAttemptsOverall,
@@ -268,17 +274,20 @@ public class FaultTolerantQueryScheduler
                         maxTasksWaitingForNodePerStage,
                         dynamicFilterService);
 
-                schedulers.add(scheduler);
+                schedulers.put(fragment.getId(), scheduler);
 
                 if (outputStage) {
                     ListenableFuture<List<ExchangeSourceHandle>> sourceHandles = getAllSourceHandles(exchange.getSourceHandles());
                     addSuccessCallback(sourceHandles, handles -> {
                         try {
-                            ImmutableList.Builder<ExchangeInput> inputs = ImmutableList.builder();
-                            if (!handles.isEmpty()) {
-                                inputs.add(new SpoolingExchangeInput(handles));
-                            }
-                            queryStateMachine.updateInputsForQueryResults(inputs.build(), true);
+                            ExchangeSourceOutputSelector.Builder selector = ExchangeSourceOutputSelector.builder(ImmutableSet.of(exchange.getId()));
+                            Map<Integer, Integer> successfulAttempts = scheduler.getSuccessfulAttempts();
+                            successfulAttempts.forEach((taskPartitionId, attemptId) ->
+                                    selector.include(exchange.getId(), taskPartitionId, attemptId));
+                            selector.setPartitionCount(exchange.getId(), successfulAttempts.size());
+                            selector.setFinal();
+                            SpoolingExchangeInput input = new SpoolingExchangeInput(handles, Optional.of(selector.build()));
+                            queryStateMachine.updateInputsForQueryResults(ImmutableList.of(input), true);
                         }
                         catch (Throwable t) {
                             queryStateMachine.transitionToFailed(t);
@@ -290,13 +299,13 @@ public class FaultTolerantQueryScheduler
 
             return new Scheduler(
                     queryStateMachine,
-                    schedulers.build(),
+                    ImmutableList.copyOf(schedulers.values()),
                     stageManager,
                     schedulerStats,
                     nodeAllocator);
         }
         catch (Throwable t) {
-            for (FaultTolerantStageScheduler scheduler : schedulers.build()) {
+            for (FaultTolerantStageScheduler scheduler : schedulers.values()) {
                 try {
                     scheduler.abort();
                 }

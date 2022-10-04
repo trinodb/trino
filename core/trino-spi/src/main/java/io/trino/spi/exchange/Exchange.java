@@ -25,6 +25,11 @@ public interface Exchange
         extends Closeable
 {
     /**
+     * Get id of this exchange
+     */
+    ExchangeId getId();
+
+    /**
      * Registers a new sink
      *
      * @param taskPartitionId uniquely identifies a dataset written to a sink
