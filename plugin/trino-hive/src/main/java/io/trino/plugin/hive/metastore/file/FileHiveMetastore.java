@@ -123,6 +123,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
@@ -206,6 +207,14 @@ public class FileHiveMetastore
     public synchronized void createDatabase(Database database)
     {
         requireNonNull(database, "database is null");
+        database = new Database(
+                // Store name in lowercase for compatibility with HMS (and Glue)
+                database.getDatabaseName().toLowerCase(ENGLISH),
+                database.getLocation(),
+                database.getOwnerName(),
+                database.getOwnerType(),
+                database.getComment(),
+                database.getParameters());
 
         if (database.getLocation().isPresent()) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Database cannot be created with a location set");
@@ -228,6 +237,9 @@ public class FileHiveMetastore
     public synchronized void dropDatabase(String databaseName, boolean deleteData)
     {
         requireNonNull(databaseName, "databaseName is null");
+
+        // Database names are stored lowercase. Accept non-lowercase name for compatibility with HMS (and Glue)
+        databaseName = databaseName.toLowerCase(ENGLISH);
 
         getRequiredDatabase(databaseName);
         if (!getAllTables(databaseName).isEmpty()) {
@@ -285,11 +297,14 @@ public class FileHiveMetastore
     {
         requireNonNull(databaseName, "databaseName is null");
 
-        Path databaseMetadataDirectory = getDatabaseMetadataDirectory(databaseName);
+        // Database names are stored lowercase. Accept non-lowercase name for compatibility with HMS (and Glue)
+        String normalizedName = databaseName.toLowerCase(ENGLISH);
+
+        Path databaseMetadataDirectory = getDatabaseMetadataDirectory(normalizedName);
         return readSchemaFile(DATABASE, databaseMetadataDirectory, databaseCodec)
                 .map(databaseMetadata -> {
                     checkVersion(databaseMetadata.getWriterVersion());
-                    return databaseMetadata.toDatabase(databaseName, databaseMetadataDirectory.toString());
+                    return databaseMetadata.toDatabase(normalizedName, databaseMetadataDirectory.toString());
                 });
     }
 
@@ -1527,7 +1542,7 @@ public class FileHiveMetastore
         @Override
         public String toString()
         {
-            return name().toLowerCase(Locale.ENGLISH);
+            return name().toLowerCase(ENGLISH);
         }
     }
 }
