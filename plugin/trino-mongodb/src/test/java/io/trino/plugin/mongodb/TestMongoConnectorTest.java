@@ -15,13 +15,17 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.mongodb.DBRef;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Collation;
 import com.mongodb.client.model.CreateCollectionOptions;
+import io.trino.Session;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
@@ -43,11 +47,13 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 
 import static com.mongodb.client.model.CollationCaseFirst.LOWER;
 import static com.mongodb.client.model.CollationStrength.PRIMARY;
 import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoClient;
 import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
+import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedType;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -98,9 +104,6 @@ public class TestMongoConnectorTest
             case SUPPORTS_UPDATE:
             case SUPPORTS_MERGE:
             case SUPPORTS_TRUNCATE:
-                return false;
-
-            case SUPPORTS_DEREFERENCE_PUSHDOWN:
                 return false;
 
             case SUPPORTS_RENAME_SCHEMA:
@@ -827,9 +830,10 @@ public class TestMongoConnectorTest
         collection.insertOne(new Document("row_field", new Document("first", new Document("second", 1))));
         collection.insertOne(new Document("row_field", new Document("first", new Document("second", 2))));
 
-        assertQuery(
-                "SELECT row_field.first.second FROM TABLE(mongodb.system.query(database => 'tpch', collection => '" + tableName + "', filter => '{ \"row_field.first.second\": 1 }'))",
-                "VALUES 1");
+        assertThat(query("SELECT row_field.first.second FROM TABLE(mongodb.system.query(database => 'tpch', collection => '" + tableName + "', filter => '{ \"row_field.first.second\": 1 }'))"))
+                .matches("VALUES BIGINT '1'")
+                .isFullyPushedDown();
+
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -882,7 +886,8 @@ public class TestMongoConnectorTest
     public void testNativeQueryProjection()
     {
         assertThat(query("SELECT name FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'region', filter => '{}'))"))
-                .matches("SELECT name FROM region");
+                .matches("SELECT name FROM region")
+                .isFullyPushedDown();
     }
 
     @Test
@@ -973,7 +978,8 @@ public class TestMongoConnectorTest
 
         assertThat(query("SELECT \"dotted.field\" FROM test." + tableName))
                 .skippingTypesCheck()
-                .matches("SELECT NULL");
+                .matches("SELECT NULL")
+                .isFullyPushedDown();
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -988,10 +994,12 @@ public class TestMongoConnectorTest
 
         assertThat(query("SELECT root.\"dotted.field\" FROM test." + tableName))
                 .skippingTypesCheck()
-                .matches("SELECT ROW(varchar 'foo')");
+                .matches("SELECT ROW(varchar 'foo')")
+                .isNotFullyPushedDown(ProjectNode.class);
 
         assertThat(query("SELECT root.\"dotted.field\".leaf FROM test." + tableName))
-                .matches("SELECT varchar 'foo'");
+                .matches("SELECT varchar 'foo'")
+                .isNotFullyPushedDown(ProjectNode.class);
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1005,10 +1013,12 @@ public class TestMongoConnectorTest
         assertUpdate("INSERT INTO test." + tableName + " SELECT ROW('foo', 'bar')", 1);
 
         assertThat(query("SELECT root.\"dotted.field\" FROM test." + tableName))
-                .matches("SELECT varchar 'foo'");
+                .matches("SELECT varchar 'foo'")
+                .isNotFullyPushedDown(ProjectNode.class);
 
         assertThat(query("SELECT root.\"dotted.field\", root.field FROM test." + tableName))
-                .matches("SELECT varchar 'foo', varchar 'bar'");
+                .matches("SELECT varchar 'foo', varchar 'bar'")
+                .isNotFullyPushedDown(ProjectNode.class);
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1022,10 +1032,12 @@ public class TestMongoConnectorTest
         assertUpdate("INSERT INTO test." + tableName + " SELECT ROW('foo', 'bar')", 1);
 
         assertThat(query("SELECT root.\"$field1\" FROM test." + tableName))
-                .matches("SELECT varchar 'foo'");
+                .matches("SELECT varchar 'foo'")
+                .isNotFullyPushedDown(ProjectNode.class);
 
         assertThat(query("SELECT root.\"$field1\", root.field2 FROM test." + tableName))
-                .matches("SELECT varchar 'foo', varchar 'bar'");
+                .matches("SELECT varchar 'foo', varchar 'bar'")
+                .isNotFullyPushedDown(ProjectNode.class);
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1039,10 +1051,12 @@ public class TestMongoConnectorTest
         assertUpdate("INSERT INTO test." + tableName + " SELECT ROW('foo', 'bar')", 1);
 
         assertThat(query("SELECT root.\"fi$ld1\" FROM test." + tableName))
-                .matches("SELECT varchar 'foo'");
+                .matches("SELECT varchar 'foo'")
+                .isNotFullyPushedDown(ProjectNode.class);
 
         assertThat(query("SELECT root.\"fi$ld1\", root.field2 FROM test." + tableName))
-                .matches("SELECT varchar 'foo', varchar 'bar'");
+                .matches("SELECT varchar 'foo', varchar 'bar'")
+                .isNotFullyPushedDown(ProjectNode.class);
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1056,7 +1070,8 @@ public class TestMongoConnectorTest
         assertUpdate("INSERT INTO test." + tableName + " SELECT ROW(ROW('foo'))", 1);
 
         assertThat(query("SELECT root.\"$field\".\"dotted.field\" FROM test." + tableName))
-                .matches("SELECT varchar 'foo'");
+                .matches("SELECT varchar 'foo'")
+                .isNotFullyPushedDown(ProjectNode.class);
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1070,7 +1085,8 @@ public class TestMongoConnectorTest
         assertUpdate("INSERT INTO test." + tableName + " SELECT ROW(ROW('foo'))", 1);
 
         assertThat(query("SELECT root.\"dotted.field\".\"$field\" FROM test." + tableName))
-                .matches("SELECT varchar 'foo'");
+                .matches("SELECT varchar 'foo'")
+                .isNotFullyPushedDown(ProjectNode.class);
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1084,7 +1100,8 @@ public class TestMongoConnectorTest
         assertUpdate("INSERT INTO test." + tableName + " SELECT ROW('foo')", 1);
 
         assertThat(query("SELECT root.\"dotted.field\" FROM test." + tableName + " WHERE root.\"dotted.field\" = 'foo'"))
-                .matches("SELECT varchar 'foo'");
+                .matches("SELECT varchar 'foo'")
+                .isNotFullyPushedDown(FilterNode.class);
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1098,9 +1115,443 @@ public class TestMongoConnectorTest
         assertUpdate("INSERT INTO test." + tableName + " SELECT ROW('foo')", 1);
 
         assertThat(query("SELECT root.\"$field\" FROM test." + tableName + " WHERE root.\"$field\" = 'foo'"))
-                .matches("SELECT varchar 'foo'");
+                .matches("SELECT varchar 'foo'")
+                .isNotFullyPushedDown(FilterNode.class);
 
         assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testProjectionPushdownMixedWithUnsupportedFieldName()
+    {
+        String tableName = "test_projection_pushdown_mixed_with_unsupported_field_name_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE test." + tableName + " (id INT, root1 ROW(field VARCHAR, \"dotted.field\" VARCHAR), root2 ROW(field VARCHAR, \"$field\" VARCHAR))");
+        assertUpdate("INSERT INTO test." + tableName + " SELECT 1, ROW('foo1', 'bar1'), ROW('foo2', 'bar2')", 1);
+
+        assertThat(query("SELECT root1.field, root2.\"$field\" FROM test." + tableName))
+                .matches("SELECT varchar 'foo1', varchar 'bar2'")
+                .isNotFullyPushedDown(ProjectNode.class);
+
+        assertThat(query("SELECT root1.\"dotted.field\", root2.field FROM test." + tableName))
+                .matches("SELECT varchar 'bar1', varchar 'foo2'")
+                .isNotFullyPushedDown(ProjectNode.class);
+
+        assertThat(query("SELECT root1.\"dotted.field\", root2.\"$field\" FROM test." + tableName))
+                .matches("SELECT varchar 'bar1', varchar 'bar2'")
+                .isNotFullyPushedDown(ProjectNode.class);
+
+        assertThat(query("SELECT root1.field, root2.field FROM test." + tableName))
+                .matches("SELECT varchar 'foo1', varchar 'foo2'")
+                .isFullyPushedDown();
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test(dataProvider = "nestedValuesProvider")
+    public void testFiltersOnDereferenceColumnReadsLessData(String expectedValue, String expectedType)
+    {
+        if (!isPushdownSupportedType(getQueryRunner().getTypeManager().fromSqlType(expectedType))) {
+            throw new SkipException("Type doesn't support filter pushdown");
+        }
+
+        Session sessionWithoutPushdown = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "projection_pushdown_enabled", "false")
+                .build();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "filter_on_projection_columns",
+                format("(col_0 ROW(col_1 %1$s, col_2 ROW(col_3 %1$s, col_4 ROW(col_5 %1$s))))", expectedType))) {
+            assertUpdate(format("INSERT INTO %s VALUES NULL", table.getName()), 1);
+            assertUpdate(format("INSERT INTO %1$s SELECT ROW(%2$s, ROW(%2$s, ROW(%2$s)))", table.getName(), expectedValue), 1);
+            assertUpdate(format("INSERT INTO %1$s SELECT ROW(%2$s, ROW(NULL, ROW(%2$s)))", table.getName(), expectedValue), 1);
+
+            Set<Object> expected = ImmutableSet.of(1);
+
+            assertQueryStats(
+                    getSession(),
+                    format("SELECT 1 FROM %s WHERE col_0.col_1 = %s", table.getName(), expectedValue),
+                    statsWithPushdown -> {
+                        long processedInputPositionWithPushdown = statsWithPushdown.getProcessedInputPositions();
+                        assertQueryStats(
+                                sessionWithoutPushdown,
+                                format("SELECT 1 FROM %s WHERE col_0.col_1 = %s", table.getName(), expectedValue),
+                                statsWithoutPushdown -> {
+                                    assertEquals(statsWithoutPushdown.getProcessedInputPositions(), 3);
+                                    assertEquals(processedInputPositionWithPushdown, 2);
+                                    assertThat(statsWithoutPushdown.getProcessedInputPositions()).isGreaterThan(processedInputPositionWithPushdown);
+                                },
+                                results -> assertEquals(results.getOnlyColumnAsSet(), expected));
+                    },
+                    results -> assertEquals(results.getOnlyColumnAsSet(), expected));
+
+            assertQueryStats(
+                    getSession(),
+                    format("SELECT 1 FROM %s WHERE col_0.col_2.col_3 = %s", table.getName(), expectedValue),
+                    statsWithPushdown -> {
+                        long processedInputPositionWithPushdown = statsWithPushdown.getProcessedInputPositions();
+                        assertQueryStats(
+                                sessionWithoutPushdown,
+                                format("SELECT 1 FROM %s WHERE col_0.col_2.col_3 = %s", table.getName(), expectedValue),
+                                statsWithoutPushdown -> {
+                                    assertEquals(statsWithoutPushdown.getProcessedInputPositions(), 3);
+                                    assertEquals(processedInputPositionWithPushdown, 1);
+                                    assertThat(statsWithoutPushdown.getProcessedInputPositions()).isGreaterThan(processedInputPositionWithPushdown);
+                                },
+                                results -> assertEquals(results.getOnlyColumnAsSet(), expected));
+                    },
+                    results -> assertEquals(results.getOnlyColumnAsSet(), expected));
+
+            assertQueryStats(
+                    getSession(),
+                    format("SELECT 1 FROM %s WHERE col_0.col_2.col_4.col_5 = %s", table.getName(), expectedValue),
+                    statsWithPushdown -> {
+                        long processedInputPositionWithPushdown = statsWithPushdown.getProcessedInputPositions();
+                        assertQueryStats(
+                                sessionWithoutPushdown,
+                                format("SELECT 1 FROM %s WHERE col_0.col_2.col_4.col_5 = %s", table.getName(), expectedValue),
+                                statsWithoutPushdown -> {
+                                    assertEquals(statsWithoutPushdown.getProcessedInputPositions(), 3);
+                                    assertEquals(processedInputPositionWithPushdown, 2);
+                                    assertThat(statsWithoutPushdown.getProcessedInputPositions()).isGreaterThan(processedInputPositionWithPushdown);
+                                },
+                                results -> assertEquals(results.getOnlyColumnAsSet(), expected));
+                    },
+                    results -> assertEquals(results.getOnlyColumnAsSet(), expected));
+        }
+    }
+
+    @DataProvider
+    public Object[][] nestedValuesProvider()
+    {
+        return new Object[][] {
+                {"varchar 'String type'", "varchar"},
+                {"to_utf8('BinData')", "varbinary"},
+                {"bigint '1234567890'", "bigint"},
+                {"true", "boolean"},
+                {"double '12.3'", "double"},
+                {"timestamp '1970-01-01 00:00:00.000'", "timestamp(3)"},
+                {"array[bigint '1']", "array(bigint)"},
+                {"ObjectId('5126bc054aed4daf9e2ab772')", "ObjectId"},
+        };
+    }
+
+    @Test
+    public void testFiltersOnDereferenceColumnReadsLessDataNativeQuery()
+    {
+        String tableName = "test_filter_on_dereference_column_reads_less_data_native_query_" + randomNameSuffix();
+
+        MongoCollection<Document> collection = client.getDatabase("test").getCollection(tableName);
+        collection.insertOne(new Document("row_field", new Document("first", new Document("second", 1))));
+        collection.insertOne(new Document("row_field", new Document("first", new Document("second", null))));
+        collection.insertOne(new Document("row_field", new Document("first", null)));
+
+        assertQueryStats(
+                getSession(),
+                "SELECT row_field.first.second FROM TABLE(mongodb.system.query(database => 'test', collection => '" + tableName + "', filter => '{ \"row_field.first.second\": 1 }'))",
+                stats -> assertEquals(stats.getProcessedInputPositions(), 1L),
+                results -> assertEquals(results.getOnlyColumnAsSet(), ImmutableSet.of(1L)));
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testFilterPushdownOnFieldInsideJson()
+    {
+        String tableName = "test_filter_pushdown_on_json_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE test." + tableName + " (id INT, col JSON)");
+
+        assertUpdate("INSERT INTO test." + tableName + " VALUES (1, JSON '{\"name\": { \"first\": \"Monika\", \"last\": \"Geller\" }}')", 1);
+        assertUpdate("INSERT INTO test." + tableName + " VALUES (2, JSON '{\"name\": { \"first\": \"Rachel\", \"last\": \"Green\" }}')", 1);
+
+        assertThat(query("SELECT json_extract_scalar(col, '$.name.first') FROM test." + tableName + " WHERE json_extract_scalar(col, '$.name.last') = 'Geller'"))
+                .matches("SELECT varchar 'Monika'")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        assertThat(query("SELECT 1 FROM test." + tableName + " WHERE json_extract_scalar(col, '$.name.last') = 'Geller'"))
+                .matches("SELECT 1")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testProjectionPushdownWithDifferentTypeInDocuments()
+    {
+        String tableName = "test_projection_pushdown_with_different_type_in_document_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE test." + tableName + " (col1 ROW(child VARCHAR))");
+
+        MongoCollection<Document> collection = client.getDatabase("test").getCollection(tableName);
+        collection.insertOne(new Document("col1", 100));
+        collection.insertOne(new Document("col1", new Document("child", "value1")));
+
+        assertThat(query("SELECT col1.child FROM test." + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES ('value1'), (NULL)")
+                .isFullyPushedDown();
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testProjectionPushdownWithColumnMissingInDocument()
+    {
+        String tableName = "test_projection_pushdown_with_column_missing_in_document_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE test." + tableName + " (col1 ROW(child VARCHAR))");
+
+        MongoCollection<Document> collection = client.getDatabase("test").getCollection(tableName);
+        collection.insertOne(new Document("col1", new Document("child1", "value1")));
+        collection.insertOne(new Document("col1", new Document("child", "value2")));
+
+        assertThat(query("SELECT col1.child FROM test." + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES ('value2'), (NULL)")
+                .isFullyPushedDown();
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test(dataProvider = "dbRefProvider")
+    public void testProjectionPushdownWithDBRef(Object objectId, String expectedValue, String expectedType)
+    {
+        String tableName = "test_projection_pushdown_with_dbref_" + randomNameSuffix();
+
+        DBRef dbRef = new DBRef("test", "creators", objectId);
+        Document document = new Document()
+                .append("_id", new ObjectId("5126bbf64aed4daf9e2ab771"))
+                .append("col1", "foo")
+                .append("creator", dbRef)
+                .append("parent", new Document("child", objectId));
+
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
+
+        assertThat(query("SELECT parent.child, creator.databaseName, creator.collectionName, creator.id FROM test." + tableName))
+                .matches("SELECT " + expectedValue + ", varchar 'test', varchar 'creators', " + expectedValue)
+                .isNotFullyPushedDown(ProjectNode.class);
+        assertQuery(
+                "SELECT typeof(creator) FROM test." + tableName,
+                "SELECT 'row(databaseName varchar, collectionName varchar, id " + expectedType + ")'");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test(dataProvider = "dbRefProvider")
+    public void testProjectionPushdownWithNestedDBRef(Object objectId, String expectedValue, String expectedType)
+    {
+        String tableName = "test_projection_pushdown_with_dbref_" + randomNameSuffix();
+
+        DBRef dbRef = new DBRef("test", "creators", objectId);
+        Document document = new Document()
+                .append("_id", new ObjectId("5126bbf64aed4daf9e2ab771"))
+                .append("col1", "foo")
+                .append("parent", new Document()
+                        .append("creator", dbRef)
+                        .append("child", objectId));
+
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
+
+        assertThat(query("SELECT parent.child, parent.creator.databaseName, parent.creator.collectionName, parent.creator.id FROM test." + tableName))
+                .matches("SELECT " + expectedValue + ", varchar 'test', varchar 'creators', " + expectedValue)
+                .isNotFullyPushedDown(ProjectNode.class);
+        assertQuery(
+                "SELECT typeof(parent.creator) FROM test." + tableName,
+                "SELECT 'row(databaseName varchar, collectionName varchar, id " + expectedType + ")'");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test(dataProvider = "dbRefProvider")
+    public void testProjectionPushdownWithPredefinedDBRefKeyword(Object objectId, String expectedValue, String expectedType)
+    {
+        String tableName = "test_projection_pushdown_with_predefined_dbref_keyword_" + randomNameSuffix();
+
+        DBRef dbRef = new DBRef("test", "creators", objectId);
+        Document document = new Document()
+                .append("_id", new ObjectId("5126bbf64aed4daf9e2ab771"))
+                .append("col1", "foo")
+                .append("parent", new Document("id", dbRef));
+
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
+
+        assertThat(query("SELECT parent.id, parent.id.id FROM test." + tableName))
+                .skippingTypesCheck()
+                .matches("SELECT row('test', 'creators', %1$s), %1$s".formatted(expectedValue))
+                .isNotFullyPushedDown(ProjectNode.class);
+        assertQuery(
+                "SELECT typeof(parent.id), typeof(parent.id.id) FROM test." + tableName,
+                "SELECT 'row(databaseName varchar, collectionName varchar, id %1$s)', '%1$s'".formatted(expectedType));
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test(dataProvider = "dbRefAndDocumentProvider")
+    public void testDBRefLikeDocument(Document document1, Document document2, String expectedValue)
+    {
+        String tableName = "test_dbref_like_document_" + randomNameSuffix();
+
+        client.getDatabase("test").getCollection(tableName).insertOne(document1);
+        client.getDatabase("test").getCollection(tableName).insertOne(document2);
+
+        assertThat(query("SELECT * FROM test." + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES"
+                        + " ROW(ROW(varchar 'dbref_test', varchar 'dbref_creators', " + expectedValue + ")),"
+                        + " ROW(ROW(varchar 'doc_test', varchar 'doc_creators', " + expectedValue + "))")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT creator.id FROM test." + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES (%1$s), (%1$s)".formatted(expectedValue))
+                .isNotFullyPushedDown(ProjectNode.class);
+
+        assertThat(query("SELECT creator.databasename, creator.collectionname, creator.id FROM test." + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES ('doc_test', 'doc_creators', %1$s), ('dbref_test', 'dbref_creators', %1$s)".formatted(expectedValue))
+                .isNotFullyPushedDown(ProjectNode.class);
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @DataProvider
+    public Object[][] dbRefAndDocumentProvider()
+    {
+        Object[][] dbRefObjects = dbRefProvider();
+        Object[][] objects = new Object[dbRefObjects.length * 3][];
+        int i = 0;
+        for (Object[] dbRefObject : dbRefObjects) {
+            Object objectId = dbRefObject[0];
+            Object expectedValue = dbRefObject[1];
+            Document dbRefDocument = new Document()
+                    .append("_id", new ObjectId("5126bbf64aed4daf9e2ab772"))
+                    .append("creator", new DBRef("dbref_test", "dbref_creators", objectId));
+            Document documentWithSameDbRefFieldOrder = new Document()
+                    .append("_id", new ObjectId("5126bbf64aed4daf9e2ab771"))
+                    .append("creator", new Document().append("databaseName", "doc_test").append("collectionName", "doc_creators").append("id", objectId));
+            Document documentWithDifferentDbRefFieldOrder = new Document()
+                    .append("_id", new ObjectId("5126bbf64aed4daf9e2ab771"))
+                    .append("creator", new Document().append("collectionName", "doc_creators").append("id", objectId).append("databaseName", "doc_test"));
+
+            objects[i++] = new Object[] {dbRefDocument, documentWithSameDbRefFieldOrder, expectedValue};
+            objects[i++] = new Object[] {dbRefDocument, documentWithDifferentDbRefFieldOrder, expectedValue};
+            objects[i++] = new Object[] {documentWithSameDbRefFieldOrder, dbRefDocument, expectedValue};
+        }
+        return objects;
+    }
+
+    @Test(dataProvider = "dbRefProvider")
+    public void testDBRefLikeDocument(Object objectId, String expectedValue, String expectedType)
+    {
+        String tableName = "test_dbref_like_document_fails_" + randomNameSuffix();
+
+        Document documentWithDifferentDbRefFieldOrder = new Document()
+                .append("_id", new ObjectId("5126bbf64aed4daf9e2ab771"))
+                .append("creator", new Document()
+                        .append("databaseName", "doc_test")
+                        .append("collectionName", "doc_creators")
+                        .append("id", objectId));
+        Document dbRefDocument = new Document()
+                .append("_id", new ObjectId("5126bbf64aed4daf9e2ab772"))
+                .append("creator", new DBRef("dbref_test", "dbref_creators", objectId));
+        client.getDatabase("test").getCollection(tableName).insertOne(documentWithDifferentDbRefFieldOrder);
+        client.getDatabase("test").getCollection(tableName).insertOne(dbRefDocument);
+
+        assertThat(query("SELECT * FROM test." + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES "
+                        + " row(row('doc_test', 'doc_creators', " + expectedValue + ")),"
+                        + " row(row('dbref_test', 'dbref_creators', " + expectedValue + "))");
+
+        assertThat(query("SELECT creator.id FROM test." + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES " + "(%1$s), (%1$s)".formatted(expectedValue));
+
+        assertThat(query("SELECT creator.databasename, creator.collectionname, creator.id FROM test." + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES " + "('doc_test', 'doc_creators', %1$s), ('dbref_test', 'dbref_creators', %1$s)".formatted(expectedValue));
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test(dataProvider = "dfRefPredicateProvider")
+    public void testPredicateOnDBRefField(Object objectId, String expectedValue)
+    {
+        String tableName = "test_predicate_on_dbref_field_" + randomNameSuffix();
+
+        Document document = new Document()
+                .append("_id", new ObjectId("5126bbf64aed4daf9e2ab771"))
+                .append("creator", new DBRef("test", "creators", objectId));
+
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
+
+        assertThat(query("SELECT * FROM test." + tableName + " WHERE creator.id = " + expectedValue))
+                .skippingTypesCheck()
+                .matches("SELECT ROW(varchar 'test', varchar 'creators', " + expectedValue + ")")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        assertThat(query("SELECT creator.id FROM test." + tableName + " WHERE creator.id = " + expectedValue))
+                .skippingTypesCheck()
+                .matches("SELECT " + expectedValue)
+                .isNotFullyPushedDown(FilterNode.class);
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test(dataProvider = "dfRefPredicateProvider")
+    public void testPredicateOnDBRefLikeDocument(Object objectId, String expectedValue)
+    {
+        String tableName = "test_predicate_on_dbref_like_document_" + randomNameSuffix();
+
+        Document document = new Document()
+                .append("_id", new ObjectId("5126bbf64aed4daf9e2ab771"))
+                .append("creator", new Document()
+                        .append("databaseName", "test")
+                        .append("collectionName", "creators")
+                        .append("id", objectId));
+
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
+
+        assertThat(query("SELECT * FROM test." + tableName + " WHERE creator.id = " + expectedValue))
+                .skippingTypesCheck()
+                .matches("SELECT ROW(varchar 'test', varchar 'creators', " + expectedValue + ")")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        assertThat(query("SELECT creator.id FROM test." + tableName + " WHERE creator.id = " + expectedValue))
+                .skippingTypesCheck()
+                .matches("SELECT " + expectedValue)
+                .isNotFullyPushedDown(FilterNode.class);
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @DataProvider
+    public Object[][] dfRefPredicateProvider()
+    {
+        return new Object[][] {
+                {true, "true"},
+                {4, "bigint '4'"},
+                {"test", "'test'"},
+                {new ObjectId("6216f0c6c432d45190f25e7c"), "ObjectId('6216f0c6c432d45190f25e7c')"},
+                {new Date(0), "timestamp '1970-01-01 00:00:00.000'"},
+        };
+    }
+
+    @Override
+    @Test
+    public void testProjectionPushdownReadsLessData()
+    {
+        // TODO https://github.com/trinodb/trino/issues/17713
+        throw new SkipException("MongoDB connector does not calculate physical data input size");
+    }
+
+    @Override
+    @Test
+    public void testProjectionPushdownPhysicalInputSize()
+    {
+        // TODO https://github.com/trinodb/trino/issues/17713
+        throw new SkipException("MongoDB connector does not calculate physical data input size");
     }
 
     @Override

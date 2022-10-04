@@ -24,6 +24,7 @@ import io.trino.spi.expression.Variable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -34,30 +35,37 @@ public final class ApplyProjectionUtil
 
     public static List<ConnectorExpression> extractSupportedProjectedColumns(ConnectorExpression expression)
     {
+        return extractSupportedProjectedColumns(expression, connectorExpression -> true);
+    }
+
+    public static List<ConnectorExpression> extractSupportedProjectedColumns(ConnectorExpression expression, Predicate<ConnectorExpression> expressionPredicate)
+    {
         requireNonNull(expression, "expression is null");
         ImmutableList.Builder<ConnectorExpression> supportedSubExpressions = ImmutableList.builder();
-        fillSupportedProjectedColumns(expression, supportedSubExpressions);
+        fillSupportedProjectedColumns(expression, supportedSubExpressions, expressionPredicate);
         return supportedSubExpressions.build();
     }
 
-    private static void fillSupportedProjectedColumns(ConnectorExpression expression, ImmutableList.Builder<ConnectorExpression> supportedSubExpressions)
+    private static void fillSupportedProjectedColumns(ConnectorExpression expression, ImmutableList.Builder<ConnectorExpression> supportedSubExpressions, Predicate<ConnectorExpression> expressionPredicate)
     {
-        if (isPushDownSupported(expression)) {
+        if (isPushdownSupported(expression, expressionPredicate)) {
             supportedSubExpressions.add(expression);
             return;
         }
 
         // If the whole expression is not supported, look for a partially supported projection
         for (ConnectorExpression child : expression.getChildren()) {
-            fillSupportedProjectedColumns(child, supportedSubExpressions);
+            fillSupportedProjectedColumns(child, supportedSubExpressions, expressionPredicate);
         }
     }
 
     @VisibleForTesting
-    static boolean isPushDownSupported(ConnectorExpression expression)
+    static boolean isPushdownSupported(ConnectorExpression expression, Predicate<ConnectorExpression> expressionPredicate)
     {
-        return expression instanceof Variable ||
-                (expression instanceof FieldDereference fieldDereference && isPushDownSupported(fieldDereference.getTarget()));
+        return expressionPredicate.test(expression)
+                && (expression instanceof Variable ||
+                    (expression instanceof FieldDereference fieldDereference
+                            && isPushdownSupported(fieldDereference.getTarget(), expressionPredicate)));
     }
 
     public static ProjectedColumnRepresentation createProjectedColumnRepresentation(ConnectorExpression expression)

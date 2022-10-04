@@ -18,6 +18,7 @@ import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Ordering;
 import com.google.common.collect.Streams;
 import com.google.common.primitives.Primitives;
 import com.google.common.primitives.Shorts;
@@ -68,6 +69,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -150,6 +152,9 @@ public class MongoSession
             .put("nameOnly", true)
             .put("authorizedCollections", true)
             .buildOrThrow();
+
+    private static final Ordering<MongoColumnHandle> COLUMN_HANDLE_ORDERING = Ordering
+            .from(Comparator.comparingInt(columnHandle -> columnHandle.getDereferenceNames().size()));
 
     private final TypeManager typeManager;
     private final MongoClient client;
@@ -440,7 +445,7 @@ public class MongoSession
 
         Type type = typeManager.fromSqlType(typeString);
 
-        return new MongoColumnHandle(name, type, hidden, Optional.ofNullable(comment));
+        return new MongoColumnHandle(name, ImmutableList.of(), type, hidden, false, Optional.ofNullable(comment));
     }
 
     private List<Document> getColumnMetadata(Document doc)
@@ -482,9 +487,14 @@ public class MongoSession
 
     public MongoCursor<Document> execute(MongoTableHandle tableHandle, List<MongoColumnHandle> columns)
     {
+        Set<MongoColumnHandle> projectedColumns = tableHandle.getProjectedColumns();
+        checkArgument(projectedColumns.isEmpty() || projectedColumns.containsAll(columns), "projectedColumns must be empty or equal to columns");
+
         Document output = new Document();
-        for (MongoColumnHandle column : columns) {
-            output.append(column.getName(), 1);
+        // Starting in MongoDB 4.4, it is illegal to project an embedded document with any of the embedded document's fields
+        // (https://www.mongodb.com/docs/manual/reference/limits/#mongodb-limit-Projection-Restrictions). So, Project only sufficient columns.
+        for (MongoColumnHandle column : projectSufficientColumns(columns)) {
+            output.append(column.getQualifiedName(), 1);
         }
         MongoCollection<Document> collection = getCollection(tableHandle.getRemoteTableName());
         Document filter = buildFilter(tableHandle);
@@ -497,6 +507,37 @@ public class MongoSession
         }
 
         return iterable.iterator();
+    }
+
+    /**
+     * Creates a set of sufficient columns for the input projected columns. For example,
+     * if input {@param columns} include columns "a.b" and "a.b.c", then they will be projected from a single column "a.b".
+     */
+    public static List<MongoColumnHandle> projectSufficientColumns(List<MongoColumnHandle> columnHandles)
+    {
+        List<MongoColumnHandle> sortedColumnHandles = COLUMN_HANDLE_ORDERING.sortedCopy(columnHandles);
+        List<MongoColumnHandle> sufficientColumns = new ArrayList<>();
+        for (MongoColumnHandle column : sortedColumnHandles) {
+            if (!parentColumnExists(sufficientColumns, column)) {
+                sufficientColumns.add(column);
+            }
+        }
+        return sufficientColumns;
+    }
+
+    private static boolean parentColumnExists(List<MongoColumnHandle> existingColumns, MongoColumnHandle column)
+    {
+        for (MongoColumnHandle existingColumn : existingColumns) {
+            List<String> existingColumnDereferenceNames = existingColumn.getDereferenceNames();
+            verify(
+                    column.getDereferenceNames().size() >= existingColumnDereferenceNames.size(),
+                    "Selected column's dereference size must be greater than or equal to the existing column's dereference size");
+            if (existingColumn.getBaseName().equals(column.getBaseName())
+                    && column.getDereferenceNames().subList(0, existingColumnDereferenceNames.size()).equals(existingColumnDereferenceNames)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static Document buildFilter(MongoTableHandle table)
@@ -525,7 +566,7 @@ public class MongoSession
 
     private static Optional<Document> buildPredicate(MongoColumnHandle column, Domain domain)
     {
-        String name = column.getName();
+        String name = column.getQualifiedName();
         Type type = column.getType();
         if (domain.getValues().isNone() && domain.isNullAllowed()) {
             return Optional.of(documentOf(name, isNullPredicate()));
@@ -740,8 +781,8 @@ public class MongoSession
         Document metadata = new Document(TABLE_NAME_KEY, remoteTableName);
 
         ArrayList<Document> fields = new ArrayList<>();
-        if (!columns.stream().anyMatch(c -> c.getName().equals("_id"))) {
-            fields.add(new MongoColumnHandle("_id", OBJECT_ID, true, Optional.empty()).getDocument());
+        if (!columns.stream().anyMatch(c -> c.getBaseName().equals("_id"))) {
+            fields.add(new MongoColumnHandle("_id", ImmutableList.of(), OBJECT_ID, true, false, Optional.empty()).getDocument());
         }
 
         fields.addAll(columns.stream()
