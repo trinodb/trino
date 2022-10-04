@@ -18,6 +18,7 @@ import com.google.common.base.Ticker;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
@@ -29,6 +30,7 @@ import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.trino.Session;
+import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.SqlStage;
@@ -41,13 +43,17 @@ import io.trino.execution.buffer.SpoolingOutputBuffers;
 import io.trino.execution.scheduler.PartitionMemoryEstimator.MemoryRequirements;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.InternalNode;
+import io.trino.metadata.Split;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.exchange.Exchange;
+import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeSinkHandle;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
+import io.trino.spi.exchange.ExchangeSourceOutputSelector;
+import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
@@ -67,12 +73,14 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableListMultimap.flatteningToImmutableListMultimap;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.allAsList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
@@ -87,6 +95,7 @@ import static io.trino.SystemSessionProperties.getRetryMaxDelay;
 import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
 import static io.trino.execution.scheduler.Exchanges.getAllSourceHandles;
 import static io.trino.failuredetector.FailureDetector.State.GONE;
+import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.ErrorType.INTERNAL_ERROR;
 import static io.trino.spi.ErrorType.USER_ERROR;
@@ -115,6 +124,7 @@ public class FaultTolerantStageScheduler
     private final Exchange sinkExchange;
     private final FaultTolerantPartitioningScheme sinkPartitioningScheme;
 
+    private final Map<PlanFragmentId, FaultTolerantStageScheduler> sourceSchedulers;
     private final Map<PlanFragmentId, Exchange> sourceExchanges;
     private final FaultTolerantPartitioningScheme sourcePartitioningScheme;
 
@@ -157,13 +167,15 @@ public class FaultTolerantStageScheduler
     @GuardedBy("this")
     private final Queue<PendingPartition> pendingPartitions = new ArrayDeque<>();
     @GuardedBy("this")
-    private final Set<Integer> finishedPartitions = new HashSet<>();
+    private final Map<Integer, Integer> finishedPartitions = new HashMap<>();
     @GuardedBy("this")
     private final AtomicInteger remainingRetryAttemptsOverall;
     @GuardedBy("this")
     private final Map<Integer, Integer> remainingAttemptsPerTask = new HashMap<>();
     @GuardedBy("this")
     private final Map<Integer, MemoryRequirements> partitionMemoryRequirements = new HashMap<>();
+    @GuardedBy("this")
+    private Multimap<PlanNodeId, Split> outputSelectorSplits;
 
     private final DynamicFilterService dynamicFilterService;
 
@@ -185,6 +197,7 @@ public class FaultTolerantStageScheduler
             Ticker ticker,
             Exchange sinkExchange,
             FaultTolerantPartitioningScheme sinkPartitioningScheme,
+            Map<PlanFragmentId, FaultTolerantStageScheduler> sourceSchedulers,
             Map<PlanFragmentId, Exchange> sourceExchanges,
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
             AtomicInteger remainingRetryAttemptsOverall,
@@ -203,7 +216,15 @@ public class FaultTolerantStageScheduler
         this.futureCompletor = requireNonNull(futureCompletor, "futureCompletor is null");
         this.sinkExchange = requireNonNull(sinkExchange, "sinkExchange is null");
         this.sinkPartitioningScheme = requireNonNull(sinkPartitioningScheme, "sinkPartitioningScheme is null");
-        this.sourceExchanges = ImmutableMap.copyOf(requireNonNull(sourceExchanges, "sourceExchanges is null"));
+        Set<PlanFragmentId> sourceFragments = stage.getFragment().getRemoteSourceNodes().stream()
+                .flatMap(remoteSource -> remoteSource.getSourceFragmentIds().stream())
+                .collect(toImmutableSet());
+        requireNonNull(sourceSchedulers, "sourceSchedulers is null");
+        checkArgument(sourceSchedulers.keySet().containsAll(sourceFragments), "sourceSchedulers map is incomplete");
+        this.sourceSchedulers = ImmutableMap.copyOf(sourceSchedulers);
+        requireNonNull(sourceExchanges, "sourceExchanges is null");
+        checkArgument(sourceExchanges.keySet().containsAll(sourceFragments), "sourceExchanges map is incomplete");
+        this.sourceExchanges = ImmutableMap.copyOf(sourceExchanges);
         this.sourcePartitioningScheme = requireNonNull(sourcePartitioningScheme, "sourcePartitioningScheme is null");
         this.remainingRetryAttemptsOverall = requireNonNull(remainingRetryAttemptsOverall, "remainingRetryAttemptsOverall is null");
         this.maxRetryAttemptsPerTask = taskRetryAttemptsPerTask;
@@ -376,13 +397,18 @@ public class FaultTolerantStageScheduler
                         .iterator())
                 .build();
 
+        createOutputSelectorSplitsIfNecessary();
+
         RemoteTask task = stage.createTask(
                 node,
                 partition,
                 attemptId,
                 sinkPartitioningScheme.getBucketToPartitionMap(),
                 outputBuffers,
-                taskDescriptor.getSplits(),
+                ImmutableListMultimap.<PlanNodeId, Split>builder()
+                        .putAll(outputSelectorSplits)
+                        .putAll(taskDescriptor.getSplits())
+                        .build(),
                 allSourcePlanNodeIds,
                 Optional.of(memoryRequirements.getRequiredMemory())).orElseThrow(() -> new VerifyException("stage execution is expected to be active"));
 
@@ -400,6 +426,35 @@ public class FaultTolerantStageScheduler
         task.start();
     }
 
+    @GuardedBy("this")
+    private void createOutputSelectorSplitsIfNecessary()
+    {
+        if (outputSelectorSplits != null) {
+            return;
+        }
+
+        ImmutableListMultimap.Builder<PlanNodeId, Split> selectors = ImmutableListMultimap.builder();
+        for (RemoteSourceNode remoteSource : stage.getFragment().getRemoteSourceNodes()) {
+            List<PlanFragmentId> sourceFragmentIds = remoteSource.getSourceFragmentIds();
+            Set<ExchangeId> sourceExchangeIds = sourceExchanges.entrySet().stream()
+                    .filter(entry -> sourceFragmentIds.contains(entry.getKey()))
+                    .map(entry -> entry.getValue().getId())
+                    .collect(toImmutableSet());
+            ExchangeSourceOutputSelector.Builder selector = ExchangeSourceOutputSelector.builder(sourceExchangeIds);
+            for (PlanFragmentId sourceFragment : sourceFragmentIds) {
+                FaultTolerantStageScheduler sourceScheduler = sourceSchedulers.get(sourceFragment);
+                Exchange sourceExchange = sourceExchanges.get(sourceFragment);
+                Map<Integer, Integer> successfulAttempts = sourceScheduler.getSuccessfulAttempts();
+                successfulAttempts.forEach((taskPartitionId, attemptId) ->
+                        selector.include(sourceExchange.getId(), taskPartitionId, attemptId));
+                selector.setPartitionCount(sourceExchange.getId(), successfulAttempts.size());
+            }
+            selector.setFinal();
+            selectors.put(remoteSource.getId(), new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.of(), Optional.of(selector.build())))));
+        }
+        outputSelectorSplits = selectors.build();
+    }
+
     public synchronized boolean isFinished()
     {
         return failure == null &&
@@ -407,7 +462,12 @@ public class FaultTolerantStageScheduler
                 taskSource.isFinished() &&
                 tasksPopulatedFuture.isDone() &&
                 queuedPartitions.isEmpty() &&
-                finishedPartitions.containsAll(allPartitions);
+                allPartitions.stream().allMatch(finishedPartitions::containsKey);
+    }
+
+    public synchronized Map<Integer, Integer> getSuccessfulAttempts()
+    {
+        return ImmutableMap.copyOf(finishedPartitions);
     }
 
     public void cancel()
@@ -550,12 +610,12 @@ public class FaultTolerantStageScheduler
 
                 int partitionId = taskId.getPartitionId();
 
-                if (!finishedPartitions.contains(partitionId) && !closed) {
+                if (!finishedPartitions.containsKey(partitionId) && !closed) {
                     MemoryRequirements memoryLimits = partitionMemoryRequirements.get(partitionId);
                     verify(memoryLimits != null);
                     switch (state) {
                         case FINISHED:
-                            finishedPartitions.add(partitionId);
+                            finishedPartitions.put(partitionId, taskId.getAttemptId());
                             sinkExchange.sinkFinished(exchangeSinkHandle, taskId.getAttemptId());
                             partitionToRemoteTaskMap.get(partitionId).forEach(RemoteTask::abort);
                             partitionMemoryEstimator.registerPartitionFinished(session, memoryLimits, taskStatus.getPeakMemoryReservation(), true, Optional.empty());

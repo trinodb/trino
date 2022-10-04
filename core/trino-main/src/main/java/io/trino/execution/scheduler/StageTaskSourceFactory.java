@@ -921,7 +921,7 @@ public class StageTaskSourceFactory
     @VisibleForTesting
     static Split createRemoteSplit(Collection<ExchangeSourceHandle> exchangeSourceHandles)
     {
-        return new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.copyOf(exchangeSourceHandles))));
+        return new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.copyOf(exchangeSourceHandles), Optional.empty())));
     }
 
     private static class LoadedSplits

@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeSourceHandle.SourceFile;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeContext;
+import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeSinkHandle;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
@@ -122,6 +123,12 @@ public class FileSystemExchange
         this.secretKey = requireNonNull(secretKey, "secretKey is null");
         this.exchangeSourceHandleTargetDataSizeInBytes = exchangeSourceHandleTargetDataSizeInBytes;
         this.executor = requireNonNull(executor, "executor is null");
+    }
+
+    @Override
+    public ExchangeId getId()
+    {
+        return exchangeContext.getExchangeId();
     }
 
     @Override

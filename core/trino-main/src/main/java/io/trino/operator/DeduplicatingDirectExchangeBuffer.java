@@ -40,6 +40,7 @@ import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeSink;
 import io.trino.spi.exchange.ExchangeSinkHandle;
 import io.trino.spi.exchange.ExchangeSource;
+import io.trino.spi.exchange.ExchangeSourceOutputSelector;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -674,6 +675,11 @@ public class DeduplicatingDirectExchangeBuffer
                     .transform(handles -> {
                         ExchangeSource source = exchangeManager.createSource();
                         try {
+                            source.setOutputSelector(ExchangeSourceOutputSelector.builder(ImmutableSet.of(exchangeId))
+                                    .include(exchangeId, 0, 0)
+                                    .setPartitionCount(exchangeId, 1)
+                                    .setFinal()
+                                    .build());
                             source.addSourceHandles(handles);
                             source.noMoreSourceHandles();
                             return source;
