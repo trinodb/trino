@@ -91,6 +91,10 @@ public abstract class BaseTrinoCatalogTest
         // Currently this is actually stored in lowercase by all Catalogs
         catalog.createNamespace(SESSION, namespace, Map.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
         try {
+            assertThat(catalog.namespaceExists(SESSION, namespace)).as("catalog.namespaceExists(namespace)")
+                    .isFalse();
+            assertThat(catalog.namespaceExists(SESSION, schema)).as("catalog.namespaceExists(schema)")
+                    .isTrue();
             assertThat(catalog.listNamespaces(SESSION)).as("catalog.listNamespaces")
                     // Catalog listNamespaces may be used as a default implementation for ConnectorMetadata.schemaExists
                     .doesNotContain(namespace)
