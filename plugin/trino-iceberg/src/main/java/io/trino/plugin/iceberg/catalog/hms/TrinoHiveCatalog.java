@@ -90,6 +90,7 @@ import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 import static org.apache.iceberg.CatalogUtil.dropTableData;
@@ -128,6 +129,19 @@ public class TrinoHiveCatalog
     public CachingHiveMetastore getMetastore()
     {
         return metastore;
+    }
+
+    @Override
+    public boolean namespaceExists(ConnectorSession session, String namespace)
+    {
+        if (!namespace.equals(namespace.toLowerCase(ENGLISH))) {
+            // Currently, Trino schemas are always lowercase, so this one cannot exist (https://github.com/trinodb/trino/issues/17)
+            return false;
+        }
+        if (HiveUtil.isHiveSystemSchema(namespace)) {
+            return false;
+        }
+        return metastore.getDatabase(namespace).isPresent();
     }
 
     @Override
