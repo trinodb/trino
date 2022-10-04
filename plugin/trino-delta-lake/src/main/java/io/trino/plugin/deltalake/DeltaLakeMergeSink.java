@@ -191,9 +191,9 @@ public class DeltaLakeMergeSink
                     writerStats,
                     dataColumns);
 
-            DataFileInfo newFileInfo = rewriteParquetFile(sourcePath, deletion.rowsToDelete(), writer);
+            Optional<DataFileInfo> newFileInfo = rewriteParquetFile(sourcePath, deletion.rowsToDelete(), writer);
 
-            DeltaLakeMergeResult result = new DeltaLakeMergeResult(Optional.of(sourceRelativePath), Optional.of(newFileInfo));
+            DeltaLakeMergeResult result = new DeltaLakeMergeResult(Optional.of(sourceRelativePath), newFileInfo);
             return ImmutableList.of(utf8Slice(mergeResultJsonCodec.toJson(result)));
         }
         catch (IOException e) {
@@ -254,7 +254,7 @@ public class DeltaLakeMergeSink
         }
     }
 
-    private DataFileInfo rewriteParquetFile(Path path, ImmutableLongBitmapDataProvider rowsToDelete, DeltaLakeWriter fileWriter)
+    private Optional<DataFileInfo> rewriteParquetFile(Path path, ImmutableLongBitmapDataProvider rowsToDelete, DeltaLakeWriter fileWriter)
             throws IOException
     {
         try (ConnectorPageSource connectorPageSource = createParquetPageSource(path).get()) {
@@ -279,7 +279,13 @@ public class DeltaLakeMergeSink
                     page = page.getPositions(retained, 0, retainedCount);
                 }
 
-                fileWriter.appendRows(page);
+                if (page.getPositionCount() > 0) {
+                    fileWriter.appendRows(page);
+                }
+            }
+            if (fileWriter.getRowCount() == 0) {
+                fileWriter.rollback();
+                return Optional.empty();
             }
             fileWriter.commit();
         }
@@ -295,7 +301,7 @@ public class DeltaLakeMergeSink
             throw t;
         }
 
-        return fileWriter.getDataFileInfo();
+        return Optional.of(fileWriter.getDataFileInfo());
     }
 
     private ReaderPageSource createParquetPageSource(Path path)
