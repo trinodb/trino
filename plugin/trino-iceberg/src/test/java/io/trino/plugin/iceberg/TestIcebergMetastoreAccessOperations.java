@@ -43,7 +43,6 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.CREATE_TABLE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_ALL_DATABASES;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_DATABASE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_TABLE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.REPLACE_TABLE;
@@ -108,7 +107,7 @@ public class TestIcebergMetastoreAccessOperations
                 .build();
         assertMetastoreInvocations(session, "USE %s.%s".formatted(catalog, schema),
                 ImmutableMultiset.builder()
-                        .add(GET_ALL_DATABASES)
+                        .add(GET_DATABASE)
                         .build());
     }
 

@@ -94,6 +94,10 @@ public class TestTrinoGlueCatalog
                         .withName(databaseName)));
         try {
             TrinoCatalog catalog = createTrinoCatalog(false);
+            assertThat(catalog.namespaceExists(SESSION, databaseName)).as("catalog.namespaceExists(databaseName)")
+                    .isFalse();
+            assertThat(catalog.namespaceExists(SESSION, trinoSchemaName)).as("catalog.namespaceExists(trinoSchemaName)")
+                    .isTrue();
             assertThat(catalog.listNamespaces(SESSION)).as("catalog.listNamespaces")
                     // Catalog listNamespaces may be used as a default implementation for ConnectorMetadata.schemaExists
                     .doesNotContain(databaseName)

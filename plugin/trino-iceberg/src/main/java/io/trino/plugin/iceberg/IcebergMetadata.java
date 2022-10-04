@@ -294,6 +294,12 @@ public class IcebergMetadata
     }
 
     @Override
+    public boolean schemaExists(ConnectorSession session, String schemaName)
+    {
+        return catalog.namespaceExists(session, schemaName);
+    }
+
+    @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return catalog.listNamespaces(session);
