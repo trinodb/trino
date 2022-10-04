@@ -74,18 +74,12 @@ public class BenchmarkShortDecimalColumnReader
 
     private final List<DataPage> dataPages = new ArrayList<>();
 
+    private PrimitiveField field;
+
     @Param({
             "1", "2", "3", "4", "5", "6", "7", "8",
     })
-    private int byteArrayLength;
-    private PrimitiveField field;
-
-    public BenchmarkShortDecimalColumnReader() {}
-
-    public BenchmarkShortDecimalColumnReader(int byteArrayLength)
-    {
-        this.byteArrayLength = byteArrayLength;
-    }
+    public int byteArrayLength;
 
     @Setup
     public void setup()
@@ -99,7 +93,7 @@ public class BenchmarkShortDecimalColumnReader
         this.field = new PrimitiveField(
                 DecimalType.createDecimalType(precision),
                 true,
-                new ColumnDescriptor(new String[] {}, parquetType, 0, 0),
+                new ColumnDescriptor(new String[] {"test"}, parquetType, 0, 0),
                 0);
 
         ValuesWriter writer = createValuesWriter(OUTPUT_BUFFER_SIZE);
