@@ -22,6 +22,7 @@ import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.spi.type.TestingTypeManager;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -38,15 +39,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestTrinoHiveCatalog
         extends BaseTrinoCatalogTest
 {
-    private final HiveMetastore metastore;
-    private final java.nio.file.Path tempDir;
-    private final File metastoreDir;
+    private HiveMetastore metastore;
+    private java.nio.file.Path tempDir;
 
-    public TestTrinoHiveCatalog()
-            throws IOException
+    @BeforeClass
+    public void setUp()
+            throws Exception
     {
         tempDir = Files.createTempDirectory("test_trino_hive_catalog");
-        metastoreDir = tempDir.resolve("iceberg_data").toFile();
+        File metastoreDir = tempDir.resolve("iceberg_data").toFile();
         metastore = createTestingFileHiveMetastore(metastoreDir);
     }
 
