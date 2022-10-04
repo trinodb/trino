@@ -200,7 +200,7 @@ public class TestTaskDescriptorStorage
                 partitionId,
                 ImmutableListMultimap.of(
                         new PlanNodeId("1"),
-                        new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.of(new TestingExchangeSourceHandle(retainedSize.toBytes())))))),
+                        new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.of(new TestingExchangeSourceHandle(retainedSize.toBytes())), Optional.empty())))),
                 new NodeRequirements(catalog, ImmutableSet.of()));
     }
 

@@ -15,6 +15,7 @@ package io.trino.plugin.exchange.filesystem;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
@@ -23,6 +24,7 @@ import io.airlift.units.DataSize;
 import io.trino.spi.QueryId;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeContext;
+import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeSink;
 import io.trino.spi.exchange.ExchangeSinkHandle;
@@ -30,6 +32,7 @@ import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSource;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandleSource.ExchangeSourceHandleBatch;
+import io.trino.spi.exchange.ExchangeSourceOutputSelector;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -79,7 +82,8 @@ public abstract class AbstractTestExchangeManager
     public void testHappyPath()
             throws Exception
     {
-        Exchange exchange = exchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 2, false);
+        ExchangeId exchangeId = createRandomExchangeId();
+        Exchange exchange = exchangeManager.createExchange(new ExchangeContext(new QueryId("query"), exchangeId), 2, false);
         ExchangeSinkHandle sinkHandle0 = exchange.addSink(0);
         ExchangeSinkHandle sinkHandle1 = exchange.addSink(1);
         ExchangeSinkHandle sinkHandle2 = exchange.addSink(2);
@@ -160,10 +164,17 @@ public abstract class AbstractTestExchangeManager
         Map<Integer, ExchangeSourceHandle> partitions = partitionHandles.stream()
                 .collect(toImmutableMap(ExchangeSourceHandle::getPartitionId, Function.identity()));
 
-        assertThat(readData(partitions.get(0)))
+        ExchangeSourceOutputSelector outputSelector = ExchangeSourceOutputSelector.builder(ImmutableSet.of(exchangeId))
+                .include(exchangeId, 0, 0)
+                .include(exchangeId, 1, 0)
+                .include(exchangeId, 2, 2)
+                .setPartitionCount(exchangeId, 3)
+                .setFinal()
+                .build();
+        assertThat(readData(partitions.get(0), outputSelector))
                 .containsExactlyInAnyOrder("0-0-0", "0-0-1", "1-0-0", "1-0-1", "2-0-0");
 
-        assertThat(readData(partitions.get(1)))
+        assertThat(readData(partitions.get(1), outputSelector))
                 .containsExactlyInAnyOrder("0-1-0", "0-1-1", "1-1-0", "1-1-1", "2-1-0");
 
         exchange.close();
@@ -178,7 +189,8 @@ public abstract class AbstractTestExchangeManager
         String largePage = "c".repeat(toIntExact(DataSize.of(5, MEGABYTE).toBytes()) - Integer.BYTES);
         String maxPage = "d".repeat(toIntExact(DataSize.of(16, MEGABYTE).toBytes()) - Integer.BYTES);
 
-        Exchange exchange = exchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3, false);
+        ExchangeId exchangeId = createRandomExchangeId();
+        Exchange exchange = exchangeManager.createExchange(new ExchangeContext(new QueryId("query"), exchangeId), 3, false);
         ExchangeSinkHandle sinkHandle0 = exchange.addSink(0);
         ExchangeSinkHandle sinkHandle1 = exchange.addSink(1);
         ExchangeSinkHandle sinkHandle2 = exchange.addSink(2);
@@ -225,13 +237,21 @@ public abstract class AbstractTestExchangeManager
         ListMultimap<Integer, ExchangeSourceHandle> partitions = partitionHandles.stream()
                 .collect(toImmutableListMultimap(ExchangeSourceHandle::getPartitionId, Function.identity()));
 
-        assertThat(readData(partitions.get(0)))
+        ExchangeSourceOutputSelector outputSelector = ExchangeSourceOutputSelector.builder(ImmutableSet.of(exchangeId))
+                .include(exchangeId, 0, 0)
+                .include(exchangeId, 1, 0)
+                .include(exchangeId, 2, 0)
+                .setPartitionCount(exchangeId, 3)
+                .setFinal()
+                .build();
+
+        assertThat(readData(partitions.get(0), outputSelector))
                 .containsExactlyInAnyOrder(smallPage, mediumPage, largePage, maxPage);
 
-        assertThat(readData(partitions.get(1)))
+        assertThat(readData(partitions.get(1), outputSelector))
                 .containsExactlyInAnyOrder(smallPage, mediumPage, largePage, maxPage);
 
-        assertThat(readData(partitions.get(2)))
+        assertThat(readData(partitions.get(2), outputSelector))
                 .containsExactlyInAnyOrder(smallPage, mediumPage, largePage, maxPage);
 
         exchange.close();
@@ -259,15 +279,16 @@ public abstract class AbstractTestExchangeManager
         }
     }
 
-    private List<String> readData(ExchangeSourceHandle handle)
+    private List<String> readData(ExchangeSourceHandle handle, ExchangeSourceOutputSelector outputSelector)
     {
-        return readData(ImmutableList.of(handle));
+        return readData(ImmutableList.of(handle), outputSelector);
     }
 
-    private List<String> readData(List<ExchangeSourceHandle> handles)
+    private List<String> readData(List<ExchangeSourceHandle> handles, ExchangeSourceOutputSelector outputSelector)
     {
         ImmutableList.Builder<String> result = ImmutableList.builder();
         try (ExchangeSource source = exchangeManager.createSource()) {
+            source.setOutputSelector(outputSelector);
             Queue<ExchangeSourceHandle> remainingHandles = new ArrayDeque<>(handles);
             while (!source.isFinished()) {
                 Slice data = source.read();
