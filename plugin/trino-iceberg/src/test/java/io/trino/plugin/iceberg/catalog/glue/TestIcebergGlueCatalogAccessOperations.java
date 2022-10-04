@@ -61,6 +61,7 @@ import static io.trino.plugin.iceberg.TableType.PROPERTIES;
 import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.CREATE_TABLE;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.GET_DATABASE;
+import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.GET_DATABASES;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.GET_TABLE;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.UPDATE_TABLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -119,6 +120,21 @@ public class TestIcebergGlueCatalogAccessOperations
     public void cleanUpSchema()
     {
         getQueryRunner().execute("DROP SCHEMA " + testSchema);
+    }
+
+    @Test
+    public void testUse()
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        String schema = getSession().getSchema().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalog(Optional.empty())
+                .setSchema(Optional.empty())
+                .build();
+        assertGlueMetastoreApiInvocations(session, "USE %s.%s".formatted(catalog, schema),
+                ImmutableMultiset.builder()
+                        .addCopies(GET_DATABASES, 3)
+                        .build());
     }
 
     @Test
@@ -411,10 +427,15 @@ public class TestIcebergGlueCatalogAccessOperations
 
     private void assertGlueMetastoreApiInvocations(@Language("SQL") String query, Multiset<?> expectedInvocations)
     {
+        assertGlueMetastoreApiInvocations(getSession(), query, expectedInvocations);
+    }
+
+    private void assertGlueMetastoreApiInvocations(Session session, @Language("SQL") String query, Multiset<?> expectedInvocations)
+    {
         Map<GlueMetastoreMethod, Integer> countsBefore = Arrays.stream(GlueMetastoreMethod.values())
                 .collect(toImmutableMap(Function.identity(), method -> method.getInvocationCount(glueStats)));
 
-        getQueryRunner().execute(query);
+        getQueryRunner().execute(session, query);
         Map<GlueMetastoreMethod, Integer> countsAfter = Arrays.stream(GlueMetastoreMethod.values())
                 .collect(toImmutableMap(Function.identity(), method -> method.getInvocationCount(glueStats)));
 
