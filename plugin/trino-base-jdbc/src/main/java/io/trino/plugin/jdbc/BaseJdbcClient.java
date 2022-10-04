@@ -927,16 +927,17 @@ public abstract class BaseJdbcClient
         ConnectorIdentity identity = session.getIdentity();
         try (Connection connection = connectionFactory.openConnection(session)) {
             schemaName = identifierMapping.toRemoteSchemaName(identity, connection, schemaName);
-            execute(connection, dropSchemaSql(schemaName));
+            dropSchema(session, connection, schemaName);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
-    protected String dropSchemaSql(String schemaName)
+    protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
+            throws SQLException
     {
-        return "DROP SCHEMA " + quoted(schemaName);
+        execute(connection, "DROP SCHEMA " + quoted(remoteSchemaName));
     }
 
     @Override
