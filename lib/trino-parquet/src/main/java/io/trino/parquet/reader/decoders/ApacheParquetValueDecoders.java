@@ -14,16 +14,21 @@
 package io.trino.parquet.reader.decoders;
 
 import io.trino.parquet.reader.SimpleSliceInputStream;
+import io.trino.spi.type.DecimalType;
 import org.apache.parquet.bytes.ByteBufferInputStream;
+import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesReader;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetReaderUtils.castToByte;
 import static io.trino.parquet.ParquetReaderUtils.toByteExact;
 import static io.trino.parquet.ParquetReaderUtils.toShortExact;
+import static io.trino.parquet.ParquetTypeUtils.checkBytesFitInShortDecimal;
+import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -280,6 +285,53 @@ public class ApacheParquetValueDecoders
         {
             for (int i = offset; i < offset + length; i++) {
                 values[i] = castToByte(delegate.readBoolean());
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
+    }
+
+    public static final class ShortDecimalApacheParquetValueDecoder
+            implements ValueDecoder<long[]>
+    {
+        private final ValuesReader delegate;
+        private final DecimalType decimalType;
+        private final ColumnDescriptor descriptor;
+        private final int typeLength;
+
+        public ShortDecimalApacheParquetValueDecoder(ValuesReader delegate, DecimalType decimalType, ColumnDescriptor descriptor)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+            checkArgument(decimalType.isShort(), "Decimal type %s is not a short decimal", decimalType);
+            this.decimalType = decimalType;
+            this.descriptor = requireNonNull(descriptor, "descriptor is null");
+            this.typeLength = descriptor.getPrimitiveType().getTypeLength();
+            checkArgument(typeLength > 0 && typeLength <= 16, "Expected column %s to have type length in range (1-16)", descriptor);
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            initialize(input, delegate);
+        }
+
+        @Override
+        public void read(long[] values, int offset, int length)
+        {
+            int bytesOffset = 0;
+            int bytesLength = typeLength;
+            if (typeLength > Long.BYTES) {
+                bytesOffset = typeLength - Long.BYTES;
+                bytesLength = Long.BYTES;
+            }
+            for (int i = offset; i < offset + length; i++) {
+                byte[] bytes = delegate.readBytes().getBytes();
+                checkBytesFitInShortDecimal(bytes, 0, bytesOffset, decimalType, descriptor);
+                values[i] = getShortDecimalValue(bytes, bytesOffset, bytesLength);
             }
         }
 

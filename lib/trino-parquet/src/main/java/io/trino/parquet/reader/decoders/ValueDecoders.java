@@ -16,10 +16,12 @@ package io.trino.parquet.reader.decoders;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.dictionary.Dictionary;
+import io.trino.spi.type.DecimalType;
 import org.apache.parquet.column.values.ValuesReader;
 
 import javax.annotation.Nullable;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.ValuesType.VALUES;
@@ -31,6 +33,7 @@ import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.IntApa
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.IntToLongApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.LongApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.ShortApacheParquetValueDecoder;
+import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.ShortDecimalApacheParquetValueDecoder;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -62,9 +65,11 @@ public final class ValueDecoders
 
     public static ValueDecoder<long[]> getShortDecimalDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
     {
+        checkArgument(field.getType() instanceof DecimalType, "Trino type %s is not a decimal", field.getType());
         return switch (field.getDescriptor().getPrimitiveType().getPrimitiveTypeName()) {
             case INT64 -> getLongDecoder(encoding, field, dictionary);
             case INT32 -> getIntToLongDecoder(encoding, field, dictionary);
+            case FIXED_LEN_BYTE_ARRAY -> getFixedWidthShortDecimalDecoder(encoding, field, dictionary, (DecimalType) field.getType());
             default -> throw wrongEncoding(encoding, field);
         };
     }
@@ -119,6 +124,17 @@ public final class ValueDecoders
     {
         return switch (encoding) {
             case PLAIN, RLE, BIT_PACKED -> new BooleanApacheParquetValueDecoder(getApacheParquetReader(encoding, field, dictionary));
+            default -> throw wrongEncoding(encoding, field);
+        };
+    }
+
+    private static ValueDecoder<long[]> getFixedWidthShortDecimalDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary, DecimalType decimalType)
+    {
+        return switch (encoding) {
+            case PLAIN, DELTA_BYTE_ARRAY, PLAIN_DICTIONARY, RLE_DICTIONARY -> new ShortDecimalApacheParquetValueDecoder(
+                    getApacheParquetReader(encoding, field, dictionary),
+                    decimalType,
+                    field.getDescriptor());
             default -> throw wrongEncoding(encoding, field);
         };
     }

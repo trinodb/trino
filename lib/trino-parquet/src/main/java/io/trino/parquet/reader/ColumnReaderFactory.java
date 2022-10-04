@@ -54,6 +54,7 @@ import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MICROS;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MILLIS;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.NANOS;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FLOAT;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
@@ -109,7 +110,8 @@ public final class ColumnReaderFactory
             if (DOUBLE.equals(type) && primitiveType == PrimitiveTypeName.DOUBLE) {
                 return new FlatColumnReader<>(field, ValueDecoders::getDoubleDecoder, LONG_ADAPTER);
             }
-            if (type instanceof DecimalType decimalType && decimalType.isShort() && (primitiveType == INT32 || primitiveType == INT64)) {
+            if (type instanceof DecimalType decimalType && decimalType.isShort()
+                    && (primitiveType == INT32 || primitiveType == INT64 || primitiveType == FIXED_LEN_BYTE_ARRAY)) {
                 if (annotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation && !isDecimalRescaled(decimalAnnotation, decimalType)) {
                     return new FlatColumnReader<>(field, ValueDecoders::getShortDecimalDecoder, LONG_ADAPTER);
                 }
