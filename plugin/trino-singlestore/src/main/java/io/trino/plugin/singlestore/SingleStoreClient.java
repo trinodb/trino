@@ -336,15 +336,15 @@ public class SingleStoreClient
     }
 
     @Override
-    protected String renameColumnSql(JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newRemoteColumnName)
+    protected void renameColumn(ConnectorSession session, Connection connection, RemoteTableName remoteTableName, String remoteColumnName, String newRemoteColumnName)
+            throws SQLException
     {
         // SingleStore versions earlier than 5.7 do not support the CHANGE syntax
-        RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
-        return format(
+        execute(connection, format(
                 "ALTER TABLE %s CHANGE %s %s",
                 quoted(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
-                quoted(jdbcColumn.getColumnName()),
-                quoted(newRemoteColumnName));
+                quoted(remoteColumnName),
+                quoted(newRemoteColumnName)));
     }
 
     @Override
