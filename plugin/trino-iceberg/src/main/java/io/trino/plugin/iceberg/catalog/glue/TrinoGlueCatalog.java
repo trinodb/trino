@@ -105,6 +105,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
@@ -140,6 +141,28 @@ public class TrinoGlueCatalog
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.defaultSchemaLocation = requireNonNull(defaultSchemaLocation, "defaultSchemaLocation is null");
+    }
+
+    @Override
+    public boolean namespaceExists(ConnectorSession session, String namespace)
+    {
+        if (!namespace.equals(namespace.toLowerCase(ENGLISH))) {
+            // Currently, Trino schemas are always lowercase, so this one cannot exist (https://github.com/trinodb/trino/issues/17)
+            // In fact, Glue stores database names lowercase only (but accepted mixed case on lookup).
+            return false;
+        }
+        return stats.getGetDatabase().call(() -> {
+            try {
+                glueClient.getDatabase(new GetDatabaseRequest().withName(namespace));
+                return true;
+            }
+            catch (EntityNotFoundException e) {
+                return false;
+            }
+            catch (AmazonServiceException e) {
+                throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
+            }
+        });
     }
 
     @Override
