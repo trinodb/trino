@@ -23,6 +23,7 @@ import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.mongodb.ptf.Query;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.type.TypeManager;
@@ -44,6 +45,7 @@ public class MongoClientModule
         binder.bind(MongoSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(MongoPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(MongoPageSinkProvider.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(MongoSessionProperties.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(MongoClientConfig.class);
         newSetBinder(binder, MongoClientSettingConfigurator.class);

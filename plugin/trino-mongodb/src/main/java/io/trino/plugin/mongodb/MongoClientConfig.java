@@ -14,6 +14,7 @@
 package io.trino.plugin.mongodb;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
@@ -44,6 +45,7 @@ public class MongoClientConfig
     private WriteConcernType writeConcern = WriteConcernType.ACKNOWLEDGED;
     private String requiredReplicaSetName;
     private String implicitRowFieldPrefix = "_pos";
+    private boolean projectionPushDownEnabled = true;
 
     @NotNull
     public String getSchemaCollection()
@@ -235,6 +237,19 @@ public class MongoClientConfig
     public MongoClientConfig setMaxConnectionIdleTime(int maxConnectionIdleTime)
     {
         this.maxConnectionIdleTime = maxConnectionIdleTime;
+        return this;
+    }
+
+    public boolean isProjectionPushdownEnabled()
+    {
+        return projectionPushDownEnabled;
+    }
+
+    @Config("mongodb.projection-pushdown-enabled")
+    @ConfigDescription("Read only required fields from a row type")
+    public MongoClientConfig setProjectionPushdownEnabled(boolean projectionPushDownEnabled)
+    {
+        this.projectionPushDownEnabled = projectionPushDownEnabled;
         return this;
     }
 }
