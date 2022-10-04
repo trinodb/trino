@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive;
+package io.trino.plugin.base.projection;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.expression.ConnectorExpression;
@@ -20,8 +20,8 @@ import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.Variable;
 import org.testng.annotations.Test;
 
-import static io.trino.plugin.hive.HiveApplyProjectionUtil.extractSupportedProjectedColumns;
-import static io.trino.plugin.hive.HiveApplyProjectionUtil.isPushDownSupported;
+import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
+import static io.trino.plugin.base.projection.ApplyProjectionUtil.isPushDownSupported;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
@@ -29,7 +29,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TestHiveApplyProjectionUtil
+public class TestApplyProjectionUtil
 {
     private static final ConnectorExpression ROW_OF_ROW_VARIABLE = new Variable("a", rowType(field("b", rowType(field("c", INTEGER)))));
 

@@ -31,7 +31,8 @@ import io.airlift.units.DataSize;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.HiveApplyProjectionUtil.ProjectedColumnRepresentation;
+import io.trino.plugin.base.projection.ApplyProjectionUtil;
+import io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.acid.AcidOperation;
@@ -162,11 +163,11 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.intersection;
 import static io.trino.hdfs.ConfigurationUtils.toJobConf;
+import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
+import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
 import static io.trino.plugin.hive.HiveAnalyzeProperties.getColumnNames;
 import static io.trino.plugin.hive.HiveAnalyzeProperties.getPartitionList;
-import static io.trino.plugin.hive.HiveApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.find;
-import static io.trino.plugin.hive.HiveApplyProjectionUtil.replaceWithNewVariables;
 import static io.trino.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
 import static io.trino.plugin.hive.HiveBasicStatistics.createZeroStatistics;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
@@ -2886,7 +2887,7 @@ public class HiveMetadata
                 .collect(toImmutableSet());
 
         Map<ConnectorExpression, ProjectedColumnRepresentation> columnProjections = projectedExpressions.stream()
-                .collect(toImmutableMap(Function.identity(), HiveApplyProjectionUtil::createProjectedColumnRepresentation));
+                .collect(toImmutableMap(Function.identity(), ApplyProjectionUtil::createProjectedColumnRepresentation));
 
         HiveTableHandle hiveTableHandle = (HiveTableHandle) handle;
         // all references are simple variables
