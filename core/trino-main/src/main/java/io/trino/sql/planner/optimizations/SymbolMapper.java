@@ -37,6 +37,9 @@ import io.trino.sql.planner.plan.StatisticAggregations;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughColumn;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
+import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
@@ -65,6 +68,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.planner.plan.AggregationNode.groupingSets;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 public class SymbolMapper
 {
@@ -354,6 +358,38 @@ public class SymbolMapper
                 newValuePointers.build(),
                 expressionAndValuePointers.getClassifierSymbols(),
                 expressionAndValuePointers.getMatchNumberSymbols());
+    }
+
+    public TableFunctionProcessorNode map(TableFunctionProcessorNode node, PlanNode source)
+    {
+        List<PassThroughSpecification> newPassThroughSpecifications = node.getPassThroughSpecifications().stream()
+                .map(specification -> new PassThroughSpecification(
+                        specification.declaredAsPassThrough(),
+                        specification.columns().stream()
+                                .map(column -> new PassThroughColumn(
+                                        map(column.symbol()),
+                                        column.isPartitioningColumn()))
+                                .collect(toImmutableList())))
+                .collect(toImmutableList());
+
+        List<List<Symbol>> newRequiredSymbols = node.getRequiredSymbols().stream()
+                .map(this::map)
+                .collect(toImmutableList());
+
+        Optional<Map<Symbol, Symbol>> newMarkerSymbols = node.getMarkerSymbols()
+                .map(mapping -> mapping.entrySet().stream()
+                        .collect(toMap(entry -> map(entry.getKey()), entry -> map(entry.getValue()))));
+
+        return new TableFunctionProcessorNode(
+                node.getId(),
+                node.getName(),
+                map(node.getProperOutputs()),
+                source,
+                newPassThroughSpecifications,
+                newRequiredSymbols,
+                newMarkerSymbols,
+                node.getSpecification().map(this::mapAndDistinct), // TODO handle pre-partitioned, pre-sorted properly when we add them
+                node.getHandle());
     }
 
     public LimitNode map(LimitNode node, PlanNode source)

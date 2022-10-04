@@ -107,6 +107,7 @@ import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
+import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
@@ -1792,54 +1793,88 @@ public class PlanPrinter
         private String formatArgument(String argumentName, Argument argument, Map<String, TableArgumentProperties> tableArguments)
         {
             if (argument instanceof ScalarArgument scalarArgument) {
-                return format(
-                        "%s => ScalarArgument{type=%s, value=%s}",
-                        argumentName,
-                        scalarArgument.getType().getDisplayName(),
-                        anonymizer.anonymize(
-                                scalarArgument.getType(),
-                                valuePrinter.castToVarchar(scalarArgument.getType(), scalarArgument.getValue())));
+                return formatScalarArgument(argumentName, scalarArgument);
             }
             if (argument instanceof DescriptorArgument descriptorArgument) {
-                String descriptor;
-                if (descriptorArgument.equals(NULL_DESCRIPTOR)) {
-                    descriptor = "NULL";
-                }
-                else {
-                    descriptor = descriptorArgument.getDescriptor().orElseThrow().getFields().stream()
-                            .map(field -> anonymizer.anonymizeColumn(field.getName()) + field.getType().map(type -> " " + type.getDisplayName()).orElse(""))
-                            .collect(joining(", ", "(", ")"));
-                }
-                return format("%s => DescriptorArgument{%s}", argumentName, descriptor);
+                return formatDescriptorArgument(argumentName, descriptorArgument);
             }
             else {
                 TableArgumentProperties argumentProperties = tableArguments.get(argumentName);
-                StringBuilder properties = new StringBuilder();
-                if (argumentProperties.isRowSemantics()) {
-                    properties.append("row semantics");
-                }
-                argumentProperties.getSpecification().ifPresent(specification -> {
-                    properties
-                            .append("partition by: [")
-                            .append(Joiner.on(", ").join(anonymize(specification.getPartitionBy())))
-                            .append("]");
-                    specification.getOrderingScheme().ifPresent(orderingScheme -> {
-                        properties
-                                .append(", order by: ")
-                                .append(formatOrderingScheme(orderingScheme));
-                    });
-                });
-                properties.append("required columns: [")
-                        .append(Joiner.on(", ").join(anonymize(argumentProperties.getRequiredColumns())))
-                        .append("]");
-                if (argumentProperties.isPruneWhenEmpty()) {
-                    properties.append(", prune when empty");
-                }
-                if (argumentProperties.getPassThroughSpecification().declaredAsPassThrough()) {
-                    properties.append(", pass through columns");
-                }
-                return format("%s => TableArgument{%s}", argumentName, properties);
+                return formatTableArgument(argumentName, argumentProperties);
             }
+        }
+
+        private String formatScalarArgument(String argumentName, ScalarArgument argument)
+        {
+            return format(
+                    "%s => ScalarArgument{type=%s, value=%s}",
+                    argumentName,
+                    argument.getType().getDisplayName(),
+                    anonymizer.anonymize(
+                            argument.getType(),
+                            valuePrinter.castToVarchar(argument.getType(), argument.getValue())));
+        }
+
+        private String formatDescriptorArgument(String argumentName, DescriptorArgument argument)
+        {
+            String descriptor;
+            if (argument.equals(NULL_DESCRIPTOR)) {
+                descriptor = "NULL";
+            }
+            else {
+                descriptor = argument.getDescriptor().orElseThrow().getFields().stream()
+                        .map(field -> anonymizer.anonymizeColumn(field.getName()) + field.getType().map(type -> " " + type.getDisplayName()).orElse(""))
+                        .collect(joining(", ", "(", ")"));
+            }
+            return format("%s => DescriptorArgument{%s}", argumentName, descriptor);
+        }
+
+        private String formatTableArgument(String argumentName, TableArgumentProperties argumentProperties)
+        {
+            StringBuilder properties = new StringBuilder();
+            if (argumentProperties.isRowSemantics()) {
+                properties.append("row semantics");
+            }
+            argumentProperties.getSpecification().ifPresent(specification -> {
+                properties
+                        .append("partition by: [")
+                        .append(Joiner.on(", ").join(anonymize(specification.getPartitionBy())))
+                        .append("]");
+                specification.getOrderingScheme().ifPresent(orderingScheme -> {
+                    properties
+                            .append(", order by: ")
+                            .append(formatOrderingScheme(orderingScheme));
+                });
+            });
+            properties.append("required columns: [")
+                    .append(Joiner.on(", ").join(anonymize(argumentProperties.getRequiredColumns())))
+                    .append("]");
+            if (argumentProperties.isPruneWhenEmpty()) {
+                properties.append(", prune when empty");
+            }
+            if (argumentProperties.getPassThroughSpecification().declaredAsPassThrough()) {
+                properties.append(", pass through columns");
+            }
+            return format("%s => TableArgument{%s}", argumentName, properties);
+        }
+
+        @Override
+        public Void visitTableFunctionProcessor(TableFunctionProcessorNode node, Context context)
+        {
+            ImmutableMap.Builder<String, String> descriptor = ImmutableMap.builder();
+
+            descriptor.put("name", node.getName());
+
+            descriptor.put("properOutputs", format("[%s]", Joiner.on(", ").join(anonymize(node.getProperOutputs()))));
+
+            node.getSpecification().ifPresent(specification -> {
+                descriptor.put("partitionBy", format("[%s]", Joiner.on(", ").join(anonymize(specification.getPartitionBy()))));
+                specification.getOrderingScheme().ifPresent(orderingScheme -> descriptor.put("orderBy: ", formatOrderingScheme(orderingScheme)));
+            });
+
+            addNode(node, "TableFunctionProcessor", descriptor.buildOrThrow(), context.tag());
+
+            return processChildren(node, new Context());
         }
 
         @Override

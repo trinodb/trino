@@ -66,6 +66,8 @@ import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableFunctionNode.PassThroughColumn;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
+import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
@@ -261,6 +263,71 @@ public final class ValidateDependenciesChecker
                         passThroughSymbols,
                         source.getOutputSymbols());
             }
+
+            return null;
+        }
+
+        @Override
+        public Void visitTableFunctionProcessor(TableFunctionProcessorNode node, Set<Symbol> boundSymbols)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, boundSymbols);
+
+            Set<Symbol> inputs = createInputs(source, boundSymbols);
+
+            Set<Symbol> passThroughSymbols = node.getPassThroughSpecifications().stream()
+                    .map(PassThroughSpecification::columns)
+                    .flatMap(Collection::stream)
+                    .map(PassThroughColumn::symbol)
+                    .collect(toImmutableSet());
+            checkDependencies(
+                    inputs,
+                    passThroughSymbols,
+                    "Invalid node. Pass-through symbols (%s) not in source plan output (%s)",
+                    passThroughSymbols,
+                    source.getOutputSymbols());
+
+            Set<Symbol> requiredSymbols = node.getRequiredSymbols().stream()
+                    .flatMap(Collection::stream)
+                    .collect(toImmutableSet());
+            checkDependencies(
+                    inputs,
+                    requiredSymbols,
+                    "Invalid node. Required symbols (%s) not in source plan output (%s)",
+                    requiredSymbols,
+                    source.getOutputSymbols());
+
+            node.getMarkerSymbols().ifPresent(mapping -> {
+                checkDependencies(
+                        inputs,
+                        mapping.keySet(),
+                        "Invalid node. Source symbols (%s) not in source plan output (%s)",
+                        mapping.keySet(),
+                        source.getOutputSymbols());
+                checkDependencies(
+                        inputs,
+                        mapping.values(),
+                        "Invalid node. Source marker symbols (%s) not in source plan output (%s)",
+                        mapping.values(),
+                        source.getOutputSymbols());
+            });
+
+            node.getSpecification().ifPresent(specification -> {
+                checkDependencies(
+                        inputs,
+                        specification.getPartitionBy(),
+                        "Invalid node. Partition by symbols (%s) not in source plan output (%s)",
+                        specification.getPartitionBy(),
+                        source.getOutputSymbols());
+                specification.getOrderingScheme().ifPresent(orderingScheme -> {
+                    checkDependencies(
+                            inputs,
+                            orderingScheme.getOrderBy(),
+                            "Invalid node. Order by symbols (%s) not in source plan output (%s)",
+                            orderingScheme.getOrderBy(),
+                            source.getOutputSymbols());
+                });
+            });
 
             return null;
         }
