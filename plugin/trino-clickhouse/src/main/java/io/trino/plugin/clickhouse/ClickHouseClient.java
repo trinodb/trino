@@ -257,7 +257,12 @@ public class ClickHouseClient
                 "CREATE TABLE %s AS %s ",
                 quoted(null, schemaName, newTableName),
                 quoted(null, schemaName, tableName));
-        execute(connection, sql);
+        try {
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     @Override
