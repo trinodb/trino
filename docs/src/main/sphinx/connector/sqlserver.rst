@@ -69,6 +69,8 @@ Further parameters like ``trustServerCertificate``, ``hostNameInCertificate``,
 SQL Server JDBC driver documentation
 <https://docs.microsoft.com/en-us/sql/connect/jdbc/using-ssl-encryption>`_.
 
+.. include:: jdbc-authentication.fragment
+
 Multiple SQL Server databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
