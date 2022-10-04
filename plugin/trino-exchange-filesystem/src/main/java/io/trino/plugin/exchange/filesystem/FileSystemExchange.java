@@ -39,6 +39,7 @@ import java.security.Key;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +52,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -86,7 +88,7 @@ public class FileSystemExchange
     @GuardedBy("this")
     private final Set<Integer> allSinks = new HashSet<>();
     @GuardedBy("this")
-    private final Set<Integer> finishedSinks = new HashSet<>();
+    private final Map<Integer, Integer> finishedSinks = new HashMap<>();
     @GuardedBy("this")
     private boolean noMoreSinks;
     @GuardedBy("this")
@@ -167,7 +169,7 @@ public class FileSystemExchange
     {
         synchronized (this) {
             FileSystemExchangeSinkHandle sinkHandle = (FileSystemExchangeSinkHandle) handle;
-            finishedSinks.add(sinkHandle.getPartitionId());
+            finishedSinks.putIfAbsent(sinkHandle.getPartitionId(), taskAttemptId);
         }
         checkInputReady();
     }
@@ -180,7 +182,7 @@ public class FileSystemExchange
             if (exchangeSourceHandlesCreationStarted) {
                 return;
             }
-            if (noMoreSinks && finishedSinks.containsAll(allSinks)) {
+            if (noMoreSinks && finishedSinks.keySet().containsAll(allSinks)) {
                 // input is ready, create exchange source handles
                 exchangeSourceHandlesCreationStarted = true;
                 exchangeSourceHandlesCreationFuture = stats.getCreateExchangeSourceHandles().record(this::createExchangeSourceHandles);
@@ -210,13 +212,15 @@ public class FileSystemExchange
 
     private ListenableFuture<List<ExchangeSourceHandle>> createExchangeSourceHandles()
     {
-        List<Integer> finishedTaskPartitions;
+        List<CommittedTaskAttempt> committedTaskAttempts;
         synchronized (this) {
-            finishedTaskPartitions = ImmutableList.copyOf(finishedSinks);
+            committedTaskAttempts = finishedSinks.entrySet().stream()
+                    .map(entry -> new CommittedTaskAttempt(entry.getKey(), entry.getValue()))
+                    .collect(toImmutableList());
         }
 
         return Futures.transform(
-                processAll(finishedTaskPartitions, this::getCommittedPartitions, fileListingParallelism, executor),
+                processAll(committedTaskAttempts, this::getCommittedPartitions, fileListingParallelism, executor),
                 partitionsList -> {
                     Multimap<Integer, SourceFile> sourceFiles = ArrayListMultimap.create();
                     partitionsList.forEach(partitions -> partitions.forEach(sourceFiles::put));
@@ -243,9 +247,9 @@ public class FileSystemExchange
                 executor);
     }
 
-    private ListenableFuture<Multimap<Integer, SourceFile>> getCommittedPartitions(int partition)
+    private ListenableFuture<Multimap<Integer, SourceFile>> getCommittedPartitions(CommittedTaskAttempt committedTaskAttempt)
     {
-        URI sinkOutputPath = getTaskOutputDirectory(partition);
+        URI sinkOutputPath = getTaskOutputDirectory(committedTaskAttempt.partitionId());
         return stats.getGetCommittedPartitions().record(Futures.transform(
                 exchangeStorage.listFilesRecursively(sinkOutputPath),
                 sinkOutputFiles -> {
@@ -258,27 +262,34 @@ public class FileSystemExchange
                         throw new IllegalStateException(format("No committed attempts found under sink output path %s", sinkOutputPath));
                     }
 
-                    String committedMarkerFilePath = committedMarkerFilePaths.get(0);
-                    // Committed marker file path format: {sinkOutputPath}/{attemptId}/committed
-                    String[] parts = committedMarkerFilePath.split(PATH_SEPARATOR);
-                    checkState(parts.length >= 3, "committedMarkerFilePath %s is malformed", committedMarkerFilePath);
-                    String stringCommittedAttemptId = parts[parts.length - 2];
-                    int attemptIdOffset = committedMarkerFilePath.length() - stringCommittedAttemptId.length()
-                            - PATH_SEPARATOR.length() - COMMITTED_MARKER_FILE_NAME.length();
+                    for (String committedMarkerFilePath : committedMarkerFilePaths) {
+                        // Committed marker file path format: {sinkOutputPath}/{attemptId}/committed
+                        String[] parts = committedMarkerFilePath.split(PATH_SEPARATOR);
+                        checkState(parts.length >= 3, "committedMarkerFilePath %s is malformed", committedMarkerFilePath);
+                        String stringCommittedAttemptId = parts[parts.length - 2];
+                        if (parseInt(stringCommittedAttemptId) != committedTaskAttempt.attemptId()) {
+                            // skip other successful attempts
+                            continue;
+                        }
+                        int attemptIdOffset = committedMarkerFilePath.length() - stringCommittedAttemptId.length()
+                                - PATH_SEPARATOR.length() - COMMITTED_MARKER_FILE_NAME.length();
 
-                    // Data output file path format: {sinkOutputPath}/{attemptId}/{sourcePartitionId}_{splitId}.data
-                    List<FileStatus> partitionFiles = sinkOutputFiles.stream()
-                            .filter(file -> file.getFilePath().startsWith(stringCommittedAttemptId + PATH_SEPARATOR, attemptIdOffset) && file.getFilePath().endsWith(DATA_FILE_SUFFIX))
-                            .collect(toImmutableList());
+                        // Data output file path format: {sinkOutputPath}/{attemptId}/{sourcePartitionId}_{splitId}.data
+                        List<FileStatus> partitionFiles = sinkOutputFiles.stream()
+                                .filter(file -> file.getFilePath().startsWith(stringCommittedAttemptId + PATH_SEPARATOR, attemptIdOffset) && file.getFilePath().endsWith(DATA_FILE_SUFFIX))
+                                .collect(toImmutableList());
 
-                    ImmutableMultimap.Builder<Integer, SourceFile> result = ImmutableMultimap.builder();
-                    for (FileStatus partitionFile : partitionFiles) {
-                        Matcher matcher = PARTITION_FILE_NAME_PATTERN.matcher(new File(partitionFile.getFilePath()).getName());
-                        checkState(matcher.matches(), "Unexpected partition file: %s", partitionFile);
-                        int partitionId = parseInt(matcher.group(1));
-                        result.put(partitionId, new SourceFile(partitionFile.getFilePath(), partitionFile.getFileSize(), partition, parseInt(stringCommittedAttemptId)));
+                        ImmutableMultimap.Builder<Integer, SourceFile> result = ImmutableMultimap.builder();
+                        for (FileStatus partitionFile : partitionFiles) {
+                            Matcher matcher = PARTITION_FILE_NAME_PATTERN.matcher(new File(partitionFile.getFilePath()).getName());
+                            checkState(matcher.matches(), "Unexpected partition file: %s", partitionFile);
+                            int partitionId = parseInt(matcher.group(1));
+                            result.put(partitionId, new SourceFile(partitionFile.getFilePath(), partitionFile.getFileSize(), committedTaskAttempt.partitionId(), committedTaskAttempt.attemptId()));
+                        }
+                        return result.build();
                     }
-                    return result.build();
+
+                    throw new IllegalArgumentException("committed attempt %s for task %s not found".formatted(committedTaskAttempt.attemptId(), committedTaskAttempt.partitionId()));
                 },
                 executor));
     }
@@ -323,5 +334,14 @@ public class FileSystemExchange
             value[i] = RANDOMIZED_HEX_PREFIX_ALPHABET[ThreadLocalRandom.current().nextInt(RANDOMIZED_HEX_PREFIX_ALPHABET.length)];
         }
         return new String(value);
+    }
+
+    private record CommittedTaskAttempt(int partitionId, int attemptId)
+    {
+        public CommittedTaskAttempt
+        {
+            checkArgument(partitionId >= 0, "partitionId is expected to be greater than or equal to zero: %s", partitionId);
+            checkArgument(attemptId >= 0, "attemptId is expected to be greater than or equal to zero: %s", attemptId);
+        }
     }
 }
