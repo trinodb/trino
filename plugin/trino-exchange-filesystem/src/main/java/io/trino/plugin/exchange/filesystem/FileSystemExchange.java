@@ -20,6 +20,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.plugin.exchange.filesystem.FileSystemExchangeSourceHandle.SourceFile;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeContext;
 import io.trino.spi.exchange.ExchangeSinkHandle;
@@ -58,6 +59,7 @@ import static io.airlift.concurrent.AsyncSemaphore.processAll;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeManager.PATH_SEPARATOR;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeSink.COMMITTED_MARKER_FILE_NAME;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeSink.DATA_FILE_SUFFIX;
+import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -216,16 +218,16 @@ public class FileSystemExchange
         return Futures.transform(
                 processAll(finishedTaskPartitions, this::getCommittedPartitions, fileListingParallelism, executor),
                 partitionsList -> {
-                    Multimap<Integer, FileStatus> partitionFiles = ArrayListMultimap.create();
-                    partitionsList.forEach(partitions -> partitions.forEach(partitionFiles::put));
+                    Multimap<Integer, SourceFile> sourceFiles = ArrayListMultimap.create();
+                    partitionsList.forEach(partitions -> partitions.forEach(sourceFiles::put));
                     ImmutableList.Builder<ExchangeSourceHandle> result = ImmutableList.builder();
-                    for (Integer partitionId : partitionFiles.keySet()) {
-                        Collection<FileStatus> files = partitionFiles.get(partitionId);
+                    for (Integer partitionId : sourceFiles.keySet()) {
+                        Collection<SourceFile> files = sourceFiles.get(partitionId);
                         long currentExchangeHandleDataSizeInBytes = 0;
-                        ImmutableList.Builder<FileStatus> currentExchangeHandleFiles = ImmutableList.builder();
-                        for (FileStatus file : files) {
+                        ImmutableList.Builder<SourceFile> currentExchangeHandleFiles = ImmutableList.builder();
+                        for (SourceFile file : files) {
                             if (currentExchangeHandleDataSizeInBytes > 0 && currentExchangeHandleDataSizeInBytes + file.getFileSize() > exchangeSourceHandleTargetDataSizeInBytes) {
-                                result.add(new FileSystemExchangeSourceHandle(partitionId, currentExchangeHandleFiles.build(), secretKey.map(SecretKey::getEncoded)));
+                                result.add(new FileSystemExchangeSourceHandle(exchangeContext.getExchangeId(), partitionId, currentExchangeHandleFiles.build(), secretKey.map(SecretKey::getEncoded)));
                                 currentExchangeHandleDataSizeInBytes = 0;
                                 currentExchangeHandleFiles = ImmutableList.builder();
                             }
@@ -233,7 +235,7 @@ public class FileSystemExchange
                             currentExchangeHandleFiles.add(file);
                         }
                         if (currentExchangeHandleDataSizeInBytes > 0) {
-                            result.add(new FileSystemExchangeSourceHandle(partitionId, currentExchangeHandleFiles.build(), secretKey.map(SecretKey::getEncoded)));
+                            result.add(new FileSystemExchangeSourceHandle(exchangeContext.getExchangeId(), partitionId, currentExchangeHandleFiles.build(), secretKey.map(SecretKey::getEncoded)));
                         }
                     }
                     return result.build();
@@ -241,35 +243,40 @@ public class FileSystemExchange
                 executor);
     }
 
-    private ListenableFuture<Multimap<Integer, FileStatus>> getCommittedPartitions(int taskPartitionId)
+    private ListenableFuture<Multimap<Integer, SourceFile>> getCommittedPartitions(int partition)
     {
-        URI sinkOutputPath = getTaskOutputDirectory(taskPartitionId);
+        URI sinkOutputPath = getTaskOutputDirectory(partition);
         return stats.getGetCommittedPartitions().record(Futures.transform(
                 exchangeStorage.listFilesRecursively(sinkOutputPath),
                 sinkOutputFiles -> {
-                    String committedMarkerFilePath = sinkOutputFiles.stream()
+                    List<String> committedMarkerFilePaths = sinkOutputFiles.stream()
                             .map(FileStatus::getFilePath)
                             .filter(filePath -> filePath.endsWith(COMMITTED_MARKER_FILE_NAME))
-                            .findFirst()
-                            .orElseThrow(() -> new IllegalStateException(format("No committed attempts found under sink output path %s", sinkOutputPath)));
+                            .collect(toImmutableList());
+
+                    if (committedMarkerFilePaths.isEmpty()) {
+                        throw new IllegalStateException(format("No committed attempts found under sink output path %s", sinkOutputPath));
+                    }
+
+                    String committedMarkerFilePath = committedMarkerFilePaths.get(0);
                     // Committed marker file path format: {sinkOutputPath}/{attemptId}/committed
                     String[] parts = committedMarkerFilePath.split(PATH_SEPARATOR);
                     checkState(parts.length >= 3, "committedMarkerFilePath %s is malformed", committedMarkerFilePath);
-                    String committedAttemptId = parts[parts.length - 2];
-                    int attemptIdOffset = committedMarkerFilePath.length() - committedAttemptId.length()
+                    String stringCommittedAttemptId = parts[parts.length - 2];
+                    int attemptIdOffset = committedMarkerFilePath.length() - stringCommittedAttemptId.length()
                             - PATH_SEPARATOR.length() - COMMITTED_MARKER_FILE_NAME.length();
 
                     // Data output file path format: {sinkOutputPath}/{attemptId}/{sourcePartitionId}_{splitId}.data
                     List<FileStatus> partitionFiles = sinkOutputFiles.stream()
-                            .filter(file -> file.getFilePath().startsWith(committedAttemptId + PATH_SEPARATOR, attemptIdOffset) && file.getFilePath().endsWith(DATA_FILE_SUFFIX))
+                            .filter(file -> file.getFilePath().startsWith(stringCommittedAttemptId + PATH_SEPARATOR, attemptIdOffset) && file.getFilePath().endsWith(DATA_FILE_SUFFIX))
                             .collect(toImmutableList());
 
-                    ImmutableMultimap.Builder<Integer, FileStatus> result = ImmutableMultimap.builder();
+                    ImmutableMultimap.Builder<Integer, SourceFile> result = ImmutableMultimap.builder();
                     for (FileStatus partitionFile : partitionFiles) {
                         Matcher matcher = PARTITION_FILE_NAME_PATTERN.matcher(new File(partitionFile.getFilePath()).getName());
                         checkState(matcher.matches(), "Unexpected partition file: %s", partitionFile);
-                        int partitionId = Integer.parseInt(matcher.group(1));
-                        result.put(partitionId, partitionFile);
+                        int partitionId = parseInt(matcher.group(1));
+                        result.put(partitionId, new SourceFile(partitionFile.getFilePath(), partitionFile.getFileSize(), partition, parseInt(stringCommittedAttemptId)));
                     }
                     return result.build();
                 },

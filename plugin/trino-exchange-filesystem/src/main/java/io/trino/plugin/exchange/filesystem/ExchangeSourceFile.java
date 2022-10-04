@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.exchange.filesystem;
 
+import io.trino.spi.exchange.ExchangeId;
+
 import javax.annotation.concurrent.Immutable;
 import javax.crypto.SecretKey;
 
@@ -27,12 +29,18 @@ public class ExchangeSourceFile
     private final URI fileUri;
     private final Optional<SecretKey> secretKey;
     private final long fileSize;
+    private final ExchangeId exchangeId;
+    private final int sourceTaskPartitionId;
+    private final int sourceTaskAttemptId;
 
-    public ExchangeSourceFile(URI fileUri, Optional<SecretKey> secretKey, long fileSize)
+    public ExchangeSourceFile(URI fileUri, Optional<SecretKey> secretKey, long fileSize, ExchangeId exchangeId, int sourceTaskPartitionId, int sourceTaskAttemptId)
     {
         this.fileUri = requireNonNull(fileUri, "fileUri is null");
         this.secretKey = requireNonNull(secretKey, "secretKey is null");
         this.fileSize = fileSize;
+        this.exchangeId = requireNonNull(exchangeId, "exchangeId is null");
+        this.sourceTaskPartitionId = sourceTaskPartitionId;
+        this.sourceTaskAttemptId = sourceTaskAttemptId;
     }
 
     public URI getFileUri()
@@ -48,5 +56,20 @@ public class ExchangeSourceFile
     public long getFileSize()
     {
         return fileSize;
+    }
+
+    public ExchangeId getExchangeId()
+    {
+        return exchangeId;
+    }
+
+    public int getSourceTaskPartitionId()
+    {
+        return sourceTaskPartitionId;
+    }
+
+    public int getSourceTaskAttemptId()
+    {
+        return sourceTaskAttemptId;
     }
 }
