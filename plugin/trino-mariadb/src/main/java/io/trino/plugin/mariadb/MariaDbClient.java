@@ -443,17 +443,16 @@ public class MariaDbClient
     }
 
     @Override
-    public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    protected void renameColumn(ConnectorSession session, Connection connection, RemoteTableName remoteTableName, String remoteColumnName, String newRemoteColumnName)
+            throws SQLException
     {
-        try (Connection connection = connectionFactory.openConnection(session)) {
-            String newRemoteColumnName = getIdentifierMapping().toRemoteColumnName(connection, newColumnName);
-            RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
+        try {
             // MariaDB versions earlier than 10.5.2 do not support the RENAME COLUMN syntax
             // ALTER TABLE ... CHANGE statement exists in th old versions, but it requires providing all attributes of the column
             String sql = format(
                     "ALTER TABLE %s RENAME COLUMN %s TO %s",
                     quoted(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
-                    quoted(jdbcColumn.getColumnName()),
+                    quoted(remoteColumnName),
                     quoted(newRemoteColumnName));
             execute(connection, sql);
         }
@@ -462,10 +461,7 @@ public class MariaDbClient
             if (syntaxError.getErrorCode() == PARSE_ERROR) {
                 throw new TrinoException(NOT_SUPPORTED, "Rename column not supported for the MariaDB server version", syntaxError);
             }
-            throw new TrinoException(JDBC_ERROR, syntaxError);
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw syntaxError;
         }
     }
 
