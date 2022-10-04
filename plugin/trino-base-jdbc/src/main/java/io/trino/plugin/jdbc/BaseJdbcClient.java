@@ -909,16 +909,17 @@ public abstract class BaseJdbcClient
         try (Connection connection = connectionFactory.openConnection(session)) {
             schemaName = identifierMapping.toRemoteSchemaName(identity, connection, schemaName);
             verifySchemaName(connection.getMetaData(), schemaName);
-            execute(connection, createSchemaSql(schemaName));
+            createSchema(session, connection, schemaName);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
-    protected String createSchemaSql(String schemaName)
+    protected void createSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
+            throws SQLException
     {
-        return "CREATE SCHEMA " + quoted(schemaName);
+        execute(connection, "CREATE SCHEMA " + quoted(remoteSchemaName));
     }
 
     @Override

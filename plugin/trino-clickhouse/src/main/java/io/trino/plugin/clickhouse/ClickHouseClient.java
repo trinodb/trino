@@ -387,10 +387,10 @@ public class ClickHouseClient
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName)
+    protected void createSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
+            throws SQLException
     {
-        // TODO this should obey identifierMapping
-        execute(session, "CREATE DATABASE " + quoted(schemaName));
+        execute(connection, "CREATE DATABASE " + quoted(remoteSchemaName));
     }
 
     @Override
