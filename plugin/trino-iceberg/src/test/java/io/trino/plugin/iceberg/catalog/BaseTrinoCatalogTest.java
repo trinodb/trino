@@ -16,7 +16,10 @@ package io.trino.plugin.iceberg.catalog;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.trino.plugin.iceberg.CommitTaskData;
+import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
@@ -37,12 +40,15 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertNotEquals;
 
@@ -71,6 +77,45 @@ public abstract class BaseTrinoCatalogTest
         assertEquals(catalog.defaultTableLocation(SESSION, new SchemaTableName(namespace, "table")), namespaceLocation.replaceAll("/$", "") + "/table");
         catalog.dropNamespace(SESSION, namespace);
         assertThat(catalog.listNamespaces(SESSION)).doesNotContain(namespace);
+    }
+
+    @Test
+    public void testNonLowercaseNamespace()
+    {
+        TrinoCatalog catalog = createTrinoCatalog(false);
+
+        String namespace = "testNonLowercaseNamespace" + randomTableSuffix();
+        // Trino schema names are always lowercase (until https://github.com/trinodb/trino/issues/17)
+        String schema = namespace.toLowerCase(ENGLISH);
+
+        // Currently this is actually stored in lowercase by all Catalogs
+        catalog.createNamespace(SESSION, namespace, Map.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+        try {
+            assertThat(catalog.listNamespaces(SESSION)).as("catalog.listNamespaces")
+                    // Catalog listNamespaces may be used as a default implementation for ConnectorMetadata.schemaExists
+                    .doesNotContain(namespace)
+                    .contains(schema);
+
+            // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
+            ConnectorMetadata icebergMetadata = new IcebergMetadata(
+                    PLANNER_CONTEXT.getTypeManager(),
+                    PLANNER_CONTEXT.getTypeOperators(),
+                    jsonCodec(CommitTaskData.class),
+                    catalog,
+                    connectorIdentity -> {
+                        throw new UnsupportedOperationException();
+                    });
+            assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
+                    .isFalse();
+            assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
+                    .isTrue();
+            assertThat(icebergMetadata.listSchemaNames(SESSION)).as("icebergMetadata.listSchemaNames")
+                    .doesNotContain(namespace)
+                    .contains(schema);
+        }
+        finally {
+            catalog.dropNamespace(SESSION, namespace);
+        }
     }
 
     @Test
