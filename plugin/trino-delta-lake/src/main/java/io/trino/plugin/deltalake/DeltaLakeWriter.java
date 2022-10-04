@@ -156,6 +156,11 @@ public class DeltaLakeWriter
         return 0;
     }
 
+    public long getRowCount()
+    {
+        return rowCount;
+    }
+
     public DataFileInfo getDataFileInfo()
             throws IOException
     {
