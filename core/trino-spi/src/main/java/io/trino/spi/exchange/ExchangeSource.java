@@ -49,6 +49,22 @@ public interface ExchangeSource
     void noMoreSourceHandles();
 
     /**
+     * Called by the engine to provide information about what source task output must be included
+     * and what must be skipped.
+     * <p>
+     * This method can be called multiple times and out of order.
+     * Only a newest version (see {@link ExchangeSourceOutputSelector#getVersion()}) must be taken into account.
+     * Updates with an older version must be ignored.
+     * <p>
+     * The information provided by the {@link ExchangeSourceOutputSelector} is incremental and decisions
+     * for some partitions could be missing. The implementation is free to speculate.
+     * <p>
+     * The final selector is guaranteed to contain a decision for each source partition (see {@link ExchangeSourceOutputSelector#isFinal()}).
+     * If decision is made for a given partition in some version the decision is guaranteed not to change in newer versions.
+     */
+    void setOutputSelector(ExchangeSourceOutputSelector selector);
+
+    /**
      * Returns a future that will be completed when the exchange source becomes
      * unblocked.  If the exchange source is not blocked, this method should return
      * {@code NOT_BLOCKED}

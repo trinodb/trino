@@ -16,6 +16,7 @@ package io.trino.execution.scheduler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.exchange.Exchange;
+import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeSinkHandle;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
@@ -30,16 +31,24 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
+import static io.trino.spi.exchange.ExchangeId.createRandomExchangeId;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class TestingExchange
         implements Exchange
 {
+    private final ExchangeId exchangeId = createRandomExchangeId();
     private final Set<TestingExchangeSinkHandle> finishedSinks = newConcurrentHashSet();
     private final Set<TestingExchangeSinkHandle> allSinks = newConcurrentHashSet();
     private final AtomicBoolean noMoreSinks = new AtomicBoolean();
     private final CompletableFuture<List<ExchangeSourceHandle>> sourceHandles = new CompletableFuture<>();
+
+    @Override
+    public ExchangeId getId()
+    {
+        return exchangeId;
+    }
 
     @Override
     public ExchangeSinkHandle addSink(int taskPartitionId)

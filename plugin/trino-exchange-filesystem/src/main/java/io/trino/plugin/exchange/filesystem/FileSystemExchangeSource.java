@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.slice.Slice;
 import io.trino.spi.exchange.ExchangeSource;
 import io.trino.spi.exchange.ExchangeSourceHandle;
+import io.trino.spi.exchange.ExchangeSourceOutputSelector;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -41,10 +42,12 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
+import static io.trino.spi.exchange.ExchangeSourceOutputSelector.Selection.INCLUDED;
 import static java.util.Objects.requireNonNull;
 
 public class FileSystemExchangeSource
@@ -58,6 +61,8 @@ public class FileSystemExchangeSource
     private final Queue<ExchangeSourceFile> files = new ConcurrentLinkedQueue<>();
     @GuardedBy("this")
     private boolean noMoreFiles;
+    @GuardedBy("this")
+    private ExchangeSourceOutputSelector currentSelector;
     @GuardedBy("this")
     private SettableFuture<Void> blockedOnFiles = SettableFuture.create();
 
@@ -91,6 +96,19 @@ public class FileSystemExchangeSource
     public synchronized void noMoreSourceHandles()
     {
         noMoreFiles = true;
+        closeAndCreateReadersIfNecessary();
+    }
+
+    @Override
+    public synchronized void setOutputSelector(ExchangeSourceOutputSelector newSelector)
+    {
+        if (currentSelector != null) {
+            if (currentSelector.getVersion() >= newSelector.getVersion()) {
+                return;
+            }
+            currentSelector.checkValidTransition(newSelector);
+        }
+        currentSelector = newSelector;
         closeAndCreateReadersIfNecessary();
     }
 
@@ -238,6 +256,10 @@ public class FileSystemExchangeSource
                 return;
             }
 
+            if (currentSelector == null || !currentSelector.isFinal()) {
+                return;
+            }
+
             List<ExchangeStorageReader> activeReaders = new ArrayList<>();
             for (ExchangeStorageReader reader : readers.get()) {
                 if (reader.isFinished()) {
@@ -253,6 +275,11 @@ public class FileSystemExchangeSource
                     long readerFileSize = 0;
                     while (!files.isEmpty()) {
                         ExchangeSourceFile file = files.peek();
+                        verify(currentSelector.getSelection(file.getExchangeId(), file.getSourceTaskPartitionId(), file.getSourceTaskAttemptId()) == INCLUDED,
+                                "%s.%s.%s is not marked as included by the engine",
+                                file.getExchangeId(),
+                                file.getSourceTaskPartitionId(),
+                                file.getSourceTaskAttemptId());
                         if (readerFileSize == 0 || readerFileSize + file.getFileSize() <= maxPageStorageSize + exchangeStorage.getWriteBufferSize()) {
                             readerFiles.add(file);
                             readerFileSize += file.getFileSize();
