@@ -59,7 +59,7 @@ public class FileSystemExchangeSource
     @GuardedBy("this")
     private boolean noMoreFiles;
     @GuardedBy("this")
-    private SettableFuture<Void> blockedOnSourceHandles = SettableFuture.create();
+    private SettableFuture<Void> blockedOnFiles = SettableFuture.create();
 
     private final AtomicReference<List<ExchangeStorageReader>> readers = new AtomicReference<>(ImmutableList.of());
     private final AtomicReference<ListenableFuture<Void>> blocked = new AtomicReference<>();
@@ -116,8 +116,8 @@ public class FileSystemExchangeSource
         }
 
         synchronized (this) {
-            if (!blockedOnSourceHandles.isDone()) {
-                blocked = blockedOnSourceHandles;
+            if (!blockedOnFiles.isDone()) {
+                blocked = blockedOnFiles;
             }
             else if (readers.isEmpty()) {
                 // not blocked
@@ -232,7 +232,7 @@ public class FileSystemExchangeSource
             return;
         }
 
-        SettableFuture<Void> blockedOnSourceHandlesToBeUnblocked = null;
+        SettableFuture<Void> blockedOnFilesToBeUnblocked = null;
         synchronized (this) {
             if (closed.get()) {
                 return;
@@ -266,15 +266,15 @@ public class FileSystemExchangeSource
                 }
                 if (activeReaders.isEmpty()) {
                     if (noMoreFiles) {
-                        blockedOnSourceHandlesToBeUnblocked = blockedOnSourceHandles;
+                        blockedOnFilesToBeUnblocked = blockedOnFiles;
                         close();
                     }
-                    else if (blockedOnSourceHandles.isDone()) {
-                        blockedOnSourceHandles = SettableFuture.create();
+                    else if (blockedOnFiles.isDone()) {
+                        blockedOnFiles = SettableFuture.create();
                     }
                 }
-                else if (!blockedOnSourceHandles.isDone()) {
-                    blockedOnSourceHandlesToBeUnblocked = blockedOnSourceHandles;
+                else if (!blockedOnFiles.isDone()) {
+                    blockedOnFilesToBeUnblocked = blockedOnFiles;
                 }
                 this.readers.set(ImmutableList.copyOf(activeReaders));
             }
@@ -292,8 +292,8 @@ public class FileSystemExchangeSource
                 throw t;
             }
         }
-        if (blockedOnSourceHandlesToBeUnblocked != null) {
-            blockedOnSourceHandlesToBeUnblocked.set(null);
+        if (blockedOnFilesToBeUnblocked != null) {
+            blockedOnFilesToBeUnblocked.set(null);
         }
     }
 
