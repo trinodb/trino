@@ -319,11 +319,14 @@ public class FileSystemExchangeSource
                     Optional<SecretKey> secretKey = handle.getSecretKey().map(key -> new SecretKeySpec(key, 0, key.length, "AES"));
                     return new AbstractMap.SimpleEntry<>(handle, secretKey);
                 })
-                .flatMap(entry -> entry.getKey().getFiles().stream().map(fileStatus ->
+                .flatMap(entry -> entry.getKey().getFiles().stream().map(sourceFile ->
                         new ExchangeSourceFile(
-                                URI.create(fileStatus.getFilePath()),
+                                URI.create(sourceFile.getFilePath()),
                                 entry.getValue(),
-                                fileStatus.getFileSize())))
+                                sourceFile.getFileSize(),
+                                entry.getKey().getExchangeId(),
+                                sourceFile.getSourceTaskPartitionId(),
+                                sourceFile.getSourceTaskAttemptId())))
                 .collect(toImmutableList());
     }
 }
