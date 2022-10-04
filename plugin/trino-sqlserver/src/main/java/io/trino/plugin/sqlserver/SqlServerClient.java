@@ -473,8 +473,7 @@ public class SqlServerClient
         if (type == DOUBLE) {
             return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
@@ -482,8 +481,7 @@ public class SqlServerClient
             return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
 
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
+        if (type instanceof VarcharType varcharType) {
             String dataType;
             if (varcharType.isUnbounded() || varcharType.getBoundedLength() > 4000) {
                 dataType = "nvarchar(max)";
@@ -494,8 +492,7 @@ public class SqlServerClient
             return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
         }
 
-        if (type instanceof CharType) {
-            CharType charType = (CharType) type;
+        if (type instanceof CharType charType) {
             String dataType;
             if (charType.getLength() > 4000) {
                 dataType = "nvarchar(max)";
@@ -514,15 +511,13 @@ public class SqlServerClient
             return WriteMapping.longMapping("date", sqlServerDateWriteFunction());
         }
 
-        if (type instanceof TimeType) {
-            TimeType timeType = (TimeType) type;
+        if (type instanceof TimeType timeType) {
             int precision = min(timeType.getPrecision(), MAX_SUPPORTED_TEMPORAL_PRECISION);
             String dataType = format("time(%d)", precision);
             return WriteMapping.longMapping(dataType, sqlServerTimeWriteFunction(precision));
         }
 
-        if (type instanceof TimestampType) {
-            TimestampType timestampType = (TimestampType) type;
+        if (type instanceof TimestampType timestampType) {
             int precision = min(timestampType.getPrecision(), MAX_SUPPORTED_TEMPORAL_PRECISION);
             String dataType = format("datetime2(%d)", precision);
             if (timestampType.getPrecision() <= MAX_SHORT_PRECISION) {
