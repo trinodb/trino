@@ -15,6 +15,8 @@ package io.trino.sql.planner.plan;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.TableFunctionHandle;
 import io.trino.spi.ptf.Argument;
 import io.trino.sql.planner.Symbol;
@@ -51,10 +53,10 @@ public class TableFunctionNode
     {
         super(id);
         this.name = requireNonNull(name, "name is null");
-        this.arguments = requireNonNull(arguments, "arguments is null");
-        this.properOutputs = requireNonNull(properOutputs, "properOutputs is null");
-        this.sources = requireNonNull(sources, "sources is null");
-        this.tableArgumentProperties = requireNonNull(tableArgumentProperties, "tableArgumentProperties is null");
+        this.arguments = ImmutableMap.copyOf(arguments);
+        this.properOutputs = ImmutableList.copyOf(properOutputs);
+        this.sources = ImmutableList.copyOf(sources);
+        this.tableArgumentProperties = ImmutableList.copyOf(tableArgumentProperties);
         this.handle = requireNonNull(handle, "handle is null");
     }
 
