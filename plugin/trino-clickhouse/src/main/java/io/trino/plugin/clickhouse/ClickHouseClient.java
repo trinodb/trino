@@ -421,15 +421,6 @@ public class ClickHouseClient
     }
 
     @Override
-    protected String renameColumnSql(JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newRemoteColumnName)
-    {
-        return format("ALTER TABLE %s RENAME COLUMN %s TO %s ",
-                quoted(handle.asPlainTable().getRemoteTableName()),
-                quoted(jdbcColumn.getColumnName()),
-                quoted(newRemoteColumnName));
-    }
-
-    @Override
     public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
     {
         String sql = format(

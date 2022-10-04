@@ -788,21 +788,21 @@ public abstract class BaseJdbcClient
         try (Connection connection = connectionFactory.openConnection(session)) {
             String newRemoteColumnName = identifierMapping.toRemoteColumnName(connection, newColumnName);
             verifyColumnName(connection.getMetaData(), newRemoteColumnName);
-            String sql = renameColumnSql(handle, jdbcColumn, newRemoteColumnName);
-            execute(connection, sql);
+            renameColumn(session, connection, handle.asPlainTable().getRemoteTableName(), jdbcColumn.getColumnName(), newRemoteColumnName);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
-    protected String renameColumnSql(JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newRemoteColumnName)
+    protected void renameColumn(ConnectorSession session, Connection connection, RemoteTableName remoteTableName, String remoteColumnName, String newRemoteColumnName)
+            throws SQLException
     {
-        return format(
+        execute(connection, format(
                 "ALTER TABLE %s RENAME COLUMN %s TO %s",
-                quoted(handle.asPlainTable().getRemoteTableName()),
-                quoted(jdbcColumn.getColumnName()),
-                quoted(newRemoteColumnName));
+                quoted(remoteTableName),
+                quoted(remoteColumnName),
+                quoted(newRemoteColumnName)));
     }
 
     @Override

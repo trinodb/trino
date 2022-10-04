@@ -313,13 +313,13 @@ public class SqlServerClient
     }
 
     @Override
-    protected String renameColumnSql(JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newRemoteColumnName)
+    protected void renameColumn(ConnectorSession session, Connection connection, RemoteTableName remoteTableName, String remoteColumnName, String newRemoteColumnName)
+            throws SQLException
     {
-        RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
-        return format(
+        execute(connection, format(
                 "sp_rename %s, %s, 'COLUMN'",
-                singleQuote(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName(), "[" + escape(jdbcColumn.getColumnName()) + "]"),
-                "[" + newRemoteColumnName + "]");
+                singleQuote(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName(), "[" + escape(remoteColumnName) + "]"),
+                "[" + newRemoteColumnName + "]"));
     }
 
     private static String escape(String name)
