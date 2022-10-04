@@ -667,7 +667,12 @@ public abstract class BaseJdbcClient
                         .map(this::quoted)
                         .collect(joining(", ")),
                 quoted(catalogName, schemaName, tableName));
-        execute(connection, sql);
+        try {
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     protected String generateTemporaryTableName()
@@ -965,15 +970,15 @@ public abstract class BaseJdbcClient
     }
 
     protected void execute(Connection connection, String query)
+            throws SQLException
     {
         try (Statement statement = connection.createStatement()) {
             log.debug("Execute: %s", query);
             statement.execute(query);
         }
         catch (SQLException e) {
-            TrinoException exception = new TrinoException(JDBC_ERROR, e);
-            exception.addSuppressed(new RuntimeException("Query: " + query));
-            throw exception;
+            e.addSuppressed(new RuntimeException("Query: " + query));
+            throw e;
         }
     }
 
