@@ -13,8 +13,8 @@ import io.trino.plugin.hive.HiveType;
 import io.trino.spi.type.Type;
 
 import static io.trino.plugin.hive.HiveType.HIVE_TIMESTAMP;
-import static io.trino.spi.type.TimeType.TIME;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 
 /**
  * The distributed Snowflake connector is relying on the Hive connector, but
@@ -28,10 +28,10 @@ public class SnowflakeHiveTypeTranslator
 
     public static HiveType toHiveType(Type type)
     {
-        if (TIME.equals(type)) {
+        if (TIME_MILLIS.equals(type)) {
             return HIVE_TIMESTAMP;
         }
-        if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+        if (TIMESTAMP_TZ_MILLIS.equals(type)) {
             return HIVE_TIMESTAMP;
         }
 

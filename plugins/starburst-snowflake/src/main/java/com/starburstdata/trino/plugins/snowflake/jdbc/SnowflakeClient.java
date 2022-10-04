@@ -154,7 +154,7 @@ import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
@@ -788,7 +788,7 @@ public class SnowflakeClient
     private static ColumnMapping timeColumnMapping()
     {
         return ColumnMapping.longMapping(
-                TIME,
+                TIME_MILLIS,
                 (resultSet, columnIndex) -> toPrestoTime(resultSet.getTime(columnIndex)),
                 timeWriteFunction());
     }

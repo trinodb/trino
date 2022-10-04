@@ -44,10 +44,10 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
@@ -374,20 +374,20 @@ public abstract class BaseSnowflakeTypeMappingTest
                 .build();
 
         SqlDataTypeTest.create()
-                .addRoundTrip("TIME", "'00:00:00'", TIME, "TIME '00:00:00.000'") // gap in JVM zone on Epoch day
-                .addRoundTrip("TIME", "'00:13:42'", TIME, "TIME '00:13:42.000'") // gap in JVM
-                .addRoundTrip("TIME", "'13:18:03.123'", TIME, "TIME '13:18:03.123'")
-                .addRoundTrip("TIME", "'14:18:03.423'", TIME, "TIME '14:18:03.423'")
-                .addRoundTrip("TIME", "'15:18:03.523'", TIME, "TIME '15:18:03.523'")
-                .addRoundTrip("TIME", "'16:18:03.623'", TIME, "TIME '16:18:03.623'")
-                .addRoundTrip("TIME", "'10:01:17.987'", TIME, "TIME '10:01:17.987'")
-                .addRoundTrip("TIME", "'19:01:17.987'", TIME, "TIME '19:01:17.987'")
-                .addRoundTrip("TIME", "'20:01:17.987'", TIME, "TIME '20:01:17.987'")
-                .addRoundTrip("TIME", "'21:01:17.987'", TIME, "TIME '21:01:17.987'")
-                .addRoundTrip("TIME", "'01:33:17.456'", TIME, "TIME '01:33:17.456'")
-                .addRoundTrip("TIME", "'03:17:17.000'", TIME, "TIME '03:17:17.000'")
-                .addRoundTrip("TIME", "'22:59:59.000'", TIME, "TIME '22:59:59.000'")
-                .addRoundTrip("TIME", "'22:59:59.999'", TIME, "TIME '22:59:59.999'")
+                .addRoundTrip("TIME", "'00:00:00'", TIME_MILLIS, "TIME '00:00:00.000'") // gap in JVM zone on Epoch day
+                .addRoundTrip("TIME", "'00:13:42'", TIME_MILLIS, "TIME '00:13:42.000'") // gap in JVM
+                .addRoundTrip("TIME", "'13:18:03.123'", TIME_MILLIS, "TIME '13:18:03.123'")
+                .addRoundTrip("TIME", "'14:18:03.423'", TIME_MILLIS, "TIME '14:18:03.423'")
+                .addRoundTrip("TIME", "'15:18:03.523'", TIME_MILLIS, "TIME '15:18:03.523'")
+                .addRoundTrip("TIME", "'16:18:03.623'", TIME_MILLIS, "TIME '16:18:03.623'")
+                .addRoundTrip("TIME", "'10:01:17.987'", TIME_MILLIS, "TIME '10:01:17.987'")
+                .addRoundTrip("TIME", "'19:01:17.987'", TIME_MILLIS, "TIME '19:01:17.987'")
+                .addRoundTrip("TIME", "'20:01:17.987'", TIME_MILLIS, "TIME '20:01:17.987'")
+                .addRoundTrip("TIME", "'21:01:17.987'", TIME_MILLIS, "TIME '21:01:17.987'")
+                .addRoundTrip("TIME", "'01:33:17.456'", TIME_MILLIS, "TIME '01:33:17.456'")
+                .addRoundTrip("TIME", "'03:17:17.000'", TIME_MILLIS, "TIME '03:17:17.000'")
+                .addRoundTrip("TIME", "'22:59:59.000'", TIME_MILLIS, "TIME '22:59:59.000'")
+                .addRoundTrip("TIME", "'22:59:59.999'", TIME_MILLIS, "TIME '22:59:59.999'")
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session))
                 .execute(getQueryRunner(), session, snowflakeCreateAndInsert());
     }
@@ -683,7 +683,7 @@ public abstract class BaseSnowflakeTypeMappingTest
     {
         return DataType.dataType(
                 "timestamp with time zone",
-                TIMESTAMP_WITH_TIME_ZONE,
+                TIMESTAMP_TZ_MILLIS,
                 DateTimeFormatter.ofPattern("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.SSS VV''")::format,
                 zonedDateTime -> {
                     if (!resultZone.getId().equals("UTC")) {
