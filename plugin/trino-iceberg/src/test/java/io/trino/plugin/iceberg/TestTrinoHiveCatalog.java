@@ -35,14 +35,14 @@ import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeM
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestTrinoHiveCatalogTest
+public class TestTrinoHiveCatalog
         extends BaseTrinoCatalogTest
 {
     private final HiveMetastore metastore;
     private final java.nio.file.Path tempDir;
     private final File metastoreDir;
 
-    public TestTrinoHiveCatalogTest()
+    public TestTrinoHiveCatalog()
             throws IOException
     {
         tempDir = Files.createTempDirectory("test_trino_hive_catalog");

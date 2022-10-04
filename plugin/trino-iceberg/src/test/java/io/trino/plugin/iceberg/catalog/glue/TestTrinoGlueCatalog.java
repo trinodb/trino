@@ -41,10 +41,10 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.testng.Assert.assertEquals;
 
-public class TestTrinoGlueCatalogTest
+public class TestTrinoGlueCatalog
         extends BaseTrinoCatalogTest
 {
-    private static final Logger LOG = Logger.get(TestTrinoGlueCatalogTest.class);
+    private static final Logger LOG = Logger.get(TestTrinoGlueCatalog.class);
 
     @Override
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
