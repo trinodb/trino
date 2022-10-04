@@ -103,7 +103,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.mysql.cj.exceptions.MysqlErrorNumbers.ER_UNKNOWN_TABLE;
 import static com.mysql.cj.exceptions.MysqlErrorNumbers.SQL_STATE_ER_TABLE_EXISTS_ERROR;
-import static com.mysql.cj.exceptions.MysqlErrorNumbers.SQL_STATE_SYNTAX_ERROR;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
@@ -595,10 +594,6 @@ public class MySqlClient
             execute(connection, sql);
         }
         catch (SQLException e) {
-            // MySQL versions earlier than 8 do not support the above RENAME COLUMN syntax
-            if (SQL_STATE_SYNTAX_ERROR.equals(e.getSQLState())) {
-                throw new TrinoException(NOT_SUPPORTED, format("Rename column not supported in catalog: '%s'", handle.asPlainTable().getRemoteTableName().getCatalogName().orElse(null)), e);
-            }
             throw new TrinoException(JDBC_ERROR, e);
         }
     }
