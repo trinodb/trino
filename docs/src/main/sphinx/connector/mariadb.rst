@@ -34,6 +34,8 @@ connection properties as appropriate for your setup:
     connection-user=root
     connection-password=secret
 
+.. include:: jdbc-authentication.fragment
+
 .. include:: jdbc-common-configurations.fragment
 
 .. |default_domain_compaction_threshold| replace:: ``32``

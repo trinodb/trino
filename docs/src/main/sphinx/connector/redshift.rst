@@ -57,6 +57,8 @@ For more information on TLS configuration options, see the `Redshift JDBC driver
 documentation
 <https://docs.aws.amazon.com/redshift/latest/mgmt/jdbc20-configuration-options.html#jdbc20-ssl-option>`_.
 
+.. include:: jdbc-authentication.fragment
+
 Multiple Redshift databases or clusters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
