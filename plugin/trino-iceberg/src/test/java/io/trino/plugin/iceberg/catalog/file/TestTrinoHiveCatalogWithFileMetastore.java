@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.iceberg.catalog.file;
 
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
-import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.spi.type.TestingTypeManager;
 import org.testng.annotations.AfterClass;
@@ -36,7 +36,7 @@ import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeM
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestTrinoHiveCatalog
+public class TestTrinoHiveCatalogWithFileMetastore
         extends BaseTrinoCatalogTest
 {
     private HiveMetastore metastore;
