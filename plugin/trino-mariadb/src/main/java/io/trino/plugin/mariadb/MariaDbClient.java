@@ -457,12 +457,12 @@ public class MariaDbClient
                     quoted(newRemoteColumnName));
             execute(connection, sql);
         }
-        catch (TrinoException e) {
+        catch (SQLSyntaxErrorException syntaxError) {
             // Note: SQLSyntaxErrorException can be thrown also when column name is invalid
-            if (e.getCause() instanceof SQLSyntaxErrorException syntaxError && syntaxError.getErrorCode() == PARSE_ERROR) {
-                throw new TrinoException(NOT_SUPPORTED, "Rename column not supported for the MariaDB server version", e);
+            if (syntaxError.getErrorCode() == PARSE_ERROR) {
+                throw new TrinoException(NOT_SUPPORTED, "Rename column not supported for the MariaDB server version", syntaxError);
             }
-            throw e;
+            throw new TrinoException(JDBC_ERROR, syntaxError);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -478,7 +478,12 @@ public class MariaDbClient
                 tableCopyFormat,
                 quoted(catalogName, schemaName, newTableName),
                 quoted(catalogName, schemaName, tableName));
-        execute(connection, sql);
+        try {
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     @Override
