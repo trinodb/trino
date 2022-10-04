@@ -14,7 +14,11 @@
 package io.trino.plugin.iceberg.catalog.glue;
 
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
+import com.amazonaws.services.glue.model.CreateDatabaseRequest;
+import com.amazonaws.services.glue.model.DatabaseInput;
+import com.amazonaws.services.glue.model.DeleteDatabaseRequest;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -22,8 +26,11 @@ import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
+import io.trino.plugin.iceberg.CommitTaskData;
+import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
@@ -36,9 +43,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createAsyncGlueClient;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static java.util.Locale.ENGLISH;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestTrinoGlueCatalog
@@ -64,6 +76,56 @@ public class TestTrinoGlueCatalog
                 new GlueMetastoreStats(),
                 Optional.empty(),
                 useUniqueTableLocations);
+    }
+
+    /**
+     * Similar to {@link #testNonLowercaseNamespace()}, but creates the Glue database via Glue API, in case Glue starts allowing non-lowercase names.
+     */
+    @Test
+    public void testNonLowercaseGlueDatabase()
+    {
+        String databaseName = "testNonLowercaseDatabase" + randomTableSuffix();
+        // Trino schema names are always lowercase (until https://github.com/trinodb/trino/issues/17)
+        String trinoSchemaName = databaseName.toLowerCase(ENGLISH);
+
+        AWSGlueAsync glueClient = createAsyncGlueClient(
+                new GlueHiveMetastoreConfig(),
+                DefaultAWSCredentialsProviderChain.getInstance(),
+                Optional.empty(),
+                new GlueMetastoreStats().newRequestMetricsCollector());
+
+        glueClient.createDatabase(new CreateDatabaseRequest()
+                .withDatabaseInput(new DatabaseInput()
+                        // Currently this is actually stored in lowercase
+                        .withName(databaseName)));
+        try {
+            TrinoCatalog catalog = createTrinoCatalog(false);
+            assertThat(catalog.listNamespaces(SESSION)).as("catalog.listNamespaces")
+                    // Catalog listNamespaces may be used as a default implementation for ConnectorMetadata.schemaExists
+                    .doesNotContain(databaseName)
+                    .contains(trinoSchemaName);
+
+            // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
+            ConnectorMetadata icebergMetadata = new IcebergMetadata(
+                    PLANNER_CONTEXT.getTypeManager(),
+                    PLANNER_CONTEXT.getTypeOperators(),
+                    jsonCodec(CommitTaskData.class),
+                    catalog,
+                    connectorIdentity -> {
+                        throw new UnsupportedOperationException();
+                    });
+            assertThat(icebergMetadata.schemaExists(SESSION, databaseName)).as("icebergMetadata.schemaExists(databaseName)")
+                    .isFalse();
+            assertThat(icebergMetadata.schemaExists(SESSION, trinoSchemaName)).as("icebergMetadata.schemaExists(trinoSchemaName)")
+                    .isTrue();
+            assertThat(icebergMetadata.listSchemaNames(SESSION)).as("icebergMetadata.listSchemaNames")
+                    .doesNotContain(databaseName)
+                    .contains(trinoSchemaName);
+        }
+        finally {
+            glueClient.deleteDatabase(new DeleteDatabaseRequest()
+                    .withName(databaseName));
+        }
     }
 
     @Test
