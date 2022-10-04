@@ -60,7 +60,6 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
@@ -300,22 +299,17 @@ public class SqlServerClient
     }
 
     @Override
-    protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
+    protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+            throws SQLException
     {
-        if (!schemaName.equals(newTable.getSchemaName())) {
+        if (!remoteSchemaName.equals(newRemoteSchemaName)) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
 
-        super.renameTable(session, catalogName, schemaName, tableName, newTable);
-    }
-
-    @Override
-    protected String renameTableSql(String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
-    {
-        return format(
+        execute(connection, format(
                 "sp_rename %s, %s",
                 singleQuote(catalogName, remoteSchemaName, remoteTableName),
-                singleQuote(newRemoteTableName));
+                singleQuote(newRemoteTableName)));
     }
 
     @Override

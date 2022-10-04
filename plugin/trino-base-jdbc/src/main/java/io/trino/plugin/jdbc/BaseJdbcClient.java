@@ -707,20 +707,20 @@ public abstract class BaseJdbcClient
             ConnectorIdentity identity = session.getIdentity();
             String newRemoteSchemaName = identifierMapping.toRemoteSchemaName(identity, connection, newSchemaName);
             String newRemoteTableName = identifierMapping.toRemoteTableName(identity, connection, newRemoteSchemaName, newTableName);
-            String sql = renameTableSql(catalogName, remoteSchemaName, remoteTableName, newRemoteSchemaName, newRemoteTableName);
-            execute(connection, sql);
+            renameTable(session, connection, catalogName, remoteSchemaName, remoteTableName, newRemoteSchemaName, newRemoteTableName);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
-    protected String renameTableSql(String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+    protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+            throws SQLException
     {
-        return format(
+        execute(connection, format(
                 "ALTER TABLE %s RENAME TO %s",
                 quoted(catalogName, remoteSchemaName, remoteTableName),
-                quoted(catalogName, newRemoteSchemaName, newRemoteTableName));
+                quoted(catalogName, newRemoteSchemaName, newRemoteTableName)));
     }
 
     @Override
