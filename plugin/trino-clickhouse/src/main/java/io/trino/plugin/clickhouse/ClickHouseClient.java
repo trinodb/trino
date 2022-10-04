@@ -470,13 +470,14 @@ public class ClickHouseClient
     }
 
     @Override
-    protected String renameTableSql(String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+    protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+            throws SQLException
     {
-        return format("RENAME TABLE %s.%s TO %s.%s",
+        execute(connection, format("RENAME TABLE %s.%s TO %s.%s",
                 quoted(remoteSchemaName),
                 quoted(remoteTableName),
                 quoted(newRemoteSchemaName),
-                quoted(newRemoteTableName));
+                quoted(newRemoteTableName)));
     }
 
     @Override
