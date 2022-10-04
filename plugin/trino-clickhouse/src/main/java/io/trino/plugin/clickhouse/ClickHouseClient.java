@@ -401,9 +401,10 @@ public class ClickHouseClient
     }
 
     @Override
-    protected String renameSchemaSql(String remoteSchemaName, String newRemoteSchemaName)
+    protected void renameSchema(ConnectorSession session, Connection connection, String remoteSchemaName, String newRemoteSchemaName)
+            throws SQLException
     {
-        return "RENAME DATABASE " + quoted(remoteSchemaName) + " TO " + quoted(newRemoteSchemaName);
+        execute(connection, "RENAME DATABASE " + quoted(remoteSchemaName) + " TO " + quoted(newRemoteSchemaName));
     }
 
     @Override
