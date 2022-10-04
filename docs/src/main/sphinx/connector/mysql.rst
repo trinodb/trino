@@ -80,6 +80,8 @@ appending it to the ``connection-url`` configuration property:
 For more information on TLS configuration options, see the `MySQL JDBC security
 documentation <https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-connp-props-security.html#cj-conn-prop_sslMode>`_.
 
+.. include:: jdbc-authentication.fragment
+
 Multiple MySQL servers
 ^^^^^^^^^^^^^^^^^^^^^^
 

@@ -78,6 +78,8 @@ property:
 For more information on TLS configuration options, see the `Clickhouse JDBC
 driver documentation <https://clickhouse.com/docs/en/interfaces/jdbc/>`_
 
+.. include:: jdbc-authentication.fragment
+
 Multiple ClickHouse servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
