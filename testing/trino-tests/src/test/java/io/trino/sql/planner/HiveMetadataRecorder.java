@@ -106,14 +106,14 @@ public class HiveMetadataRecorder
                         TPCH_METADATA_DIR, "tpch_sf1000_orc",
                         PARTITIONED_TPCH_METADATA_DIR, "tpch_sf1000_orc_part"),
                 TPCH_SQL_FILES.stream()
-                        .map(AbstractHiveCostBasedPlanTest::readQuery)
+                        .map(BaseHiveCostBasedPlanTest::readQuery)
                         .collect(toImmutableList()));
         recordMetadata(
                 ImmutableMap.of(
                         TPCDS_METADATA_DIR, "tpcds_sf1000_orc",
                         PARTITIONED_TPCDS_METADATA_DIR, "tpcds_sf1000_orc_part"),
                 TPCDS_SQL_FILES.stream()
-                        .map(AbstractHiveCostBasedPlanTest::readQuery)
+                        .map(BaseHiveCostBasedPlanTest::readQuery)
                         .collect(toImmutableList()));
     }
 
