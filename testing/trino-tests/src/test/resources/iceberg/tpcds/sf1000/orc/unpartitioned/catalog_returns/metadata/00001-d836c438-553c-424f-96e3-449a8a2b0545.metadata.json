@@ -1,0 +1,364 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "b79b07b9-866a-482e-a1bc-741594a0651a",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc/catalog_returns",
+  "last-updated-ms" : 1663708543563,
+  "last-column-id" : 27,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "cr_returned_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "cr_returned_time_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "cr_item_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "cr_refunded_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 5,
+      "name" : "cr_refunded_cdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "cr_refunded_hdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 7,
+      "name" : "cr_refunded_addr_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 8,
+      "name" : "cr_returning_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 9,
+      "name" : "cr_returning_cdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 10,
+      "name" : "cr_returning_hdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 11,
+      "name" : "cr_returning_addr_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 12,
+      "name" : "cr_call_center_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 13,
+      "name" : "cr_catalog_page_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 14,
+      "name" : "cr_ship_mode_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 15,
+      "name" : "cr_warehouse_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 16,
+      "name" : "cr_reason_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 17,
+      "name" : "cr_order_number",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 18,
+      "name" : "cr_return_quantity",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 19,
+      "name" : "cr_return_amount",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 20,
+      "name" : "cr_return_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 21,
+      "name" : "cr_return_amt_inc_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 22,
+      "name" : "cr_fee",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 23,
+      "name" : "cr_return_ship_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 24,
+      "name" : "cr_refunded_cash",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 25,
+      "name" : "cr_reversed_charge",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 26,
+      "name" : "cr_store_credit",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 27,
+      "name" : "cr_net_loss",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "cr_returned_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "cr_returned_time_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "cr_item_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "cr_refunded_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 5,
+      "name" : "cr_refunded_cdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "cr_refunded_hdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 7,
+      "name" : "cr_refunded_addr_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 8,
+      "name" : "cr_returning_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 9,
+      "name" : "cr_returning_cdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 10,
+      "name" : "cr_returning_hdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 11,
+      "name" : "cr_returning_addr_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 12,
+      "name" : "cr_call_center_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 13,
+      "name" : "cr_catalog_page_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 14,
+      "name" : "cr_ship_mode_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 15,
+      "name" : "cr_warehouse_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 16,
+      "name" : "cr_reason_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 17,
+      "name" : "cr_order_number",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 18,
+      "name" : "cr_return_quantity",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 19,
+      "name" : "cr_return_amount",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 20,
+      "name" : "cr_return_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 21,
+      "name" : "cr_return_amt_inc_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 22,
+      "name" : "cr_fee",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 23,
+      "name" : "cr_return_ship_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 24,
+      "name" : "cr_refunded_cash",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 25,
+      "name" : "cr_reversed_charge",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 26,
+      "name" : "cr_store_credit",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 27,
+      "name" : "cr_net_loss",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "trino.stats.ndv.22.ndv" : "10141",
+    "trino.stats.ndv.7.ndv" : "5947530",
+    "trino.stats.ndv.2.ndv" : "89157",
+    "trino.stats.ndv.27.ndv" : "906299",
+    "trino.stats.ndv.19.ndv" : "891994",
+    "trino.stats.ndv.18.ndv" : "100",
+    "trino.stats.ndv.14.ndv" : "20",
+    "trino.stats.ndv.23.ndv" : "475083",
+    "trino.stats.ndv.21.ndv" : "1528121",
+    "trino.stats.ndv.8.ndv" : "12236563",
+    "trino.stats.ndv.3.ndv" : "297612",
+    "write.format.default" : "ORC",
+    "trino.stats.ndv.17.ndv" : "95523325",
+    "trino.stats.ndv.13.ndv" : "16739",
+    "trino.stats.ndv.26.ndv" : "795604",
+    "trino.stats.ndv.16.ndv" : "65",
+    "trino.stats.ndv.4.ndv" : "12236563",
+    "trino.stats.ndv.5.ndv" : "1890006",
+    "trino.stats.ndv.9.ndv" : "1890006",
+    "trino.stats.ndv.12.ndv" : "42",
+    "trino.stats.ndv.25.ndv" : "808456",
+    "trino.stats.ndv.10.ndv" : "7082",
+    "trino.stats.ndv.1.ndv" : "2141",
+    "trino.stats.ndv.15.ndv" : "20",
+    "trino.stats.ndv.6.ndv" : "7082",
+    "trino.stats.ndv.20.ndv" : "152629",
+    "trino.stats.ndv.24.ndv" : "1084039",
+    "trino.stats.ndv.11.ndv" : "5947530"
+  },
+  "current-snapshot-id" : 5289158630857119083,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 5289158630857119083,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 5289158630857119083,
+    "timestamp-ms" : 1648026866356,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "12",
+      "added-records" : "143996756",
+      "added-files-size" : "7851967111",
+      "changed-partition-count" : "1",
+      "total-records" : "143996756",
+      "total-files-size" : "7851967111",
+      "total-data-files" : "12",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc/catalog_returns/metadata/snap-5289158630857119083-1-b2efdd40-4c7a-42e8-a446-b1af8a7deb69.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648026866356,
+    "snapshot-id" : 5289158630857119083
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1648026866356,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc/catalog_returns/metadata/00000-f97a4ad5-a53c-4b9a-954f-a6e8c985d6a7.metadata.json"
+  } ]
+}
