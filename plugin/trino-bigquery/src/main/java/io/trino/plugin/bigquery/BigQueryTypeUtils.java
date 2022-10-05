@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static io.trino.plugin.bigquery.BigQueryType.toZonedDateTime;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -40,14 +41,21 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Collections.unmodifiableMap;
 
 public final class BigQueryTypeUtils
 {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
+    private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSSSS");
 
     private BigQueryTypeUtils() {}
 
@@ -58,7 +66,7 @@ public final class BigQueryTypeUtils
             return null;
         }
 
-        // TODO https://github.com/trinodb/trino/issues/13741 Add support for decimal, time, timestamp, timestamp with time zone, geography, map type
+        // TODO https://github.com/trinodb/trino/issues/13741 Add support for decimal, time, timestamp with time zone, geography, map type
         if (type.equals(BOOLEAN)) {
             return type.getBoolean(block, position);
         }
@@ -86,6 +94,12 @@ public final class BigQueryTypeUtils
         if (type.equals(DATE)) {
             long days = type.getLong(block, position);
             return DATE_FORMATTER.format(LocalDate.ofEpochDay(days));
+        }
+        if (type.equals(TIMESTAMP_MICROS)) {
+            long epochMicros = type.getLong(block, position);
+            long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
+            int nanoAdjustment = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
+            return DATETIME_FORMATTER.format(toZonedDateTime(epochSeconds, nanoAdjustment, UTC));
         }
         if (type instanceof ArrayType arrayType) {
             Block arrayBlock = block.getObject(position, Block.class);
