@@ -61,7 +61,7 @@ public abstract class AbstractIcebergTableOperations
 
     protected static final String METADATA_FOLDER_NAME = "metadata";
 
-    protected static final StorageFormat STORAGE_FORMAT = StorageFormat.create(
+    public static final StorageFormat ICEBERG_METASTORE_STORAGE_FORMAT = StorageFormat.create(
             LazySimpleSerDe.class.getName(),
             FileInputFormat.class.getName(),
             FileOutputFormat.class.getName());

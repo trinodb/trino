@@ -99,7 +99,7 @@ public abstract class AbstractMetastoreTableOperations
                 .setTableType(TableType.EXTERNAL_TABLE.name())
                 .setDataColumns(toHiveColumns(metadata.schema().columns()))
                 .withStorage(storage -> storage.setLocation(metadata.location()))
-                .withStorage(storage -> storage.setStorageFormat(STORAGE_FORMAT))
+                .withStorage(storage -> storage.setStorageFormat(ICEBERG_METASTORE_STORAGE_FORMAT))
                 // This is a must-have property for the EXTERNAL_TABLE table type
                 .setParameter("EXTERNAL", "TRUE")
                 .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
