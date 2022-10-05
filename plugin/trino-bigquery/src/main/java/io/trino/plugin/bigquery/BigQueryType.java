@@ -213,7 +213,7 @@ public enum BigQueryType
         return DATETIME_FORMATTER.format(toZonedDateTime(epochSeconds, nanoAdjustment, zoneId));
     }
 
-    private static ZonedDateTime toZonedDateTime(long epochSeconds, long nanoAdjustment, ZoneId zoneId)
+    public static ZonedDateTime toZonedDateTime(long epochSeconds, long nanoAdjustment, ZoneId zoneId)
     {
         Instant instant = Instant.ofEpochSecond(epochSeconds, nanoAdjustment);
         return ZonedDateTime.ofInstant(instant, zoneId);
