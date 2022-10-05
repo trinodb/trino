@@ -1116,7 +1116,7 @@ public final class SqlFormatter
 
             node.getCatalog().ifPresent(catalog -> builder
                     .append(" FROM ")
-                    .append(formatName(node.getCatalog().get())));
+                    .append(formatName(catalog)));
 
             node.getLikePattern().ifPresent(value -> builder
                     .append(" LIKE ")
