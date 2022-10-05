@@ -92,8 +92,7 @@ public class PlanFragmenter
     private final FunctionManager functionManager;
     private final TransactionManager transactionManager;
     private final CatalogManager catalogManager;
-    @Deprecated // TODO do not keep mutable config instance on a field
-    private final QueryManagerConfig config;
+    private final int stageCountWarningThreshold;
 
     @Inject
     public PlanFragmenter(
@@ -107,7 +106,7 @@ public class PlanFragmenter
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
-        this.config = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
+        this.stageCountWarningThreshold = requireNonNull(queryManagerConfig, "queryManagerConfig is null").getStageCountWarningThreshold();
     }
 
     public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, WarningCollector warningCollector)
@@ -130,7 +129,7 @@ public class PlanFragmenter
         checkState(!isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
 
         // TODO: Remove query_max_stage_count session property and use queryManagerConfig.getMaxStageCount() here
-        sanityCheckFragmentedPlan(subPlan, warningCollector, getQueryMaxStageCount(session), config.getStageCountWarningThreshold());
+        sanityCheckFragmentedPlan(subPlan, warningCollector, getQueryMaxStageCount(session), stageCountWarningThreshold);
 
         return subPlan;
     }

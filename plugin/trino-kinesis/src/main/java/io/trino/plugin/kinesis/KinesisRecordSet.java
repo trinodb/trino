@@ -108,13 +108,15 @@ public class KinesisRecordSet
             KinesisClientProvider clientManager,
             List<KinesisColumnHandle> columnHandles,
             RowDecoder messageDecoder,
-            KinesisConfig kinesisConfig)
+            long dynamoReadCapacity,
+            long dynamoWriteCapacity,
+            boolean isLogBatches,
+            int fetchAttempts,
+            Duration sleepTime)
     {
         this.split = requireNonNull(split, "split is null");
         this.session = requireNonNull(session, "session is null");
-        long dynamoReadCapacity = kinesisConfig.getDynamoReadCapacity();
-        long dynamoWriteCapacity = kinesisConfig.getDynamoWriteCapacity();
-        this.isLogBatches = kinesisConfig.isLogBatches();
+        this.isLogBatches = isLogBatches;
 
         this.clientManager = requireNonNull(clientManager, "clientManager is null");
 
@@ -133,8 +135,8 @@ public class KinesisRecordSet
         this.batchSize = getBatchSize(session);
         this.maxBatches = getMaxBatches(this.session);
 
-        this.fetchAttempts = kinesisConfig.getFetchAttempts();
-        this.sleepTime = kinesisConfig.getSleepTime().toMillis();
+        this.fetchAttempts = fetchAttempts;
+        this.sleepTime = sleepTime.toMillis();
 
         this.checkpointEnabled = isCheckpointEnabled(session);
         this.lastReadSequenceNumber = null;
