@@ -35,7 +35,7 @@ Enable scaling the number of concurrent writers within a task. The maximum write
 count per task for scaling is ``task.scale-writers.max-writer-count``. Additional
 writers are added only when the average amount of physical data written per writer
 is above the minimum threshold of ``writer-min-size`` and query is bottlenecked on
-writing. This can be specified on a per-query basis using the ``task_scale_writers``
+writing. This can be specified on a per-query basis using the ``task_scale_writers_enabled``
 session property.
 
 .. _prop-task-scale-writers-max-writer-count:
