@@ -78,6 +78,7 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static io.trino.plugin.deltalake.DeltaLakeAccessControlMetadataFactory.SYSTEM;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -96,7 +97,7 @@ public class DeltaLakeModule
         configBinder(binder).bindConfigDefaults(ParquetWriterConfig.class, config -> config.setParquetOptimizedWriterEnabled(true));
 
         install(new ConnectorAccessControlModule());
-        configBinder(binder).bindConfig(DeltaLakeSecurityConfig.class);
+        newOptionalBinder(binder, DeltaLakeAccessControlMetadataFactory.class).setDefault().toInstance(SYSTEM);
 
         Multibinder<SystemTableProvider> systemTableProviders = newSetBinder(binder, SystemTableProvider.class);
         systemTableProviders.addBinding().to(PropertiesSystemTableProvider.class).in(Scopes.SINGLETON);

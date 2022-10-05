@@ -26,13 +26,14 @@ import static io.trino.spi.block.ArrayBlock.createArrayBlockInternal;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static java.lang.Math.max;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayBlockBuilder
         extends AbstractArrayBlock
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayBlockBuilder.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ArrayBlockBuilder.class).instanceSize());
 
     private int positionCount;
 
@@ -114,7 +115,7 @@ public class ArrayBlockBuilder
         consumer.accept(values, values.getRetainedSizeInBytes());
         consumer.accept(offsets, sizeOf(offsets));
         consumer.accept(valueIsNull, sizeOf(valueIsNull));
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -283,9 +284,9 @@ public class ArrayBlockBuilder
         return super.copyRegion(position, length);
     }
 
-    private RunLengthEncodedBlock nullRle(int positionCount)
+    private Block nullRle(int positionCount)
     {
         ArrayBlock nullValueBlock = createArrayBlockInternal(0, 1, new boolean[] {true}, new int[] {0, 0}, values.newBlockBuilderLike(null).build());
-        return new RunLengthEncodedBlock(nullValueBlock, positionCount);
+        return RunLengthEncodedBlock.create(nullValueBlock, positionCount);
     }
 }

@@ -26,13 +26,14 @@ import java.io.IOException;
 import java.util.List;
 
 import static io.trino.spi.block.ColumnarRow.toColumnarRow;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.Preconditions.checkArgument;
 
 public class StructColumnWriter
         implements ColumnWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructColumnWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(StructColumnWriter.class).instanceSize());
 
     private final List<ColumnWriter> columnWriters;
     private final int maxDefinitionLevel;

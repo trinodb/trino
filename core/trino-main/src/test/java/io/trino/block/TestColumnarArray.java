@@ -18,7 +18,6 @@ import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarArray;
-import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.ArrayType;
 import org.testng.annotations.Test;
@@ -86,7 +85,7 @@ public class TestColumnarArray
 
     private static <T> void assertDictionaryBlock(Block block, T[] expectedValues)
     {
-        DictionaryBlock dictionaryBlock = createTestDictionaryBlock(block);
+        Block dictionaryBlock = createTestDictionaryBlock(block);
         T[] expectedDictionaryValues = createTestDictionaryExpectedValues(expectedValues);
 
         assertBlock(dictionaryBlock, expectedDictionaryValues);

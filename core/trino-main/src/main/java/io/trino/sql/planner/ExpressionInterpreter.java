@@ -24,6 +24,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.likematcher.LikeMatcher;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.operator.scalar.ArraySubscriptOperator;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
@@ -49,7 +50,7 @@ import io.trino.sql.planner.iterative.rule.DesugarCurrentPath;
 import io.trino.sql.planner.iterative.rule.DesugarCurrentUser;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.ArrayConstructor;
+import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BindExpression;
@@ -1254,7 +1255,7 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitArrayConstructor(ArrayConstructor node, Object context)
+        protected Object visitArray(Array node, Object context)
         {
             Type elementType = ((ArrayType) type(node)).getElementType();
             BlockBuilder arrayBlockBuilder = elementType.createBlockBuilder(null, node.getValues().size());
@@ -1265,7 +1266,7 @@ public class ExpressionInterpreter
                     checkCondition(node.getValues().size() <= 254, NOT_SUPPORTED, "Too many arguments for array constructor");
                     return visitFunctionCall(
                             FunctionCallBuilder.resolve(session, metadata)
-                                    .setName(QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR))
+                                    .setName(QualifiedName.of(ArrayConstructor.NAME))
                                     .setArguments(types(node.getValues()), node.getValues())
                                     .build(),
                             context);

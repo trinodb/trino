@@ -71,7 +71,6 @@ import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static io.trino.block.BlockAssertions.createSmallintsBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.block.BlockAssertions.createTinyintsBlock;
-import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.CharType.createCharType;
@@ -219,17 +218,13 @@ public class TestPositionsAppender
         assertBlockEquals(type.getType(), positionsAppender.build(), block);
 
         // append not null rle
-        Block rleBlock = rleBlock(type, 1);
-        positionsAppender.append(allPositions(1), rleBlock);
+        Block rleBlock = rleBlock(type, 10);
+        positionsAppender.append(allPositions(10), rleBlock);
         assertBlockEquals(type.getType(), positionsAppender.build(), rleBlock);
 
-        // append empty rle
-        positionsAppender.append(positions(), rleBlock(type, 0));
-        assertEquals(positionsAppender.build().getPositionCount(), 0);
-
         // append null rle
-        Block nullRleBlock = nullRleBlock(type, 1);
-        positionsAppender.append(allPositions(1), nullRleBlock);
+        Block nullRleBlock = nullRleBlock(type, 10);
+        positionsAppender.append(allPositions(10), nullRleBlock);
         assertBlockEquals(type.getType(), positionsAppender.build(), nullRleBlock);
 
         // just build to confirm appender was reset
@@ -245,11 +240,11 @@ public class TestPositionsAppender
         PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(VARCHAR, 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
 
         // first append some not empty value to avoid RleAwarePositionsAppender for the empty value
-        positionsAppender.appendRle(new RunLengthEncodedBlock(singleValueBlock("some value"), 1));
+        positionsAppender.appendRle(singleValueBlock("some value"), 1);
         // append empty value multiple times to trigger jit compilation
         Block emptyStringBlock = singleValueBlock("");
         for (int i = 0; i < 1000; i++) {
-            positionsAppender.appendRle(new RunLengthEncodedBlock(emptyStringBlock, 2000));
+            positionsAppender.appendRle(emptyStringBlock, 2000);
         }
     }
 
@@ -301,17 +296,17 @@ public class TestPositionsAppender
         return new IntArrayList(positions);
     }
 
-    private DictionaryBlock dictionaryBlock(Block dictionary, int positionCount)
+    private Block dictionaryBlock(Block dictionary, int positionCount)
     {
         return createRandomDictionaryBlock(dictionary, positionCount);
     }
 
-    private DictionaryBlock dictionaryBlock(Block dictionary, int[] ids)
+    private Block dictionaryBlock(Block dictionary, int[] ids)
     {
-        return new DictionaryBlock(0, ids.length, dictionary, ids, false, randomDictionaryId());
+        return DictionaryBlock.create(ids.length, dictionary, ids);
     }
 
-    private DictionaryBlock dictionaryBlock(TestType type, int positionCount, int dictionarySize, float nullRate)
+    private Block dictionaryBlock(TestType type, int positionCount, int dictionarySize, float nullRate)
     {
         Block dictionary = createRandomBlockForType(type, dictionarySize, nullRate);
         return createRandomDictionaryBlock(dictionary, positionCount);
@@ -319,19 +314,22 @@ public class TestPositionsAppender
 
     private RunLengthEncodedBlock rleBlock(Block value, int positionCount)
     {
-        return new RunLengthEncodedBlock(value, positionCount);
+        checkArgument(positionCount >= 2);
+        return (RunLengthEncodedBlock) RunLengthEncodedBlock.create(value, positionCount);
     }
 
     private RunLengthEncodedBlock rleBlock(TestType type, int positionCount)
     {
+        checkArgument(positionCount >= 2);
         Block rleValue = createRandomBlockForType(type, 1, 0);
-        return new RunLengthEncodedBlock(rleValue, positionCount);
+        return (RunLengthEncodedBlock) RunLengthEncodedBlock.create(rleValue, positionCount);
     }
 
     private RunLengthEncodedBlock nullRleBlock(TestType type, int positionCount)
     {
+        checkArgument(positionCount >= 2);
         Block rleValue = nullBlock(type, 1);
-        return new RunLengthEncodedBlock(rleValue, positionCount);
+        return (RunLengthEncodedBlock) RunLengthEncodedBlock.create(rleValue, positionCount);
     }
 
     private Block partiallyNullBlock(TestType type, int positionCount)
@@ -509,7 +507,7 @@ public class TestPositionsAppender
         {
             if (block instanceof RunLengthEncodedBlock) {
                 checkArgument(block.getPositionCount() == 0 || block.isNull(0));
-                return new RunLengthEncodedBlock(new TestVariableWidthBlock(0, 1, EMPTY_SLICE, new int[] {0, 0}, new boolean[] {true}), block.getPositionCount());
+                return RunLengthEncodedBlock.create(new TestVariableWidthBlock(0, 1, EMPTY_SLICE, new int[] {0, 0}, new boolean[] {true}), block.getPositionCount());
             }
 
             int[] offsets = new int[block.getPositionCount() + 1];

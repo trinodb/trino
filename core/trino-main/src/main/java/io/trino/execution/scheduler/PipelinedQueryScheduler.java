@@ -509,7 +509,7 @@ public class PipelinedQueryScheduler
 
         private final QueryStateMachine queryStateMachine;
         private final NodeScheduler nodeScheduler;
-        private final Map<PlanFragmentId, OutputBufferManager> outputBuffersForStagesConsumedByCoordinator;
+        private final Map<PlanFragmentId, PipelinedOutputBufferManager> outputBuffersForStagesConsumedByCoordinator;
         private final Map<PlanFragmentId, Optional<int[]>> bucketToPartitionForStagesConsumedByCoordinator;
         private final TaskLifecycleListener taskLifecycleListener;
         private final StageManager stageManager;
@@ -528,7 +528,7 @@ public class PipelinedQueryScheduler
                 AtomicReference<DistributedStagesScheduler> distributedStagesScheduler,
                 SqlTaskManager coordinatorTaskManager)
         {
-            Map<PlanFragmentId, OutputBufferManager> outputBuffersForStagesConsumedByCoordinator = createOutputBuffersForStagesConsumedByCoordinator(stageManager);
+            Map<PlanFragmentId, PipelinedOutputBufferManager> outputBuffersForStagesConsumedByCoordinator = createOutputBuffersForStagesConsumedByCoordinator(stageManager);
             Map<PlanFragmentId, Optional<int[]>> bucketToPartitionForStagesConsumedByCoordinator = createBucketToPartitionForStagesConsumedByCoordinator(stageManager);
 
             TaskLifecycleListener taskLifecycleListener = new QueryOutputTaskLifecycleListener(queryStateMachine);
@@ -562,9 +562,9 @@ public class PipelinedQueryScheduler
             return coordinatorStagesScheduler;
         }
 
-        private static Map<PlanFragmentId, OutputBufferManager> createOutputBuffersForStagesConsumedByCoordinator(StageManager stageManager)
+        private static Map<PlanFragmentId, PipelinedOutputBufferManager> createOutputBuffersForStagesConsumedByCoordinator(StageManager stageManager)
         {
-            ImmutableMap.Builder<PlanFragmentId, OutputBufferManager> result = ImmutableMap.builder();
+            ImmutableMap.Builder<PlanFragmentId, PipelinedOutputBufferManager> result = ImmutableMap.builder();
 
             // create output buffer for output stage
             SqlStage outputStage = stageManager.getOutputStage();
@@ -580,11 +580,11 @@ public class PipelinedQueryScheduler
             return result.buildOrThrow();
         }
 
-        private static OutputBufferManager createSingleStreamOutputBuffer(SqlStage stage)
+        private static PipelinedOutputBufferManager createSingleStreamOutputBuffer(SqlStage stage)
         {
             PartitioningHandle partitioningHandle = stage.getFragment().getPartitioningScheme().getPartitioning().getHandle();
             checkArgument(partitioningHandle.isSingleNode(), "partitioning is expected to be single node: " + partitioningHandle);
-            return new PartitionedOutputBufferManager(partitioningHandle, 1);
+            return new PartitionedPipelinedOutputBufferManager(partitioningHandle, 1);
         }
 
         private static Map<PlanFragmentId, Optional<int[]>> createBucketToPartitionForStagesConsumedByCoordinator(StageManager stageManager)
@@ -606,7 +606,7 @@ public class PipelinedQueryScheduler
         private CoordinatorStagesScheduler(
                 QueryStateMachine queryStateMachine,
                 NodeScheduler nodeScheduler,
-                Map<PlanFragmentId, OutputBufferManager> outputBuffersForStagesConsumedByCoordinator,
+                Map<PlanFragmentId, PipelinedOutputBufferManager> outputBuffersForStagesConsumedByCoordinator,
                 Map<PlanFragmentId, Optional<int[]>> bucketToPartitionForStagesConsumedByCoordinator,
                 TaskLifecycleListener taskLifecycleListener,
                 StageManager stageManager,
@@ -737,7 +737,7 @@ public class PipelinedQueryScheduler
             }
         }
 
-        public Map<PlanFragmentId, OutputBufferManager> getOutputBuffersForStagesConsumedByCoordinator()
+        public Map<PlanFragmentId, PipelinedOutputBufferManager> getOutputBuffersForStagesConsumedByCoordinator()
         {
             return outputBuffersForStagesConsumedByCoordinator;
         }
@@ -853,7 +853,7 @@ public class PipelinedQueryScheduler
                     coordinatorStagesScheduler.getBucketToPartitionForStagesConsumedByCoordinator(),
                     stageManager,
                     partitioningCache);
-            Map<PlanFragmentId, OutputBufferManager> outputBufferManagers = createOutputBufferManagers(
+            Map<PlanFragmentId, PipelinedOutputBufferManager> outputBufferManagers = createOutputBufferManagers(
                     coordinatorStagesScheduler.getOutputBuffersForStagesConsumedByCoordinator(),
                     stageManager,
                     bucketToPartitionMap);
@@ -970,30 +970,30 @@ public class PipelinedQueryScheduler
             return Optional.of(nodePartitionMap.getBucketToPartition());
         }
 
-        private static Map<PlanFragmentId, OutputBufferManager> createOutputBufferManagers(
-                Map<PlanFragmentId, OutputBufferManager> outputBuffersForStagesConsumedByCoordinator,
+        private static Map<PlanFragmentId, PipelinedOutputBufferManager> createOutputBufferManagers(
+                Map<PlanFragmentId, PipelinedOutputBufferManager> outputBuffersForStagesConsumedByCoordinator,
                 StageManager stageManager,
                 Map<PlanFragmentId, Optional<int[]>> bucketToPartitionMap)
         {
-            ImmutableMap.Builder<PlanFragmentId, OutputBufferManager> result = ImmutableMap.builder();
+            ImmutableMap.Builder<PlanFragmentId, PipelinedOutputBufferManager> result = ImmutableMap.builder();
             result.putAll(outputBuffersForStagesConsumedByCoordinator);
             for (SqlStage parentStage : stageManager.getDistributedStagesInTopologicalOrder()) {
                 for (SqlStage childStage : stageManager.getChildren(parentStage.getStageId())) {
                     PlanFragmentId fragmentId = childStage.getFragment().getId();
                     PartitioningHandle partitioningHandle = childStage.getFragment().getPartitioningScheme().getPartitioning().getHandle();
 
-                    OutputBufferManager outputBufferManager;
+                    PipelinedOutputBufferManager outputBufferManager;
                     if (partitioningHandle.equals(FIXED_BROADCAST_DISTRIBUTION)) {
-                        outputBufferManager = new BroadcastOutputBufferManager();
+                        outputBufferManager = new BroadcastPipelinedOutputBufferManager();
                     }
                     else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
-                        outputBufferManager = new ScaledOutputBufferManager();
+                        outputBufferManager = new ScaledPipelinedOutputBufferManager();
                     }
                     else {
                         Optional<int[]> bucketToPartition = bucketToPartitionMap.get(fragmentId);
                         checkArgument(bucketToPartition.isPresent(), "bucketToPartition is expected to be present for fragment: %s", fragmentId);
                         int partitionCount = Ints.max(bucketToPartition.get()) + 1;
-                        outputBufferManager = new PartitionedOutputBufferManager(partitioningHandle, partitionCount);
+                        outputBufferManager = new PartitionedPipelinedOutputBufferManager(partitioningHandle, partitionCount);
                     }
                     result.put(fragmentId, outputBufferManager);
                 }

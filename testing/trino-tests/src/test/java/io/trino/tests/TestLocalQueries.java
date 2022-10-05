@@ -48,6 +48,7 @@ public class TestLocalQueries
                 .build();
 
         LocalQueryRunner localQueryRunner = LocalQueryRunner.builder(defaultSession)
+                .withNodeCountForStats(1)
                 .build();
 
         // add the tpch catalog

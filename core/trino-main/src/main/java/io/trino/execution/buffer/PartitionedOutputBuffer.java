@@ -19,7 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.StateMachine.StateChangeListener;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.execution.buffer.SerializedPageReference.PagesReleasedListener;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.plugin.base.metrics.TDigestHistogram;
@@ -34,8 +34,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.execution.buffer.BufferState.FLUSHING;
 import static io.trino.execution.buffer.BufferState.NO_MORE_BUFFERS;
-import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
+import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.SerializedPageReference.dereferencePages;
 import static java.util.Objects.requireNonNull;
 
@@ -43,7 +43,7 @@ public class PartitionedOutputBuffer
         implements OutputBuffer
 {
     private final OutputBufferStateMachine stateMachine;
-    private final OutputBuffers outputBuffers;
+    private final PipelinedOutputBuffers outputBuffers;
     private final OutputBufferMemoryManager memoryManager;
     private final PagesReleasedListener onPagesReleased;
 
@@ -55,7 +55,7 @@ public class PartitionedOutputBuffer
     public PartitionedOutputBuffer(
             String taskInstanceId,
             OutputBufferStateMachine stateMachine,
-            OutputBuffers outputBuffers,
+            PipelinedOutputBuffers outputBuffers,
             DataSize maxBufferSize,
             Supplier<LocalMemoryContext> memoryContextSupplier,
             Executor notificationExecutor)
@@ -114,11 +114,11 @@ public class PartitionedOutputBuffer
         BufferState state = stateMachine.getState();
 
         int totalBufferedPages = 0;
-        ImmutableList.Builder<BufferInfo> infos = ImmutableList.builderWithExpectedSize(partitions.size());
+        ImmutableList.Builder<PipelinedBufferInfo> infos = ImmutableList.builderWithExpectedSize(partitions.size());
         for (ClientBuffer partition : partitions) {
-            BufferInfo bufferInfo = partition.getInfo();
+            PipelinedBufferInfo bufferInfo = partition.getInfo();
             infos.add(bufferInfo);
-            totalBufferedPages += bufferInfo.getPageBufferInfo().getBufferedPages();
+            totalBufferedPages += bufferInfo.getBufferedPages();
         }
 
         return new OutputBufferInfo(
@@ -130,8 +130,9 @@ public class PartitionedOutputBuffer
                 totalBufferedPages,
                 totalRowsAdded.get(),
                 totalPagesAdded.get(),
-                infos.build(),
-                Optional.of(new TDigestHistogram(memoryManager.getUtilizationHistogram())));
+                Optional.of(infos.build()),
+                Optional.of(new TDigestHistogram(memoryManager.getUtilizationHistogram())),
+                Optional.empty());
     }
 
     @Override

@@ -202,6 +202,16 @@ property must be one of the following values:
       :ref:`catalog-file-based-access-control` for information on the
       authorization configuration file.
 
+.. _iceberg-table-redirection:
+
+Table redirection
+-----------------
+
+.. include:: table-redirection.fragment
+
+The connector supports redirection from Iceberg tables to Hive tables
+with the ``iceberg.hive-catalog-name`` catalog configuration property.
+
 .. _iceberg-sql-support:
 
 SQL support
@@ -333,14 +343,27 @@ The current values of a table's properties can be shown using :doc:`SHOW CREATE 
 Type mapping
 ------------
 
-Both Iceberg and Trino have types that are not supported by the Iceberg
-connector. The following sections explain their type mapping.
+The connector reads and writes data into the supported data file formats Avro,
+ORC, and Parquet, following the Iceberg specification.
+
+Because Trino and Iceberg each support types that the other does not, this
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
+
+The Iceberg specification includes supported data types and the mapping to the
+formating in the Avro, ORC, or Parquet files:
+
+* `Iceberg to Avro <https://iceberg.apache.org/spec/#avro>`_
+* `Iceberg to ORC <https://iceberg.apache.org/spec/#orc>`_
+* `Iceberg to Parquet <https://iceberg.apache.org/spec/#parquet>`_
 
 Iceberg to Trino type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Trino supports selecting Iceberg data types. The following table shows the
-Iceberg to Trino type mapping:
+The connector maps Iceberg types to the corresponding Trino types following this
+table:
 
 .. list-table:: Iceberg to Trino type mapping
   :widths: 40, 60
@@ -374,6 +397,8 @@ Iceberg to Trino type mapping:
     - ``UUID``
   * - ``BINARY``
     - ``VARBINARY``
+  * - ``FIXED (L)``
+    - ``VARBINARY``
   * - ``STRUCT(...)``
     - ``ROW(...)``
   * - ``LIST(e)``
@@ -381,68 +406,54 @@ Iceberg to Trino type mapping:
   * - ``MAP(k,v)``
     - ``MAP(k,v)``
 
+No other types are supported.
+
 Trino to Iceberg type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Trino supports creating tables with the following types in Iceberg. The table
-shows the mappings from Trino to Iceberg data types:
-
+The connector maps Trino types to the corresponding Iceberg types following
+this table:
 
 .. list-table:: Trino to Iceberg type mapping
-  :widths: 25, 30, 45
+  :widths: 40, 60
   :header-rows: 1
 
   * - Trino type
     - Iceberg type
-    - Notes
   * - ``BOOLEAN``
     - ``BOOLEAN``
-    -
   * - ``INTEGER``
     - ``INT``
-    -
   * - ``BIGINT``
     - ``LONG``
-    -
   * - ``REAL``
     - ``FLOAT``
-    -
   * - ``DOUBLE``
     - ``DOUBLE``
-    -
   * - ``DECIMAL(p,s)``
     - ``DECIMAL(p,s)``
-    -
   * - ``DATE``
     - ``DATE``
-    -
   * - ``TIME(6)``
     - ``TIME``
-    - Other precisions not supported
   * - ``TIMESTAMP(6)``
     - ``TIMESTAMP``
-    - Other precisions not supported
   * - ``TIMESTAMP(6) WITH TIME ZONE``
     - ``TIMESTAMPTZ``
-    - Other precisions not supported
-  * - ``VARCHAR, VARCHAR(n)``
+  * - ``VARCHAR``
     - ``STRING``
-    -
   * - ``UUID``
     - ``UUID``
-    -
   * - ``VARBINARY``
     - ``BINARY``
-    -
   * - ``ROW(...)``
     - ``STRUCT(...)``
-    - All fields must have a name
   * - ``ARRAY(e)``
     - ``LIST(e)``
-    -
   * - ``MAP(k,v)``
     - ``MAP(k,v)``
-    -
+
+No other types are supported.
 
 .. _iceberg-tables:
 
@@ -1018,12 +1029,6 @@ view's query in the materialized view metadata. When the materialized
 view is queried, the snapshot-ids are used to check if the data in the storage
 table is up to date. If the data is outdated, the materialized view behaves
 like a normal view, and the data is queried directly from the base tables.
-
-.. warning::
-
-    There is a small time window between the commit of the delete and insert,
-    when the materialized view is empty. If the commit operation for the insert
-    fails, the materialized view remains empty.
 
 Dropping a materialized view with :doc:`/sql/drop-materialized-view` removes
 the definition and the storage table.

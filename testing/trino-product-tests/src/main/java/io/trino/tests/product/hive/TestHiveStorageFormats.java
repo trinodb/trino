@@ -246,7 +246,7 @@ public class TestHiveStorageFormats
         return new StorageFormat[] {
                 storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_validate", "true")),
                 storageFormat("PARQUET"),
-                storageFormat("PARQUET", ImmutableMap.of("hive.experimental_parquet_optimized_writer_enabled", "true")),
+                storageFormat("PARQUET", ImmutableMap.of("hive.parquet_optimized_writer_enabled", "true")),
                 storageFormat("RCBINARY", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true")),
                 storageFormat("RCTEXT", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true")),
                 storageFormat("SEQUENCEFILE"),
@@ -792,7 +792,7 @@ public class TestHiveStorageFormats
         runLargeInsert(storageFormat(
                 "PARQUET",
                 ImmutableMap.of(
-                        "hive.experimental_parquet_optimized_writer_enabled", "true",
+                        "hive.parquet_optimized_writer_enabled", "true",
                         "hive.parquet_writer_page_size", reducedRowGroupSize.toBytesValueString(),
                         "task_scale_writers_enabled", "false",
                         "task_writer_count", "1")));

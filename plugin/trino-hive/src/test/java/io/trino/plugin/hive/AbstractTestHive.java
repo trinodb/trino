@@ -34,6 +34,8 @@ import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.fs.DirectoryLister;
+import io.trino.plugin.hive.fs.TrinoFileStatus;
+import io.trino.plugin.hive.fs.TrinoFileStatusRemoteIterator;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -132,7 +134,6 @@ import io.trino.testing.TestingNodeManager;
 import io.trino.type.BlockTypeOperators;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.hive.metastore.TableType;
@@ -291,7 +292,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -821,6 +822,7 @@ public abstract class AbstractTestHive
                 10,
                 10,
                 10,
+                100_000,
                 false,
                 false,
                 false,
@@ -5290,7 +5292,7 @@ public abstract class AbstractTestHive
                 else if (TIMESTAMP_MILLIS.equals(column.getType())) {
                     assertInstanceOf(value, SqlTimestamp.class);
                 }
-                else if (TIMESTAMP_WITH_TIME_ZONE.equals(column.getType())) {
+                else if (TIMESTAMP_TZ_MILLIS.equals(column.getType())) {
                     assertInstanceOf(value, SqlTimestampWithTimeZone.class);
                 }
                 else if (DATE.equals(column.getType())) {
@@ -6174,19 +6176,19 @@ public abstract class AbstractTestHive
         private final AtomicInteger listCount = new AtomicInteger();
 
         @Override
-        public RemoteIterator<LocatedFileStatus> list(FileSystem fs, Table table, Path path)
+        public RemoteIterator<TrinoFileStatus> list(FileSystem fs, Table table, Path path)
                 throws IOException
         {
             listCount.incrementAndGet();
-            return fs.listLocatedStatus(path);
+            return new TrinoFileStatusRemoteIterator(fs.listLocatedStatus(path));
         }
 
         @Override
-        public RemoteIterator<LocatedFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
+        public RemoteIterator<TrinoFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
                 throws IOException
         {
             listCount.incrementAndGet();
-            return fs.listFiles(path, true);
+            return new TrinoFileStatusRemoteIterator(fs.listFiles(path, true));
         }
 
         public int getListCount()

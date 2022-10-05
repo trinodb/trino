@@ -45,12 +45,13 @@ import static io.trino.parquet.ParquetWriteValidation.ParquetWriteValidationBuil
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetFileWriter
         implements FileWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ParquetFileWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ParquetFileWriter.class).instanceSize());
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     private final ParquetWriter parquetWriter;
@@ -121,7 +122,7 @@ public class ParquetFileWriter
         for (int i = 0; i < fileInputColumnIndexes.length; i++) {
             int inputColumnIndex = fileInputColumnIndexes[i];
             if (inputColumnIndex < 0) {
-                blocks[i] = new RunLengthEncodedBlock(nullBlocks.get(i), dataPage.getPositionCount());
+                blocks[i] = RunLengthEncodedBlock.create(nullBlocks.get(i), dataPage.getPositionCount());
             }
             else {
                 blocks[i] = dataPage.getBlock(inputColumnIndex);

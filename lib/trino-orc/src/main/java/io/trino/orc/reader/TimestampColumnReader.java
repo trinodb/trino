@@ -100,7 +100,7 @@ public class TimestampColumnReader
 
     private static final long BASE_INSTANT_IN_SECONDS = ORC_EPOCH.toEpochSecond(ZoneOffset.UTC);
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampColumnReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TimestampColumnReader.class).instanceSize());
 
     private final Type type;
     private final OrcColumn column;

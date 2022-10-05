@@ -40,7 +40,7 @@ public final class EnvironmentOptions
     public File serverPackage;
 
     @Option(names = "--without-trino", description = "Do not start " + COORDINATOR)
-    public boolean withoutPrestoMaster;
+    public boolean withoutTrinoMaster;
 
     public boolean bindPorts = true;
     int bindPortsBase;

@@ -40,6 +40,7 @@ public class IcebergColumnHandle
     public static final int TRINO_MERGE_ROW_ID = Integer.MIN_VALUE + 1;
     public static final String TRINO_ROW_ID_NAME = "$row_id";
 
+    public static final int TRINO_MERGE_FILE_RECORD_COUNT = Integer.MIN_VALUE + 2;
     public static final int TRINO_MERGE_PARTITION_SPEC_ID = Integer.MIN_VALUE + 3;
     public static final int TRINO_MERGE_PARTITION_DATA = Integer.MIN_VALUE + 4;
 

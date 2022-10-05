@@ -28,17 +28,19 @@ import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(IcebergSplit.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(IcebergSplit.class).instanceSize());
 
     private final String path;
     private final long start;
     private final long length;
     private final long fileSize;
+    private final long fileRecordCount;
     private final IcebergFileFormat fileFormat;
     private final List<HostAddress> addresses;
     private final String partitionSpecJson;
@@ -52,6 +54,7 @@ public class IcebergSplit
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
             @JsonProperty("fileSize") long fileSize,
+            @JsonProperty("fileRecordCount") long fileRecordCount,
             @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("partitionSpecJson") String partitionSpecJson,
@@ -63,6 +66,7 @@ public class IcebergSplit
         this.start = start;
         this.length = length;
         this.fileSize = fileSize;
+        this.fileRecordCount = fileRecordCount;
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.partitionSpecJson = requireNonNull(partitionSpecJson, "partitionSpecJson is null");
@@ -106,6 +110,12 @@ public class IcebergSplit
     public long getFileSize()
     {
         return fileSize;
+    }
+
+    @JsonProperty
+    public long getFileRecordCount()
+    {
+        return fileRecordCount;
     }
 
     @JsonProperty
@@ -167,9 +177,12 @@ public class IcebergSplit
         ToStringHelper helper = toStringHelper(this)
                 .addValue(path)
                 .add("start", start)
-                .add("length", length);
+                .add("length", length)
+                .add("records", fileRecordCount);
         if (!deletes.isEmpty()) {
             helper.add("deleteFiles", deletes.size());
+            helper.add("deleteRecords", deletes.stream()
+                    .mapToLong(DeleteFile::recordCount).sum());
         }
         return helper.toString();
     }

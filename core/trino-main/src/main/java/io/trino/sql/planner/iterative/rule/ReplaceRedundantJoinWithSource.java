@@ -18,6 +18,7 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.optimizations.Cardinality;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -25,9 +26,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import java.util.List;
 
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
-import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtLeastScalar;
-import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
-import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
 import static io.trino.sql.planner.plan.Patterns.join;
 
 /**
@@ -58,12 +57,17 @@ public class ReplaceRedundantJoinWithSource
     @Override
     public Result apply(JoinNode node, Captures captures, Context context)
     {
-        if (isAtMost(node.getLeft(), context.getLookup(), 0) || isAtMost(node.getRight(), context.getLookup(), 0)) {
+        Cardinality leftCardinality = extractCardinality(node.getLeft(), context.getLookup());
+        if (leftCardinality.isEmpty()) {
+            return Result.empty();
+        }
+        Cardinality rightCardinality = extractCardinality(node.getRight(), context.getLookup());
+        if (rightCardinality.isEmpty()) {
             return Result.empty();
         }
 
-        boolean leftSourceScalarWithNoOutputs = node.getLeft().getOutputSymbols().isEmpty() && isScalar(node.getLeft(), context.getLookup());
-        boolean rightSourceScalarWithNoOutputs = node.getRight().getOutputSymbols().isEmpty() && isScalar(node.getRight(), context.getLookup());
+        boolean leftSourceScalarWithNoOutputs = node.getLeft().getOutputSymbols().isEmpty() && leftCardinality.isScalar();
+        boolean rightSourceScalarWithNoOutputs = node.getRight().getOutputSymbols().isEmpty() && rightCardinality.isScalar();
 
         return switch (node.getType()) {
             case INNER -> {
@@ -94,11 +98,11 @@ public class ReplaceRedundantJoinWithSource
                             .orElse(node.getRight())) :
                     Result.empty();
             case FULL -> {
-                if (leftSourceScalarWithNoOutputs && isAtLeastScalar(node.getRight(), context.getLookup())) {
+                if (leftSourceScalarWithNoOutputs && rightCardinality.isAtLeastScalar()) {
                     yield Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), node.getRight(), ImmutableSet.copyOf(node.getRightOutputSymbols()))
                             .orElse(node.getRight()));
                 }
-                if (rightSourceScalarWithNoOutputs && isAtLeastScalar(node.getLeft(), context.getLookup())) {
+                if (rightSourceScalarWithNoOutputs && leftCardinality.isAtLeastScalar()) {
                     yield Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), node.getLeft(), ImmutableSet.copyOf(node.getLeftOutputSymbols()))
                             .orElse(node.getLeft()));
                 }

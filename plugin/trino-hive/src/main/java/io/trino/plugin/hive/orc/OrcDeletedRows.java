@@ -183,7 +183,7 @@ public class OrcDeletedRows
             if (positionCount == block.getPositionCount()) {
                 return block;
             }
-            return new DictionaryBlock(positionCount, block, validPositions);
+            return DictionaryBlock.create(positionCount, block, validPositions);
         }
 
         private void loadValidPositions()
@@ -417,7 +417,7 @@ public class OrcDeletedRows
 
     private static class RowId
     {
-        public static final int INSTANCE_SIZE = ClassLayout.parseClass(RowId.class).instanceSize();
+        public static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RowId.class).instanceSize());
 
         private final long originalTransaction;
         private final int bucket;

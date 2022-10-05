@@ -30,7 +30,7 @@ import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.LazyOutputBuffer;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.OutputBuffers;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.memory.QueryContext;
 import io.trino.operator.PipelineContext;
 import io.trino.operator.PipelineStatus;
@@ -311,6 +311,7 @@ public class SqlTask
             }
             physicalWrittenDataSize = succinctBytes(physicalWrittenBytes);
             userMemoryReservation = taskContext.getMemoryReservation();
+            peakUserMemoryReservation = taskContext.getPeakMemoryReservation();
             revocableMemoryReservation = taskContext.getRevocableMemoryReservation();
             fullGcCount = taskContext.getFullGcCount();
             fullGcTime = taskContext.getFullGcTime();
@@ -462,7 +463,7 @@ public class SqlTask
         return getTaskInfo();
     }
 
-    public ListenableFuture<BufferResult> getTaskResults(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> getTaskResults(PipelinedOutputBuffers.OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
     {
         requireNonNull(bufferId, "bufferId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
@@ -470,14 +471,14 @@ public class SqlTask
         return outputBuffer.get(bufferId, startingSequenceId, maxSize);
     }
 
-    public void acknowledgeTaskResults(OutputBufferId bufferId, long sequenceId)
+    public void acknowledgeTaskResults(PipelinedOutputBuffers.OutputBufferId bufferId, long sequenceId)
     {
         requireNonNull(bufferId, "bufferId is null");
 
         outputBuffer.acknowledge(bufferId, sequenceId);
     }
 
-    public TaskInfo destroyTaskResults(OutputBufferId bufferId)
+    public TaskInfo destroyTaskResults(PipelinedOutputBuffers.OutputBufferId bufferId)
     {
         requireNonNull(bufferId, "bufferId is null");
 

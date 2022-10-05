@@ -136,10 +136,10 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        protected Expression visitArrayConstructor(ArrayConstructor node, Context<C> context)
+        protected Expression visitArray(Array node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteArrayConstructor(node, context.get(), ExpressionTreeRewriter.this);
+                Expression result = rewriter.rewriteArray(node, context.get(), ExpressionTreeRewriter.this);
                 if (result != null) {
                     return result;
                 }
@@ -148,7 +148,7 @@ public final class ExpressionTreeRewriter<C>
             List<Expression> values = rewrite(node.getValues(), context);
 
             if (!sameElements(node.getValues(), values)) {
-                return new ArrayConstructor(values);
+                return new Array(values);
             }
 
             return node;

@@ -38,12 +38,12 @@ public class TestSlicePositionsAppender
     {
         // test SlicePositionAppender.appendRle with empty value (Slice with length 0)
         PositionsAppender positionsAppender = new SlicePositionsAppender(1, 100);
-        RunLengthEncodedBlock rleBlock = new RunLengthEncodedBlock(createStringsBlock(""), 10);
-        positionsAppender.appendRle(rleBlock);
+        Block value = createStringsBlock("");
+        positionsAppender.appendRle(value, 10);
 
         Block actualBlock = positionsAppender.build();
 
-        assertBlockEquals(VARCHAR, actualBlock, rleBlock);
+        assertBlockEquals(VARCHAR, actualBlock, RunLengthEncodedBlock.create(value, 10));
     }
 
     // test append with VariableWidthBlock using Slice not backed by byte array

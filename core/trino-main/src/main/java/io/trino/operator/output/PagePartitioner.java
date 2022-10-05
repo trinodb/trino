@@ -459,7 +459,7 @@ public class PagePartitioner
         for (int i = 0; i < blocks.length; i++) {
             int channel = partitionChannels[i];
             if (channel < 0) {
-                blocks[i] = new RunLengthEncodedBlock(partitionConstantBlocks[i], page.getPositionCount());
+                blocks[i] = RunLengthEncodedBlock.create(partitionConstantBlocks[i], page.getPositionCount());
             }
             else {
                 blocks[i] = page.getBlock(channel);

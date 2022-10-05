@@ -433,6 +433,8 @@ Property Name                                      Description                  
                                                    on auto_purge.
 
 ``hive.partition-projection-enabled``              Enables Athena partition projection support                     ``false``
+
+``hive.max-partition-drops-per-query``             Maximum number of partitions to drop in a single query.      100,000
 ================================================== ============================================================ ============
 
 ORC format configuration properties
@@ -461,6 +463,8 @@ with ORC files performed by the Hive connector.
       - Enable bloom filters for predicate pushdown.
       - ``false``
 
+.. _hive-parquet-configuration:
+
 Parquet format configuration properties
 ---------------------------------------
 
@@ -484,13 +488,27 @@ with Parquet files performed by the Hive connector.
         definition. The equivalent catalog session property is
         ``parquet_use_column_names``.
       - ``true``
+    * - ``parquet.optimized-writer.enabled``
+      - Whether the optimized writer should be used when writing Parquet files.
+        Set this property to ``true`` to use the optimized parquet writer by
+        default. The equivalent catalog session property is
+        ``parquet_optimized_writer_enabled``.
+      - ``false``
     * - ``parquet.optimized-writer.validation-percentage``
       - Percentage of parquet files to validate after write by re-reading the whole file
-        when ``parquet.experimental-optimized-writer.enabled`` is set to ``true``.
+        when ``parquet.optimized-writer.enabled`` is set to ``true``.
         The equivalent catalog session property is ``parquet_optimized_writer_validation_percentage``.
         Validation can be turned off by setting this property to ``0``.
       - ``5``
-
+    * - ``parquet.writer.page-size``
+      - Maximum page size for the Parquet writer.
+      - ``1 MB``
+    * - ``parquet.writer.block-size``
+      - Maximum row group size for the Parquet writer.
+      - ``128 MB``
+    * - ``parquet.writer.batch-size``
+      - Maximum number of rows processed by the parquet writer in a batch.
+      - ``10000``
 
 Metastore configuration properties
 ----------------------------------
@@ -549,7 +567,7 @@ Property Name                              Description
    * - ``hive.metastore.username``
      - The username Trino uses to access the Hive metastore.
    * - ``hive.metastore.authentication.type``
-     - Hive metastore authentication type. Possivel values are ``NONE`` or
+     - Hive metastore authentication type. Possible values are ``NONE`` or
        ``KERBEROS``. Default is ``NONE``.
    * - ``hive.metastore.thrift.impersonation.enabled``
      - Enable Hive metastore end user impersonation.
@@ -597,6 +615,13 @@ Property Name                                        Description
 
 ``hive.metastore.glue.endpoint-url``                 Glue API endpoint URL (optional).
                                                      Example: ``https://glue.us-east-1.amazonaws.com``
+
+``hive.metastore.glue.sts.region``                   AWS region of the STS service to authenticate with. This is
+                                                     required when running in a GovCloud region.
+                                                     Example: ``us-gov-east-1``
+
+``hive.metastore.glue.sts.endpoint``                 STS endpoint URL to use when authenticating to Glue (optional).
+                                                     Example: ``https://sts.us-gov-east-1.amazonaws.com``
 
 ``hive.metastore.glue.pin-client-to-current-region`` Pin Glue requests to the same region as the EC2 instance
                                                      where Trino is running, defaults to ``false``.
@@ -710,6 +735,19 @@ connector.
         splits result in more parallelism and thus can decrease latency, but
         also have more overhead and increase load on the system.
       - ``64 MB``
+
+.. _hive-table-redirection:
+
+Table redirection
+-----------------
+
+.. include:: table-redirection.fragment
+
+The connector supports redirection from Hive tables to Iceberg
+and Delta Lake tables with the following catalog configuration properties:
+
+- ``hive.iceberg-catalog-name`` for redirecting the query to :doc:`/connector/iceberg`
+- ``hive.delta-lake-catalog-name`` for redirecting the query to :doc:`/connector/delta-lake`
 
 .. _hive-sql-support:
 
@@ -1071,7 +1109,12 @@ The following procedures are available:
 
   Flush all Hive metadata caches.
 
-* ``system.flush_metadata_cache(schema_name => ..., table_name => ..., partition_column => ARRAY[...], partition_value => ARRAY[...])``
+* ``system.flush_metadata_cache(schema_name => ..., table_name => ...)``
+
+  Flush Hive metadata caches entries connected with selected table.
+  Procedure requires named parameters to be passed
+
+* ``system.flush_metadata_cache(schema_name => ..., table_name => ..., partition_columns => ARRAY[...], partition_values => ARRAY[...])``
 
   Flush Hive metadata cache entries connected with selected partition.
   Procedure requires named parameters to be passed

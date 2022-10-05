@@ -23,11 +23,12 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.List;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static java.lang.Math.toIntExact;
 
 public class NoChannelGroupByHash
         implements GroupByHash
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(NoChannelGroupByHash.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(NoChannelGroupByHash.class).instanceSize());
 
     private int groupCount;
 

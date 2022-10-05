@@ -172,7 +172,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -207,7 +207,7 @@ public class PhoenixClient
     private static final DateTimeFormatter LOCAL_DATE_FORMATTER = DateTimeFormatter.ofPattern(DATE_FORMAT);
 
     // Phoenix threshold for simplifying big IN predicates is 50k https://issues.apache.org/jira/browse/PHOENIX-6751
-    public static final int PHOENIX_MAX_LIST_EXPRESSIONS = 5_000;
+    public static final int DEFAULT_DOMAIN_COMPACTION_THRESHOLD = 5_000;
 
     private final Configuration configuration;
 
@@ -514,8 +514,7 @@ public class PhoenixClient
             return WriteMapping.doubleMapping("double", doubleWriteFunction());
         }
 
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
@@ -523,11 +522,10 @@ public class PhoenixClient
             return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
 
-        if (type instanceof CharType) {
-            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
+        if (type instanceof CharType charType) {
+            return WriteMapping.sliceMapping("char(" + charType.getLength() + ")", charWriteFunction());
         }
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
+        if (type instanceof VarcharType varcharType) {
             String dataType;
             if (varcharType.isUnbounded()) {
                 dataType = "varchar";
@@ -544,15 +542,15 @@ public class PhoenixClient
         if (type == DATE) {
             return WriteMapping.longMapping("date", dateWriteFunctionUsingString());
         }
-        if (TIME.equals(type)) {
+        if (TIME_MILLIS.equals(type)) {
             return WriteMapping.longMapping("time", timeWriteFunctionUsingSqlTime());
         }
         // Phoenix doesn't support _WITH_TIME_ZONE
         if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_TZ_MILLIS.equals(type)) {
             throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
         }
-        if (type instanceof ArrayType) {
-            Type elementType = ((ArrayType) type).getElementType();
+        if (type instanceof ArrayType arrayType) {
+            Type elementType = arrayType.getElementType();
             String elementDataType = toWriteMapping(session, elementType).getDataType().toUpperCase(ENGLISH);
             String elementWriteName = getArrayElementPhoenixTypeName(session, this, elementType);
             return WriteMapping.objectMapping(elementDataType + " ARRAY", arrayWriteFunction(session, elementType, elementWriteName));

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>396-SNAPSHOT</version>
+        <version>399-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -16,6 +16,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.elasticsearch.version>6.8.23</dep.elasticsearch.version>
+        <air.test.parallel>instances</air.test.parallel>
     </properties>
 
     <dependencies>

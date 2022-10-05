@@ -65,7 +65,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
@@ -454,7 +454,7 @@ public final class StandardColumnMappings
     public static ColumnMapping timeColumnMappingUsingSqlTime()
     {
         return ColumnMapping.longMapping(
-                TIME,
+                TIME_MILLIS,
                 (resultSet, columnIndex) -> {
                     Time time = resultSet.getTime(columnIndex);
                     return (toLocalTime(time).toNanoOfDay() * PICOSECONDS_PER_NANOSECOND) % PICOSECONDS_PER_DAY;

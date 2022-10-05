@@ -27,6 +27,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.operator.scalar.FormatFunction;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
@@ -63,7 +64,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.ArrayConstructor;
+import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
@@ -223,7 +224,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
@@ -243,7 +244,6 @@ import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
-import static io.trino.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static io.trino.sql.tree.DereferenceExpression.isQualifiedAllFieldsReference;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
@@ -633,7 +633,7 @@ public class ExpressionAnalyzer
                     if (node.getPrecision() != null) {
                         yield setExpressionType(node, createTimeType(node.getPrecision()));
                     }
-                    yield setExpressionType(node, TIME);
+                    yield setExpressionType(node, TIME_MILLIS);
                 }
                 case TIMESTAMP -> setExpressionType(node, createTimestampWithTimeZoneType(firstNonNull(node.getPrecision(), TimestampWithTimeZoneType.DEFAULT_PRECISION)));
                 case LOCALTIMESTAMP -> {
@@ -1013,7 +1013,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitArrayConstructor(ArrayConstructor node, StackableAstVisitorContext<Context> context)
+        protected Type visitArray(Array node, StackableAstVisitorContext<Context> context)
         {
             Type type = coerceToSingleType(context, "All ARRAY elements", node.getValues());
             Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeSignatureParameter.typeParameter(type.getTypeSignature())));
@@ -1270,7 +1270,7 @@ public class ExpressionAnalyzer
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
 
-            if (function.getSignature().getName().equalsIgnoreCase(ARRAY_CONSTRUCTOR)) {
+            if (function.getSignature().getName().equalsIgnoreCase(ArrayConstructor.NAME)) {
                 // After optimization, array constructor is rewritten to a function call.
                 // For historic reasons array constructor is allowed to have 254 arguments
                 if (node.getArguments().size() > 254) {

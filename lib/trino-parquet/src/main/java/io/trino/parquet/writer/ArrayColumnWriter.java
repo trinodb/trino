@@ -24,12 +24,13 @@ import org.openjdk.jol.info.ClassLayout;
 import java.io.IOException;
 import java.util.List;
 
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayColumnWriter
         implements ColumnWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayColumnWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ArrayColumnWriter.class).instanceSize());
 
     private final ColumnWriter elementWriter;
     private final int maxDefinitionLevel;

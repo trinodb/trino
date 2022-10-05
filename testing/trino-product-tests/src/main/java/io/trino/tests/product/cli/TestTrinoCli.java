@@ -40,6 +40,7 @@ import static io.trino.tempto.process.CliProcess.trimLines;
 import static io.trino.tests.product.TestGroups.AUTHORIZATION;
 import static io.trino.tests.product.TestGroups.CLI;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.writeString;
@@ -96,10 +97,10 @@ public class TestTrinoCli
 
     @AfterTestWithContext
     @Override
-    public void stopPresto()
+    public void stopCli()
             throws InterruptedException
     {
-        super.stopPresto();
+        super.stopCli();
     }
 
     @Override
@@ -401,6 +402,33 @@ public class TestTrinoCli
         assertThat(trimLines(trino.readLinesUntilPrompt())).contains("SET ROLE");
         trino.getProcessInput().println("show current roles from hive;");
         assertThat(trimLines(trino.readLinesUntilPrompt())).doesNotContain("admin");
+    }
+
+    @Test(groups = CLI, timeOut = TIMEOUT)
+    public void shouldPrintExplainAnalyzePlan()
+            throws Exception
+    {
+        launchTrinoCliWithServerArgument();
+        trino.waitForPrompt();
+        trino.getProcessInput().println("EXPLAIN ANALYZE CREATE TABLE iceberg.default.test_print_explain_analyze AS SELECT * FROM hive.default.nation LIMIT 10;");
+        List<String> lines = trimLines(trino.readLinesUntilPrompt());
+        // TODO once https://github.com/trinodb/trino/issues/14253 is done this should be assertThat(lines).contains("CREATE TABLE: 1 row", "Query Plan");
+        assertThat(lines).contains("CREATE TABLE", "Query Plan");
+        // TODO once https://github.com/trinodb/trino/issues/14253 is done this should be assertThat(lines).contains("INSERT: 1 row", "Query Plan");
+        trino.getProcessInput().println("EXPLAIN ANALYZE INSERT INTO iceberg.default.test_print_explain_analyze VALUES(100, 'URUGUAY', 3, 'test comment');");
+        lines = trimLines(trino.readLinesUntilPrompt());
+        assertThat(lines).contains("INSERT", "Query Plan");
+        // TODO once https://github.com/trinodb/trino/issues/14253 is done this should be assertThat(lines).contains("UPDATE: 1 row", "Query Plan");
+        trino.getProcessInput().println("EXPLAIN ANALYZE UPDATE iceberg.default.test_print_explain_analyze SET n_comment = 'testValue 5' WHERE n_nationkey = 100;");
+        lines = trimLines(trino.readLinesUntilPrompt());
+        assertThat(lines).contains("UPDATE", "Query Plan");
+        // TODO once https://github.com/trinodb/trino/issues/14253 is done this should be assertThat(lines).contains("DELETE: 1 row", "Query Plan");
+        trino.getProcessInput().println("EXPLAIN ANALYZE DELETE FROM iceberg.default.test_print_explain_analyze WHERE n_nationkey = 100;");
+        lines = trimLines(trino.readLinesUntilPrompt());
+        assertThat(lines).contains("DELETE", "Query Plan");
+
+        // cleanup
+        onTrino().executeQuery("DROP TABLE iceberg.default.test_print_explain_analyze");
     }
 
     private void launchTrinoCliWithServerArgument(String... arguments)

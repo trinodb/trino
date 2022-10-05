@@ -95,6 +95,7 @@ import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_SUBQUERY;
 import static io.trino.spi.expression.StandardFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -141,6 +142,7 @@ public class ElasticsearchMetadata
     private final Type ipAddressType;
     private final ElasticsearchClient client;
     private final String schemaName;
+    private final boolean legacyPassThroughQueryEnabled;
 
     @Inject
     public ElasticsearchMetadata(TypeManager typeManager, ElasticsearchClient client, ElasticsearchConfig config)
@@ -148,6 +150,7 @@ public class ElasticsearchMetadata
         this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
         this.client = requireNonNull(client, "client is null");
         this.schemaName = config.getDefaultSchema();
+        this.legacyPassThroughQueryEnabled = config.isLegacyPassThroughQueryEnabled();
     }
 
     @Override
@@ -170,6 +173,11 @@ public class ElasticsearchMetadata
                 // TODO this query pass-through mechanism is deprecated in favor of the `raw_query` table function.
                 //  it should be eventually removed: https://github.com/trinodb/trino/issues/13050
                 if (table.endsWith(PASSTHROUGH_QUERY_SUFFIX)) {
+                    if (!this.legacyPassThroughQueryEnabled) {
+                        throw new TrinoException(
+                                UNSUPPORTED_SUBQUERY,
+                                "Pass-through query not supported. Please turn it on explicitly using elasticsearch.legacy-pass-through-query.enabled feature toggle");
+                    }
                     table = table.substring(0, table.length() - PASSTHROUGH_QUERY_SUFFIX.length());
                     byte[] decoded;
                     try {

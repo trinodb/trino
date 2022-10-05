@@ -220,4 +220,11 @@ public abstract class AbstractTestingTrinoClient<T>
                 .map(trinoServer.getTypeManager()::fromSqlType)
                 .collect(toImmutableList());
     }
+
+    protected List<String> getNames(List<Column> columns)
+    {
+        return columns.stream()
+                .map(Column::getName)
+                .collect(toImmutableList());
+    }
 }

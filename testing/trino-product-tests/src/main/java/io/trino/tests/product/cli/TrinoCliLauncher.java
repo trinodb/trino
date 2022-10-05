@@ -53,7 +53,7 @@ public class TrinoCliLauncher
         nationTableBatchLines = readLines(getResource("io/trino/tests/product/cli/batch_query.results"), UTF_8);
     }
 
-    protected void stopPresto()
+    protected void stopCli()
             throws InterruptedException
     {
         if (trino != null) {

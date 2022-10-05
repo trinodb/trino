@@ -40,6 +40,7 @@ import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ORDER_BY_PROP
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PARTITION_BY_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PRIMARY_KEY_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PROPERTY;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
@@ -56,6 +57,7 @@ public abstract class BaseClickHouseConnectorTest
 {
     protected TestingClickHouseServer clickhouseServer;
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -65,14 +67,12 @@ public abstract class BaseClickHouseConnectorTest
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
+            case SUPPORTS_DELETE:
+                return false;
+
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
-                return false;
-
             case SUPPORTS_NEGATIVE_DATE:
-                return false;
-
-            case SUPPORTS_DELETE:
                 return false;
 
             default:
@@ -634,13 +634,13 @@ public abstract class BaseClickHouseConnectorTest
     @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
-        return "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: " + date;
+        return "Date must be between 1970-01-01 and 2149-06-06 in ClickHouse: " + date;
     }
 
     @Override
     protected String errorMessageForInsertNegativeDate(String date)
     {
-        return "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: " + date;
+        return "Date must be between 1970-01-01 and 2149-06-06 in ClickHouse: " + date;
     }
 
     @Test
@@ -656,7 +656,7 @@ public abstract class BaseClickHouseConnectorTest
 
     protected String errorMessageForDateYearOfEraPredicate(String date)
     {
-        return "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: " + date;
+        return "Date must be between 1970-01-01 and 2149-06-06 in ClickHouse: " + date;
     }
 
     @Override
@@ -843,6 +843,23 @@ public abstract class BaseClickHouseConnectorTest
         assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + invalidTargetTableName))
                 .hasMessageMatching("(?s).*(Cannot rename|File name too long).*");
         assertFalse(getQueryRunner().tableExists(getSession(), invalidTargetTableName));
+    }
+
+    @Test
+    public void testLargeDefaultDomainCompactionThreshold()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String propertyName = catalogName + "." + DOMAIN_COMPACTION_THRESHOLD;
+        assertQuery(
+                "SHOW SESSION LIKE '" + propertyName + "'",
+                "VALUES('" + propertyName + "','1000', '1000', 'integer', 'Maximum ranges to allow in a tuple domain without simplifying it')");
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        // The numeric value depends on file system
+        return OptionalInt.of(255 - ".sql.detached".length());
     }
 
     @Override

@@ -50,14 +50,8 @@ public class TestMetrics
     @Test
     public void testMergeHistogram()
     {
-        TDigest d1 = new TDigest();
-        d1.add(10.0, 1);
-
-        TDigest d2 = new TDigest();
-        d2.add(5.0, 2);
-
-        Metrics m1 = new Metrics(ImmutableMap.of("a", new TDigestHistogram(d1)));
-        Metrics m2 = new Metrics(ImmutableMap.of("a", new TDigestHistogram(d2)));
+        Metrics m1 = new Metrics(ImmutableMap.of("a", TDigestHistogram.fromValue(10.0, 1)));
+        Metrics m2 = new Metrics(ImmutableMap.of("a", TDigestHistogram.fromValue(5.0, 2)));
         TDigestHistogram merged = (TDigestHistogram) merge(m1, m2).getMetrics().get("a");
 
         assertThat(merged.getTotal()).isEqualTo(3L);

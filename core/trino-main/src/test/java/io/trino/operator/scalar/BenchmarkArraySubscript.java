@@ -198,7 +198,7 @@ public class BenchmarkArraySubscript
             for (int i = 0; i < keyIds.length; i++) {
                 keyIds[i] = ThreadLocalRandom.current().nextInt(0, dictionarySize);
             }
-            return new DictionaryBlock(dictionaryBlock, keyIds);
+            return DictionaryBlock.create(keyIds.length, dictionaryBlock, keyIds);
         }
 
         private static String randomString(int length)

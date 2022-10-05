@@ -51,14 +51,10 @@ import static io.trino.util.Reflection.methodHandle;
 public class MapToJsonCast
         extends SqlScalarFunction
 {
-    public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast(false);
-    public static final MapToJsonCast LEGACY_MAP_TO_JSON = new MapToJsonCast(true);
-
+    public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast();
     private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", ObjectKeyProvider.class, JsonGeneratorWriter.class, Block.class);
 
-    private final boolean legacyRowToJson;
-
-    private MapToJsonCast(boolean legacyRowToJson)
+    private MapToJsonCast()
     {
         super(FunctionMetadata.scalarBuilder()
                 .signature(Signature.builder()
@@ -69,7 +65,6 @@ public class MapToJsonCast
                         .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
                         .build())
                 .build());
-        this.legacyRowToJson = legacyRowToJson;
     }
 
     @Override
@@ -81,7 +76,7 @@ public class MapToJsonCast
         checkCondition(canCastToJson(mapType), INVALID_CAST_ARGUMENT, "Cannot cast %s to JSON", mapType);
 
         ObjectKeyProvider provider = ObjectKeyProvider.createObjectKeyProvider(keyType);
-        JsonGeneratorWriter writer = JsonGeneratorWriter.createJsonGeneratorWriter(valueType, legacyRowToJson);
+        JsonGeneratorWriter writer = JsonGeneratorWriter.createJsonGeneratorWriter(valueType);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(provider).bindTo(writer);
 
         return new ChoicesSpecializedSqlScalarFunction(

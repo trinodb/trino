@@ -49,6 +49,7 @@ import io.trino.execution.QueryExecution;
 import io.trino.execution.QueryExecutionMBean;
 import io.trino.execution.QueryIdGenerator;
 import io.trino.execution.QueryManager;
+import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryPerformanceFetcher;
 import io.trino.execution.QueryPreparer;
 import io.trino.execution.RemoteTaskFactory;
@@ -119,7 +120,9 @@ import javax.inject.Singleton;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -305,8 +308,15 @@ public class CoordinatorModule
                 .toInstance(newSingleThreadScheduledExecutor(threadsNamed("stage-scheduler")));
 
         // query execution
-        binder.bind(ExecutorService.class).annotatedWith(ForQueryExecution.class)
-                .toInstance(newCachedThreadPool(threadsNamed("query-execution-%s")));
+        QueryManagerConfig queryManagerConfig = buildConfigObject(QueryManagerConfig.class);
+        ThreadPoolExecutor queryExecutor = new ThreadPoolExecutor(
+                queryManagerConfig.getQueryExecutorPoolSize(),
+                queryManagerConfig.getQueryExecutorPoolSize(),
+                60, SECONDS,
+                new LinkedBlockingQueue<>(1000),
+                threadsNamed("query-execution-%s"));
+        queryExecutor.allowCoreThreadTimeOut(true);
+        binder.bind(ExecutorService.class).annotatedWith(ForQueryExecution.class).toInstance(queryExecutor);
         binder.bind(QueryExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(QueryExecutionMBean.class)
                 .as(generator -> generator.generatedNameOf(QueryExecution.class));

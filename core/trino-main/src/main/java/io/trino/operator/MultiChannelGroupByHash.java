@@ -56,7 +56,7 @@ import static java.util.Objects.requireNonNull;
 public class MultiChannelGroupByHash
         implements GroupByHash
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MultiChannelGroupByHash.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(MultiChannelGroupByHash.class).instanceSize());
     private static final float FILL_RATIO = 0.75f;
     private static final int BATCH_SIZE = 1024;
     // Max (page value count / cumulative dictionary size) to trigger the low cardinality case
@@ -972,7 +972,7 @@ public class MultiChannelGroupByHash
 
             return new GroupByIdBlock(
                     nextGroupId,
-                    new RunLengthEncodedBlock(
+                    RunLengthEncodedBlock.create(
                             BIGINT.createFixedSizeBlockBuilder(1).writeLong(groupId).build(),
                             page.getPositionCount()));
         }

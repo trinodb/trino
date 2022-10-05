@@ -98,25 +98,29 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         return queryRunner;
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_DELETE:
-            case SUPPORTS_ROW_LEVEL_DELETE:
-            case SUPPORTS_UPDATE:
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
-                return true;
-            case SUPPORTS_MERGE:
-                return true;
             case SUPPORTS_PREDICATE_PUSHDOWN:
             case SUPPORTS_LIMIT_PUSHDOWN:
             case SUPPORTS_TOPN_PUSHDOWN:
             case SUPPORTS_AGGREGATION_PUSHDOWN:
-            case SUPPORTS_DROP_COLUMN:
-            case SUPPORTS_RENAME_COLUMN:
+                return false;
+
             case SUPPORTS_RENAME_SCHEMA:
                 return false;
+
+            case SUPPORTS_DROP_COLUMN:
+            case SUPPORTS_RENAME_COLUMN:
+                return false;
+
+            case SUPPORTS_DELETE:
+            case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
+                return true;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
@@ -510,7 +514,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                 .setSystemProperty("task_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
-                .setCatalogSessionProperty("delta_lake", "experimental_parquet_optimized_writer_enabled", "true")
+                .setCatalogSessionProperty("delta_lake", "parquet_optimized_writer_enabled", "true")
                 .build();
         assertUpdate(session, createTableSql, 100000);
         Set<String> initialFiles = getActiveFiles(tableName);
@@ -522,7 +526,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                 .setSystemProperty("task_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
-                .setCatalogSessionProperty("delta_lake", "experimental_parquet_optimized_writer_enabled", "true")
+                .setCatalogSessionProperty("delta_lake", "parquet_optimized_writer_enabled", "true")
                 .setCatalogSessionProperty("delta_lake", "target_max_file_size", maxSize.toString())
                 .build();
 

@@ -313,6 +313,8 @@ public class QueryAssertions
             this.skipResultsCorrectnessCheckForPushdown = skipResultsCorrectnessCheckForPushdown;
         }
 
+        // TODO for better readability, replace this with `exceptColumns(String... columnNamesToExclude)` leveraging MaterializedResult.getColumnNames
+        @Deprecated
         public QueryAssert projected(int... columns)
         {
             return new QueryAssert(

@@ -227,7 +227,7 @@ public final class ViewReaderUtil
                         Optional.of(table.getDatabaseName()),
                         columns,
                         Optional.ofNullable(table.getParameters().get(TABLE_COMMENT)),
-                        Optional.empty(),
+                        Optional.empty(), // will be filled in later by HiveMetadata
                         hiveViewsRunAsInvoker);
             }
             catch (RuntimeException e) {

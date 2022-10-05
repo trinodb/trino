@@ -30,6 +30,24 @@ public interface PagesHash
 
     int getAddressIndex(int rightPosition, Page hashChannelsPage, long rawHash);
 
+    default int[] getAddressIndex(int[] positions, Page hashChannelsPage)
+    {
+        int[] result = new int[positions.length];
+        for (int i = 0; i < positions.length; i++) {
+            result[i] = getAddressIndex(positions[i], hashChannelsPage);
+        }
+        return result;
+    }
+
+    default int[] getAddressIndex(int[] positions, Page hashChannelsPage, long[] rawHashes)
+    {
+        int[] result = new int[positions.length];
+        for (int i = 0; i < positions.length; i++) {
+            result[i] = getAddressIndex(positions[i], hashChannelsPage, rawHashes[positions[i]]);
+        }
+        return result;
+    }
+
     void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset);
 
     static int getHashPosition(long rawHash, long mask)

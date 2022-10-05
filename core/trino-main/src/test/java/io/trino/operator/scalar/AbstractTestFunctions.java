@@ -131,11 +131,6 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertInvalidFunction(projection, expectedErrorCode);
     }
 
-    protected void assertFunctionThrowsIncorrectly(@Language("SQL") String projection, Class<? extends Throwable> throwableClass, @Language("RegExp") String message)
-    {
-        functionAssertions.assertFunctionThrowsIncorrectly(projection, throwableClass, message);
-    }
-
     protected void assertNumericOverflow(String projection, String message)
     {
         functionAssertions.assertNumericOverflow(projection, message);

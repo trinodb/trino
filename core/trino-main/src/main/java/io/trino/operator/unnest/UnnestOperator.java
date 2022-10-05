@@ -37,6 +37,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class UnnestOperator
@@ -90,7 +91,7 @@ public class UnnestOperator
         }
     }
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(UnnestOperator.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(UnnestOperator.class).instanceSize());
     private static final int MAX_ROWS_PER_BLOCK = 1000;
 
     private final OperatorContext operatorContext;

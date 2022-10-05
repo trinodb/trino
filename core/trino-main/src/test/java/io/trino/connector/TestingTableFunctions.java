@@ -23,8 +23,10 @@ import io.trino.spi.ptf.AbstractConnectorTableFunction;
 import io.trino.spi.ptf.Argument;
 import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.ptf.Descriptor;
+import io.trino.spi.ptf.DescriptorArgumentSpecification;
 import io.trino.spi.ptf.ScalarArgument;
 import io.trino.spi.ptf.ScalarArgumentSpecification;
+import io.trino.spi.ptf.TableArgumentSpecification;
 import io.trino.spi.ptf.TableFunctionAnalysis;
 
 import java.util.List;
@@ -39,6 +41,13 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class TestingTableFunctions
 {
+    private static final String SCHEMA_NAME = "system";
+    private static final ConnectorTableFunctionHandle HANDLE = new ConnectorTableFunctionHandle() {};
+    private static final TableFunctionAnalysis ANALYSIS = TableFunctionAnalysis.builder()
+            .handle(HANDLE)
+            .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN)))))
+            .build();
+
     /**
      * A table function returning a table with single empty column of type BOOLEAN.
      * The argument `COLUMN` is the column name.
@@ -48,7 +57,6 @@ public class TestingTableFunctions
     public static class SimpleTableFunction
             extends AbstractConnectorTableFunction
     {
-        private static final String SCHEMA_NAME = "system";
         private static final String FUNCTION_NAME = "simple_table_function";
         private static final String TABLE_NAME = "simple_table";
 
@@ -99,6 +107,127 @@ public class TestingTableFunctions
             {
                 return tableHandle;
             }
+        }
+    }
+
+    public static class TwoScalarArgumentsFunction
+            extends AbstractConnectorTableFunction
+    {
+        public TwoScalarArgumentsFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "two_arguments_function",
+                    ImmutableList.of(
+                            ScalarArgumentSpecification.builder()
+                                    .name("TEXT")
+                                    .type(VARCHAR)
+                                    .build(),
+                            ScalarArgumentSpecification.builder()
+                                    .name("NUMBER")
+                                    .type(BIGINT)
+                                    .defaultValue(null)
+                                    .build()),
+                    GENERIC_TABLE);
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return ANALYSIS;
+        }
+    }
+
+    public static class TableArgumentFunction
+            extends AbstractConnectorTableFunction
+    {
+        public TableArgumentFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "table_argument_function",
+                    ImmutableList.of(
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT")
+                                    .build()),
+                    GENERIC_TABLE);
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return ANALYSIS;
+        }
+    }
+
+    public static class TableArgumentRowSemanticsFunction
+            extends AbstractConnectorTableFunction
+    {
+        public TableArgumentRowSemanticsFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "table_argument_row_semantics_function",
+                    ImmutableList.of(
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT")
+                                    .rowSemantics()
+                                    .build()),
+                    GENERIC_TABLE);
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return ANALYSIS;
+        }
+    }
+
+    public static class DescriptorArgumentFunction
+            extends AbstractConnectorTableFunction
+    {
+        public DescriptorArgumentFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "descriptor_argument_function",
+                    ImmutableList.of(
+                            DescriptorArgumentSpecification.builder()
+                                    .name("SCHEMA")
+                                    .defaultValue(null)
+                                    .build()),
+                    GENERIC_TABLE);
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return ANALYSIS;
+        }
+    }
+
+    public static class TwoTableArgumentsFunction
+            extends AbstractConnectorTableFunction
+    {
+        public TwoTableArgumentsFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "two_table_arguments_function",
+                    ImmutableList.of(
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT1")
+                                    .build(),
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT2")
+                                    .build()),
+                    GENERIC_TABLE);
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return ANALYSIS;
         }
     }
 }

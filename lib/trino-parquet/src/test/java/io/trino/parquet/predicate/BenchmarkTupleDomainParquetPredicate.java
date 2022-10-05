@@ -93,6 +93,7 @@ public class BenchmarkTupleDomainParquetPredicate
 
             return new DictionaryDescriptor(
                     new ColumnDescriptor(new String[] {"path"}, Types.optional(INT64).named("Test column"), 0, 0),
+                    true,
                     Optional.of(
                             new DictionaryPage(
                                     slice,

@@ -21,12 +21,13 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
 
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class OutputStreamOrcDataSink
         implements OrcDataSink
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(OutputStreamOrcDataSink.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(OutputStreamOrcDataSink.class).instanceSize());
 
     private final OutputStreamSliceOutput output;
 

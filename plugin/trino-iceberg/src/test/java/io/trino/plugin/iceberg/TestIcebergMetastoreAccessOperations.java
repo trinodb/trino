@@ -29,6 +29,7 @@ import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
+import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
@@ -87,7 +88,7 @@ public class TestIcebergMetastoreAccessOperations
                         .setCatalogDirectory(baseDir.toURI().toString())
                         .setMetastoreUser("test"));
         metastore = new CountingAccessHiveMetastore(hiveMetastore);
-        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(metastore), Optional.empty(), EMPTY_MODULE));
+        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore)), Optional.empty(), EMPTY_MODULE));
         queryRunner.createCatalog("iceberg", "iceberg");
 
         queryRunner.execute("CREATE SCHEMA test_schema");
@@ -194,8 +195,8 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("REFRESH MATERIALIZED VIEW test_refresh_mview_view",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 9)
-                        .addCopies(REPLACE_TABLE, 2)
+                        .addCopies(GET_TABLE, 6)
+                        .addCopies(REPLACE_TABLE, 1)
                         .build());
     }
 

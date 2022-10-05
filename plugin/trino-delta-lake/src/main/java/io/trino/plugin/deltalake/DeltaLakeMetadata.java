@@ -55,9 +55,11 @@ import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.security.AccessControlMetadata;
 import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -95,6 +97,9 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.GrantInfo;
+import io.trino.spi.security.Privilege;
+import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ColumnStatisticType;
@@ -272,6 +277,7 @@ public class DeltaLakeMetadata
     private final TrinoFileSystemFactory fileSystemFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
+    private final AccessControlMetadata accessControlMetadata;
     private final CheckpointWriterManager checkpointWriterManager;
     private final long defaultCheckpointInterval;
     private final int domainCompactionThreshold;
@@ -294,6 +300,7 @@ public class DeltaLakeMetadata
             TrinoFileSystemFactory fileSystemFactory,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
+            AccessControlMetadata accessControlMetadata,
             int domainCompactionThreshold,
             boolean unsafeWritesEnabled,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
@@ -313,6 +320,7 @@ public class DeltaLakeMetadata
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
         this.domainCompactionThreshold = domainCompactionThreshold;
         this.unsafeWritesEnabled = unsafeWritesEnabled;
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
@@ -415,7 +423,13 @@ public class DeltaLakeMetadata
     @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return new ConnectorTableProperties();
+        return new ConnectorTableProperties(
+                ((DeltaLakeTableHandle) tableHandle).getEnforcedPartitionConstraint()
+                        .transformKeys(ColumnHandle.class::cast),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of());
     }
 
     @Override
@@ -526,33 +540,34 @@ public class DeltaLakeMetadata
                 .map(ignored -> singletonList(prefix.toSchemaTableName()))
                 .orElseGet(() -> listTables(session, prefix.getSchema()));
 
-        return tables.stream().flatMap(table -> {
-            try {
-                if (redirectTable(session, table).isPresent()) {
-                    // put "redirect marker" for current table
-                    return Stream.of(TableColumnsMetadata.forRedirectedTable(table));
-                }
+        return tables.stream()
+                .flatMap(table -> {
+                    try {
+                        if (redirectTable(session, table).isPresent()) {
+                            // put "redirect marker" for current table
+                            return Stream.of(TableColumnsMetadata.forRedirectedTable(table));
+                        }
 
-                // intentionally skip case when table snapshot is present but it lacks metadata portion
-                return metastore.getMetadata(metastore.getSnapshot(table, session), session).stream().map(metadata -> {
-                    Map<String, String> columnComments = getColumnComments(metadata);
-                    Map<String, Boolean> columnsNullability = getColumnsNullability(metadata);
-                    List<ColumnMetadata> columnMetadata = getColumns(metadata).stream()
-                            .map(column -> getColumnMetadata(column, columnComments.get(column.getName()), columnsNullability.getOrDefault(column.getName(), true)))
-                            .collect(toImmutableList());
-                    return TableColumnsMetadata.forTable(table, columnMetadata);
-                });
-            }
-            catch (NotADeltaLakeTableException e) {
-                return Stream.empty();
-            }
-            catch (RuntimeException e) {
-                // this may happen when table is being deleted concurrently, it still exists in metastore but TL is no longer present
-                // there can be several different exceptions thrown this is why all RTE are caught and ignored here
-                LOG.debug(e, "Ignored exception when trying to list columns from %s", table);
-                return Stream.empty();
-            }
-        })
+                        // intentionally skip case when table snapshot is present but it lacks metadata portion
+                        return metastore.getMetadata(metastore.getSnapshot(table, session), session).stream().map(metadata -> {
+                            Map<String, String> columnComments = getColumnComments(metadata);
+                            Map<String, Boolean> columnsNullability = getColumnsNullability(metadata);
+                            List<ColumnMetadata> columnMetadata = getColumns(metadata).stream()
+                                    .map(column -> getColumnMetadata(column, columnComments.get(column.getName()), columnsNullability.getOrDefault(column.getName(), true)))
+                                    .collect(toImmutableList());
+                            return TableColumnsMetadata.forTable(table, columnMetadata);
+                        });
+                    }
+                    catch (NotADeltaLakeTableException e) {
+                        return Stream.empty();
+                    }
+                    catch (RuntimeException e) {
+                        // this may happen when table is being deleted concurrently, it still exists in metastore but TL is no longer present
+                        // there can be several different exceptions thrown this is why all RTE are caught and ignored here
+                        LOG.debug(e, "Ignored exception when trying to list columns from %s", table);
+                        return Stream.empty();
+                    }
+                })
                 .iterator();
     }
 
@@ -2004,6 +2019,83 @@ public class DeltaLakeMetadata
         return db.map(DeltaLakeSchemaProperties::fromDatabase).orElseThrow(() -> new SchemaNotFoundException(schema));
     }
 
+    @Override
+    public void createRole(ConnectorSession session, String role, Optional<TrinoPrincipal> grantor)
+    {
+        accessControlMetadata.createRole(session, role, grantor.map(HivePrincipal::from));
+    }
+
+    @Override
+    public void dropRole(ConnectorSession session, String role)
+    {
+        accessControlMetadata.dropRole(session, role);
+    }
+
+    @Override
+    public Set<String> listRoles(ConnectorSession session)
+    {
+        return accessControlMetadata.listRoles(session);
+    }
+
+    @Override
+    public Set<RoleGrant> listRoleGrants(ConnectorSession session, TrinoPrincipal principal)
+    {
+        return ImmutableSet.copyOf(accessControlMetadata.listRoleGrants(session, HivePrincipal.from(principal)));
+    }
+
+    @Override
+    public void grantRoles(ConnectorSession session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean withAdminOption, Optional<TrinoPrincipal> grantor)
+    {
+        accessControlMetadata.grantRoles(session, roles, HivePrincipal.from(grantees), withAdminOption, grantor.map(HivePrincipal::from));
+    }
+
+    @Override
+    public void revokeRoles(ConnectorSession session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOptionFor, Optional<TrinoPrincipal> grantor)
+    {
+        accessControlMetadata.revokeRoles(session, roles, HivePrincipal.from(grantees), adminOptionFor, grantor.map(HivePrincipal::from));
+    }
+
+    @Override
+    public Set<RoleGrant> listApplicableRoles(ConnectorSession session, TrinoPrincipal principal)
+    {
+        return accessControlMetadata.listApplicableRoles(session, HivePrincipal.from(principal));
+    }
+
+    @Override
+    public Set<String> listEnabledRoles(ConnectorSession session)
+    {
+        return accessControlMetadata.listEnabledRoles(session);
+    }
+
+    @Override
+    public void grantTablePrivileges(ConnectorSession session, SchemaTableName schemaTableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        accessControlMetadata.grantTablePrivileges(session, schemaTableName, privileges, HivePrincipal.from(grantee), grantOption);
+    }
+
+    @Override
+    public void revokeTablePrivileges(ConnectorSession session, SchemaTableName schemaTableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        accessControlMetadata.revokeTablePrivileges(session, schemaTableName, privileges, HivePrincipal.from(grantee), grantOption);
+    }
+
+    @Override
+    public List<GrantInfo> listTablePrivileges(ConnectorSession session, SchemaTablePrefix schemaTablePrefix)
+    {
+        return accessControlMetadata.listTablePrivileges(session, listTables(session, schemaTablePrefix));
+    }
+
+    private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        if (prefix.getTable().isEmpty()) {
+            return listTables(session, prefix.getSchema());
+        }
+        SchemaTableName tableName = prefix.toSchemaTableName();
+        return metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
+                .map(table -> ImmutableList.of(tableName))
+                .orElse(ImmutableList.of());
+    }
+
     private void setRollback(Runnable action)
     {
         checkState(rollbackAction.compareAndSet(null, action), "rollback action is already set");
@@ -2409,9 +2501,7 @@ public class DeltaLakeMetadata
                 return;
             }
             if (!SUPPORTED_STATISTICS_TYPE.contains(metadata.getStatisticType())) {
-                throw new TrinoException(
-                        GENERIC_INTERNAL_ERROR,
-                        "Unexpected statistics type " + metadata.getStatisticType() + " found for column " + metadata.getColumnName());
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unexpected statistics collection: " + metadata);
             }
 
             result.put(metadata.getColumnName(), metadata.getStatisticType(), block);
@@ -2456,9 +2546,7 @@ public class DeltaLakeMetadata
                 .map(entry -> {
                     ColumnStatisticMetadata columnStatisticMetadata = entry.getKey();
                     if (columnStatisticMetadata.getStatisticType() != MAX_VALUE) {
-                        throw new TrinoException(
-                                GENERIC_INTERNAL_ERROR,
-                                "Unexpected statistics type " + columnStatisticMetadata.getStatisticType() + " found for column " + columnStatisticMetadata.getColumnName());
+                        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unexpected statistics collection: " + columnStatisticMetadata);
                     }
                     if (entry.getValue().isNull(0)) {
                         return Optional.<Instant>empty();

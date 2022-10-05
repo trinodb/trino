@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimeWithTimeZone;
 import io.trino.spi.type.LongTimestamp;
@@ -34,12 +35,10 @@ import java.util.List;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.isLongDecimal;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
@@ -225,7 +224,7 @@ public class InMemoryRecordSet
                 else if (INTEGER.equals(type)) {
                     checkArgument(value instanceof Integer, "Expected value %s to be an instance of Integer, but is a %s", i, value.getClass().getSimpleName());
                 }
-                else if (BIGINT.equals(type) || DATE.equals(type) || TIMESTAMP_MILLIS.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+                else if (BIGINT.equals(type) || DATE.equals(type) || TIMESTAMP_MILLIS.equals(type) || TIMESTAMP_TZ_MILLIS.equals(type)) {
                     checkArgument(value instanceof Integer || value instanceof Long,
                             "Expected value %d to be an instance of Integer or Long, but is a %s", i, value.getClass().getSimpleName());
                 }
@@ -248,11 +247,11 @@ public class InMemoryRecordSet
                     checkArgument(value instanceof Block,
                             "Expected value %d to be an instance of Block, but is a %s", i, value.getClass().getSimpleName());
                 }
-                else if (isShortDecimal(type)) {
+                else if (type instanceof DecimalType decimalType && decimalType.isShort()) {
                     checkArgument(value instanceof Long,
                             "Expected value %d to be an instance of Long, but is a %s", i, value.getClass().getSimpleName());
                 }
-                else if (isLongDecimal(type)) {
+                else if (type instanceof DecimalType decimalType && !decimalType.isShort()) {
                     checkArgument(value instanceof Int128,
                             "Expected value %d to be an instance of LongDecimal, but is a %s", i, value.getClass().getSimpleName());
                 }

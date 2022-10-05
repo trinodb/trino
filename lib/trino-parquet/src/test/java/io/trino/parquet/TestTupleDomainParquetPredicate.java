@@ -13,6 +13,7 @@
  */
 package io.trino.parquet;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.LongMath;
 import io.airlift.slice.Slice;
@@ -554,7 +555,8 @@ public class TestTupleDomainParquetPredicate
                 .withMax(value.getBytes(UTF_8))
                 .withNumNulls(1L)
                 .build();
-        assertTrue(parquetPredicate.matches(2, ImmutableMap.of(column, stats), ID));
+        assertThat(parquetPredicate.getIndexLookupCandidates(2, ImmutableMap.of(column, stats), ID))
+                .isEqualTo(Optional.of(ImmutableList.of(column)));
     }
 
     @Test(dataProvider = "typeForParquetInt32")
@@ -567,9 +569,11 @@ public class TestTupleDomainParquetPredicate
                 Domain.create(ValueSet.of(typeForParquetInt32, 42L, 43L, 44L, 112L), false)));
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
 
-        assertTrue(parquetPredicate.matches(2, ImmutableMap.of(column, intColumnStats(32, 42)), ID));
-        assertFalse(parquetPredicate.matches(2, ImmutableMap.of(column, intColumnStats(30, 40)), ID));
-        assertEquals(parquetPredicate.matches(2, ImmutableMap.of(column, intColumnStats(1024, 0x10000 + 42)), ID), (typeForParquetInt32 != INTEGER)); // stats invalid for smallint/tinyint
+        assertThat(parquetPredicate.getIndexLookupCandidates(2, ImmutableMap.of(column, intColumnStats(32, 42)), ID))
+                .isEqualTo(Optional.of(ImmutableList.of(column)));
+        assertThat(parquetPredicate.getIndexLookupCandidates(2, ImmutableMap.of(column, intColumnStats(30, 40)), ID)).isEmpty();
+        assertThat(parquetPredicate.getIndexLookupCandidates(2, ImmutableMap.of(column, intColumnStats(1024, 0x10000 + 42)), ID).isPresent())
+                .isEqualTo(typeForParquetInt32 != INTEGER); // stats invalid for smallint/tinyint
     }
 
     @DataProvider
@@ -592,9 +596,10 @@ public class TestTupleDomainParquetPredicate
                 Domain.create(ValueSet.of(BIGINT, 42L, 43L, 44L, 404L), false)));
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
 
-        assertTrue(parquetPredicate.matches(2, ImmutableMap.of(column, longColumnStats(32, 42)), ID));
-        assertFalse(parquetPredicate.matches(2, ImmutableMap.of(column, longColumnStats(30, 40)), ID));
-        assertFalse(parquetPredicate.matches(2, ImmutableMap.of(column, longColumnStats(1024, 0x10000 + 42)), ID));
+        assertThat(parquetPredicate.getIndexLookupCandidates(2, ImmutableMap.of(column, longColumnStats(32, 42)), ID))
+                .isEqualTo(Optional.of(ImmutableList.of(column)));
+        assertThat(parquetPredicate.getIndexLookupCandidates(2, ImmutableMap.of(column, longColumnStats(30, 40)), ID)).isEmpty();
+        assertThat(parquetPredicate.getIndexLookupCandidates(2, ImmutableMap.of(column, longColumnStats(1024, 0x10000 + 42)), ID)).isEmpty();
     }
 
     @Test
@@ -604,7 +609,15 @@ public class TestTupleDomainParquetPredicate
         TupleDomain<ColumnDescriptor> effectivePredicate = getEffectivePredicate(column, createVarcharType(255), EMPTY_SLICE);
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
         DictionaryPage page = new DictionaryPage(Slices.wrappedBuffer(new byte[] {0, 0, 0, 0}), 1, PLAIN_DICTIONARY);
-        assertTrue(parquetPredicate.matches(new DictionaryDescriptor(column, Optional.of(page))));
+        assertTrue(parquetPredicate.matches(new DictionaryDescriptor(column, true, Optional.of(page))));
+        assertTrue(parquetPredicate.matches(new DictionaryDescriptor(column, false, Optional.of(page))));
+
+        effectivePredicate = withColumnDomains(ImmutableMap.of(
+                column,
+                singleValue(createVarcharType(255), Slices.utf8Slice("abc"), true)));
+        parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
+        assertTrue(parquetPredicate.matches(new DictionaryDescriptor(column, true, Optional.of(page))));
+        assertFalse(parquetPredicate.matches(new DictionaryDescriptor(column, false, Optional.of(page))));
     }
 
     @Test
@@ -622,21 +635,59 @@ public class TestTupleDomainParquetPredicate
                 withColumnDomains(singletonMap(descriptor, notNull(type))),
                 singletonList(column),
                 UTC);
-        assertFalse(predicate.matches(new DictionaryDescriptor(column, Optional.of(dictionary))));
+        assertFalse(predicate.matches(new DictionaryDescriptor(column, true, Optional.of(dictionary))));
+        assertFalse(predicate.matches(new DictionaryDescriptor(column, false, Optional.of(dictionary))));
 
         // only nulls allowed
         predicate = new TupleDomainParquetPredicate(
                 withColumnDomains(singletonMap(descriptor, onlyNull(type))),
                 singletonList(column),
                 UTC);
-        assertTrue(predicate.matches(new DictionaryDescriptor(column, Optional.of(dictionary))));
+        assertTrue(predicate.matches(new DictionaryDescriptor(column, true, Optional.of(dictionary))));
+        assertFalse(predicate.matches(new DictionaryDescriptor(column, false, Optional.of(dictionary))));
 
         // mixed non-nulls and nulls allowed
         predicate = new TupleDomainParquetPredicate(
                 withColumnDomains(singletonMap(descriptor, singleValue(type, EMPTY_SLICE, true))),
                 singletonList(column),
                 UTC);
-        assertTrue(predicate.matches(new DictionaryDescriptor(column, Optional.of(dictionary))));
+        assertTrue(predicate.matches(new DictionaryDescriptor(column, true, Optional.of(dictionary))));
+        assertFalse(predicate.matches(new DictionaryDescriptor(column, false, Optional.of(dictionary))));
+    }
+
+    @Test
+    public void testIndexLookupCandidates()
+            throws ParquetCorruptionException
+    {
+        ColumnDescriptor columnA = new ColumnDescriptor(new String[] {"pathA"}, Types.optional(INT64).named("Test column A"), 0, 0);
+        ColumnDescriptor columnB = new ColumnDescriptor(new String[] {"pathB"}, Types.optional(INT64).named("Test column B"), 0, 0);
+        TupleDomain<ColumnDescriptor> effectivePredicate = TupleDomain.withColumnDomains(ImmutableMap.of(
+                columnA,
+                Domain.create(ValueSet.of(BIGINT, 42L, 43L, 44L, 404L), false),
+                columnB,
+                Domain.create(ValueSet.ofRanges(range(BIGINT, 42L, true, 404L, true)), false)));
+
+        TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(columnA), UTC);
+        assertThat(parquetPredicate.getIndexLookupCandidates(
+                2,
+                ImmutableMap.of(columnA, longColumnStats(32, 42), columnB, longColumnStats(42, 500)), ID))
+                .isEqualTo(Optional.of(ImmutableList.of(columnA)));
+
+        parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, ImmutableList.of(columnA, columnB), UTC);
+        // column stats missing on columnB
+        assertThat(parquetPredicate.getIndexLookupCandidates(2, ImmutableMap.of(columnA, longColumnStats(32, 42)), ID))
+                .isEqualTo(Optional.of(ImmutableList.of(columnA, columnB)));
+
+        // All possible values for columnB are covered by effectivePredicate
+        assertThat(parquetPredicate.getIndexLookupCandidates(
+                2,
+                ImmutableMap.of(columnA, longColumnStats(32, 42), columnB, longColumnStats(50, 400)), ID))
+                .isEqualTo(Optional.of(ImmutableList.of(columnA)));
+
+        assertThat(parquetPredicate.getIndexLookupCandidates(
+                2,
+                ImmutableMap.of(columnA, longColumnStats(32, 42), columnB, longColumnStats(42, 500)), ID))
+                .isEqualTo(Optional.of(ImmutableList.of(columnA, columnB)));
     }
 
     @Test
@@ -751,6 +802,7 @@ public class TestTupleDomainParquetPredicate
         }
         return new DictionaryDescriptor(
                 new ColumnDescriptor(new String[] {"dummy"}, new PrimitiveType(OPTIONAL, FLOAT, 0, "FloatColumn"), 1, 1),
+                true,
                 Optional.of(new DictionaryPage(Slices.wrappedBuffer(buf.toByteArray()), values.length, PLAIN_DICTIONARY)));
     }
 
@@ -765,6 +817,7 @@ public class TestTupleDomainParquetPredicate
         }
         return new DictionaryDescriptor(
                 new ColumnDescriptor(new String[] {"dummy"}, new PrimitiveType(OPTIONAL, PrimitiveTypeName.DOUBLE, 0, "DoubleColumn"), 1, 1),
+                true,
                 Optional.of(new DictionaryPage(Slices.wrappedBuffer(buf.toByteArray()), values.length, PLAIN_DICTIONARY)));
     }
 

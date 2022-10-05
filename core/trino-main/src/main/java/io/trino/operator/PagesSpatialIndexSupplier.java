@@ -51,10 +51,10 @@ import static java.lang.Math.toIntExact;
 public class PagesSpatialIndexSupplier
         implements Supplier<PagesSpatialIndex>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PagesSpatialIndexSupplier.class).instanceSize();
-    private static final int ENVELOPE_INSTANCE_SIZE = ClassLayout.parseClass(Envelope.class).instanceSize();
-    private static final int STRTREE_INSTANCE_SIZE = ClassLayout.parseClass(STRtree.class).instanceSize();
-    private static final int ABSTRACT_NODE_INSTANCE_SIZE = ClassLayout.parseClass(AbstractNode.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(PagesSpatialIndexSupplier.class).instanceSize());
+    private static final int ENVELOPE_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Envelope.class).instanceSize());
+    private static final int STRTREE_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(STRtree.class).instanceSize());
+    private static final int ABSTRACT_NODE_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(AbstractNode.class).instanceSize());
 
     private final Session session;
     private final LongArrayList addresses;

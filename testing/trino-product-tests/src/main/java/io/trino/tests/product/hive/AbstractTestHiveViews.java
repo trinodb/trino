@@ -575,6 +575,21 @@ public abstract class AbstractTestHiveViews
         }
     }
 
+    @Test(groups = HIVE_VIEWS)
+    public void testHivePartitionViews()
+    {
+        onHive().executeQuery("DROP VIEW IF EXISTS test_view_partitioned_column");
+        onHive().executeQuery("DROP TABLE IF EXISTS test_table_partitioned_column");
+        onTrino().executeQuery("CREATE TABLE test_table_partitioned_column(some_id VARCHAR(25), ds VARCHAR(25)) WITH (partitioned_by=array['ds'])");
+        onTrino().executeQuery("INSERT INTO test_table_partitioned_column VALUES ('1', '2022-09-17')");
+        onHive().executeQuery("CREATE VIEW test_view_partitioned_column PARTITIONED ON (ds) AS SELECT some_id, ds FROM test_table_partitioned_column");
+
+        String testQuery = "SELECT some_id, ds FROM test_view_partitioned_column";
+        assertThat(onTrino().executeQuery(testQuery)).containsOnly(row("1", "2022-09-17"));
+        onHive().executeQuery("DROP VIEW test_view_partitioned_column");
+        onHive().executeQuery("DROP TABLE test_table_partitioned_column");
+    }
+
     /**
      * Test a Hive view that spans over Hive and Iceberg table when metastore does not contain an up to date information about table schema, requiring
      * any potential view translation to follow redirections.
@@ -686,6 +701,26 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP TABLE test_hive_namesake_column_name_a");
         onHive().executeQuery("DROP TABLE test_hive_namesake_column_name_b");
         onHive().executeQuery("DROP VIEW test_namesake_column_names_view");
+    }
+
+    @Test(groups = HIVE_VIEWS)
+    public void testRunAsInvoker()
+    {
+        onTrino().executeQuery("DROP TABLE IF EXISTS run_as_invoker");
+        onTrino().executeQuery("DROP VIEW IF EXISTS run_as_invoker_view");
+
+        onTrino().executeQuery("CREATE TABLE run_as_invoker (a INTEGER)");
+        onHive().executeQuery("CREATE VIEW run_as_invoker_view AS SELECT * FROM run_as_invoker");
+        onTrino().executeQuery("GRANT SELECT ON hive_with_run_view_as_invoker.default.run_as_invoker_view TO hive");
+
+        String definerQuery = "SELECT * FROM hive.default.run_as_invoker_view";
+        String invokerQuery = "SELECT * FROM hive_with_run_view_as_invoker.default.run_as_invoker_view";
+        assertThat(connectToTrino("alice@presto").executeQuery(definerQuery)).hasNoRows(); // Allowed
+        assertThatThrownBy(() -> connectToTrino("alice@presto").executeQuery(invokerQuery))
+                .hasMessageContaining("Access Denied");
+
+        onHive().executeQuery("DROP VIEW run_as_invoker_view");
+        onTrino().executeQuery("DROP TABLE run_as_invoker");
     }
 
     protected static void assertViewQuery(String query, Consumer<QueryAssert> assertion)

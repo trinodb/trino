@@ -16,6 +16,7 @@ package io.trino.operator;
 import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
 import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperatorFactory;
 import io.trino.spi.Page;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Optional;
@@ -144,5 +145,11 @@ public class BasicWorkProcessorOperatorAdapter
             throws Exception
     {
         operator.close();
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return operator.getMetrics();
     }
 }

@@ -50,7 +50,7 @@ import static java.util.Objects.requireNonNull;
 public class UuidColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(UuidColumnReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(UuidColumnReader.class).instanceSize());
     private static final int ONE_GIGABYTE = toIntExact(DataSize.of(1, GIGABYTE).toBytes());
 
     private static final VarHandle LONG_ARRAY_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
@@ -255,9 +255,9 @@ public class UuidColumnReader
         return values;
     }
 
-    private RunLengthEncodedBlock createAllNullsBlock()
+    private Block createAllNullsBlock()
     {
-        return new RunLengthEncodedBlock(new Int128ArrayBlock(1, Optional.of(new boolean[] {true}), new long[2]), nextBatchSize);
+        return RunLengthEncodedBlock.create(new Int128ArrayBlock(1, Optional.of(new boolean[] {true}), new long[2]), nextBatchSize);
     }
 
     private void openRowGroup()

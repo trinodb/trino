@@ -69,7 +69,7 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitArrayConstructor(ArrayConstructor node, C context)
+    protected Void visitArray(Array node, C context)
     {
         for (Expression expression : node.getValues()) {
             process(expression, context);

@@ -69,7 +69,8 @@ import static java.util.Objects.requireNonNull;
  *
  *  SELECT a1, a2,..., an, arbitrary(if(group = 0, f1)),...., arbitrary(if(group = 0, fm)), F(if(group = 1, c)) FROM
  *      SELECT a1, a2,..., an, F1(b1) as f1, F2(b2) as f2,...., Fm(bm) as fm, c, group FROM
- *        SELECT a1, a2,..., an, b1, b2, ... ,bn, c FROM Table GROUP BY GROUPING SETS ((a1, a2,..., an, b1, b2, ... ,bn), (a1, a2,..., an, c))
+ *        GroupIdNode ((a1, a2,..., an, b1, b2, ... ,bn), (a1, a2,..., an, c))
+ *          SELECT a1, a2,..., an, b1, b2, ... ,bn, c FROM Table
  *      GROUP BY a1, a2,..., an, c, group
  *  GROUP BY a1, a2,..., an
  */

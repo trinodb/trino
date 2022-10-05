@@ -42,6 +42,6 @@ public class ReplicatedBlockBuilder
             fromPosition = toPosition;
         }
 
-        return new DictionaryBlock(outputRowCount, source, ids);
+        return DictionaryBlock.create(outputRowCount, source, ids);
     }
 }

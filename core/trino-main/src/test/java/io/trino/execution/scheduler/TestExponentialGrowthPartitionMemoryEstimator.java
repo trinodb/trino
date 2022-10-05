@@ -60,106 +60,106 @@ public class TestExponentialGrowthPartitionMemoryEstimator
         Session session = TestingSession.testSessionBuilder().build();
 
         assertThat(estimator.getInitialMemoryRequirements(session, DataSize.of(107, MEGABYTE)))
-                .isEqualTo(new MemoryRequirements(DataSize.of(107, MEGABYTE), false));
+                .isEqualTo(new MemoryRequirements(DataSize.of(107, MEGABYTE)));
 
         // peak memory of failed task 10MB
         assertThat(
                 estimator.getNextRetryMemoryRequirements(
                         session,
-                        new MemoryRequirements(DataSize.of(50, MEGABYTE), false),
+                        new MemoryRequirements(DataSize.of(50, MEGABYTE)),
                         DataSize.of(10, MEGABYTE),
                         StandardErrorCode.CORRUPT_PAGE.toErrorCode()))
-                .isEqualTo(new MemoryRequirements(DataSize.of(50, MEGABYTE), false));
+                .isEqualTo(new MemoryRequirements(DataSize.of(50, MEGABYTE)));
 
         assertThat(
                 estimator.getNextRetryMemoryRequirements(
                         session,
-                        new MemoryRequirements(DataSize.of(50, MEGABYTE), false),
+                        new MemoryRequirements(DataSize.of(50, MEGABYTE)),
                         DataSize.of(10, MEGABYTE),
                         StandardErrorCode.CLUSTER_OUT_OF_MEMORY.toErrorCode()))
-                .isEqualTo(new MemoryRequirements(DataSize.of(150, MEGABYTE), false));
+                .isEqualTo(new MemoryRequirements(DataSize.of(150, MEGABYTE)));
 
         assertThat(
                 estimator.getNextRetryMemoryRequirements(
                         session,
-                        new MemoryRequirements(DataSize.of(50, MEGABYTE), false),
+                        new MemoryRequirements(DataSize.of(50, MEGABYTE)),
                         DataSize.of(10, MEGABYTE),
                         EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()))
-                .isEqualTo(new MemoryRequirements(DataSize.of(150, MEGABYTE), false));
+                .isEqualTo(new MemoryRequirements(DataSize.of(150, MEGABYTE)));
 
         // peak memory of failed task 70MB
         assertThat(
                 estimator.getNextRetryMemoryRequirements(
                         session,
-                        new MemoryRequirements(DataSize.of(50, MEGABYTE), false),
+                        new MemoryRequirements(DataSize.of(50, MEGABYTE)),
                         DataSize.of(70, MEGABYTE),
                         StandardErrorCode.CORRUPT_PAGE.toErrorCode()))
-                .isEqualTo(new MemoryRequirements(DataSize.of(70, MEGABYTE), false));
+                .isEqualTo(new MemoryRequirements(DataSize.of(70, MEGABYTE)));
 
         assertThat(
                 estimator.getNextRetryMemoryRequirements(
                         session,
-                        new MemoryRequirements(DataSize.of(50, MEGABYTE), false),
+                        new MemoryRequirements(DataSize.of(50, MEGABYTE)),
                         DataSize.of(70, MEGABYTE),
                         EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()))
-                .isEqualTo(new MemoryRequirements(DataSize.of(210, MEGABYTE), false));
+                .isEqualTo(new MemoryRequirements(DataSize.of(210, MEGABYTE)));
 
         // register a couple successful attempts; 90th percentile is at 300MB
-        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(1000, MEGABYTE), true, Optional.empty());
-        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(300, MEGABYTE), true, Optional.empty());
-        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(300, MEGABYTE), true, Optional.empty());
-        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(300, MEGABYTE), true, Optional.empty());
-        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(300, MEGABYTE), true, Optional.empty());
-        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(300, MEGABYTE), true, Optional.empty());
-        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(300, MEGABYTE), true, Optional.empty());
-        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(300, MEGABYTE), true, Optional.empty());
-        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(300, MEGABYTE), true, Optional.empty());
-        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(300, MEGABYTE), true, Optional.empty());
-        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(100, MEGABYTE), true, Optional.empty());
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE)), DataSize.of(1000, MEGABYTE), true, Optional.empty());
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE)), DataSize.of(300, MEGABYTE), true, Optional.empty());
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE)), DataSize.of(300, MEGABYTE), true, Optional.empty());
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE)), DataSize.of(300, MEGABYTE), true, Optional.empty());
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE)), DataSize.of(300, MEGABYTE), true, Optional.empty());
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE)), DataSize.of(300, MEGABYTE), true, Optional.empty());
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE)), DataSize.of(300, MEGABYTE), true, Optional.empty());
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE)), DataSize.of(300, MEGABYTE), true, Optional.empty());
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE)), DataSize.of(300, MEGABYTE), true, Optional.empty());
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE)), DataSize.of(300, MEGABYTE), true, Optional.empty());
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE)), DataSize.of(100, MEGABYTE), true, Optional.empty());
 
         // for initial we should pick estimate if greater than default
         assertThat(estimator.getInitialMemoryRequirements(session, DataSize.of(100, MEGABYTE)))
-                .isEqualTo(new MemoryRequirements(DataSize.of(300, MEGABYTE), false));
+                .isEqualTo(new MemoryRequirements(DataSize.of(300, MEGABYTE)));
 
         // if default memory requirements is greater than estimate it should be picked still
         assertThat(estimator.getInitialMemoryRequirements(session, DataSize.of(500, MEGABYTE)))
-                .isEqualTo(new MemoryRequirements(DataSize.of(500, MEGABYTE), false));
+                .isEqualTo(new MemoryRequirements(DataSize.of(500, MEGABYTE)));
 
         // for next we should still pick current initial if greater
         assertThat(
                 estimator.getNextRetryMemoryRequirements(
                         session,
-                        new MemoryRequirements(DataSize.of(50, MEGABYTE), false),
+                        new MemoryRequirements(DataSize.of(50, MEGABYTE)),
                         DataSize.of(70, MEGABYTE),
                         EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()))
-                .isEqualTo(new MemoryRequirements(DataSize.of(300, MEGABYTE), false));
+                .isEqualTo(new MemoryRequirements(DataSize.of(300, MEGABYTE)));
 
         // a couple oom errors are registered
-        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(200, MEGABYTE), false, Optional.of(EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()));
-        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(200, MEGABYTE), true, Optional.of(CLUSTER_OUT_OF_MEMORY.toErrorCode()));
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE)), DataSize.of(200, MEGABYTE), false, Optional.of(EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()));
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE)), DataSize.of(200, MEGABYTE), true, Optional.of(CLUSTER_OUT_OF_MEMORY.toErrorCode()));
 
         // 90th percentile should be now at 200*3 (600)
         assertThat(estimator.getInitialMemoryRequirements(session, DataSize.of(100, MEGABYTE)))
-                .isEqualTo(new MemoryRequirements(DataSize.of(600, MEGABYTE), false));
+                .isEqualTo(new MemoryRequirements(DataSize.of(600, MEGABYTE)));
 
         // a couple oom errors are registered with requested memory greater than peak
-        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(300, MEGABYTE), false), DataSize.of(200, MEGABYTE), false, Optional.of(EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()));
-        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(300, MEGABYTE), false), DataSize.of(200, MEGABYTE), false, Optional.of(EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()));
-        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(300, MEGABYTE), false), DataSize.of(200, MEGABYTE), true, Optional.of(CLUSTER_OUT_OF_MEMORY.toErrorCode()));
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(300, MEGABYTE)), DataSize.of(200, MEGABYTE), false, Optional.of(EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()));
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(300, MEGABYTE)), DataSize.of(200, MEGABYTE), false, Optional.of(EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()));
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(300, MEGABYTE)), DataSize.of(200, MEGABYTE), true, Optional.of(CLUSTER_OUT_OF_MEMORY.toErrorCode()));
 
         // 90th percentile should be now at 300*3 (900)
         assertThat(estimator.getInitialMemoryRequirements(session, DataSize.of(100, MEGABYTE)))
-                .isEqualTo(new MemoryRequirements(DataSize.of(900, MEGABYTE), false));
+                .isEqualTo(new MemoryRequirements(DataSize.of(900, MEGABYTE)));
 
         // other errors should not change estimate
-        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(500, MEGABYTE), false, Optional.of(ADMINISTRATIVELY_PREEMPTED.toErrorCode()));
-        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(500, MEGABYTE), false, Optional.of(ADMINISTRATIVELY_PREEMPTED.toErrorCode()));
-        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(500, MEGABYTE), false, Optional.of(ADMINISTRATIVELY_PREEMPTED.toErrorCode()));
-        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(500, MEGABYTE), false, Optional.of(ADMINISTRATIVELY_PREEMPTED.toErrorCode()));
-        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(500, MEGABYTE), false, Optional.of(ADMINISTRATIVELY_PREEMPTED.toErrorCode()));
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE)), DataSize.of(500, MEGABYTE), false, Optional.of(ADMINISTRATIVELY_PREEMPTED.toErrorCode()));
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE)), DataSize.of(500, MEGABYTE), false, Optional.of(ADMINISTRATIVELY_PREEMPTED.toErrorCode()));
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE)), DataSize.of(500, MEGABYTE), false, Optional.of(ADMINISTRATIVELY_PREEMPTED.toErrorCode()));
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE)), DataSize.of(500, MEGABYTE), false, Optional.of(ADMINISTRATIVELY_PREEMPTED.toErrorCode()));
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE)), DataSize.of(500, MEGABYTE), false, Optional.of(ADMINISTRATIVELY_PREEMPTED.toErrorCode()));
 
         assertThat(estimator.getInitialMemoryRequirements(session, DataSize.of(100, MEGABYTE)))
-                .isEqualTo(new MemoryRequirements(DataSize.of(900, MEGABYTE), false));
+                .isEqualTo(new MemoryRequirements(DataSize.of(900, MEGABYTE)));
     }
 
     private MemoryInfo buildWorkerMemoryInfo(DataSize usedMemory)

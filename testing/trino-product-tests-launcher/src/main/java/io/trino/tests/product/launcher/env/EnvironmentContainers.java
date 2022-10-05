@@ -29,9 +29,9 @@ public final class EnvironmentContainers
     private static final SecureRandom random = new SecureRandom();
     private static final int RANDOM_SUFFIX_LENGTH = 5;
 
-    public static final String PRESTO = "presto";
-    public static final String COORDINATOR = PRESTO + "-master";
-    public static final String WORKER = PRESTO + "-worker";
+    public static final String TRINO = "presto";
+    public static final String COORDINATOR = TRINO + "-master";
+    public static final String WORKER = TRINO + "-worker";
     public static final String WORKER_NTH = WORKER + "-";
     public static final String HADOOP = "hadoop-master";
     public static final String TESTS = "tests";
@@ -44,9 +44,9 @@ public final class EnvironmentContainers
         return WORKER_NTH + number;
     }
 
-    public static boolean isPrestoContainer(String name)
+    public static boolean isTrinoContainer(String name)
     {
-        return name.startsWith(PRESTO);
+        return name.startsWith(TRINO);
     }
 
     /**

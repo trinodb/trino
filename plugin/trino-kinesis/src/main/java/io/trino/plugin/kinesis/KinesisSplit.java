@@ -24,6 +24,7 @@ import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -33,7 +34,7 @@ import static java.util.Objects.requireNonNull;
 public class KinesisSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(KinesisSplit.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(KinesisSplit.class).instanceSize());
 
     private final String streamName;
     private final String messageDataFormat;

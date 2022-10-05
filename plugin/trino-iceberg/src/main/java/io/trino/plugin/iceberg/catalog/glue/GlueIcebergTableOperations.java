@@ -18,6 +18,8 @@ import com.amazonaws.services.glue.model.ConcurrentModificationException;
 import com.amazonaws.services.glue.model.CreateTableRequest;
 import com.amazonaws.services.glue.model.EntityNotFoundException;
 import com.amazonaws.services.glue.model.GetTableRequest;
+import com.amazonaws.services.glue.model.InvalidInputException;
+import com.amazonaws.services.glue.model.ResourceNumberLimitExceededException;
 import com.amazonaws.services.glue.model.Table;
 import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
@@ -30,6 +32,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.exceptions.CommitFailedException;
+import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.io.FileIO;
 
 import javax.annotation.Nullable;
@@ -43,6 +46,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getTableInput;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
@@ -100,7 +104,7 @@ public class GlueIcebergTableOperations
         verify(version == -1, "commitNewTable called on a table which already exists");
         String newMetadataLocation = writeNewMetadata(metadata, 0);
         TableInput tableInput = getTableInput(tableName, owner, ImmutableMap.<String, String>builder()
-                        .put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE)
+                        .put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
                         .put(METADATA_LOCATION_PROP, newMetadataLocation)
                         .buildOrThrow());
 
@@ -116,7 +120,7 @@ public class GlueIcebergTableOperations
     {
         String newMetadataLocation = writeNewMetadata(metadata, version + 1);
         TableInput tableInput = getTableInput(tableName, owner, ImmutableMap.<String, String>builder()
-                .put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE)
+                .put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
                 .put(METADATA_LOCATION_PROP, newMetadataLocation)
                 .put(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation)
                 .buildOrThrow());
@@ -130,7 +134,16 @@ public class GlueIcebergTableOperations
         }
         catch (ConcurrentModificationException e) {
             // CommitFailedException is handled as a special case in the Iceberg library. This commit will automatically retry
-            throw new CommitFailedException(e, "Failed to commit to Glue table due to concurrent updates: %s.%s", database, tableName);
+            throw new CommitFailedException(e, "Failed to commit to Glue table: %s.%s", database, tableName);
+        }
+        catch (EntityNotFoundException | InvalidInputException | ResourceNumberLimitExceededException e) {
+            // Signal a non-retriable commit failure and eventually clean up metadata files corresponding to the current transaction
+            throw e;
+        }
+        catch (RuntimeException e) {
+            // Cannot determine whether the `updateTable` operation was successful,
+            // regardless of the exception thrown (e.g. : timeout exception) or it actually failed
+            throw new CommitStateUnknownException(e);
         }
         shouldRefresh = true;
     }

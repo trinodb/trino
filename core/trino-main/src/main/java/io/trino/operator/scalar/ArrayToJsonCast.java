@@ -45,14 +45,11 @@ import static io.trino.util.Reflection.methodHandle;
 public class ArrayToJsonCast
         extends SqlScalarFunction
 {
-    public static final ArrayToJsonCast ARRAY_TO_JSON = new ArrayToJsonCast(false);
-    public static final ArrayToJsonCast LEGACY_ARRAY_TO_JSON = new ArrayToJsonCast(true);
+    public static final ArrayToJsonCast ARRAY_TO_JSON = new ArrayToJsonCast();
 
     private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayToJsonCast.class, "toJson", JsonGeneratorWriter.class, Block.class);
 
-    private final boolean legacyRowToJson;
-
-    private ArrayToJsonCast(boolean legacyRowToJson)
+    private ArrayToJsonCast()
     {
         super(FunctionMetadata.scalarBuilder()
                 .signature(Signature.builder()
@@ -62,7 +59,6 @@ public class ArrayToJsonCast
                         .argumentType(arrayType(new TypeSignature("T")))
                         .build())
                 .build());
-        this.legacyRowToJson = legacyRowToJson;
     }
 
     @Override
@@ -71,7 +67,7 @@ public class ArrayToJsonCast
         ArrayType arrayType = (ArrayType) boundSignature.getArgumentTypes().get(0);
         checkCondition(canCastToJson(arrayType), INVALID_CAST_ARGUMENT, "Cannot cast %s to JSON", arrayType);
 
-        JsonGeneratorWriter writer = JsonGeneratorWriter.createJsonGeneratorWriter(arrayType.getElementType(), legacyRowToJson);
+        JsonGeneratorWriter writer = JsonGeneratorWriter.createJsonGeneratorWriter(arrayType.getElementType());
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(writer);
         return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,

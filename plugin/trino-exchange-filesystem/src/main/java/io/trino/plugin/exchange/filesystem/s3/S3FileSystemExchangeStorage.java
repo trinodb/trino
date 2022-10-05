@@ -474,7 +474,7 @@ public class S3FileSystemExchangeStorage
     private static class S3ExchangeStorageReader
             implements ExchangeStorageReader
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(S3ExchangeStorageReader.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(S3ExchangeStorageReader.class).instanceSize());
 
         private final S3FileSystemExchangeStorageStats stats;
         private final S3AsyncClient s3AsyncClient;
@@ -655,7 +655,7 @@ public class S3FileSystemExchangeStorage
     private static class S3ExchangeStorageWriter
             implements ExchangeStorageWriter
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(S3ExchangeStorageWriter.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(S3ExchangeStorageWriter.class).instanceSize());
 
         private final S3FileSystemExchangeStorageStats stats;
         private final S3AsyncClient s3AsyncClient;

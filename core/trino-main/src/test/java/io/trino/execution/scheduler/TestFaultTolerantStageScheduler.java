@@ -426,8 +426,8 @@ public class TestFaultTolerantStageScheduler
             // waiting on node acquisition
             assertBlocked(blocked);
 
-            NodeAllocator.NodeLease acquireNode1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(), DataSize.of(4, GIGABYTE)));
-            NodeAllocator.NodeLease acquireNode2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(), DataSize.of(4, GIGABYTE)));
+            NodeAllocator.NodeLease acquireNode1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of()), DataSize.of(1, GIGABYTE));
+            NodeAllocator.NodeLease acquireNode2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of()), DataSize.of(1, GIGABYTE));
 
             remoteTaskFactory.getTasks().get(getTaskId(0, 0)).fail(new RuntimeException("some failure"));
 
@@ -761,8 +761,8 @@ public class TestFaultTolerantStageScheduler
             // waiting on node acquisition
             assertBlocked(blocked);
 
-            NodeAllocator.NodeLease acquireNode1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(), DataSize.of(4, GIGABYTE)));
-            NodeAllocator.NodeLease acquireNode2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(), DataSize.of(4, GIGABYTE)));
+            NodeAllocator.NodeLease acquireNode1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of()), DataSize.of(1, GIGABYTE));
+            NodeAllocator.NodeLease acquireNode2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of()), DataSize.of(1, GIGABYTE));
 
             if (abort) {
                 scheduler.abort();
@@ -858,7 +858,7 @@ public class TestFaultTolerantStageScheduler
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
             FaultTolerantStageScheduler scheduler = createFaultTolerantTaskScheduler(
                     remoteTaskFactory,
-                    (session, fragment, exchangeSourceHandles, getSplitTimeRecorder, bucketToPartitionMap, bucketNodeMap) -> {
+                    (session, fragment, exchangeSourceHandles, getSplitTimeRecorder, bucketToPartition) -> {
                         taskSourceCreated.set(true);
                         return taskSource;
                     },
@@ -932,10 +932,9 @@ public class TestFaultTolerantStageScheduler
                 futureCompletor,
                 ticker,
                 sinkExchange,
-                Optional.empty(),
+                new FaultTolerantPartitioningScheme(3, Optional.empty(), Optional.empty(), Optional.empty()),
                 sourceExchanges,
-                Optional.empty(),
-                Optional.empty(),
+                new FaultTolerantPartitioningScheme(3, Optional.empty(), Optional.empty(), Optional.empty()),
                 new AtomicInteger(retryAttempts),
                 retryAttempts,
                 maxTasksWaitingForNodePerStage,

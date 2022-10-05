@@ -37,7 +37,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -331,7 +331,7 @@ public class StringRowSerializer
         else if (type.equals(SMALLINT)) {
             setShort(text, (Short) value);
         }
-        else if (type.equals(TIME)) {
+        else if (type.equals(TIME_MILLIS)) {
             setTime(text, (Time) value);
         }
         else if (type.equals(TIMESTAMP_MILLIS)) {
@@ -385,7 +385,7 @@ public class StringRowSerializer
         if (type.equals(SMALLINT)) {
             return (T) (Long) ((Short) Short.parseShort(strValue)).longValue();
         }
-        if (type.equals(TIME)) {
+        if (type.equals(TIME_MILLIS)) {
             return (T) (Long) Long.parseLong(strValue);
         }
         if (type.equals(TIMESTAMP_MILLIS)) {

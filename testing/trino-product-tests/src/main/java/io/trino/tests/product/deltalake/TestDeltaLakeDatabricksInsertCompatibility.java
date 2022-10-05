@@ -412,7 +412,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                 "AS TABLE tpch.tiny.nation WITH NO DATA");
 
         try {
-            onTrino().executeQuery("SET SESSION delta.experimental_parquet_optimized_writer_enabled = " + optimizedWriter);
+            onTrino().executeQuery("SET SESSION delta.parquet_optimized_writer_enabled = " + optimizedWriter);
             onTrino().executeQuery("SET SESSION delta.compression_codec = '" + compressionCodec + "'");
 
             if (optimizedWriter && "LZ4".equals(compressionCodec)) {

@@ -181,7 +181,7 @@ public class ClickHouseClient
     // An empty character means that the table doesn't have a comment in ClickHouse
     private static final String NO_COMMENT = "";
 
-    public static final int CLICK_HOUSE_MAX_LIST_EXPRESSIONS = 1_000;
+    public static final int DEFAULT_DOMAIN_COMPACTION_THRESHOLD = 1_000;
 
     private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
@@ -638,8 +638,7 @@ public class ClickHouseClient
         if (type == DOUBLE) {
             return WriteMapping.doubleMapping("Float64", doubleWriteFunction());
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             String dataType = format("Decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));

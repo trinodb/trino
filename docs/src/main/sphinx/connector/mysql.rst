@@ -111,8 +111,8 @@ writing data. Data types may not map the same way in both directions between
 Trino and the data source. Refer to the following sections for type mapping in
 each direction.
 
-MySQL to Trino read type mapping
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+MySQL to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The connector maps MySQL types to the corresponding Trino types following
 this table:
@@ -196,8 +196,8 @@ this table:
 
 No other types are supported.
 
-Trino to MySQL write type mapping
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Trino to MySQL type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The connector maps Trino types to the corresponding MySQL types following
 this table:

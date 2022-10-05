@@ -803,11 +803,11 @@ public class ParquetTester
             else if (TINYINT.equals(type) || SMALLINT.equals(type) || INTEGER.equals(type) || BIGINT.equals(type)) {
                 type.writeLong(blockBuilder, ((Number) value).longValue());
             }
-            else if (Decimals.isShortDecimal(type)) {
-                type.writeLong(blockBuilder, ((SqlDecimal) value).getUnscaledValue().longValue());
-            }
-            else if (Decimals.isLongDecimal(type)) {
-                if (Decimals.overflows(((SqlDecimal) value).getUnscaledValue(), MAX_PRECISION_INT64)) {
+            else if (type instanceof DecimalType decimalType) {
+                if (decimalType.isShort()) {
+                    type.writeLong(blockBuilder, ((SqlDecimal) value).getUnscaledValue().longValue());
+                }
+                else if (Decimals.overflows(((SqlDecimal) value).getUnscaledValue(), MAX_PRECISION_INT64)) {
                     type.writeObject(blockBuilder, Int128.valueOf(((SqlDecimal) value).toBigDecimal().unscaledValue()));
                 }
                 else {

@@ -46,9 +46,10 @@ import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
-import io.trino.execution.buffer.BufferInfo;
 import io.trino.execution.buffer.OutputBuffers;
-import io.trino.execution.buffer.PageBufferInfo;
+import io.trino.execution.buffer.PipelinedBufferInfo;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
+import io.trino.execution.buffer.SpoolingOutputStats;
 import io.trino.metadata.Split;
 import io.trino.operator.TaskStats;
 import io.trino.server.DynamicFilterService;
@@ -249,12 +250,16 @@ public final class HttpRemoteTask
             this.pendingSourceSplitCount = pendingSourceSplitCount;
             this.pendingSourceSplitsWeight = pendingSourceSplitsWeight;
 
-            List<BufferInfo> bufferStates = outputBuffers.getBuffers()
-                    .keySet().stream()
-                    .map(outputId -> new BufferInfo(outputId, false, 0, 0, PageBufferInfo.empty()))
-                    .collect(toImmutableList());
+            Optional<List<PipelinedBufferInfo>> pipelinedBufferStates = Optional.empty();
+            if (outputBuffers instanceof PipelinedOutputBuffers buffers) {
+                pipelinedBufferStates = Optional.of(
+                        buffers.getBuffers()
+                                .keySet().stream()
+                                .map(outputId -> new PipelinedBufferInfo(outputId, 0, 0, 0, 0, 0, false))
+                                .collect(toImmutableList()));
+            }
 
-            TaskInfo initialTask = createInitialTask(taskId, location, nodeId, bufferStates, new TaskStats(DateTime.now(), null));
+            TaskInfo initialTask = createInitialTask(taskId, location, nodeId, pipelinedBufferStates, new TaskStats(DateTime.now(), null));
 
             this.dynamicFiltersFetcher = new DynamicFiltersFetcher(
                     this::fail,
@@ -467,6 +472,12 @@ public final class HttpRemoteTask
     public int getUnacknowledgedPartitionedSplitCount()
     {
         return getPendingSourceSplitCount();
+    }
+
+    @Override
+    public SpoolingOutputStats.Snapshot retrieveAndDropSpoolingOutputStats()
+    {
+        return taskInfoFetcher.retrieveAndDropSpoolingOutputStats();
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")

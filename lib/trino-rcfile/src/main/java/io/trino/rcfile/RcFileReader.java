@@ -428,7 +428,7 @@ public class RcFileReader
         if (columnIndex >= columns.length) {
             Type type = readColumns.get(columnIndex);
             Block nullBlock = type.createBlockBuilder(null, 1, 0).appendNull().build();
-            return new RunLengthEncodedBlock(nullBlock, currentChunkRowCount);
+            return RunLengthEncodedBlock.create(nullBlock, currentChunkRowCount);
         }
 
         return columns[columnIndex].readBlock(rowGroupPosition, currentChunkRowCount);

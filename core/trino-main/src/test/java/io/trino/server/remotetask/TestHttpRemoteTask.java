@@ -44,7 +44,7 @@ import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.TaskTestUtils;
 import io.trino.execution.TestSqlTaskManager;
-import io.trino.execution.buffer.OutputBuffers;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.HandleJsonModule;
 import io.trino.metadata.InternalBlockEncodingSerde;
@@ -113,7 +113,7 @@ import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
-import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.BROADCAST;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
@@ -419,7 +419,7 @@ public class TestHttpRemoteTask
                 new InternalNode("node-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
                 TaskTestUtils.PLAN_FRAGMENT,
                 ImmutableMultimap.of(),
-                createInitialEmptyOutputBuffers(OutputBuffers.BufferType.BROADCAST),
+                PipelinedOutputBuffers.createInitial(BROADCAST),
                 new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),
                 outboundDynamicFilterIds,
                 Optional.empty(),

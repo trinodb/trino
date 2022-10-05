@@ -31,6 +31,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.SyntheticAddress.decodePosition;
 import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -42,7 +43,7 @@ import static java.util.Objects.requireNonNull;
 public final class SortedPositionLinks
         implements PositionLinks
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SortedPositionLinks.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SortedPositionLinks.class).instanceSize());
 
     public static class FactoryBuilder
             implements PositionLinks.FactoryBuilder
