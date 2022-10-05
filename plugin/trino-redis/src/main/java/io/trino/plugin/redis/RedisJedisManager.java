@@ -14,6 +14,7 @@
 package io.trino.plugin.redis;
 
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.trino.spi.HostAddress;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
@@ -37,14 +38,28 @@ public class RedisJedisManager
 
     private final ConcurrentMap<HostAddress, JedisPool> jedisPoolCache = new ConcurrentHashMap<>();
 
-    @Deprecated // TODO do not keep mutable config instance on a field
-    private final RedisConnectorConfig redisConnectorConfig;
+    private final String redisUser;
+    private final String redisPassword;
+    private final Duration redisConnectTimeout;
+    private final int redisDataBaseIndex;
+    private final int redisMaxKeysPerFetch;
+    private final char redisKeyDelimiter;
+    private final boolean keyPrefixSchemaTable;
+    private final int redisScanCount;
     private final JedisPoolConfig jedisPoolConfig;
 
     @Inject
     RedisJedisManager(RedisConnectorConfig redisConnectorConfig)
     {
-        this.redisConnectorConfig = requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
+        requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
+        this.redisUser = redisConnectorConfig.getRedisUser();
+        this.redisPassword = redisConnectorConfig.getRedisPassword();
+        this.redisConnectTimeout = redisConnectorConfig.getRedisConnectTimeout();
+        this.redisDataBaseIndex = redisConnectorConfig.getRedisDataBaseIndex();
+        this.redisMaxKeysPerFetch = redisConnectorConfig.getRedisMaxKeysPerFetch();
+        this.redisKeyDelimiter = redisConnectorConfig.getRedisKeyDelimiter();
+        this.keyPrefixSchemaTable = redisConnectorConfig.isKeyPrefixSchemaTable();
+        this.redisScanCount = redisConnectorConfig.getRedisScanCount();
         this.jedisPoolConfig = new JedisPoolConfig();
     }
 
@@ -61,9 +76,24 @@ public class RedisJedisManager
         }
     }
 
-    public RedisConnectorConfig getRedisConnectorConfig()
+    public char getRedisKeyDelimiter()
     {
-        return redisConnectorConfig;
+        return redisKeyDelimiter;
+    }
+
+    public int getRedisMaxKeysPerFetch()
+    {
+        return redisMaxKeysPerFetch;
+    }
+
+    public boolean isKeyPrefixSchemaTable()
+    {
+        return keyPrefixSchemaTable;
+    }
+
+    public int getRedisScanCount()
+    {
+        return redisScanCount;
     }
 
     public JedisPool getJedisPool(HostAddress host)
@@ -78,9 +108,9 @@ public class RedisJedisManager
         return new JedisPool(jedisPoolConfig,
                 host.getHostText(),
                 host.getPort(),
-                toIntExact(redisConnectorConfig.getRedisConnectTimeout().toMillis()),
-                redisConnectorConfig.getRedisUser(),
-                redisConnectorConfig.getRedisPassword(),
-                redisConnectorConfig.getRedisDataBaseIndex());
+                toIntExact(redisConnectTimeout.toMillis()),
+                redisUser,
+                redisPassword,
+                redisDataBaseIndex);
     }
 }
