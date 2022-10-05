@@ -244,6 +244,9 @@ to the following table:
   * - ``VARCHAR``
     - ``STRING``
     -
+  * - ``TIMESTAMP(6)``
+    - ``DATETIME``
+    -
 
 No other types are supported.
 
