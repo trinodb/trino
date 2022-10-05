@@ -516,4 +516,29 @@ public class TestDeltaLakeDatabricksInsertCompatibility
             onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
         }
     }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    public void testWritesToTableWithCDFFails()
+    {
+        String tableName = "test_writes_into_table_with_CDF_" + randomTableSuffix();
+        try {
+            onDelta().executeQuery("CREATE TABLE default." + tableName + " (a INT, b INT) " +
+                    "USING DELTA " +
+                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                    "TBLPROPERTIES (delta.enableChangeDataFeed = true)");
+
+            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 2)"))
+                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 4 which is not supported");
+            assertQueryFailure(() -> onTrino().executeQuery("UPDATE delta.default." + tableName + " SET a = 3 WHERE b = 3"))
+                    .hasMessageContaining("Writing to tables with Change Data Feed enabled is not supported");
+            assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a = 3"))
+                    .hasMessageContaining("Writing to tables with Change Data Feed enabled is not supported");
+            assertQueryFailure(() -> onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " +
+                    "ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET b = 42"))
+                    .hasMessageContaining("Writing to tables with Change Data Feed enabled is not supported");
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+        }
+    }
 }

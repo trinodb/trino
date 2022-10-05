@@ -422,6 +422,14 @@ public final class DeltaLakeSchemaSupport
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
+    public static boolean changeDataFeedEnabled(MetadataEntry metadataEntry)
+    {
+        String enableChangeDataFeed = metadataEntry.getConfiguration().entrySet().stream()
+                .filter(entry -> entry.getKey().equals("delta.enableChangeDataFeed"))
+                .findAny().map(Map.Entry::getValue).orElse("false");
+        return enableChangeDataFeed.equalsIgnoreCase("true");
+    }
+
     public static Map<String, Map<String, Object>> getColumnsMetadata(MetadataEntry metadataEntry)
     {
         return getColumnProperties(metadataEntry, node -> OBJECT_MAPPER.convertValue(node.get("metadata"), new TypeReference<>(){}));
