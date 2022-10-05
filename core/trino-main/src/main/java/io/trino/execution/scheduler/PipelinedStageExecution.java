@@ -543,7 +543,7 @@ public class PipelinedStageExecution
             this.stageId = requireNonNull(stageId, "stageId is null");
 
             state = new StateMachine<>("Pipelined stage execution " + stageId, executor, PLANNED, TERMINAL_STAGE_STATES);
-            state.addStateChangeListener(state -> log.debug("Pipelined stage execution %s is %s", stageId, state));
+            state.addStateChangeListener(state -> log.debug(" Pipelined stage execution %s is %s", stageId, state));
         }
 
         public State getState()
